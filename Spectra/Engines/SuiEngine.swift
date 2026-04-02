@@ -410,16 +410,7 @@ enum SuiWalletEngine {
         ownerAddress: String,
         transactionHash: String
     ) async -> SendBroadcastVerificationStatus {
-        let normalizedHash = transactionHash.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !normalizedHash.isEmpty else { return .deferred }
-        let result = await SuiBalanceService.fetchRecentHistoryWithDiagnostics(for: ownerAddress, limit: 40)
-        if result.snapshots.contains(where: { $0.transactionHash.lowercased() == normalizedHash }) {
-            return .verified
-        }
-        if let error = result.diagnostics.error, !error.isEmpty {
-            return .failed(error)
-        }
-        return .deferred
+        await verifyBroadcastedTransactionByHashIfAvailable(transactionHash: transactionHash)
     }
 
     private static func recoverRecentTransactionHashIfAvailable(

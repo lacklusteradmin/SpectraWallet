@@ -417,21 +417,24 @@ static func verifyBroadcastedTransactionIfAvailable(
 ) async -> SendBroadcastVerificationStatus {
     let attempts = 3
     var lastError: Error?
+    let candidateEndpoints = resolvedRPCEndpoints(fallbackFrom: rpcEndpoint, chain: chain)
 
     for attempt in 0 ..< attempts {
-        do {
-            if let receipt = try await fetchTransactionReceipt(
-                transactionHash: transactionHash,
-                rpcEndpoint: rpcEndpoint,
-                chain: chain
-            ) {
-                if receipt.status == "0x0" {
-                    return .failed("Transaction was mined with failed execution status.")
+        for endpoint in candidateEndpoints {
+            do {
+                if let receipt = try await fetchTransactionReceipt(
+                    transactionHash: transactionHash,
+                    rpcEndpoint: endpoint,
+                    chain: chain
+                ) {
+                    if receipt.status == "0x0" {
+                        return .failed("Transaction was mined with failed execution status.")
+                    }
+                    return .verified
                 }
-                return .verified
+            } catch {
+                lastError = error
             }
-        } catch {
-            lastError = error
         }
 
         if attempt < attempts - 1 {

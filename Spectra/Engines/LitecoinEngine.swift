@@ -724,7 +724,11 @@ enum LitecoinWalletEngine {
         let trimmed = txid.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
-        return try await runWithFallback(candidates: orderedProviders(candidates: filteredProviders(providerIDs: providerIDs))) { provider in
+        var sawNotFound = false
+        var lastError: Error?
+
+        for provider in orderedProviders(candidates: filteredProviders()) {
+            do {
             switch provider {
             case .litecoinspace:
                 guard let encoded = trimmed.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
@@ -739,7 +743,8 @@ enum LitecoinWalletEngine {
                     return true
                 }
                 if http.statusCode == 404 {
-                    return false
+                    sawNotFound = true
+                    continue
                 }
                 throw LitecoinWalletEngineError.networkFailure("Litecoin verification failed with status \(http.statusCode).")
             case .blockcypher:
@@ -755,11 +760,23 @@ enum LitecoinWalletEngine {
                     return true
                 }
                 if http.statusCode == 404 {
-                    return false
+                    sawNotFound = true
+                    continue
                 }
                 throw LitecoinWalletEngineError.networkFailure("Litecoin verification failed with status \(http.statusCode).")
             }
+            } catch {
+                lastError = error
+            }
         }
+
+        if sawNotFound {
+            return false
+        }
+        if let lastError {
+            throw lastError
+        }
+        return false
     }
 
     private static func walletCoreUnspentTransaction(

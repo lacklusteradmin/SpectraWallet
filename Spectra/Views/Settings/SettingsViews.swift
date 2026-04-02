@@ -185,7 +185,7 @@ struct PriceAlertsView: View {
                 } else {
                     Picker(localizedSettingsString("Asset"), selection: $selectedHoldingKey) {
                         ForEach(store.alertableCoins, id: \.holdingKey) { coin in
-                            Text(localizedSettingsFormat("%@ on %@", coin.symbol, coin.chainName)).tag(coin.holdingKey)
+                            Text(localizedSettingsFormat("%@ on %@", coin.symbol, store.displayNetworkName(for: coin.chainName))).tag(coin.holdingKey)
                         }
                     }
                     
@@ -1161,7 +1161,6 @@ struct AdvancedSettingsView: View {
         _refreshSignal = StateObject(
             wrappedValue: ViewRefreshSignal([
                 store.$requireBiometricForSendActions.asVoidSignal(),
-                store.$dogecoinAllowTestnet.asVoidSignal(),
                 store.$useStrictRPCOnly.asVoidSignal()
             ])
         )
@@ -1175,13 +1174,6 @@ struct AdvancedSettingsView: View {
                     isOn: Binding(
                         get: { store.requireBiometricForSendActions },
                         set: { store.requireBiometricForSendActions = $0 }
-                    )
-                )
-                Toggle(
-                    localizedSettingsString("Allow Dogecoin Testnet"),
-                    isOn: Binding(
-                        get: { store.dogecoinAllowTestnet },
-                        set: { store.dogecoinAllowTestnet = $0 }
                     )
                 )
                 Toggle(
@@ -1199,15 +1191,6 @@ struct AdvancedSettingsView: View {
                     maintenanceNotice = localizedSettingsString("App locked.")
                 }
             }
-
-            Section(localizedSettingsString("Network")) {
-                NavigationLink {
-                    EndpointCatalogSettingsView(store: store)
-                } label: {
-                    Label(localizedSettingsString("Endpoints"), systemImage: "network")
-                }
-            }
-
             Section(localizedSettingsString("Quick Maintenance")) {
                 Button(isRunningMaintenance ? localizedSettingsString("Refreshing...") : localizedSettingsString("Refresh Now (Balances + History)")) {
                     Task {

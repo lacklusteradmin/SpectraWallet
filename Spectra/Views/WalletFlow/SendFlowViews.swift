@@ -1091,7 +1091,8 @@ struct SendView: View {
         case "Litecoin":
             return AddressValidation.isValidLitecoinAddress(address)
         case "Dogecoin":
-            return AddressValidation.isValidDogecoinAddress(address, allowTestnet: store.dogecoinAllowTestnet)
+            let networkMode: DogecoinNetworkMode = store.dogecoinAllowTestnet ? .testnet : .mainnet
+            return AddressValidation.isValidDogecoinAddress(address, networkMode: networkMode)
         case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid":
             return AddressValidation.isValidEthereumAddress(address)
         case "Tron":
@@ -1267,7 +1268,7 @@ private struct SendPrimarySectionsView: View {
 
                 Picker("Asset", selection: store.sendHoldingKeyBinding) {
                     ForEach(presentation.availableSendCoins, id: \.holdingKey) { coin in
-                        Text("\(coin.name) on \(coin.chainName)").tag(coin.holdingKey)
+                        Text("\(coin.name) on \(store.displayNetworkName(for: coin.chainName))").tag(coin.holdingKey)
                     }
                 }
             }

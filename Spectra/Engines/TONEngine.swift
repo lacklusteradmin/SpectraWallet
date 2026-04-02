@@ -229,30 +229,7 @@ enum TONWalletEngine {
         ownerAddress: String,
         transactionHash: String
     ) async -> SendBroadcastVerificationStatus {
-        let normalizedHash = transactionHash.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalizedHash.isEmpty else { return .deferred }
-
-        var lastError: Error?
-        for attempt in 0 ..< 3 {
-            do {
-                let (snapshots, diagnostics) = await TONBalanceService.fetchRecentHistoryWithDiagnostics(for: ownerAddress, limit: 20)
-                if snapshots.contains(where: { $0.transactionHash.caseInsensitiveCompare(normalizedHash) == .orderedSame }) {
-                    return .verified
-                }
-                if let error = diagnostics.error, !error.isEmpty {
-                    lastError = TONWalletEngineError.networkError(error)
-                }
-            }
-
-            if attempt < 2 {
-                try? await Task.sleep(nanoseconds: 500_000_000)
-            }
-        }
-
-        if let lastError {
-            return .failed(lastError.localizedDescription)
-        }
-        return .deferred
+        await TONBalanceService.verifyTransactionIfAvailable(transactionHash)
     }
 
     private static func fetchWalletInformation(for address: String) async throws -> WalletInformationResult {

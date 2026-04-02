@@ -4,6 +4,7 @@ import BitcoinDevKit
 enum BitcoinNetworkMode: String, CaseIterable, Identifiable {
     case mainnet
     case testnet
+    case testnet4
     case signet
 
     var id: String { rawValue }
@@ -14,6 +15,8 @@ enum BitcoinNetworkMode: String, CaseIterable, Identifiable {
             return "Mainnet"
         case .testnet:
             return "Testnet"
+        case .testnet4:
+            return "Testnet4"
         case .signet:
             return "Signet"
         }
@@ -24,6 +27,8 @@ enum BitcoinNetworkMode: String, CaseIterable, Identifiable {
         case .mainnet:
             return .bitcoin
         case .testnet:
+            return .testnet
+        case .testnet4:
             return .testnet
         case .signet:
             return .signet
@@ -134,6 +139,8 @@ struct BitcoinWalletEngine {
         case .mainnet:
             return canParse(on: .bitcoin)
         case .testnet:
+            return canParse(on: .testnet)
+        case .testnet4:
             return canParse(on: .testnet)
         case .signet:
             return canParse(on: .signet)
@@ -287,6 +294,16 @@ struct BitcoinWalletEngine {
         let session = try makeSession(for: walletID, seedPhrase: seedPhrase, derivationPath: derivationPath)
         let nextIndex = session.wallet.nextDerivationIndex(keychain: .external)
         let addressInfo = session.wallet.peekAddress(keychain: .external, index: nextIndex)
+        return String(describing: addressInfo.address)
+    }
+
+    static func derivedAddress(
+        for walletID: UUID,
+        seedPhrase: String,
+        derivationPath: String = SeedDerivationChain.bitcoin.defaultPath
+    ) throws -> String {
+        let session = try makeSession(for: walletID, seedPhrase: seedPhrase, derivationPath: derivationPath)
+        let addressInfo = session.wallet.peekAddress(keychain: .external, index: 0)
         return String(describing: addressInfo.address)
     }
 
@@ -859,7 +876,7 @@ struct BitcoinWalletEngine {
         _ operation: (EsploraClient) throws -> T
     ) throws -> T {
         var lastError: Error?
-        for endpoint in orderedEsploraEndpoints(providerIDs: providerIDs) {
+        for endpoint in orderedEsploraEndpoints() {
             let client = EsploraClient(url: endpoint)
             do {
                 let value = try operation(client)

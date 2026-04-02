@@ -62,6 +62,7 @@ final class WalletImportDraft: ObservableObject {
     }
     @Published var privateKeyInput: String = ""
     @Published var seedDerivationPreset: SeedDerivationPreset = .standard
+    @Published var usesCustomDerivationPaths: Bool = true
     @Published var seedDerivationPaths: SeedDerivationPaths = .defaults
     @Published var seedPhraseEntries: [String] = Array(repeating: "", count: 12)
     @Published var selectedSeedPhraseWordCount: Int = 12 {
@@ -199,6 +200,19 @@ final class WalletImportDraft: ObservableObject {
 
     init() {
         refreshSelectionState()
+    }
+
+    var selectableDerivationChains: [SeedDerivationChain] {
+        let selectedChainNameSet = Set(selectedChainNames)
+        return SeedDerivationChain.allCases.filter { selectedChainNameSet.contains($0.rawValue) }
+    }
+
+    func applyDerivationPreset(_ preset: SeedDerivationPreset, keepCustomEnabled: Bool? = nil) {
+        seedDerivationPreset = preset
+        seedDerivationPaths = .applyingPreset(
+            preset,
+            keepCustomEnabled: keepCustomEnabled ?? seedDerivationPaths.isCustomEnabled
+        )
     }
 
     func watchOnlyEntries(from rawValue: String) -> [String] {
@@ -429,6 +443,7 @@ final class WalletImportDraft: ObservableObject {
         secretImportMode = .seedPhrase
         privateKeyInput = ""
         seedDerivationPreset = .standard
+        usesCustomDerivationPaths = true
         seedDerivationPaths = .defaults
         seedPhraseEntries = Array(repeating: "", count: 12)
         selectedSeedPhraseWordCount = 12

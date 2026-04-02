@@ -108,7 +108,7 @@ static func fetchSupportedTokenTransferHistoryPageWithDiagnostics(
     var ethplorerStats = EthereumTransferDecodingStats.zero
 
     let blockscoutPage: [EthereumTokenTransferSnapshot]
-    if chain == .ethereum {
+    if chain.isEthereumMainnet {
         do {
             let result = try await fetchTokenTransferHistoryFromBlockscout(
                 normalizedAddress: normalizedAddress,
@@ -189,7 +189,7 @@ static func fetchSupportedTokenTransferHistoryPageWithDiagnostics(
     }
 
     let ethplorerPage: [EthereumTokenTransferSnapshot]
-    if chain == .ethereum {
+    if chain.isEthereumMainnet {
         do {
             let result = try await fetchTokenTransferHistoryFromEthplorer(
                 normalizedAddress: normalizedAddress,
@@ -305,7 +305,7 @@ static func fetchSupportedTokenTransferHistoryWithDiagnostics(
     var ethplorerStats = EthereumTransferDecodingStats.zero
 
     let blockscoutFallback: [EthereumTokenTransferSnapshot]
-    if chain == .ethereum {
+    if chain.isEthereumMainnet {
         do {
             let result = try await fetchTokenTransferHistoryFromBlockscout(
                 normalizedAddress: normalizedAddress,
@@ -383,7 +383,7 @@ static func fetchSupportedTokenTransferHistoryWithDiagnostics(
     }
 
     let ethplorerFallback: [EthereumTokenTransferSnapshot]
-    if chain == .ethereum {
+    if chain.isEthereumMainnet {
         do {
             let result = try await fetchTokenTransferHistoryFromEthplorer(
                 normalizedAddress: normalizedAddress,
@@ -445,7 +445,10 @@ static func fetchSupportedTokenTransferHistoryWithDiagnostics(
 }
 
 private static func etherscanAPIURL(for chain: EVMChainContext) -> URL? {
-    ChainBackendRegistry.EVMExplorerRegistry.etherscanStyleAPIURL(for: chain.displayName)
+    if chain.isEthereumFamily {
+        return URL(string: "https://api.etherscan.io/v2/api")
+    }
+    return ChainBackendRegistry.EVMExplorerRegistry.etherscanStyleAPIURL(for: chain.displayName)
 }
 
 private static func blockscoutTokenTransfersURL(
@@ -526,8 +529,8 @@ private static func fetchTokenTransferHistoryFromEtherscan(
             queryItems.append(URLQueryItem(name: "apikey", value: trimmedAPIKey))
         }
         switch chain {
-        case .ethereum:
-            queryItems.insert(URLQueryItem(name: "chainid", value: "1"), at: 0)
+        case .ethereum, .ethereumSepolia, .ethereumHoodi:
+            queryItems.insert(URLQueryItem(name: "chainid", value: String(chain.expectedChainID)), at: 0)
         case .arbitrum:
             queryItems.insert(URLQueryItem(name: "chainid", value: "42161"), at: 0)
         case .optimism:
@@ -663,8 +666,8 @@ static func fetchNativeTransferHistoryPageFromEtherscan(
         queryItems.append(URLQueryItem(name: "apikey", value: trimmedAPIKey))
     }
     switch chain {
-    case .ethereum:
-        queryItems.insert(URLQueryItem(name: "chainid", value: "1"), at: 0)
+    case .ethereum, .ethereumSepolia, .ethereumHoodi:
+        queryItems.insert(URLQueryItem(name: "chainid", value: String(chain.expectedChainID)), at: 0)
     case .arbitrum:
         queryItems.insert(URLQueryItem(name: "chainid", value: "42161"), at: 0)
     case .optimism:

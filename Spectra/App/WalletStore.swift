@@ -501,6 +501,13 @@ class WalletStore: ObservableObject {
             UserDefaults.standard.set(ethereumRPCEndpoint, forKey: Self.ethereumRPCEndpointDefaultsKey)
         }
     }
+    @Published var ethereumNetworkMode: EthereumNetworkMode = .mainnet {
+        didSet {
+            UserDefaults.standard.set(ethereumNetworkMode.rawValue, forKey: Self.ethereumNetworkModeDefaultsKey)
+            ethereumHistoryPageByWallet = [:]
+            exhaustedEthereumHistoryWalletIDs = []
+        }
+    }
     @Published var etherscanAPIKey: String = "" {
         didSet {
             UserDefaults.standard.set(etherscanAPIKey, forKey: Self.etherscanAPIKeyDefaultsKey)
@@ -605,6 +612,9 @@ class WalletStore: ObservableObject {
         didSet {
             UserDefaults.standard.set(dogecoinAllowTestnet, forKey: Self.dogecoinAllowTestnetDefaultsKey)
             importDraft.allowDogecoinTestnet = dogecoinAllowTestnet
+            applyDogecoinRuntimeConfiguration()
+            dogecoinHistoryCursorByWallet = [:]
+            exhaustedDogecoinHistoryWalletIDs = []
         }
     }
     // Settings states
@@ -808,6 +818,7 @@ class WalletStore: ObservableObject {
     private static let coinGeckoAPIKeyAccount = "coingecko.api.key"
     private static let ethereumRPCEndpointDefaultsKey = "ethereum.rpc.endpoint"
     private static let etherscanAPIKeyDefaultsKey = "ethereum.etherscan.apiKey"
+    private static let ethereumNetworkModeDefaultsKey = "ethereum.network.mode"
     private static let bitcoinNetworkModeDefaultsKey = "bitcoin.network.mode"
     private static let bitcoinEsploraEndpointsDefaultsKey = "bitcoin.esplora.endpoints"
     private static let bitcoinStopGapDefaultsKey = "bitcoin.stopGap"
@@ -958,6 +969,16 @@ class WalletStore: ObservableObject {
             esploraEndpoints: parsedBitcoinEsploraEndpoints(),
             stopGap: bitcoinStopGap
         )
+    }
+
+    private var dogecoinNetworkMode: DogecoinNetworkMode {
+        dogecoinAllowTestnet ? .testnet : .mainnet
+    }
+
+    private func applyDogecoinRuntimeConfiguration() {
+        let mode = dogecoinNetworkMode
+        DogecoinBalanceService.configureRuntime(networkMode: mode)
+        DogecoinWalletEngine.configureRuntime(networkMode: mode)
     }
 
     var bitcoinEsploraEndpointsValidationError: String? {
@@ -1206,6 +1227,10 @@ class WalletStore: ObservableObject {
            let bitcoinNetworkMode = BitcoinNetworkMode(rawValue: storedBitcoinNetworkMode) {
             self.bitcoinNetworkMode = bitcoinNetworkMode
         }
+        if let storedEthereumNetworkMode = UserDefaults.standard.string(forKey: Self.ethereumNetworkModeDefaultsKey),
+           let ethereumNetworkMode = EthereumNetworkMode(rawValue: storedEthereumNetworkMode) {
+            self.ethereumNetworkMode = ethereumNetworkMode
+        }
         if let storedBitcoinFeePriority = UserDefaults.standard.string(forKey: Self.bitcoinFeePriorityDefaultsKey),
            let bitcoinFeePriority = BitcoinFeePriority(rawValue: storedBitcoinFeePriority) {
             self.bitcoinFeePriority = bitcoinFeePriority
@@ -1261,6 +1286,7 @@ class WalletStore: ObservableObject {
         syncChainOwnedAddressManagementState()
         refreshAllBroadcastProviderReliability()
         applyBitcoinRuntimeConfiguration()
+        applyDogecoinRuntimeConfiguration()
         
         if UserDefaults.standard.object(forKey: Self.hideBalancesDefaultsKey) != nil {
             hideBalances = UserDefaults.standard.bool(forKey: Self.hideBalancesDefaultsKey)
@@ -2722,10 +2748,17 @@ func resetImportForm() {
         return error.localizedDescription
     }
 
-    private func evmChainContext(for chainName: String) -> EVMChainContext? {
+    func evmChainContext(for chainName: String) -> EVMChainContext? {
         switch chainName {
         case "Ethereum":
-            return .ethereum
+            switch ethereumNetworkMode {
+            case .mainnet:
+                return .ethereum
+            case .sepolia:
+                return .ethereumSepolia
+            case .hoodi:
+                return .ethereumHoodi
+            }
         case "Ethereum Classic":
             return .ethereumClassic
         case "Arbitrum":
@@ -3570,6 +3603,7 @@ func resetImportForm() {
         UserDefaults.standard.removeObject(forKey: Self.livePricesDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.ethereumRPCEndpointDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.etherscanAPIKeyDefaultsKey)
+        UserDefaults.standard.removeObject(forKey: Self.ethereumNetworkModeDefaultsKey)
         UserDefaults.standard.removeObject(forKey: MoneroBalanceService.backendBaseURLDefaultsKey)
         UserDefaults.standard.removeObject(forKey: MoneroBalanceService.backendAPIKeyDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.bitcoinNetworkModeDefaultsKey)
@@ -3608,6 +3642,7 @@ func resetImportForm() {
         coinGeckoAPIKey = ""
         ethereumRPCEndpoint = ""
         etherscanAPIKey = ""
+        ethereumNetworkMode = .mainnet
         moneroBackendBaseURL = ""
         moneroBackendAPIKey = ""
         bitcoinNetworkMode = .mainnet
@@ -4661,12 +4696,51 @@ func resetImportForm() {
         chain.resolve(path: wallet.seedDerivationPaths.path(for: chain))
     }
 
+    func displayNetworkName(for chainName: String) -> String {
+        if chainName == "Bitcoin" {
+            return bitcoinNetworkMode.displayName
+        }
+        if chainName == "Ethereum" {
+            return ethereumNetworkMode.displayName
+        }
+        if chainName == "Dogecoin" {
+            return dogecoinNetworkMode.displayName
+        }
+        return chainName
+    }
+
+    func displayChainTitle(for chainName: String) -> String {
+        let networkName = displayNetworkName(for: chainName)
+        if networkName == chainName || networkName == "Mainnet" {
+            return chainName
+        }
+        return "\(chainName) \(networkName)"
+    }
+
     private func solanaDerivationPreference(for wallet: ImportedWallet) -> SolanaWalletEngine.DerivationPreference {
         derivationResolution(for: wallet, chain: .solana).flavor == .legacy ? .legacy : .standard
     }
 
     private func resolvedEthereumAddress(for wallet: ImportedWallet) -> String? {
         resolvedEVMAddress(for: wallet, chainName: "Ethereum")
+    }
+
+    private func resolvedBitcoinAddress(for wallet: ImportedWallet) -> String? {
+        if let seedPhrase = storedSeedPhrase(for: wallet.id) {
+            if let derivedAddress = try? BitcoinWalletEngine.derivedAddress(
+                for: wallet.id,
+                seedPhrase: seedPhrase,
+                derivationPath: walletDerivationPath(for: wallet, chain: .bitcoin)
+            ),
+               AddressValidation.isValidBitcoinAddress(derivedAddress, networkMode: bitcoinNetworkMode) {
+                return derivedAddress
+            }
+        }
+        if let bitcoinAddress = wallet.bitcoinAddress,
+           AddressValidation.isValidBitcoinAddress(bitcoinAddress, networkMode: bitcoinNetworkMode) {
+            return bitcoinAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return nil
     }
 
     private func resolvedEVMAddress(for wallet: ImportedWallet, chainName: String) -> String? {
@@ -5448,7 +5522,7 @@ func resetImportForm() {
     private func resolvedAddress(for wallet: ImportedWallet, chainName: String) -> String? {
         switch chainName {
         case "Bitcoin":
-            return wallet.bitcoinAddress?.trimmingCharacters(in: .whitespacesAndNewlines)
+            return resolvedBitcoinAddress(for: wallet)
         case "Bitcoin Cash":
             return resolvedBitcoinCashAddress(for: wallet)
         case "Bitcoin SV":
@@ -10000,8 +10074,12 @@ func resetImportForm() {
         let wantsICPImport = importDraft.wantsICP
         let wantsNearImport = importDraft.wantsNear
         let wantsPolkadotImport = importDraft.wantsPolkadot
-        let selectedDerivationPreset: SeedDerivationPreset = .standard
-        let selectedDerivationPaths: SeedDerivationPaths = .defaults
+        let selectedDerivationPreset = importDraft.seedDerivationPreset
+        let selectedDerivationPaths: SeedDerivationPaths = {
+            var paths = importDraft.seedDerivationPaths
+            paths.isCustomEnabled = true
+            return paths
+        }()
         let isWatchOnlyImport = importDraft.isWatchOnlyMode
         let isPrivateKeyImport = importDraft.isPrivateKeyImportMode
         let selectedChainNames = importDraft.selectedChainNames
@@ -10224,8 +10302,11 @@ func resetImportForm() {
             let nearAddress: String?
             let polkadotAddress: String?
             let derivedBitcoinAddress: String?
+            let createdWalletIDs = selectedChainNames.map { _ in UUID() }
+            let bitcoinWalletID = zip(selectedChainNames, createdWalletIDs)
+                .first(where: { $0.0 == "Bitcoin" })?
+                .1
             if requiresSeedPhrase {
-                let primaryWalletID = UUID()
                 async let derivedBitcoinCashAddressTask: String? = wantsBitcoinCashImport ? deriveBitcoinCashAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.bitcoinCash) : nil
                 async let derivedBitcoinSVAddressTask: String? = wantsBitcoinSVImport ? deriveBitcoinSVAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.bitcoinSV) : nil
                 async let derivedLitecoinAddressTask: String? = wantsLitecoinImport ? deriveLitecoinAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.litecoin) : nil
@@ -10250,11 +10331,19 @@ func resetImportForm() {
                 async let derivedPolkadotAddressTask: String? = wantsPolkadotImport ? derivePolkadotAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.polkadot) : nil
 
                 do {
-                    derivedBitcoinAddress = wantsBitcoinImport ? (try? BitcoinWalletEngine.nextReceiveAddress(
-                        for: primaryWalletID,
-                        seedPhrase: trimmedSeedPhrase,
-                        derivationPath: selectedDerivationPaths.bitcoin
-                    )) : nil
+                    if wantsBitcoinImport {
+                        guard let bitcoinWalletID else {
+                            importError = "Bitcoin wallet initialization failed."
+                            return
+                        }
+                        derivedBitcoinAddress = try BitcoinWalletEngine.derivedAddress(
+                            for: bitcoinWalletID,
+                            seedPhrase: trimmedSeedPhrase,
+                            derivationPath: selectedDerivationPaths.bitcoin
+                        )
+                    } else {
+                        derivedBitcoinAddress = nil
+                    }
                     bitcoinCashAddress = try await derivedBitcoinCashAddressTask
                     bitcoinSVAddress = try await derivedBitcoinSVAddressTask
                     litecoinAddress = try await derivedLitecoinAddressTask
@@ -10813,9 +10902,10 @@ func resetImportForm() {
                     return
                 }
 
+                let watchOnlyWalletIDs = watchOnlyRequests.map { _ in UUID() }
                 createdWallets = watchOnlyRequests.enumerated().map { offset, request in
                     walletForSingleChain(
-                        id: UUID(),
+                        id: watchOnlyWalletIDs[offset],
                         name: walletDisplayName(
                             baseName: trimmedWalletName,
                             batchPosition: offset + 1,
@@ -10850,7 +10940,7 @@ func resetImportForm() {
             } else {
                 createdWallets = selectedChainNames.enumerated().map { offset, chainName in
                     walletForSingleChain(
-                        id: UUID(),
+                        id: createdWalletIDs[offset],
                         name: walletDisplayName(
                             baseName: trimmedWalletName,
                             batchPosition: offset + 1,
@@ -16141,6 +16231,7 @@ func resetImportForm() {
     }
 
     private func fetchEthereumPortfolio(for address: String) async throws -> (nativeBalance: Double, tokenBalances: [EthereumTokenBalanceSnapshot]) {
+        let ethereumContext = evmChainContext(for: "Ethereum") ?? .ethereum
         // If a custom endpoint is invalid, fall back to built-in provider rotation instead of hard-failing ETH.
         let useFallbackEndpoint = ethereumRPCEndpointValidationError != nil
             && !ethereumRPCEndpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -16148,14 +16239,17 @@ func resetImportForm() {
         let accountSnapshot = try await EthereumWalletEngine.fetchAccountSnapshot(
             for: address,
             rpcEndpoint: rpcEndpoint,
-            chain: .ethereum
+            chainID: ethereumContext.expectedChainID,
+            chain: ethereumContext
         )
-        let tokenBalances = (try? await EthereumWalletEngine.fetchTokenBalances(
-            for: address,
-            trackedTokens: enabledEthereumTrackedTokens(),
-            rpcEndpoint: rpcEndpoint,
-            chain: .ethereum
-        )) ?? []
+        let tokenBalances = ethereumContext.isEthereumMainnet
+            ? ((try? await EthereumWalletEngine.fetchTokenBalances(
+                for: address,
+                trackedTokens: enabledEthereumTrackedTokens(),
+                rpcEndpoint: rpcEndpoint,
+                chain: ethereumContext
+            )) ?? [])
+            : []
         return (
             EthereumWalletEngine.nativeBalanceETH(from: accountSnapshot),
             tokenBalances
@@ -16169,7 +16263,7 @@ func resetImportForm() {
         guard let chain = evmChainContext(for: chainName) else {
             throw EthereumWalletEngineError.invalidResponse
         }
-        let useFallbackEndpoint = chain == .ethereum
+        let useFallbackEndpoint = chain.isEthereumFamily
             && ethereumRPCEndpointValidationError != nil
             && !ethereumRPCEndpoint.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         let rpcEndpoint = useFallbackEndpoint ? nil : configuredEVMRPCEndpointURL(for: chainName)
@@ -16180,7 +16274,7 @@ func resetImportForm() {
             chain: chain
         )
         let tokenBalances: [EthereumTokenBalanceSnapshot]
-        if chain == .ethereum {
+        if chain.isEthereumMainnet {
             tokenBalances = try await EthereumWalletEngine.fetchTokenBalances(
                 for: address,
                 trackedTokens: enabledEthereumTrackedTokens(),
@@ -16353,7 +16447,7 @@ func resetImportForm() {
         let requestedPageSize = max(20, min(maxResults ?? HistoryPaging.endpointBatchSize, 500))
         if !loadMore {
             let walletIDs = Set(walletsToRefresh.map { $0.0.id })
-            if chain == .ethereum {
+            if chain.isEthereumFamily {
                 ethereumHistoryPageByWallet = ethereumHistoryPageByWallet.filter { walletIDs.contains($0.key) }
                 exhaustedEthereumHistoryWalletIDs = []
                 for walletID in walletIDs {
@@ -16389,14 +16483,14 @@ func resetImportForm() {
         for (targetWallets, _, normalizedAddress) in historyTargets {
             guard let representativeWallet = targetWallets.first else { continue }
             if loadMore {
-                if chain == .ethereum, exhaustedEthereumHistoryWalletIDs.contains(representativeWallet.id) { continue }
+                if chain.isEthereumFamily, exhaustedEthereumHistoryWalletIDs.contains(representativeWallet.id) { continue }
                 if chain == .arbitrum, exhaustedArbitrumHistoryWalletIDs.contains(representativeWallet.id) { continue }
                 if chain == .optimism, exhaustedOptimismHistoryWalletIDs.contains(representativeWallet.id) { continue }
                 if chain == .hyperliquid, exhaustedHyperliquidHistoryWalletIDs.contains(representativeWallet.id) { continue }
                 if chain == .bnb, exhaustedBNBHistoryWalletIDs.contains(representativeWallet.id) { continue }
             }
             let currentPage: Int
-            if chain == .ethereum {
+            if chain.isEthereumFamily {
                 currentPage = ethereumHistoryPageByWallet[representativeWallet.id] ?? 1
             } else if chain == .arbitrum {
                 currentPage = arbitrumHistoryPageByWallet[representativeWallet.id] ?? 1
@@ -16408,7 +16502,7 @@ func resetImportForm() {
                 currentPage = bnbHistoryPageByWallet[representativeWallet.id] ?? 1
             }
             let page = loadMore ? (currentPage + 1) : currentPage
-            let trackedTokens: [EthereumSupportedToken]? = if chain == .ethereum {
+            let trackedTokens: [EthereumSupportedToken]? = if chain.isEthereumMainnet {
                 enabledEthereumTrackedTokens()
             } else if chain == .arbitrum {
                 enabledArbitrumTrackedTokens()
@@ -16444,7 +16538,7 @@ func resetImportForm() {
 
             let nativeTransfers: [EthereumNativeTransferSnapshot]
             do {
-                if chain == .ethereum {
+                if chain.isEthereumMainnet {
                     let blockscoutNativeTransfers = try? await EthereumWalletEngine.fetchNativeTransferHistoryPageFromBlockscout(
                         for: normalizedAddress,
                         page: page,
@@ -16478,7 +16572,7 @@ func resetImportForm() {
                 nativeTransfers = []
             }
 
-            if chain == .ethereum {
+            if chain.isEthereumFamily {
                 if let tokenDiagnostics {
                     for wallet in targetWallets {
                         ethereumHistoryDiagnosticsByWallet[wallet.id] = tokenDiagnostics
@@ -16548,7 +16642,7 @@ func resetImportForm() {
 
             if tokenHistory.count < requestedPageSize && nativeTransfers.count < requestedPageSize {
                 for wallet in targetWallets {
-                    if chain == .ethereum {
+                    if chain.isEthereumFamily {
                         exhaustedEthereumHistoryWalletIDs.insert(wallet.id)
                     } else if chain == .arbitrum {
                         exhaustedArbitrumHistoryWalletIDs.insert(wallet.id)
@@ -16562,7 +16656,7 @@ func resetImportForm() {
                 }
             } else {
                 for wallet in targetWallets {
-                    if chain == .ethereum {
+                    if chain.isEthereumFamily {
                         exhaustedEthereumHistoryWalletIDs.remove(wallet.id)
                     } else if chain == .arbitrum {
                         exhaustedArbitrumHistoryWalletIDs.remove(wallet.id)
@@ -16576,7 +16670,7 @@ func resetImportForm() {
                 }
             }
             for wallet in targetWallets {
-                if chain == .ethereum {
+                if chain.isEthereumFamily {
                     ethereumHistoryPageByWallet[wallet.id] = page
                 } else if chain == .arbitrum {
                     arbitrumHistoryPageByWallet[wallet.id] = page
@@ -16629,7 +16723,7 @@ func resetImportForm() {
                     let nativeAssetName: String
                     let nativeSymbol: String
                     switch chain {
-                    case .ethereum:
+                    case .ethereum, .ethereumSepolia, .ethereumHoodi:
                         nativeAssetName = "Ether"
                         nativeSymbol = "ETH"
                     case .arbitrum:
@@ -16689,7 +16783,7 @@ func resetImportForm() {
             return
         }
         switch chain {
-        case .ethereum:
+        case .ethereum, .ethereumSepolia, .ethereumHoodi:
             upsertEthereumTransactions(syncedTransactions)
         case .arbitrum:
             upsertArbitrumTransactions(syncedTransactions)
@@ -19342,7 +19436,8 @@ func resetImportForm() {
         isCheckingEthereumEndpointHealth = true
         defer { isCheckingEthereumEndpointHealth = false }
 
-        var checks = evmEndpointChecks(chainName: "Ethereum", context: .ethereum)
+        let context = evmChainContext(for: "Ethereum") ?? .ethereum
+        var checks = evmEndpointChecks(chainName: "Ethereum", context: context)
         checks.append(contentsOf: ChainBackendRegistry.EVMExplorerRegistry.diagnosticProbeEntries(for: ChainBackendRegistry.ethereumChainName).map { ($0.0, $0.1, false) })
 
         await runLabeledEVMEndpointDiagnostics(

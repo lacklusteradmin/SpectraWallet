@@ -460,6 +460,10 @@ enum ChainBackendRegistry {
                     "https://blockstream.info/testnet/api",
                     "https://mempool.space/testnet/api"
                 ]
+            case .testnet4:
+                return [
+                    "https://mempool.space/testnet4/api"
+                ]
             case .signet:
                 return [
                     "https://blockstream.info/signet/api",
@@ -480,6 +484,10 @@ enum ChainBackendRegistry {
                 return [
                     "https://blockstream.info/testnet/api",
                     "https://mempool.space/testnet/api"
+                ]
+            case .testnet4:
+                return [
+                    "https://mempool.space/testnet4/api"
                 ]
             case .signet:
                 return [
@@ -519,6 +527,7 @@ enum ChainBackendRegistry {
         static let blockcypherBaseURL = "https://api.blockcypher.com/v1/doge/main"
         static let dogechainBaseURL = "https://dogechain.info/api/v1"
         static let sochainBaseURL = "https://sochain.com/api/v2"
+        static let testnetElectrsBaseURL = "https://doge-electrs-testnet-demo.qed.me"
     }
 
     enum TronRuntimeEndpoints {

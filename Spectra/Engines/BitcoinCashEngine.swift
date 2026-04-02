@@ -394,7 +394,11 @@ enum BitcoinCashWalletEngine {
             throw URLError(.badURL)
         }
 
-        return try await runWithFallback(candidates: orderedProviders(candidates: filteredProviders(providerIDs: providerIDs))) { provider in
+        var sawNotFound = false
+        var lastError: Error?
+
+        for provider in orderedProviders(candidates: filteredProviders()) {
+            do {
             let url: URL
             switch provider {
             case .blockchair:
@@ -419,10 +423,22 @@ enum BitcoinCashWalletEngine {
                 return true
             }
             if http.statusCode == 404 {
-                return false
+                sawNotFound = true
+                continue
             }
             throw BitcoinCashWalletEngineError.broadcastFailed("Bitcoin Cash verification failed with status \(http.statusCode).")
+            } catch {
+                lastError = error
+            }
         }
+
+        if sawNotFound {
+            return false
+        }
+        if let lastError {
+            throw lastError
+        }
+        return false
     }
 
     private static func broadcastViaBlockchair(

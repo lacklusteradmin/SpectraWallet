@@ -138,9 +138,7 @@ enum DogecoinBalanceService {
 
     private static let providerReliabilityDefaultsKey = "dogecoin.provider.reliability.v1"
     private static let providerReliabilityLock = NSLock()
-    private static let blockchairAPIBaseURLString = ChainBackendRegistry.DogecoinRuntimeEndpoints.blockchairBaseURL
-    private static let blockcypherAPIBaseURLString = ChainBackendRegistry.DogecoinRuntimeEndpoints.blockcypherBaseURL
-    private static let dogechainAPIBaseURLString = ChainBackendRegistry.DogecoinRuntimeEndpoints.dogechainBaseURL
+    private static var networkMode: DogecoinNetworkMode = .mainnet
     private static let providerCircuitFailureThreshold = 3
     private static let providerCircuitBaseCooldownSeconds: TimeInterval = 60
     private static let providerCircuitMaxCooldownSeconds: TimeInterval = 15 * 60
@@ -195,6 +193,64 @@ enum DogecoinBalanceService {
         let sourceUsed: String
     }
 
+    private struct ElectrsAddressStats: Decodable {
+        let fundedTXOSum: Int64
+        let spentTXOSum: Int64
+
+        enum CodingKeys: String, CodingKey {
+            case fundedTXOSum = "funded_txo_sum"
+            case spentTXOSum = "spent_txo_sum"
+        }
+    }
+
+    private struct ElectrsAddressResponse: Decodable {
+        let chainStats: ElectrsAddressStats
+        let mempoolStats: ElectrsAddressStats
+
+        enum CodingKeys: String, CodingKey {
+            case chainStats = "chain_stats"
+            case mempoolStats = "mempool_stats"
+        }
+    }
+
+    private struct ElectrsTransactionStatusResponse: Decodable {
+        let confirmed: Bool
+        let blockHeight: Int?
+        let blockTime: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case confirmed
+            case blockHeight = "block_height"
+            case blockTime = "block_time"
+        }
+    }
+
+    private struct ElectrsTransactionResponse: Decodable {
+        struct Vin: Decodable {
+            struct Prevout: Decodable {
+                let scriptpubkeyAddress: String?
+                let value: Int64?
+            }
+
+            let prevout: Prevout?
+        }
+
+        struct Vout: Decodable {
+            let scriptpubkeyAddress: String?
+            let value: Int64?
+        }
+
+        let txid: String
+        let fee: Int64?
+        let status: ElectrsTransactionStatusResponse
+        let vin: [Vin]
+        let vout: [Vout]
+    }
+
+    static func configureRuntime(networkMode: DogecoinNetworkMode) {
+        self.networkMode = networkMode
+    }
+
     static func isValidDogecoinAddress(_ address: String, allowTestnet: Bool = false) -> Bool {
         let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard (25 ... 40).contains(trimmedAddress.count) else {
@@ -221,8 +277,12 @@ enum DogecoinBalanceService {
 
     static func fetchBalance(for address: String) async throws -> Double {
         let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard isValidDogecoinAddress(trimmedAddress) else {
+        guard isValidDogecoinAddress(trimmedAddress, allowTestnet: networkMode == .testnet) else {
             throw URLError(.badURL)
+        }
+
+        if networkMode == .testnet {
+            return try await fetchBalanceViaElectrs(for: trimmedAddress)
         }
 
         return try await runWithProviderFallback(
@@ -238,6 +298,21 @@ enum DogecoinBalanceService {
                 throw URLError(.cannotLoadFromNetwork)
             }
         }
+    }
+
+    private static func fetchBalanceViaElectrs(for address: String) async throws -> Double {
+        guard let encodedAddress = address.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let url = electrsURL(path: "/address/\(encodedAddress)") else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await fetchData(from: url)
+        guard let httpResponse = response as? HTTPURLResponse, (200 ..< 300).contains(httpResponse.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+        let payload = try JSONDecoder().decode(ElectrsAddressResponse.self, from: data)
+        let confirmed = payload.chainStats.fundedTXOSum - payload.chainStats.spentTXOSum
+        let mempool = payload.mempoolStats.fundedTXOSum - payload.mempoolStats.spentTXOSum
+        return Double(max(0, confirmed + mempool)) / 100_000_000
     }
 
     private static func fetchBalanceViaDogechain(for address: String) async throws -> Double {
@@ -277,8 +352,12 @@ enum DogecoinBalanceService {
 
     static func fetchTransactionPage(for address: String, limit: Int = 15, cursor: String? = nil) async throws -> DogecoinHistoryPage {
         let trimmedAddress = address.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard isValidDogecoinAddress(trimmedAddress) else {
+        guard isValidDogecoinAddress(trimmedAddress, allowTestnet: networkMode == .testnet) else {
             throw URLError(.badURL)
+        }
+
+        if networkMode == .testnet {
+            return try await fetchTransactionPageViaElectrs(for: trimmedAddress, limit: limit, cursor: cursor)
         }
 
         let clampedLimit = max(1, min(limit, 200))
@@ -323,6 +402,46 @@ enum DogecoinBalanceService {
         let paged = Array(reconciled.dropFirst(offset).prefix(clampedLimit))
         let nextCursor = (offset + clampedLimit) < reconciled.count ? String(offset + clampedLimit) : nil
         return DogecoinHistoryPage(snapshots: paged, nextCursor: nextCursor, sourceUsed: "dogecoin.providers")
+    }
+
+    private static func fetchTransactionPageViaElectrs(for address: String, limit: Int, cursor: String?) async throws -> DogecoinHistoryPage {
+        let clampedLimit = max(1, min(limit, 25))
+        guard let encodedAddress = address.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) else {
+            throw URLError(.badURL)
+        }
+        let path: String
+        if let cursor, !cursor.isEmpty,
+           let encodedCursor = cursor.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) {
+            path = "/address/\(encodedAddress)/txs/chain/\(encodedCursor)"
+        } else {
+            path = "/address/\(encodedAddress)/txs/chain"
+        }
+        guard let url = electrsURL(path: path) else {
+            throw URLError(.badURL)
+        }
+        let (data, response) = try await fetchData(from: url)
+        guard let httpResponse = response as? HTTPURLResponse, (200 ..< 300).contains(httpResponse.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+        let payload = try JSONDecoder().decode([ElectrsTransactionResponse].self, from: data)
+        let normalizedAddress = address.lowercased()
+        let snapshots = payload.prefix(clampedLimit).compactMap { transaction in
+            mapTransactionSnapshot(
+                txHash: transaction.txid,
+                timestamp: electrsDate(for: transaction.status.blockTime),
+                blockHeight: transaction.status.blockHeight,
+                confirmations: transaction.status.confirmed ? 1 : 0,
+                inputTransfers: transaction.vin.map { (recipient: $0.prevout?.scriptpubkeyAddress, value: $0.prevout?.value) },
+                outputTransfers: transaction.vout.map { (recipient: $0.scriptpubkeyAddress, value: $0.value) },
+                walletAddress: normalizedAddress,
+                defaultCounterparty: address
+            )
+        }
+        return DogecoinHistoryPage(
+            snapshots: snapshots,
+            nextCursor: payload.count >= clampedLimit ? snapshots.last?.hash : nil,
+            sourceUsed: "dogecoin.testnet.electrs"
+        )
     }
 
     private static func fetchRecentTransactionsViaBlockchair(for address: String, limit: Int) async throws -> [AddressTransactionSnapshot] {
@@ -542,6 +661,9 @@ enum DogecoinBalanceService {
     }
 
     static func fetchTransactionStatus(txid: String) async throws -> DogecoinTransactionStatus {
+        if networkMode == .testnet {
+            return try await fetchTransactionStatusViaElectrs(txid: txid)
+        }
         var capturedError: Error?
         let statusCandidates: [ProviderEndpoint] = [.blockchair, .blockcypher]
 
@@ -568,6 +690,35 @@ enum DogecoinBalanceService {
             throw capturedError
         }
         throw URLError(.cannotLoadFromNetwork)
+    }
+
+    private static func fetchTransactionStatusViaElectrs(txid: String) async throws -> DogecoinTransactionStatus {
+        let trimmedTXID = txid.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedTXID.isEmpty,
+              let encodedTXID = trimmedTXID.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed),
+              let statusURL = electrsURL(path: "/tx/\(encodedTXID)/status"),
+              let txURL = electrsURL(path: "/tx/\(encodedTXID)") else {
+            throw URLError(.badURL)
+        }
+
+        async let statusResponse = fetchData(from: statusURL)
+        async let txResponse = fetchData(from: txURL)
+        let ((statusData, statusURLResponse), (txData, txURLResponse)) = try await (statusResponse, txResponse)
+        guard let statusHTTP = statusURLResponse as? HTTPURLResponse,
+              (200 ..< 300).contains(statusHTTP.statusCode),
+              let txHTTP = txURLResponse as? HTTPURLResponse,
+              (200 ..< 300).contains(txHTTP.statusCode) else {
+            throw URLError(.badServerResponse)
+        }
+
+        let statusPayload = try JSONDecoder().decode(ElectrsTransactionStatusResponse.self, from: statusData)
+        let txPayload = try JSONDecoder().decode(ElectrsTransactionResponse.self, from: txData)
+        return DogecoinTransactionStatus(
+            confirmed: statusPayload.confirmed,
+            blockHeight: statusPayload.blockHeight,
+            networkFeeDOGE: txPayload.fee.map { Double($0) / 100_000_000 },
+            confirmations: statusPayload.confirmed ? 1 : 0
+        )
     }
 
     static func providerReliabilitySnapshot() -> [ProviderReliability] {
@@ -640,15 +791,22 @@ enum DogecoinBalanceService {
     }
 
     static func endpointCatalog() -> [String] {
-        [
-            blockchairAPIBaseURLString,
-            blockcypherAPIBaseURLString,
-            dogechainAPIBaseURLString,
+        if networkMode == .testnet {
+            return [ChainBackendRegistry.DogecoinRuntimeEndpoints.testnetElectrsBaseURL]
+        }
+        return [
+            ChainBackendRegistry.DogecoinRuntimeEndpoints.blockchairBaseURL,
+            ChainBackendRegistry.DogecoinRuntimeEndpoints.blockcypherBaseURL,
+            ChainBackendRegistry.DogecoinRuntimeEndpoints.dogechainBaseURL,
         ]
     }
 
     static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] {
-        [
+        if networkMode == .testnet {
+            let endpoint = ChainBackendRegistry.DogecoinRuntimeEndpoints.testnetElectrsBaseURL
+            return [(endpoint: endpoint, probeURL: endpoint + "/blocks/tip/height")]
+        }
+        return [
             (endpoint: currentBlockchairEndpoint(), probeURL: currentBlockchairEndpoint() + "/stats"),
             (endpoint: currentBlockcypherEndpoint(), probeURL: currentBlockcypherEndpoint()),
             (endpoint: currentDogechainEndpoint(), probeURL: currentDogechainEndpoint() + "/"),
@@ -757,27 +915,31 @@ enum DogecoinBalanceService {
     }
 
     private static func blockchairURL(path: String) -> URL? {
-        URL(string: blockchairAPIBaseURLString + path)
+        URL(string: ChainBackendRegistry.DogecoinRuntimeEndpoints.blockchairBaseURL + path)
     }
 
     private static func blockcypherURL(path: String) -> URL? {
-        URL(string: blockcypherAPIBaseURLString + path)
+        URL(string: ChainBackendRegistry.DogecoinRuntimeEndpoints.blockcypherBaseURL + path)
     }
 
     private static func dogechainURL(path: String) -> URL? {
-        URL(string: dogechainAPIBaseURLString + path)
+        URL(string: ChainBackendRegistry.DogecoinRuntimeEndpoints.dogechainBaseURL + path)
+    }
+
+    private static func electrsURL(path: String) -> URL? {
+        URL(string: ChainBackendRegistry.DogecoinRuntimeEndpoints.testnetElectrsBaseURL + path)
     }
 
     private static func currentBlockchairEndpoint() -> String {
-        return blockchairAPIBaseURLString
+        return ChainBackendRegistry.DogecoinRuntimeEndpoints.blockchairBaseURL
     }
 
     private static func currentBlockcypherEndpoint() -> String {
-        return blockcypherAPIBaseURLString
+        return ChainBackendRegistry.DogecoinRuntimeEndpoints.blockcypherBaseURL
     }
 
     private static func currentDogechainEndpoint() -> String {
-        return dogechainAPIBaseURLString
+        return ChainBackendRegistry.DogecoinRuntimeEndpoints.dogechainBaseURL
     }
 
     private static func fetchTransactionStatusViaBlockchair(txid: String) async throws -> DogecoinTransactionStatus {
@@ -882,7 +1044,25 @@ enum DogecoinBalanceService {
         return formatter.date(from: timestamp)
     }
 
+    private static func electrsDate(for blockTime: Int?) -> Date? {
+        guard let blockTime else { return nil }
+        return Date(timeIntervalSince1970: TimeInterval(blockTime))
+    }
+
     private static func fetchDogecoinChainTipHeight() async throws -> Int {
+        if networkMode == .testnet {
+            guard let url = electrsURL(path: "/blocks/tip/height") else {
+                throw URLError(.badURL)
+            }
+            let (data, response) = try await fetchData(from: url)
+            guard let httpResponse = response as? HTTPURLResponse, (200 ..< 300).contains(httpResponse.statusCode),
+                  let text = String(data: data, encoding: .utf8),
+                  let height = Int(text.trimmingCharacters(in: .whitespacesAndNewlines)),
+                  height > 0 else {
+                throw URLError(.cannotParseResponse)
+            }
+            return height
+        }
         guard let url = blockcypherURL(path: "") else {
             throw URLError(.badURL)
         }

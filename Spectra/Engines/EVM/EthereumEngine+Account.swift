@@ -47,7 +47,7 @@ static func resolvedRPCEndpoints(fallbackFrom rpcEndpoint: URL, chain: EVMChainC
 }
 
 static func inferredChainContext(for rpcEndpoint: URL) -> EVMChainContext {
-    let allContexts: [EVMChainContext] = [.ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid]
+    let allContexts: [EVMChainContext] = [.ethereum, .ethereumSepolia, .ethereumHoodi, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid]
     for context in allContexts {
         let defaults = resolvedRPCEndpoints(preferred: nil, chain: context)
         if defaults.contains(rpcEndpoint) {

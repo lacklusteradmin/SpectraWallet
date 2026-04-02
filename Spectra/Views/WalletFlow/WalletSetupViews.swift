@@ -72,6 +72,7 @@ struct SetupView: View {
         case watchAddresses
         case seedPhrase
         case password
+        case advanced
         case backupVerification
     }
 
@@ -113,6 +114,18 @@ struct SetupView: View {
         !isEditingWallet && !isCreateMode && draft.isWatchOnlyMode
     }
 
+    private var hasBitcoinSelection: Bool {
+        draft.selectedChainNames.contains("Bitcoin")
+    }
+
+    private var hasEthereumSelection: Bool {
+        draft.selectedChainNames.contains("Ethereum")
+    }
+
+    private var hasDogecoinSelection: Bool {
+        draft.selectedChainNames.contains("Dogecoin")
+    }
+
     private var usesSeedPhraseFlow: Bool {
         !isEditingWallet && !draft.isWatchOnlyMode
     }
@@ -145,9 +158,16 @@ struct SetupView: View {
         setupPage == .backupVerification
     }
 
+    private var isShowingAdvancedPage: Bool {
+        setupPage == .advanced
+    }
+
     private var setupTitle: String {
         if isShowingBackupVerificationPage {
             return copy.backupVerificationTitle
+        }
+        if isShowingAdvancedPage {
+            return copy.advancedTitle
         }
         if isShowingPasswordPage {
             return NSLocalizedString("import_flow.wallet_password_title", comment: "Setup page title for optional wallet password step")
@@ -173,6 +193,9 @@ struct SetupView: View {
     private var setupSubtitle: String {
         if isShowingBackupVerificationPage {
             return copy.backupVerificationSubtitle
+        }
+        if isShowingAdvancedPage {
+            return copy.advancedSubtitle
         }
         if isShowingPasswordPage {
             return NSLocalizedString("import_flow.wallet_password_subtitle", comment: "Setup page subtitle for optional wallet password step")
@@ -295,6 +318,9 @@ struct SetupView: View {
         if isShowingDetailsPage && (usesSeedPhraseFlow || usesWatchAddressesFlow) {
             return NSLocalizedString("import_flow.next", comment: "Primary action title for next step")
         }
+        if isShowingAdvancedPage {
+            return ""
+        }
         if isShowingSeedPhrasePage {
             return NSLocalizedString("import_flow.next", comment: "Primary action title for next step")
         }
@@ -315,6 +341,9 @@ struct SetupView: View {
     private var isPrimaryActionEnabled: Bool {
         if isShowingDetailsPage && (usesSeedPhraseFlow || usesWatchAddressesFlow) {
             return canAdvanceFromDetailsPage
+        }
+        if isShowingAdvancedPage {
+            return false
         }
         if isShowingSeedPhrasePage {
             return canContinueFromSecretStep
@@ -582,6 +611,262 @@ struct SetupView: View {
     }
 
     @ViewBuilder
+    private var derivationAdvancedContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Text(advancedDescriptionText)
+                .font(.subheadline)
+                .foregroundStyle(Color.primary.opacity(0.76))
+
+            VStack(alignment: .leading, spacing: 16) {
+                if hasBitcoinSelection {
+                    bitcoinNetworkAdvancedSection
+                }
+
+                if hasEthereumSelection {
+                    ethereumNetworkAdvancedSection
+                }
+
+                if hasDogecoinSelection {
+                    dogecoinNetworkAdvancedSection
+                }
+
+                ForEach(draft.selectableDerivationChains) { chain in
+                    SeedPathSlotEditor(
+                        title: chain.rawValue,
+                        path: Binding(
+                            get: { draft.seedDerivationPaths.path(for: chain) },
+                            set: { draft.seedDerivationPaths.setPath($0, for: chain) }
+                        ),
+                        defaultPath: chain.defaultPath,
+                        presetOptions: chain.presetOptions
+                    )
+                }
+            }
+        }
+    }
+
+    private var advancedDescriptionText: String {
+        if hasBitcoinSelection && hasEthereumSelection && hasDogecoinSelection {
+            return "Control the derivation path used for each selected chain and choose the Bitcoin, Ethereum, and Dogecoin networks when needed."
+        }
+        if hasBitcoinSelection && hasEthereumSelection {
+            return "Control the derivation path used for each selected chain and choose the Bitcoin and Ethereum networks when needed."
+        }
+        if hasBitcoinSelection && hasDogecoinSelection {
+            return "Control the derivation path used for each selected chain and choose the Bitcoin and Dogecoin networks when needed."
+        }
+        if hasEthereumSelection && hasDogecoinSelection {
+            return "Control the derivation path used for each selected chain and choose the Ethereum and Dogecoin networks when needed."
+        }
+        if hasBitcoinSelection {
+            return "Control the derivation path used for each selected chain and choose the Bitcoin network when needed."
+        }
+        if hasEthereumSelection {
+            return "Control the derivation path used for each selected chain and choose the Ethereum network when needed."
+        }
+        if hasDogecoinSelection {
+            return "Control the derivation path used for each selected chain and choose the Dogecoin network when needed."
+        }
+        return "Control the derivation path used for each selected chain."
+    }
+
+    private var bitcoinNetworkAdvancedSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Bitcoin Network")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.primary.opacity(0.88))
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
+                ForEach(BitcoinNetworkMode.allCases) { mode in
+                    let isSelected = store.bitcoinNetworkMode == mode
+                    Button {
+                        store.bitcoinNetworkMode = mode
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text(mode.displayName)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(isSelected ? Color.orange : Color.primary)
+                            Spacer(minLength: 0)
+                            if isSelected {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(Color.orange)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 11)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(isSelected ? Color.orange.opacity(0.12) : Color.white.opacity(colorScheme == .light ? 0.78 : 0.05))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(isSelected ? Color.orange.opacity(0.7) : Color.primary.opacity(0.08), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Text("This controls Bitcoin wallet import, address validation, and endpoint usage for Bitcoin wallets.")
+                .font(.caption)
+                .foregroundStyle(Color.primary.opacity(0.65))
+        }
+    }
+
+    private var ethereumNetworkAdvancedSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Ethereum Network")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.primary.opacity(0.88))
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
+                ForEach(EthereumNetworkMode.allCases) { mode in
+                    let isSelected = store.ethereumNetworkMode == mode
+                    Button {
+                        store.ethereumNetworkMode = mode
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text(mode.displayName)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(isSelected ? Color.blue : Color.primary)
+                            Spacer(minLength: 0)
+                            if isSelected {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(Color.blue)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 11)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(isSelected ? Color.blue.opacity(0.12) : Color.white.opacity(colorScheme == .light ? 0.78 : 0.05))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(isSelected ? Color.blue.opacity(0.7) : Color.primary.opacity(0.08), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Text("This controls Ethereum wallet import, balance refresh, history, and endpoint usage for Ethereum wallets.")
+                .font(.caption)
+                .foregroundStyle(Color.primary.opacity(0.65))
+        }
+    }
+
+    private var dogecoinNetworkAdvancedSection: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Dogecoin Network")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(Color.primary.opacity(0.88))
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
+                ForEach(DogecoinNetworkMode.allCases) { mode in
+                    let isSelected = (store.dogecoinAllowTestnet ? DogecoinNetworkMode.testnet : .mainnet) == mode
+                    Button {
+                        store.dogecoinAllowTestnet = mode == .testnet
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text(mode.displayName)
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(isSelected ? Color.brown : Color.primary)
+                            Spacer(minLength: 0)
+                            if isSelected {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .font(.caption.weight(.bold))
+                                    .foregroundStyle(Color.brown)
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 11)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(isSelected ? Color.brown.opacity(0.12) : Color.white.opacity(colorScheme == .light ? 0.78 : 0.05))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(isSelected ? Color.brown.opacity(0.7) : Color.primary.opacity(0.08), lineWidth: 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Text("This controls Dogecoin wallet import, address derivation, history, and endpoint usage for Dogecoin wallets.")
+                .font(.caption)
+                .foregroundStyle(Color.primary.opacity(0.65))
+        }
+    }
+
+    @ViewBuilder
+    private var derivationAdvancedButton: some View {
+        if !isEditingWallet && !draft.selectedChainNames.isEmpty {
+            Button {
+                withAnimation {
+                    setupPage = .advanced
+                }
+            } label: {
+                HStack(spacing: 12) {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.orange)
+                        .frame(width: 26, height: 26)
+                        .background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Advanced")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.primary)
+                        Text(advancedButtonSubtitle)
+                            .font(.caption2)
+                            .foregroundStyle(Color.primary.opacity(0.68))
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(Color.primary.opacity(0.72))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .spectraInputFieldStyle()
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var advancedButtonSubtitle: String {
+        if hasBitcoinSelection && hasEthereumSelection && hasDogecoinSelection {
+            return "Adjust derivation paths plus Bitcoin, Ethereum, and Dogecoin networks."
+        }
+        if hasBitcoinSelection && hasEthereumSelection {
+            return "Adjust derivation paths plus Bitcoin and Ethereum networks."
+        }
+        if hasBitcoinSelection && hasDogecoinSelection {
+            return "Adjust derivation paths plus Bitcoin and Dogecoin networks."
+        }
+        if hasEthereumSelection && hasDogecoinSelection {
+            return "Adjust derivation paths plus Ethereum and Dogecoin networks."
+        }
+        if hasBitcoinSelection {
+            return "Adjust derivation paths and Bitcoin network."
+        }
+        if hasEthereumSelection {
+            return "Adjust derivation paths and Ethereum network."
+        }
+        if hasDogecoinSelection {
+            return "Adjust derivation paths and Dogecoin network."
+        }
+        return "Adjust derivation paths."
+    }
+
+    @ViewBuilder
     private var importSecretModePicker: some View {
         if !isEditingWallet && !isCreateMode && !draft.isWatchOnlyMode {
             VStack(alignment: .leading, spacing: 10) {
@@ -701,6 +986,7 @@ struct SetupView: View {
     private var walletSecretStepSection: some View {
         if isCreateMode {
             createWalletSeedPhraseSection
+            derivationAdvancedButton
         } else {
             importSecretModePicker
 
@@ -708,7 +994,10 @@ struct SetupView: View {
                 if isPrivateKeyImportMode {
                     privateKeyImportFields
                 } else {
-                    newWalletSeedPhraseSection
+                    VStack(alignment: .leading, spacing: 16) {
+                        newWalletSeedPhraseSection
+                        derivationAdvancedButton
+                    }
                 }
             }
             .id(draft.secretImportMode)
@@ -1229,6 +1518,12 @@ struct SetupView: View {
                         }
                     }
 
+                    if isShowingAdvancedPage {
+                        setupCard {
+                            derivationAdvancedContent
+                        }
+                    }
+
                     if let importError = flowState.importError {
                         Text(importError)
                             .font(.footnote)
@@ -1246,54 +1541,63 @@ struct SetupView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
 
-                    Button(action: {
-                        if isShowingDetailsPage && usesWatchAddressesFlow {
-                            withAnimation {
-                                setupPage = .watchAddresses
+                    if !isShowingAdvancedPage {
+                        Button(action: {
+                            if isShowingDetailsPage && usesWatchAddressesFlow {
+                                withAnimation {
+                                    setupPage = .watchAddresses
+                                }
+                                return
                             }
-                            return
-                        }
-                        if isShowingDetailsPage && usesSeedPhraseFlow {
-                            withAnimation {
-                                setupPage = .seedPhrase
+                            if isShowingDetailsPage && usesSeedPhraseFlow {
+                                withAnimation {
+                                    setupPage = .seedPhrase
+                                }
+                                return
                             }
-                            return
-                        }
-                        if isShowingSeedPhrasePage {
-                            withAnimation {
-                                setupPage = .password
+                            if isShowingSeedPhrasePage {
+                                withAnimation {
+                                    setupPage = .password
+                                }
+                                return
                             }
-                            return
-                        }
-                        if isShowingPasswordPage && isCreateMode {
-                            draft.prepareBackupVerificationChallenge()
-                            withAnimation {
-                                setupPage = .backupVerification
+                            if isShowingPasswordPage && isCreateMode {
+                                draft.prepareBackupVerificationChallenge()
+                                withAnimation {
+                                    setupPage = .backupVerification
+                                }
+                                return
                             }
-                            return
+                            Task {
+                                await store.importWallet()
+                            }
+                        }) {
+                            HStack {
+                                Text(primaryActionTitle)
+                                    .font(.headline)
+                                Spacer()
+                                SpectraLogo(size: 28)
+                            }
+                            .foregroundStyle(Color.primary)
+                            .padding()
+                            .frame(maxWidth: .infinity)
                         }
-                        Task {
-                            await store.importWallet()
-                        }
-                    }) {
-                        HStack {
-                            Text(primaryActionTitle)
-                                .font(.headline)
-                            Spacer()
-                            SpectraLogo(size: 28)
-                        }
-                        .foregroundStyle(Color.primary)
-                        .padding()
-                        .frame(maxWidth: .infinity)
+                        .buttonStyle(.glassProminent)
+                        .disabled(!isPrimaryActionEnabled)
+                        .opacity(isPrimaryActionEnabled ? 1.0 : 0.55)
                     }
-                    .buttonStyle(.glassProminent)
-                    .disabled(!isPrimaryActionEnabled)
-                    .opacity(isPrimaryActionEnabled ? 1.0 : 0.55)
 
                     if isShowingSeedPhrasePage || isShowingWatchAddressesPage {
                         Button(NSLocalizedString("import_flow.back", comment: "Back button title")) {
                             withAnimation {
                                 setupPage = .details
+                            }
+                        }
+                        .buttonStyle(.glass)
+                    } else if isShowingAdvancedPage {
+                        Button(NSLocalizedString("import_flow.back", comment: "Back button title")) {
+                            withAnimation {
+                                setupPage = .seedPhrase
                             }
                         }
                         .buttonStyle(.glass)

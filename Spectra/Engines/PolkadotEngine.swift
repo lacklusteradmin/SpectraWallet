@@ -160,28 +160,7 @@ enum PolkadotWalletEngine {
         ownerAddress: String,
         transactionHash: String
     ) async -> SendBroadcastVerificationStatus {
-        let normalizedHash = transactionHash.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalizedHash.isEmpty else { return .deferred }
-
-        var lastError: Error?
-        for attempt in 0 ..< 3 {
-            let (snapshots, diagnostics) = await PolkadotBalanceService.fetchRecentHistoryWithDiagnostics(for: ownerAddress, limit: 40)
-            if snapshots.contains(where: { $0.transactionHash.caseInsensitiveCompare(normalizedHash) == .orderedSame }) {
-                return .verified
-            }
-            if let error = diagnostics.error, !error.isEmpty {
-                lastError = PolkadotWalletEngineError.networkError(error)
-            }
-
-            if attempt < 2 {
-                try? await Task.sleep(nanoseconds: 750_000_000)
-            }
-        }
-
-        if let lastError {
-            return .failed(lastError.localizedDescription)
-        }
-        return .deferred
+        await PolkadotBalanceService.verifyTransactionIfAvailable(transactionHash)
     }
 
     private struct PreparedExtrinsic {

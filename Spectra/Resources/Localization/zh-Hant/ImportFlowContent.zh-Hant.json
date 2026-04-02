@@ -1,6 +1,8 @@
 {
   "addressesToWatchSubtitle" : "每行輸入一個地址。每一行都會作為獨立的觀察地址導入。",
   "addressesToWatchTitle" : "要觀察的地址",
+  "advancedSubtitle" : "調整派生路徑以兼容其他錢包。",
+  "advancedTitle" : "高級",
   "backupVerificationButtonTitle" : "開始驗證",
   "backupVerificationHint" : "請嚴格按照助記詞中的內容輸入每個要求的單詞。",
   "backupVerificationSubtitle" : "在 Spectra 完成錢包設置前，確認系統要求的恢復詞。",

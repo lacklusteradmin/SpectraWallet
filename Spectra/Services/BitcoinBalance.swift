@@ -177,15 +177,16 @@ enum BitcoinBalanceService {
 
     private static func baseURL(for provider: EsploraProvider, networkMode: BitcoinNetworkMode) -> String {
         let endpoints = ChainBackendRegistry.BitcoinRuntimeEndpoints.esploraBaseURLs(for: networkMode)
+        let primary = endpoints[0]
         switch provider {
         case .blockstream:
-            return endpoints[0]
+            return primary
         case .mempool:
-            return endpoints[1]
+            return endpoints.count > 1 ? endpoints[1] : primary
         case .mempoolEmzy:
-            return endpoints.count > 2 ? endpoints[2] : endpoints[1]
+            return endpoints.count > 2 ? endpoints[2] : primary
         case .maestro:
-            return endpoints.count > 3 ? endpoints[3] : endpoints[0]
+            return endpoints.count > 3 ? endpoints[3] : primary
         }
     }
 

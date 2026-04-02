@@ -810,6 +810,7 @@ struct DiagnosticsContentCopy: Decodable {
 
 struct ImportFlowContent: Decodable {
     let backupVerificationTitle: String
+    let advancedTitle: String
     let watchAddressesTitle: String
     let recordSeedPhraseTitle: String
     let enterPrivateKeyTitle: String
@@ -818,6 +819,7 @@ struct ImportFlowContent: Decodable {
     let createWalletTitle: String
     let importWalletTitle: String
     let backupVerificationSubtitle: String
+    let advancedSubtitle: String
     let watchAddressesSubtitle: String
     let privateKeySubtitle: String
     let saveRecoveryPhraseSubtitle: String

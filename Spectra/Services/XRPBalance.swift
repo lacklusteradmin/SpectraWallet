@@ -58,17 +58,21 @@ enum XRPBalanceService {
         }
     }
 
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] {
-        var checks = xrpScanAccountBases.map { base in
-            (endpoint: base, probeURL: base)
-        }
+    static func endpointCatalog() -> [String] {
+        var endpoints = xrpScanAccountBases
         for provider in Provider.allCases {
             let endpoint = provider.rpcEndpoint.absoluteString
-            if !checks.contains(where: { $0.endpoint == endpoint }) {
-                checks.append((endpoint: endpoint, probeURL: endpoint))
+            if !endpoints.contains(endpoint) {
+                endpoints.append(endpoint)
             }
         }
-        return checks
+        return endpoints
+    }
+
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] {
+        endpointCatalog().map { base in
+            (endpoint: base, probeURL: base)
+        }
     }
 
     private struct XRPAccountResponse: Decodable {

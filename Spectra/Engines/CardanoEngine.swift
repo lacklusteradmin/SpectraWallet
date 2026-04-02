@@ -230,18 +230,7 @@ enum CardanoWalletEngine {
         ownerAddress: String,
         transactionHash: String
     ) async -> SendBroadcastVerificationStatus {
-        let normalizedHash = transactionHash.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        guard !normalizedHash.isEmpty else {
-            return .deferred
-        }
-        let result = await CardanoBalanceService.fetchRecentHistoryWithDiagnostics(for: ownerAddress, limit: 40)
-        if result.snapshots.contains(where: { $0.transactionHash.lowercased() == normalizedHash }) {
-            return .verified
-        }
-        if let error = result.diagnostics.error, !error.isEmpty {
-            return .failed(error)
-        }
-        return .deferred
+        await CardanoBalanceService.verifyTransactionIfAvailable(transactionHash)
     }
 
     private static func fetchTip() async throws -> TipResult {

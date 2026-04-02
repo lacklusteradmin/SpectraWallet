@@ -250,7 +250,7 @@ extension SolanaWalletEngine {
                     role: .primary
                 )
             ],
-            supportsDiscoveryScan: true,
+            supportsDiscoveryScan: false,
             supportsChangeBranch: false,
             scanLimit: 1
         )

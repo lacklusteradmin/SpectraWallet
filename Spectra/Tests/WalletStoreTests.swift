@@ -50,6 +50,60 @@ final class WalletStorePlatformBridgeTests: XCTestCase {
         XCTAssertNil(store.importError)
     }
 
+    func testImportingBitcoinWalletPersistsDerivedAddress() async {
+        let store = WalletStore()
+        store.importDraft.walletName = "Primary BTC"
+        store.importDraft.seedPhrase = "test test test test test test test test test test test junk"
+        store.importDraft.selectedChainNamesStorage = ["Bitcoin"]
+
+        await store.importWallet()
+
+        XCTAssertNil(store.importError)
+        XCTAssertEqual(store.wallets.count, 1)
+        XCTAssertEqual(store.wallets.first?.selectedChain, "Bitcoin")
+        XCTAssertNotNil(store.wallets.first?.bitcoinAddress)
+        XCTAssertFalse(store.wallets.first?.bitcoinAddress?.isEmpty ?? true)
+    }
+
+    func testBitcoinDisplayNetworkNameUsesSelectedMode() {
+        let store = WalletStore()
+        store.bitcoinNetworkMode = .testnet4
+
+        XCTAssertEqual(store.displayNetworkName(for: "Bitcoin"), "Testnet4")
+        XCTAssertEqual(store.displayNetworkName(for: "Ethereum"), "Mainnet")
+    }
+
+    func testBitcoinTestnet4EndpointsAreAvailable() {
+        XCTAssertEqual(
+            ChainBackendRegistry.BitcoinRuntimeEndpoints.esploraBaseURLs(for: .testnet4),
+            ["https://mempool.space/testnet4/api"]
+        )
+        XCTAssertEqual(
+            ChainBackendRegistry.BitcoinRuntimeEndpoints.walletStoreDefaultBaseURLs(for: .testnet4),
+            ["https://mempool.space/testnet4/api"]
+        )
+    }
+
+    func testEthereumDisplayNetworkNameUsesSelectedMode() {
+        let store = WalletStore()
+        store.ethereumNetworkMode = .hoodi
+
+        XCTAssertEqual(store.displayNetworkName(for: "Ethereum"), "Hoodi")
+    }
+
+    func testEthereumTestNetworksExposeExpectedContextsAndEndpoints() {
+        XCTAssertEqual(EVMChainContext.ethereumSepolia.expectedChainID, 11_155_111)
+        XCTAssertEqual(EVMChainContext.ethereumHoodi.expectedChainID, 560_048)
+        XCTAssertEqual(
+            EVMChainContext.ethereumSepolia.defaultRPCEndpoints,
+            ["https://ethereum-sepolia-rpc.publicnode.com"]
+        )
+        XCTAssertEqual(
+            EVMChainContext.ethereumHoodi.defaultRPCEndpoints,
+            ["https://ethereum-hoodi-rpc.publicnode.com"]
+        )
+    }
+
     func testExportsPlatformSnapshotEnvelopeWithStableFoundationModels() throws {
         let store = WalletStore()
         let wallet = ImportedWallet(

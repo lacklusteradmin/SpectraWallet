@@ -201,8 +201,29 @@ struct EthereumSupportedToken {
     }
 }
 
+enum EthereumNetworkMode: String, CaseIterable, Identifiable {
+    case mainnet
+    case sepolia
+    case hoodi
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .mainnet:
+            return "Mainnet"
+        case .sepolia:
+            return "Sepolia"
+        case .hoodi:
+            return "Hoodi"
+        }
+    }
+}
+
 enum EVMChainContext: Equatable {
     case ethereum
+    case ethereumSepolia
+    case ethereumHoodi
     case ethereumClassic
     case arbitrum
     case optimism
@@ -214,6 +235,10 @@ enum EVMChainContext: Equatable {
         switch self {
         case .ethereum:
             return "Ethereum"
+        case .ethereumSepolia:
+            return "Ethereum Sepolia"
+        case .ethereumHoodi:
+            return "Ethereum Hoodi"
         case .ethereumClassic:
             return "Ethereum Classic"
         case .arbitrum:
@@ -233,6 +258,8 @@ enum EVMChainContext: Equatable {
         switch self {
         case .ethereum:
             return .ethereum
+        case .ethereumSepolia, .ethereumHoodi:
+            return nil
         case .ethereumClassic:
             return nil
         case .arbitrum:
@@ -252,6 +279,10 @@ enum EVMChainContext: Equatable {
         switch self {
         case .ethereum:
             return 1
+        case .ethereumSepolia:
+            return 11_155_111
+        case .ethereumHoodi:
+            return 560_048
         case .ethereumClassic:
             return 61
         case .arbitrum:
@@ -269,7 +300,7 @@ enum EVMChainContext: Equatable {
 
     var defaultDerivationPath: String {
         switch self {
-        case .ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid:
+        case .ethereum, .ethereumSepolia, .ethereumHoodi, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid:
             return "m/44'/60'/0'/0/0"
         case .ethereumClassic:
             return "m/44'/61'/0'/0/0"
@@ -278,7 +309,7 @@ enum EVMChainContext: Equatable {
 
     func derivationPath(account: UInt32) -> String {
         switch self {
-        case .ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid:
+        case .ethereum, .ethereumSepolia, .ethereumHoodi, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid:
             return "m/44'/60'/\(account)'/0/0"
         case .ethereumClassic:
             return "m/44'/61'/\(account)'/0/0"
@@ -294,6 +325,14 @@ enum EVMChainContext: Equatable {
                 "https://cloudflare-eth.com",
                 "https://rpc.ankr.com/eth",
                 "https://1rpc.io/eth"
+            ]
+        case .ethereumSepolia:
+            return [
+                "https://ethereum-sepolia-rpc.publicnode.com"
+            ]
+        case .ethereumHoodi:
+            return [
+                "https://ethereum-hoodi-rpc.publicnode.com"
             ]
         case .arbitrum:
             return [
@@ -332,6 +371,19 @@ enum EVMChainContext: Equatable {
                 "https://hyperliquid.api.onfinality.io/evm/public"
             ]
         }
+    }
+
+    var isEthereumFamily: Bool {
+        switch self {
+        case .ethereum, .ethereumSepolia, .ethereumHoodi:
+            return true
+        default:
+            return false
+        }
+    }
+
+    var isEthereumMainnet: Bool {
+        self == .ethereum
     }
 }
 

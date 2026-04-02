@@ -13,6 +13,8 @@ struct EndpointCatalogSettingsView: View {
             wrappedValue: ViewRefreshSignal([
                 store.$bitcoinEsploraEndpoints.asVoidSignal(),
                 store.$bitcoinNetworkMode.asVoidSignal(),
+                store.$dogecoinAllowTestnet.asVoidSignal(),
+                store.$ethereumNetworkMode.asVoidSignal(),
                 store.$ethereumRPCEndpoint.asVoidSignal(),
                 store.$moneroBackendBaseURL.asVoidSignal()
             ])
@@ -34,13 +36,22 @@ struct EndpointCatalogSettingsView: View {
         BitcoinWalletEngine.endpointCatalog(for: store.bitcoinNetworkMode, custom: parsedBitcoinCustomEndpoints)
     }
 
+    private var bitcoinEndpointsByNetwork: [(title: String, endpoints: [String])] {
+        BitcoinNetworkMode.allCases.map { mode in
+            let custom = mode == store.bitcoinNetworkMode ? parsedBitcoinCustomEndpoints : []
+            let title = mode == .mainnet ? "Bitcoin" : "Bitcoin \(mode.displayName)"
+            return (title: title, endpoints: BitcoinWalletEngine.endpointCatalog(for: mode, custom: custom))
+        }
+    }
+
     private var ethereumEndpoints: [String] {
         var endpoints: [String] = []
         let custom = store.ethereumRPCEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
         if !custom.isEmpty {
             endpoints.append(custom)
         }
-        for endpoint in EVMChainContext.ethereum.defaultRPCEndpoints where !endpoints.contains(endpoint) {
+        let context = store.evmChainContext(for: "Ethereum") ?? .ethereum
+        for endpoint in context.defaultRPCEndpoints where !endpoints.contains(endpoint) {
             endpoints.append(endpoint)
         }
         for endpoint in ChainBackendRegistry.EVMExplorerRegistry.supplementalEndpointCatalogEntries(for: ChainBackendRegistry.ethereumChainName) {
@@ -49,6 +60,36 @@ struct EndpointCatalogSettingsView: View {
             }
         }
         return endpoints
+    }
+
+    private var ethereumEndpointsByNetwork: [(title: String, endpoints: [String])] {
+        EthereumNetworkMode.allCases.map { mode in
+            var endpoints: [String] = []
+            if mode == store.ethereumNetworkMode {
+                let custom = store.ethereumRPCEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+                if !custom.isEmpty {
+                    endpoints.append(custom)
+                }
+            }
+            let context: EVMChainContext = switch mode {
+            case .mainnet:
+                .ethereum
+            case .sepolia:
+                .ethereumSepolia
+            case .hoodi:
+                .ethereumHoodi
+            }
+            for endpoint in context.defaultRPCEndpoints where !endpoints.contains(endpoint) {
+                endpoints.append(endpoint)
+            }
+            if mode == .mainnet {
+                for endpoint in ChainBackendRegistry.EVMExplorerRegistry.supplementalEndpointCatalogEntries(for: ChainBackendRegistry.ethereumChainName) where !endpoints.contains(endpoint) {
+                    endpoints.append(endpoint)
+                }
+            }
+            let title = mode == .mainnet ? "Ethereum" : "Ethereum \(mode.displayName)"
+            return (title: title, endpoints: endpoints)
+        }
     }
 
     private var ethereumClassicEndpoints: [String] {
@@ -85,6 +126,20 @@ struct EndpointCatalogSettingsView: View {
         DogecoinBalanceService.endpointCatalog()
     }
 
+    private var dogecoinEndpointsByNetwork: [(title: String, endpoints: [String])] {
+        DogecoinNetworkMode.allCases.map { mode in
+            let title = mode == .mainnet ? "Dogecoin" : "Dogecoin \(mode.displayName)"
+            let endpoints = mode == .mainnet
+                ? [
+                    ChainBackendRegistry.DogecoinRuntimeEndpoints.blockchairBaseURL,
+                    ChainBackendRegistry.DogecoinRuntimeEndpoints.blockcypherBaseURL,
+                    ChainBackendRegistry.DogecoinRuntimeEndpoints.dogechainBaseURL,
+                ]
+                : [ChainBackendRegistry.DogecoinRuntimeEndpoints.testnetElectrsBaseURL]
+            return (title: title, endpoints: endpoints)
+        }
+    }
+
     private var moneroEndpoints: [String] {
         let trimmed = store.moneroBackendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty {
@@ -117,11 +172,30 @@ struct EndpointCatalogSettingsView: View {
     }
 
     @ViewBuilder
+    private func namedEndpointGroup(title: String, endpoints: [String]) -> some View {
+        if !endpoints.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                ForEach(endpoints, id: \.self) { endpoint in
+                    Text(endpoint)
+                        .font(.caption.monospaced())
+                        .textSelection(.enabled)
+                        .lineLimit(3)
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    @ViewBuilder
     private func endpointSection(_ descriptor: AppChainDescriptor) -> some View {
         Section(descriptor.chainName) {
             switch descriptor.id {
             case .bitcoin:
-                endpointRows(bitcoinEndpoints)
+                ForEach(bitcoinEndpointsByNetwork, id: \.title) { group in
+                    namedEndpointGroup(title: group.title, endpoints: group.endpoints)
+                }
 
                 TextField(copy.addEsploraEndpointPlaceholder, text: $newBitcoinEndpoint)
                     .textInputAutocapitalization(.never)
@@ -144,13 +218,17 @@ struct EndpointCatalogSettingsView: View {
                         .foregroundStyle(.red)
                 }
             case .bitcoinCash:
-                endpointRows(BitcoinCashBalanceService.diagnosticsChecks().map(\.endpoint))
+                endpointRows(BitcoinCashBalanceService.endpointCatalog())
             case .litecoin:
-                endpointRows(LitecoinBalanceService.diagnosticsChecks().map(\.endpoint))
+                endpointRows(LitecoinBalanceService.endpointCatalog())
             case .dogecoin:
-                endpointRows(dogecoinEndpoints)
+                ForEach(dogecoinEndpointsByNetwork, id: \.title) { group in
+                    namedEndpointGroup(title: group.title, endpoints: group.endpoints)
+                }
             case .ethereum:
-                endpointRows(ethereumEndpoints)
+                ForEach(ethereumEndpointsByNetwork, id: \.title) { group in
+                    namedEndpointGroup(title: group.title, endpoints: group.endpoints)
+                }
 
                 TextField(
                     copy.customEthereumRPCURLPlaceholder,
@@ -187,15 +265,15 @@ struct EndpointCatalogSettingsView: View {
                 endpointRows(hyperliquidEndpoints)
                 readOnlyFootnote
             case .tron:
-                endpointRows(TronBalanceService.diagnosticsChecks().map(\.endpoint))
+                endpointRows(TronBalanceService.endpointCatalog())
             case .solana:
-                endpointRows(SolanaBalanceService.diagnosticsChecks().map(\.endpoint))
+                endpointRows(SolanaBalanceService.endpointCatalog())
             case .cardano:
-                endpointRows(CardanoBalanceService.diagnosticsChecks().map(\.endpoint))
+                endpointRows(CardanoBalanceService.endpointCatalog())
             case .xrp:
-                endpointRows(XRPBalanceService.diagnosticsChecks().map(\.endpoint))
+                endpointRows(XRPBalanceService.endpointCatalog())
             case .stellar:
-                endpointRows(StellarBalanceService.diagnosticsChecks().map(\.endpoint))
+                endpointRows(StellarBalanceService.endpointCatalog())
             case .monero:
                 endpointRows(moneroEndpoints)
 
@@ -216,19 +294,19 @@ struct EndpointCatalogSettingsView: View {
                         .foregroundStyle(.red)
                 }
             case .sui:
-                endpointRows(SuiBalanceService.diagnosticsChecks().map(\.endpoint))
+                endpointRows(SuiBalanceService.endpointCatalog())
             case .aptos:
-                endpointRows(AptosBalanceService.diagnosticsChecks().map(\.endpoint))
+                endpointRows(AptosBalanceService.endpointCatalog())
             case .ton:
-                endpointRows(TONBalanceService.diagnosticsChecks().map(\.endpoint))
+                endpointRows(TONBalanceService.endpointCatalog())
             case .icp:
-                endpointRows(ICPBalanceService.diagnosticsChecks().map(\.endpoint))
+                endpointRows(ICPBalanceService.endpointCatalog())
             case .near:
-                endpointRows(NearBalanceService.diagnosticsChecks().map(\.endpoint))
+                endpointRows(NearBalanceService.endpointCatalog())
             case .polkadot:
-                endpointRows(PolkadotBalanceService.diagnosticsChecks().map(\.endpoint))
+                endpointRows(PolkadotBalanceService.endpointCatalog())
             case .bitcoinSV:
-                EmptyView()
+                endpointRows(BitcoinSVBalanceService.endpointCatalog())
             }
         }
     }

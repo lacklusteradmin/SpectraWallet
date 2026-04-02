@@ -74,6 +74,10 @@ enum AddressValidation {
         return DogecoinBalanceService.isValidDogecoinAddress(trimmed, allowTestnet: allowTestnet)
     }
 
+    static func isValidDogecoinAddress(_ address: String, networkMode: DogecoinNetworkMode) -> Bool {
+        isValidDogecoinAddress(address, allowTestnet: networkMode == .testnet)
+    }
+
     static func isValidEthereumAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }

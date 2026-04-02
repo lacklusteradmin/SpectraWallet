@@ -54,9 +54,12 @@ enum CardanoBalanceService {
         }
     }
 
+    static func endpointCatalog() -> [String] {
+        Provider.allCases.map { baseURL(for: $0) }
+    }
+
     static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] {
-        Provider.allCases.map { provider in
-            let baseURL = baseURL(for: provider)
+        endpointCatalog().map { baseURL in
             return (baseURL, "\(baseURL)/tip")
         }
     }

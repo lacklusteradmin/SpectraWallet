@@ -1,5 +1,6 @@
 {
   "backupVerificationTitle": "备份验证",
+  "advancedTitle": "高级",
   "watchAddressesTitle": "观察地址",
   "recordSeedPhraseTitle": "记录助记词",
   "enterPrivateKeyTitle": "输入私钥",
@@ -8,6 +9,7 @@
   "createWalletTitle": "创建钱包",
   "importWalletTitle": "导入钱包",
   "backupVerificationSubtitle": "在 Spectra 完成钱包设置前，确认系统要求的恢复词。",
+  "advancedSubtitle": "调整派生路径以兼容其他钱包。",
   "watchAddressesSubtitle": "输入一个或多个钱包地址，每行一个。",
   "privateKeySubtitle": "输入私钥。",
   "saveRecoveryPhraseSubtitle": "保存你的恢复短语。",

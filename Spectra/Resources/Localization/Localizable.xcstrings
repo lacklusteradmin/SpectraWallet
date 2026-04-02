@@ -895,7 +895,6 @@
       }
     },
     "0" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1512,6 +1511,7 @@
       }
     },
     "Allow Testnet Addresses" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2272,6 +2272,9 @@
           }
         }
       }
+    },
+    "Bitcoin Settings" : {
+
     },
     "Bitcoin SV" : {
       "extractionState" : "manual",
@@ -5518,6 +5521,9 @@
         }
       }
     },
+    "Dogecoin Network" : {
+
+    },
     "Dogecoin network error: %@" : {
       "localizations" : {
         "en" : {
@@ -7968,6 +7974,9 @@
           }
         }
       }
+    },
+    "Ethereum Network" : {
+
     },
     "Ethereum RPC" : {
       "localizations" : {
@@ -12027,7 +12036,6 @@
       }
     },
     "m" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12492,6 +12500,7 @@
       }
     },
     "Mode" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -12957,6 +12966,7 @@
       }
     },
     "Network Policy" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -22261,6 +22271,15 @@
           }
         }
       }
+    },
+    "This controls Bitcoin wallet import, address validation, and endpoint usage for Bitcoin wallets." : {
+
+    },
+    "This controls Dogecoin wallet import, address derivation, history, and endpoint usage for Dogecoin wallets." : {
+
+    },
+    "This controls Ethereum wallet import, balance refresh, history, and endpoint usage for Ethereum wallets." : {
+
     },
     "This Ethereum transaction is no longer pending, so replacement/cancel is unavailable." : {
       "extractionState" : "manual",

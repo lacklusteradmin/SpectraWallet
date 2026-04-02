@@ -68,37 +68,37 @@
 			membershipExceptions = (
 				SpectraLiveActivityExtension/Info.plist,
 				SpectraLiveActivityExtension/SendLiveActivityWidget.swift,
-				Tests/BitcoinBalanceServiceTests.swift,
-				Tests/CardanoBalanceServiceTests.swift,
+				Tests/BitcoinBalanceTests.swift,
+				Tests/CardanoBalanceTests.swift,
 				Tests/DiagnosticsBundleTests.swift,
-				Tests/DogecoinBalanceServiceTests.swift,
-				Tests/LitecoinBalanceServiceTests.swift,
-				Tests/MoneroBalanceServiceTests.swift,
+				Tests/DogecoinBalanceTests.swift,
+				Tests/LitecoinBalanceTests.swift,
+				Tests/MoneroBalanceTests.swift,
+				Tests/NetworkClientTests.swift,
 				Tests/SecureSeedStoreTests.swift,
-				Tests/SolanaBalanceServiceTests.swift,
-				Tests/SuiBalanceServiceTests.swift,
+				Tests/SolanaBalanceTests.swift,
+				Tests/SuiBalanceTests.swift,
 				Tests/TESTING_WORKFLOW.md,
-				Tests/TestSpectraNetworkClientTests.swift,
-				Tests/TronBalanceServiceTests.swift,
-				Tests/XRPBalanceServiceTests.swift,
+				Tests/TronBalanceTests.swift,
+				Tests/XRPBalanceTests.swift,
 			);
 			target = 907491622F56D1E500D098D2 /* Spectra */;
 		};
 		90F0BA0E2F5C4A76004E29F3 /* Exceptions for "Spectra" folder in "SpectraTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Tests/BitcoinBalanceServiceTests.swift,
-				Tests/CardanoBalanceServiceTests.swift,
+				Tests/BitcoinBalanceTests.swift,
+				Tests/CardanoBalanceTests.swift,
 				Tests/DiagnosticsBundleTests.swift,
-				Tests/DogecoinBalanceServiceTests.swift,
-				Tests/LitecoinBalanceServiceTests.swift,
-				Tests/MoneroBalanceServiceTests.swift,
+				Tests/DogecoinBalanceTests.swift,
+				Tests/LitecoinBalanceTests.swift,
+				Tests/MoneroBalanceTests.swift,
+				Tests/NetworkClientTests.swift,
 				Tests/SecureSeedStoreTests.swift,
-				Tests/SolanaBalanceServiceTests.swift,
-				Tests/SuiBalanceServiceTests.swift,
-				Tests/TestSpectraNetworkClientTests.swift,
-				Tests/TronBalanceServiceTests.swift,
-				Tests/XRPBalanceServiceTests.swift,
+				Tests/SolanaBalanceTests.swift,
+				Tests/SuiBalanceTests.swift,
+				Tests/TronBalanceTests.swift,
+				Tests/XRPBalanceTests.swift,
 			);
 			target = 91B0000C2F5B000100AAA001 /* SpectraTests */;
 		};

@@ -414,12 +414,65 @@ enum NearWalletEngine {
     ) async -> SendBroadcastVerificationStatus {
         let normalizedHash = transactionHash.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         guard !normalizedHash.isEmpty else { return .deferred }
-        let result = await NearBalanceService.fetchRecentHistoryWithDiagnostics(for: ownerAddress, limit: 40)
-        if result.snapshots.contains(where: { $0.transactionHash.lowercased() == normalizedHash }) {
-            return .verified
+        var lastError: Error?
+
+        for attempt in 0 ..< 3 {
+            for endpoint in orderedRPCEndpoints() {
+                do {
+                    var request = URLRequest(url: URL(string: endpoint)!)
+                    request.httpMethod = "POST"
+                    request.timeoutInterval = 20
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    request.httpBody = try JSONSerialization.data(
+                        withJSONObject: [
+                            "jsonrpc": "2.0",
+                            "id": "spectra-near-verify",
+                            "method": "tx",
+                            "params": [normalizedHash, ownerAddress]
+                        ],
+                        options: []
+                    )
+
+                    let (data, response) = try await SpectraNetworkRouter.shared.data(for: request, profile: .chainRead)
+                    guard let http = response as? HTTPURLResponse, (200 ... 299).contains(http.statusCode) else {
+                        throw NearWalletEngineError.networkError("NEAR RPC returned HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1).")
+                    }
+                    guard let root = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                        throw NearWalletEngineError.invalidResponse
+                    }
+                    if let error = root["error"] as? [String: Any] {
+                        let message = (error["message"] as? String)
+                            ?? ((error["cause"] as? [String: Any])?["info"] as? String)
+                            ?? "Unknown NEAR RPC error."
+                        if message.uppercased().contains("UNKNOWN_TRANSACTION") || message.uppercased().contains("UNKNOWN_TX") {
+                            continue
+                        }
+                        throw NearWalletEngineError.broadcastFailed(message)
+                    }
+                    if let result = root["result"] as? [String: Any] {
+                        if let transaction = result["transaction"] as? [String: Any],
+                           let hash = transaction["hash"] as? String,
+                           hash.caseInsensitiveCompare(normalizedHash) == .orderedSame {
+                            return .verified
+                        }
+                        if let outcome = result["transaction_outcome"] as? [String: Any],
+                           let id = outcome["id"] as? String,
+                           id.caseInsensitiveCompare(normalizedHash) == .orderedSame {
+                            return .verified
+                        }
+                    }
+                } catch {
+                    lastError = error
+                }
+            }
+
+            if attempt < 2 {
+                try? await Task.sleep(nanoseconds: 500_000_000)
+            }
         }
-        if let error = result.diagnostics.error, !error.isEmpty {
-            return .failed(error)
+
+        if let lastError {
+            return .failed(lastError.localizedDescription)
         }
         return .deferred
     }

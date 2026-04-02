@@ -1,5 +1,6 @@
 {
   "backupVerificationTitle": "Backup Verification",
+  "advancedTitle": "Advanced",
   "watchAddressesTitle": "Watch Addresses",
   "recordSeedPhraseTitle": "Record Seed Phrase",
   "enterPrivateKeyTitle": "Enter Private Key",
@@ -8,6 +9,7 @@
   "createWalletTitle": "Create Wallet",
   "importWalletTitle": "Import Wallet",
   "backupVerificationSubtitle": "Confirm the requested recovery words before Spectra finishes wallet setup.",
+  "advancedSubtitle": "Adjust derivation paths for compatibility with other wallets.",
   "watchAddressesSubtitle": "Enter one or more wallet addresses, one per line.",
   "privateKeySubtitle": "Enter the private key.",
   "saveRecoveryPhraseSubtitle": "Save your recovery phrase.",

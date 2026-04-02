@@ -659,7 +659,7 @@ struct AssetGroupDetailView: View {
                             VStack(alignment: .leading, spacing: 8) {
                                 HStack {
                                     VStack(alignment: .leading, spacing: 3) {
-                                        Text(entry.coin.chainName)
+                                        Text(store.displayNetworkName(for: entry.coin.chainName))
                                             .font(.headline)
                                         Text(entry.coin.tokenStandard)
                                             .font(.caption)
