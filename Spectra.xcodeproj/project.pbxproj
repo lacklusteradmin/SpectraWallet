@@ -58,16 +58,14 @@
 		904319B92F756B1600DEB3EA /* Exceptions for "Spectra" folder in "SpectraLiveActivityExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				SharedLiveActivities/SendLiveActivityAttributes.swift,
-				SpectraLiveActivityExtension/SendLiveActivityWidget.swift,
+				Views/Extensions/SharedLiveActivities/SendLiveActivityAttributes.swift,
+				Views/Extensions/SpectraLiveActivityExtension/SendLiveActivityWidget.swift,
 			);
 			target = 91C100072F70000100AAA001 /* SpectraLiveActivityExtension */;
 		};
 		90F0BA0D2F5C4A76004E29F3 /* Exceptions for "Spectra" folder in "Spectra" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				SpectraLiveActivityExtension/Info.plist,
-				SpectraLiveActivityExtension/SendLiveActivityWidget.swift,
 				Tests/BitcoinBalanceTests.swift,
 				Tests/CardanoBalanceTests.swift,
 				Tests/DiagnosticsBundleTests.swift,
@@ -81,6 +79,8 @@
 				Tests/TESTING_WORKFLOW.md,
 				Tests/TronBalanceTests.swift,
 				Tests/XRPBalanceTests.swift,
+				Views/Extensions/SpectraLiveActivityExtension/Info.plist,
+				Views/Extensions/SpectraLiveActivityExtension/SendLiveActivityWidget.swift,
 			);
 			target = 907491622F56D1E500D098D2 /* Spectra */;
 		};
@@ -609,7 +609,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Spectra/SpectraLiveActivityExtension/Info.plist;
+				INFOPLIST_FILE = Spectra/Views/Extensions/SpectraLiveActivityExtension/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -637,7 +637,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Spectra/SpectraLiveActivityExtension/Info.plist;
+				INFOPLIST_FILE = Spectra/Views/Extensions/SpectraLiveActivityExtension/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
