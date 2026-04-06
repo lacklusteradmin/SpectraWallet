@@ -120,7 +120,11 @@ final class CardanoBalanceServiceTests: SpectraNetworkTestCase {
         XCTAssertNil(result.diagnostics.error)
         XCTAssertEqual(result.snapshots.count, 1)
         XCTAssertEqual(result.snapshots.first?.transactionHash, "def456")
-        XCTAssertEqual(result.snapshots.first?.amount, 3.0, accuracy: 0.0000001)
+        guard let firstAmount = result.snapshots.first?.amount else {
+            XCTFail("Expected amount in first snapshot")
+            return
+        }
+        XCTAssertEqual(firstAmount, 3.0, accuracy: 0.0000001)
         XCTAssertEqual(result.snapshots.first?.counterpartyAddress, "addr1senderexample")
     }
 }

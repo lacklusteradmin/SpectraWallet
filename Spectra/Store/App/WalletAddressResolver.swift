@@ -1,46 +1,9 @@
 import Foundation
 
-private struct WalletDerivationLayerJSONRequest: Codable {
-    let chain: SeedDerivationChain
-    let network: WalletDerivationNetwork
-    let seedPhrase: String
-    let derivationPath: String?
-    let curve: WalletDerivationCurve
-    let passphrase: String?
-    let iterationCount: Int?
-    let hmacKeyString: String?
-    let requestedOutputs: [String]
-}
-
-private struct WalletDerivationLayerJSONResponse: Codable {
-    let address: String?
-    let publicKeyHex: String?
-    let privateKeyHex: String?
-}
-
-enum WalletDerivationLayer {
-    static func derive(
-        seedPhrase: String,
-        request: WalletDerivationRequest
-    ) throws -> WalletDerivationResult {
-        try WalletDerivationEngine.derive(seedPhrase: seedPhrase, request: request)
-    }
-
-    static func derive(
-        jsonData: Data
-    ) throws -> Data {
-        try WalletDerivationEngine.derive(jsonData: jsonData)
-    }
-
-    static func derive(
-        jsonString: String
-    ) throws -> String {
-        try WalletDerivationEngine.derive(jsonString: jsonString)
-    }
-
+enum WalletAddressResolver {
     static func resolvedBitcoinAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .bitcoin,
                 network: bitcoinNetwork(for: store.bitcoinNetworkMode(for: wallet)),
@@ -62,10 +25,10 @@ enum WalletDerivationLayer {
 
     static func resolvedEVMAddress(for wallet: ImportedWallet, chainName: String, using store: WalletStore) -> String? {
         guard store.isEVMChain(chainName) else { return nil }
-        guard let _ = store.evmChainContext(for: chainName) else { return nil }
+        guard store.evmChainContext(for: chainName) != nil else { return nil }
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivationChain = evmSeedDerivationChain(for: chainName),
-           let derivedAddress = try? deriveAddress(
+           let derivationChain = WalletDerivationLayer.evmSeedDerivationChain(for: chainName),
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: derivationChain,
                 network: .mainnet,
@@ -82,7 +45,7 @@ enum WalletDerivationLayer {
 
     static func resolvedTronAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .tron,
                 network: .mainnet,
@@ -101,7 +64,7 @@ enum WalletDerivationLayer {
 
     static func resolvedSolanaAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .solana,
                 network: .mainnet,
@@ -120,7 +83,7 @@ enum WalletDerivationLayer {
 
     static func resolvedSuiAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .sui,
                 network: .mainnet,
@@ -139,7 +102,7 @@ enum WalletDerivationLayer {
 
     static func resolvedAptosAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .aptos,
                 network: .mainnet,
@@ -159,7 +122,7 @@ enum WalletDerivationLayer {
 
     static func resolvedTONAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .ton,
                 network: .mainnet,
@@ -178,7 +141,7 @@ enum WalletDerivationLayer {
 
     static func resolvedICPAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .internetComputer,
                 network: .mainnet,
@@ -197,7 +160,7 @@ enum WalletDerivationLayer {
 
     static func resolvedNearAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .near,
                 network: .mainnet,
@@ -218,7 +181,7 @@ enum WalletDerivationLayer {
 
     static func resolvedPolkadotAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .polkadot,
                 network: .mainnet,
@@ -237,7 +200,7 @@ enum WalletDerivationLayer {
 
     static func resolvedStellarAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .stellar,
                 network: .mainnet,
@@ -260,7 +223,7 @@ enum WalletDerivationLayer {
             return cardanoAddress.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .cardano,
                 network: .mainnet,
@@ -274,7 +237,7 @@ enum WalletDerivationLayer {
 
     static func resolvedXRPAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .xrp,
                 network: .mainnet,
@@ -302,7 +265,7 @@ enum WalletDerivationLayer {
     static func resolvedDogecoinAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         let networkMode = store.dogecoinNetworkMode(for: wallet)
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .dogecoin,
                 network: dogecoinNetwork(for: networkMode),
@@ -324,7 +287,7 @@ enum WalletDerivationLayer {
 
     static func resolvedLitecoinAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .litecoin,
                 network: .mainnet,
@@ -342,7 +305,7 @@ enum WalletDerivationLayer {
 
     static func resolvedBitcoinCashAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .bitcoinCash,
                 network: .mainnet,
@@ -360,7 +323,7 @@ enum WalletDerivationLayer {
 
     static func resolvedBitcoinSVAddress(for wallet: ImportedWallet, using store: WalletStore) -> String? {
         if let seedPhrase = store.storedSeedPhrase(for: wallet.id),
-           let derivedAddress = try? deriveAddress(
+           let derivedAddress = try? WalletDerivationLayer.deriveAddress(
                 seedPhrase: seedPhrase,
                 chain: .bitcoinSV,
                 network: .mainnet,
@@ -374,52 +337,6 @@ enum WalletDerivationLayer {
             return bitcoinSVAddress.trimmingCharacters(in: .whitespacesAndNewlines)
         }
         return nil
-    }
-
-    static func evmSeedDerivationChain(for chainName: String) -> SeedDerivationChain? {
-        switch chainName {
-        case "Ethereum":
-            return .ethereum
-        case "Ethereum Classic":
-            return .ethereumClassic
-        case "Arbitrum":
-            return .arbitrum
-        case "BNB Chain":
-            return .ethereum
-        case "Avalanche":
-            return .avalanche
-        case "Hyperliquid":
-            return .hyperliquid
-        default:
-            return nil
-        }
-    }
-
-    private static func deriveAddress(
-        seedPhrase: String,
-        chain: SeedDerivationChain,
-        network: WalletDerivationNetwork,
-        derivationPath: String
-    ) throws -> String {
-        let requestData = try JSONEncoder().encode(
-            WalletDerivationLayerJSONRequest(
-                chain: chain,
-                network: network,
-                seedPhrase: seedPhrase,
-                derivationPath: derivationPath,
-                curve: WalletDerivationEngine.curve(for: chain),
-                passphrase: nil,
-                iterationCount: nil,
-                hmacKeyString: nil,
-                requestedOutputs: ["address"]
-            )
-        )
-        let responseData = try derive(jsonData: requestData)
-        let result = try JSONDecoder().decode(WalletDerivationLayerJSONResponse.self, from: responseData)
-        guard let address = result.address else {
-            throw WalletDerivationEngineError.emptyRequestedOutputs
-        }
-        return address
     }
 
     private static func bitcoinNetwork(for networkMode: BitcoinNetworkMode) -> WalletDerivationNetwork {

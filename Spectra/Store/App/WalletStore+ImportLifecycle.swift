@@ -1,0 +1,313 @@
+import Foundation
+import SwiftUI
+
+@MainActor
+extension WalletStore {
+    // MARK: - Import and Wallet Lifecycle
+func resetImportForm() {
+    importDraft.configureForNewWallet()
+}
+
+    // Opens import flow and prepares draft defaults for a new import action.
+    func beginWalletImport() {
+        importDraft.configureForNewWallet()
+        importError = nil
+        isImportingWallet = false
+        editingWalletID = nil
+        isShowingWalletImporter = true
+    }
+
+    // Opens watch-address import flow and preconfigures the draft for public-address import.
+    func beginWatchAddressesImport() {
+        importDraft.configureForWatchAddressesImport()
+        importError = nil
+        isImportingWallet = false
+        editingWalletID = nil
+        isShowingWalletImporter = true
+    }
+
+    // Opens create-wallet flow and preconfigures the draft for generated wallets.
+    func beginWalletCreation() {
+        importDraft.configureForCreatedWallet()
+        importError = nil
+        isImportingWallet = false
+        editingWalletID = nil
+        isShowingWalletImporter = true
+    }
+
+    func cancelWalletImport() {
+        importDraft.configureForNewWallet()
+        importError = nil
+        isImportingWallet = false
+        editingWalletID = nil
+        isShowingWalletImporter = false
+    }
+
+    // Populates import draft from an existing wallet for in-place editing.
+    func beginEditingWallet(_ wallet: ImportedWallet) {
+        editingWalletID = wallet.id
+        importError = nil
+        isImportingWallet = false
+        importDraft.configureForEditing(wallet: wallet)
+        isShowingWalletImporter = true
+    }
+    
+    func confirmDeleteWallet(_ wallet: ImportedWallet) {
+        walletPendingDeletion = wallet
+    }
+    
+    // Deletes the selected wallet and triggers cleanup of related state/history.
+    func deletePendingWallet() async {
+        guard let walletPendingDeletion else { return }
+        guard await authenticateForSensitiveAction(
+            reason: "Authenticate to delete wallet",
+            allowWhenAuthenticationUnavailable: true
+        ) else {
+            return
+        }
+        let deletedWalletID = walletPendingDeletion.id
+        let deletedWalletIDString = deletedWalletID.uuidString
+        let deletedChainName = normalizedWalletChainName(walletPendingDeletion.selectedChain)
+        deleteWalletSecrets(for: deletedWalletID)
+        wallets.removeAll { $0.id == walletPendingDeletion.id }
+        let hasRemainingWalletsOnDeletedChain = wallets.contains {
+            normalizedWalletChainName($0.selectedChain) == deletedChainName
+        }
+        resetLargeMovementAlertBaseline()
+        transactions.removeAll { $0.walletID == walletPendingDeletion.id }
+        dogecoinKeypoolByWalletID[walletPendingDeletion.id] = nil
+        discoveredDogecoinAddressesByWallet[walletPendingDeletion.id] = nil
+        for chainName in discoveredUTXOAddressesByChain.keys {
+            discoveredUTXOAddressesByChain[chainName]?[walletPendingDeletion.id] = nil
+        }
+        clearHistoryTracking(for: walletPendingDeletion.id)
+        clearDeletedWalletDiagnostics(
+            walletID: deletedWalletID,
+            chainName: deletedChainName,
+            hasRemainingWalletsOnChain: hasRemainingWalletsOnDeletedChain
+        )
+        dogecoinOwnedAddressMap = dogecoinOwnedAddressMap.filter { _, value in
+            value.walletID != walletPendingDeletion.id
+        }
+        if receiveWalletID == deletedWalletIDString {
+            receiveWalletID = ""
+            receiveChainName = ""
+            receiveHoldingKey = ""
+            receiveResolvedAddress = ""
+            isResolvingReceiveAddress = false
+        }
+        if sendWalletID == deletedWalletIDString {
+            cancelSend()
+        }
+        if editingWalletID == deletedWalletID {
+            editingWalletID = nil
+            isShowingWalletImporter = false
+        }
+        selectedMainTab = .home
+        self.walletPendingDeletion = nil
+        
+        if wallets.isEmpty {
+            cancelWalletImport()
+        }
+    }
+    
+    func wallet(for walletID: String) -> ImportedWallet? {
+        cachedWalletByIDString[walletID]
+    }
+
+    func knownOwnedAddresses(for walletID: UUID) -> [String] {
+        guard let wallet = cachedWalletByID[walletID] else { return [] }
+
+        var ordered: [String] = []
+        var seen: Set<String> = []
+
+        func appendAddress(_ candidate: String?) {
+            guard let candidate else { return }
+            let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { return }
+            let normalized = trimmed.lowercased()
+            guard !seen.contains(normalized) else { return }
+            seen.insert(normalized)
+            ordered.append(trimmed)
+        }
+
+        appendAddress(wallet.bitcoinAddress)
+        appendAddress(wallet.bitcoinCashAddress)
+        appendAddress(wallet.bitcoinSVAddress)
+        appendAddress(wallet.litecoinAddress)
+        appendAddress(wallet.dogecoinAddress)
+        appendAddress(wallet.ethereumAddress)
+        appendAddress(wallet.tronAddress)
+        appendAddress(wallet.solanaAddress)
+        appendAddress(wallet.stellarAddress)
+        appendAddress(wallet.xrpAddress)
+        appendAddress(wallet.moneroAddress)
+        appendAddress(wallet.cardanoAddress)
+        appendAddress(wallet.suiAddress)
+        appendAddress(wallet.aptosAddress)
+        appendAddress(wallet.icpAddress)
+        appendAddress(wallet.nearAddress)
+        appendAddress(wallet.polkadotAddress)
+
+        appendAddress(resolvedBitcoinCashAddress(for: wallet))
+        appendAddress(resolvedBitcoinSVAddress(for: wallet))
+        appendAddress(resolvedLitecoinAddress(for: wallet))
+        appendAddress(resolvedDogecoinAddress(for: wallet))
+        appendAddress(resolvedEthereumAddress(for: wallet))
+        appendAddress(resolvedTronAddress(for: wallet))
+        appendAddress(resolvedSolanaAddress(for: wallet))
+        appendAddress(resolvedXRPAddress(for: wallet))
+        appendAddress(resolvedStellarAddress(for: wallet))
+        appendAddress(resolvedMoneroAddress(for: wallet))
+        appendAddress(resolvedCardanoAddress(for: wallet))
+        appendAddress(resolvedSuiAddress(for: wallet))
+        appendAddress(resolvedAptosAddress(for: wallet))
+        appendAddress(resolvedTONAddress(for: wallet))
+        appendAddress(resolvedICPAddress(for: wallet))
+        appendAddress(resolvedNearAddress(for: wallet))
+        appendAddress(resolvedPolkadotAddress(for: wallet))
+
+        for transaction in transactions where transaction.walletID == walletID {
+            appendAddress(transaction.sourceAddress)
+            appendAddress(transaction.changeAddress)
+        }
+
+        for addresses in chainOwnedAddressMapByChain.values {
+            for value in addresses.values where value.walletID == walletID {
+                appendAddress(value.address)
+            }
+        }
+
+        return ordered
+    }
+
+    func canRevealSeedPhrase(for walletID: UUID) -> Bool {
+        storedSeedPhrase(for: walletID) != nil
+    }
+
+    func verifySeedPhrasePassword(_ password: String, for walletID: UUID) -> Bool {
+        let account = Self.seedPhrasePasswordAccount(for: walletID)
+        return SecureSeedPasswordStore.verify(password, for: account)
+    }
+
+    func isWatchOnlyWallet(_ wallet: ImportedWallet) -> Bool {
+        !walletHasSigningMaterial(wallet.id)
+    }
+
+    func isPrivateKeyWallet(_ wallet: ImportedWallet) -> Bool {
+        isPrivateKeyBackedWallet(wallet.id)
+    }
+
+    func revealSeedPhrase(for wallet: ImportedWallet, password: String? = nil) async throws -> String {
+        let authenticated = await authenticateForSeedPhraseReveal(reason: "Authenticate to view seed phrase for \(wallet.name)")
+        guard authenticated else {
+            throw SeedPhraseRevealError.authenticationRequired
+        }
+
+        if walletRequiresSeedPhrasePassword(wallet.id) {
+            guard let providedPassword = password?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !providedPassword.isEmpty else {
+                throw SeedPhraseRevealError.passwordRequired
+            }
+            guard verifySeedPhrasePassword(providedPassword, for: wallet.id) else {
+                throw SeedPhraseRevealError.invalidPassword
+            }
+        }
+
+        guard let seedPhrase = storedSeedPhrase(for: wallet.id),
+              !seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw SeedPhraseRevealError.unavailable
+        }
+        return seedPhrase
+    }
+
+    // Computes current sendable assets for a wallet based on selected chains and holdings.
+    func availableSendCoins(for walletID: String) -> [Coin] {
+        cachedAvailableSendCoinsByWalletID[walletID] ?? []
+    }
+    
+    func availableReceiveCoins(for walletID: String) -> [Coin] {
+        cachedAvailableReceiveCoinsByWalletID[walletID] ?? []
+    }
+
+    func availableReceiveChains(for walletID: String) -> [String] {
+        cachedAvailableReceiveChainsByWalletID[walletID] ?? []
+    }
+
+    func selectedReceiveCoin(for walletID: String) -> Coin? {
+        let resolvedChainName = resolvedReceiveChainName(for: walletID)
+        guard !resolvedChainName.isEmpty else { return nil }
+
+        var firstMatchingCoin: Coin?
+        for coin in availableReceiveCoins(for: walletID) where coin.chainName == resolvedChainName {
+            if firstMatchingCoin == nil {
+                firstMatchingCoin = coin
+            }
+            if coin.contractAddress == nil {
+                return coin
+            }
+        }
+        return firstMatchingCoin
+    }
+
+    func resolvedReceiveChainName(for walletID: String) -> String {
+        let availableChains = availableReceiveChains(for: walletID)
+        if availableChains.contains(receiveChainName) {
+            return receiveChainName
+        }
+        return availableChains.first ?? ""
+    }
+
+    var sendEnabledWallets: [ImportedWallet] {
+        cachedSendEnabledWallets
+    }
+
+    var receiveEnabledWallets: [ImportedWallet] {
+        cachedReceiveEnabledWallets
+    }
+
+    var canBeginSend: Bool {
+        !sendEnabledWallets.isEmpty
+    }
+
+    var canBeginReceive: Bool {
+        !receiveEnabledWallets.isEmpty
+    }
+    
+    var alertableCoins: [Coin] {
+        portfolio
+    }
+
+    var sendAddressBookEntries: [AddressBookEntry] {
+        guard let selectedSendCoin else { return [] }
+        return addressBook.filter { $0.chainName == selectedSendCoin.chainName }
+    }
+
+    var hasPendingEthereumSendForSelectedWallet: Bool {
+        selectedPendingEthereumSendTransaction() != nil
+    }
+
+    var ethereumReplacementNonceStateMessage: String? {
+        guard selectedSendCoin?.chainName == "Ethereum" else { return nil }
+        guard let pendingTransaction = selectedPendingEthereumSendTransaction() else {
+            return localizedStoreString("No pending Ethereum send found for this wallet. Replacement and cancel are available only for pending transactions.")
+        }
+
+        var message = localizedStoreFormat("Pending %@ transaction detected", pendingTransaction.symbol)
+        if let nonce = pendingTransaction.ethereumNonce {
+            message += localizedStoreFormat("send.replacement.pendingNonceSuffix", nonce)
+        } else {
+            message += "."
+        }
+        if let transactionHash = pendingTransaction.transactionHash {
+            let shortHash = transactionHash.count > 14
+                ? "\(transactionHash.prefix(10))...\(transactionHash.suffix(4))"
+                : transactionHash
+            message += localizedStoreFormat("send.replacement.transactionSuffix", shortHash)
+        }
+        message += localizedStoreString(" Use Speed Up to resend with higher fees or Cancel to submit a 0-value self-transfer using the same nonce.")
+        return message
+    }
+    
+    // Initializes the send composer with defaults inferred from selected wallet/assets.
+}

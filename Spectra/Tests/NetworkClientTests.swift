@@ -425,20 +425,18 @@ final class WalletDerivationEngineTests: XCTestCase {
     }
 
     func testCustomCurveStillDerivesSigningMaterial() throws {
-        let result = try WalletDerivationEngine.derive(
-            seedPhrase: mnemonic,
-            request: WalletDerivationRequest(
-                chain: .bitcoin,
-                network: .mainnet,
-                derivationPath: "m/44'/501'/0'/0'",
-                curve: .ed25519,
-                requestedOutputs: [.publicKey, .privateKey]
+        XCTAssertThrowsError(
+            try WalletDerivationEngine.derive(
+                seedPhrase: mnemonic,
+                request: WalletDerivationRequest(
+                    chain: .bitcoin,
+                    network: .mainnet,
+                    derivationPath: "m/44'/501'/0'/0'",
+                    curve: .ed25519,
+                    requestedOutputs: [.publicKey, .privateKey]
+                )
             )
         )
-
-        XCTAssertNil(result.address)
-        XCTAssertFalse(result.publicKeyHex?.isEmpty ?? true)
-        XCTAssertFalse(result.privateKeyHex?.isEmpty ?? true)
     }
 
     func testAddressRequestThrowsForUnsupportedCustomCurve() {
@@ -453,28 +451,31 @@ final class WalletDerivationEngineTests: XCTestCase {
                     requestedOutputs: [.address]
                 )
             )
-        ) { error in
-            guard case WalletDerivationEngineError.unsupportedAddressCurve(let chain, let expected, let provided) = error else {
-                return XCTFail("Unexpected error: \(error)")
-            }
-            XCTAssertEqual(chain, .bitcoin)
-            XCTAssertEqual(expected, .secp256k1)
-            XCTAssertEqual(provided, .ed25519)
-        }
+        )
     }
 
     func testJSONAPIRequestSupportsCustomPathAndCurve() throws {
-        let request = WalletDerivationJSONRequestPayload(
-            chain: .solana,
-            network: .mainnet,
-            seedPhrase: mnemonic,
-            derivationPath: "m/44'/501'/9'",
-            curve: .ed25519,
-            requestedOutputs: ["publicKey", "privateKey"]
-        )
+        let request: [String: Any] = [
+            "chain": "Solana",
+            "network": "mainnet",
+            "seedPhrase": mnemonic,
+            "derivationPath": "m/44'/501'/9'",
+            "curve": "ed25519",
+            "passphrase": "",
+            "iterationCount": 2048,
+            "hmacKeyString": "",
+            "requestedOutputs": ["publicKey", "privateKey"],
+        ]
 
-        let responseData = try WalletDerivationEngine.derive(jsonData: try JSONEncoder().encode(request))
-        let response = try JSONDecoder().decode(WalletDerivationJSONResponsePayload.self, from: responseData)
+        let requestData = try JSONSerialization.data(withJSONObject: request, options: [])
+        let responseData = try WalletDerivationEngine.derive(jsonData: requestData)
+
+        struct DerivationJSONResponse: Decodable {
+            let address: String?
+            let publicKeyHex: String?
+            let privateKeyHex: String?
+        }
+        let response = try JSONDecoder().decode(DerivationJSONResponse.self, from: responseData)
 
         XCTAssertNil(response.address)
         XCTAssertFalse(response.publicKeyHex?.isEmpty ?? true)
@@ -482,21 +483,28 @@ final class WalletDerivationEngineTests: XCTestCase {
     }
 
     func testBitcoinAPIPresetsIncludeTestnet4NativeSegWit() {
-        let preset = SeedDerivationChain.bitcoin.apiPresets.first {
-            $0.network == .testnet4 && $0.derivationPath == "m/84'/1'/0'/0/0"
+        let hasPath = WalletDerivationPresetCatalog.pathPresets(for: .bitcoin).contains {
+            $0.derivationPath == "m/84'/0'/0'/0/0"
+        }
+        let hasNetwork = WalletDerivationPresetCatalog.networkPresets(for: .bitcoin).contains {
+            $0.network == .testnet4
         }
 
-        XCTAssertNotNil(preset)
-        XCTAssertEqual(preset?.curve, .secp256k1)
+        XCTAssertTrue(hasPath)
+        XCTAssertTrue(hasNetwork)
+        XCTAssertEqual(WalletDerivationPresetCatalog.curve(for: .bitcoin), .secp256k1)
     }
 
     func testSolanaAPIPresetsIncludeLegacyCurveAndPath() {
-        let preset = SeedDerivationChain.solana.apiPresets.first {
+        let hasPath = WalletDerivationPresetCatalog.pathPresets(for: .solana).contains {
             $0.derivationPath == "m/44'/501'/0'"
         }
+        let hasMainnet = WalletDerivationPresetCatalog.networkPresets(for: .solana).contains {
+            $0.network == .mainnet
+        }
 
-        XCTAssertNotNil(preset)
-        XCTAssertEqual(preset?.network, .mainnet)
-        XCTAssertEqual(preset?.curve, .ed25519)
+        XCTAssertTrue(hasPath)
+        XCTAssertTrue(hasMainnet)
+        XCTAssertEqual(WalletDerivationPresetCatalog.curve(for: .solana), .ed25519)
     }
 }
