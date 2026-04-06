@@ -1,6 +1,5 @@
 import Foundation
 import CryptoKit
-import WalletCore
 
 enum UTXOAddressCodec {
     enum SegWitAddressEncoding {
@@ -105,10 +104,7 @@ enum UTXOAddressCodec {
         privateKeyData: Data,
         version: UInt8
     ) throws -> String {
-        guard let privateKey = PrivateKey(data: privateKeyData) else {
-            throw UTXOAddressCodecError.invalidPrivateKey
-        }
-        let publicKey = privateKey.getPublicKeySecp256k1(compressed: true).data
+        let publicKey = try compressedSecp256k1PublicKey(privateKeyData: privateKeyData)
         let payload = Data([version]) + hash160(publicKey)
         return base58CheckEncode(payload)
     }
@@ -117,10 +113,7 @@ enum UTXOAddressCodec {
         privateKeyData: Data,
         scriptVersion: UInt8
     ) throws -> String {
-        guard let privateKey = PrivateKey(data: privateKeyData) else {
-            throw UTXOAddressCodecError.invalidPrivateKey
-        }
-        let publicKey = privateKey.getPublicKeySecp256k1(compressed: true).data
+        let publicKey = try compressedSecp256k1PublicKey(privateKeyData: privateKeyData)
         let witnessProgram = hash160(publicKey)
         let redeemScript = Data([0x00, 0x14]) + witnessProgram
         let payload = Data([scriptVersion]) + hash160(redeemScript)
@@ -133,20 +126,16 @@ enum UTXOAddressCodec {
         witnessVersion: UInt8 = 0,
         encoding: SegWitAddressEncoding = .bech32
     ) throws -> String {
-        guard let privateKey = PrivateKey(data: privateKeyData) else {
-            throw UTXOAddressCodecError.invalidPrivateKey
-        }
+        let compressedPublicKey = try compressedSecp256k1PublicKey(privateKeyData: privateKeyData)
         let program: Data
         switch witnessVersion {
         case 0:
-            let publicKey = privateKey.getPublicKeySecp256k1(compressed: true).data
-            program = hash160(publicKey)
+            program = hash160(compressedPublicKey)
         case 1:
-            let publicKey = privateKey.getPublicKeySecp256k1(compressed: true).data
-            guard publicKey.count == 33 else {
+            guard compressedPublicKey.count == 33 else {
                 throw UTXOAddressCodecError.unsupportedWitnessVersion
             }
-            program = publicKey.dropFirst()
+            program = compressedPublicKey.dropFirst()
         default:
             throw UTXOAddressCodecError.unsupportedWitnessVersion
         }
@@ -258,6 +247,25 @@ enum UTXOAddressCodec {
         }
 
         return result
+    }
+
+    private static func compressedSecp256k1PublicKey(privateKeyData: Data) throws -> Data {
+        guard privateKeyData.count == 32 else {
+            throw UTXOAddressCodecError.invalidPrivateKey
+        }
+        let privateKeyHex = privateKeyData.map { String(format: "%02x", $0) }.joined()
+        let response = try WalletRustDerivationBridge.deriveFromPrivateKey(
+            chain: .bitcoin,
+            network: .mainnet,
+            curve: .secp256k1,
+            privateKeyHex: privateKeyHex
+        )
+        guard let publicKeyHex = response.publicKeyHex,
+              let publicKeyData = Data(hexEncoded: publicKeyHex),
+              publicKeyData.count == 33 else {
+            throw UTXOAddressCodecError.invalidPrivateKey
+        }
+        return publicKeyData
     }
 }
 

@@ -1,14 +1,9 @@
 import Foundation
-import WalletCore
 
 enum AddressValidation {
     static func isValidBitcoinAddress(_ address: String, networkMode: BitcoinNetworkMode) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
-
-        if networkMode == .mainnet, CoinType.bitcoin.validate(address: trimmed) {
-            return true
-        }
 
         return BitcoinWalletEngine.isValidAddress(trimmed, networkMode: networkMode)
     }
@@ -17,14 +12,9 @@ enum AddressValidation {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
-        if CoinType.bitcoinCash.validate(address: trimmed) {
-            return true
-        }
-
         let lowered = trimmed.lowercased()
         if lowered.hasPrefix("bitcoincash:") {
-            return CoinType.bitcoinCash.validate(address: String(lowered.dropFirst("bitcoincash:".count)))
-                || lowered.dropFirst("bitcoincash:".count).allSatisfy { "023456789acdefghjklmnpqrstuvwxyz".contains($0) }
+            return lowered.dropFirst("bitcoincash:".count).allSatisfy { "023456789acdefghjklmnpqrstuvwxyz".contains($0) }
         }
 
         return lowered.hasPrefix("q")
@@ -37,10 +27,6 @@ enum AddressValidation {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
-        if CoinType.bitcoin.validate(address: trimmed) {
-            return true
-        }
-
         let lowered = trimmed.lowercased()
         return lowered.hasPrefix("1")
             || lowered.hasPrefix("3")
@@ -50,10 +36,6 @@ enum AddressValidation {
     static func isValidLitecoinAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
-
-        if CoinType.litecoin.validate(address: trimmed) {
-            return true
-        }
 
         // Legacy prefixes for Litecoin mainnet (base58 + bech32)
         let lowered = trimmed.lowercased()
@@ -70,10 +52,6 @@ enum AddressValidation {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
-        if networkMode == .mainnet, CoinType.dogecoin.validate(address: trimmed) {
-            return true
-        }
-
         return DogecoinBalanceService.isValidDogecoinAddress(trimmed, networkMode: networkMode)
     }
 
@@ -81,20 +59,12 @@ enum AddressValidation {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
-        if CoinType.ethereum.validate(address: trimmed) {
-            return true
-        }
-
         return EthereumWalletEngine.isValidAddress(trimmed)
     }
 
     static func isValidTronAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
-
-        if CoinType.tron.validate(address: trimmed) {
-            return true
-        }
 
         let allowed = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
         return trimmed.count == 34
@@ -106,10 +76,6 @@ enum AddressValidation {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
-        if CoinType.solana.validate(address: trimmed) {
-            return true
-        }
-
         let allowed = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
         return (32 ... 44).contains(trimmed.count)
             && trimmed.allSatisfy { allowed.contains($0) }
@@ -118,10 +84,6 @@ enum AddressValidation {
     static func isValidStellarAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
-
-        if CoinType.stellar.validate(address: trimmed) {
-            return true
-        }
 
         let allowed = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"
         return trimmed.count == 56
@@ -133,10 +95,6 @@ enum AddressValidation {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
-        if CoinType.xrp.validate(address: trimmed) {
-            return true
-        }
-
         let allowed = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
         return (25 ... 35).contains(trimmed.count)
             && trimmed.hasPrefix("r")
@@ -146,10 +104,6 @@ enum AddressValidation {
     static func isValidSuiAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
-
-        if CoinType.sui.validate(address: trimmed) {
-            return true
-        }
 
         let lower = trimmed.lowercased()
         guard lower.hasPrefix("0x") else { return false }
@@ -162,10 +116,6 @@ enum AddressValidation {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
-        if CoinType.aptos.validate(address: trimmed) {
-            return true
-        }
-
         let lower = trimmed.lowercased()
         let normalized = lower.hasPrefix("0x") ? String(lower.dropFirst(2)) : lower
         guard !normalized.isEmpty, normalized.count <= 64 else { return false }
@@ -175,10 +125,6 @@ enum AddressValidation {
     static func isValidTONAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
-
-        if CoinType.ton.validate(address: trimmed) || AnyAddress.isValid(string: trimmed, coin: .ton) {
-            return true
-        }
 
         let normalized = trimmed.lowercased()
         if normalized.count == 66,
@@ -211,10 +157,6 @@ enum AddressValidation {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
-        if CoinType.internetComputer.validate(address: trimmed) {
-            return true
-        }
-
         let normalized = trimmed.lowercased()
         guard normalized.count == 64 else { return false }
         return normalized.unicodeScalars.allSatisfy {
@@ -225,10 +167,6 @@ enum AddressValidation {
     static func isValidNearAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
-
-        if CoinType.near.validate(address: trimmed) {
-            return true
-        }
 
         let normalized = trimmed.lowercased()
         if normalized.count == 64,
@@ -265,10 +203,6 @@ enum AddressValidation {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
-        if CoinType.polkadot.validate(address: trimmed) {
-            return true
-        }
-
         let allowed = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
         return (47 ... 50).contains(trimmed.count)
             && trimmed.allSatisfy { allowed.contains($0) }
@@ -294,10 +228,6 @@ enum AddressValidation {
     static func isValidCardanoAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
-
-        if CoinType.cardano.validate(address: trimmed) {
-            return true
-        }
 
         // Basic fallback for common Shelley-era bech32 forms.
         let lowered = trimmed.lowercased()

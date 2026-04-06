@@ -333,7 +333,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "set -euo pipefail\n\nRUST_DIR=\"${SRCROOT}/Spectra/Derivation/Rust\"\nCARGO_TARGET_DIR=\"${SRCROOT}/.rust-build/cargo-target\"\nTARGET_ROOT=\"${SRCROOT}/.rust-build/apple\"\nSIM_OUT=\"${TARGET_ROOT}/ios-simulator\"\nDEVICE_OUT=\"${TARGET_ROOT}/ios-device\"\n\nif ! command -v cargo >/dev/null 2>&1; then\n  echo \"error: cargo is required to build Rust derivation core\"\n  exit 1\nfi\n\nif [[ \"${PLATFORM_NAME}\" == *simulator* ]]; then\n  mkdir -p \"${SIM_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios-sim x86_64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios-sim\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target x86_64-apple-ios\n\n  lipo -create \\\n    \"${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libspectra_derivation.a\" \\\n    \"${CARGO_TARGET_DIR}/x86_64-apple-ios/debug/libspectra_derivation.a\" \\\n    -output \"${SIM_OUT}/libspectra_derivation.a\"\nelse\n  mkdir -p \"${DEVICE_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios\n  cp \"${CARGO_TARGET_DIR}/aarch64-apple-ios/debug/libspectra_derivation.a\" \"${DEVICE_OUT}/libspectra_derivation.a\"\nfi\n";
+			shellScript = "set -euo pipefail\n\nRUST_DIR=\"${SRCROOT}/Spectra/Derivation/Rust\"\nCARGO_TARGET_DIR=\"${SRCROOT}/.rust-build/cargo-target\"\nTARGET_ROOT=\"${SRCROOT}/.rust-build/apple\"\nSIM_OUT=\"${TARGET_ROOT}/ios-simulator\"\nDEVICE_OUT=\"${TARGET_ROOT}/ios-device\"\n\n# Xcode build phases run in a minimal shell, so cargo may not be on PATH.\nexport PATH=\"${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}\"\nif [[ -f \"${HOME}/.cargo/env\" ]]; then\n  # shellcheck disable=SC1090\n  source \"${HOME}/.cargo/env\"\nfi\n\nif ! command -v cargo >/dev/null 2>&1; then\n  echo \"error: cargo is required to build Rust derivation core\"\n  echo \"hint: install Rust with 'brew install rustup-init && rustup-init' or from https://rustup.rs\"\n  exit 1\nfi\n\nif [[ \"${PLATFORM_NAME}\" == *simulator* ]]; then\n  mkdir -p \"${SIM_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios-sim x86_64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios-sim\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target x86_64-apple-ios\n\n  lipo -create \\\n    \"${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libspectra_derivation.a\" \\\n    \"${CARGO_TARGET_DIR}/x86_64-apple-ios/debug/libspectra_derivation.a\" \\\n    -output \"${SIM_OUT}/libspectra_derivation.a\"\nelse\n  mkdir -p \"${DEVICE_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios\n  cp \"${CARGO_TARGET_DIR}/aarch64-apple-ios/debug/libspectra_derivation.a\" \"${DEVICE_OUT}/libspectra_derivation.a\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -519,14 +519,22 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/.rust-build/apple/ios-simulator",
-					"$(PROJECT_DIR)/.rust-build/apple/ios-device",
-				);
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Spectra/Derivation/Rust/target/debug/deps",
+					"$(PROJECT_DIR)/Spectra/Derivation/Rust/target/debug/build/secp256k1-sys-4005f9e67744317d/out",
+				);
+				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/.rust-build/apple/ios-device",
+				);
+				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/.rust-build/apple/ios-simulator",
 				);
 				MARKETING_VERSION = 1.0.0;
 				OTHER_LDFLAGS = (
@@ -570,14 +578,22 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/.rust-build/apple/ios-simulator",
-					"$(PROJECT_DIR)/.rust-build/apple/ios-device",
-				);
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Spectra/Derivation/Rust/target/debug/deps",
+					"$(PROJECT_DIR)/Spectra/Derivation/Rust/target/debug/build/secp256k1-sys-4005f9e67744317d/out",
+				);
+				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/.rust-build/apple/ios-device",
+				);
+				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/.rust-build/apple/ios-simulator",
 				);
 				MARKETING_VERSION = 1.0.0;
 				OTHER_LDFLAGS = (

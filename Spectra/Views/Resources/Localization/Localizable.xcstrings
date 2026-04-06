@@ -11137,7 +11137,11 @@
         }
       }
     },
+    "Invalid mnemonic phrase for derivation." : {
+
+    },
     "Invalid mnemonic phrase for Wallet Core derivation." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

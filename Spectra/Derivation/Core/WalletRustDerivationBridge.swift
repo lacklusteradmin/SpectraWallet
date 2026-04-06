@@ -109,6 +109,16 @@ struct WalletRustDerivationRequestModel {
     let iterationCount: UInt32
 }
 
+struct WalletRustPrivateKeyRequestModel {
+    let chain: WalletRustFFIChain
+    let network: WalletRustFFINetwork
+    let curve: WalletRustFFICurve
+    let addressAlgorithm: WalletRustFFIAddressAlgorithm
+    let publicKeyFormat: WalletRustFFIPublicKeyFormat
+    let scriptType: WalletRustFFIScriptType
+    let privateKeyHex: String
+}
+
 struct WalletRustFFIBuffer {
     var ptr: UnsafeMutablePointer<UInt8>?
     var len: Int
@@ -131,6 +141,16 @@ struct WalletRustFFIRequest {
     var hmacKeyUTF8: WalletRustFFIBuffer
     var mnemonicWordlistUTF8: WalletRustFFIBuffer
     var iterationCount: UInt32
+}
+
+struct WalletRustFFIPrivateKeyRequest {
+    var chain: UInt32
+    var network: UInt32
+    var curve: UInt32
+    var addressAlgorithm: UInt32
+    var publicKeyFormat: UInt32
+    var scriptType: UInt32
+    var privateKeyHexUTF8: WalletRustFFIBuffer
 }
 
 struct WalletRustFFIResponse {
@@ -311,9 +331,40 @@ extension WalletRustDerivationRequestModel {
     }
 }
 
+extension WalletRustPrivateKeyRequestModel {
+    func withFFIRequest<T>(_ body: (inout WalletRustFFIPrivateKeyRequest) throws -> T) rethrows -> T {
+        var privateKeyStorage = Array(privateKeyHex.utf8)
+        defer {
+            privateKeyStorage.zeroize()
+        }
+
+        var request = WalletRustFFIPrivateKeyRequest(
+            chain: chain.rawValue,
+            network: network.rawValue,
+            curve: curve.rawValue,
+            addressAlgorithm: addressAlgorithm.rawValue,
+            publicKeyFormat: publicKeyFormat.rawValue,
+            scriptType: scriptType.rawValue,
+            privateKeyHexUTF8: privateKeyStorage.withUnsafeMutableBytes { bytes in
+                WalletRustFFIBuffer(
+                    ptr: bytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
+                    len: bytes.count
+                )
+            }
+        )
+
+        return try body(&request)
+    }
+}
+
 @_silgen_name("spectra_derivation_derive")
 private func spectra_derivation_derive(
     _ request: UnsafePointer<WalletRustFFIRequest>?
+) -> UnsafeMutablePointer<WalletRustFFIResponse>?
+
+@_silgen_name("spectra_derivation_derive_from_private_key")
+private func spectra_derivation_derive_from_private_key(
+    _ request: UnsafePointer<WalletRustFFIPrivateKeyRequest>?
 ) -> UnsafeMutablePointer<WalletRustFFIResponse>?
 
 @_silgen_name("spectra_derivation_response_free")
@@ -372,6 +423,49 @@ enum WalletRustDerivationBridge {
             let response = responsePointer.pointee
             if response.statusCode != 0 {
                 let errorMessage = string(from: response.errorMessageUTF8) ?? "Rust derivation failed."
+                throw WalletRustDerivationBridgeError.rustCoreFailed(errorMessage)
+            }
+
+            return WalletRustDerivationResponseModel(
+                address: string(from: response.addressUTF8),
+                publicKeyHex: string(from: response.publicKeyHexUTF8),
+                privateKeyHex: string(from: response.privateKeyHexUTF8)
+            )
+        }
+    }
+
+    static func deriveFromPrivateKey(
+        chain: SeedDerivationChain,
+        network: WalletDerivationNetwork = .mainnet,
+        curve: WalletDerivationCurve,
+        privateKeyHex: String
+    ) throws -> WalletRustDerivationResponseModel {
+        guard let ffiChain = WalletRustFFIChain(chain: chain) else {
+            throw WalletRustDerivationBridgeError.rustCoreUnsupportedChain(chain.rawValue)
+        }
+
+        let requestModel = WalletRustPrivateKeyRequestModel(
+            chain: ffiChain,
+            network: WalletRustFFINetwork(network: network),
+            curve: WalletRustFFICurve(curve: curve),
+            addressAlgorithm: defaultAddressAlgorithm(for: ffiChain),
+            publicKeyFormat: defaultPublicKeyFormat(for: ffiChain),
+            scriptType: defaultScriptType(for: ffiChain, derivationPath: nil),
+            privateKeyHex: privateKeyHex
+        )
+
+        return try requestModel.withFFIRequest { request in
+            guard let responsePointer = withUnsafePointer(to: request, { spectra_derivation_derive_from_private_key($0) }) else {
+                throw WalletRustDerivationBridgeError.rustCoreReturnedNullResponse
+            }
+
+            defer {
+                spectra_derivation_response_free(responsePointer)
+            }
+
+            let response = responsePointer.pointee
+            if response.statusCode != 0 {
+                let errorMessage = string(from: response.errorMessageUTF8) ?? "Rust private-key derivation failed."
                 throw WalletRustDerivationBridgeError.rustCoreFailed(errorMessage)
             }
 

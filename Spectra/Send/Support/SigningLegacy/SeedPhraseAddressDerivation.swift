@@ -1,5 +1,4 @@
 import Foundation
-import WalletCore
 
 enum SeedPhraseAddressDerivation {
     static func materialAddress(
@@ -352,74 +351,23 @@ enum SeedPhraseAddressDerivation {
         normalizer: (String) -> String = { $0 },
         validator: (String) -> Bool
     ) throws -> String {
-        let rawKey = try privateKeyData(from: privateKeyHex)
-        guard let key = PrivateKey(data: rawKey) else {
+        let normalizedKey = PrivateKeyHex.normalized(from: privateKeyHex)
+        guard normalizedKey.count == 64 else {
             throw WalletCoreDerivationError.invalidPrivateKey
         }
-        let address = coinType(for: coin).deriveAddress(privateKey: key)
+        let response = try WalletRustDerivationBridge.deriveFromPrivateKey(
+            chain: coin.derivationChain,
+            network: .mainnet,
+            curve: WalletDerivationEngine.curve(for: coin.derivationChain),
+            privateKeyHex: normalizedKey
+        )
+        guard let address = response.address else {
+            throw WalletCoreDerivationError.invalidPrivateKey
+        }
         let normalized = normalizer(address)
         guard validator(normalized) else {
             throw WalletCoreDerivationError.invalidPrivateKey
         }
         return normalized
-    }
-
-    private static func privateKeyData(from rawValue: String) throws -> Data {
-        let normalized = PrivateKeyHex.normalized(from: rawValue)
-        guard normalized.count == 64 else {
-            throw WalletCoreDerivationError.invalidPrivateKey
-        }
-        var bytes: [UInt8] = []
-        bytes.reserveCapacity(32)
-        var index = normalized.startIndex
-        while index < normalized.endIndex {
-            let nextIndex = normalized.index(index, offsetBy: 2)
-            let byteString = normalized[index ..< nextIndex]
-            guard let byte = UInt8(byteString, radix: 16) else {
-                throw WalletCoreDerivationError.invalidPrivateKey
-            }
-            bytes.append(byte)
-            index = nextIndex
-        }
-        return Data(bytes)
-    }
-
-    private static func coinType(for coin: WalletCoreSupportedCoin) -> CoinType {
-        switch coin {
-        case .bitcoin:
-            return .bitcoin
-        case .bitcoinCash:
-            return .bitcoinCash
-        case .bitcoinSV:
-            return .bitcoin
-        case .litecoin:
-            return .litecoin
-        case .dogecoin:
-            return .dogecoin
-        case .ethereum:
-            return .ethereum
-        case .tron:
-            return .tron
-        case .solana:
-            return .solana
-        case .stellar:
-            return .stellar
-        case .xrp:
-            return .xrp
-        case .cardano:
-            return .cardano
-        case .sui:
-            return .sui
-        case .aptos:
-            return .aptos
-        case .ton:
-            return .ton
-        case .internetComputer:
-            return .internetComputer
-        case .near:
-            return .near
-        case .polkadot:
-            return .polkadot
-        }
     }
 }
