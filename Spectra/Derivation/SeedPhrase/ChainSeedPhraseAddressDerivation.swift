@@ -8,7 +8,7 @@ enum SeedPhraseAddressDerivation {
         derivationPath: String,
         normalizer: (String) -> String = { $0 }
     ) throws -> String {
-        let material = try WalletCoreDerivation.deriveMaterial(
+        let material = try SeedPhraseSigningMaterial.material(
             seedPhrase: SeedPhraseSafety.normalizedPhrase(from: seedPhrase),
             coin: coin,
             derivationPath: derivationPath
@@ -21,7 +21,7 @@ enum SeedPhraseAddressDerivation {
         coin: WalletCoreSupportedCoin,
         normalizer: (String) -> String = { $0 }
     ) throws -> String {
-        let material = try WalletCoreDerivation.deriveMaterial(privateKeyHex: privateKeyHex, coin: coin)
+        let material = try SeedPhraseSigningMaterial.material(privateKeyHex: privateKeyHex, coin: coin)
         return normalizer(material.address)
     }
 
@@ -70,10 +70,11 @@ enum SeedPhraseAddressDerivation {
             branch: isChange ? .change : .external,
             index: UInt32(max(index, 0))
         )
-        let material = try WalletCoreDerivation.deriveMaterial(
+        let material = try SeedPhraseSigningMaterial.material(
             seedPhrase: SeedPhraseSafety.normalizedPhrase(from: seedPhrase),
             coin: .dogecoin,
-            derivationPath: derivationPath
+            derivationPath: derivationPath,
+            passphrase: nil
         )
         let address = try UTXOAddressCodec.legacyP2PKHAddress(
             privateKeyData: material.privateKeyData,
@@ -102,24 +103,26 @@ enum SeedPhraseAddressDerivation {
             throw WalletCoreDerivationError.invalidMnemonic
         }
 
-        let material = try WalletCoreDerivation.deriveMaterial(
+        let material = try SeedPhraseSigningMaterial.material(
             seedPhrase: normalizedSeedPhrase,
             coin: .ethereum,
-            derivationPath: derivationPath ?? chain.derivationPath(account: account)
+            derivationPath: derivationPath ?? chain.derivationPath(account: account),
+            passphrase: nil
         )
         return material.address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     static func evmAddress(forPrivateKey privateKeyHex: String) throws -> String {
-        let material = try WalletCoreDerivation.deriveMaterial(privateKeyHex: privateKeyHex, coin: .ethereum)
+        let material = try SeedPhraseSigningMaterial.material(privateKeyHex: privateKeyHex, coin: .ethereum)
         return material.address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
     static func tronAddress(seedPhrase: String, derivationPath: String) throws -> String {
-        let material = try WalletCoreDerivation.deriveMaterial(
+        let material = try SeedPhraseSigningMaterial.material(
             seedPhrase: seedPhrase,
             coin: .tron,
-            account: DerivationPathParser.segmentValue(at: 2, in: derivationPath) ?? 0
+            derivationPath: derivationPath,
+            passphrase: nil
         )
         guard AddressValidation.isValidTronAddress(material.address) else {
             throw WalletCoreDerivationError.invalidMnemonic
@@ -128,7 +131,7 @@ enum SeedPhraseAddressDerivation {
     }
 
     static func tronAddress(forPrivateKey privateKeyHex: String) throws -> String {
-        let material = try WalletCoreDerivation.deriveMaterial(privateKeyHex: privateKeyHex, coin: .tron)
+        let material = try SeedPhraseSigningMaterial.material(privateKeyHex: privateKeyHex, coin: .tron)
         guard AddressValidation.isValidTronAddress(material.address) else {
             throw WalletCoreDerivationError.invalidPrivateKey
         }
@@ -141,9 +144,6 @@ enum SeedPhraseAddressDerivation {
         account: UInt32
     ) throws -> String {
         let normalizedMnemonic = SeedPhraseSafety.normalizedPhrase(from: seedPhrase)
-        guard let wallet = HDWallet(mnemonic: normalizedMnemonic, passphrase: "") else {
-            throw WalletCoreDerivationError.invalidMnemonic
-        }
 
         let preferredPath: String
         switch preference {
@@ -159,8 +159,17 @@ enum SeedPhraseAddressDerivation {
         ]
 
         for path in candidatePaths {
-            let key = wallet.getKey(coin: .solana, derivationPath: path)
-            let address = CoinType.solana.deriveAddress(privateKey: key)
+            let result = try WalletDerivationEngine.derive(
+                seedPhrase: normalizedMnemonic,
+                request: WalletDerivationRequest(
+                    chain: .solana,
+                    network: .mainnet,
+                    derivationPath: path,
+                    curve: .ed25519,
+                    requestedOutputs: [.address]
+                )
+            )
+            guard let address = result.address else { continue }
             if AddressValidation.isValidSolanaAddress(address) {
                 return address
             }
@@ -324,10 +333,11 @@ enum SeedPhraseAddressDerivation {
         normalizer: (String) -> String = { $0 },
         validator: (String) -> Bool
     ) throws -> String {
-        let material = try WalletCoreDerivation.deriveMaterial(
+        let material = try SeedPhraseSigningMaterial.material(
             seedPhrase: seedPhrase,
             coin: coin,
-            derivationPath: derivationPath
+            derivationPath: derivationPath,
+            passphrase: nil
         )
         let normalized = normalizer(material.address)
         guard validator(normalized) else {
@@ -342,11 +352,74 @@ enum SeedPhraseAddressDerivation {
         normalizer: (String) -> String = { $0 },
         validator: (String) -> Bool
     ) throws -> String {
-        let material = try WalletCoreDerivation.deriveMaterial(privateKeyHex: privateKeyHex, coin: coin)
-        let normalized = normalizer(material.address)
+        let rawKey = try privateKeyData(from: privateKeyHex)
+        guard let key = PrivateKey(data: rawKey) else {
+            throw WalletCoreDerivationError.invalidPrivateKey
+        }
+        let address = coinType(for: coin).deriveAddress(privateKey: key)
+        let normalized = normalizer(address)
         guard validator(normalized) else {
             throw WalletCoreDerivationError.invalidPrivateKey
         }
         return normalized
+    }
+
+    private static func privateKeyData(from rawValue: String) throws -> Data {
+        let normalized = PrivateKeyHex.normalized(from: rawValue)
+        guard normalized.count == 64 else {
+            throw WalletCoreDerivationError.invalidPrivateKey
+        }
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(32)
+        var index = normalized.startIndex
+        while index < normalized.endIndex {
+            let nextIndex = normalized.index(index, offsetBy: 2)
+            let byteString = normalized[index ..< nextIndex]
+            guard let byte = UInt8(byteString, radix: 16) else {
+                throw WalletCoreDerivationError.invalidPrivateKey
+            }
+            bytes.append(byte)
+            index = nextIndex
+        }
+        return Data(bytes)
+    }
+
+    private static func coinType(for coin: WalletCoreSupportedCoin) -> CoinType {
+        switch coin {
+        case .bitcoin:
+            return .bitcoin
+        case .bitcoinCash:
+            return .bitcoinCash
+        case .bitcoinSV:
+            return .bitcoin
+        case .litecoin:
+            return .litecoin
+        case .dogecoin:
+            return .dogecoin
+        case .ethereum:
+            return .ethereum
+        case .tron:
+            return .tron
+        case .solana:
+            return .solana
+        case .stellar:
+            return .stellar
+        case .xrp:
+            return .xrp
+        case .cardano:
+            return .cardano
+        case .sui:
+            return .sui
+        case .aptos:
+            return .aptos
+        case .ton:
+            return .ton
+        case .internetComputer:
+            return .internetComputer
+        case .near:
+            return .near
+        case .polkadot:
+            return .polkadot
+        }
     }
 }

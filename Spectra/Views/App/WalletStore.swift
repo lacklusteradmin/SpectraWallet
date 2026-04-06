@@ -4093,21 +4093,6 @@ func resetImportForm() {
         }
     }
 
-    private func utxoDiscoveryCoin(for chainName: String) -> WalletCoreSupportedCoin? {
-        switch chainName {
-        case "Bitcoin":
-            return .bitcoin
-        case "Bitcoin Cash":
-            return .bitcoinCash
-        case "Bitcoin SV":
-            return .bitcoinSV
-        case "Litecoin":
-            return .litecoin
-        default:
-            return nil
-        }
-    }
-
     private func isValidUTXOAddressForPolicy(_ address: String, chainName: String) -> Bool {
         switch chainName {
         case "Bitcoin":
@@ -4166,7 +4151,7 @@ func resetImportForm() {
         index: Int
     ) -> String? {
         guard let seedPhrase = storedSeedPhrase(for: wallet.id),
-              let _ = utxoDiscoveryCoin(for: chainName),
+              supportsDeepUTXODiscovery(chainName: chainName) || chainName == "Bitcoin",
               let derivationPath = utxoDiscoveryDerivationPath(
                 for: wallet,
                 chainName: chainName,

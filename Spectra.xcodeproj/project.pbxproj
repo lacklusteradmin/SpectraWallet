@@ -7,8 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		9034B3352F81D84B00F139B6 /* WalletAddressInventory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9034B20E2F81D84B00F139B6 /* WalletAddressInventory.swift */; };
-		9034B3362F81D84B00F139B6 /* WalletAddressValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9034B20F2F81D84B00F139B6 /* WalletAddressValidation.swift */; };
 		9059229D2F5D2C49003ACDA5 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = 9059229C2F5D2C49003ACDA5 /* KeychainAccess */; };
 		905923012F5D3777003ACDA5 /* WalletCoreSwiftProtobuf in Frameworks */ = {isa = PBXBuildFile; productRef = 905923002F5D3777003ACDA5 /* WalletCoreSwiftProtobuf */; };
 		9067974A2F580FA9005E53E0 /* BitcoinDevKit in Frameworks */ = {isa = PBXBuildFile; productRef = 906797492F580FA9005E53E0 /* BitcoinDevKit */; };
@@ -50,8 +48,6 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		9034B20E2F81D84B00F139B6 /* WalletAddressInventory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletAddressInventory.swift; sourceTree = "<group>"; };
-		9034B20F2F81D84B00F139B6 /* WalletAddressValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletAddressValidation.swift; sourceTree = "<group>"; };
 		907491632F56D1E500D098D2 /* Spectra.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Spectra.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		90AEE1792F5AFB43008CFE5E /* Spectra.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = Spectra.xctestplan; sourceTree = "<group>"; };
 		91B000012F5B000100AAA001 /* SpectraTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpectraTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -157,8 +153,6 @@
 			children = (
 				90AEE1792F5AFB43008CFE5E /* Spectra.xctestplan */,
 				907491652F56D1E500D098D2 /* Spectra */,
-				9034B20F2F81D84B00F139B6 /* WalletAddressValidation.swift */,
-				9034B20E2F81D84B00F139B6 /* WalletAddressInventory.swift */,
 			);
 			sourceTree = "<group>";
 		};
@@ -179,6 +173,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 9074916E2F56D1E600D098D2 /* Build configuration list for PBXNativeTarget "Spectra" */;
 			buildPhases = (
+				92A5D0013B01000100A1B2C3 /* Build Rust Derivation Core */,
 				9074915F2F56D1E500D098D2 /* Sources */,
 				907491602F56D1E500D098D2 /* Frameworks */,
 				907491612F56D1E500D098D2 /* Resources */,
@@ -317,13 +312,36 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		92A5D0013B01000100A1B2C3 /* Build Rust Derivation Core */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/Spectra/Derivation/Rust/Cargo.toml",
+				"$(SRCROOT)/Spectra/Derivation/Rust/src/lib.rs",
+			);
+			name = "Build Rust Derivation Core";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/.rust-build/apple/ios-simulator/libspectra_derivation.a",
+				"$(SRCROOT)/.rust-build/apple/ios-device/libspectra_derivation.a",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/bash;
+			shellScript = "set -euo pipefail\n\nRUST_DIR=\"${SRCROOT}/Spectra/Derivation/Rust\"\nCARGO_TARGET_DIR=\"${SRCROOT}/.rust-build/cargo-target\"\nTARGET_ROOT=\"${SRCROOT}/.rust-build/apple\"\nSIM_OUT=\"${TARGET_ROOT}/ios-simulator\"\nDEVICE_OUT=\"${TARGET_ROOT}/ios-device\"\n\nif ! command -v cargo >/dev/null 2>&1; then\n  echo \"error: cargo is required to build Rust derivation core\"\n  exit 1\nfi\n\nif [[ \"${PLATFORM_NAME}\" == *simulator* ]]; then\n  mkdir -p \"${SIM_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios-sim x86_64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios-sim\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target x86_64-apple-ios\n\n  lipo -create \\\n    \"${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libspectra_derivation.a\" \\\n    \"${CARGO_TARGET_DIR}/x86_64-apple-ios/debug/libspectra_derivation.a\" \\\n    -output \"${SIM_OUT}/libspectra_derivation.a\"\nelse\n  mkdir -p \"${DEVICE_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios\n  cp \"${CARGO_TARGET_DIR}/aarch64-apple-ios/debug/libspectra_derivation.a\" \"${DEVICE_OUT}/libspectra_derivation.a\"\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		9074915F2F56D1E500D098D2 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9034B3352F81D84B00F139B6 /* WalletAddressInventory.swift in Sources */,
-				9034B3362F81D84B00F139B6 /* WalletAddressValidation.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -488,6 +506,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
@@ -500,11 +519,20 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/.rust-build/apple/ios-simulator",
+					"$(PROJECT_DIR)/.rust-build/apple/ios-device",
+				);
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lspectra_derivation",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.sheny.Spectra;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -529,6 +557,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = "$(inherited)";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
@@ -541,11 +570,20 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/.rust-build/apple/ios-simulator",
+					"$(PROJECT_DIR)/.rust-build/apple/ios-device",
+				);
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0.0;
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lspectra_derivation",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.sheny.Spectra;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;

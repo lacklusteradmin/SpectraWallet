@@ -58,17 +58,16 @@ private enum WalletAddressInventoryFactory {
                 requestedOutputs: [.address]
             )
         )
-        let material = try WalletCoreDerivation.deriveMaterial(
-            seedPhrase: seedPhrase,
-            coin: walletCoreCoin(for: chain),
-            derivationPath: derivationPath
-        )
+        let segments = DerivationPathParser.parse(derivationPath)
+        let account = segments.flatMap { $0.count >= 3 ? $0[2].value : nil }
+        let branchIndex = segments.flatMap { $0.count >= 2 ? $0[$0.count - 2].value : nil }
+        let index = segments?.last?.value
         return entry(
-            address: values.address ?? material.address,
-            derivationPath: material.derivationPath,
-            account: material.account,
-            branchIndex: material.branch.rawValue == WalletDerivationBranch.change.rawValue ? 1 : 0,
-            addressIndex: material.index,
+            address: values.address ?? "",
+            derivationPath: derivationPath,
+            account: account,
+            branchIndex: branchIndex,
+            addressIndex: index,
             role: role
         )
     }
@@ -229,18 +228,27 @@ extension AptosWalletEngine {
 
 extension TronWalletEngine {
     static func addressInventory(for seedPhrase: String, account: UInt32 = 0) throws -> WalletAddressInventory {
-        let material = try WalletCoreDerivation.deriveMaterial(
+        let derivationPath = WalletDerivationPath.bip44(slip44CoinType: 195, account: account)
+        let material = try WalletDerivationEngine.derive(
             seedPhrase: seedPhrase,
-            coin: .tron,
-            account: account
+            request: WalletDerivationRequest(
+                chain: .tron,
+                network: .mainnet,
+                derivationPath: derivationPath,
+                curve: .secp256k1,
+                requestedOutputs: [.address]
+            )
         )
-        guard AddressValidation.isValidTronAddress(material.address) else {
+        guard let address = material.address else {
+            throw TronWalletEngineError.invalidSeedPhrase
+        }
+        guard AddressValidation.isValidTronAddress(address) else {
             throw TronWalletEngineError.invalidSeedPhrase
         }
         return WalletAddressInventoryFactory.singleAddressInventory(
-            address: material.address,
-            derivationPath: material.derivationPath,
-            account: material.account
+            address: address,
+            derivationPath: derivationPath,
+            account: account
         )
     }
 }
@@ -351,44 +359,5 @@ extension MoneroWalletEngine {
             derivationPath: nil,
             account: nil
         )
-    }
-}
-
-private func walletCoreCoin(for chain: SeedDerivationChain) -> WalletCoreSupportedCoin {
-    switch chain {
-    case .bitcoin:
-        return .bitcoin
-    case .bitcoinCash:
-        return .bitcoinCash
-    case .bitcoinSV:
-        return .bitcoinSV
-    case .litecoin:
-        return .litecoin
-    case .dogecoin:
-        return .dogecoin
-    case .ethereum, .ethereumClassic, .arbitrum, .optimism, .avalanche, .hyperliquid:
-        return .ethereum
-    case .tron:
-        return .tron
-    case .solana:
-        return .solana
-    case .stellar:
-        return .stellar
-    case .xrp:
-        return .xrp
-    case .cardano:
-        return .cardano
-    case .sui:
-        return .sui
-    case .aptos:
-        return .aptos
-    case .ton:
-        return .ton
-    case .internetComputer:
-        return .internetComputer
-    case .near:
-        return .near
-    case .polkadot:
-        return .polkadot
     }
 }

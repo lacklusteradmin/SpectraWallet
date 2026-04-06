@@ -21,6 +21,25 @@ enum WalletRustFFIChain: UInt32 {
     case bitcoin = 0
     case ethereum = 1
     case solana = 2
+    case bitcoinCash = 3
+    case bitcoinSV = 4
+    case litecoin = 5
+    case dogecoin = 6
+    case ethereumClassic = 7
+    case arbitrum = 8
+    case optimism = 9
+    case avalanche = 10
+    case hyperliquid = 11
+    case tron = 12
+    case stellar = 13
+    case xrp = 14
+    case cardano = 15
+    case sui = 16
+    case aptos = 17
+    case ton = 18
+    case internetComputer = 19
+    case near = 20
+    case polkadot = 21
 }
 
 enum WalletRustFFINetwork: UInt32 {
@@ -137,8 +156,44 @@ extension WalletRustFFIChain {
             self = .ethereum
         case .solana:
             self = .solana
-        default:
-            return nil
+        case .bitcoinCash:
+            self = .bitcoinCash
+        case .bitcoinSV:
+            self = .bitcoinSV
+        case .litecoin:
+            self = .litecoin
+        case .dogecoin:
+            self = .dogecoin
+        case .ethereumClassic:
+            self = .ethereumClassic
+        case .arbitrum:
+            self = .arbitrum
+        case .optimism:
+            self = .optimism
+        case .avalanche:
+            self = .avalanche
+        case .hyperliquid:
+            self = .hyperliquid
+        case .tron:
+            self = .tron
+        case .stellar:
+            self = .stellar
+        case .xrp:
+            self = .xrp
+        case .cardano:
+            self = .cardano
+        case .sui:
+            self = .sui
+        case .aptos:
+            self = .aptos
+        case .ton:
+            self = .ton
+        case .internetComputer:
+            self = .internetComputer
+        case .near:
+            self = .near
+        case .polkadot:
+            self = .polkadot
         }
     }
 }
@@ -338,9 +393,29 @@ enum WalletRustDerivationBridge {
         for chain: WalletRustFFIChain
     ) -> WalletRustFFIDerivationAlgorithm {
         switch chain {
-        case .bitcoin, .ethereum:
+        case .bitcoin,
+             .bitcoinCash,
+             .bitcoinSV,
+             .litecoin,
+             .dogecoin,
+             .ethereum,
+             .ethereumClassic,
+             .arbitrum,
+             .optimism,
+             .avalanche,
+             .hyperliquid,
+             .tron,
+             .xrp:
             return .bip32Secp256k1
-        case .solana:
+        case .solana,
+             .stellar,
+             .cardano,
+             .sui,
+             .aptos,
+             .ton,
+             .internetComputer,
+             .near,
+             .polkadot:
             return .slip10Ed25519
         }
     }
@@ -349,11 +424,25 @@ enum WalletRustDerivationBridge {
         for chain: WalletRustFFIChain
     ) -> WalletRustFFIAddressAlgorithm {
         switch chain {
-        case .bitcoin:
+        case .bitcoin, .bitcoinCash, .bitcoinSV, .litecoin, .dogecoin, .xrp:
             return .bitcoin
-        case .ethereum:
+        case .ethereum,
+             .ethereumClassic,
+             .arbitrum,
+             .optimism,
+             .avalanche,
+             .hyperliquid,
+             .tron:
             return .evm
-        case .solana:
+        case .solana,
+             .stellar,
+             .cardano,
+             .sui,
+             .aptos,
+             .ton,
+             .internetComputer,
+             .near,
+             .polkadot:
             return .solana
         }
     }
@@ -362,9 +451,25 @@ enum WalletRustDerivationBridge {
         for chain: WalletRustFFIChain
     ) -> WalletRustFFIPublicKeyFormat {
         switch chain {
-        case .bitcoin, .ethereum:
+        case .bitcoin, .bitcoinCash, .bitcoinSV, .litecoin, .dogecoin, .xrp:
             return .compressed
-        case .solana:
+        case .ethereum,
+             .ethereumClassic,
+             .arbitrum,
+             .optimism,
+             .avalanche,
+             .hyperliquid,
+             .tron:
+            return .uncompressed
+        case .solana,
+             .stellar,
+             .cardano,
+             .sui,
+             .aptos,
+             .ton,
+             .internetComputer,
+             .near,
+             .polkadot:
             return .raw
         }
     }
@@ -389,7 +494,24 @@ enum WalletRustDerivationBridge {
             default:
                 return .auto
             }
-        case .ethereum, .solana:
+        case .bitcoinCash, .bitcoinSV, .litecoin, .dogecoin, .xrp:
+            return .p2pkh
+        case .ethereum,
+             .ethereumClassic,
+             .arbitrum,
+             .optimism,
+             .avalanche,
+             .hyperliquid,
+             .tron,
+             .solana,
+             .stellar,
+             .cardano,
+             .sui,
+             .aptos,
+             .ton,
+             .internetComputer,
+             .near,
+             .polkadot:
             return .account
         }
     }

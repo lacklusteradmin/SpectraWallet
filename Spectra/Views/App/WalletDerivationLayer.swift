@@ -20,6 +20,13 @@ private struct WalletDerivationLayerJSONResponse: Codable {
 
 enum WalletDerivationLayer {
     static func derive(
+        seedPhrase: String,
+        request: WalletDerivationRequest
+    ) throws -> WalletDerivationResult {
+        try WalletDerivationEngine.derive(seedPhrase: seedPhrase, request: request)
+    }
+
+    static func derive(
         jsonData: Data
     ) throws -> Data {
         try WalletDerivationEngine.derive(jsonData: jsonData)

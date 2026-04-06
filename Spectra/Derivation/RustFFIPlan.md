@@ -1,92 +1,32 @@
-# Rust FFI Plan
+# Rust FFI Plan (Current)
 
-## Goal
+## Scope
 
-Keep the existing Swift derivation surface alive while moving the derivation core to Rust.
+Keep `Derivation/` as the app-facing API and run derivation core logic in Rust through the FFI bridge.
 
-## Foundation added in this pass
+## Current Status
 
-- `Rust/Cargo.toml`
-- `Rust/src/lib.rs`
-- `Rust/include/spectra_derivation.h`
-- `WalletRustDerivationBridge.swift`
-- Swift FFI ids and request-model mapping
+- `WalletDerivationEngine` derives via Rust bridge.
+- FFI chain IDs are expanded for all currently supported `SeedDerivationChain` cases.
+- Rust library is built and linked by Xcode build phase.
+- Rust unit smoke test validates derivation output presence for all supported chains.
 
-## Current implementation scope
+## Boundary Contract
 
-- Rust derivation is narrowed to Bitcoin first.
-- Ethereum is intentionally unsupported in the Rust core for now.
-- Solana is intentionally unsupported in the Rust core for now.
-- Swift remains the active derivation implementation.
-- Swift now has a frozen FFI-side request model and enum mapping.
+- Runtime boundary is raw FFI (`spectra_derivation_derive`, `spectra_derivation_response_free`).
+- Request/response structs are defined in:
+  - `Spectra/Derivation/Rust/include/spectra_derivation.h`
+- Secret inputs are passed as UTF-8 buffers and zeroized on Swift side after call.
 
-## Frozen ABI ids
+## Remaining Cleanup/Migration
 
-### Chain
+1. Replace `Derivation/SeedPhrase/*` WalletCore-backed material helpers with Rust-backed equivalents.
+2. Remove `Derivation/WalletCore/WalletCoreDerivationSupport.swift` once no callers remain.
+3. Remove Derivation-local `WalletCore` imports and update dependent send engines.
+4. Keep parity checks for address/public/private key outputs per chain.
 
-- `0` = Bitcoin
-- `1` = Ethereum
-- `2` = Solana
+## Guardrails
 
-### Network
-
-- `0` = mainnet
-- `1` = testnet
-- `2` = testnet4
-- `3` = signet
-
-### Curve
-
-- `0` = secp256k1
-- `1` = ed25519
-
-### Requested outputs bitflags
-
-- `1 << 0` = address
-- `1 << 1` = public key
-- `1 << 2` = private key
-
-### Derivation algorithm
-
-- `0` = auto
-- `1` = BIP-32 secp256k1
-- `2` = SLIP-0010 ed25519
-
-### Address algorithm
-
-- `0` = auto
-- `1` = Bitcoin
-- `2` = EVM
-- `3` = Solana
-
-### Public key format
-
-- `0` = auto
-- `1` = compressed
-- `2` = uncompressed
-- `3` = x-only
-- `4` = raw
-
-### Script type
-
-- `0` = auto
-- `1` = P2PKH
-- `2` = P2SH-P2WPKH
-- `3` = P2WPKH
-- `4` = P2TR
-- `5` = account-style
-
-## What is intentionally not done yet
-
-- Xcode Rust linking setup is still pending
-- no non-Bitcoin chain derivation logic is implemented in Rust yet
-- Swift WalletCore-backed derivation path has been removed from `WalletDerivationEngine`
-
-## Next concrete steps
-
-1. Freeze ABI enum values.
-2. Add Swift FFI struct wrappers matching the C header.
-3. Make the Bitcoin-only Rust path compile cleanly.
-4. Add parity tests against the current Swift Bitcoin output.
-5. Implement Ethereum in Rust.
-6. Implement Solana in Rust.
+- Do not change numeric FFI IDs casually.
+- Keep top-level ownership boundaries intact: `Derivation/`, `Fetch/`, `Send/`.
+- Keep seed safety first: minimize exposure, zeroize buffers, avoid plaintext logging.

@@ -130,6 +130,10 @@ enum WalletDerivationPresetCatalog {
         chainPreset(for: chain).defaultPath
     }
 
+    static func defaultPreset(for chain: SeedDerivationChain) -> WalletDerivationPathPreset {
+        defaultPathPreset(for: chain)
+    }
+
     static func defaultPath(
         for chain: SeedDerivationChain,
         network: WalletDerivationNetwork = .mainnet

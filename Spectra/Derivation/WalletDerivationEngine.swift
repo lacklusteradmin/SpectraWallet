@@ -58,6 +58,37 @@ struct WalletDerivationResult {
     let privateKeyHex: String?
 }
 
+struct WalletDerivationRequest {
+    let chain: SeedDerivationChain
+    let network: WalletDerivationNetwork
+    let derivationPath: String?
+    let curve: WalletDerivationCurve
+    let passphrase: String?
+    let iterationCount: Int?
+    let hmacKeyString: String?
+    let requestedOutputs: WalletDerivationRequestedOutputs
+
+    init(
+        chain: SeedDerivationChain,
+        network: WalletDerivationNetwork,
+        derivationPath: String?,
+        curve: WalletDerivationCurve,
+        passphrase: String? = nil,
+        iterationCount: Int? = nil,
+        hmacKeyString: String? = nil,
+        requestedOutputs: WalletDerivationRequestedOutputs = .all
+    ) {
+        self.chain = chain
+        self.network = network
+        self.derivationPath = derivationPath
+        self.curve = curve
+        self.passphrase = passphrase
+        self.iterationCount = iterationCount
+        self.hmacKeyString = hmacKeyString
+        self.requestedOutputs = requestedOutputs
+    }
+}
+
 private struct WalletDerivationJSONRequestPayload: Codable {
     let chain: SeedDerivationChain
     let network: WalletDerivationNetwork
@@ -119,6 +150,20 @@ enum WalletDerivationEngineError: LocalizedError {
 }
 
 enum WalletDerivationEngine {
+    static func derive(seedPhrase: String, request: WalletDerivationRequest) throws -> WalletDerivationResult {
+        let query = WalletDerivationQuery(
+            chain: request.chain,
+            network: request.network,
+            derivationPath: request.derivationPath,
+            curve: request.curve,
+            passphrase: request.passphrase,
+            iterationCount: request.iterationCount,
+            hmacKeyString: request.hmacKeyString,
+            requestedOutputs: request.requestedOutputs
+        )
+        return try derive(seedPhrase: seedPhrase, query: query)
+    }
+
     static func derive(jsonData: Data) throws -> Data {
         let decoder = JSONDecoder()
         let payload = try decoder.decode(WalletDerivationJSONRequestPayload.self, from: jsonData)
