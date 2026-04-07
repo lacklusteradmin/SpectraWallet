@@ -189,6 +189,19 @@ final class WalletImportDraft: ObservableObject {
         return BitcoinWalletEngine.invalidEnglishWords(in: seedPhrase)
     }
 
+    var seedPhraseLengthWarning: String? {
+        guard !isEditingWallet else { return nil }
+        let count = selectedSeedPhraseWordCount
+        guard count > 0 else { return "Seed phrase length must be at least 1 word." }
+        if count < 12 {
+            return "Seed phrase is too short. Use at least 12 words."
+        }
+        if !BitcoinWalletEngine.validMnemonicWordCounts.contains(count) {
+            return "Non-standard length selected. BIP-39 standard lengths are 12, 15, 18, 21, or 24 words."
+        }
+        return nil
+    }
+
     private var isSeedPhraseEntryComplete: Bool {
         guard selectedSeedPhraseWordCount > 0 else { return false }
         guard seedPhraseEntries.count >= selectedSeedPhraseWordCount else { return false }
@@ -576,6 +589,13 @@ final class WalletImportDraft: ObservableObject {
 
     func regenerateSeedPhrase() {
         guard isCreateMode else { return }
+        guard BitcoinWalletEngine.validMnemonicWordCounts.contains(selectedSeedPhraseWordCount) else {
+            seedPhrase = ""
+            seedPhraseEntries = Array(repeating: "", count: selectedSeedPhraseWordCount)
+            backupVerificationWordIndices = []
+            backupVerificationEntries = []
+            return
+        }
         let generatedPhrase = (try? BitcoinWalletEngine.generateMnemonic(wordCount: selectedSeedPhraseWordCount)) ?? ""
         seedPhrase = generatedPhrase
         let generatedWords = BitcoinWalletEngine.normalizedMnemonicWords(from: generatedPhrase)
@@ -644,6 +664,14 @@ final class WalletImportDraft: ObservableObject {
         backupVerificationEntries[index] = value
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .lowercased()
+    }
+
+    func applyCustomSeedPhraseWordCount(_ rawValue: String) {
+        let digits = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !digits.isEmpty, let parsed = Int(digits) else { return }
+        let clamped = min(max(parsed, 1), 48)
+        guard clamped != selectedSeedPhraseWordCount else { return }
+        selectedSeedPhraseWordCount = clamped
     }
 
     private func resizeSeedPhraseEntries(to count: Int) {

@@ -22,7 +22,9 @@ struct DashboardView: View {
     @State private var dashboardPage: DashboardPage = .assets
     @State private var isShowingPinnedAssetsSheet = false
     @State private var selectedWalletID: UUID?
+    @State private var walletPageIndex: Int = 0
     @State private var selectedAssetGroup: DashboardAssetGroup?
+    @State private var isShowingAddWalletPage: Bool = false
 
     init(store: WalletStore) {
         self.store = store
@@ -87,20 +89,15 @@ struct DashboardView: View {
                 }
 
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button("Create New Wallet") {
-                            store.beginWalletCreation()
-                        }
-                        Button("Import Existing Wallet") {
-                            store.beginWalletImport()
-                        }
-                        Button("Watch Addresses") {
-                            store.beginWatchAddressesImport()
-                        }
+                    Button {
+                        isShowingAddWalletPage = true
                     } label: {
                         Image(systemName: "plus")
                     }
                 }
+            }
+            .navigationDestination(isPresented: $isShowingAddWalletPage) {
+                AddWalletEntryView(store: store)
             }
             .navigationDestination(isPresented: Binding(
                 get: { flowState.isShowingWalletImporter && flowState.editingWalletID == nil },
@@ -157,6 +154,14 @@ struct DashboardView: View {
                 }
             } message: {
                 Text(deleteWalletMessage)
+            }
+            .onChange(of: portfolioState.walletsRevision) { _, _ in
+                let walletCount = portfolioState.wallets.count
+                if walletCount == 0 {
+                    walletPageIndex = 0
+                } else if walletPageIndex >= walletCount {
+                    walletPageIndex = walletCount - 1
+                }
             }
         }
     }
@@ -300,24 +305,72 @@ struct DashboardView: View {
                 .padding(16)
                 .glassEffect(.regular.tint(.white.opacity(0.025)), in: .rect(cornerRadius: 24))
             } else {
-                ForEach(portfolioState.wallets) { wallet in
-                    WalletCardView(
-                        store: store,
-                        presentation: WalletCardView.Presentation(
-                            wallet: wallet,
-                            totalValueText: store.hideBalances
-                                ? "••••••"
-                                : store.formattedFiatAmountOrZero(fromUSD: store.currentTotalIfAvailable(for: wallet)),
-                            assetCountText: localizedFormat("%lld assets", wallet.holdings.filter { $0.amount > 0 }.count),
-                            isWatchOnly: store.isWatchOnlyWallet(wallet),
-                            walletBadge: Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, "W", .mint)
+                let wallets = portfolioState.wallets
+                let safePageIndex = min(max(walletPageIndex, 0), max(wallets.count - 1, 0))
+
+                TabView(selection: Binding(
+                    get: { safePageIndex },
+                    set: { walletPageIndex = $0 }
+                )) {
+                    ForEach(Array(wallets.enumerated()), id: \.element.id) { index, wallet in
+                        WalletCardView(
+                            store: store,
+                            presentation: WalletCardView.Presentation(
+                                wallet: wallet,
+                                totalValueText: store.hideBalances
+                                    ? "••••••"
+                                    : store.formattedFiatAmountOrZero(fromUSD: store.currentTotalIfAvailable(for: wallet)),
+                                assetCountText: localizedFormat("%lld assets", wallet.holdings.filter { $0.amount > 0 }.count),
+                                isWatchOnly: store.isWatchOnlyWallet(wallet),
+                                walletBadge: Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, "W", .mint)
+                            )
                         )
-                    )
                         .contentShape(Rectangle())
                         .onTapGesture {
                             selectedWalletID = wallet.id
                         }
+                        .tag(index)
+                    }
                 }
+                .tabViewStyle(.page(indexDisplayMode: .never))
+                .frame(height: 108)
+
+                HStack(spacing: 10) {
+                    Button {
+                        walletPageIndex = max(walletPageIndex - 1, 0)
+                    } label: {
+                        Image(systemName: "chevron.left")
+                            .font(.footnote.weight(.semibold))
+                    }
+                    .buttonStyle(.glass)
+                    .disabled(safePageIndex == 0)
+
+                    Spacer()
+
+                    Text("Wallet \(safePageIndex + 1) of \(wallets.count)")
+                        .font(.caption)
+                        .foregroundStyle(Color.primary.opacity(0.72))
+
+                    Spacer()
+
+                    Button {
+                        walletPageIndex = min(walletPageIndex + 1, wallets.count - 1)
+                    } label: {
+                        Image(systemName: "chevron.right")
+                            .font(.footnote.weight(.semibold))
+                    }
+                    .buttonStyle(.glass)
+                    .disabled(safePageIndex >= wallets.count - 1)
+                }
+
+                HStack(spacing: 6) {
+                    ForEach(Array(wallets.indices), id: \.self) { index in
+                        Capsule()
+                            .fill(index == safePageIndex ? Color.primary.opacity(0.85) : Color.primary.opacity(0.2))
+                            .frame(width: index == safePageIndex ? 18 : 6, height: 6)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
             }
         }
     }

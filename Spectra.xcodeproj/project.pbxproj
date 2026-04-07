@@ -66,18 +66,18 @@
 		90F0BA0D2F5C4A76004E29F3 /* Exceptions for "Spectra" folder in "Spectra" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Tests/BitcoinBalanceTests.swift,
-				Tests/CardanoBalanceTests.swift,
-				Tests/DiagnosticsBundleTests.swift,
-				Tests/DogecoinBalanceTests.swift,
-				Tests/LitecoinBalanceTests.swift,
-				Tests/MoneroBalanceTests.swift,
-				Tests/NetworkClientTests.swift,
-				Tests/SecureSeedStoreTests.swift,
-				Tests/SolanaBalanceTests.swift,
-				Tests/SuiBalanceTests.swift,
-				Tests/TESTING_WORKFLOW.md,
-				Tests/XRPBalanceTests.swift,
+				Tests/Balance/BitcoinBalanceTests.swift,
+				Tests/Balance/CardanoBalanceTests.swift,
+				Tests/Balance/DogecoinBalanceTests.swift,
+				Tests/Balance/LitecoinBalanceTests.swift,
+				Tests/Balance/MoneroBalanceTests.swift,
+				Tests/Balance/SolanaBalanceTests.swift,
+				Tests/Balance/SuiBalanceTests.swift,
+				Tests/Balance/XRPBalanceTests.swift,
+				Tests/Diagnostics/DiagnosticsBundleTests.swift,
+				Tests/Docs/TESTING_WORKFLOW.md,
+				Tests/Networking/NetworkClientTests.swift,
+				Tests/Store/SecureSeedStoreTests.swift,
 				Views/Extensions/SpectraLiveActivityExtension/Info.plist,
 				Views/Extensions/SpectraLiveActivityExtension/SendLiveActivityWidget.swift,
 			);
@@ -86,17 +86,17 @@
 		90F0BA0E2F5C4A76004E29F3 /* Exceptions for "Spectra" folder in "SpectraTests" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Tests/BitcoinBalanceTests.swift,
-				Tests/CardanoBalanceTests.swift,
-				Tests/DiagnosticsBundleTests.swift,
-				Tests/DogecoinBalanceTests.swift,
-				Tests/LitecoinBalanceTests.swift,
-				Tests/MoneroBalanceTests.swift,
-				Tests/NetworkClientTests.swift,
-				Tests/SecureSeedStoreTests.swift,
-				Tests/SolanaBalanceTests.swift,
-				Tests/SuiBalanceTests.swift,
-				Tests/XRPBalanceTests.swift,
+				Tests/Balance/BitcoinBalanceTests.swift,
+				Tests/Balance/CardanoBalanceTests.swift,
+				Tests/Balance/DogecoinBalanceTests.swift,
+				Tests/Balance/LitecoinBalanceTests.swift,
+				Tests/Balance/MoneroBalanceTests.swift,
+				Tests/Balance/SolanaBalanceTests.swift,
+				Tests/Balance/SuiBalanceTests.swift,
+				Tests/Balance/XRPBalanceTests.swift,
+				Tests/Diagnostics/DiagnosticsBundleTests.swift,
+				Tests/Networking/NetworkClientTests.swift,
+				Tests/Store/SecureSeedStoreTests.swift,
 			);
 			target = 91B0000C2F5B000100AAA001 /* SpectraTests */;
 		};

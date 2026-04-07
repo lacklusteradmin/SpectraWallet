@@ -4,6 +4,7 @@ enum WalletRustDerivationBridgeError: LocalizedError {
     case rustCoreUnsupportedChain(String)
     case rustCoreReturnedNullResponse
     case rustCoreFailed(String)
+    case requestCompilationFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -12,6 +13,8 @@ enum WalletRustDerivationBridgeError: LocalizedError {
         case .rustCoreReturnedNullResponse:
             return "The Rust derivation core returned an empty response."
         case .rustCoreFailed(let message):
+            return message
+        case .requestCompilationFailed(let message):
             return message
         }
     }
@@ -390,19 +393,28 @@ enum WalletRustDerivationBridge {
         guard let ffiChain = WalletRustFFIChain(chain: chain) else {
             throw WalletRustDerivationBridgeError.rustCoreUnsupportedChain(chain.rawValue)
         }
+        let requestCompilationPreset = WalletDerivationPresetCatalog.requestCompilationPreset(for: chain)
         let effectiveCurve = WalletRustFFICurve(curve: WalletDerivationPresetCatalog.curve(for: chain))
+        let trimmedPath = derivationPath?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let resolvedDerivationPath = (trimmedPath?.isEmpty == false)
+            ? trimmedPath
+            : WalletDerivationPresetCatalog.defaultPath(for: chain, network: network)
+        let compiledScriptType = try compileScriptType(
+            from: requestCompilationPreset,
+            derivationPath: resolvedDerivationPath
+        )
 
         return WalletRustDerivationRequestModel(
             chain: ffiChain,
             network: WalletRustFFINetwork(network: network),
             curve: effectiveCurve,
             requestedOutputs: WalletRustFFIRequestedOutputs(outputs: requestedOutputs),
-            derivationAlgorithm: defaultDerivationAlgorithm(for: ffiChain),
-            addressAlgorithm: defaultAddressAlgorithm(for: ffiChain),
-            publicKeyFormat: defaultPublicKeyFormat(for: ffiChain),
-            scriptType: defaultScriptType(for: ffiChain, derivationPath: derivationPath),
+            derivationAlgorithm: ffiDerivationAlgorithm(from: requestCompilationPreset.derivationAlgorithm),
+            addressAlgorithm: ffiAddressAlgorithm(from: requestCompilationPreset.addressAlgorithm),
+            publicKeyFormat: ffiPublicKeyFormat(from: requestCompilationPreset.publicKeyFormat),
+            scriptType: compiledScriptType,
             seedPhrase: seedPhrase,
-            derivationPath: derivationPath,
+            derivationPath: resolvedDerivationPath,
             passphrase: passphrase,
             hmacKey: hmacKeyString,
             mnemonicWordlist: "english",
@@ -428,14 +440,18 @@ enum WalletRustDerivationBridge {
         guard let ffiChain = WalletRustFFIChain(chain: chain) else {
             throw WalletRustDerivationBridgeError.rustCoreUnsupportedChain(chain.rawValue)
         }
+        let requestCompilationPreset = WalletDerivationPresetCatalog.requestCompilationPreset(for: chain)
 
         let requestModel = WalletRustPrivateKeyRequestModel(
             chain: ffiChain,
             network: WalletRustFFINetwork(network: network),
             curve: WalletRustFFICurve(curve: WalletDerivationPresetCatalog.curve(for: chain)),
-            addressAlgorithm: defaultAddressAlgorithm(for: ffiChain),
-            publicKeyFormat: defaultPublicKeyFormat(for: ffiChain),
-            scriptType: defaultScriptType(for: ffiChain, derivationPath: nil),
+            addressAlgorithm: ffiAddressAlgorithm(from: requestCompilationPreset.addressAlgorithm),
+            publicKeyFormat: ffiPublicKeyFormat(from: requestCompilationPreset.publicKeyFormat),
+            scriptType: try compileScriptType(
+                from: requestCompilationPreset,
+                derivationPath: WalletDerivationPresetCatalog.defaultPath(for: chain)
+            ),
             privateKeyHex: privateKeyHex
         )
 
@@ -479,129 +495,86 @@ enum WalletRustDerivationBridge {
         return String(decoding: bytes, as: UTF8.self)
     }
 
-    private static func defaultDerivationAlgorithm(
-        for chain: WalletRustFFIChain
+    private static func ffiDerivationAlgorithm(
+        from preset: WalletDerivationRequestDerivationAlgorithmPreset
     ) -> WalletRustFFIDerivationAlgorithm {
-        switch chain {
-        case .bitcoin,
-             .bitcoinCash,
-             .bitcoinSV,
-             .litecoin,
-             .dogecoin,
-             .ethereum,
-             .ethereumClassic,
-             .arbitrum,
-             .optimism,
-             .avalanche,
-             .hyperliquid,
-             .tron,
-             .xrp:
+        switch preset {
+        case .bip32Secp256k1:
             return .bip32Secp256k1
-        case .solana,
-             .stellar,
-             .cardano,
-             .sui,
-             .aptos,
-             .ton,
-             .internetComputer,
-             .near,
-             .polkadot:
+        case .slip10Ed25519:
             return .slip10Ed25519
         }
     }
 
-    private static func defaultAddressAlgorithm(
-        for chain: WalletRustFFIChain
+    private static func ffiAddressAlgorithm(
+        from preset: WalletDerivationRequestAddressAlgorithmPreset
     ) -> WalletRustFFIAddressAlgorithm {
-        switch chain {
-        case .bitcoin, .bitcoinCash, .bitcoinSV, .litecoin, .dogecoin, .xrp:
+        switch preset {
+        case .bitcoin:
             return .bitcoin
-        case .ethereum,
-             .ethereumClassic,
-             .arbitrum,
-             .optimism,
-             .avalanche,
-             .hyperliquid,
-             .tron:
+        case .evm:
             return .evm
-        case .solana,
-             .stellar,
-             .cardano,
-             .sui,
-             .aptos,
-             .ton,
-             .internetComputer,
-             .near,
-             .polkadot:
+        case .solana:
             return .solana
         }
     }
 
-    private static func defaultPublicKeyFormat(
-        for chain: WalletRustFFIChain
+    private static func ffiPublicKeyFormat(
+        from preset: WalletDerivationRequestPublicKeyFormatPreset
     ) -> WalletRustFFIPublicKeyFormat {
-        switch chain {
-        case .bitcoin, .bitcoinCash, .bitcoinSV, .litecoin, .dogecoin, .xrp:
+        switch preset {
+        case .compressed:
             return .compressed
-        case .ethereum,
-             .ethereumClassic,
-             .arbitrum,
-             .optimism,
-             .avalanche,
-             .hyperliquid,
-             .tron:
+        case .uncompressed:
             return .uncompressed
-        case .solana,
-             .stellar,
-             .cardano,
-             .sui,
-             .aptos,
-             .ton,
-             .internetComputer,
-             .near,
-             .polkadot:
+        case .xOnly:
+            return .xOnly
+        case .raw:
             return .raw
         }
     }
 
-    private static func defaultScriptType(
-        for chain: WalletRustFFIChain,
+    private static func compileScriptType(
+        from preset: WalletDerivationRequestCompilationPreset,
         derivationPath: String?
-    ) -> WalletRustFFIScriptType {
-        switch chain {
-        case .bitcoin:
-            let purpose = derivationPath
-                .flatMap { DerivationPathParser.segmentValue(at: 0, in: $0) } ?? 84
-            switch purpose {
-            case 44:
-                return .p2pkh
-            case 49:
-                return .p2shP2wpkh
-            case 84:
-                return .p2wpkh
-            case 86:
-                return .p2tr
-            default:
-                return .auto
+    ) throws -> WalletRustFFIScriptType {
+        switch preset.scriptPolicy {
+        case .bitcoinPurpose:
+            guard let purpose = derivationPath
+                .flatMap({ DerivationPathParser.segmentValue(at: 0, in: $0) }) else {
+                throw WalletRustDerivationBridgeError.requestCompilationFailed(
+                    "Unable to compile Bitcoin script type from derivation path."
+                )
             }
-        case .bitcoinCash, .bitcoinSV, .litecoin, .dogecoin, .xrp:
+            guard let mappedScript = preset.bitcoinPurposeScriptMap?[String(purpose)] else {
+                throw WalletRustDerivationBridgeError.requestCompilationFailed(
+                    "Unsupported Bitcoin derivation purpose \(purpose)."
+                )
+            }
+            return ffiScriptType(from: mappedScript)
+        case .fixed:
+            guard let fixedScriptType = preset.fixedScriptType else {
+                throw WalletRustDerivationBridgeError.requestCompilationFailed(
+                    "Fixed script policy requires fixedScriptType."
+                )
+            }
+            return ffiScriptType(from: fixedScriptType)
+        }
+    }
+
+    private static func ffiScriptType(
+        from preset: WalletDerivationRequestScriptTypePreset
+    ) -> WalletRustFFIScriptType {
+        switch preset {
+        case .p2pkh:
             return .p2pkh
-        case .ethereum,
-             .ethereumClassic,
-             .arbitrum,
-             .optimism,
-             .avalanche,
-             .hyperliquid,
-             .tron,
-             .solana,
-             .stellar,
-             .cardano,
-             .sui,
-             .aptos,
-             .ton,
-             .internetComputer,
-             .near,
-             .polkadot:
+        case .p2shP2wpkh:
+            return .p2shP2wpkh
+        case .p2wpkh:
+            return .p2wpkh
+        case .p2tr:
+            return .p2tr
+        case .account:
             return .account
         }
     }

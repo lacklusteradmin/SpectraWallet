@@ -37,6 +37,47 @@ struct WalletDerivationChainPreset: Codable, Equatable {
     }
 }
 
+enum WalletDerivationRequestDerivationAlgorithmPreset: String, Codable, Equatable {
+    case bip32Secp256k1
+    case slip10Ed25519
+}
+
+enum WalletDerivationRequestAddressAlgorithmPreset: String, Codable, Equatable {
+    case bitcoin
+    case evm
+    case solana
+}
+
+enum WalletDerivationRequestPublicKeyFormatPreset: String, Codable, Equatable {
+    case compressed
+    case uncompressed
+    case xOnly
+    case raw
+}
+
+enum WalletDerivationRequestScriptTypePreset: String, Codable, Equatable {
+    case p2pkh
+    case p2shP2wpkh
+    case p2wpkh
+    case p2tr
+    case account
+}
+
+enum WalletDerivationRequestScriptPolicyPreset: String, Codable, Equatable {
+    case fixed
+    case bitcoinPurpose
+}
+
+struct WalletDerivationRequestCompilationPreset: Codable, Equatable {
+    let chain: SeedDerivationChain
+    let derivationAlgorithm: WalletDerivationRequestDerivationAlgorithmPreset
+    let addressAlgorithm: WalletDerivationRequestAddressAlgorithmPreset
+    let publicKeyFormat: WalletDerivationRequestPublicKeyFormatPreset
+    let scriptPolicy: WalletDerivationRequestScriptPolicyPreset
+    let fixedScriptType: WalletDerivationRequestScriptTypePreset?
+    let bitcoinPurposeScriptMap: [String: WalletDerivationRequestScriptTypePreset]?
+}
+
 extension WalletDerivationRequestedOutputs {
     init(jsonValues: [String]) {
         var values: WalletDerivationRequestedOutputs = []
@@ -58,6 +99,7 @@ extension WalletDerivationRequestedOutputs {
 
 enum WalletDerivationPresetCatalog {
     static let all: [WalletDerivationChainPreset] = load()
+    static let requestCompilationAll: [WalletDerivationRequestCompilationPreset] = loadRequestCompilation()
 
     static func chainPreset(for chain: SeedDerivationChain) -> WalletDerivationChainPreset {
         guard let preset = all.first(where: { $0.chain == chain }) else {
@@ -76,6 +118,13 @@ enum WalletDerivationPresetCatalog {
 
     static func curve(for chain: SeedDerivationChain) -> WalletDerivationCurve {
         chainPreset(for: chain).curve
+    }
+
+    static func requestCompilationPreset(for chain: SeedDerivationChain) -> WalletDerivationRequestCompilationPreset {
+        guard let preset = requestCompilationAll.first(where: { $0.chain == chain }) else {
+            fatalError("Missing derivation request compilation preset for \(chain.rawValue)")
+        }
+        return preset
     }
 
     static func defaultNetwork(for chain: SeedDerivationChain) -> WalletDerivationNetworkPreset {
@@ -116,6 +165,25 @@ enum WalletDerivationPresetCatalog {
         guard let data = try? Data(contentsOf: resourceURL),
               let presets = try? decoder.decode([WalletDerivationChainPreset].self, from: data) else {
             fatalError("Invalid derivation preset JSON catalog")
+        }
+        return presets
+    }
+
+    private static func loadRequestCompilation() -> [WalletDerivationRequestCompilationPreset] {
+        let decoder = JSONDecoder()
+        let resourceURL = Bundle.main.url(
+            forResource: "DerivationRequestCompilationPresets",
+            withExtension: "json"
+        ) ?? Bundle.main.url(
+            forResource: "DerivationRequestCompilationPresets",
+            withExtension: "json",
+            subdirectory: "Derivation/Catalog"
+        ) ?? URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent("DerivationRequestCompilationPresets.json")
+        guard let data = try? Data(contentsOf: resourceURL),
+              let presets = try? decoder.decode([WalletDerivationRequestCompilationPreset].self, from: data) else {
+            fatalError("Invalid derivation request compilation preset JSON catalog")
         }
         return presets
     }

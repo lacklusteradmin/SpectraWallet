@@ -90,6 +90,7 @@ struct SetupView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var setupPage: SetupPage
     @State private var setupModeChoice: SetupModeChoice?
+    @State private var customSeedPhraseWordCountInput: String
     @State private var chainSearchText: String = ""
     @State private var isShowingAllChainsSheet: Bool = false
     @FocusState private var focusedSeedPhraseIndex: Int?
@@ -108,6 +109,7 @@ struct SetupView: View {
         self.draft = draft
         _flowState = ObservedObject(wrappedValue: store.flowState)
         _setupPage = State(initialValue: draft.isEditingWallet ? .details : .setupModeChoice)
+        _customSeedPhraseWordCountInput = State(initialValue: String(draft.selectedSeedPhraseWordCount))
     }
 
     private var isEditingWallet: Bool {
@@ -630,7 +632,31 @@ struct SetupView: View {
                         draft.regenerateSeedPhrase()
                     }
                     .buttonStyle(.glass)
+                    .disabled(!BitcoinWalletEngine.validMnemonicWordCounts.contains(draft.selectedSeedPhraseWordCount))
                 }
+            }
+
+            HStack(spacing: 10) {
+                TextField("Custom word count", text: $customSeedPhraseWordCountInput)
+                    .keyboardType(.numberPad)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .spectraInputFieldStyle()
+
+                Button("Apply") {
+                    draft.applyCustomSeedPhraseWordCount(customSeedPhraseWordCountInput)
+                    customSeedPhraseWordCountInput = String(draft.selectedSeedPhraseWordCount)
+                }
+                .buttonStyle(.glass)
+            }
+
+            if let seedPhraseLengthWarning = draft.seedPhraseLengthWarning {
+                Text(seedPhraseLengthWarning)
+                    .font(.footnote)
+                    .foregroundStyle(.orange.opacity(0.92))
             }
         }
     }
@@ -1745,6 +1771,9 @@ struct SetupView: View {
         .onChange(of: draft.mode) { _, mode in
             setupPage = draft.isEditingWallet ? .details : .setupModeChoice
             setupModeChoice = nil
+        }
+        .onChange(of: draft.selectedSeedPhraseWordCount) { _, newValue in
+            customSeedPhraseWordCountInput = String(newValue)
         }
     }
 }
