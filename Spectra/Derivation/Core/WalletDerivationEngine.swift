@@ -211,7 +211,6 @@ enum WalletDerivationEngine {
             network: query.network,
             seedPhrase: seedPhrase,
             derivationPath: query.derivationPath,
-            curve: query.curve,
             passphrase: query.passphrase,
             iterationCount: query.iterationCount,
             hmacKeyString: query.hmacKeyString,

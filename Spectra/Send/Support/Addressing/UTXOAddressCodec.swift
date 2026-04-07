@@ -257,7 +257,6 @@ enum UTXOAddressCodec {
         let response = try WalletRustDerivationBridge.deriveFromPrivateKey(
             chain: .bitcoin,
             network: .mainnet,
-            curve: .secp256k1,
             privateKeyHex: privateKeyHex
         )
         guard let publicKeyHex = response.publicKeyHex,

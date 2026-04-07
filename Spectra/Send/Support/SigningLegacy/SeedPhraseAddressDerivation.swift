@@ -358,7 +358,6 @@ enum SeedPhraseAddressDerivation {
         let response = try WalletRustDerivationBridge.deriveFromPrivateKey(
             chain: coin.derivationChain,
             network: .mainnet,
-            curve: WalletDerivationEngine.curve(for: coin.derivationChain),
             privateKeyHex: normalizedKey
         )
         guard let address = response.address else {

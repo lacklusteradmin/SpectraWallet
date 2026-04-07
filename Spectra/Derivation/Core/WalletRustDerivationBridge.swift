@@ -382,7 +382,6 @@ enum WalletRustDerivationBridge {
         network: WalletDerivationNetwork,
         seedPhrase: String,
         derivationPath: String?,
-        curve: WalletDerivationCurve,
         passphrase: String?,
         iterationCount: Int?,
         hmacKeyString: String?,
@@ -391,11 +390,12 @@ enum WalletRustDerivationBridge {
         guard let ffiChain = WalletRustFFIChain(chain: chain) else {
             throw WalletRustDerivationBridgeError.rustCoreUnsupportedChain(chain.rawValue)
         }
+        let effectiveCurve = WalletRustFFICurve(curve: WalletDerivationPresetCatalog.curve(for: chain))
 
         return WalletRustDerivationRequestModel(
             chain: ffiChain,
             network: WalletRustFFINetwork(network: network),
-            curve: WalletRustFFICurve(curve: curve),
+            curve: effectiveCurve,
             requestedOutputs: WalletRustFFIRequestedOutputs(outputs: requestedOutputs),
             derivationAlgorithm: defaultDerivationAlgorithm(for: ffiChain),
             addressAlgorithm: defaultAddressAlgorithm(for: ffiChain),
@@ -437,7 +437,6 @@ enum WalletRustDerivationBridge {
     static func deriveFromPrivateKey(
         chain: SeedDerivationChain,
         network: WalletDerivationNetwork = .mainnet,
-        curve: WalletDerivationCurve,
         privateKeyHex: String
     ) throws -> WalletRustDerivationResponseModel {
         guard let ffiChain = WalletRustFFIChain(chain: chain) else {
@@ -447,7 +446,7 @@ enum WalletRustDerivationBridge {
         let requestModel = WalletRustPrivateKeyRequestModel(
             chain: ffiChain,
             network: WalletRustFFINetwork(network: network),
-            curve: WalletRustFFICurve(curve: curve),
+            curve: WalletRustFFICurve(curve: WalletDerivationPresetCatalog.curve(for: chain)),
             addressAlgorithm: defaultAddressAlgorithm(for: ffiChain),
             publicKeyFormat: defaultPublicKeyFormat(for: ffiChain),
             scriptType: defaultScriptType(for: ffiChain, derivationPath: nil),

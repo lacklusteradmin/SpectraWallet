@@ -68,6 +68,7 @@ struct SetupView: View {
     }
 
     private enum SetupPage {
+        case setupModeChoice
         case details
         case watchAddresses
         case seedPhrase
@@ -76,13 +77,19 @@ struct SetupView: View {
         case backupVerification
     }
 
+    private enum SetupModeChoice {
+        case simple
+        case advanced
+    }
+
     @ObservedObject private var store: WalletStore
     @ObservedObject private var flowState: WalletFlowState
     @ObservedObject var draft: WalletImportDraft
     private let copy = ImportFlowContent.current
     @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
-    @State private var setupPage: SetupPage = .details
+    @State private var setupPage: SetupPage
+    @State private var setupModeChoice: SetupModeChoice?
     @State private var chainSearchText: String = ""
     @State private var isShowingAllChainsSheet: Bool = false
     @FocusState private var focusedSeedPhraseIndex: Int?
@@ -100,6 +107,7 @@ struct SetupView: View {
         _store = ObservedObject(wrappedValue: store)
         self.draft = draft
         _flowState = ObservedObject(wrappedValue: store.flowState)
+        _setupPage = State(initialValue: draft.isEditingWallet ? .details : .setupModeChoice)
     }
 
     private var isEditingWallet: Bool {
@@ -142,6 +150,10 @@ struct SetupView: View {
         setupPage == .details
     }
 
+    private var isShowingSetupModeChoicePage: Bool {
+        setupPage == .setupModeChoice
+    }
+
     private var isShowingSeedPhrasePage: Bool {
         setupPage == .seedPhrase
     }
@@ -162,7 +174,14 @@ struct SetupView: View {
         setupPage == .advanced
     }
 
+    private var isSimpleSetupSelected: Bool {
+        setupModeChoice == .simple
+    }
+
     private var setupTitle: String {
+        if isShowingSetupModeChoicePage {
+            return "Choose Setup Type"
+        }
         if isShowingBackupVerificationPage {
             return copy.backupVerificationTitle
         }
@@ -191,6 +210,9 @@ struct SetupView: View {
     }
 
     private var setupSubtitle: String {
+        if isShowingSetupModeChoicePage {
+            return "Start with a guided simple setup or continue with full advanced controls."
+        }
         if isShowingBackupVerificationPage {
             return copy.backupVerificationSubtitle
         }
@@ -315,6 +337,9 @@ struct SetupView: View {
     }
 
     private var primaryActionTitle: String {
+        if isShowingSetupModeChoicePage {
+            return NSLocalizedString("import_flow.next", comment: "Primary action title for next step")
+        }
         if isShowingDetailsPage && (usesSeedPhraseFlow || usesWatchAddressesFlow) {
             return NSLocalizedString("import_flow.next", comment: "Primary action title for next step")
         }
@@ -339,6 +364,9 @@ struct SetupView: View {
     }
 
     private var isPrimaryActionEnabled: Bool {
+        if isShowingSetupModeChoicePage {
+            return setupModeChoice != nil && !flowState.isImportingWallet
+        }
         if isShowingDetailsPage && (usesSeedPhraseFlow || usesWatchAddressesFlow) {
             return canAdvanceFromDetailsPage
         }
@@ -386,6 +414,76 @@ struct SetupView: View {
             return NSLocalizedString("import_flow.create_chain_selection_subtitle", comment: "Chain selection subtitle for create flow")
         }
         return NSLocalizedString("import_flow.import_chain_selection_subtitle", comment: "Chain selection subtitle for import flow")
+    }
+
+    @ViewBuilder
+    private var setupModeChoiceSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            setupModeButton(
+                title: "Simple Setup",
+                subtitle: "Recommended defaults and fewer required choices.",
+                iconName: "sparkles",
+                tint: .green,
+                choice: .simple
+            )
+
+            setupModeButton(
+                title: "Advanced Setup",
+                subtitle: "Configure derivation paths and network-level options.",
+                iconName: "slider.horizontal.3",
+                tint: .orange,
+                choice: .advanced
+            )
+        }
+    }
+
+    @ViewBuilder
+    private func setupModeButton(
+        title: String,
+        subtitle: String,
+        iconName: String,
+        tint: Color,
+        choice: SetupModeChoice
+    ) -> some View {
+        let isSelected = setupModeChoice == choice
+
+        Button {
+            setupModeChoice = choice
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: iconName)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(tint)
+                    .frame(width: 28, height: 28)
+                    .background(tint.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.primary)
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(Color.primary.opacity(0.68))
+                }
+
+                Spacer()
+
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(isSelected ? tint : Color.primary.opacity(0.3))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(isSelected ? tint.opacity(0.12) : Color.white.opacity(colorScheme == .light ? 0.78 : 0.05))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(isSelected ? tint.opacity(0.75) : Color.primary.opacity(0.08), lineWidth: 1)
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     @ViewBuilder
@@ -986,7 +1084,9 @@ struct SetupView: View {
     private var walletSecretStepSection: some View {
         if isCreateMode {
             createWalletSeedPhraseSection
-            derivationAdvancedButton
+            if !isSimpleSetupSelected {
+                derivationAdvancedButton
+            }
         } else {
             importSecretModePicker
 
@@ -996,7 +1096,9 @@ struct SetupView: View {
                 } else {
                     VStack(alignment: .leading, spacing: 16) {
                         newWalletSeedPhraseSection
-                        derivationAdvancedButton
+                        if !isSimpleSetupSelected {
+                            derivationAdvancedButton
+                        }
                     }
                 }
             }
@@ -1088,6 +1190,10 @@ struct SetupView: View {
                     
                     if isShowingBackupVerificationPage {
                         backupVerificationStepSection
+                    } else if isShowingSetupModeChoicePage {
+                        setupCard {
+                            setupModeChoiceSection
+                        }
                     } else if !isEditingWallet && isShowingDetailsPage {
                         setupCard {
                             VStack(alignment: .leading, spacing: 14) {
@@ -1545,6 +1651,12 @@ struct SetupView: View {
 
                     if !isShowingAdvancedPage {
                         Button(action: {
+                            if isShowingSetupModeChoicePage {
+                                withAnimation {
+                                    setupPage = .details
+                                }
+                                return
+                            }
                             if isShowingDetailsPage && usesWatchAddressesFlow {
                                 withAnimation {
                                     setupPage = .watchAddresses
@@ -1596,6 +1708,13 @@ struct SetupView: View {
                             }
                         }
                         .buttonStyle(.glass)
+                    } else if isShowingDetailsPage && !isEditingWallet {
+                        Button(NSLocalizedString("import_flow.back", comment: "Back button title")) {
+                            withAnimation {
+                                setupPage = .setupModeChoice
+                            }
+                        }
+                        .buttonStyle(.glass)
                     } else if isShowingAdvancedPage {
                         Button(NSLocalizedString("import_flow.back", comment: "Back button title")) {
                             withAnimation {
@@ -1624,7 +1743,8 @@ struct SetupView: View {
             }
         }
         .onChange(of: draft.mode) { _, mode in
-            setupPage = .details
+            setupPage = draft.isEditingWallet ? .details : .setupModeChoice
+            setupModeChoice = nil
         }
     }
 }
