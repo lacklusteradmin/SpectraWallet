@@ -2,103 +2,10 @@ import Foundation
 
 enum ChainBackendRegistry {
     static func broadcastProviderOptions(for chainName: String) -> [ChainBroadcastProviderOption] {
-        switch chainName {
-        case "Bitcoin":
-            return [
-                ChainBroadcastProviderOption(id: "esplora", title: "Esplora"),
-                ChainBroadcastProviderOption(id: "maestro-esplora", title: "Maestro Esplora")
-            ]
-        case "Bitcoin Cash":
-            return [
-                ChainBroadcastProviderOption(id: "blockchair", title: "Blockchair"),
-                ChainBroadcastProviderOption(id: "actorforth", title: "ActorForth REST")
-            ]
-        case "Bitcoin SV":
-            return [
-                ChainBroadcastProviderOption(id: "whatsonchain", title: "WhatsOnChain"),
-                ChainBroadcastProviderOption(id: "blockchair", title: "Blockchair")
-            ]
-        case "Litecoin":
-            return [
-                ChainBroadcastProviderOption(id: "litecoinspace", title: "LitecoinSpace"),
-                ChainBroadcastProviderOption(id: "blockcypher", title: "BlockCypher")
-            ]
-        case "Dogecoin":
-            return [
-                ChainBroadcastProviderOption(id: "blockcypher", title: "BlockCypher")
-            ]
-        case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid":
-            return [
-                ChainBroadcastProviderOption(id: "rpc", title: "RPC Broadcast")
-            ]
-        case "Tron":
-            return [
-                ChainBroadcastProviderOption(id: "trongrid-io", title: "TronGrid"),
-                ChainBroadcastProviderOption(id: "trongrid-pro", title: "TronGrid Pro"),
-                ChainBroadcastProviderOption(id: "trongrid-network", title: "TronGrid Network")
-            ]
-        case "Solana":
-            return [
-                ChainBroadcastProviderOption(id: "solana-mainnet-beta", title: "Solana Mainnet RPC"),
-                ChainBroadcastProviderOption(id: "solana-ankr", title: "Ankr Solana RPC")
-            ]
-        case "Cardano":
-            return [
-                ChainBroadcastProviderOption(id: "koios", title: "Koios"),
-                ChainBroadcastProviderOption(id: "xray-koios", title: "Xray Koios"),
-                ChainBroadcastProviderOption(id: "happystaking-koios", title: "HappyStake Koios")
-            ]
-        case "XRP Ledger":
-            return [
-                ChainBroadcastProviderOption(id: "ripple-s1", title: "Ripple RPC S1"),
-                ChainBroadcastProviderOption(id: "ripple-s2", title: "Ripple RPC S2"),
-                ChainBroadcastProviderOption(id: "xrplcluster", title: "XRPL Cluster")
-            ]
-        case "Stellar":
-            return [
-                ChainBroadcastProviderOption(id: "stellar-horizon", title: "Stellar Horizon"),
-                ChainBroadcastProviderOption(id: "lobstr-horizon", title: "LOBSTR Horizon")
-            ]
-        case "Monero":
-            return [
-                ChainBroadcastProviderOption(id: "edge-lws-1", title: "Edge Monero LWS 1"),
-                ChainBroadcastProviderOption(id: "edge-lws-2", title: "Edge Monero LWS 2"),
-                ChainBroadcastProviderOption(id: "edge-lws-3", title: "Edge Monero LWS 3")
-            ]
-        case "Sui":
-            return [
-                ChainBroadcastProviderOption(id: "sui-mainnet", title: "Sui Mainnet"),
-                ChainBroadcastProviderOption(id: "sui-publicnode", title: "PublicNode Sui"),
-                ChainBroadcastProviderOption(id: "sui-blockvision", title: "BlockVision Sui"),
-                ChainBroadcastProviderOption(id: "sui-blockpi", title: "BlockPI Sui"),
-                ChainBroadcastProviderOption(id: "sui-suiscan", title: "SuiScan RPC")
-            ]
-        case "Aptos":
-            return [
-                ChainBroadcastProviderOption(id: "aptoslabs-api", title: "Aptos Labs API"),
-                ChainBroadcastProviderOption(id: "blastapi-aptos", title: "BlastAPI Aptos"),
-                ChainBroadcastProviderOption(id: "aptoslabs-mainnet", title: "Aptos Mainnet")
-            ]
-        case "TON":
-            return [
-                ChainBroadcastProviderOption(id: "ton-api-v2", title: "TON API v2")
-            ]
-        case "Internet Computer":
-            return [
-                ChainBroadcastProviderOption(id: "rosetta", title: "Rosetta")
-            ]
-        case "NEAR":
-            return [
-                ChainBroadcastProviderOption(id: "near-mainnet-rpc", title: "NEAR Mainnet RPC"),
-                ChainBroadcastProviderOption(id: "fastnear-rpc", title: "FastNEAR RPC"),
-                ChainBroadcastProviderOption(id: "lava-near-rpc", title: "Lava NEAR RPC")
-            ]
-        case "Polkadot":
-            return [
-                ChainBroadcastProviderOption(id: "sidecar", title: "Sidecar")
-            ]
-        default:
-            return []
+        do {
+            return try WalletRustEndpointCatalogBridge.broadcastProviderOptions(for: chainName)
+        } catch {
+            preconditionFailure("Rust broadcast provider lookup failed for \(chainName): \(error.localizedDescription)")
         }
     }
 
@@ -431,88 +338,13 @@ enum ChainBackendRegistry {
     static let nearChainName = "NEAR"
     static let polkadotChainName = "Polkadot"
     static let stellarChainName = "Stellar"
-    static let liveChainNames = [
-        bitcoinChainName,
-        bitcoinCashChainName,
-        litecoinChainName,
-        ethereumChainName,
-        arbitrumChainName,
-        optimismChainName,
-        ethereumClassicChainName,
-        dogecoinChainName,
-        bnbChainName,
-        avalancheChainName,
-        hyperliquidChainName,
-        tronChainName,
-        solanaChainName,
-        xrpChainName,
-        moneroChainName,
-        cardanoChainName,
-        suiChainName,
-        aptosChainName,
-        tonChainName,
-        icpChainName,
-        nearChainName,
-        polkadotChainName,
-        stellarChainName
-    ]
+    static let liveChainNames = loadLiveChainNames()
 
-    static let allBackends: [any ChainWalletBackend] = [
-        BitcoinChainBackend(),
-        BitcoinCashChainBackend(),
-        BitcoinSVChainBackend(),
-        LitecoinChainBackend(),
-        EthereumChainBackend(),
-        ArbitrumChainBackend(),
-        OptimismChainBackend(),
-        EthereumClassicChainBackend(),
-        DogecoinChainBackend(),
-        BNBChainBackend(),
-        AvalancheChainBackend(),
-        HyperliquidChainBackend(),
-        TronChainBackend(),
-        SolanaChainBackend(),
-        XRPChainBackend(),
-        MoneroChainBackend(),
-        CardanoChainBackend(),
-        SuiChainBackend(),
-        AptosChainBackend(),
-        TONChainBackend(),
-        ICPChainBackend(),
-        NearChainBackend(),
-        PolkadotChainBackend(),
-        StellarChainBackend(),
-        PlannedChainBackend(chainName: "Polygon", supportedSymbols: ["MATIC"])
-    ]
+    static let allBackends: [ChainBackendRecord] = loadChainBackends()
 
-    static let appChains: [AppChainDescriptor] = [
-        AppChainDescriptor(id: .bitcoin, chainName: bitcoinChainName, title: "Bitcoin Diagnostics", shortLabel: "BTC", nativeSymbol: "BTC", searchKeywords: ["Bitcoin", "BTC"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .bitcoinCash, chainName: bitcoinCashChainName, title: "Bitcoin Cash Diagnostics", shortLabel: "BCH", nativeSymbol: "BCH", searchKeywords: ["Bitcoin Cash", "BCH"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .bitcoinSV, chainName: "Bitcoin SV", title: "Bitcoin SV Diagnostics", shortLabel: "BSV", nativeSymbol: "BSV", searchKeywords: ["Bitcoin SV", "BSV"], supportsDiagnostics: true, supportsEndpointCatalog: false, isEVM: false),
-        AppChainDescriptor(id: .litecoin, chainName: litecoinChainName, title: "Litecoin Diagnostics", shortLabel: "LTC", nativeSymbol: "LTC", searchKeywords: ["Litecoin", "LTC"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .dogecoin, chainName: dogecoinChainName, title: "Dogecoin Diagnostics", shortLabel: "DOGE", nativeSymbol: "DOGE", searchKeywords: ["Dogecoin", "DOGE"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .ethereum, chainName: ethereumChainName, title: "Ethereum Diagnostics", shortLabel: "ETH", nativeSymbol: "ETH", searchKeywords: ["Ethereum", "ETH"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: true),
-        AppChainDescriptor(id: .ethereumClassic, chainName: ethereumClassicChainName, title: "Ethereum Classic Diagnostics", shortLabel: "ETC", nativeSymbol: "ETC", searchKeywords: ["Ethereum Classic", "ETC"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: true),
-        AppChainDescriptor(id: .arbitrum, chainName: arbitrumChainName, title: "Arbitrum Diagnostics", shortLabel: "ARB", nativeSymbol: "ETH", searchKeywords: ["Arbitrum", "ARB"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: true),
-        AppChainDescriptor(id: .optimism, chainName: optimismChainName, title: "Optimism Diagnostics", shortLabel: "OP", nativeSymbol: "ETH", searchKeywords: ["Optimism", "OP"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: true),
-        AppChainDescriptor(id: .bnb, chainName: bnbChainName, title: "BNB Chain Diagnostics", shortLabel: "BNB", nativeSymbol: "BNB", searchKeywords: ["BNB Chain", "BNB"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: true),
-        AppChainDescriptor(id: .avalanche, chainName: avalancheChainName, title: "Avalanche Diagnostics", shortLabel: "AVAX", nativeSymbol: "AVAX", searchKeywords: ["Avalanche", "AVAX"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: true),
-        AppChainDescriptor(id: .hyperliquid, chainName: hyperliquidChainName, title: "Hyperliquid Diagnostics", shortLabel: "HYPE", nativeSymbol: "HYPE", searchKeywords: ["Hyperliquid", "HYPE"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: true),
-        AppChainDescriptor(id: .tron, chainName: tronChainName, title: "Tron Diagnostics", shortLabel: "TRX", nativeSymbol: "TRX", searchKeywords: ["Tron", "TRX"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .solana, chainName: solanaChainName, title: "Solana Diagnostics", shortLabel: "SOL", nativeSymbol: "SOL", searchKeywords: ["Solana", "SOL"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .cardano, chainName: cardanoChainName, title: "Cardano Diagnostics", shortLabel: "ADA", nativeSymbol: "ADA", searchKeywords: ["Cardano", "ADA"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .xrp, chainName: xrpChainName, title: "XRP Diagnostics", shortLabel: "XRP", nativeSymbol: "XRP", searchKeywords: ["XRP", "XRP Ledger"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .stellar, chainName: stellarChainName, title: "Stellar Diagnostics", shortLabel: "XLM", nativeSymbol: "XLM", searchKeywords: ["Stellar", "XLM"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .monero, chainName: moneroChainName, title: "Monero Diagnostics", shortLabel: "XMR", nativeSymbol: "XMR", searchKeywords: ["Monero", "XMR"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .sui, chainName: suiChainName, title: "Sui Diagnostics", shortLabel: "SUI", nativeSymbol: "SUI", searchKeywords: ["Sui", "SUI"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .aptos, chainName: aptosChainName, title: "Aptos Diagnostics", shortLabel: "APT", nativeSymbol: "APT", searchKeywords: ["Aptos", "APT"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .ton, chainName: tonChainName, title: "TON Diagnostics", shortLabel: "TON", nativeSymbol: "TON", searchKeywords: ["TON"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .icp, chainName: icpChainName, title: "Internet Computer Diagnostics", shortLabel: "ICP", nativeSymbol: "ICP", searchKeywords: ["Internet Computer", "ICP"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .near, chainName: nearChainName, title: "NEAR Diagnostics", shortLabel: "NEAR", nativeSymbol: "NEAR", searchKeywords: ["NEAR"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .polkadot, chainName: polkadotChainName, title: "Polkadot Diagnostics", shortLabel: "DOT", nativeSymbol: "DOT", searchKeywords: ["Polkadot", "DOT"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false)
-    ]
+    static let appChains: [AppChainDescriptor] = loadAppChains()
 
-    static func backend(for chainName: String) -> (any ChainWalletBackend)? {
+    static func backend(for chainName: String) -> ChainBackendRecord? {
         allBackends.first { $0.chainName == chainName }
     }
 
@@ -546,5 +378,29 @@ enum ChainBackendRegistry {
 
     static var futureIntegrationHeadline: String {
         "Bitcoin, Bitcoin Cash, and Litecoin are live today. Ethereum is live for seed-derived ETH send/receive plus ETH, USDT, USDC, and DAI balance tracking. Arbitrum is live for seed-derived ETH receive/send plus tracked ERC-20 balances and history on Arbitrum One. Optimism is live for seed-derived ETH receive/send plus tracked ERC-20 balances and history on Optimism mainnet. Ethereum Classic is live for seed-derived ETC send/receive and balance refresh. BNB Chain is live for seed-derived BNB send/receive and balance refresh. Avalanche is live for seed-derived AVAX send/receive and balance refresh. Hyperliquid is live for seed-derived HYPE receive/send plus tracked ERC-20 balances and history on HyperEVM. Dogecoin is live with seed-derived address import, balance refresh, receive, and in-app send. Tron is live for seed or watched-address import, TRX + USDT balance refresh, receive, history, and in-app send. Solana is live for seed or watched-address import, SOL balance refresh, receive, history, and in-app send. XRP Ledger is live for seed or watched-address import plus XRP balance and history refresh. Monero is live in remote-backend mode for balance, history, receive, and send. Cardano is live for seed-derived ADA balance/history, receive, and in-app send. Sui is live for seed or watched-address import plus SUI balance/history/send. Aptos is live for seed or watched-address APT receive, balance refresh, history, diagnostics, and in-app send. TON is live for seed or watched-address TON receive, balance refresh, history, diagnostics, and in-app send. Internet Computer is live for seed or watched-address ICP receive, balance refresh, history, diagnostics, and in-app send. NEAR is live for seed-derived receive, history, balance refresh, and in-app send. Polkadot is live for seed or watched-address DOT receive, balance refresh, history, diagnostics, and in-app send. Stellar is live for seed or watched-address XLM receive, balance refresh, history, diagnostics, and in-app send."
+    }
+
+    private static func loadChainBackends() -> [ChainBackendRecord] {
+        do {
+            return try WalletRustEndpointCatalogBridge.chainBackends()
+        } catch {
+            preconditionFailure("Rust chain backend catalog failed to load: \(error.localizedDescription)")
+        }
+    }
+
+    private static func loadLiveChainNames() -> [String] {
+        do {
+            return try WalletRustEndpointCatalogBridge.liveChainNames()
+        } catch {
+            preconditionFailure("Rust live-chain catalog failed to load: \(error.localizedDescription)")
+        }
+    }
+
+    private static func loadAppChains() -> [AppChainDescriptor] {
+        do {
+            return try WalletRustEndpointCatalogBridge.appChainDescriptors()
+        } catch {
+            preconditionFailure("Rust app-chain catalog failed to load: \(error.localizedDescription)")
+        }
     }
 }

@@ -523,8 +523,6 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/Spectra/Derivation/Rust/target/debug/deps",
-					"$(PROJECT_DIR)/Spectra/Derivation/Rust/target/debug/build/secp256k1-sys-4005f9e67744317d/out",
 				);
 				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = (
 					"$(inherited)",
@@ -582,8 +580,6 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/Spectra/Derivation/Rust/target/debug/deps",
-					"$(PROJECT_DIR)/Spectra/Derivation/Rust/target/debug/build/secp256k1-sys-4005f9e67744317d/out",
 				);
 				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = (
 					"$(inherited)",

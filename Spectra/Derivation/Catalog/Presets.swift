@@ -151,41 +151,19 @@ enum WalletDerivationPresetCatalog {
     }
 
     private static func load() -> [WalletDerivationChainPreset] {
-        let decoder = JSONDecoder()
-        let resourceURL = Bundle.main.url(
-            forResource: "DerivationPresets",
-            withExtension: "json"
-        ) ?? Bundle.main.url(
-            forResource: "DerivationPresets",
-            withExtension: "json",
-            subdirectory: "Derivation/Catalog"
-        ) ?? URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .appendingPathComponent("DerivationPresets.json")
-        guard let data = try? Data(contentsOf: resourceURL),
-              let presets = try? decoder.decode([WalletDerivationChainPreset].self, from: data) else {
-            fatalError("Invalid derivation preset JSON catalog")
+        do {
+            return try WalletRustAppCoreBridge.chainPresets()
+        } catch {
+            fatalError("Rust derivation preset catalog failed to load: \(error.localizedDescription)")
         }
-        return presets
     }
 
     private static func loadRequestCompilation() -> [WalletDerivationRequestCompilationPreset] {
-        let decoder = JSONDecoder()
-        let resourceURL = Bundle.main.url(
-            forResource: "DerivationRequestCompilationPresets",
-            withExtension: "json"
-        ) ?? Bundle.main.url(
-            forResource: "DerivationRequestCompilationPresets",
-            withExtension: "json",
-            subdirectory: "Derivation/Catalog"
-        ) ?? URL(fileURLWithPath: #filePath)
-            .deletingLastPathComponent()
-            .appendingPathComponent("DerivationRequestCompilationPresets.json")
-        guard let data = try? Data(contentsOf: resourceURL),
-              let presets = try? decoder.decode([WalletDerivationRequestCompilationPreset].self, from: data) else {
-            fatalError("Invalid derivation request compilation preset JSON catalog")
+        do {
+            return try WalletRustAppCoreBridge.requestCompilationPresets()
+        } catch {
+            fatalError("Rust derivation request compilation catalog failed to load: \(error.localizedDescription)")
         }
-        return presets
     }
 }
 

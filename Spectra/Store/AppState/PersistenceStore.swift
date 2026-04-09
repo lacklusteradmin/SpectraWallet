@@ -29,6 +29,7 @@ extension WalletStore {
                 deleteWalletSecrets(for: walletID)
             }
             SecureStore.deleteValue(for: Self.walletsAccount)
+            SecureStore.deleteValue(for: Self.walletsCoreSnapshotAccount)
             dogecoinOwnedAddressMap = [:]
             chainOwnedAddressMapByChain = [:]
             chainKeypoolByChain = [:]
@@ -74,47 +75,33 @@ extension WalletStore {
             return
         }
         SecureStore.saveData(data, for: Self.walletsAccount)
+        if let coreSnapshotData = try? WalletRustAppCoreBridge.migrateLegacyWalletStoreData(data) {
+            SecureStore.saveData(coreSnapshotData, for: Self.walletsCoreSnapshotAccount)
+        }
     }
 
     func loadPersistedWallets() -> [ImportedWallet] {
+        if let coreSnapshotData = SecureStore.loadData(for: Self.walletsCoreSnapshotAccount),
+           let exportedLegacyData = try? WalletRustAppCoreBridge.exportLegacyWalletStoreData(fromCoreStateData: coreSnapshotData),
+           let wallets = decodedWalletSnapshots(from: exportedLegacyData) {
+            return wallets
+        }
+
         guard let data = SecureStore.loadData(for: Self.walletsAccount) else {
             return []
         }
 
-        if let payload = try? Self.persistenceDecoder.decode(PersistedWalletStore.self, from: data),
-           payload.version == PersistedWalletStore.currentVersion {
-            return payload.wallets.compactMap { snapshot in
-                let hasSeedPhrase = walletHasSigningMaterial(snapshot.id)
-                let hasWatchOnlyAddress = [
-                    snapshot.bitcoinAddress,
-                    snapshot.bitcoinXPub,
-                    snapshot.litecoinAddress,
-                    snapshot.dogecoinAddress,
-                    snapshot.ethereumAddress,
-                    snapshot.tronAddress,
-                    snapshot.solanaAddress,
-                    snapshot.xrpAddress,
-                    snapshot.stellarAddress,
-                    snapshot.moneroAddress,
-                    snapshot.cardanoAddress,
-                    snapshot.suiAddress,
-                    snapshot.nearAddress,
-                    snapshot.polkadotAddress
-                ]
-                .contains { ($0 ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
-                guard hasSeedPhrase || hasWatchOnlyAddress else { return nil }
-                let wallet = sanitizedWallet(ImportedWallet(snapshot: snapshot))
-#if DEBUG
-                logBalanceTelemetry(source: "local", chainName: "PersistedWalletStore", wallet: wallet, holdings: wallet.holdings)
-#endif
-                return wallet
-            }
-        }
-
-        return []
+        return decodedWalletSnapshots(from: data) ?? []
     }
 
     func storedWalletIDs() -> [UUID] {
+        if let coreSnapshotData = SecureStore.loadData(for: Self.walletsCoreSnapshotAccount),
+           let exportedLegacyData = try? WalletRustAppCoreBridge.exportLegacyWalletStoreData(fromCoreStateData: coreSnapshotData),
+           let payload = try? Self.persistenceDecoder.decode(PersistedWalletStore.self, from: exportedLegacyData),
+           payload.version == PersistedWalletStore.currentVersion {
+            return payload.wallets.map { $0.id }
+        }
+
         guard let data = SecureStore.loadData(for: Self.walletsAccount) else {
             return []
         }
@@ -238,5 +225,39 @@ extension WalletStore {
             return []
         }
         return payload.alerts.map(PriceAlertRule.init(snapshot:))
+    }
+
+    private func decodedWalletSnapshots(from data: Data) -> [ImportedWallet]? {
+        guard let payload = try? Self.persistenceDecoder.decode(PersistedWalletStore.self, from: data),
+              payload.version == PersistedWalletStore.currentVersion else {
+            return nil
+        }
+
+        return payload.wallets.compactMap { snapshot in
+            let hasSeedPhrase = walletHasSigningMaterial(snapshot.id)
+            let hasWatchOnlyAddress = [
+                snapshot.bitcoinAddress,
+                snapshot.bitcoinXPub,
+                snapshot.litecoinAddress,
+                snapshot.dogecoinAddress,
+                snapshot.ethereumAddress,
+                snapshot.tronAddress,
+                snapshot.solanaAddress,
+                snapshot.xrpAddress,
+                snapshot.stellarAddress,
+                snapshot.moneroAddress,
+                snapshot.cardanoAddress,
+                snapshot.suiAddress,
+                snapshot.nearAddress,
+                snapshot.polkadotAddress
+            ]
+            .contains { ($0 ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
+            guard hasSeedPhrase || hasWatchOnlyAddress else { return nil }
+            let wallet = sanitizedWallet(ImportedWallet(snapshot: snapshot))
+#if DEBUG
+            logBalanceTelemetry(source: "local", chainName: "PersistedWalletStore", wallet: wallet, holdings: wallet.holdings)
+#endif
+            return wallet
+        }
     }
 }

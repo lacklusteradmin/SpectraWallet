@@ -244,58 +244,8 @@ extension WalletStore {
         let inputSignature = normalizedHistoryInputSignature(walletByID: walletByID)
         guard transactionState.lastNormalizedHistorySignature != inputSignature else { return }
         let startedAt = CFAbsoluteTimeGetCurrent()
-        var groupedByDedupeKey: [String: [NormalizedHistoryEntry]] = [:]
-        for transaction in transactions {
-            guard let walletID = transaction.walletID,
-                  let wallet = walletByID[walletID],
-                  wallet.selectedChain == transaction.chainName else {
-                continue
-            }
-            let entry = normalizedHistoryEntry(for: transaction)
-            groupedByDedupeKey[entry.dedupeKey, default: []].append(entry)
-        }
-
-        let deduped = groupedByDedupeKey.values.compactMap { entries -> NormalizedHistoryEntry? in
-            guard !entries.isEmpty else { return nil }
-            let providerSet = Set(entries.map(\.sourceTag))
-            let providerCount = max(1, providerSet.count)
-            let best = entries.max { lhs, rhs in
-                let lhsStatusRank = normalizedStatusRank(lhs.status)
-                let rhsStatusRank = normalizedStatusRank(rhs.status)
-                if lhsStatusRank != rhsStatusRank {
-                    return lhsStatusRank < rhsStatusRank
-                }
-                if lhs.createdAt != rhs.createdAt {
-                    return lhs.createdAt < rhs.createdAt
-                }
-                return lhs.transactionID.uuidString < rhs.transactionID.uuidString
-            }
-            guard let best else { return nil }
-            return NormalizedHistoryEntry(
-                id: best.id,
-                transactionID: best.transactionID,
-                dedupeKey: best.dedupeKey,
-                createdAt: best.createdAt,
-                kind: best.kind,
-                status: best.status,
-                walletName: best.walletName,
-                assetName: best.assetName,
-                symbol: best.symbol,
-                chainName: best.chainName,
-                address: best.address,
-                transactionHash: best.transactionHash,
-                sourceTag: best.sourceTag,
-                providerCount: providerCount,
-                searchIndex: best.searchIndex
-            )
-        }
-
-        normalizedHistoryIndex = deduped.sorted { lhs, rhs in
-            if lhs.createdAt != rhs.createdAt {
-                return lhs.createdAt > rhs.createdAt
-            }
-            return lhs.id < rhs.id
-        }
+        let normalizedEntries = rebuildNormalizedHistoryIndexUsingRust(walletByID: walletByID)
+        normalizedHistoryIndex = normalizedEntries
         transactionState.lastNormalizedHistorySignature = inputSignature
         recordPerformanceSample(
             "rebuild_normalized_history_index",
@@ -429,7 +379,115 @@ extension WalletStore {
         }
     }
 
-    private func normalizedHistoryEntry(for transaction: TransactionRecord) -> NormalizedHistoryEntry {
+    private func rebuildNormalizedHistoryIndexUsingRust(walletByID: [UUID: ImportedWallet]) -> [NormalizedHistoryEntry] {
+        do {
+            let request = WalletRustNormalizeHistoryRequest(
+                wallets: walletByID.map {
+                    WalletRustHistoryWallet(
+                        walletID: $0.key.uuidString.lowercased(),
+                        selectedChain: $0.value.selectedChain
+                    )
+                },
+                transactions: transactions.map {
+                    WalletRustHistoryTransaction(
+                        id: $0.id.uuidString.lowercased(),
+                        walletID: $0.walletID?.uuidString.lowercased(),
+                        kind: $0.kind.rawValue,
+                        status: $0.status.rawValue,
+                        walletName: $0.walletName,
+                        assetName: $0.assetName,
+                        symbol: $0.symbol,
+                        chainName: $0.chainName,
+                        address: $0.address,
+                        transactionHash: $0.transactionHash,
+                        transactionHistorySource: $0.transactionHistorySource,
+                        createdAtUnix: $0.createdAt.timeIntervalSince1970
+                    )
+                },
+                unknownLabel: localizedStoreString("Unknown")
+            )
+            let entries = try WalletRustAppCoreBridge.normalizeHistory(request)
+            return entries.compactMap { entry in
+                guard let transactionID = UUID(uuidString: entry.transactionID),
+                      let kind = TransactionKind(rawValue: entry.kind),
+                      let status = TransactionStatus(rawValue: entry.status) else {
+                    return nil
+                }
+                return NormalizedHistoryEntry(
+                    id: entry.id,
+                    transactionID: transactionID,
+                    dedupeKey: entry.dedupeKey,
+                    createdAt: Date(timeIntervalSince1970: entry.createdAtUnix),
+                    kind: kind,
+                    status: status,
+                    walletName: entry.walletName,
+                    assetName: entry.assetName,
+                    symbol: entry.symbol,
+                    chainName: entry.chainName,
+                    address: entry.address,
+                    transactionHash: entry.transactionHash,
+                    sourceTag: entry.sourceTag,
+                    providerCount: entry.providerCount,
+                    searchIndex: entry.searchIndex
+                )
+            }
+        } catch {
+            var groupedByDedupeKey: [String: [NormalizedHistoryEntry]] = [:]
+            for transaction in transactions {
+                guard let walletID = transaction.walletID,
+                      let wallet = walletByID[walletID],
+                      wallet.selectedChain == transaction.chainName else {
+                    continue
+                }
+                let entry = normalizedHistoryEntryFallback(for: transaction)
+                groupedByDedupeKey[entry.dedupeKey, default: []].append(entry)
+            }
+
+            let deduped = groupedByDedupeKey.values.compactMap { entries -> NormalizedHistoryEntry? in
+                guard !entries.isEmpty else { return nil }
+                let providerSet = Set(entries.map(\.sourceTag))
+                let providerCount = max(1, providerSet.count)
+                let best = entries.max { lhs, rhs in
+                    let lhsStatusRank = normalizedStatusRank(lhs.status)
+                    let rhsStatusRank = normalizedStatusRank(rhs.status)
+                    if lhsStatusRank != rhsStatusRank {
+                        return lhsStatusRank < rhsStatusRank
+                    }
+                    if lhs.createdAt != rhs.createdAt {
+                        return lhs.createdAt < rhs.createdAt
+                    }
+                    return lhs.transactionID.uuidString < rhs.transactionID.uuidString
+                }
+                guard let best else { return nil }
+                return NormalizedHistoryEntry(
+                    id: best.id,
+                    transactionID: best.transactionID,
+                    dedupeKey: best.dedupeKey,
+                    createdAt: best.createdAt,
+                    kind: best.kind,
+                    status: best.status,
+                    walletName: best.walletName,
+                    assetName: best.assetName,
+                    symbol: best.symbol,
+                    chainName: best.chainName,
+                    address: best.address,
+                    transactionHash: best.transactionHash,
+                    sourceTag: best.sourceTag,
+                    providerCount: providerCount,
+                    searchIndex: best.searchIndex
+                )
+            }
+
+            return deduped.sorted { lhs, rhs in
+                if lhs.createdAt != rhs.createdAt {
+                    return lhs.createdAt > rhs.createdAt
+                }
+                return lhs.id < rhs.id
+            }
+        }
+    }
+
+    private func normalizedHistoryEntryFallback(for transaction: TransactionRecord) -> NormalizedHistoryEntry {
         let walletKey = transaction.walletID?.uuidString.lowercased() ?? "unknown-wallet"
         let normalizedChain = transaction.chainName.lowercased()
         let normalizedSymbol = transaction.symbol.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()

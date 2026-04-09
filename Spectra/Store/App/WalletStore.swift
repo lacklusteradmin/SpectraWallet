@@ -717,6 +717,7 @@ class WalletStore: ObservableObject {
     static let bitcoinStopGapDefaultsKey = "bitcoin.stopGap"
     static let bitcoinFeePriorityDefaultsKey = "bitcoin.feePriority"
     static let walletsAccount = "wallets.snapshot"
+    static let walletsCoreSnapshotAccount = "wallets.core.snapshot.v1"
     static let priceAlertsDefaultsKey = "priceAlerts.snapshot"
     static let addressBookDefaultsKey = "addressBook.snapshot"
     static let tokenPreferencesDefaultsKey = "settings.tokenPreferences.v1"

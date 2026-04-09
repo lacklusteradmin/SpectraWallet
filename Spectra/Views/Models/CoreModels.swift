@@ -342,84 +342,16 @@ struct SeedDerivationResolution: Equatable {
 
 extension SeedDerivationChain {
     func resolve(path rawPath: String) -> SeedDerivationResolution {
-        let normalizedPath = DerivationPathParser.normalize(rawPath, fallback: defaultPath)
-        return SeedDerivationResolution(
-            chain: self,
-            normalizedPath: normalizedPath,
-            accountIndex: resolvedAccountIndex(in: normalizedPath),
-            flavor: resolvedFlavor(in: normalizedPath)
-        )
-    }
-
-    private func resolvedAccountIndex(in normalizedPath: String) -> UInt32 {
-        switch self {
-        case .bitcoin where normalizedPath == "m/0'/0" || normalizedPath == "m/0'/0/0":
-            return 0
-        case .bitcoinCash where normalizedPath == "m/0":
-            return 0
-        case .bitcoinSV where normalizedPath == "m/0":
-            return 0
-        default:
-            return DerivationPathParser.segmentValue(at: 2, in: normalizedPath) ?? 0
-        }
-    }
-
-    private func resolvedFlavor(in normalizedPath: String) -> SeedDerivationFlavor {
-        switch self {
-        case .bitcoin:
-            switch normalizedPath {
-            case let path where path.hasPrefix("m/86'"):
-                return .taproot
-            case let path where path.hasPrefix("m/84'"):
-                return .nativeSegWit
-            case let path where path.hasPrefix("m/49'"):
-                return .nestedSegWit
-            case "m/0'/0", "m/0'/0/0":
-                return .electrumLegacy
-            case let path where path.hasPrefix("m/44'"):
-                return .legacy
-            default:
-                return .standard
-            }
-        case .litecoin:
-            switch normalizedPath {
-            case let path where path.hasPrefix("m/84'/2'"):
-                return .nativeSegWit
-            case let path where path.hasPrefix("m/49'/2'"):
-                return .nestedSegWit
-            case let path where path.hasPrefix("m/44'/2'"):
-                return .legacy
-            default:
-                return .standard
-            }
-        case .bitcoinCash:
-            switch normalizedPath {
-            case "m/0":
-                return .electrumLegacy
-            case let path where path.hasPrefix("m/44'/0'"):
-                return .legacy
-            case let path where path.hasPrefix("m/44'/145'"):
-                return .legacy
-            default:
-                return .standard
-            }
-        case .solana:
-            return normalizedPath == "m/44'/501'/0'" ? .legacy : .standard
-        case .cardano:
-            return normalizedPath.hasPrefix("m/44'/1815'") ? .legacy : .standard
-        case .tron:
-            if normalizedPath == "m/44'/195'/0'" {
-                return .legacy
-            }
-            return normalizedPath.hasPrefix("m/44'/60'") ? .legacy : .standard
-        case .xrp:
-            return normalizedPath == "m/44'/144'/0'" ? .legacy : .standard
-        case .aptos:
-            return .standard
-        case .internetComputer:
-            return .standard
-        default:
-            return .standard
+        do {
+            let resolution = try WalletRustAppCoreBridge.resolve(chain: self, path: rawPath)
+            return SeedDerivationResolution(
+                chain: resolution.chain,
+                normalizedPath: resolution.normalizedPath,
+                accountIndex: resolution.accountIndex,
+                flavor: resolution.flavor
+            )
+        } catch {
+            fatalError("Rust derivation path resolution failed for \(rawValue): \(error.localizedDescription)")
         }
     }
 }
@@ -449,31 +381,7 @@ struct SeedDerivationPaths: Equatable {
     var near: String
     var polkadot: String
 
-    static let defaults = SeedDerivationPaths(
-        isCustomEnabled: false,
-        bitcoin: SeedDerivationChain.bitcoin.defaultPath,
-        bitcoinCash: SeedDerivationChain.bitcoinCash.defaultPath,
-        bitcoinSV: SeedDerivationChain.bitcoinSV.defaultPath,
-        litecoin: SeedDerivationChain.litecoin.defaultPath,
-        dogecoin: SeedDerivationChain.dogecoin.defaultPath,
-        ethereum: SeedDerivationChain.ethereum.defaultPath,
-        ethereumClassic: SeedDerivationChain.ethereumClassic.defaultPath,
-        arbitrum: SeedDerivationChain.arbitrum.defaultPath,
-        optimism: SeedDerivationChain.optimism.defaultPath,
-        avalanche: SeedDerivationChain.avalanche.defaultPath,
-        hyperliquid: SeedDerivationChain.hyperliquid.defaultPath,
-        tron: SeedDerivationChain.tron.defaultPath,
-        solana: SeedDerivationChain.solana.defaultPath,
-        stellar: SeedDerivationChain.stellar.defaultPath,
-        xrp: SeedDerivationChain.xrp.defaultPath,
-        cardano: SeedDerivationChain.cardano.defaultPath,
-        sui: SeedDerivationChain.sui.defaultPath,
-        aptos: SeedDerivationChain.aptos.defaultPath,
-        ton: SeedDerivationChain.ton.defaultPath,
-        internetComputer: SeedDerivationChain.internetComputer.defaultPath,
-        near: SeedDerivationChain.near.defaultPath,
-        polkadot: SeedDerivationChain.polkadot.defaultPath
-    )
+    static let defaults = loadRustDefaultPreset()
 
     func path(for chain: SeedDerivationChain) -> String {
         switch chain {
@@ -574,65 +482,25 @@ struct SeedDerivationPaths: Equatable {
     }
 
     static func migrated(from preset: SeedDerivationPreset?) -> SeedDerivationPaths {
-        guard let preset else { return .defaults }
-
-        var paths = SeedDerivationPaths.defaults
-        switch preset {
-        case .standard:
-            break
-        case .account1:
-            paths.bitcoin = "m/84'/0'/1'/0/0"
-            paths.bitcoinCash = "m/44'/145'/1'/0/0"
-            paths.litecoin = "m/44'/2'/1'/0/0"
-            paths.dogecoin = "m/44'/3'/1'/0/0"
-            paths.ethereum = "m/44'/60'/1'/0/0"
-            paths.ethereumClassic = "m/44'/61'/1'/0/0"
-            paths.arbitrum = "m/44'/60'/1'/0/0"
-            paths.optimism = "m/44'/60'/1'/0/0"
-            paths.avalanche = "m/44'/60'/1'/0/0"
-            paths.hyperliquid = "m/44'/60'/1'/0/0"
-            paths.tron = "m/44'/195'/1'/0/0"
-            paths.solana = "m/44'/501'/1'/0'"
-            paths.stellar = "m/44'/148'/1'"
-            paths.xrp = "m/44'/144'/1'/0/0"
-            paths.cardano = "m/1852'/1815'/1'/0/0"
-            paths.sui = "m/44'/784'/1'/0'/0'"
-            paths.aptos = "m/44'/637'/1'/0'/0'"
-            paths.ton = "m/44'/607'/1'/0/0"
-            paths.internetComputer = "m/44'/223'/1'/0/0"
-            paths.near = "m/44'/397'/1'"
-            paths.polkadot = "m/44'/354'/1'"
-        case .account2:
-            paths.bitcoin = "m/84'/0'/2'/0/0"
-            paths.bitcoinCash = "m/44'/145'/2'/0/0"
-            paths.litecoin = "m/44'/2'/2'/0/0"
-            paths.dogecoin = "m/44'/3'/2'/0/0"
-            paths.ethereum = "m/44'/60'/2'/0/0"
-            paths.ethereumClassic = "m/44'/61'/2'/0/0"
-            paths.arbitrum = "m/44'/60'/2'/0/0"
-            paths.optimism = "m/44'/60'/2'/0/0"
-            paths.avalanche = "m/44'/60'/2'/0/0"
-            paths.hyperliquid = "m/44'/60'/2'/0/0"
-            paths.tron = "m/44'/195'/2'/0/0"
-            paths.solana = "m/44'/501'/2'/0'"
-            paths.stellar = "m/44'/148'/2'"
-            paths.xrp = "m/44'/144'/2'/0/0"
-            paths.cardano = "m/1852'/1815'/2'/0/0"
-            paths.sui = "m/44'/784'/2'/0'/0'"
-            paths.aptos = "m/44'/637'/2'/0'/0'"
-            paths.ton = "m/44'/607'/2'/0/0"
-            paths.internetComputer = "m/44'/223'/2'/0/0"
-            paths.near = "m/44'/397'/2'"
-            paths.polkadot = "m/44'/354'/2'"
+        do {
+            return try WalletRustAppCoreBridge.derivationPaths(for: preset)
+        } catch {
+            fatalError("Rust derivation preset paths failed to load: \(error.localizedDescription)")
         }
-
-        return paths
     }
 
     static func applyingPreset(_ preset: SeedDerivationPreset, keepCustomEnabled: Bool = false) -> SeedDerivationPaths {
         var paths = migrated(from: preset)
         paths.isCustomEnabled = keepCustomEnabled
         return paths
+    }
+
+    private static func loadRustDefaultPreset() -> SeedDerivationPaths {
+        do {
+            return try WalletRustAppCoreBridge.derivationPaths(for: nil)
+        } catch {
+            fatalError("Rust default derivation paths failed to load: \(error.localizedDescription)")
+        }
     }
 }
 

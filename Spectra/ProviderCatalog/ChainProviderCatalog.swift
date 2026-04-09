@@ -2,11 +2,10 @@ import Foundation
 
 enum ChainProviderCatalog {
     static func endpoints(for chainName: String, roles: Set<AppEndpointRole> = []) -> [AppEndpointRecord] {
-        AppEndpointDirectory.records.filter { record in
-            guard record.chainName == chainName else { return false }
-            guard !roles.isEmpty else { return true }
-            return !record.roles.isDisjoint(with: roles)
-        }
+        AppEndpointDirectory.endpointRecords(
+            for: chainName,
+            roles: roles.isEmpty ? nil : roles
+        )
     }
 
     static func broadcastEndpoints(for chainName: String) -> [AppEndpointRecord] {

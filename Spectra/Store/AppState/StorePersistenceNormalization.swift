@@ -148,6 +148,16 @@ extension WalletStore {
     }
 
     func upsertStandardUTXOTransactions(_ newTransactions: [TransactionRecord], chainName: String) {
+        if let mergedTransactions = mergeTransactionsUsingRust(
+            existingTransactions: transactions,
+            incomingTransactions: newTransactions,
+            strategy: .standardUTXO,
+            chainName: chainName
+        ) {
+            setTransactionsIfChanged(mergedTransactions)
+            return
+        }
+
         var mergedTransactions = transactions
 
         for incoming in newTransactions {
@@ -210,6 +220,16 @@ extension WalletStore {
     }
 
     func upsertDogecoinTransactions(_ newTransactions: [TransactionRecord]) {
+        if let mergedTransactions = mergeTransactionsUsingRust(
+            existingTransactions: transactions,
+            incomingTransactions: newTransactions,
+            strategy: .dogecoin,
+            chainName: "Dogecoin"
+        ) {
+            setTransactionsIfChanged(mergedTransactions)
+            return
+        }
+
         var mergedTransactions = transactions
 
         for incoming in newTransactions {
@@ -355,6 +375,18 @@ extension WalletStore {
         chainName: String,
         includeSymbolInIdentity: Bool = false
     ) {
+        if let mergedTransactions = mergeTransactionsUsingRust(
+            existingTransactions: transactions,
+            incomingTransactions: newTransactions,
+            strategy: .accountBased,
+            chainName: chainName,
+            includeSymbolInIdentity: includeSymbolInIdentity,
+            preserveCreatedAtSentinelUnix: Date.distantPast.timeIntervalSince1970
+        ) {
+            setTransactionsIfChanged(mergedTransactions)
+            return
+        }
+
         var mergedTransactions = transactions
 
         for incoming in newTransactions {
@@ -421,6 +453,17 @@ extension WalletStore {
     }
 
     func upsertEVMTransactions(_ newTransactions: [TransactionRecord], chainName: String) {
+        if let mergedTransactions = mergeTransactionsUsingRust(
+            existingTransactions: transactions,
+            incomingTransactions: newTransactions,
+            strategy: .evm,
+            chainName: chainName,
+            preserveCreatedAtSentinelUnix: Date.distantPast.timeIntervalSince1970
+        ) {
+            setTransactionsIfChanged(mergedTransactions)
+            return
+        }
+
         var mergedTransactions = transactions
 
         for incoming in newTransactions {
@@ -568,6 +611,37 @@ extension WalletStore {
         polkadotHistoryDiagnosticsByWallet[walletID] = nil
     }
 
+    private func mergeTransactionsUsingRust(
+        existingTransactions: [TransactionRecord],
+        incomingTransactions: [TransactionRecord],
+        strategy: WalletRustTransactionMergeStrategy,
+        chainName: String,
+        includeSymbolInIdentity: Bool = false,
+        preserveCreatedAtSentinelUnix: Double? = nil
+    ) -> [TransactionRecord]? {
+        let request = WalletRustTransactionMergeRequest(
+            existingTransactions: existingTransactions.map(\.rustBridgeRecord),
+            incomingTransactions: incomingTransactions.map(\.rustBridgeRecord),
+            strategy: strategy,
+            chainName: chainName,
+            includeSymbolInIdentity: includeSymbolInIdentity,
+            preserveCreatedAtSentinelUnix: preserveCreatedAtSentinelUnix
+        )
+
+        guard let mergedRecords = try? WalletRustAppCoreBridge.mergeTransactions(request) else {
+            return nil
+        }
+        var resolvedTransactions: [TransactionRecord] = []
+        resolvedTransactions.reserveCapacity(mergedRecords.count)
+        for record in mergedRecords {
+            guard let transaction = record.transactionRecord else {
+                return nil
+            }
+            resolvedTransactions.append(transaction)
+        }
+        return resolvedTransactions
+    }
+
     func persistTransactionsFullSync() {
         do {
             let snapshots = transactions.map(\.persistedSnapshot)
@@ -687,5 +761,97 @@ extension WalletStore {
             return [:]
         }
         return payload.addressMapByChain
+    }
+}
+
+private extension TransactionRecord {
+    var rustBridgeRecord: WalletRustTransactionRecord {
+        WalletRustTransactionRecord(
+            id: id.uuidString,
+            walletID: walletID?.uuidString,
+            kind: kind.rawValue,
+            status: status.rawValue,
+            walletName: walletName,
+            assetName: assetName,
+            symbol: symbol,
+            chainName: chainName,
+            amount: amount,
+            address: address,
+            transactionHash: transactionHash,
+            ethereumNonce: ethereumNonce,
+            receiptBlockNumber: receiptBlockNumber,
+            receiptGasUsed: receiptGasUsed,
+            receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei,
+            receiptNetworkFeeETH: receiptNetworkFeeETH,
+            feePriorityRaw: feePriorityRaw,
+            feeRateDescription: feeRateDescription,
+            confirmationCount: confirmationCount,
+            dogecoinConfirmedNetworkFeeDOGE: dogecoinConfirmedNetworkFeeDOGE,
+            dogecoinConfirmations: dogecoinConfirmations,
+            dogecoinFeePriorityRaw: dogecoinFeePriorityRaw,
+            dogecoinEstimatedFeeRateDOGEPerKB: dogecoinEstimatedFeeRateDOGEPerKB,
+            usedChangeOutput: usedChangeOutput,
+            dogecoinUsedChangeOutput: dogecoinUsedChangeOutput,
+            sourceDerivationPath: sourceDerivationPath,
+            changeDerivationPath: changeDerivationPath,
+            sourceAddress: sourceAddress,
+            changeAddress: changeAddress,
+            dogecoinRawTransactionHex: dogecoinRawTransactionHex,
+            signedTransactionPayload: signedTransactionPayload,
+            signedTransactionPayloadFormat: signedTransactionPayloadFormat,
+            failureReason: failureReason,
+            transactionHistorySource: transactionHistorySource,
+            createdAtUnix: createdAt.timeIntervalSince1970
+        )
+    }
+}
+
+private extension WalletRustTransactionRecord {
+    var transactionRecord: TransactionRecord? {
+        guard let resolvedID = UUID(uuidString: id) else {
+            return nil
+        }
+
+        let resolvedWalletID = walletID.flatMap(UUID.init(uuidString:))
+        let resolvedKind = TransactionKind(rawValue: kind) ?? .receive
+        let resolvedStatus = TransactionStatus(rawValue: status) ?? .pending
+
+        return TransactionRecord(
+            id: resolvedID,
+            walletID: resolvedWalletID,
+            kind: resolvedKind,
+            status: resolvedStatus,
+            walletName: walletName,
+            assetName: assetName,
+            symbol: symbol,
+            chainName: chainName,
+            amount: amount,
+            address: address,
+            transactionHash: transactionHash,
+            ethereumNonce: ethereumNonce,
+            receiptBlockNumber: receiptBlockNumber,
+            receiptGasUsed: receiptGasUsed,
+            receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei,
+            receiptNetworkFeeETH: receiptNetworkFeeETH,
+            feePriorityRaw: feePriorityRaw,
+            feeRateDescription: feeRateDescription,
+            confirmationCount: confirmationCount,
+            dogecoinConfirmedNetworkFeeDOGE: dogecoinConfirmedNetworkFeeDOGE,
+            dogecoinConfirmations: dogecoinConfirmations,
+            dogecoinFeePriorityRaw: dogecoinFeePriorityRaw,
+            dogecoinEstimatedFeeRateDOGEPerKB: dogecoinEstimatedFeeRateDOGEPerKB,
+            usedChangeOutput: usedChangeOutput,
+            dogecoinUsedChangeOutput: dogecoinUsedChangeOutput,
+            sourceDerivationPath: sourceDerivationPath,
+            changeDerivationPath: changeDerivationPath,
+            sourceAddress: sourceAddress,
+            changeAddress: changeAddress,
+            dogecoinRawTransactionHex: dogecoinRawTransactionHex,
+            signedTransactionPayload: signedTransactionPayload,
+            signedTransactionPayloadFormat: signedTransactionPayloadFormat,
+            failureReason: failureReason,
+            transactionHistorySource: transactionHistorySource,
+            createdAt: Date(timeIntervalSince1970: createdAtUnix)
+        )
     }
 }

@@ -1004,583 +1004,155 @@ extension WalletStore {
                     ? typedPolkadotAddress
                     : nil)
             }
-            let createdWallets: [ImportedWallet]
+            let plannedWalletIDs: [UUID]
             if isWatchOnlyImport {
-                typealias WatchOnlyWalletRequest = (
-                    chainName: String,
-                    bitcoinAddress: String?,
-                    bitcoinXPub: String?,
-                    bitcoinCashAddress: String?,
-                    bitcoinSVAddress: String?,
-                    litecoinAddress: String?,
-                    dogecoinAddress: String?,
-                    ethereumAddress: String?,
-                    tronAddress: String?,
-                    solanaAddress: String?,
-                    xrpAddress: String?,
-                    stellarAddress: String?,
-                    moneroAddress: String?,
-                    cardanoAddress: String?,
-                    suiAddress: String?,
-                    aptosAddress: String?,
-                    tonAddress: String?,
-                    icpAddress: String?,
-                    nearAddress: String?,
-                    polkadotAddress: String?
-                )
-
-                let watchOnlyRequests: [WatchOnlyWalletRequest] = {
+                let watchOnlyWalletCount: Int = {
                     switch primarySelectedChainName {
                     case "Bitcoin":
                         if let resolvedBitcoinXPub, !resolvedBitcoinXPub.isEmpty {
-                            return [(
-                                chainName: "Bitcoin",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: resolvedBitcoinXPub,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )]
+                            return 1
                         }
-                        return bitcoinAddressEntries.map { address in
-                            (
-                                chainName: "Bitcoin",
-                                bitcoinAddress: address,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return bitcoinAddressEntries.count
                     case "Bitcoin Cash":
-                        return bitcoinCashAddressEntries.map { address in
-                            (
-                                chainName: "Bitcoin Cash",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: address,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return bitcoinCashAddressEntries.count
                     case "Bitcoin SV":
-                        return bitcoinSVAddressEntries.map { address in
-                            (
-                                chainName: "Bitcoin SV",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: address,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return bitcoinSVAddressEntries.count
                     case "Litecoin":
-                        return litecoinAddressEntries.map { address in
-                            (
-                                chainName: "Litecoin",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: address,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return litecoinAddressEntries.count
                     case "Dogecoin":
-                        return dogecoinAddressEntries.map { address in
-                            (
-                                chainName: "Dogecoin",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: address,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return dogecoinAddressEntries.count
                     case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid":
-                        return ethereumAddressEntries.map { address in
-                            (
-                                chainName: primarySelectedChainName,
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: EthereumWalletEngine.normalizeAddress(address),
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return ethereumAddressEntries.count
                     case "Tron":
-                        return tronAddressEntries.map { address in
-                            (
-                                chainName: "Tron",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: address,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return tronAddressEntries.count
                     case "Solana":
-                        return solanaAddressEntries.map { address in
-                            (
-                                chainName: "Solana",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: address,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return solanaAddressEntries.count
                     case "XRP Ledger":
-                        return xrpAddressEntries.map { address in
-                            (
-                                chainName: "XRP Ledger",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: address,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return xrpAddressEntries.count
                     case "Stellar":
-                        return stellarAddressEntries.map { address in
-                            (
-                                chainName: "Stellar",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: address,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return stellarAddressEntries.count
                     case "Cardano":
-                        return cardanoAddressEntries.map { address in
-                            (
-                                chainName: "Cardano",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: address,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return cardanoAddressEntries.count
                     case "Sui":
-                        return suiAddressEntries.map { address in
-                            (
-                                chainName: "Sui",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: address.lowercased(),
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return suiAddressEntries.count
                     case "Aptos":
-                        return aptosAddressEntries.map { address in
-                            (
-                                chainName: "Aptos",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: normalizedAddress(address, for: "Aptos"),
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return aptosAddressEntries.count
                     case "TON":
-                        return tonAddressEntries.map { address in
-                            (
-                                chainName: "TON",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: normalizedAddress(address, for: "TON"),
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return tonAddressEntries.count
                     case "Internet Computer":
-                        return icpAddressEntries.map { address in
-                            (
-                                chainName: "Internet Computer",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: normalizedAddress(address, for: "Internet Computer"),
-                                nearAddress: nil,
-                                polkadotAddress: nil
-                            )
-                        }
+                        return icpAddressEntries.count
                     case "NEAR":
-                        return nearAddressEntries.map { address in
-                            (
-                                chainName: "NEAR",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: address.lowercased(),
-                                polkadotAddress: nil
-                            )
-                        }
+                        return nearAddressEntries.count
                     case "Polkadot":
-                        return polkadotAddressEntries.map { address in
-                            (
-                                chainName: "Polkadot",
-                                bitcoinAddress: nil,
-                                bitcoinXPub: nil,
-                                bitcoinCashAddress: nil,
-                                bitcoinSVAddress: nil,
-                                litecoinAddress: nil,
-                                dogecoinAddress: nil,
-                                ethereumAddress: nil,
-                                tronAddress: nil,
-                                solanaAddress: nil,
-                                xrpAddress: nil,
-                                stellarAddress: nil,
-                                moneroAddress: nil,
-                                cardanoAddress: nil,
-                                suiAddress: nil,
-                                aptosAddress: nil,
-                                tonAddress: nil,
-                                icpAddress: nil,
-                                nearAddress: nil,
-                                polkadotAddress: address
-                            )
-                        }
+                        return polkadotAddressEntries.count
                     default:
-                        return []
+                        return 0
                     }
                 }()
-
-                guard !watchOnlyRequests.isEmpty else {
+                guard watchOnlyWalletCount > 0 else {
                     importError = "Enter at least one valid address to import."
                     return
                 }
-
-                let watchOnlyWalletIDs = watchOnlyRequests.map { _ in UUID() }
-                createdWallets = watchOnlyRequests.enumerated().map { offset, request in
-                    walletForSingleChain(
-                        id: watchOnlyWalletIDs[offset],
-                        name: walletDisplayName(
-                            baseName: trimmedWalletName,
-                            batchPosition: offset + 1,
-                            defaultWalletIndex: defaultWalletNameStartIndex + offset,
-                            selectedChainCount: watchOnlyRequests.count
-                        ),
-                        chainName: request.chainName,
-                        bitcoinAddress: request.bitcoinAddress,
-                        bitcoinXPub: request.bitcoinXPub,
-                        bitcoinCashAddress: request.bitcoinCashAddress,
-                        bitcoinSVAddress: request.bitcoinSVAddress,
-                        litecoinAddress: request.litecoinAddress,
-                        dogecoinAddress: request.dogecoinAddress,
-                        ethereumAddress: request.ethereumAddress,
-                        tronAddress: request.tronAddress,
-                        solanaAddress: request.solanaAddress,
-                        xrpAddress: request.xrpAddress,
-                        stellarAddress: request.stellarAddress,
-                        moneroAddress: request.moneroAddress,
-                        cardanoAddress: request.cardanoAddress,
-                        suiAddress: request.suiAddress,
-                        aptosAddress: request.aptosAddress,
-                        tonAddress: request.tonAddress,
-                        icpAddress: request.icpAddress,
-                        nearAddress: request.nearAddress,
-                        polkadotAddress: request.polkadotAddress,
-                        seedDerivationPreset: selectedDerivationPreset,
-                        seedDerivationPaths: selectedDerivationPaths,
-                        holdings: coins
-                    )
-                }
+                plannedWalletIDs = (0..<watchOnlyWalletCount).map { _ in UUID() }
             } else {
-                createdWallets = selectedChainNames.enumerated().map { offset, chainName in
-                    walletForSingleChain(
-                        id: createdWalletIDs[offset],
-                        name: walletDisplayName(
-                            baseName: trimmedWalletName,
-                            batchPosition: offset + 1,
-                            defaultWalletIndex: defaultWalletNameStartIndex + offset,
-                            selectedChainCount: selectedChainNames.count
-                        ),
-                        chainName: chainName,
-                        bitcoinAddress: resolvedBitcoinAddress ?? derivedBitcoinAddress,
-                        bitcoinXPub: resolvedBitcoinXPub,
-                        bitcoinCashAddress: resolvedBitcoinCashAddress ?? bitcoinCashAddress,
-                        bitcoinSVAddress: resolvedBitcoinSVAddress ?? bitcoinSVAddress,
-                        litecoinAddress: resolvedLitecoinAddress ?? litecoinAddress,
-                        dogecoinAddress: dogecoinAddress,
-                        ethereumAddress: chainName == "Ethereum Classic" ? ethereumClassicAddress : ethereumAddress,
-                        tronAddress: resolvedTronAddress ?? tronAddress,
-                        solanaAddress: resolvedSolanaAddress ?? solanaAddress,
-                        xrpAddress: resolvedXRPAddress ?? xrpAddress,
-                        stellarAddress: resolvedStellarAddress ?? stellarAddress,
-                        moneroAddress: resolvedMoneroAddress ?? moneroAddress,
-                        cardanoAddress: resolvedCardanoAddress ?? cardanoAddress,
-                        suiAddress: resolvedSuiAddress ?? suiAddress,
-                        aptosAddress: resolvedAptosAddress ?? aptosAddress,
-                        tonAddress: resolvedTONAddress ?? tonAddress,
-                        icpAddress: resolvedICPAddress ?? icpAddress,
-                        nearAddress: resolvedNearAddress ?? nearAddress,
-                        polkadotAddress: resolvedPolkadotAddress ?? polkadotAddress,
-                        seedDerivationPreset: selectedDerivationPreset,
-                        seedDerivationPaths: selectedDerivationPaths,
-                        holdings: coins
-                    )
-                }
+                plannedWalletIDs = selectedChainNames.map { _ in UUID() }
             }
 
-            for wallet in createdWallets {
-                let account = Self.seedPhraseAccount(for: wallet.id)
-                let passwordAccount = Self.seedPhrasePasswordAccount(for: wallet.id)
-                let privateKeyAccount = Self.privateKeyAccount(for: wallet.id)
-                if requiresSeedPhrase {
+            let importPlanRequest = WalletRustImportPlanRequest(
+                walletName: trimmedWalletName,
+                defaultWalletNameStartIndex: defaultWalletNameStartIndex,
+                primarySelectedChainName: primarySelectedChainName,
+                selectedChainNames: selectedChainNames,
+                plannedWalletIDs: plannedWalletIDs.map(\.uuidString),
+                isWatchOnlyImport: isWatchOnlyImport,
+                isPrivateKeyImport: isPrivateKeyImport,
+                hasWalletPassword: trimmedWalletPassword != nil,
+                resolvedAddresses: WalletRustImportAddresses(
+                    bitcoinAddress: resolvedBitcoinAddress ?? derivedBitcoinAddress,
+                    bitcoinXpub: resolvedBitcoinXPub,
+                    bitcoinCashAddress: resolvedBitcoinCashAddress ?? bitcoinCashAddress,
+                    bitcoinSVAddress: resolvedBitcoinSVAddress ?? bitcoinSVAddress,
+                    litecoinAddress: resolvedLitecoinAddress ?? litecoinAddress,
+                    dogecoinAddress: dogecoinAddress,
+                    ethereumAddress: ethereumAddress,
+                    ethereumClassicAddress: ethereumClassicAddress,
+                    tronAddress: resolvedTronAddress ?? tronAddress,
+                    solanaAddress: resolvedSolanaAddress ?? solanaAddress,
+                    xrpAddress: resolvedXRPAddress ?? xrpAddress,
+                    stellarAddress: resolvedStellarAddress ?? stellarAddress,
+                    moneroAddress: resolvedMoneroAddress ?? moneroAddress,
+                    cardanoAddress: resolvedCardanoAddress ?? cardanoAddress,
+                    suiAddress: resolvedSuiAddress ?? suiAddress,
+                    aptosAddress: resolvedAptosAddress ?? aptosAddress,
+                    tonAddress: resolvedTONAddress ?? tonAddress,
+                    icpAddress: resolvedICPAddress ?? icpAddress,
+                    nearAddress: resolvedNearAddress ?? nearAddress,
+                    polkadotAddress: resolvedPolkadotAddress ?? polkadotAddress
+                ),
+                watchOnlyEntries: WalletRustWatchOnlyEntries(
+                    bitcoinAddresses: bitcoinAddressEntries,
+                    bitcoinXpub: resolvedBitcoinXPub,
+                    bitcoinCashAddresses: bitcoinCashAddressEntries,
+                    bitcoinSVAddresses: bitcoinSVAddressEntries,
+                    litecoinAddresses: litecoinAddressEntries,
+                    dogecoinAddresses: dogecoinAddressEntries,
+                    ethereumAddresses: ethereumAddressEntries.map(EthereumWalletEngine.normalizeAddress),
+                    tronAddresses: tronAddressEntries,
+                    solanaAddresses: solanaAddressEntries,
+                    xrpAddresses: xrpAddressEntries,
+                    stellarAddresses: stellarAddressEntries,
+                    cardanoAddresses: cardanoAddressEntries,
+                    suiAddresses: suiAddressEntries.map(\.lowercased()),
+                    aptosAddresses: aptosAddressEntries.map { normalizedAddress($0, for: "Aptos") },
+                    tonAddresses: tonAddressEntries.map { normalizedAddress($0, for: "TON") },
+                    icpAddresses: icpAddressEntries.map { normalizedAddress($0, for: "Internet Computer") },
+                    nearAddresses: nearAddressEntries.map(\.lowercased()),
+                    polkadotAddresses: polkadotAddressEntries
+                )
+            )
+
+            let importPlan: WalletRustImportPlan
+            do {
+                importPlan = try WalletRustAppCoreBridge.planWalletImport(importPlanRequest)
+            } catch {
+                importError = error.localizedDescription
+                return
+            }
+
+            let createdWallets = importPlan.wallets.compactMap { plannedWallet in
+                guard let walletID = UUID(uuidString: plannedWallet.walletID) else {
+                    return nil
+                }
+                return walletForPlannedImport(
+                    id: walletID,
+                    plan: plannedWallet,
+                    seedDerivationPreset: selectedDerivationPreset,
+                    seedDerivationPaths: selectedDerivationPaths,
+                    holdings: coins
+                )
+            }
+
+            for instruction in importPlan.secretInstructions {
+                guard let walletID = UUID(uuidString: instruction.walletID) else { continue }
+                let account = Self.seedPhraseAccount(for: walletID)
+                let passwordAccount = Self.seedPhrasePasswordAccount(for: walletID)
+                let privateKeyAccount = Self.privateKeyAccount(for: walletID)
+
+                if instruction.shouldStoreSeedPhrase {
                     try? SecureSeedStore.save(trimmedSeedPhrase, for: account)
-                    if let trimmedWalletPassword {
-                        try? SecureSeedPasswordStore.save(trimmedWalletPassword, for: passwordAccount)
-                    } else {
-                        try? SecureSeedPasswordStore.deleteValue(for: passwordAccount)
-                    }
-                    SecurePrivateKeyStore.deleteValue(for: privateKeyAccount)
-                } else if isPrivateKeyImport {
-                    try? SecureSeedStore.deleteValue(for: account)
-                    try? SecureSeedPasswordStore.deleteValue(for: passwordAccount)
-                    SecurePrivateKeyStore.save(trimmedPrivateKey, for: privateKeyAccount)
                 } else {
                     try? SecureSeedStore.deleteValue(for: account)
+                }
+
+                if instruction.shouldStorePasswordVerifier, let trimmedWalletPassword {
+                    try? SecureSeedPasswordStore.save(trimmedWalletPassword, for: passwordAccount)
+                } else {
                     try? SecureSeedPasswordStore.deleteValue(for: passwordAccount)
+                }
+
+                if instruction.shouldStorePrivateKey {
+                    SecurePrivateKeyStore.save(trimmedPrivateKey, for: privateKeyAccount)
+                } else {
                     SecurePrivateKeyStore.deleteValue(for: privateKeyAccount)
                 }
             }
@@ -2113,6 +1685,44 @@ extension WalletStore {
             seedDerivationPaths: seedDerivationPaths,
             selectedChain: chainName,
             holdings: holdings.filter { $0.chainName == chainName }
+        )
+    }
+
+    func walletForPlannedImport(
+        id: UUID,
+        plan: WalletRustPlannedWallet,
+        seedDerivationPreset: SeedDerivationPreset,
+        seedDerivationPaths: SeedDerivationPaths,
+        holdings: [Coin]
+    ) -> ImportedWallet {
+        walletForSingleChain(
+            id: id,
+            name: plan.name,
+            chainName: plan.chainName,
+            bitcoinAddress: plan.addresses.bitcoinAddress,
+            bitcoinXPub: plan.addresses.bitcoinXpub,
+            bitcoinCashAddress: plan.addresses.bitcoinCashAddress,
+            bitcoinSVAddress: plan.addresses.bitcoinSVAddress,
+            litecoinAddress: plan.addresses.litecoinAddress,
+            dogecoinAddress: plan.addresses.dogecoinAddress,
+            ethereumAddress: plan.chainName == "Ethereum Classic"
+                ? (plan.addresses.ethereumClassicAddress ?? plan.addresses.ethereumAddress)
+                : plan.addresses.ethereumAddress,
+            tronAddress: plan.addresses.tronAddress,
+            solanaAddress: plan.addresses.solanaAddress,
+            xrpAddress: plan.addresses.xrpAddress,
+            stellarAddress: plan.addresses.stellarAddress,
+            moneroAddress: plan.addresses.moneroAddress,
+            cardanoAddress: plan.addresses.cardanoAddress,
+            suiAddress: plan.addresses.suiAddress,
+            aptosAddress: plan.addresses.aptosAddress,
+            tonAddress: plan.addresses.tonAddress,
+            icpAddress: plan.addresses.icpAddress,
+            nearAddress: plan.addresses.nearAddress,
+            polkadotAddress: plan.addresses.polkadotAddress,
+            seedDerivationPreset: seedDerivationPreset,
+            seedDerivationPaths: seedDerivationPaths,
+            holdings: holdings
         )
     }
 

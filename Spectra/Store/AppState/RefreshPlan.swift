@@ -22,28 +22,46 @@ struct WalletRefreshPlanner {
         pendingRefreshInterval: TimeInterval,
         priceRefreshInterval: TimeInterval
     ) -> WalletActiveMaintenancePlan {
-        let shouldRefreshPendingTransactions: Bool
-        if let lastPendingTransactionRefreshAt {
-            shouldRefreshPendingTransactions =
-                hasPendingTransactionMaintenanceWork &&
-                now.timeIntervalSince(lastPendingTransactionRefreshAt) >= pendingRefreshInterval
-        } else {
-            shouldRefreshPendingTransactions = hasPendingTransactionMaintenanceWork
-        }
+        do {
+            let plan = try WalletRustAppCoreBridge.activeMaintenancePlan(
+                WalletRustActiveMaintenancePlanRequest(
+                    nowUnix: now.timeIntervalSince1970,
+                    lastPendingTransactionRefreshAtUnix: lastPendingTransactionRefreshAt?.timeIntervalSince1970,
+                    lastLivePriceRefreshAtUnix: lastLivePriceRefreshAt?.timeIntervalSince1970,
+                    hasPendingTransactionMaintenanceWork: hasPendingTransactionMaintenanceWork,
+                    shouldRunScheduledPriceRefresh: shouldRunScheduledPriceRefresh,
+                    pendingRefreshInterval: pendingRefreshInterval,
+                    priceRefreshInterval: priceRefreshInterval
+                )
+            )
+            return WalletActiveMaintenancePlan(
+                refreshPendingTransactions: plan.refreshPendingTransactions,
+                refreshLivePrices: plan.refreshLivePrices
+            )
+        } catch {
+            let refreshPendingTransactions: Bool
+            if let lastPendingTransactionRefreshAt {
+                refreshPendingTransactions =
+                    hasPendingTransactionMaintenanceWork &&
+                    now.timeIntervalSince(lastPendingTransactionRefreshAt) >= pendingRefreshInterval
+            } else {
+                refreshPendingTransactions = hasPendingTransactionMaintenanceWork
+            }
 
-        let shouldRefreshLivePrices: Bool
-        if let lastLivePriceRefreshAt {
-            shouldRefreshLivePrices =
-                shouldRunScheduledPriceRefresh &&
-                now.timeIntervalSince(lastLivePriceRefreshAt) >= priceRefreshInterval
-        } else {
-            shouldRefreshLivePrices = shouldRunScheduledPriceRefresh
-        }
+            let refreshLivePrices: Bool
+            if let lastLivePriceRefreshAt {
+                refreshLivePrices =
+                    shouldRunScheduledPriceRefresh &&
+                    now.timeIntervalSince(lastLivePriceRefreshAt) >= priceRefreshInterval
+            } else {
+                refreshLivePrices = shouldRunScheduledPriceRefresh
+            }
 
-        return WalletActiveMaintenancePlan(
-            refreshPendingTransactions: shouldRefreshPendingTransactions,
-            refreshLivePrices: shouldRefreshLivePrices
-        )
+            return WalletActiveMaintenancePlan(
+                refreshPendingTransactions: refreshPendingTransactions,
+                refreshLivePrices: refreshLivePrices
+            )
+        }
     }
 
     static func shouldRunBackgroundMaintenance(
@@ -52,9 +70,20 @@ struct WalletRefreshPlanner {
         lastBackgroundMaintenanceAt: Date?,
         interval: TimeInterval
     ) -> Bool {
-        guard isNetworkReachable else { return false }
-        guard let lastBackgroundMaintenanceAt else { return true }
-        return now.timeIntervalSince(lastBackgroundMaintenanceAt) >= interval
+        do {
+            return try WalletRustAppCoreBridge.shouldRunBackgroundMaintenance(
+                WalletRustBackgroundMaintenanceRequest(
+                    nowUnix: now.timeIntervalSince1970,
+                    isNetworkReachable: isNetworkReachable,
+                    lastBackgroundMaintenanceAtUnix: lastBackgroundMaintenanceAt?.timeIntervalSince1970,
+                    interval: interval
+                )
+            )
+        } catch {
+            guard isNetworkReachable else { return false }
+            guard let lastBackgroundMaintenanceAt else { return true }
+            return now.timeIntervalSince(lastBackgroundMaintenanceAt) >= interval
+        }
     }
 
     static func chainPlans(
@@ -69,29 +98,50 @@ struct WalletRefreshPlanner {
         lastHistoryRefreshAtByChainID: [WalletChainID: Date],
         automaticChainRefreshStalenessInterval: TimeInterval
     ) -> [WalletRefreshChainPlan] {
-        chainIDs
-            .sorted()
-            .compactMap { chainID in
-                guard shouldRefreshChainData(
-                    chainID,
-                    now: now,
-                    force: forceChainRefresh,
-                    pendingTransactionMaintenanceChains: pendingTransactionMaintenanceChains,
-                    degradedChains: degradedChains,
-                    lastGoodChainSyncByID: lastGoodChainSyncByID,
+        do {
+            let plans = try WalletRustAppCoreBridge.chainRefreshPlans(
+                WalletRustChainRefreshPlanRequest(
+                    chainIDs: chainIDs.map(\.rawValue),
+                    nowUnix: now.timeIntervalSince1970,
+                    forceChainRefresh: forceChainRefresh,
+                    includeHistoryRefreshes: includeHistoryRefreshes,
+                    historyRefreshInterval: historyRefreshInterval,
+                    pendingTransactionMaintenanceChainIDs: pendingTransactionMaintenanceChains.map(\.rawValue),
+                    degradedChainIDs: degradedChains.map(\.rawValue),
+                    lastGoodChainSyncByID: Dictionary(uniqueKeysWithValues: lastGoodChainSyncByID.map { ($0.key.rawValue, $0.value.timeIntervalSince1970) }),
+                    lastHistoryRefreshAtByChainID: Dictionary(uniqueKeysWithValues: lastHistoryRefreshAtByChainID.map { ($0.key.rawValue, $0.value.timeIntervalSince1970) }),
                     automaticChainRefreshStalenessInterval: automaticChainRefreshStalenessInterval
-                ) else {
-                    return nil
-                }
-
-                let refreshHistory = includeHistoryRefreshes && shouldRefreshOnChainHistory(
-                    for: chainID,
-                    now: now,
-                    interval: historyRefreshInterval,
-                    lastHistoryRefreshAtByChainID: lastHistoryRefreshAtByChainID
                 )
-                return WalletRefreshChainPlan(chainID: chainID, refreshHistory: refreshHistory)
+            )
+            return plans.compactMap { plan in
+                guard let chainID = WalletChainID(plan.chainID) else { return nil }
+                return WalletRefreshChainPlan(chainID: chainID, refreshHistory: plan.refreshHistory)
             }
+        } catch {
+            return chainIDs
+                .sorted()
+                .compactMap { chainID in
+                    guard shouldRefreshChainData(
+                        chainID,
+                        now: now,
+                        force: forceChainRefresh,
+                        pendingTransactionMaintenanceChains: pendingTransactionMaintenanceChains,
+                        degradedChains: degradedChains,
+                        lastGoodChainSyncByID: lastGoodChainSyncByID,
+                        automaticChainRefreshStalenessInterval: automaticChainRefreshStalenessInterval
+                    ) else {
+                        return nil
+                    }
+
+                    let refreshHistory = includeHistoryRefreshes && shouldRefreshOnChainHistory(
+                        for: chainID,
+                        now: now,
+                        interval: historyRefreshInterval,
+                        lastHistoryRefreshAtByChainID: lastHistoryRefreshAtByChainID
+                    )
+                    return WalletRefreshChainPlan(chainID: chainID, refreshHistory: refreshHistory)
+                }
+        }
     }
 
     static func historyPlans(
@@ -100,16 +150,28 @@ struct WalletRefreshPlanner {
         interval: TimeInterval,
         lastHistoryRefreshAtByChainID: [WalletChainID: Date]
     ) -> [WalletChainID] {
-        chainIDs
-            .sorted()
-            .filter {
-                shouldRefreshOnChainHistory(
-                    for: $0,
-                    now: now,
+        do {
+            let chainIDs = try WalletRustAppCoreBridge.historyRefreshPlans(
+                WalletRustHistoryRefreshPlanRequest(
+                    chainIDs: chainIDs.map(\.rawValue),
+                    nowUnix: now.timeIntervalSince1970,
                     interval: interval,
-                    lastHistoryRefreshAtByChainID: lastHistoryRefreshAtByChainID
+                    lastHistoryRefreshAtByChainID: Dictionary(uniqueKeysWithValues: lastHistoryRefreshAtByChainID.map { ($0.key.rawValue, $0.value.timeIntervalSince1970) })
                 )
-            }
+            )
+            return chainIDs.compactMap(WalletChainID.init)
+        } catch {
+            return chainIDs
+                .sorted()
+                .filter {
+                    shouldRefreshOnChainHistory(
+                        for: $0,
+                        now: now,
+                        interval: interval,
+                        lastHistoryRefreshAtByChainID: lastHistoryRefreshAtByChainID
+                    )
+                }
+        }
     }
 
     private static func shouldRefreshChainData(

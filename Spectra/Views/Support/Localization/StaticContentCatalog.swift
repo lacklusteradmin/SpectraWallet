@@ -338,6 +338,15 @@ enum StaticContentCatalog {
     private final class BundleMarker {}
     private static let decoder = JSONDecoder()
     private static let localizationRootDirectoryName = "Localization"
+    private static let rustLocalizedResources: Set<String> = [
+        "ChainWikiEntries",
+        "CommonContent",
+        "DiagnosticsContent",
+        "DonationsContent",
+        "EndpointsContent",
+        "ImportFlowContent",
+        "SettingsContent"
+    ]
     private static let candidateBundles: [Bundle] = {
         var seen = Set<URL>()
         return ([Bundle.main, Bundle(for: BundleMarker.self)] + Bundle.allBundles + Bundle.allFrameworks).filter { bundle in
@@ -357,6 +366,15 @@ enum StaticContentCatalog {
         let cacheKey = "\(localizationCacheKeyPrefix())|json|\(resourceName)|\(String(reflecting: type))"
         if let cachedValue = decodedResourceCache[cacheKey] as? T {
             return cachedValue
+        }
+        if rustLocalizedResources.contains(resourceName),
+           let data = try? WalletRustAppCoreBridge.localizedDocumentData(
+            named: resourceName,
+            preferredLocales: preferredLocalizationIdentifiers()
+           ),
+           let decodedValue = try? decoder.decode(type, from: data) {
+            decodedResourceCache[cacheKey] = decodedValue
+            return decodedValue
         }
         guard let url = resourceURL(named: resourceName),
               let data = try? Data(contentsOf: url) else {
