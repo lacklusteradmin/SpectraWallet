@@ -384,7 +384,7 @@ enum ChainBackendRegistry {
         do {
             return try WalletRustEndpointCatalogBridge.chainBackends()
         } catch {
-            return fallbackChainBackends
+            preconditionFailure("Rust chain backend catalog failed to load: \(error.localizedDescription)")
         }
     }
 
@@ -392,7 +392,7 @@ enum ChainBackendRegistry {
         do {
             return try WalletRustEndpointCatalogBridge.liveChainNames()
         } catch {
-            return fallbackLiveChainNames
+            preconditionFailure("Rust live-chain catalog failed to load: \(error.localizedDescription)")
         }
     }
 
@@ -400,63 +400,7 @@ enum ChainBackendRegistry {
         do {
             return try WalletRustEndpointCatalogBridge.appChainDescriptors()
         } catch {
-            return fallbackAppChains
+            preconditionFailure("Rust app-chain catalog failed to load: \(error.localizedDescription)")
         }
     }
-
-    private static let fallbackChainBackends: [ChainBackendRecord] = [
-        ChainBackendRecord(chainName: bitcoinChainName, supportedSymbols: ["BTC"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: bitcoinCashChainName, supportedSymbols: ["BCH"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: bitcoinSVChainName, supportedSymbols: ["BSV"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: litecoinChainName, supportedSymbols: ["LTC"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: dogecoinChainName, supportedSymbols: ["DOGE"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: ethereumChainName, supportedSymbols: ["ETH", "USDT", "USDC", "DAI"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: ethereumClassicChainName, supportedSymbols: ["ETC"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: arbitrumChainName, supportedSymbols: ["ETH", "USDT", "USDC", "DAI"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: optimismChainName, supportedSymbols: ["ETH", "USDT", "USDC", "DAI"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: bnbChainName, supportedSymbols: ["BNB"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: avalancheChainName, supportedSymbols: ["AVAX"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: hyperliquidChainName, supportedSymbols: ["HYPE"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: tronChainName, supportedSymbols: ["TRX", "USDT"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: solanaChainName, supportedSymbols: ["SOL"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: xrpChainName, supportedSymbols: ["XRP"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: moneroChainName, supportedSymbols: ["XMR"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: cardanoChainName, supportedSymbols: ["ADA"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: suiChainName, supportedSymbols: ["SUI"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: aptosChainName, supportedSymbols: ["APT"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: tonChainName, supportedSymbols: ["TON"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: icpChainName, supportedSymbols: ["ICP"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: nearChainName, supportedSymbols: ["NEAR"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: polkadotChainName, supportedSymbols: ["DOT"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true),
-        ChainBackendRecord(chainName: stellarChainName, supportedSymbols: ["XLM"], integrationState: .live, supportsSeedImport: true, supportsBalanceRefresh: true, supportsReceiveAddress: true, supportsSend: true)
-    ]
-
-    private static let fallbackLiveChainNames: [String] = fallbackChainBackends.map(\.chainName)
-
-    private static let fallbackAppChains: [AppChainDescriptor] = [
-        AppChainDescriptor(id: .bitcoin, chainName: bitcoinChainName, shortLabel: "BTC", nativeSymbol: "BTC", searchKeywords: ["bitcoin", "btc"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .bitcoinCash, chainName: bitcoinCashChainName, shortLabel: "BCH", nativeSymbol: "BCH", searchKeywords: ["bitcoin cash", "bch"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .bitcoinSV, chainName: bitcoinSVChainName, shortLabel: "BSV", nativeSymbol: "BSV", searchKeywords: ["bitcoin sv", "bsv"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .litecoin, chainName: litecoinChainName, shortLabel: "LTC", nativeSymbol: "LTC", searchKeywords: ["litecoin", "ltc"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .dogecoin, chainName: dogecoinChainName, shortLabel: "DOGE", nativeSymbol: "DOGE", searchKeywords: ["dogecoin", "doge"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .ethereum, chainName: ethereumChainName, shortLabel: "ETH", nativeSymbol: "ETH", searchKeywords: ["ethereum", "eth"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: true),
-        AppChainDescriptor(id: .ethereumClassic, chainName: ethereumClassicChainName, shortLabel: "ETC", nativeSymbol: "ETC", searchKeywords: ["ethereum classic", "etc"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: true),
-        AppChainDescriptor(id: .arbitrum, chainName: arbitrumChainName, shortLabel: "ARB", nativeSymbol: "ETH", searchKeywords: ["arbitrum", "arb"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: true),
-        AppChainDescriptor(id: .optimism, chainName: optimismChainName, shortLabel: "OP", nativeSymbol: "ETH", searchKeywords: ["optimism", "op"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: true),
-        AppChainDescriptor(id: .bnb, chainName: bnbChainName, shortLabel: "BNB", nativeSymbol: "BNB", searchKeywords: ["bnb", "bsc", "binance"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: true),
-        AppChainDescriptor(id: .avalanche, chainName: avalancheChainName, shortLabel: "AVAX", nativeSymbol: "AVAX", searchKeywords: ["avalanche", "avax"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: true),
-        AppChainDescriptor(id: .hyperliquid, chainName: hyperliquidChainName, shortLabel: "HYPE", nativeSymbol: "HYPE", searchKeywords: ["hyperliquid", "hyperevm", "hype"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: true),
-        AppChainDescriptor(id: .tron, chainName: tronChainName, shortLabel: "TRX", nativeSymbol: "TRX", searchKeywords: ["tron", "trx"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .solana, chainName: solanaChainName, shortLabel: "SOL", nativeSymbol: "SOL", searchKeywords: ["solana", "sol"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .cardano, chainName: cardanoChainName, shortLabel: "ADA", nativeSymbol: "ADA", searchKeywords: ["cardano", "ada"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .xrp, chainName: xrpChainName, shortLabel: "XRP", nativeSymbol: "XRP", searchKeywords: ["xrp", "ripple", "xrp ledger"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .stellar, chainName: stellarChainName, shortLabel: "XLM", nativeSymbol: "XLM", searchKeywords: ["stellar", "xlm"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .monero, chainName: moneroChainName, shortLabel: "XMR", nativeSymbol: "XMR", searchKeywords: ["monero", "xmr"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .sui, chainName: suiChainName, shortLabel: "SUI", nativeSymbol: "SUI", searchKeywords: ["sui"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .aptos, chainName: aptosChainName, shortLabel: "APT", nativeSymbol: "APT", searchKeywords: ["aptos", "apt"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .ton, chainName: tonChainName, shortLabel: "TON", nativeSymbol: "TON", searchKeywords: ["ton", "the open network"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .icp, chainName: icpChainName, shortLabel: "ICP", nativeSymbol: "ICP", searchKeywords: ["internet computer", "icp"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .near, chainName: nearChainName, shortLabel: "NEAR", nativeSymbol: "NEAR", searchKeywords: ["near"], supportsDiagnostics: false, supportsEndpointCatalog: true, isEVM: false),
-        AppChainDescriptor(id: .polkadot, chainName: polkadotChainName, shortLabel: "DOT", nativeSymbol: "DOT", searchKeywords: ["polkadot", "dot"], supportsDiagnostics: true, supportsEndpointCatalog: true, isEVM: false)
-    ]
 }

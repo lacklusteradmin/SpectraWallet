@@ -303,9 +303,6 @@ extension WalletFetchLayer {
             store.wallets = updatedWallets
         }
 
-        if !resolvedBalances.isEmpty {
-            store.noteChainSuccessfulSync("Tron")
-        }
         updateBalanceRefreshHealth(chainName: "Tron", attemptedWalletCount: walletsToRefresh.count, resolvedWalletCount: resolvedBalances.count, usedLedgerFallback: usedLedgerFallback, using: store)
     }
 
@@ -490,9 +487,6 @@ extension WalletFetchLayer {
             store.wallets = updatedWallets
         }
 
-        if !resolvedBalances.isEmpty {
-            store.noteChainSuccessfulSync("Stellar")
-        }
         updateBalanceRefreshHealth(chainName: "Stellar", attemptedWalletCount: walletsToRefresh.count, resolvedWalletCount: resolvedBalances.count, usedLedgerFallback: usedLedgerFallback, using: store)
     }
 
@@ -815,9 +809,6 @@ extension WalletFetchLayer {
             store.wallets = updatedWallets
         }
 
-        if !resolvedBalances.isEmpty {
-            store.noteChainSuccessfulSync("Polkadot")
-        }
         updateBalanceRefreshHealth(chainName: "Polkadot", attemptedWalletCount: walletsToRefresh.count, resolvedWalletCount: resolvedBalances.count, usedLedgerFallback: usedLedgerFallback, using: store)
     }
 
@@ -1061,15 +1052,32 @@ extension WalletFetchLayer {
         usedLedgerFallback: Bool,
         using store: WalletStore
     ) {
-        guard attemptedWalletCount > 0 else { return }
-        if resolvedWalletCount == attemptedWalletCount {
+        _ = usedLedgerFallback
+        guard let plan = try? WalletRustAppCoreBridge.planBalanceRefreshHealth(
+            WalletRustBalanceRefreshHealthRequest(
+                chainName: chainName,
+                attemptedWalletCount: attemptedWalletCount,
+                resolvedWalletCount: resolvedWalletCount
+            )
+        ) else {
+            if attemptedWalletCount > 0 && resolvedWalletCount == attemptedWalletCount {
+                store.markChainHealthy(chainName)
+            } else if attemptedWalletCount > 0 && resolvedWalletCount > 0 {
+                store.noteChainSuccessfulSync(chainName)
+                store.markChainDegraded(chainName, detail: "\(chainName) providers are partially reachable. Showing the latest available balances.")
+            } else if attemptedWalletCount > 0 {
+                store.markChainDegraded(chainName, detail: "\(chainName) providers are unavailable. Using cached balances and history.")
+            }
+            return
+        }
+
+        if plan.shouldNoteSuccessfulSync {
+            store.noteChainSuccessfulSync(chainName)
+        }
+        if plan.shouldMarkHealthy {
             store.markChainHealthy(chainName)
-        } else if resolvedWalletCount > 0 {
-            store.markChainDegraded(chainName, detail: "\(chainName) providers are partially reachable. Showing the latest available balances.")
-        } else if usedLedgerFallback {
-            store.markChainDegraded(chainName, detail: "\(chainName) providers are unavailable. Using cached balances and history.")
-        } else {
-            store.markChainDegraded(chainName, detail: "\(chainName) providers are unavailable. Using cached balances and history.")
+        } else if let degradedDetail = plan.degradedDetail {
+            store.markChainDegraded(chainName, detail: degradedDetail)
         }
     }
 }

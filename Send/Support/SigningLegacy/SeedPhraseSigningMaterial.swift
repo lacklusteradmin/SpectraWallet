@@ -28,32 +28,25 @@ enum SeedPhraseSigningMaterial {
     ) throws -> WalletCoreDerivationMaterial {
         let normalizedSeedPhrase = SeedPhraseSafety.normalizedPhrase(from: seedPhrase)
         let resolvedPath = derivationPath ?? defaultPath(for: coin)
-        let response = try WalletDerivationEngine.derive(
+        let request = try WalletRustDerivationBridge.makeRequestModel(
+            chain: coin.derivationChain,
+            network: .mainnet,
             seedPhrase: normalizedSeedPhrase,
-            request: WalletDerivationRequest(
-                chain: coin.derivationChain,
-                network: .mainnet,
-                derivationPath: resolvedPath,
-                curve: WalletDerivationEngine.curve(for: coin.derivationChain),
-                passphrase: passphrase,
-                requestedOutputs: [.address, .privateKey]
-            )
-        )
-        guard let address = response.address,
-              let privateKeyHex = response.privateKeyHex else {
-            throw WalletCoreDerivationError.invalidMnemonic
-        }
-        let privateKeyData = try privateKeyData(from: privateKeyHex)
-        let segments = DerivationPathParser.parse(resolvedPath) ?? []
-        let branchValue = segments.count >= 2 ? segments[segments.count - 2].value : 0
-        let indexValue = segments.last?.value ?? 0
-        return WalletCoreDerivationMaterial(
-            address: address,
-            privateKeyData: privateKeyData,
             derivationPath: resolvedPath,
-            account: segments.count >= 3 ? segments[2].value : 0,
-            branch: branchValue == 1 ? .change : .external,
-            index: indexValue
+            passphrase: passphrase,
+            iterationCount: nil,
+            hmacKeyString: nil,
+            requestedOutputs: [.address, .privateKey]
+        )
+        let response = try WalletRustDerivationBridge.buildSigningMaterial(request)
+        let privateKeyData = try privateKeyData(from: response.privateKeyHex)
+        return WalletCoreDerivationMaterial(
+            address: response.address,
+            privateKeyData: privateKeyData,
+            derivationPath: response.derivationPath,
+            account: response.account,
+            branch: response.branch == 1 ? .change : .external,
+            index: response.index
         )
     }
 
@@ -97,20 +90,19 @@ enum SeedPhraseSigningMaterial {
         privateKeyHex: String,
         coin: WalletCoreSupportedCoin
     ) throws -> WalletCoreDerivationMaterial {
-        let normalizedHex = PrivateKeyHex.normalized(from: privateKeyHex)
-        let privateKeyData = try privateKeyData(from: normalizedHex)
-        let address = try SeedPhraseAddressDerivation.address(
-            forPrivateKey: normalizedHex,
-            coin: coin,
-            validator: { _ in true }
+        let response = try WalletRustDerivationBridge.buildSigningMaterialFromPrivateKey(
+            chain: coin.derivationChain,
+            privateKeyHex: privateKeyHex,
+            derivationPath: defaultPath(for: coin)
         )
+        let privateKeyData = try privateKeyData(from: response.privateKeyHex)
         return WalletCoreDerivationMaterial(
-            address: address,
+            address: response.address,
             privateKeyData: privateKeyData,
-            derivationPath: defaultPath(for: coin),
-            account: 0,
-            branch: .external,
-            index: 0
+            derivationPath: response.derivationPath,
+            account: response.account,
+            branch: response.branch == 1 ? .change : .external,
+            index: response.index
         )
     }
 

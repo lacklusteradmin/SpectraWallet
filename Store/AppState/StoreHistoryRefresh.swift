@@ -45,7 +45,7 @@ func fetchBitcoinHistoryPage(
     for wallet: ImportedWallet,
     limit: Int,
     cursor: String?
-) async throws -> BitcoinHistoryPage {
+    ) async throws -> BitcoinHistoryPage {
     if cursor == nil,
        let seedPhrase = storedSeedPhrase(for: wallet.id),
        !seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
@@ -67,16 +67,39 @@ func fetchBitcoinHistoryPage(
             }
         }
 
-        let mergedSnapshots = mergeBitcoinHistorySnapshots(
-            fetchedSnapshots
-                .sorted { $0.key < $1.key }
-                .flatMap(\.value),
-            ownedAddresses: Set(ownedAddresses.map { $0.lowercased() }),
-            limit: limit
+        let mergedSnapshots = try WalletRustAppCoreBridge.mergeBitcoinHistorySnapshots(
+            WalletRustMergeBitcoinHistorySnapshotsRequest(
+                snapshots: fetchedSnapshots
+                    .sorted { $0.key < $1.key }
+                    .flatMap(\.value)
+                    .map { snapshot in
+                        WalletRustBitcoinHistorySnapshotPayload(
+                            txid: snapshot.txid,
+                            amountBTC: snapshot.amountBTC,
+                            kind: snapshot.kind.rawValue,
+                            status: snapshot.status.rawValue,
+                            counterpartyAddress: snapshot.counterpartyAddress,
+                            blockHeight: snapshot.blockHeight,
+                            createdAtUnix: snapshot.createdAt.timeIntervalSince1970
+                        )
+                    },
+                ownedAddresses: ownedAddresses,
+                limit: limit
+            )
         )
         if !mergedSnapshots.isEmpty {
             return BitcoinHistoryPage(
-                snapshots: mergedSnapshots,
+                snapshots: mergedSnapshots.map { snapshot in
+                    BitcoinHistorySnapshot(
+                        txid: snapshot.txid,
+                        amountBTC: snapshot.amountBTC,
+                        kind: TransactionKind(rawValue: snapshot.kind) ?? .send,
+                        status: TransactionStatus(rawValue: snapshot.status) ?? .pending,
+                        counterpartyAddress: snapshot.counterpartyAddress,
+                        blockHeight: snapshot.blockHeight,
+                        createdAt: Date(timeIntervalSince1970: snapshot.createdAtUnix)
+                    )
+                },
                 nextCursor: nil,
                 sourceUsed: "wallet.inventory"
             )
@@ -104,57 +127,6 @@ func fetchBitcoinHistoryPage(
 
     throw URLError(.fileDoesNotExist)
 }
-
-private func mergeBitcoinHistorySnapshots(
-    _ snapshots: [BitcoinHistorySnapshot],
-    ownedAddresses: Set<String>,
-    limit: Int
-) -> [BitcoinHistorySnapshot] {
-    let grouped = Dictionary(grouping: snapshots, by: \.txid)
-    let merged = grouped.values.compactMap { entries -> BitcoinHistorySnapshot? in
-        guard !entries.isEmpty else { return nil }
-        let netAmount = entries.reduce(0.0) { partialResult, entry in
-            partialResult + (entry.kind == .receive ? entry.amountBTC : -entry.amountBTC)
-        }
-        guard netAmount != 0 else { return nil }
-
-        let orderedEntries = entries.sorted { lhs, rhs in
-            if lhs.createdAt != rhs.createdAt {
-                return lhs.createdAt > rhs.createdAt
-            }
-            return lhs.amountBTC > rhs.amountBTC
-        }
-        let counterpartyAddress = orderedEntries
-            .map(\.counterpartyAddress)
-            .first {
-                let normalized = $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-                return !normalized.isEmpty && !ownedAddresses.contains(normalized)
-            }
-            ?? orderedEntries.first?.counterpartyAddress
-            ?? ""
-        let representative = orderedEntries[0]
-        return BitcoinHistorySnapshot(
-            txid: representative.txid,
-            amountBTC: abs(netAmount),
-            kind: netAmount > 0 ? .receive : .send,
-            status: orderedEntries.contains(where: { $0.status == .pending }) ? .pending : .confirmed,
-            counterpartyAddress: counterpartyAddress,
-            blockHeight: orderedEntries.compactMap(\.blockHeight).max(),
-            createdAt: orderedEntries.map(\.createdAt).max() ?? representative.createdAt
-        )
-    }
-
-    return merged
-        .sorted { lhs, rhs in
-            if lhs.createdAt != rhs.createdAt {
-                return lhs.createdAt > rhs.createdAt
-            }
-            return lhs.txid < rhs.txid
-        }
-        .prefix(max(1, limit))
-        .map { $0 }
-}
-
 func refreshBitcoinTransactions(limit: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<UUID>? = nil) async {
     let walletSnapshot = wallets
     let bitcoinWallets = walletSnapshot.filter { wallet in

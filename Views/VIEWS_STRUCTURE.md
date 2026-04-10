@@ -14,4 +14,4 @@ This folder is organized by UI product area.
 - `Support/`: UI support utilities (interop, localization, activity helpers).
 - `Resources/`: assets, localization, and static data consumed by Views.
 
-`ContentView.swift` intentionally remains at `Spectra/` root.
+`ContentView.swift` now lives at `Views/App/ContentView.swift`.

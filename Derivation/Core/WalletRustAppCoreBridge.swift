@@ -20,26 +20,6 @@ enum WalletRustAppCoreBridgeError: LocalizedError {
     }
 }
 
-private struct WalletRustFFIJSONResponse {
-    var statusCode: Int32
-    var payloadUTF8: WalletRustFFIBuffer
-    var errorMessageUTF8: WalletRustFFIBuffer
-}
-
-private struct WalletRustFFICoreLocalizationDocumentRequest {
-    var resourceNameUTF8: WalletRustFFIBuffer
-    var preferredLocalesJSONUTF8: WalletRustFFIBuffer
-}
-
-private struct WalletRustFFICoreStateReduceRequest {
-    var stateJSONUTF8: WalletRustFFIBuffer
-    var commandJSONUTF8: WalletRustFFIBuffer
-}
-
-private struct WalletRustFFICoreJSONRequest {
-    var jsonUTF8: WalletRustFFIBuffer
-}
-
 private extension Data {
     func asJSONString() throws -> String {
         guard let json = String(data: self, encoding: .utf8) else {
@@ -237,6 +217,22 @@ struct WalletRustNormalizeHistoryRequest: Encodable {
     let unknownLabel: String
 }
 
+struct WalletRustBitcoinHistorySnapshotPayload: Codable {
+    let txid: String
+    let amountBTC: Double
+    let kind: String
+    let status: String
+    let counterpartyAddress: String
+    let blockHeight: Int?
+    let createdAtUnix: Double
+}
+
+struct WalletRustMergeBitcoinHistorySnapshotsRequest: Encodable {
+    let snapshots: [WalletRustBitcoinHistorySnapshotPayload]
+    let ownedAddresses: [String]
+    let limit: Int
+}
+
 struct WalletRustNormalizedHistoryEntry: Decodable {
     let id: String
     let transactionID: String
@@ -372,6 +368,18 @@ struct WalletRustWalletBalanceRefreshPlan: Decodable {
     let needsTrackedTokens: Bool
 }
 
+struct WalletRustBalanceRefreshHealthRequest: Encodable {
+    let chainName: String
+    let attemptedWalletCount: Int
+    let resolvedWalletCount: Int
+}
+
+struct WalletRustBalanceRefreshHealthPlan: Decodable {
+    let shouldMarkHealthy: Bool
+    let shouldNoteSuccessfulSync: Bool
+    let degradedDetail: String?
+}
+
 struct WalletRustSendAssetRoutingInput: Encodable {
     let chainName: String
     let symbol: String
@@ -499,6 +507,46 @@ struct WalletRustTransferAvailabilityPlan: Decodable {
     let receiveEnabledWalletIDs: [String]
 }
 
+struct WalletRustStoreDerivedHoldingInput: Encodable {
+    let holdingIndex: Int
+    let assetIdentityKey: String
+    let symbolUpper: String
+    let amount: String
+    let isPricedAsset: Bool
+}
+
+struct WalletRustStoreDerivedWalletInput: Encodable {
+    let walletID: String
+    let includeInPortfolioTotal: Bool
+    let hasSigningMaterial: Bool
+    let isPrivateKeyBacked: Bool
+    let holdings: [WalletRustStoreDerivedHoldingInput]
+}
+
+struct WalletRustStoreDerivedStateRequest: Encodable {
+    let wallets: [WalletRustStoreDerivedWalletInput]
+}
+
+struct WalletRustWalletHoldingRef: Decodable {
+    let walletID: String
+    let holdingIndex: Int
+}
+
+struct WalletRustGroupedPortfolioHolding: Decodable {
+    let assetIdentityKey: String
+    let walletID: String
+    let holdingIndex: Int
+    let totalAmount: String
+}
+
+struct WalletRustStoreDerivedStatePlan: Decodable {
+    let includedPortfolioHoldingRefs: [WalletRustWalletHoldingRef]
+    let uniquePriceRequestHoldingRefs: [WalletRustWalletHoldingRef]
+    let groupedPortfolio: [WalletRustGroupedPortfolioHolding]
+    let signingMaterialWalletIDs: [String]
+    let privateKeyBackedWalletIDs: [String]
+}
+
 struct WalletRustCoreBootstrap: Decodable {
     struct Capabilities: Decodable {
         let schemaVersion: UInt32
@@ -531,11 +579,6 @@ struct WalletRustCoreBootstrap: Decodable {
     let chains: [ChainSummary]
     let localization: LocalizationSummary
     let liveChainNames: [String]
-}
-
-private struct WalletRustFFIPathResolutionRequest {
-    var chain: UInt32
-    var derivationPathUTF8: WalletRustFFIBuffer
 }
 
 private struct WalletRustDerivationPathResolutionPayload: Decodable {
@@ -704,6 +747,16 @@ enum WalletRustAppCoreBridge {
         try sendCoreJSONRequest(request, decode: [WalletRustNormalizedHistoryEntry].self, invoke: coreNormalizeHistoryJson)
     }
 
+    static func mergeBitcoinHistorySnapshots(
+        _ request: WalletRustMergeBitcoinHistorySnapshotsRequest
+    ) throws -> [WalletRustBitcoinHistorySnapshotPayload] {
+        try sendCoreJSONRequest(
+            request,
+            decode: [WalletRustBitcoinHistorySnapshotPayload].self,
+            invoke: coreMergeBitcoinHistorySnapshotsJson
+        )
+    }
+
     static func planEVMRefreshTargets(
         _ request: WalletRustEVMRefreshTargetsRequest
     ) throws -> WalletRustEVMRefreshPlan {
@@ -722,10 +775,22 @@ enum WalletRustAppCoreBridge {
         try sendCoreJSONRequest(request, decode: WalletRustWalletBalanceRefreshPlan.self, invoke: corePlanWalletBalanceRefreshJson)
     }
 
+    static func planBalanceRefreshHealth(
+        _ request: WalletRustBalanceRefreshHealthRequest
+    ) throws -> WalletRustBalanceRefreshHealthPlan {
+        try sendCoreJSONRequest(request, decode: WalletRustBalanceRefreshHealthPlan.self, invoke: corePlanBalanceRefreshHealthJson)
+    }
+
     static func planTransferAvailability(
         _ request: WalletRustTransferAvailabilityRequest
     ) throws -> WalletRustTransferAvailabilityPlan {
         try sendCoreJSONRequest(request, decode: WalletRustTransferAvailabilityPlan.self, invoke: corePlanTransferAvailabilityJson)
+    }
+
+    static func planStoreDerivedState(
+        _ request: WalletRustStoreDerivedStateRequest
+    ) throws -> WalletRustStoreDerivedStatePlan {
+        try sendCoreJSONRequest(request, decode: WalletRustStoreDerivedStatePlan.self, invoke: corePlanStoreDerivedStateJson)
     }
 
     static func routeSendAsset(
@@ -840,19 +905,5 @@ enum WalletRustAppCoreBridge {
             throw WalletRustAppCoreBridgeError.invalidPayload("Rust app core payload was not valid UTF-8.")
         }
         return data
-    }
-
-    private static func string(from buffer: WalletRustFFIBuffer) -> String? {
-        guard let data = data(from: buffer) else {
-            return nil
-        }
-        return String(data: data, encoding: .utf8)
-    }
-
-    private static func data(from buffer: WalletRustFFIBuffer) -> Data? {
-        guard let ptr = buffer.ptr, buffer.len > 0 else {
-            return nil
-        }
-        return Data(bytes: ptr, count: buffer.len)
     }
 }

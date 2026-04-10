@@ -750,6 +750,13 @@ public func coreLocalizationDocumentJson(resourceName: String, preferredLocalesJ
     )
 })
 }
+public func coreMergeBitcoinHistorySnapshotsJson(requestJson: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
+    uniffi_spectra_derivation_fn_func_core_merge_bitcoin_history_snapshots_json(
+        FfiConverterString.lower(requestJson),$0
+    )
+})
+}
 public func coreMergeTransactionsJson(requestJson: String)throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
     uniffi_spectra_derivation_fn_func_core_merge_transactions_json(
@@ -767,6 +774,20 @@ public func coreMigrateLegacyWalletStoreJson(requestJson: String)throws  -> Stri
 public func coreNormalizeHistoryJson(requestJson: String)throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
     uniffi_spectra_derivation_fn_func_core_normalize_history_json(
+        FfiConverterString.lower(requestJson),$0
+    )
+})
+}
+public func coreOrderEndpointsByReliabilityJson(requestJson: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
+    uniffi_spectra_derivation_fn_func_core_order_endpoints_by_reliability_json(
+        FfiConverterString.lower(requestJson),$0
+    )
+})
+}
+public func corePlanBalanceRefreshHealthJson(requestJson: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
+    uniffi_spectra_derivation_fn_func_core_plan_balance_refresh_health_json(
         FfiConverterString.lower(requestJson),$0
     )
 })
@@ -795,6 +816,13 @@ public func corePlanSendPreviewRoutingJson(requestJson: String)throws  -> String
 public func corePlanSendSubmitPreflightJson(requestJson: String)throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
     uniffi_spectra_derivation_fn_func_core_plan_send_submit_preflight_json(
+        FfiConverterString.lower(requestJson),$0
+    )
+})
+}
+public func corePlanStoreDerivedStateJson(requestJson: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
+    uniffi_spectra_derivation_fn_func_core_plan_store_derived_state_json(
         FfiConverterString.lower(requestJson),$0
     )
 })
@@ -830,6 +858,13 @@ public func corePlanWalletBalanceRefreshJson(requestJson: String)throws  -> Stri
 public func corePlanWalletImportJson(requestJson: String)throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
     uniffi_spectra_derivation_fn_func_core_plan_wallet_import_json(
+        FfiConverterString.lower(requestJson),$0
+    )
+})
+}
+public func coreRecordEndpointAttemptJson(requestJson: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
+    uniffi_spectra_derivation_fn_func_core_record_endpoint_attempt_json(
         FfiConverterString.lower(requestJson),$0
     )
 })
@@ -870,9 +905,37 @@ public func coreStaticTextResourceUtf8(resourceName: String)throws  -> String  {
     )
 })
 }
+public func coreValidateAddressJson(requestJson: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
+    uniffi_spectra_derivation_fn_func_core_validate_address_json(
+        FfiConverterString.lower(requestJson),$0
+    )
+})
+}
+public func coreValidateStringIdentifierJson(requestJson: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
+    uniffi_spectra_derivation_fn_func_core_validate_string_identifier_json(
+        FfiConverterString.lower(requestJson),$0
+    )
+})
+}
 public func coreWalletSecretIndexJson(requestJson: String)throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
     uniffi_spectra_derivation_fn_func_core_wallet_secret_index_json(
+        FfiConverterString.lower(requestJson),$0
+    )
+})
+}
+public func derivationBuildMaterialFromPrivateKeyJson(requestJson: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
+    uniffi_spectra_derivation_fn_func_derivation_build_material_from_private_key_json(
+        FfiConverterString.lower(requestJson),$0
+    )
+})
+}
+public func derivationBuildMaterialJson(requestJson: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
+    uniffi_spectra_derivation_fn_func_derivation_build_material_json(
         FfiConverterString.lower(requestJson),$0
     )
 })
@@ -985,6 +1048,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_spectra_derivation_checksum_func_core_localization_document_json() != 65501) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_derivation_checksum_func_core_merge_bitcoin_history_snapshots_json() != 24244) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_derivation_checksum_func_core_merge_transactions_json() != 47208) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -992,6 +1058,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_derivation_checksum_func_core_normalize_history_json() != 48086) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_func_core_order_endpoints_by_reliability_json() != 7156) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_func_core_plan_balance_refresh_health_json() != 6941) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_derivation_checksum_func_core_plan_dogecoin_refresh_targets_json() != 55537) {
@@ -1004,6 +1076,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_derivation_checksum_func_core_plan_send_submit_preflight_json() != 3857) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_func_core_plan_store_derived_state_json() != 39225) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_derivation_checksum_func_core_plan_transfer_availability_json() != 23034) {
@@ -1021,6 +1096,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_spectra_derivation_checksum_func_core_plan_wallet_import_json() != 13086) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_derivation_checksum_func_core_record_endpoint_attempt_json() != 35418) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_derivation_checksum_func_core_reduce_state_json() != 25216) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -1036,7 +1114,19 @@ private let initializationResult: InitializationResult = {
     if (uniffi_spectra_derivation_checksum_func_core_static_text_resource_utf8() != 44720) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_derivation_checksum_func_core_validate_address_json() != 51081) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_func_core_validate_string_identifier_json() != 721) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_derivation_checksum_func_core_wallet_secret_index_json() != 60671) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_func_derivation_build_material_from_private_key_json() != 61014) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_func_derivation_build_material_json() != 38055) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_derivation_checksum_func_derivation_derive_from_private_key_json() != 56242) {

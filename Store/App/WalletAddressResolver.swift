@@ -38,7 +38,7 @@ enum WalletAddressResolver {
         }
         if let ethereumAddress = wallet.ethereumAddress,
            !ethereumAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return EthereumWalletEngine.normalizeAddress(ethereumAddress)
+            return AddressValidation.normalizedEthereumAddress(ethereumAddress)
         }
         return nil
     }
@@ -94,8 +94,8 @@ enum WalletAddressResolver {
         }
 
         if let suiAddress = wallet.suiAddress,
-           AddressValidation.isValidSuiAddress(suiAddress) {
-            return suiAddress.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+           let normalizedAddress = AddressValidation.normalizedSuiAddress(suiAddress) {
+            return normalizedAddress
         }
         return nil
     }
@@ -113,9 +113,8 @@ enum WalletAddressResolver {
         }
 
         if let aptosAddress = wallet.aptosAddress,
-           AddressValidation.isValidAptosAddress(aptosAddress) {
-            let trimmed = aptosAddress.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-            return trimmed.hasPrefix("0x") ? trimmed : "0x\(trimmed)"
+           let normalizedAddress = AddressValidation.normalizedAptosAddress(aptosAddress) {
+            return normalizedAddress
         }
         return nil
     }
@@ -133,8 +132,8 @@ enum WalletAddressResolver {
         }
 
         if let tonAddress = wallet.tonAddress,
-           AddressValidation.isValidTONAddress(tonAddress) {
-            return tonAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+           let normalizedAddress = AddressValidation.normalizedTONAddress(tonAddress) {
+            return normalizedAddress
         }
         return nil
     }
@@ -152,8 +151,8 @@ enum WalletAddressResolver {
         }
 
         if let icpAddress = wallet.icpAddress,
-           AddressValidation.isValidICPAddress(icpAddress) {
-            return icpAddress.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+           let normalizedAddress = AddressValidation.normalizedICPAddress(icpAddress) {
+            return normalizedAddress
         }
         return nil
     }
@@ -171,10 +170,8 @@ enum WalletAddressResolver {
         }
 
         if let nearAddress = wallet.nearAddress,
-           AddressValidation.isValidNearAddress(nearAddress) {
-            return nearAddress
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-                .lowercased()
+           let normalizedAddress = AddressValidation.normalizedNearAddress(nearAddress) {
+            return normalizedAddress
         }
         return nil
     }

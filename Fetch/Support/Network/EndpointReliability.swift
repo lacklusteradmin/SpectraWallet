@@ -1,59 +1,88 @@
 import Foundation
 
-enum ChainEndpointReliability {
-    private struct Counter: Codable {
-        var successCount: Int
-        var failureCount: Int
-        var lastUpdatedAt: TimeInterval
-    }
+private struct RustEndpointReliabilityCounter: Codable {
+    let successCount: UInt32
+    let failureCount: UInt32
+    let lastUpdatedAt: Int64
+}
 
+private struct RustEndpointOrderingPayload: Encodable {
+    let candidates: [String]
+    let counters: [String: RustEndpointReliabilityCounter]
+}
+
+private struct RustEndpointAttemptPayload: Encodable {
+    let counters: [String: RustEndpointReliabilityCounter]
+    let endpoint: String
+    let success: Bool
+    let observedAt: Int64
+}
+
+enum ChainEndpointReliability {
     private static func defaultsKey(for namespace: String) -> String {
         "chain.endpoint.reliability.\(namespace).v1"
     }
 
     static func orderedEndpoints(namespace: String, candidates: [String]) -> [String] {
-        let counters = loadCounters(namespace: namespace)
-        return candidates.sorted { lhs, rhs in
-            let leftScore = score(counters[lhs])
-            let rightScore = score(counters[rhs])
-            if leftScore == rightScore {
-                return lhs < rhs
+        MainActor.assumeIsolated {
+            let counters = loadCounters(namespace: namespace)
+            let payload = RustEndpointOrderingPayload(candidates: candidates, counters: counters)
+            guard
+                let json = try? encodeJSONString(payload),
+                let responseJSON = try? coreOrderEndpointsByReliabilityJson(requestJson: json),
+                let data = responseJSON.data(using: .utf8),
+                let ordered = try? JSONDecoder().decode([String].self, from: data)
+            else {
+                return candidates
             }
-            return leftScore > rightScore
+            return ordered
         }
     }
 
     static func recordAttempt(namespace: String, endpoint: String, success: Bool) {
-        var counters = loadCounters(namespace: namespace)
-        var counter = counters[endpoint] ?? Counter(successCount: 0, failureCount: 0, lastUpdatedAt: 0)
-        if success {
-            counter.successCount += 1
-        } else {
-            counter.failureCount += 1
+        MainActor.assumeIsolated {
+            let payload = RustEndpointAttemptPayload(
+                counters: loadCounters(namespace: namespace),
+                endpoint: endpoint,
+                success: success,
+                observedAt: Int64(Date().timeIntervalSince1970)
+            )
+
+            guard
+                let json = try? encodeJSONString(payload),
+                let responseJSON = try? coreRecordEndpointAttemptJson(requestJson: json),
+                let data = responseJSON.data(using: .utf8),
+                let counters = try? JSONDecoder().decode([String: RustEndpointReliabilityCounter].self, from: data)
+            else {
+                return
+            }
+
+            saveCounters(counters, namespace: namespace)
         }
-        counter.lastUpdatedAt = Date().timeIntervalSince1970
-        counters[endpoint] = counter
-        saveCounters(counters, namespace: namespace)
     }
 
-    private static func score(_ counter: Counter?) -> Double {
-        guard let counter else { return 0.5 }
-        let attempts = max(1, counter.successCount + counter.failureCount)
-        return Double(counter.successCount) / Double(attempts)
-    }
-
-    private static func loadCounters(namespace: String) -> [String: Counter] {
+    private static func loadCounters(namespace: String) -> [String: RustEndpointReliabilityCounter] {
         let key = defaultsKey(for: namespace)
-        guard let data = UserDefaults.standard.data(forKey: key),
-              let decoded = try? JSONDecoder().decode([String: Counter].self, from: data) else {
+        guard
+            let data = UserDefaults.standard.data(forKey: key),
+            let decoded = try? JSONDecoder().decode([String: RustEndpointReliabilityCounter].self, from: data)
+        else {
             return [:]
         }
         return decoded
     }
 
-    private static func saveCounters(_ counters: [String: Counter], namespace: String) {
+    private static func saveCounters(_ counters: [String: RustEndpointReliabilityCounter], namespace: String) {
         let key = defaultsKey(for: namespace)
         guard let data = try? JSONEncoder().encode(counters) else { return }
         UserDefaults.standard.set(data, forKey: key)
+    }
+
+    private static func encodeJSONString<T: Encodable>(_ value: T) throws -> String {
+        let data = try JSONEncoder().encode(value)
+        guard let json = String(data: data, encoding: .utf8) else {
+            throw CocoaError(.fileReadInapplicableStringEncoding)
+        }
+        return json
     }
 }

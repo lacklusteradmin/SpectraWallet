@@ -46,6 +46,7 @@ class WalletStore: ObservableObject {
 
         var id: String { rawValue }
 
+        @MainActor
         var title: String {
             switch self {
             case .walletsAndSecrets:
@@ -63,6 +64,7 @@ class WalletStore: ObservableObject {
             }
         }
 
+        @MainActor
         var detail: String {
             switch self {
             case .walletsAndSecrets:
@@ -120,6 +122,7 @@ class WalletStore: ObservableObject {
 
         var id: String { rawValue }
 
+        @MainActor
         var displayName: String {
             switch self {
             case .conservative: return localizedStoreString("Conservative")

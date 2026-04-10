@@ -25,61 +25,42 @@ extension WalletStore {
         cachedWalletByIDString = Dictionary(uniqueKeysWithValues: wallets.map { ($0.id.uuidString, $0) })
         cachedRefreshableChainNames = Set(wallets.map(\.selectedChain))
         cachedIncludedPortfolioWallets = wallets.filter(\.includeInPortfolioTotal)
-        cachedIncludedPortfolioHoldings = cachedIncludedPortfolioWallets.flatMap(\.holdings)
+        let derivedStatePlan = rustStoreDerivedStatePlan(for: wallets)
+        cachedIncludedPortfolioHoldings = derivedStatePlan.includedPortfolioHoldingRefs.compactMap { reference in
+            resolveHolding(reference, in: wallets)
+        }
         cachedIncludedPortfolioHoldingsBySymbol = Dictionary(
             grouping: cachedIncludedPortfolioHoldings,
             by: { $0.symbol.uppercased() }
         )
-        var uniqueWalletPriceRequestCoinsByHoldingKey: [String: Coin] = [:]
-        var uniqueWalletPriceRequestCoinOrder: [String] = []
-        for coin in wallets.flatMap(\.holdings) where isPricedAsset(coin) {
-            let key = assetIdentityKey(for: coin)
-            guard uniqueWalletPriceRequestCoinsByHoldingKey[key] == nil else { continue }
-            uniqueWalletPriceRequestCoinsByHoldingKey[key] = coin
-            uniqueWalletPriceRequestCoinOrder.append(key)
+        cachedUniqueWalletPriceRequestCoins = derivedStatePlan.uniquePriceRequestHoldingRefs.compactMap { reference in
+            resolveHolding(reference, in: wallets)
         }
-        cachedUniqueWalletPriceRequestCoins = uniqueWalletPriceRequestCoinOrder.compactMap { uniqueWalletPriceRequestCoinsByHoldingKey[$0] }
 
-        var groupedPortfolio: [String: Coin] = [:]
-        var portfolioOrder: [String] = []
         var sendCoinsByWalletID: [String: [Coin]] = [:]
         var receiveCoinsByWalletID: [String: [Coin]] = [:]
         var receiveChainsByWalletID: [String: [String]] = [:]
         var sendWallets: [ImportedWallet] = []
         var receiveWallets: [ImportedWallet] = []
-        var signingMaterialWalletIDs: Set<UUID> = []
-        var privateKeyBackedWalletIDs: Set<UUID> = []
 
         let transferAvailabilityPlan = rustTransferAvailabilityPlan(for: wallets)
         let transferAvailabilityByWalletID = Dictionary(
-            uniqueKeysWithValues: transferAvailabilityPlan?.wallets.map { ($0.walletID, $0) } ?? []
+            uniqueKeysWithValues: transferAvailabilityPlan.wallets.map { ($0.walletID, $0) }
         )
-        let rustSendEnabledWalletIDs = Set(transferAvailabilityPlan?.sendEnabledWalletIDs ?? [])
-        let rustReceiveEnabledWalletIDs = Set(transferAvailabilityPlan?.receiveEnabledWalletIDs ?? [])
+        let rustSendEnabledWalletIDs = Set(transferAvailabilityPlan.sendEnabledWalletIDs)
+        let rustReceiveEnabledWalletIDs = Set(transferAvailabilityPlan.receiveEnabledWalletIDs)
 
         for wallet in wallets {
             let walletID = wallet.id.uuidString
-            let signingMaterial = signingMaterialAvailability(for: wallet.id)
-            if signingMaterial.hasSigningMaterial {
-                signingMaterialWalletIDs.insert(wallet.id)
-            }
-            if signingMaterial.isPrivateKeyBacked {
-                privateKeyBackedWalletIDs.insert(wallet.id)
-            }
             let sendCoins = transferAvailabilityByWalletID[walletID]
                 .map { availability in
                     availability.sendHoldingIndices.compactMap { index in
                         wallet.holdings.indices.contains(index) ? wallet.holdings[index] : nil
                     }
                 }
-                ?? WalletTransferAvailabilityCoordinator.availableSendCoins(
-                    in: wallet,
-                    hasSigningMaterial: signingMaterial.hasSigningMaterial,
-                    supportsEVMToken: { [self] coin in supportedEVMToken(for: coin) != nil },
-                    supportsSolanaSendCoin: { [self] coin in isSupportedSolanaSendCoin(coin) }
-                )
+                ?? []
             sendCoinsByWalletID[walletID] = sendCoins
-            if rustSendEnabledWalletIDs.contains(walletID) || (!sendCoins.isEmpty && transferAvailabilityPlan == nil) {
+            if rustSendEnabledWalletIDs.contains(walletID) {
                 sendWallets.append(wallet)
             }
 
@@ -89,43 +70,45 @@ extension WalletStore {
                         wallet.holdings.indices.contains(index) ? wallet.holdings[index] : nil
                     }
                 }
-                ?? WalletTransferAvailabilityCoordinator.availableReceiveCoins(in: wallet)
+                ?? []
             receiveCoinsByWalletID[walletID] = receiveCoins
 
             let receiveChains = transferAvailabilityByWalletID[walletID]?.receiveChains
-                ?? WalletTransferAvailabilityCoordinator.availableReceiveChains(for: receiveCoins)
+                ?? []
             receiveChainsByWalletID[walletID] = receiveChains
-            if rustReceiveEnabledWalletIDs.contains(walletID) || (!receiveCoins.isEmpty && transferAvailabilityPlan == nil) {
+            if rustReceiveEnabledWalletIDs.contains(walletID) {
                 receiveWallets.append(wallet)
             }
         }
 
-        cachedSigningMaterialWalletIDs = signingMaterialWalletIDs
-        cachedPrivateKeyBackedWalletIDs = privateKeyBackedWalletIDs
+        cachedSigningMaterialWalletIDs = Set(
+            derivedStatePlan.signingMaterialWalletIDs.compactMap(UUID.init(uuidString:))
+        )
+        cachedPrivateKeyBackedWalletIDs = Set(
+            derivedStatePlan.privateKeyBackedWalletIDs.compactMap(UUID.init(uuidString:))
+        )
 
-        for coin in cachedIncludedPortfolioHoldings {
-            let key = assetIdentityKey(for: coin)
-            if let existing = groupedPortfolio[key] {
-                groupedPortfolio[key] = Coin(
-                    name: existing.name,
-                    symbol: existing.symbol,
-                    marketDataID: existing.marketDataID,
-                    coinGeckoID: existing.coinGeckoID,
-                    chainName: existing.chainName,
-                    tokenStandard: existing.tokenStandard,
-                    contractAddress: existing.contractAddress,
-                    amount: existing.amount + coin.amount,
-                    priceUSD: coin.priceUSD,
-                    mark: existing.mark,
-                    color: existing.color
-                )
-            } else {
-                groupedPortfolio[key] = coin
-                portfolioOrder.append(key)
+        cachedPortfolio = derivedStatePlan.groupedPortfolio.compactMap { group in
+            guard let representative = resolveHolding(
+                WalletRustWalletHoldingRef(walletID: group.walletID, holdingIndex: group.holdingIndex),
+                in: wallets
+            ) else {
+                return nil
             }
+            return Coin(
+                name: representative.name,
+                symbol: representative.symbol,
+                marketDataID: representative.marketDataID,
+                coinGeckoID: representative.coinGeckoID,
+                chainName: representative.chainName,
+                tokenStandard: representative.tokenStandard,
+                contractAddress: representative.contractAddress,
+                amount: Double(group.totalAmount) ?? representative.amount,
+                priceUSD: representative.priceUSD,
+                mark: representative.mark,
+                color: representative.color
+            )
         }
-
-        cachedPortfolio = portfolioOrder.compactMap { groupedPortfolio[$0] }
         cachedAvailableSendCoinsByWalletID = sendCoinsByWalletID
         cachedAvailableReceiveCoinsByWalletID = receiveCoinsByWalletID
         cachedAvailableReceiveChainsByWalletID = receiveChainsByWalletID
@@ -877,9 +860,58 @@ private extension WalletRustTransactionRecord {
 }
 
 private extension WalletStore {
+    func rustStoreDerivedStatePlan(
+        for wallets: [ImportedWallet]
+    ) -> WalletRustStoreDerivedStatePlan {
+        let request = WalletRustStoreDerivedStateRequest(
+            wallets: wallets.map { wallet in
+                let signingMaterial = signingMaterialAvailability(for: wallet.id)
+                return WalletRustStoreDerivedWalletInput(
+                    walletID: wallet.id.uuidString,
+                    includeInPortfolioTotal: wallet.includeInPortfolioTotal,
+                    hasSigningMaterial: signingMaterial.hasSigningMaterial,
+                    isPrivateKeyBacked: signingMaterial.isPrivateKeyBacked,
+                    holdings: wallet.holdings.enumerated().map { index, holding in
+                        WalletRustStoreDerivedHoldingInput(
+                            holdingIndex: index,
+                            assetIdentityKey: assetIdentityKey(for: holding),
+                            symbolUpper: holding.symbol.uppercased(),
+                            amount: String(holding.amount),
+                            isPricedAsset: isPricedAsset(holding)
+                        )
+                    }
+                )
+            }
+        )
+        do {
+            return try WalletRustAppCoreBridge.planStoreDerivedState(request)
+        } catch {
+            assertionFailure("Rust store derived-state planning failed: \(error)")
+            return WalletRustStoreDerivedStatePlan(
+                includedPortfolioHoldingRefs: [],
+                uniquePriceRequestHoldingRefs: [],
+                groupedPortfolio: [],
+                signingMaterialWalletIDs: [],
+                privateKeyBackedWalletIDs: []
+            )
+        }
+    }
+
+    func resolveHolding(
+        _ reference: WalletRustWalletHoldingRef,
+        in wallets: [ImportedWallet]
+    ) -> Coin? {
+        guard let wallet = cachedWalletByIDString[reference.walletID]
+            ?? wallets.first(where: { $0.id.uuidString == reference.walletID }),
+              wallet.holdings.indices.contains(reference.holdingIndex) else {
+            return nil
+        }
+        return wallet.holdings[reference.holdingIndex]
+    }
+
     func rustTransferAvailabilityPlan(
         for wallets: [ImportedWallet]
-    ) -> WalletRustTransferAvailabilityPlan? {
+    ) -> WalletRustTransferAvailabilityPlan {
         let request = WalletRustTransferAvailabilityRequest(
             wallets: wallets.map { wallet in
                 let hasSigningMaterial = signingMaterialAvailability(for: wallet.id).hasSigningMaterial
@@ -901,6 +933,15 @@ private extension WalletStore {
                 )
             }
         )
-        return try? WalletRustAppCoreBridge.planTransferAvailability(request)
+        do {
+            return try WalletRustAppCoreBridge.planTransferAvailability(request)
+        } catch {
+            assertionFailure("Rust transfer availability planning failed: \(error)")
+            return WalletRustTransferAvailabilityPlan(
+                wallets: [],
+                sendEnabledWalletIDs: [],
+                receiveEnabledWalletIDs: []
+            )
+        }
     }
 }

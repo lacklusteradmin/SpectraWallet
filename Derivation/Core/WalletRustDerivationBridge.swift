@@ -122,46 +122,13 @@ struct WalletRustPrivateKeyRequestModel {
     let privateKeyHex: String
 }
 
-struct WalletRustFFIBuffer {
-    var ptr: UnsafeMutablePointer<UInt8>?
-    var len: Int
-
-    static let empty = WalletRustFFIBuffer(ptr: nil, len: 0)
-}
-
-struct WalletRustFFIRequest {
-    var chain: UInt32
-    var network: UInt32
-    var curve: UInt32
-    var requestedOutputs: UInt32
-    var derivationAlgorithm: UInt32
-    var addressAlgorithm: UInt32
-    var publicKeyFormat: UInt32
-    var scriptType: UInt32
-    var seedPhraseUTF8: WalletRustFFIBuffer
-    var derivationPathUTF8: WalletRustFFIBuffer
-    var passphraseUTF8: WalletRustFFIBuffer
-    var hmacKeyUTF8: WalletRustFFIBuffer
-    var mnemonicWordlistUTF8: WalletRustFFIBuffer
-    var iterationCount: UInt32
-}
-
-struct WalletRustFFIPrivateKeyRequest {
-    var chain: UInt32
-    var network: UInt32
-    var curve: UInt32
-    var addressAlgorithm: UInt32
-    var publicKeyFormat: UInt32
-    var scriptType: UInt32
-    var privateKeyHexUTF8: WalletRustFFIBuffer
-}
-
-struct WalletRustFFIResponse {
-    var statusCode: Int32
-    var addressUTF8: WalletRustFFIBuffer
-    var publicKeyHexUTF8: WalletRustFFIBuffer
-    var privateKeyHexUTF8: WalletRustFFIBuffer
-    var errorMessageUTF8: WalletRustFFIBuffer
+struct WalletRustSigningMaterialModel {
+    let address: String
+    let privateKeyHex: String
+    let derivationPath: String
+    let account: UInt32
+    let branch: UInt32
+    let index: UInt32
 }
 
 struct WalletRustDerivationResponseModel {
@@ -197,10 +164,46 @@ private struct WalletRustPrivateKeyRequestPayload: Encodable {
     let privateKeyHex: String
 }
 
+private struct WalletRustMaterialRequestPayload: Encodable {
+    let chain: UInt32
+    let network: UInt32
+    let curve: UInt32
+    let derivationAlgorithm: UInt32
+    let addressAlgorithm: UInt32
+    let publicKeyFormat: UInt32
+    let scriptType: UInt32
+    let seedPhrase: String
+    let derivationPath: String
+    let passphrase: String?
+    let hmacKey: String?
+    let mnemonicWordlist: String?
+    let iterationCount: UInt32
+}
+
+private struct WalletRustPrivateKeyMaterialRequestPayload: Encodable {
+    let chain: UInt32
+    let network: UInt32
+    let curve: UInt32
+    let addressAlgorithm: UInt32
+    let publicKeyFormat: UInt32
+    let scriptType: UInt32
+    let privateKeyHex: String
+    let derivationPath: String
+}
+
 private struct WalletRustDerivationResponsePayload: Decodable {
     let address: String?
     let publicKeyHex: String?
     let privateKeyHex: String?
+}
+
+private struct WalletRustMaterialResponsePayload: Decodable {
+    let address: String
+    let privateKeyHex: String
+    let derivationPath: String
+    let account: UInt32
+    let branch: UInt32
+    let index: UInt32
 }
 
 extension WalletRustFFIChain {
@@ -293,103 +296,6 @@ extension WalletRustFFIRequestedOutputs {
             value.insert(.privateKey)
         }
         self = value
-    }
-}
-
-private extension Array where Element == UInt8 {
-    mutating func zeroize() {
-        guard !isEmpty else { return }
-        withUnsafeMutableBytes { mutableBytes in
-            mutableBytes.initializeMemory(as: UInt8.self, repeating: 0)
-        }
-    }
-}
-
-extension WalletRustDerivationRequestModel {
-    func withFFIRequest<T>(_ body: (inout WalletRustFFIRequest) throws -> T) rethrows -> T {
-        var seedPhraseStorage = Array(seedPhrase.utf8)
-        var derivationPathStorage = Array((derivationPath ?? "").utf8)
-        var passphraseStorage = Array((passphrase ?? "").utf8)
-        var hmacKeyStorage = Array((hmacKey ?? "").utf8)
-        var mnemonicWordlistStorage = Array((mnemonicWordlist ?? "").utf8)
-
-        defer {
-            seedPhraseStorage.zeroize()
-            derivationPathStorage.zeroize()
-            passphraseStorage.zeroize()
-            hmacKeyStorage.zeroize()
-            mnemonicWordlistStorage.zeroize()
-        }
-
-        var request = WalletRustFFIRequest(
-            chain: chain.rawValue,
-            network: network.rawValue,
-            curve: curve.rawValue,
-            requestedOutputs: requestedOutputs.rawValue,
-            derivationAlgorithm: derivationAlgorithm.rawValue,
-            addressAlgorithm: addressAlgorithm.rawValue,
-            publicKeyFormat: publicKeyFormat.rawValue,
-            scriptType: scriptType.rawValue,
-            seedPhraseUTF8: seedPhraseStorage.withUnsafeMutableBytes { bytes in
-                WalletRustFFIBuffer(
-                    ptr: bytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
-                    len: bytes.count
-                )
-            },
-            derivationPathUTF8: derivationPathStorage.withUnsafeMutableBytes { bytes in
-                WalletRustFFIBuffer(
-                    ptr: bytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
-                    len: bytes.count
-                )
-            },
-            passphraseUTF8: passphraseStorage.withUnsafeMutableBytes { bytes in
-                WalletRustFFIBuffer(
-                    ptr: bytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
-                    len: bytes.count
-                )
-            },
-            hmacKeyUTF8: hmacKeyStorage.withUnsafeMutableBytes { bytes in
-                WalletRustFFIBuffer(
-                    ptr: bytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
-                    len: bytes.count
-                )
-            },
-            mnemonicWordlistUTF8: mnemonicWordlistStorage.withUnsafeMutableBytes { bytes in
-                WalletRustFFIBuffer(
-                    ptr: bytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
-                    len: bytes.count
-                )
-            },
-            iterationCount: iterationCount
-        )
-
-        return try body(&request)
-    }
-}
-
-extension WalletRustPrivateKeyRequestModel {
-    func withFFIRequest<T>(_ body: (inout WalletRustFFIPrivateKeyRequest) throws -> T) rethrows -> T {
-        var privateKeyStorage = Array(privateKeyHex.utf8)
-        defer {
-            privateKeyStorage.zeroize()
-        }
-
-        var request = WalletRustFFIPrivateKeyRequest(
-            chain: chain.rawValue,
-            network: network.rawValue,
-            curve: curve.rawValue,
-            addressAlgorithm: addressAlgorithm.rawValue,
-            publicKeyFormat: publicKeyFormat.rawValue,
-            scriptType: scriptType.rawValue,
-            privateKeyHexUTF8: privateKeyStorage.withUnsafeMutableBytes { bytes in
-                WalletRustFFIBuffer(
-                    ptr: bytes.baseAddress?.assumingMemoryBound(to: UInt8.self),
-                    len: bytes.count
-                )
-            }
-        )
-
-        return try body(&request)
     }
 }
 
@@ -495,6 +401,60 @@ enum WalletRustDerivationBridge {
         return try decodeResponse(json: try derivationDeriveFromPrivateKeyJson(requestJson: encodeJSONString(payload)))
     }
 
+    static func buildSigningMaterial(
+        _ requestModel: WalletRustDerivationRequestModel
+    ) throws -> WalletRustSigningMaterialModel {
+        guard let derivationPath = requestModel.derivationPath else {
+            throw WalletRustDerivationBridgeError.requestCompilationFailed("Signing material requires a derivation path.")
+        }
+        let payload = WalletRustMaterialRequestPayload(
+            chain: requestModel.chain.rawValue,
+            network: requestModel.network.rawValue,
+            curve: requestModel.curve.rawValue,
+            derivationAlgorithm: requestModel.derivationAlgorithm.rawValue,
+            addressAlgorithm: requestModel.addressAlgorithm.rawValue,
+            publicKeyFormat: requestModel.publicKeyFormat.rawValue,
+            scriptType: requestModel.scriptType.rawValue,
+            seedPhrase: requestModel.seedPhrase,
+            derivationPath: derivationPath,
+            passphrase: requestModel.passphrase,
+            hmacKey: requestModel.hmacKey,
+            mnemonicWordlist: requestModel.mnemonicWordlist,
+            iterationCount: requestModel.iterationCount
+        )
+        return try decodeMaterialResponse(
+            json: try derivationBuildMaterialJson(requestJson: encodeJSONString(payload))
+        )
+    }
+
+    static func buildSigningMaterialFromPrivateKey(
+        chain: SeedDerivationChain,
+        network: WalletDerivationNetwork = .mainnet,
+        privateKeyHex: String,
+        derivationPath: String
+    ) throws -> WalletRustSigningMaterialModel {
+        guard let ffiChain = WalletRustFFIChain(chain: chain) else {
+            throw WalletRustDerivationBridgeError.rustCoreUnsupportedChain(chain.rawValue)
+        }
+        let requestCompilationPreset = WalletDerivationPresetCatalog.requestCompilationPreset(for: chain)
+        let payload = WalletRustPrivateKeyMaterialRequestPayload(
+            chain: ffiChain.rawValue,
+            network: WalletRustFFINetwork(network: network).rawValue,
+            curve: WalletRustFFICurve(curve: WalletDerivationPresetCatalog.curve(for: chain)).rawValue,
+            addressAlgorithm: ffiAddressAlgorithm(from: requestCompilationPreset.addressAlgorithm).rawValue,
+            publicKeyFormat: ffiPublicKeyFormat(from: requestCompilationPreset.publicKeyFormat).rawValue,
+            scriptType: try compileScriptType(
+                from: requestCompilationPreset,
+                derivationPath: derivationPath
+            ).rawValue,
+            privateKeyHex: privateKeyHex,
+            derivationPath: derivationPath
+        )
+        return try decodeMaterialResponse(
+            json: try derivationBuildMaterialFromPrivateKeyJson(requestJson: encodeJSONString(payload))
+        )
+    }
+
     private static func encodeJSONString<T: Encodable>(_ value: T) throws -> String {
         let data = try JSONEncoder().encode(value)
         guard let json = String(data: data, encoding: .utf8) else {
@@ -517,6 +477,26 @@ enum WalletRustDerivationBridge {
             address: payload.address,
             publicKeyHex: payload.publicKeyHex,
             privateKeyHex: payload.privateKeyHex
+        )
+    }
+
+    private static func decodeMaterialResponse(json: String) throws -> WalletRustSigningMaterialModel {
+        guard let data = json.data(using: .utf8) else {
+            throw WalletRustDerivationBridgeError.rustCoreFailed("Rust derivation material response was not valid UTF-8.")
+        }
+        let payload: WalletRustMaterialResponsePayload
+        do {
+            payload = try JSONDecoder().decode(WalletRustMaterialResponsePayload.self, from: data)
+        } catch {
+            throw WalletRustDerivationBridgeError.rustCoreFailed(error.localizedDescription)
+        }
+        return WalletRustSigningMaterialModel(
+            address: payload.address,
+            privateKeyHex: payload.privateKeyHex,
+            derivationPath: payload.derivationPath,
+            account: payload.account,
+            branch: payload.branch,
+            index: payload.index
         )
     }
 

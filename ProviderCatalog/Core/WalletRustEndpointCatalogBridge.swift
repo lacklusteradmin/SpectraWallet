@@ -17,26 +17,6 @@ enum WalletRustEndpointCatalogBridgeError: LocalizedError {
     }
 }
 
-private struct WalletRustFFIJSONResponse {
-    var statusCode: Int32
-    var payloadUTF8: WalletRustFFIBuffer
-    var errorMessageUTF8: WalletRustFFIBuffer
-}
-
-private struct WalletRustFFIStringRequest {
-    var utf8: WalletRustFFIBuffer
-}
-
-private struct WalletRustFFIStringArrayRequest {
-    var jsonUTF8: WalletRustFFIBuffer
-}
-
-private struct WalletRustFFIEndpointQueryRequest {
-    var chainNameUTF8: WalletRustFFIBuffer
-    var roleMask: UInt32
-    var settingsVisibleOnly: UInt8
-}
-
 struct AppEndpointGroupedSettingsEntry: Decodable {
     let title: String
     let endpoints: [String]

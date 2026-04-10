@@ -10,7 +10,7 @@ struct WalletChainID: Hashable, Codable, Identifiable, Comparable {
     nonisolated var id: String { rawValue }
 
     nonisolated var displayName: String {
-        ChainRegistryEntry.entry(id: rawValue)?.name ?? rawValue
+        Self.displayNameByID[rawValue] ?? rawValue
     }
 
     nonisolated init(rawValue: String) {
@@ -37,9 +37,15 @@ struct WalletChainID: Hashable, Codable, Identifiable, Comparable {
         return collapsed.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
     }
 
+    private static let chainWikiEntries: [ChainWikiEntry] = StaticContentCatalog.loadResource("ChainWikiEntries", as: [ChainWikiEntry].self) ?? []
+
+    private static let displayNameByID: [String: String] = Dictionary(
+        uniqueKeysWithValues: chainWikiEntries.map { ($0.id.lowercased(), $0.name) }
+    )
+
     private static let lookupByNormalizedAlias: [String: String] = {
         var entries: [String: String] = [:]
-        for entry in ChainRegistryEntry.all {
+        for entry in chainWikiEntries {
             entries[entry.id.lowercased()] = entry.id
             entries[entry.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()] = entry.id
             entries[entry.symbol.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()] = entry.id
