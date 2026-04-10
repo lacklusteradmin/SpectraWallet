@@ -30,7 +30,7 @@ enum SuiWalletEngineError: LocalizedError {
         case .broadcastFailed(let message):
             return CommonLocalization.broadcastFailed("Sui", message: message)
         case .insufficientBalance:
-            return NSLocalizedString("Insufficient SUI balance to cover amount and network fee.", comment: "")
+            return AppLocalization.string("Insufficient SUI balance to cover amount and network fee.")
         }
     }
 }

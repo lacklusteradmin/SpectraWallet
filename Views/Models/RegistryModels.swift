@@ -7,17 +7,17 @@ import UIKit
 struct WalletChainID: Hashable, Codable, Identifiable, Comparable {
     let rawValue: String
 
-    var id: String { rawValue }
+    nonisolated var id: String { rawValue }
 
-    var displayName: String {
+    nonisolated var displayName: String {
         ChainRegistryEntry.entry(id: rawValue)?.name ?? rawValue
     }
 
-    init(rawValue: String) {
+    nonisolated init(rawValue: String) {
         self.rawValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
 
-    init?(_ chainNameOrID: String) {
+    nonisolated init?(_ chainNameOrID: String) {
         let normalized = chainNameOrID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty else { return nil }
         if let resolved = Self.lookupByNormalizedAlias[normalized.lowercased()] {
@@ -27,11 +27,11 @@ struct WalletChainID: Hashable, Codable, Identifiable, Comparable {
         }
     }
 
-    static func < (lhs: WalletChainID, rhs: WalletChainID) -> Bool {
+    nonisolated static func < (lhs: WalletChainID, rhs: WalletChainID) -> Bool {
         lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
     }
 
-    private static func fallbackRawValue(for chainNameOrID: String) -> String {
+    nonisolated private static func fallbackRawValue(for chainNameOrID: String) -> String {
         let normalized = chainNameOrID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let collapsed = normalized.replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
         return collapsed.trimmingCharacters(in: CharacterSet(charactersIn: "-"))

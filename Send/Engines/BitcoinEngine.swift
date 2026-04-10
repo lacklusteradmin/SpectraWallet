@@ -1081,10 +1081,10 @@ enum BitcoinWalletEngineError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .signingFailed:
-            return NSLocalizedString("Bitcoin transaction signing failed.", comment: "")
+            return AppLocalization.string("Bitcoin transaction signing failed.")
         case .unsupportedDerivationPath(let derivationPath):
-            let format = NSLocalizedString("Unsupported Bitcoin derivation path: %@", comment: "")
-            return String(format: format, locale: .current, derivationPath)
+            let format = AppLocalization.string("Unsupported Bitcoin derivation path: %@")
+            return String(format: format, locale: AppLocalization.locale, derivationPath)
         case .broadcastFailed(let message):
             return message
         case .policyViolation(let message):

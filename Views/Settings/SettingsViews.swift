@@ -1511,7 +1511,7 @@ struct LargeMovementAlertsSettingsView: View {
             Section(localizedSettingsString("Alert Controls")) {
                 Stepper(
                     String(
-                        format: NSLocalizedString("Large movement threshold: %@", comment: ""),
+                        format: localizedSettingsString("Large movement threshold: %@"),
                         (store.largeMovementAlertPercentThreshold / 100).formatted(.percent.precision(.fractionLength(0)))
                     ),
                     value: Binding(

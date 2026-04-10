@@ -12,8 +12,8 @@ enum StellarBalanceServiceError: LocalizedError {
         case .invalidResponse:
             return CommonLocalization.invalidProviderResponse("Stellar")
         case .httpError(let code):
-            let format = NSLocalizedString("The Stellar provider returned HTTP %d.", comment: "")
-            return String(format: format, locale: .current, code)
+            let format = AppLocalization.string("The Stellar provider returned HTTP %d.")
+            return String(format: format, locale: AppLocalization.locale, code)
         }
     }
 }

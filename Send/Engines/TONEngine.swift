@@ -23,7 +23,7 @@ enum TONWalletEngineError: LocalizedError {
         case .invalidResponse:
             return CommonLocalization.invalidProviderResponse("TON")
         case .insufficientBalance:
-            return NSLocalizedString("Insufficient TON balance to cover amount and network fee.", comment: "")
+            return AppLocalization.string("Insufficient TON balance to cover amount and network fee.")
         case .signingFailed(let message):
             return CommonLocalization.signingFailed("TON", message: message)
         case .networkError(let message):

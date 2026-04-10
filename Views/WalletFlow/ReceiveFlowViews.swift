@@ -24,6 +24,10 @@ struct ReceiveView: View {
         _flowState = ObservedObject(wrappedValue: store.flowState)
     }
 
+    private func localized(_ key: String) -> String {
+        AppLocalization.string(key)
+    }
+
     private var presentation: Presentation {
         let resolvedAddress = store.receiveAddress()
         let trimmedAddress = resolvedAddress.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -232,7 +236,7 @@ struct ReceiveView: View {
     @ViewBuilder
     private func receiveDetailCard(title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(NSLocalizedString(title, comment: ""))
+            Text(localized(title))
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(Color.primary)
             content()

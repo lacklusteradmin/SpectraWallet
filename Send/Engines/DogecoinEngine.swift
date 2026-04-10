@@ -1092,35 +1092,35 @@ enum DogecoinWalletEngineError: LocalizedError {
         case .invalidAmount:
             return CommonLocalization.invalidAssetAmountPrompt("DOGE")
         case .invalidSeedPhrase:
-            return NSLocalizedString("Unable to derive Dogecoin keys from this seed phrase.", comment: "")
+            return AppLocalization.string("Unable to derive Dogecoin keys from this seed phrase.")
         case .walletAddressNotDerivedFromSeed:
-            return NSLocalizedString("The imported Dogecoin address does not match the provided seed phrase.", comment: "")
+            return AppLocalization.string("The imported Dogecoin address does not match the provided seed phrase.")
         case .keyDerivationFailed:
-            return NSLocalizedString("Failed to derive the Dogecoin private key for signing.", comment: "")
+            return AppLocalization.string("Failed to derive the Dogecoin private key for signing.")
         case .noSpendableUTXOs:
-            return NSLocalizedString("No spendable Dogecoin UTXOs were found for this wallet.", comment: "")
+            return AppLocalization.string("No spendable Dogecoin UTXOs were found for this wallet.")
         case .insufficientFunds:
             return CommonLocalization.insufficientBalanceForAmountPlusNetworkFee("DOGE")
         case .transactionBuildFailed(let message):
-            return NSLocalizedString(message, comment: "")
+            return AppLocalization.string(message)
         case .transactionSignFailed:
             return CommonLocalization.signingTransactionFailed("Dogecoin")
         case .amountBelowDustThreshold:
-            return NSLocalizedString("Amount is below Dogecoin dust threshold.", comment: "")
+            return AppLocalization.string("Amount is below Dogecoin dust threshold.")
         case .changeBelowDustThreshold:
-            return NSLocalizedString("Calculated change is below dust threshold. Increase amount or consolidate UTXOs.", comment: "")
+            return AppLocalization.string("Calculated change is below dust threshold. Increase amount or consolidate UTXOs.")
         case .transactionTooLarge:
-            return NSLocalizedString("Dogecoin transaction is too large for standard relay policy.", comment: "")
+            return AppLocalization.string("Dogecoin transaction is too large for standard relay policy.")
         case .networkFailure(let message):
             return CommonLocalization.networkError("Dogecoin", message: message)
         case .broadcastFailed(let message):
             return CommonLocalization.broadcastFailed("Dogecoin", message: message)
         case .preBroadcastValidationFailed(let message):
-            let format = NSLocalizedString("Dogecoin pre-broadcast validation failed: %@", comment: "")
-            return String(format: format, locale: .current, NSLocalizedString(message, comment: ""))
+            let format = AppLocalization.string("Dogecoin pre-broadcast validation failed: %@")
+            return String(format: format, locale: AppLocalization.locale, AppLocalization.string(message))
         case .postBroadcastVerificationFailed(let message):
-            let format = NSLocalizedString("Dogecoin post-broadcast verification failed: %@", comment: "")
-            return String(format: format, locale: .current, NSLocalizedString(message, comment: ""))
+            let format = AppLocalization.string("Dogecoin post-broadcast verification failed: %@")
+            return String(format: format, locale: AppLocalization.locale, AppLocalization.string(message))
         }
     }
 }

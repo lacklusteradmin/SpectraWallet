@@ -9,15 +9,15 @@ enum ICPBalanceServiceError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidAddress:
-            return NSLocalizedString("The ICP account identifier is not valid.", comment: "")
+            return AppLocalization.string("The ICP account identifier is not valid.")
         case .invalidResponse:
-            return NSLocalizedString("The ICP Rosetta response was invalid.", comment: "")
+            return AppLocalization.string("The ICP Rosetta response was invalid.")
         case .httpError(let code):
-            let format = NSLocalizedString("The ICP Rosetta endpoint returned HTTP %d.", comment: "")
-            return String(format: format, locale: .current, code)
+            let format = AppLocalization.string("The ICP Rosetta endpoint returned HTTP %d.")
+            return String(format: format, locale: AppLocalization.locale, code)
         case .rpcError(let message):
-            let format = NSLocalizedString("ICP Rosetta error: %@", comment: "")
-            return String(format: format, locale: .current, NSLocalizedString(message, comment: ""))
+            let format = AppLocalization.string("ICP Rosetta error: %@")
+            return String(format: format, locale: AppLocalization.locale, AppLocalization.string(message))
         }
     }
 }

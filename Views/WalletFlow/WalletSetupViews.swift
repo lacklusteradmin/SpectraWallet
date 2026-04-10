@@ -1,6 +1,15 @@
 import Foundation
 import SwiftUI
 
+private func localizedSetupString(_ key: String) -> String {
+    AppLocalization.string(key)
+}
+
+private func localizedSetupFormat(_ key: String, _ arguments: CVarArg...) -> String {
+    let format = AppLocalization.string(key)
+    return String(format: format, locale: AppLocalization.locale, arguments: arguments)
+}
+
 private struct SetupChainSelectionDescriptor: Identifiable {
     let id: String
     let titleKey: String
@@ -191,7 +200,7 @@ struct SetupView: View {
             return copy.advancedTitle
         }
         if isShowingPasswordPage {
-            return NSLocalizedString("import_flow.wallet_password_title", comment: "Setup page title for optional wallet password step")
+            return localizedSetupString("import_flow.wallet_password_title")
         }
         if isShowingWatchAddressesPage {
             return copy.watchAddressesTitle
@@ -222,7 +231,7 @@ struct SetupView: View {
             return copy.advancedSubtitle
         }
         if isShowingPasswordPage {
-            return NSLocalizedString("import_flow.wallet_password_subtitle", comment: "Setup page subtitle for optional wallet password step")
+            return localizedSetupString("import_flow.wallet_password_subtitle")
         }
         if isShowingWatchAddressesPage {
             return copy.watchAddressesSubtitle
@@ -252,17 +261,15 @@ struct SetupView: View {
             return ""
         }
         if !draft.invalidSeedWords.isEmpty {
-            let format = NSLocalizedString("import_flow.seed_phrase_invalid_words_format", comment: "Seed phrase invalid words status")
-            return String(format: format, draft.invalidSeedWords.joined(separator: ", "))
+            return localizedSetupFormat("import_flow.seed_phrase_invalid_words_format", draft.invalidSeedWords.joined(separator: ", "))
         }
         if draft.seedPhraseWords.count < draft.selectedSeedPhraseWordCount {
-            let format = NSLocalizedString("import_flow.seed_phrase_progress_format", comment: "Seed phrase progress status")
-            return String(format: format, draft.seedPhraseWords.count, draft.selectedSeedPhraseWordCount)
+            return localizedSetupFormat("import_flow.seed_phrase_progress_format", draft.seedPhraseWords.count, draft.selectedSeedPhraseWordCount)
         }
         if let validationError = draft.seedPhraseValidationError {
             return validationError
         }
-        return NSLocalizedString("import_flow.seed_phrase_valid_status", comment: "Seed phrase valid status")
+        return localizedSetupString("import_flow.seed_phrase_valid_status")
     }
 
     private var seedPhraseStatusColor: Color {
@@ -340,29 +347,29 @@ struct SetupView: View {
 
     private var primaryActionTitle: String {
         if isShowingSetupModeChoicePage {
-            return NSLocalizedString("import_flow.next", comment: "Primary action title for next step")
+            return localizedSetupString("import_flow.next")
         }
         if isShowingDetailsPage && (usesSeedPhraseFlow || usesWatchAddressesFlow) {
-            return NSLocalizedString("import_flow.next", comment: "Primary action title for next step")
+            return localizedSetupString("import_flow.next")
         }
         if isShowingAdvancedPage {
             return ""
         }
         if isShowingSeedPhrasePage {
-            return NSLocalizedString("import_flow.next", comment: "Primary action title for next step")
+            return localizedSetupString("import_flow.next")
         }
         if isShowingPasswordPage && isCreateMode {
-            return NSLocalizedString("import_flow.continue_to_backup_verification", comment: "Primary action title to continue to seed backup verification")
+            return localizedSetupString("import_flow.continue_to_backup_verification")
         }
         if isEditingWallet {
-            return NSLocalizedString("import_flow.save_wallet", comment: "Primary action title to save wallet name edits")
+            return localizedSetupString("import_flow.save_wallet")
         }
         if isCreateMode {
-            return NSLocalizedString("import_flow.create_wallet", comment: "Primary action title to create wallet")
+            return localizedSetupString("import_flow.create_wallet")
         }
         return isWatchAddressesImportMode
-            ? NSLocalizedString("import_flow.watch_addresses", comment: "Primary action title for watch addresses flow")
-            : NSLocalizedString("import_flow.import_wallet", comment: "Primary action title to import wallet")
+            ? localizedSetupString("import_flow.watch_addresses")
+            : localizedSetupString("import_flow.import_wallet")
     }
 
     private var isPrimaryActionEnabled: Bool {
@@ -402,20 +409,19 @@ struct SetupView: View {
     private var chainSelectionSummary: String {
         switch selectedChainCount {
         case 0:
-            return NSLocalizedString("import_flow.no_chains_selected", comment: "No chains selected summary")
+            return localizedSetupString("import_flow.no_chains_selected")
         case 1:
-            return NSLocalizedString("import_flow.one_chain_selected", comment: "Single chain selected summary")
+            return localizedSetupString("import_flow.one_chain_selected")
         default:
-            let format = NSLocalizedString("import_flow.multiple_chains_selected_format", comment: "Multiple chains selected summary")
-            return String(format: format, selectedChainCount)
+            return localizedSetupFormat("import_flow.multiple_chains_selected_format", selectedChainCount)
         }
     }
 
     private var chainSelectionSubtitle: String {
         if isCreateMode {
-            return NSLocalizedString("import_flow.create_chain_selection_subtitle", comment: "Chain selection subtitle for create flow")
+            return localizedSetupString("import_flow.create_chain_selection_subtitle")
         }
-        return NSLocalizedString("import_flow.import_chain_selection_subtitle", comment: "Chain selection subtitle for import flow")
+        return localizedSetupString("import_flow.import_chain_selection_subtitle")
     }
 
     @ViewBuilder
@@ -518,22 +524,22 @@ struct SetupView: View {
     @ViewBuilder
     private var walletPasswordStepSection: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(NSLocalizedString("import_flow.wallet_password_optional", comment: "Optional wallet password section title"))
+            Text(localizedSetupString("import_flow.wallet_password_optional"))
                 .font(.headline)
                 .foregroundStyle(Color.primary)
 
-            Text(NSLocalizedString("import_flow.wallet_password_explanation", comment: "Optional wallet password explanation"))
+            Text(localizedSetupString("import_flow.wallet_password_explanation"))
                 .font(.subheadline)
                 .foregroundStyle(Color.primary.opacity(0.76))
 
-            SecureField(NSLocalizedString("import_flow.wallet_password_field", comment: "Wallet password field placeholder"), text: $draft.walletPassword)
+            SecureField(localizedSetupString("import_flow.wallet_password_field"), text: $draft.walletPassword)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .padding(14)
                 .spectraInputFieldStyle()
                 .foregroundStyle(Color.primary)
 
-            SecureField(NSLocalizedString("import_flow.wallet_password_confirmation_field", comment: "Wallet password confirmation field placeholder"), text: $draft.walletPasswordConfirmation)
+            SecureField(localizedSetupString("import_flow.wallet_password_confirmation_field"), text: $draft.walletPasswordConfirmation)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .padding(14)
@@ -545,7 +551,7 @@ struct SetupView: View {
                     .font(.caption)
                     .foregroundStyle(.red.opacity(0.9))
             } else if draft.normalizedWalletPassword != nil {
-                Text(NSLocalizedString("import_flow.wallet_password_success", comment: "Wallet password confirmation helper text"))
+                Text(localizedSetupString("import_flow.wallet_password_success"))
                     .font(.caption)
                     .foregroundStyle(.green.opacity(0.9))
             }
@@ -1601,20 +1607,20 @@ struct SetupView: View {
                             VStack(alignment: .leading, spacing: 14) {
                                 Text(
                                     isEditingWallet
-                                        ? NSLocalizedString("import_flow.wallet_name", comment: "Wallet name field title")
-                                        : NSLocalizedString("import_flow.wallet_name_optional", comment: "Optional wallet name field title")
+                                        ? localizedSetupString("import_flow.wallet_name")
+                                        : localizedSetupString("import_flow.wallet_name_optional")
                                 )
                                     .font(.headline)
                                     .foregroundStyle(Color.primary)
 
                                 if !isEditingWallet {
-                                    Text(NSLocalizedString("import_flow.wallet_name_hint", comment: "Wallet name helper text"))
+                                    Text(localizedSetupString("import_flow.wallet_name_hint"))
                                         .font(.subheadline)
                                         .foregroundStyle(Color.primary.opacity(0.76))
                                 }
 
                                 HStack(spacing: 10) {
-                                    TextField(NSLocalizedString("import_flow.wallet_name_placeholder", comment: "Wallet name placeholder"), text: $draft.walletName)
+                                    TextField(localizedSetupString("import_flow.wallet_name_placeholder"), text: $draft.walletName)
                                         .textInputAutocapitalization(.words)
                                         .autocorrectionDisabled()
                                         .foregroundStyle(Color.primary)
@@ -1668,7 +1674,7 @@ struct SetupView: View {
                         HStack(spacing: 10) {
                             ProgressView()
                                 .tint(.white)
-                            Text(NSLocalizedString("import_flow.initializing_wallet_connections", comment: "Wallet import progress message"))
+                            Text(localizedSetupString("import_flow.initializing_wallet_connections"))
                                 .font(.footnote)
                                 .foregroundStyle(Color.primary.opacity(0.8))
                         }
@@ -1728,35 +1734,35 @@ struct SetupView: View {
                     }
 
                     if isShowingSeedPhrasePage || isShowingWatchAddressesPage {
-                        Button(NSLocalizedString("import_flow.back", comment: "Back button title")) {
+                        Button(localizedSetupString("import_flow.back")) {
                             withAnimation {
                                 setupPage = .details
                             }
                         }
                         .buttonStyle(.glass)
                     } else if isShowingDetailsPage && !isEditingWallet {
-                        Button(NSLocalizedString("import_flow.back", comment: "Back button title")) {
+                        Button(localizedSetupString("import_flow.back")) {
                             withAnimation {
                                 setupPage = .setupModeChoice
                             }
                         }
                         .buttonStyle(.glass)
                     } else if isShowingAdvancedPage {
-                        Button(NSLocalizedString("import_flow.back", comment: "Back button title")) {
+                        Button(localizedSetupString("import_flow.back")) {
                             withAnimation {
                                 setupPage = .seedPhrase
                             }
                         }
                         .buttonStyle(.glass)
                     } else if isShowingPasswordPage {
-                        Button(NSLocalizedString("import_flow.back", comment: "Back button title")) {
+                        Button(localizedSetupString("import_flow.back")) {
                             withAnimation {
                                 setupPage = .seedPhrase
                             }
                         }
                         .buttonStyle(.glass)
                     } else if isShowingBackupVerificationPage {
-                        Button(NSLocalizedString("import_flow.back_to_wallet_password", comment: "Back button title to wallet password step")) {
+                        Button(localizedSetupString("import_flow.back_to_wallet_password")) {
                             withAnimation {
                                 setupPage = .password
                             }
@@ -1851,7 +1857,7 @@ private struct AllChainsSelectionView: View {
                             HStack(spacing: 10) {
                                 Image(systemName: "magnifyingglass")
                                     .foregroundStyle(Color.primary.opacity(0.6))
-                                TextField(NSLocalizedString("import_flow.search_chains", comment: "Search chains placeholder"), text: $chainSearchText)
+                                TextField(localizedSetupString("import_flow.search_chains"), text: $chainSearchText)
                                     .textInputAutocapitalization(.never)
                                     .autocorrectionDisabled()
                             }
@@ -1860,7 +1866,7 @@ private struct AllChainsSelectionView: View {
                             .spectraInputFieldStyle()
 
                             if filteredDescriptors.isEmpty {
-                                Text(NSLocalizedString("import_flow.no_chains_match", comment: "Empty state when no chains match the search"))
+                                Text(localizedSetupString("import_flow.no_chains_match"))
                                     .font(.caption)
                                     .foregroundStyle(Color.primary.opacity(0.7))
                             } else {
@@ -1879,11 +1885,11 @@ private struct AllChainsSelectionView: View {
                     .padding(.vertical, 20)
                 }
             }
-            .navigationTitle(NSLocalizedString("import_flow.all_chains_title", comment: "All chains sheet title"))
+            .navigationTitle(localizedSetupString("import_flow.all_chains_title"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(NSLocalizedString("import_flow.done", comment: "Done button title")) {
+                    Button(localizedSetupString("import_flow.done")) {
                         dismiss()
                     }
                 }

@@ -402,7 +402,7 @@ struct WalletDetailView: View {
 
     private var firstActivityDateText: String {
         guard let firstDate = store.firstActivityDate(for: wallet.id) else {
-            return NSLocalizedString("No activity yet", comment: "")
+            return localizedWalletFlowString("No activity yet")
         }
         return Self.firstActivityFormatter.string(from: firstDate)
     }
@@ -495,7 +495,7 @@ struct WalletDetailView: View {
     }
 
     private var watchOnlyBadge: some View {
-        Label(NSLocalizedString("Watching", comment: ""), systemImage: "eye")
+        Label(localizedWalletFlowString("Watching"), systemImage: "eye")
             .font(.caption.weight(.semibold))
             .foregroundStyle(.orange)
             .padding(.horizontal, 10)
@@ -505,12 +505,12 @@ struct WalletDetailView: View {
 
     private var deleteWalletMessage: String {
         if isWatchOnly {
-            return NSLocalizedString("You can't recover this wallet after deletion until you still have this address.", comment: "")
+            return localizedWalletFlowString("You can't recover this wallet after deletion until you still have this address.")
         }
         if isPrivateKeyWallet {
-            return NSLocalizedString("Please keep this private key because you can't recover this wallet after deletion.", comment: "")
+            return localizedWalletFlowString("Please keep this private key because you can't recover this wallet after deletion.")
         }
-        return NSLocalizedString("Please take note of your seed phrase because you can't recover this wallet after deletion.", comment: "")
+        return localizedWalletFlowString("Please take note of your seed phrase because you can't recover this wallet after deletion.")
     }
 
     private func clearSeedRevealState() {
@@ -864,7 +864,7 @@ struct WalletDetailView: View {
     @ViewBuilder
     private func detailRow(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(NSLocalizedString(label, comment: ""))
+            Text(localizedWalletFlowString(label))
                 .font(.caption)
                 .foregroundStyle(Color.primary.opacity(0.65))
             Text(value)
@@ -921,7 +921,7 @@ private struct WalletAdvancedDetailsView: View {
 
 private func walletDetailRow(label: String, value: String) -> some View {
     VStack(alignment: .leading, spacing: 4) {
-        Text(NSLocalizedString(label, comment: ""))
+        Text(localizedWalletFlowString(label))
             .font(.caption)
             .foregroundStyle(Color.primary.opacity(0.65))
         Text(value)

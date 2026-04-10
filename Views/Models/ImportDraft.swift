@@ -14,7 +14,7 @@ enum WalletSecretImportMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var localizedTitle: String {
-        String(localized: LocalizedStringResource(stringLiteral: rawValue))
+        AppLocalization.string(rawValue)
     }
 }
 

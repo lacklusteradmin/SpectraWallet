@@ -13,8 +13,8 @@ enum XRPBalanceServiceError: LocalizedError {
         case .invalidResponse:
             return CommonLocalization.invalidProviderResponse("XRP")
         case .httpError(let code):
-            let format = NSLocalizedString("The XRP provider returned HTTP %d.", comment: "")
-            return String(format: format, locale: .current, code)
+            let format = AppLocalization.string("The XRP provider returned HTTP %d.")
+            return String(format: format, locale: AppLocalization.locale, code)
         case .rpcError(let message):
             return CommonLocalization.rpcError("XRP", message: message)
         }

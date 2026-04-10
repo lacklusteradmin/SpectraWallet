@@ -13,8 +13,8 @@ enum SolanaBalanceServiceError: LocalizedError {
         case .invalidResponse:
             return CommonLocalization.invalidProviderResponse("Solana")
         case .httpError(let statusCode):
-            let format = NSLocalizedString("The Solana provider returned HTTP %d.", comment: "")
-            return String(format: format, locale: .current, statusCode)
+            let format = AppLocalization.string("The Solana provider returned HTTP %d.")
+            return String(format: format, locale: AppLocalization.locale, statusCode)
         }
     }
 }

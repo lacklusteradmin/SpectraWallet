@@ -151,6 +151,6 @@ struct DashboardNoticeCardView: View {
 }
 
 private func dashboardComponentsLocalizedFormat(_ key: String, _ arguments: CVarArg...) -> String {
-    let format = NSLocalizedString(key, comment: "")
-    return String(format: format, locale: Locale.current, arguments: arguments)
+    let format = AppLocalization.string(key)
+    return String(format: format, locale: AppLocalization.locale, arguments: arguments)
 }

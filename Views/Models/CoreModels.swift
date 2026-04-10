@@ -485,7 +485,7 @@ struct SeedDerivationPaths: Equatable {
         do {
             return try WalletRustAppCoreBridge.derivationPaths(for: preset)
         } catch {
-            fatalError("Rust derivation preset paths failed to load: \(error.localizedDescription)")
+            return fallbackPaths(for: preset)
         }
     }
 
@@ -499,8 +499,37 @@ struct SeedDerivationPaths: Equatable {
         do {
             return try WalletRustAppCoreBridge.derivationPaths(for: nil)
         } catch {
-            fatalError("Rust default derivation paths failed to load: \(error.localizedDescription)")
+            return fallbackPaths(for: nil)
         }
+    }
+
+    private static func fallbackPaths(for preset: SeedDerivationPreset?) -> SeedDerivationPaths {
+        let accountIndex = preset?.accountIndex ?? 0
+        return SeedDerivationPaths(
+            isCustomEnabled: false,
+            bitcoin: "m/84'/0'/\(accountIndex)'/0/0",
+            bitcoinCash: "m/44'/145'/\(accountIndex)'/0/0",
+            bitcoinSV: "m/44'/236'/\(accountIndex)'/0/0",
+            litecoin: "m/44'/2'/\(accountIndex)'/0/0",
+            dogecoin: "m/44'/3'/\(accountIndex)'/0/0",
+            ethereum: "m/44'/60'/\(accountIndex)'/0/0",
+            ethereumClassic: "m/44'/61'/\(accountIndex)'/0/0",
+            arbitrum: "m/44'/60'/\(accountIndex)'/0/0",
+            optimism: "m/44'/60'/\(accountIndex)'/0/0",
+            avalanche: "m/44'/60'/\(accountIndex)'/0/0",
+            hyperliquid: "m/44'/60'/\(accountIndex)'/0/0",
+            tron: "m/44'/195'/\(accountIndex)'/0/0",
+            solana: "m/44'/501'/\(accountIndex)'/0'",
+            stellar: "m/44'/148'/\(accountIndex)'",
+            xrp: "m/44'/144'/\(accountIndex)'/0/0",
+            cardano: "m/1852'/1815'/\(accountIndex)'/0/0",
+            sui: "m/44'/784'/\(accountIndex)'/0'/0'",
+            aptos: "m/44'/637'/\(accountIndex)'/0'/0'",
+            ton: "m/44'/607'/\(accountIndex)'/0/0",
+            internetComputer: "m/44'/223'/\(accountIndex)'/0/0",
+            near: "m/44'/397'/\(accountIndex)'",
+            polkadot: "m/44'/354'/\(accountIndex)'"
+        )
     }
 }
 
@@ -517,11 +546,11 @@ enum TransactionStatus: String, Codable {
     var localizedTitle: String {
         switch self {
         case .pending:
-            return String(localized: "Pending")
+            return AppLocalization.string("Pending")
         case .confirmed:
-            return String(localized: "Confirmed")
+            return AppLocalization.string("Confirmed")
         case .failed:
-            return String(localized: "Failed")
+            return AppLocalization.string("Failed")
         }
     }
 }
@@ -535,7 +564,7 @@ enum HistoryFilter: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var localizedTitle: String {
-        String(localized: LocalizedStringResource(stringLiteral: rawValue))
+        AppLocalization.string(rawValue)
     }
 }
 
@@ -546,7 +575,7 @@ enum HistorySortOrder: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     var localizedTitle: String {
-        String(localized: LocalizedStringResource(stringLiteral: rawValue))
+        AppLocalization.string(rawValue)
     }
 }
 
@@ -582,7 +611,7 @@ enum PriceAlertCondition: String, CaseIterable, Codable, Identifiable {
     var id: String { rawValue }
 
     var displayName: String {
-        NSLocalizedString(rawValue, comment: "")
+        AppLocalization.string(rawValue)
     }
 }
 
@@ -629,11 +658,11 @@ struct PriceAlertRule: Identifiable {
     
     var statusText: String {
         if !isEnabled {
-            return NSLocalizedString("Paused", comment: "")
+            return AppLocalization.string("Paused")
         }
         return hasTriggered
-            ? NSLocalizedString("Triggered", comment: "")
-            : NSLocalizedString("Watching", comment: "")
+            ? AppLocalization.string("Triggered")
+            : AppLocalization.string("Watching")
     }
 }
 

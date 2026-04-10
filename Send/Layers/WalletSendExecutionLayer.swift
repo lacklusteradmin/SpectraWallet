@@ -2,6 +2,7 @@ import Foundation
 
 extension WalletSendLayer {
     static func submitSend(using store: WalletStore) async {
+        let destinationInput = store.sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
         let walletIndex = store.wallets.firstIndex(where: { $0.id.uuidString == store.sendWalletID })
         let holdingIndex = walletIndex.flatMap { index in
             store.wallets[index].holdings.firstIndex(where: { $0.holdingKey == store.sendHoldingKey })
@@ -16,7 +17,7 @@ extension WalletSendLayer {
                 WalletRustSendSubmitPreflightRequest(
                     walletFound: walletIndex != nil,
                     assetFound: holdingIndex != nil,
-                    destinationAddress: store.sendAddress,
+                    destinationAddress: destinationInput,
                     amountInput: store.sendAmount,
                     availableBalance: selectedCoin?.amount ?? 0,
                     asset: selectedCoin.map {

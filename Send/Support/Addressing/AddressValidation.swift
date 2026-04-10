@@ -1,14 +1,14 @@
 import Foundation
 
 enum AddressValidation {
-    static func isValidBitcoinAddress(_ address: String, networkMode: BitcoinNetworkMode) -> Bool {
+    nonisolated static func isValidBitcoinAddress(_ address: String, networkMode: BitcoinNetworkMode) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
         return BitcoinWalletEngine.isValidAddress(trimmed, networkMode: networkMode)
     }
 
-    static func isValidBitcoinCashAddress(_ address: String) -> Bool {
+    nonisolated static func isValidBitcoinCashAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -23,7 +23,7 @@ enum AddressValidation {
             || trimmed.hasPrefix("3")
     }
 
-    static func isValidBitcoinSVAddress(_ address: String) -> Bool {
+    nonisolated static func isValidBitcoinSVAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -33,7 +33,7 @@ enum AddressValidation {
             || lowered.hasPrefix("bc1")
     }
 
-    static func isValidLitecoinAddress(_ address: String) -> Bool {
+    nonisolated static func isValidLitecoinAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -45,7 +45,7 @@ enum AddressValidation {
             || trimmed.hasPrefix("3")
     }
 
-    static func isValidDogecoinAddress(
+    nonisolated static func isValidDogecoinAddress(
         _ address: String,
         networkMode: DogecoinNetworkMode = .mainnet
     ) -> Bool {
@@ -55,14 +55,14 @@ enum AddressValidation {
         return DogecoinBalanceService.isValidDogecoinAddress(trimmed, networkMode: networkMode)
     }
 
-    static func isValidEthereumAddress(_ address: String) -> Bool {
+    nonisolated static func isValidEthereumAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
         return EthereumWalletEngine.isValidAddress(trimmed)
     }
 
-    static func isValidTronAddress(_ address: String) -> Bool {
+    nonisolated static func isValidTronAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -72,7 +72,7 @@ enum AddressValidation {
             && trimmed.allSatisfy { allowed.contains($0) }
     }
 
-    static func isValidSolanaAddress(_ address: String) -> Bool {
+    nonisolated static func isValidSolanaAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -81,7 +81,7 @@ enum AddressValidation {
             && trimmed.allSatisfy { allowed.contains($0) }
     }
 
-    static func isValidStellarAddress(_ address: String) -> Bool {
+    nonisolated static func isValidStellarAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -91,7 +91,7 @@ enum AddressValidation {
             && trimmed.allSatisfy { allowed.contains($0) }
     }
 
-    static func isValidXRPAddress(_ address: String) -> Bool {
+    nonisolated static func isValidXRPAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -101,7 +101,7 @@ enum AddressValidation {
             && trimmed.allSatisfy { allowed.contains($0) }
     }
 
-    static func isValidSuiAddress(_ address: String) -> Bool {
+    nonisolated static func isValidSuiAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -112,7 +112,7 @@ enum AddressValidation {
         return hex.allSatisfy { ("0"..."9").contains(String($0)) || ("a"..."f").contains(String($0)) }
     }
 
-    static func isValidAptosAddress(_ address: String) -> Bool {
+    nonisolated static func isValidAptosAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -122,7 +122,7 @@ enum AddressValidation {
         return normalized.allSatisfy { ("0"..."9").contains(String($0)) || ("a"..."f").contains(String($0)) }
     }
 
-    static func isValidTONAddress(_ address: String) -> Bool {
+    nonisolated static func isValidTONAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -138,7 +138,7 @@ enum AddressValidation {
             && trimmed.unicodeScalars.allSatisfy { userFriendlyAllowed.contains($0) }
     }
 
-    static func isValidAptosTokenType(_ value: String) -> Bool {
+    nonisolated static func isValidAptosTokenType(_ value: String) -> Bool {
         let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -153,7 +153,7 @@ enum AddressValidation {
         return isValidAptosAddress(addressComponent)
     }
 
-    static func isValidICPAddress(_ address: String) -> Bool {
+    nonisolated static func isValidICPAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -164,7 +164,7 @@ enum AddressValidation {
         }
     }
 
-    static func isValidNearAddress(_ address: String) -> Bool {
+    nonisolated static func isValidNearAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -199,7 +199,7 @@ enum AddressValidation {
         return true
     }
 
-    static func isValidPolkadotAddress(_ address: String) -> Bool {
+    nonisolated static func isValidPolkadotAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -208,7 +208,7 @@ enum AddressValidation {
             && trimmed.allSatisfy { allowed.contains($0) }
     }
 
-    static func isValidMoneroAddress(_ address: String) -> Bool {
+    nonisolated static func isValidMoneroAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 
@@ -225,7 +225,7 @@ enum AddressValidation {
         return trimmed.hasPrefix("4") || trimmed.hasPrefix("8")
     }
 
-    static func isValidCardanoAddress(_ address: String) -> Bool {
+    nonisolated static func isValidCardanoAddress(_ address: String) -> Bool {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return false }
 

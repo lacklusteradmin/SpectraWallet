@@ -19,7 +19,7 @@ enum BitcoinSVWalletEngineError: LocalizedError {
         case .invalidAddress:
             return CommonLocalization.invalidDestinationAddressPrompt("Bitcoin SV")
         case .signingFailed(let message):
-            return NSLocalizedString(message, comment: "")
+            return AppLocalization.string(message)
         case .insufficientFunds:
             return CommonLocalization.insufficientBalanceForAmountPlusNetworkFee("Bitcoin SV")
         case .invalidUTXO:
@@ -27,9 +27,9 @@ enum BitcoinSVWalletEngineError: LocalizedError {
         case .sourceAddressDoesNotMatchSeed:
             return CommonLocalization.sourceAddressDoesNotMatchSeed("Bitcoin SV")
         case .broadcastFailed(let message):
-            return NSLocalizedString(message, comment: "")
+            return AppLocalization.string(message)
         case .policyViolation(let message):
-            return NSLocalizedString(message, comment: "")
+            return AppLocalization.string(message)
         }
     }
 }

@@ -18,21 +18,21 @@ enum EthereumWalletEngineError: LocalizedError {
         case .invalidAddress:
             return CommonLocalization.invalidAddress("Ethereum")
         case .invalidSeedPhrase:
-            return NSLocalizedString("The Ethereum seed phrase could not derive a valid account.", comment: "")
+            return AppLocalization.string("The Ethereum seed phrase could not derive a valid account.")
         case .missingRPCEndpoint:
-            return NSLocalizedString("An Ethereum RPC endpoint is required for live chain access.", comment: "")
+            return AppLocalization.string("An Ethereum RPC endpoint is required for live chain access.")
         case .invalidRPCEndpoint:
-            return NSLocalizedString("The Ethereum RPC endpoint is not valid.", comment: "")
+            return AppLocalization.string("The Ethereum RPC endpoint is not valid.")
         case .invalidResponse:
-            return NSLocalizedString("The Ethereum RPC response was invalid.", comment: "")
+            return AppLocalization.string("The Ethereum RPC response was invalid.")
         case .invalidHexQuantity:
-            return NSLocalizedString("The Ethereum RPC returned an invalid balance.", comment: "")
+            return AppLocalization.string("The Ethereum RPC returned an invalid balance.")
         case .unsupportedNetwork:
-            return NSLocalizedString("The configured EVM RPC endpoint does not match the selected chain.", comment: "")
+            return AppLocalization.string("The configured EVM RPC endpoint does not match the selected chain.")
         case let .rpcFailure(message):
-            return NSLocalizedString(message, comment: "")
+            return AppLocalization.string(message)
         case .integrationNotImplemented:
-            return NSLocalizedString("Ethereum token integration has not been implemented yet.", comment: "")
+            return AppLocalization.string("Ethereum token integration has not been implemented yet.")
         }
     }
 }

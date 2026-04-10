@@ -48,6 +48,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		9069DCDD2F889F960040B236 /* Spectra.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Spectra.xcodeproj; sourceTree = "<group>"; };
 		907491632F56D1E500D098D2 /* Spectra.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Spectra.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		90AEE1792F5AFB43008CFE5E /* Spectra.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = Spectra.xctestplan; sourceTree = "<group>"; };
 		91B000012F5B000100AAA001 /* SpectraTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpectraTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -55,62 +56,117 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		904319B92F756B1600DEB3EA /* Exceptions for "Spectra" folder in "SpectraLiveActivityExtension" target */ = {
+		90F0BA0D2F5C4A76004E29F3 /* Exceptions for "Views/Extensions/SpectraLiveActivityExtension" folder in "SpectraLiveActivityExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
-				Views/Extensions/SharedLiveActivities/SendLiveActivityAttributes.swift,
-				Views/Extensions/SpectraLiveActivityExtension/SendLiveActivityWidget.swift,
+				Info.plist,
 			);
 			target = 91C100072F70000100AAA001 /* SpectraLiveActivityExtension */;
-		};
-		90F0BA0D2F5C4A76004E29F3 /* Exceptions for "Spectra" folder in "Spectra" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Tests/Balance/BitcoinBalanceTests.swift,
-				Tests/Balance/CardanoBalanceTests.swift,
-				Tests/Balance/DogecoinBalanceTests.swift,
-				Tests/Balance/LitecoinBalanceTests.swift,
-				Tests/Balance/MoneroBalanceTests.swift,
-				Tests/Balance/SolanaBalanceTests.swift,
-				Tests/Balance/SuiBalanceTests.swift,
-				Tests/Balance/XRPBalanceTests.swift,
-				Tests/Diagnostics/DiagnosticsBundleTests.swift,
-				Tests/Docs/TESTING_WORKFLOW.md,
-				Tests/Networking/NetworkClientTests.swift,
-				Tests/Store/SecureSeedStoreTests.swift,
-				Views/Extensions/SpectraLiveActivityExtension/Info.plist,
-				Views/Extensions/SpectraLiveActivityExtension/SendLiveActivityWidget.swift,
-			);
-			target = 907491622F56D1E500D098D2 /* Spectra */;
-		};
-		90F0BA0E2F5C4A76004E29F3 /* Exceptions for "Spectra" folder in "SpectraTests" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Tests/Balance/BitcoinBalanceTests.swift,
-				Tests/Balance/CardanoBalanceTests.swift,
-				Tests/Balance/DogecoinBalanceTests.swift,
-				Tests/Balance/LitecoinBalanceTests.swift,
-				Tests/Balance/MoneroBalanceTests.swift,
-				Tests/Balance/SolanaBalanceTests.swift,
-				Tests/Balance/SuiBalanceTests.swift,
-				Tests/Balance/XRPBalanceTests.swift,
-				Tests/Diagnostics/DiagnosticsBundleTests.swift,
-				Tests/Networking/NetworkClientTests.swift,
-				Tests/Store/SecureSeedStoreTests.swift,
-			);
-			target = 91B0000C2F5B000100AAA001 /* SpectraTests */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		907491652F56D1E500D098D2 /* Spectra */ = {
+		907491652F56D1E500D098D2 /* Derivation */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Derivation;
+			sourceTree = "<group>";
+		};
+		907491662F56D1E500D098D2 /* Fetch */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Fetch;
+			sourceTree = "<group>";
+		};
+		907491672F56D1E500D098D2 /* ProviderCatalog */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = ProviderCatalog;
+			sourceTree = "<group>";
+		};
+		907491682F56D1E500D098D2 /* Send */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Send;
+			sourceTree = "<group>";
+		};
+		907491692F56D1E500D098D2 /* Store */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Store;
+			sourceTree = "<group>";
+		};
+		9074916A2F56D1E500D098D2 /* Resources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		9074916B2F56D1E500D098D2 /* Tests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		9074916C2F56D1E500D098D2 /* Views/App */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views/App;
+			sourceTree = "<group>";
+		};
+		9074916D2F56D1E500D098D2 /* Views/Extensions/SharedLiveActivities */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views/Extensions/SharedLiveActivities;
+			sourceTree = "<group>";
+		};
+		907491712F56D1E600D098D2 /* Views/Extensions/SpectraLiveActivityExtension */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				90F0BA0D2F5C4A76004E29F3 /* Exceptions for "Spectra" folder in "Spectra" target */,
-				904319B92F756B1600DEB3EA /* Exceptions for "Spectra" folder in "SpectraLiveActivityExtension" target */,
-				90F0BA0E2F5C4A76004E29F3 /* Exceptions for "Spectra" folder in "SpectraTests" target */,
+				90F0BA0D2F5C4A76004E29F3 /* Exceptions for "Views/Extensions/SpectraLiveActivityExtension" folder in "SpectraLiveActivityExtension" target */,
 			);
-			path = "";
+			path = Views/Extensions/SpectraLiveActivityExtension;
+			sourceTree = "<group>";
+		};
+		A1C100112F56D1E600D098D2 /* Views/ChainWiki */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views/ChainWiki;
+			sourceTree = "<group>";
+		};
+		A1C100122F56D1E600D098D2 /* Views/Dashboard */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views/Dashboard;
+			sourceTree = "<group>";
+		};
+		A1C100132F56D1E600D098D2 /* Views/Diagnostics */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views/Diagnostics;
+			sourceTree = "<group>";
+		};
+		A1C100142F56D1E600D098D2 /* Views/Donations */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views/Donations;
+			sourceTree = "<group>";
+		};
+		A1C100152F56D1E600D098D2 /* Views/Endpoints */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views/Endpoints;
+			sourceTree = "<group>";
+		};
+		A1C100162F56D1E600D098D2 /* Views/Models */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views/Models;
+			sourceTree = "<group>";
+		};
+		A1C100172F56D1E600D098D2 /* Views/Settings */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views/Settings;
+			sourceTree = "<group>";
+		};
+		A1C100182F56D1E600D098D2 /* Views/Staking */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views/Staking;
+			sourceTree = "<group>";
+		};
+		A1C100192F56D1E600D098D2 /* Views/Support */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views/Support;
+			sourceTree = "<group>";
+		};
+		A1C100202F56D1E600D098D2 /* Views/WalletFlow */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Views/WalletFlow;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -146,11 +202,34 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		9069DCDF2F889F960040B236 /* Products */ = {
+			isa = PBXGroup;
+			name = Products;
+			sourceTree = "<group>";
+		};
 		9074915A2F56D1E500D098D2 = {
 			isa = PBXGroup;
 			children = (
 				90AEE1792F5AFB43008CFE5E /* Spectra.xctestplan */,
-				907491652F56D1E500D098D2 /* Spectra */,
+				907491652F56D1E500D098D2 /* Derivation */,
+				907491662F56D1E500D098D2 /* Fetch */,
+				907491672F56D1E500D098D2 /* ProviderCatalog */,
+				907491682F56D1E500D098D2 /* Send */,
+				907491692F56D1E500D098D2 /* Store */,
+				9074916C2F56D1E500D098D2 /* Views/App */,
+				A1C100112F56D1E600D098D2 /* Views/ChainWiki */,
+				A1C100122F56D1E600D098D2 /* Views/Dashboard */,
+				A1C100132F56D1E600D098D2 /* Views/Diagnostics */,
+				A1C100142F56D1E600D098D2 /* Views/Donations */,
+				A1C100152F56D1E600D098D2 /* Views/Endpoints */,
+				A1C100162F56D1E600D098D2 /* Views/Models */,
+				A1C100172F56D1E600D098D2 /* Views/Settings */,
+				A1C100182F56D1E600D098D2 /* Views/Staking */,
+				A1C100192F56D1E600D098D2 /* Views/Support */,
+				A1C100202F56D1E600D098D2 /* Views/WalletFlow */,
+				9074916A2F56D1E500D098D2 /* Resources */,
+				9074916B2F56D1E500D098D2 /* Tests */,
+				90B3F81E2F8974CA0064E262 /* Recovered References */,
 			);
 			sourceTree = "<group>";
 		};
@@ -162,6 +241,15 @@
 				91B000012F5B000100AAA001 /* SpectraTests.xctest */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		90B3F81E2F8974CA0064E262 /* Recovered References */ = {
+			isa = PBXGroup;
+			children = (
+				9074916D2F56D1E500D098D2 /* Views/Extensions/SharedLiveActivities */,
+				907491712F56D1E600D098D2 /* Views/Extensions/SpectraLiveActivityExtension */,
+			);
+			name = "Recovered References";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -183,7 +271,24 @@
 				91C1000E2F70000100AAA001 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				907491652F56D1E500D098D2 /* Spectra */,
+				907491652F56D1E500D098D2 /* Derivation */,
+				907491662F56D1E500D098D2 /* Fetch */,
+				907491672F56D1E500D098D2 /* ProviderCatalog */,
+				907491682F56D1E500D098D2 /* Send */,
+				907491692F56D1E500D098D2 /* Store */,
+				9074916A2F56D1E500D098D2 /* Resources */,
+				9074916C2F56D1E500D098D2 /* Views/App */,
+				9074916D2F56D1E500D098D2 /* Views/Extensions/SharedLiveActivities */,
+				A1C100112F56D1E600D098D2 /* Views/ChainWiki */,
+				A1C100122F56D1E600D098D2 /* Views/Dashboard */,
+				A1C100132F56D1E600D098D2 /* Views/Diagnostics */,
+				A1C100142F56D1E600D098D2 /* Views/Donations */,
+				A1C100152F56D1E600D098D2 /* Views/Endpoints */,
+				A1C100162F56D1E600D098D2 /* Views/Models */,
+				A1C100172F56D1E600D098D2 /* Views/Settings */,
+				A1C100182F56D1E600D098D2 /* Views/Staking */,
+				A1C100192F56D1E600D098D2 /* Views/Support */,
+				A1C100202F56D1E600D098D2 /* Views/WalletFlow */,
 			);
 			name = Spectra;
 			packageProductDependencies = (
@@ -211,6 +316,9 @@
 			dependencies = (
 				91B000112F5B000100AAA001 /* PBXTargetDependency */,
 			);
+			fileSystemSynchronizedGroups = (
+				9074916B2F56D1E500D098D2 /* Tests */,
+			);
 			name = SpectraTests;
 			packageProductDependencies = (
 			);
@@ -229,6 +337,10 @@
 			buildRules = (
 			);
 			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				9074916D2F56D1E500D098D2 /* Views/Extensions/SharedLiveActivities */,
+				907491712F56D1E600D098D2 /* Views/Extensions/SpectraLiveActivityExtension */,
 			);
 			name = SpectraLiveActivityExtension;
 			packageProductDependencies = (
@@ -277,6 +389,12 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 907491642F56D1E500D098D2 /* Products */;
 			projectDirPath = "";
+			projectReferences = (
+				{
+					ProductGroup = 9069DCDF2F889F960040B236 /* Products */;
+					ProjectRef = 9069DCDD2F889F960040B236 /* Spectra.xcodeproj */;
+				},
+			);
 			projectRoot = "";
 			targets = (
 				907491622F56D1E500D098D2 /* Spectra */,
@@ -326,12 +444,12 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/.rust-build/apple/ios-simulator/libspectra_derivation.a",
-				"$(SRCROOT)/.rust-build/apple/ios-device/libspectra_derivation.a",
+				"$(PROJECT_TEMP_DIR)/spectra-rust/apple/ios-simulator/libspectra_derivation.a",
+				"$(PROJECT_TEMP_DIR)/spectra-rust/apple/ios-device/libspectra_derivation.a",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "set -euo pipefail\n\nRUST_DIR=\"${SRCROOT}/Core\"\nCARGO_TARGET_DIR=\"${SRCROOT}/.rust-build/cargo-target\"\nTARGET_ROOT=\"${SRCROOT}/.rust-build/apple\"\nSIM_OUT=\"${TARGET_ROOT}/ios-simulator\"\nDEVICE_OUT=\"${TARGET_ROOT}/ios-device\"\n\n# Xcode build phases run in a minimal shell, so cargo may not be on PATH.\nexport PATH=\"${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}\"\nif [[ -f \"${HOME}/.cargo/env\" ]]; then\n  # shellcheck disable=SC1090\n  source \"${HOME}/.cargo/env\"\nfi\n\nif ! command -v cargo >/dev/null 2>&1; then\n  echo \"error: cargo is required to build the Rust wallet core\"\n  echo \"hint: install Rust with 'brew install rustup-init && rustup-init' or from https://rustup.rs\"\n  exit 1\nfi\n\nif [[ \"${PLATFORM_NAME}\" == *simulator* ]]; then\n  mkdir -p \"${SIM_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios-sim x86_64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios-sim\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target x86_64-apple-ios\n\n  lipo -create \\\n    \"${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libspectra_derivation.a\" \\\n    \"${CARGO_TARGET_DIR}/x86_64-apple-ios/debug/libspectra_derivation.a\" \\\n    -output \"${SIM_OUT}/libspectra_derivation.a\"\nelse\n  mkdir -p \"${DEVICE_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios\n  cp \"${CARGO_TARGET_DIR}/aarch64-apple-ios/debug/libspectra_derivation.a\" \"${DEVICE_OUT}/libspectra_derivation.a\"\nfi\n";
+			shellScript = "set -euo pipefail\n\nRUST_DIR=\"${SRCROOT}/Core\"\nRUST_BUILD_ROOT=\"${PROJECT_TEMP_DIR}/spectra-rust\"\nCARGO_TARGET_DIR=\"${RUST_BUILD_ROOT}/cargo-target\"\nTARGET_ROOT=\"${RUST_BUILD_ROOT}/apple\"\nSIM_OUT=\"${TARGET_ROOT}/ios-simulator\"\nDEVICE_OUT=\"${TARGET_ROOT}/ios-device\"\nGENERATED_SWIFT_DIR=\"${SRCROOT}/Derivation/Core/Generated\"\nBINDGEN_MANIFEST=\"${RUST_DIR}/tools/uniffi-bindgen/Cargo.toml\"\nHOST_DYLIB=\"${CARGO_TARGET_DIR}/debug/libspectra_derivation.dylib\"\n\n# Xcode build phases run in a minimal shell, so cargo may not be on PATH.\nexport PATH=\"${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}\"\nif [[ -f \"${HOME}/.cargo/env\" ]]; then\n  # shellcheck disable=SC1090\n  source \"${HOME}/.cargo/env\"\nfi\n\nif ! command -v cargo >/dev/null 2>&1; then\n  echo \"error: cargo is required to build the Rust wallet core\"\n  echo \"hint: install Rust with 'brew install rustup-init && rustup-init' or from https://rustup.rs\"\n  exit 1\nfi\n\nmkdir -p \"${GENERATED_SWIFT_DIR}\"\nCARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\"\n(\n  cd \"${RUST_DIR}\"\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo run --manifest-path \"${BINDGEN_MANIFEST}\" -- generate --language swift --library \"${HOST_DYLIB}\" --out-dir \"${GENERATED_SWIFT_DIR}\"\n)\ncp \"${GENERATED_SWIFT_DIR}/spectra_derivationFFI.modulemap\" \"${GENERATED_SWIFT_DIR}/module.modulemap\"\n\nif [[ \"${PLATFORM_NAME}\" == *simulator* ]]; then\n  mkdir -p \"${SIM_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios-sim x86_64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios-sim\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target x86_64-apple-ios\n\n  lipo -create \\\n    \"${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libspectra_derivation.a\" \\\n    \"${CARGO_TARGET_DIR}/x86_64-apple-ios/debug/libspectra_derivation.a\" \\\n    -output \"${SIM_OUT}/libspectra_derivation.a\"\nelse\n  mkdir -p \"${DEVICE_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios\n  cp \"${CARGO_TARGET_DIR}/aarch64-apple-ios/debug/libspectra_derivation.a\" \"${DEVICE_OUT}/libspectra_derivation.a\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -506,7 +624,10 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				HEADER_SEARCH_PATHS = "$(inherited)";
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/Derivation/Core/Generated",
+				);
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Spectra uses the camera to scan QR codes for wallet addresses.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Spectra uses Face ID to verify your identity before revealing your wallet seed phrase.";
@@ -523,19 +644,28 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
+					"$(PROJECT_TEMP_DIR)/spectra-rust/apple/ios-device",
+					"$(PROJECT_TEMP_DIR)/spectra-rust/apple/ios-simulator",
 				);
 				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/.rust-build/apple/ios-device",
+					"$(PROJECT_TEMP_DIR)/spectra-rust/apple/ios-device",
 				);
 				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/.rust-build/apple/ios-simulator",
+					"$(PROJECT_TEMP_DIR)/spectra-rust/apple/ios-simulator",
 				);
 				MARKETING_VERSION = 1.0.0;
-				OTHER_LDFLAGS = (
+				OTHER_LDFLAGS = "$(inherited)";
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"$(inherited)",
-					"-lspectra_derivation",
+					"-force_load",
+					"$(PROJECT_TEMP_DIR)/spectra-rust/apple/ios-device/libspectra_derivation.a",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"-force_load",
+					"$(PROJECT_TEMP_DIR)/spectra-rust/apple/ios-simulator/libspectra_derivation.a",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.sheny.Spectra;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -547,6 +677,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Derivation/Core/Generated";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -563,7 +694,10 @@
 				ENABLE_PREVIEWS = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = NO;
 				GENERATE_INFOPLIST_FILE = YES;
-				HEADER_SEARCH_PATHS = "$(inherited)";
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(SRCROOT)/Derivation/Core/Generated",
+				);
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Spectra uses the camera to scan QR codes for wallet addresses.";
 				INFOPLIST_KEY_NSFaceIDUsageDescription = "Spectra uses Face ID to verify your identity before revealing your wallet seed phrase.";
@@ -580,22 +714,32 @@
 				);
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
+					"$(PROJECT_TEMP_DIR)/spectra-rust/apple/ios-device",
+					"$(PROJECT_TEMP_DIR)/spectra-rust/apple/ios-simulator",
 				);
 				"LIBRARY_SEARCH_PATHS[sdk=iphoneos*]" = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/.rust-build/apple/ios-device",
+					"$(PROJECT_TEMP_DIR)/spectra-rust/apple/ios-device",
 				);
 				"LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*]" = (
 					"$(inherited)",
-					"$(PROJECT_DIR)/.rust-build/apple/ios-simulator",
+					"$(PROJECT_TEMP_DIR)/spectra-rust/apple/ios-simulator",
 				);
 				MARKETING_VERSION = 1.0.0;
-				OTHER_LDFLAGS = (
+				OTHER_LDFLAGS = "$(inherited)";
+				"OTHER_LDFLAGS[sdk=iphoneos*]" = (
 					"$(inherited)",
-					"-lspectra_derivation",
+					"-force_load",
+					"$(PROJECT_TEMP_DIR)/spectra-rust/apple/ios-device/libspectra_derivation.a",
+				);
+				"OTHER_LDFLAGS[sdk=iphonesimulator*]" = (
+					"$(inherited)",
+					"-force_load",
+					"$(PROJECT_TEMP_DIR)/spectra-rust/apple/ios-simulator/libspectra_derivation.a",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.sheny.Spectra;
 				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Derivation/Core/Generated";
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
 				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
 				SUPPORTS_MACCATALYST = NO;

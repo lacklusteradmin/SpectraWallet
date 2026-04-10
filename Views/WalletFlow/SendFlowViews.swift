@@ -2,6 +2,10 @@ import Foundation
 import SwiftUI
 import VisionKit
 
+private func localizedSendString(_ key: String) -> String {
+    AppLocalization.string(key)
+}
+
 struct SendView: View {
     let store: WalletStore
     @ObservedObject private var flowState: WalletFlowState
@@ -16,6 +20,10 @@ struct SendView: View {
         _flowState = ObservedObject(wrappedValue: store.flowState)
         _sendState = ObservedObject(wrappedValue: store.sendState)
         _runtimeState = ObservedObject(wrappedValue: store.runtimeState)
+    }
+
+    private func localized(_ key: String) -> String {
+        localizedSendString(key)
     }
 
     private var sendAdvancedModeBinding: Binding<Bool> {
@@ -299,7 +307,7 @@ struct SendView: View {
                     Text("Selected Inputs: \(selectedInputCount)")
                 }
                 if let usesChangeOutput = details.usesChangeOutput {
-                    let changeOutputLabel = usesChangeOutput ? NSLocalizedString("Yes", comment: "") : NSLocalizedString("No", comment: "")
+                    let changeOutputLabel = usesChangeOutput ? localized("Yes") : localized("No")
                     Text("Change Output: \(changeOutputLabel)")
                 }
                 if let maxSendable = details.maxSendable {
@@ -951,7 +959,7 @@ struct SendView: View {
     private func sendDetailCard(title: String? = nil, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             if let title {
-                Text(NSLocalizedString(title, comment: ""))
+                Text(localizedSendString(title))
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(Color.primary)
             }
@@ -1354,7 +1362,7 @@ private struct SendPrimarySectionsView: View {
     private func sendDetailCard(title: String? = nil, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 12) {
             if let title {
-                Text(NSLocalizedString(title, comment: ""))
+                Text(localizedSendString(title))
                     .font(.headline.weight(.semibold))
                     .foregroundStyle(Color.primary)
             }

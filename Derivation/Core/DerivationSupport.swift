@@ -64,12 +64,12 @@ enum WalletCoreDerivationError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidMnemonic:
-            return NSLocalizedString("Invalid mnemonic phrase for derivation.", comment: "")
+            return AppLocalization.string("Invalid mnemonic phrase for derivation.")
         case .invalidDerivationPath(let path):
-            let format = NSLocalizedString("Invalid derivation path: %@", comment: "")
-            return String(format: format, locale: .current, path)
+            let format = AppLocalization.string("Invalid derivation path: %@")
+            return String(format: format, locale: AppLocalization.locale, path)
         case .invalidPrivateKey:
-            return NSLocalizedString("Invalid private key.", comment: "")
+            return AppLocalization.string("Invalid private key.")
         }
     }
 }
@@ -189,4 +189,3 @@ struct WalletCoreDerivationMaterial {
     let branch: WalletDerivationBranch
     let index: UInt32
 }
-

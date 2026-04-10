@@ -8,6 +8,142 @@ private enum LocalizationCatalogReferenceKeeper {
     static let strings: [String] = []
 }
 
+enum StaticContentCatalog {
+    private final class BundleMarker {}
+
+    static func loadRequiredResource<T: Decodable>(_ baseName: String, as type: T.Type) -> T {
+        let decoder = JSONDecoder()
+        let localeIdentifiers = AppLocalization.preferredLocalizationIdentifiers()
+
+        for url in candidateJSONURLs(for: baseName, localeIdentifiers: localeIdentifiers) {
+            guard let data = try? Data(contentsOf: url),
+                  let value = try? decoder.decode(T.self, from: data) else {
+                continue
+            }
+            return value
+        }
+
+        fatalError("Missing required resource: \(baseName).json")
+    }
+
+    static func loadResource<T: Decodable>(_ baseName: String, as type: T.Type) -> T? {
+        let decoder = JSONDecoder()
+        let localeIdentifiers = AppLocalization.preferredLocalizationIdentifiers()
+
+        for url in candidateJSONURLs(for: baseName, localeIdentifiers: localeIdentifiers) {
+            guard let data = try? Data(contentsOf: url),
+                  let value = try? decoder.decode(T.self, from: data) else {
+                continue
+            }
+            return value
+        }
+
+        return nil
+    }
+
+    static func loadRequiredTextResource(_ baseName: String) -> String {
+        for url in candidateTextURLs(for: baseName) {
+            guard let text = try? String(contentsOf: url, encoding: .utf8) else {
+                continue
+            }
+            return text
+        }
+
+        fatalError("Missing required text resource: \(baseName)")
+    }
+
+    private static func candidateJSONURLs(for baseName: String, localeIdentifiers: [String]) -> [URL] {
+        var candidates: [URL] = []
+        var seen = Set<String>()
+
+        func append(_ url: URL) {
+            let key = url.standardizedFileURL.path
+            guard seen.insert(key).inserted else { return }
+            candidates.append(url)
+        }
+
+        for bundle in candidateBundles {
+            guard let resourceURL = bundle.resourceURL else { continue }
+
+            for localeIdentifier in localeIdentifiers {
+                if localeIdentifier == "Base" {
+                    append(resourceURL
+                        .appendingPathComponent("Resources", isDirectory: true)
+                        .appendingPathComponent("Localization", isDirectory: true)
+                        .appendingPathComponent("Base", isDirectory: true)
+                        .appendingPathComponent("\(baseName).json", isDirectory: false))
+                    append(resourceURL
+                        .appendingPathComponent("Localization", isDirectory: true)
+                        .appendingPathComponent("Base", isDirectory: true)
+                        .appendingPathComponent("\(baseName).json", isDirectory: false))
+                } else {
+                    append(resourceURL
+                        .appendingPathComponent("Resources", isDirectory: true)
+                        .appendingPathComponent("Localization", isDirectory: true)
+                        .appendingPathComponent(localeIdentifier, isDirectory: true)
+                        .appendingPathComponent("\(baseName).\(localeIdentifier).json", isDirectory: false))
+                    append(resourceURL
+                        .appendingPathComponent("Localization", isDirectory: true)
+                        .appendingPathComponent(localeIdentifier, isDirectory: true)
+                        .appendingPathComponent("\(baseName).\(localeIdentifier).json", isDirectory: false))
+                }
+            }
+
+            append(resourceURL
+                .appendingPathComponent("Resources", isDirectory: true)
+                .appendingPathComponent("Localization", isDirectory: true)
+                .appendingPathComponent("Base", isDirectory: true)
+                .appendingPathComponent("\(baseName).json", isDirectory: false))
+            append(resourceURL
+                .appendingPathComponent("Localization", isDirectory: true)
+                .appendingPathComponent("Base", isDirectory: true)
+                .appendingPathComponent("\(baseName).json", isDirectory: false))
+            append(resourceURL.appendingPathComponent("\(baseName).json", isDirectory: false))
+        }
+
+        return candidates
+    }
+
+    private static func candidateTextURLs(for baseName: String) -> [URL] {
+        var candidates: [URL] = []
+        var seen = Set<String>()
+
+        func append(_ url: URL) {
+            let key = url.standardizedFileURL.path
+            guard seen.insert(key).inserted else { return }
+            candidates.append(url)
+        }
+
+        for bundle in candidateBundles {
+            guard let resourceURL = bundle.resourceURL else { continue }
+            append(resourceURL
+                .appendingPathComponent("Resources", isDirectory: true)
+                .appendingPathComponent("\(baseName).txt", isDirectory: false))
+            append(resourceURL
+                .appendingPathComponent("Resources", isDirectory: true)
+                .appendingPathComponent("\(baseName).md", isDirectory: false))
+            append(resourceURL
+                .appendingPathComponent("\(baseName).txt", isDirectory: false))
+            append(resourceURL
+                .appendingPathComponent("\(baseName).md", isDirectory: false))
+            append(resourceURL
+                .appendingPathComponent("\(baseName).txt", isDirectory: false))
+        }
+
+        return candidates
+    }
+
+    private static let candidateBundles: [Bundle] = {
+        var seen = Set<URL>()
+        return ([Bundle.main, Bundle(for: BundleMarker.self)] + Bundle.allBundles + Bundle.allFrameworks).filter { bundle in
+            guard let bundleURL = bundle.bundleURL.standardizedFileURL as URL? else {
+                return false
+            }
+            return seen.insert(bundleURL).inserted
+        }
+    }()
+}
+
 struct SettingsContentCopy: Decodable {
     let pricingIntro: String
     let fiatRateProviderNote: String

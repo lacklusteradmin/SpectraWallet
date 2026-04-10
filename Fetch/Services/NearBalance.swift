@@ -15,8 +15,8 @@ enum NearBalanceServiceError: LocalizedError {
         case .rpcError(let message):
             return CommonLocalization.rpcError("NEAR", message: message)
         case .httpError(let code):
-            let format = NSLocalizedString("The NEAR provider returned HTTP %d.", comment: "")
-            return String(format: format, locale: .current, code)
+            let format = AppLocalization.string("The NEAR provider returned HTTP %d.")
+            return String(format: format, locale: AppLocalization.locale, code)
         }
     }
 }

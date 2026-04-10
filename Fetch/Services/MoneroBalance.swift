@@ -11,12 +11,12 @@ enum MoneroBalanceServiceError: LocalizedError {
         case .invalidAddress:
             return CommonLocalization.invalidAddress("Monero")
         case .backendNotConfigured:
-            return NSLocalizedString("Monero backend is not configured.", comment: "")
+            return AppLocalization.string("Monero backend is not configured.")
         case .invalidResponse:
             return CommonLocalization.invalidProviderResponse("Monero")
         case .httpError(let status):
-            let format = NSLocalizedString("The Monero backend returned HTTP %d.", comment: "")
-            return String(format: format, locale: .current, status)
+            let format = AppLocalization.string("The Monero backend returned HTTP %d.")
+            return String(format: format, locale: AppLocalization.locale, status)
         }
     }
 }

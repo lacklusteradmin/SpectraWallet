@@ -21,8 +21,8 @@ enum SolanaWalletEngineError: LocalizedError {
         case .signingFailed(let message):
             return CommonLocalization.signingFailed("Solana", message: message)
         case .rpcFailed(let message):
-            let format = NSLocalizedString("Solana RPC failed: %@", comment: "")
-            return String(format: format, locale: .current, NSLocalizedString(message, comment: ""))
+            let format = AppLocalization.string("Solana RPC failed: %@")
+            return String(format: format, locale: AppLocalization.locale, AppLocalization.string(message))
         case .broadcastFailed(let message):
             return CommonLocalization.broadcastFailed("Solana", message: message)
         }

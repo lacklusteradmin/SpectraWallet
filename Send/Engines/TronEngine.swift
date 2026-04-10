@@ -20,13 +20,13 @@ enum TronWalletEngineError: LocalizedError {
         case .invalidSeedPhrase:
             return CommonLocalization.invalidSeedPhrase("Tron")
         case .unsupportedTokenContract:
-            return NSLocalizedString("Only official USDT (TRC-20) on Tron is supported.", comment: "")
+            return AppLocalization.string("Only official USDT (TRC-20) on Tron is supported.")
         case .createTransactionFailed(let message):
-            return NSLocalizedString(message, comment: "")
+            return AppLocalization.string(message)
         case .signFailed(let message):
-            return NSLocalizedString(message, comment: "")
+            return AppLocalization.string(message)
         case .broadcastFailed(let message):
-            return NSLocalizedString(message, comment: "")
+            return AppLocalization.string(message)
         }
     }
 }

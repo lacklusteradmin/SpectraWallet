@@ -12,8 +12,8 @@ enum PolkadotBalanceServiceError: LocalizedError {
         case .invalidResponse:
             return CommonLocalization.invalidProviderResponse("Polkadot")
         case .httpError(let code):
-            let format = NSLocalizedString("The Polkadot provider returned HTTP %d.", comment: "")
-            return String(format: format, locale: .current, code)
+            let format = AppLocalization.string("The Polkadot provider returned HTTP %d.")
+            return String(format: format, locale: AppLocalization.locale, code)
         }
     }
 }

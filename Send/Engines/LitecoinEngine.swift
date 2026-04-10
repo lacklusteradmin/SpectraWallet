@@ -23,13 +23,13 @@ enum LitecoinWalletEngineError: LocalizedError {
         case .insufficientFunds:
             return CommonLocalization.insufficientBalanceForAmountPlusNetworkFee("Litecoin")
         case let .networkFailure(message):
-            return NSLocalizedString(message, comment: "")
+            return AppLocalization.string(message)
         case .invalidUTXO:
             return CommonLocalization.invalidUTXOData("Litecoin")
         case .sourceAddressDoesNotMatchSeed:
             return CommonLocalization.sourceAddressDoesNotMatchSeed("Litecoin")
         case .policyViolation(let message):
-            return NSLocalizedString(message, comment: "")
+            return AppLocalization.string(message)
         }
     }
 }

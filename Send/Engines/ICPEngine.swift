@@ -15,7 +15,7 @@ enum ICPWalletEngineError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .invalidAddress:
-            return NSLocalizedString("The ICP account identifier is not valid.", comment: "")
+            return AppLocalization.string("The ICP account identifier is not valid.")
         case .invalidAmount:
             return CommonLocalization.invalidTransferAmount("ICP")
         case .invalidSeedPhrase:
@@ -23,7 +23,7 @@ enum ICPWalletEngineError: LocalizedError {
         case .invalidResponse:
             return CommonLocalization.invalidProviderResponse("ICP")
         case .insufficientBalance:
-            return NSLocalizedString("Insufficient ICP to cover amount and network fee.", comment: "")
+            return AppLocalization.string("Insufficient ICP to cover amount and network fee.")
         case .signingFailed(let message):
             return CommonLocalization.signingFailed("ICP", message: message)
         case .networkError(let message):

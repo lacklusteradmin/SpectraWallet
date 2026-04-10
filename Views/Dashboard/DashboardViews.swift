@@ -5,6 +5,11 @@ private func localizedDashboardString(_ key: String) -> String {
     AppLocalization.string(key)
 }
 
+private func localizedDashboardFormat(_ key: String, _ arguments: CVarArg...) -> String {
+    let format = AppLocalization.string(key)
+    return String(format: format, locale: AppLocalization.locale, arguments: arguments)
+}
+
 private func dashboardConfigButtonLabel() -> some View {
     Image(systemName: "slider.horizontal.3")
         .font(.subheadline.weight(.semibold))
@@ -228,8 +233,8 @@ struct DashboardView: View {
         .foregroundStyle(Color.primary)
         .accessibilityLabel(
             activeNotices.isEmpty
-                ? NSLocalizedString("No active notices", comment: "")
-                : localizedFormat("%lld active notices", activeNotices.count)
+                ? localizedDashboardString("No active notices")
+                : localizedDashboardFormat("%lld active notices", activeNotices.count)
         )
     }
     
@@ -484,7 +489,7 @@ struct DashboardView: View {
 
     private func dashboardChainSummaryText(for assetGroup: DashboardAssetGroup) -> String {
         if assetGroup.chainEntries.isEmpty {
-            return NSLocalizedString("No chain balances yet", comment: "")
+            return localizedDashboardString("No chain balances yet")
         }
         if assetGroup.chainEntries.count == 1, let chainName = assetGroup.chainEntries.first?.coin.chainName {
             return localizedFormat("dashboard.asset.onChain", chainName)
@@ -520,9 +525,9 @@ enum AppNoticeSeverity {
     var label: String {
         switch self {
         case .warning:
-            return NSLocalizedString("Warning", comment: "")
+            return localizedDashboardString("Warning")
         case .error:
-            return NSLocalizedString("Error", comment: "")
+            return localizedDashboardString("Error")
         }
     }
 }
@@ -705,7 +710,7 @@ struct AssetGroupDetailView: View {
                     }
 
                     if assetGroup.chainEntries.isEmpty {
-                        Text(NSLocalizedString("No chain balances yet for this asset.", comment: ""))
+                        Text(localizedDashboardString("No chain balances yet for this asset."))
                             .font(.subheadline)
                             .foregroundStyle(Color.primary.opacity(0.72))
                     } else {
@@ -988,6 +993,6 @@ struct AppNoticesView: View {
 
 
 private func localizedFormat(_ key: String, _ arguments: CVarArg...) -> String {
-    let format = NSLocalizedString(key, comment: "")
-    return String(format: format, locale: Locale.current, arguments: arguments)
+    let format = AppLocalization.string(key)
+    return String(format: format, locale: AppLocalization.locale, arguments: arguments)
 }

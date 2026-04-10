@@ -73,6 +73,10 @@ struct HistoryDetailView: View {
         guard let walletID = displayedTransaction.walletID else { return nil }
         return store.knownOwnedAddresses(for: walletID).first
     }
+
+    private func localized(_ key: String) -> String {
+        AppLocalization.string(key)
+    }
     
     var body: some View {
         ZStack {
@@ -313,7 +317,7 @@ struct HistoryDetailView: View {
     @ViewBuilder
     private func detailCard(title: String, @ViewBuilder content: () -> some View) -> some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(NSLocalizedString(title, comment: ""))
+            Text(localized(title))
                 .font(.headline.weight(.semibold))
                 .foregroundStyle(Color.primary)
             content()
@@ -326,7 +330,7 @@ struct HistoryDetailView: View {
     @ViewBuilder
     private func detailRow(label: String, value: String) -> some View {
         HStack(alignment: .top, spacing: 16) {
-            Text(NSLocalizedString(label, comment: ""))
+            Text(localized(label))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(Color.primary.opacity(0.58))
                 .frame(width: 122, alignment: .leading)
@@ -342,12 +346,12 @@ struct HistoryDetailView: View {
     private func addressBlock(label: String, value: String, isMine: Bool) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 8) {
-                Text(NSLocalizedString(label, comment: ""))
+                Text(localized(label))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(Color.primary)
 
                 if isMine {
-                    Text(NSLocalizedString("Mine", comment: ""))
+                    Text(localized("Mine"))
                         .font(.caption.bold())
                         .foregroundStyle(Color.primary)
                         .padding(.horizontal, 8)
@@ -374,8 +378,8 @@ struct HistoryDetailView: View {
             } label: {
                 Label(
                     didCopyAddress
-                        ? NSLocalizedString("Copied", comment: "")
-                        : NSLocalizedString("Copy Address", comment: ""),
+                        ? localized("Copied")
+                        : localized("Copy Address"),
                     systemImage: didCopyAddress ? "checkmark" : "doc.on.doc"
                 )
                     .font(.subheadline.weight(.semibold))

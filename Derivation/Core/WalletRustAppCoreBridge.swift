@@ -40,6 +40,15 @@ private struct WalletRustFFICoreJSONRequest {
     var jsonUTF8: WalletRustFFIBuffer
 }
 
+private extension Data {
+    func asJSONString() throws -> String {
+        guard let json = String(data: self, encoding: .utf8) else {
+            throw WalletRustAppCoreBridgeError.invalidPayload("Payload was not valid UTF-8 JSON.")
+        }
+        return json
+    }
+}
+
 private struct WalletRustStaticResourceRequest: Encodable {
     let resourceName: String
 }
@@ -597,220 +606,28 @@ struct WalletRustResolvedDerivationPath {
     let flavor: SeedDerivationFlavor
 }
 
-@_silgen_name("spectra_app_core_chain_presets_json")
-private func spectra_app_core_chain_presets_json() -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_app_core_request_compilation_presets_json")
-private func spectra_app_core_request_compilation_presets_json() -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_app_core_resolve_derivation_path_json")
-private func spectra_app_core_resolve_derivation_path_json(
-    _ request: UnsafePointer<WalletRustFFIPathResolutionRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_app_core_derivation_paths_for_preset_json")
-private func spectra_app_core_derivation_paths_for_preset_json(
-    _ accountIndex: UInt32
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_app_core_json_response_free")
-private func spectra_app_core_json_response_free(
-    _ response: UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-)
-
-@_silgen_name("spectra_core_bootstrap_json")
-private func spectra_core_bootstrap_json() -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_localization_document_json")
-private func spectra_core_localization_document_json(
-    _ request: UnsafePointer<WalletRustFFICoreLocalizationDocumentRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_static_resource_json")
-private func spectra_core_static_resource_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_static_text_resource_utf8")
-private func spectra_core_static_text_resource_utf8(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_reduce_state_json")
-private func spectra_core_reduce_state_json(
-    _ request: UnsafePointer<WalletRustFFICoreStateReduceRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_migrate_legacy_wallet_store_json")
-private func spectra_core_migrate_legacy_wallet_store_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_export_legacy_wallet_store_json")
-private func spectra_core_export_legacy_wallet_store_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_build_persisted_snapshot_json")
-private func spectra_core_build_persisted_snapshot_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_wallet_secret_index_json")
-private func spectra_core_wallet_secret_index_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_plan_wallet_import_json")
-private func spectra_core_plan_wallet_import_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_active_maintenance_plan_json")
-private func spectra_core_active_maintenance_plan_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_should_run_background_maintenance_json")
-private func spectra_core_should_run_background_maintenance_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_chain_refresh_plans_json")
-private func spectra_core_chain_refresh_plans_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_history_refresh_plans_json")
-private func spectra_core_history_refresh_plans_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_normalize_history_json")
-private func spectra_core_normalize_history_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_plan_evm_refresh_targets_json")
-private func spectra_core_plan_evm_refresh_targets_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_plan_dogecoin_refresh_targets_json")
-private func spectra_core_plan_dogecoin_refresh_targets_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_plan_wallet_balance_refresh_json")
-private func spectra_core_plan_wallet_balance_refresh_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_plan_transfer_availability_json")
-private func spectra_core_plan_transfer_availability_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_route_send_asset_json")
-private func spectra_core_route_send_asset_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_plan_send_preview_routing_json")
-private func spectra_core_plan_send_preview_routing_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_plan_send_submit_preflight_json")
-private func spectra_core_plan_send_submit_preflight_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_plan_utxo_preview_json")
-private func spectra_core_plan_utxo_preview_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_plan_utxo_spend_json")
-private func spectra_core_plan_utxo_spend_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_merge_transactions_json")
-private func spectra_core_merge_transactions_json(
-    _ request: UnsafePointer<WalletRustFFICoreJSONRequest>?
-) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-
-@_silgen_name("spectra_core_json_response_free")
-private func spectra_core_json_response_free(
-    _ response: UnsafeMutablePointer<WalletRustFFIJSONResponse>?
-)
-
 enum WalletRustAppCoreBridge {
     static func coreBootstrap() throws -> WalletRustCoreBootstrap {
-        try decodePayload(
-            WalletRustCoreBootstrap.self,
-            invoke: spectra_core_bootstrap_json,
-            free: spectra_core_json_response_free
-        )
+        try decodePayload(WalletRustCoreBootstrap.self, json: try coreBootstrapJson())
     }
 
     static func localizedDocumentData(
         named resourceName: String,
         preferredLocales: [String]
     ) throws -> Data {
-        let preferredLocalesData = try JSONEncoder().encode(preferredLocales)
-        let resourceNameUTF8 = Array(resourceName.utf8)
-        let preferredLocalesUTF8 = Array(preferredLocalesData)
-
-        return try resourceNameUTF8.withUnsafeBufferPointer { resourceNameBuffer in
-            try preferredLocalesUTF8.withUnsafeBufferPointer { preferredLocalesBuffer in
-                var request = WalletRustFFICoreLocalizationDocumentRequest(
-                    resourceNameUTF8: WalletRustFFIBuffer(
-                        ptr: UnsafeMutablePointer(mutating: resourceNameBuffer.baseAddress),
-                        len: resourceNameBuffer.count
-                    ),
-                    preferredLocalesJSONUTF8: WalletRustFFIBuffer(
-                        ptr: UnsafeMutablePointer(mutating: preferredLocalesBuffer.baseAddress),
-                        len: preferredLocalesBuffer.count
-                    )
-                )
-                return try decodeRawPayload(
-                    invoke: {
-                        withUnsafePointer(to: &request) { pointer in
-                            spectra_core_localization_document_json(pointer)
-                        }
-                    },
-                    free: spectra_core_json_response_free
-                )
-            }
+        let localesData = try JSONEncoder().encode(preferredLocales)
+        guard let localesJSON = String(data: localesData, encoding: .utf8) else {
+            throw WalletRustAppCoreBridgeError.invalidPayload("Preferred locale payload was not valid UTF-8 JSON.")
         }
+        return try decodeRawPayload(try coreLocalizationDocumentJson(resourceName: resourceName, preferredLocalesJson: localesJSON))
     }
 
     static func staticDocumentData(named resourceName: String) throws -> Data {
-        let request = WalletRustStaticResourceRequest(resourceName: resourceName)
-        let data = try JSONEncoder().encode(request)
-        return try withCoreJSONRequest(data) { requestPointer in
-            try decodeRawPayload(
-                invoke: { spectra_core_static_resource_json(requestPointer) },
-                free: spectra_core_json_response_free
-            )
-        }
+        try decodeRawPayload(try coreStaticResourceJson(resourceName: resourceName))
     }
 
     static func staticText(named resourceName: String) throws -> String {
-        let request = WalletRustStaticResourceRequest(resourceName: resourceName)
-        let data = try JSONEncoder().encode(request)
-        let payload = try withCoreJSONRequest(data) { requestPointer in
-            try decodeRawPayload(
-                invoke: { spectra_core_static_text_resource_utf8(requestPointer) },
-                free: spectra_core_json_response_free
-            )
-        }
-        guard let text = String(data: payload, encoding: .utf8) else {
-            throw WalletRustAppCoreBridgeError.invalidPayload("Rust static text resource was not valid UTF-8.")
-        }
-        return text
+        try coreStaticTextResourceUtf8(resourceName: resourceName)
     }
 
     static func reduceState<State: Encodable, Command: Encodable, Transition: Decodable>(
@@ -818,52 +635,21 @@ enum WalletRustAppCoreBridge {
         command: Command,
         as type: Transition.Type
     ) throws -> Transition {
-        let stateData = try JSONEncoder().encode(state)
-        let commandData = try JSONEncoder().encode(command)
-        let stateUTF8 = Array(stateData)
-        let commandUTF8 = Array(commandData)
-
-        return try stateUTF8.withUnsafeBufferPointer { stateBuffer in
-            try commandUTF8.withUnsafeBufferPointer { commandBuffer in
-                var request = WalletRustFFICoreStateReduceRequest(
-                    stateJSONUTF8: WalletRustFFIBuffer(
-                        ptr: UnsafeMutablePointer(mutating: stateBuffer.baseAddress),
-                        len: stateBuffer.count
-                    ),
-                    commandJSONUTF8: WalletRustFFIBuffer(
-                        ptr: UnsafeMutablePointer(mutating: commandBuffer.baseAddress),
-                        len: commandBuffer.count
-                    )
-                )
-                return try decodePayload(
-                    type,
-                    invoke: {
-                        withUnsafePointer(to: &request) { pointer in
-                            spectra_core_reduce_state_json(pointer)
-                        }
-                    },
-                    free: spectra_core_json_response_free
-                )
-            }
-        }
+        try decodePayload(
+            type,
+            json: try coreReduceStateJson(
+                stateJson: encodeJSONString(state),
+                commandJson: encodeJSONString(command)
+            )
+        )
     }
 
     static func migrateLegacyWalletStoreData(_ data: Data) throws -> Data {
-        try withCoreJSONRequest(data) { request in
-            try decodeRawPayload(
-                invoke: { spectra_core_migrate_legacy_wallet_store_json(request) },
-                free: spectra_core_json_response_free
-            )
-        }
+        try decodeJSONStringToData(try coreMigrateLegacyWalletStoreJson(requestJson: data.asJSONString()))
     }
 
     static func exportLegacyWalletStoreData(fromCoreStateData data: Data) throws -> Data {
-        try withCoreJSONRequest(data) { request in
-            try decodeRawPayload(
-                invoke: { spectra_core_export_legacy_wallet_store_json(request) },
-                free: spectra_core_json_response_free
-            )
-        }
+        try decodeJSONStringToData(try coreExportLegacyWalletStoreJson(requestJson: data.asJSONString()))
     }
 
     static func buildPersistedSnapshotData(
@@ -877,146 +663,118 @@ enum WalletRustAppCoreBridge {
             appStateJSON: appStateJSON,
             secretObservations: secretObservations
         )
-        let data = try JSONEncoder().encode(request)
-        return try withCoreJSONRequest(data) { requestPointer in
-            try decodeRawPayload(
-                invoke: { spectra_core_build_persisted_snapshot_json(requestPointer) },
-                free: spectra_core_json_response_free
-            )
-        }
+        return try decodeJSONStringToData(try coreBuildPersistedSnapshotJson(requestJson: encodeJSONString(request)))
     }
 
     static func walletSecretIndex(fromCoreSnapshotData data: Data) throws -> WalletRustWalletSecretIndex {
-        try withCoreJSONRequest(data) { request in
-            try decodePayload(
-                WalletRustWalletSecretIndex.self,
-                invoke: { spectra_core_wallet_secret_index_json(request) },
-                free: spectra_core_json_response_free
-            )
-        }
+        try decodePayload(WalletRustWalletSecretIndex.self, json: try coreWalletSecretIndexJson(requestJson: data.asJSONString()))
     }
 
     static func planWalletImport(_ request: WalletRustImportPlanRequest) throws -> WalletRustImportPlan {
-        let data = try JSONEncoder().encode(request)
-        return try withCoreJSONRequest(data) { requestPointer in
-            try decodePayload(
-                WalletRustImportPlan.self,
-                invoke: { spectra_core_plan_wallet_import_json(requestPointer) },
-                free: spectra_core_json_response_free
-            )
-        }
+        try decodePayload(WalletRustImportPlan.self, json: try corePlanWalletImportJson(requestJson: encodeJSONString(request)))
     }
 
     static func activeMaintenancePlan(
         _ request: WalletRustActiveMaintenancePlanRequest
     ) throws -> WalletRustActiveMaintenancePlan {
-        try sendCoreJSONRequest(request, decode: WalletRustActiveMaintenancePlan.self, invoke: spectra_core_active_maintenance_plan_json)
+        try sendCoreJSONRequest(request, decode: WalletRustActiveMaintenancePlan.self, invoke: coreActiveMaintenancePlanJson)
     }
 
     static func shouldRunBackgroundMaintenance(
         _ request: WalletRustBackgroundMaintenanceRequest
     ) throws -> Bool {
-        try sendCoreJSONRequest(request, decode: Bool.self, invoke: spectra_core_should_run_background_maintenance_json)
+        try sendCoreJSONRequest(request, decode: Bool.self, invoke: coreShouldRunBackgroundMaintenanceJson)
     }
 
     static func chainRefreshPlans(
         _ request: WalletRustChainRefreshPlanRequest
     ) throws -> [WalletRustChainRefreshPlan] {
-        try sendCoreJSONRequest(request, decode: [WalletRustChainRefreshPlan].self, invoke: spectra_core_chain_refresh_plans_json)
+        try sendCoreJSONRequest(request, decode: [WalletRustChainRefreshPlan].self, invoke: coreChainRefreshPlansJson)
     }
 
     static func historyRefreshPlans(
         _ request: WalletRustHistoryRefreshPlanRequest
     ) throws -> [String] {
-        try sendCoreJSONRequest(request, decode: [String].self, invoke: spectra_core_history_refresh_plans_json)
+        try sendCoreJSONRequest(request, decode: [String].self, invoke: coreHistoryRefreshPlansJson)
     }
 
     static func normalizeHistory(
         _ request: WalletRustNormalizeHistoryRequest
     ) throws -> [WalletRustNormalizedHistoryEntry] {
-        try sendCoreJSONRequest(request, decode: [WalletRustNormalizedHistoryEntry].self, invoke: spectra_core_normalize_history_json)
+        try sendCoreJSONRequest(request, decode: [WalletRustNormalizedHistoryEntry].self, invoke: coreNormalizeHistoryJson)
     }
 
     static func planEVMRefreshTargets(
         _ request: WalletRustEVMRefreshTargetsRequest
     ) throws -> WalletRustEVMRefreshPlan {
-        try sendCoreJSONRequest(request, decode: WalletRustEVMRefreshPlan.self, invoke: spectra_core_plan_evm_refresh_targets_json)
+        try sendCoreJSONRequest(request, decode: WalletRustEVMRefreshPlan.self, invoke: corePlanEvmRefreshTargetsJson)
     }
 
     static func planDogecoinRefreshTargets(
         _ request: WalletRustDogecoinRefreshTargetsRequest
     ) throws -> [WalletRustDogecoinRefreshWalletTarget] {
-        try sendCoreJSONRequest(request, decode: [WalletRustDogecoinRefreshWalletTarget].self, invoke: spectra_core_plan_dogecoin_refresh_targets_json)
+        try sendCoreJSONRequest(request, decode: [WalletRustDogecoinRefreshWalletTarget].self, invoke: corePlanDogecoinRefreshTargetsJson)
     }
 
     static func planWalletBalanceRefresh(
         _ request: WalletRustWalletBalanceRefreshRequest
     ) throws -> WalletRustWalletBalanceRefreshPlan {
-        try sendCoreJSONRequest(request, decode: WalletRustWalletBalanceRefreshPlan.self, invoke: spectra_core_plan_wallet_balance_refresh_json)
+        try sendCoreJSONRequest(request, decode: WalletRustWalletBalanceRefreshPlan.self, invoke: corePlanWalletBalanceRefreshJson)
     }
 
     static func planTransferAvailability(
         _ request: WalletRustTransferAvailabilityRequest
     ) throws -> WalletRustTransferAvailabilityPlan {
-        try sendCoreJSONRequest(request, decode: WalletRustTransferAvailabilityPlan.self, invoke: spectra_core_plan_transfer_availability_json)
+        try sendCoreJSONRequest(request, decode: WalletRustTransferAvailabilityPlan.self, invoke: corePlanTransferAvailabilityJson)
     }
 
     static func routeSendAsset(
         _ request: WalletRustSendAssetRoutingInput
     ) throws -> WalletRustSendAssetRoutingPlan {
-        try sendCoreJSONRequest(request, decode: WalletRustSendAssetRoutingPlan.self, invoke: spectra_core_route_send_asset_json)
+        try sendCoreJSONRequest(request, decode: WalletRustSendAssetRoutingPlan.self, invoke: coreRouteSendAssetJson)
     }
 
     static func planSendPreviewRouting(
         _ request: WalletRustSendPreviewRoutingRequest
     ) throws -> WalletRustSendPreviewRoutingPlan {
-        try sendCoreJSONRequest(request, decode: WalletRustSendPreviewRoutingPlan.self, invoke: spectra_core_plan_send_preview_routing_json)
+        try sendCoreJSONRequest(request, decode: WalletRustSendPreviewRoutingPlan.self, invoke: corePlanSendPreviewRoutingJson)
     }
 
     static func planSendSubmitPreflight(
         _ request: WalletRustSendSubmitPreflightRequest
     ) throws -> WalletRustSendSubmitPreflightPlan {
-        try sendCoreJSONRequest(request, decode: WalletRustSendSubmitPreflightPlan.self, invoke: spectra_core_plan_send_submit_preflight_json)
+        try sendCoreJSONRequest(request, decode: WalletRustSendSubmitPreflightPlan.self, invoke: corePlanSendSubmitPreflightJson)
     }
 
     static func planUTXOPreview(
         _ request: WalletRustUTXOPreviewRequest
     ) throws -> WalletRustUTXOPreviewPlan {
-        try sendCoreJSONRequest(request, decode: WalletRustUTXOPreviewPlan.self, invoke: spectra_core_plan_utxo_preview_json)
+        try sendCoreJSONRequest(request, decode: WalletRustUTXOPreviewPlan.self, invoke: corePlanUtxoPreviewJson)
     }
 
     static func planUTXOSpend(
         _ request: WalletRustUTXOSpendPlanRequest
     ) throws -> WalletRustUTXOSpendPlan {
-        try sendCoreJSONRequest(request, decode: WalletRustUTXOSpendPlan.self, invoke: spectra_core_plan_utxo_spend_json)
+        try sendCoreJSONRequest(request, decode: WalletRustUTXOSpendPlan.self, invoke: corePlanUtxoSpendJson)
     }
 
     static func mergeTransactions(
         _ request: WalletRustTransactionMergeRequest
     ) throws -> [WalletRustTransactionRecord] {
-        try sendCoreJSONRequest(request, decode: [WalletRustTransactionRecord].self, invoke: spectra_core_merge_transactions_json)
+        try sendCoreJSONRequest(request, decode: [WalletRustTransactionRecord].self, invoke: coreMergeTransactionsJson)
     }
 
     static func chainPresets() throws -> [WalletDerivationChainPreset] {
-        try decodePayload(
-            [WalletDerivationChainPreset].self,
-            invoke: spectra_app_core_chain_presets_json
-        )
+        try decodePayload([WalletDerivationChainPreset].self, json: try appCoreChainPresetsJson())
     }
 
     static func requestCompilationPresets() throws -> [WalletDerivationRequestCompilationPreset] {
-        try decodePayload(
-            [WalletDerivationRequestCompilationPreset].self,
-            invoke: spectra_app_core_request_compilation_presets_json
-        )
+        try decodePayload([WalletDerivationRequestCompilationPreset].self, json: try appCoreRequestCompilationPresetsJson())
     }
 
     static func derivationPaths(for preset: SeedDerivationPreset?) throws -> SeedDerivationPaths {
         let accountIndex = preset?.accountIndex ?? 0
-        let payload = try decodePayload(
-            WalletRustSeedDerivationPathsPayload.self,
-            invoke: { spectra_app_core_derivation_paths_for_preset_json(accountIndex) }
-        )
+        let payload = try decodePayload(WalletRustSeedDerivationPathsPayload.self, json: try appCoreDerivationPathsForPresetJson(accountIndex: accountIndex))
         return payload.model
     }
 
@@ -1028,38 +786,25 @@ enum WalletRustAppCoreBridge {
             throw WalletRustAppCoreBridgeError.rustCoreUnsupportedChain(chain.rawValue)
         }
 
-        let requestData = Array(path.utf8)
-        return try requestData.withUnsafeBufferPointer { buffer in
-            var request = WalletRustFFIPathResolutionRequest(
-                chain: ffiChain.rawValue,
-                derivationPathUTF8: WalletRustFFIBuffer(
-                    ptr: UnsafeMutablePointer(mutating: buffer.baseAddress),
-                    len: buffer.count
-                )
-            )
-            let payload = try decodePayload(
-                WalletRustDerivationPathResolutionPayload.self,
-                invoke: {
-                    withUnsafePointer(to: &request) { pointer in
-                        spectra_app_core_resolve_derivation_path_json(pointer)
-                    }
-                }
-            )
-            return WalletRustResolvedDerivationPath(
-                chain: payload.chain,
-                normalizedPath: payload.normalizedPath,
-                accountIndex: payload.accountIndex,
-                flavor: SeedDerivationFlavor(rawValue: payload.flavor) ?? .standard
-            )
-        }
+        let payload = try decodePayload(
+            WalletRustDerivationPathResolutionPayload.self,
+            json: try appCoreResolveDerivationPathJson(chain: ffiChain.rawValue, derivationPath: path)
+        )
+        return WalletRustResolvedDerivationPath(
+            chain: payload.chain,
+            normalizedPath: payload.normalizedPath,
+            accountIndex: payload.accountIndex,
+            flavor: SeedDerivationFlavor(rawValue: payload.flavor) ?? .standard
+        )
     }
 
     private static func decodePayload<T: Decodable>(
         _ type: T.Type,
-        invoke: () -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?,
-        free: (UnsafeMutablePointer<WalletRustFFIJSONResponse>?) -> Void = spectra_app_core_json_response_free
+        json: String
     ) throws -> T {
-        let payload = try decodeRawPayload(invoke: invoke, free: free)
+        guard let payload = json.data(using: .utf8), !payload.isEmpty else {
+            throw WalletRustAppCoreBridgeError.invalidPayload("Rust app core returned an empty payload.")
+        }
         do {
             return try JSONDecoder().decode(type, from: payload)
         } catch {
@@ -1067,58 +812,34 @@ enum WalletRustAppCoreBridge {
         }
     }
 
-    private static func decodeRawPayload(
-        invoke: () -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?,
-        free: (UnsafeMutablePointer<WalletRustFFIJSONResponse>?) -> Void
-    ) throws -> Data {
-        guard let responsePointer = invoke() else {
-            throw WalletRustAppCoreBridgeError.rustCoreReturnedNullResponse
-        }
-        defer {
-            free(responsePointer)
-        }
-
-        let response = responsePointer.pointee
-        if response.statusCode != 0 {
-            let message = string(from: response.errorMessageUTF8) ?? "Rust app core request failed."
-            throw WalletRustAppCoreBridgeError.rustCoreFailed(message)
-        }
-
-        guard let payload = data(from: response.payloadUTF8), !payload.isEmpty else {
+    private static func decodeRawPayload(_ payload: Data) throws -> Data {
+        guard !payload.isEmpty else {
             throw WalletRustAppCoreBridgeError.invalidPayload("Rust app core returned an empty payload.")
         }
         return payload
     }
 
-    private static func withCoreJSONRequest<T>(
-        _ data: Data,
-        body: (UnsafePointer<WalletRustFFICoreJSONRequest>) throws -> T
-    ) rethrows -> T {
-        let bytes = Array(data)
-        return try bytes.withUnsafeBufferPointer { buffer in
-            var request = WalletRustFFICoreJSONRequest(
-                jsonUTF8: WalletRustFFIBuffer(
-                    ptr: UnsafeMutablePointer(mutating: buffer.baseAddress),
-                    len: buffer.count
-                )
-            )
-            return try withUnsafePointer(to: &request, body)
-        }
-    }
-
     private static func sendCoreJSONRequest<Request: Encodable, Response: Decodable>(
         _ request: Request,
         decode responseType: Response.Type,
-        invoke: @escaping (UnsafePointer<WalletRustFFICoreJSONRequest>?) -> UnsafeMutablePointer<WalletRustFFIJSONResponse>?
+        invoke: @escaping (String) throws -> String
     ) throws -> Response {
-        let data = try JSONEncoder().encode(request)
-        return try withCoreJSONRequest(data) { requestPointer in
-            try decodePayload(
-                responseType,
-                invoke: { invoke(requestPointer) },
-                free: spectra_core_json_response_free
-            )
+        try decodePayload(responseType, json: try invoke(encodeJSONString(request)))
+    }
+
+    private static func encodeJSONString<T: Encodable>(_ value: T) throws -> String {
+        let data = try JSONEncoder().encode(value)
+        guard let json = String(data: data, encoding: .utf8) else {
+            throw WalletRustAppCoreBridgeError.invalidPayload("Encoded request was not valid UTF-8 JSON.")
         }
+        return json
+    }
+
+    private static func decodeJSONStringToData(_ json: String) throws -> Data {
+        guard let data = json.data(using: .utf8) else {
+            throw WalletRustAppCoreBridgeError.invalidPayload("Rust app core payload was not valid UTF-8.")
+        }
+        return data
     }
 
     private static func string(from buffer: WalletRustFFIBuffer) -> String? {

@@ -12,8 +12,8 @@ enum CardanoBalanceServiceError: LocalizedError {
         case .invalidResponse:
             return CommonLocalization.invalidProviderResponse("Cardano")
         case .httpError(let code):
-            let format = NSLocalizedString("The Cardano provider returned HTTP %d.", comment: "")
-            return String(format: format, locale: .current, code)
+            let format = AppLocalization.string("The Cardano provider returned HTTP %d.")
+            return String(format: format, locale: AppLocalization.locale, code)
         }
     }
 }

@@ -10,10 +10,10 @@ enum HistoryDatabaseStoreError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .unavailable:
-            return NSLocalizedString("The history database is unavailable.", comment: "")
+            return AppLocalization.string("The history database is unavailable.")
         case .sqlite(let message):
-            let format = NSLocalizedString("SQLite error: %@", comment: "")
-            return String(format: format, locale: .current, NSLocalizedString(message, comment: ""))
+            let format = AppLocalization.string("SQLite error: %@")
+            return String(format: format, locale: AppLocalization.locale, AppLocalization.string(message))
         }
     }
 }

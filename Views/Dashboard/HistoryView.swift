@@ -1,5 +1,14 @@
 import SwiftUI
 
+private func localizedHistoryString(_ key: String) -> String {
+    AppLocalization.string(key)
+}
+
+private func localizedHistoryFormat(_ key: String, _ arguments: CVarArg...) -> String {
+    let format = AppLocalization.string(key)
+    return String(format: format, locale: AppLocalization.locale, arguments: arguments)
+}
+
 private struct HistoryRowPresentation: Identifiable {
     let transaction: TransactionRecord
     let amountText: String?
@@ -135,7 +144,7 @@ struct HistoryView: View {
                     }
                 }
             }
-            .navigationTitle(NSLocalizedString("History", comment: ""))
+            .navigationTitle(localizedHistoryString("History"))
             .navigationBarTitleDisplayMode(.inline)
             .onAppear {
                 rebuildVisibleTransactions(resetPaging: true)
@@ -170,7 +179,7 @@ struct HistoryView: View {
     
     private var controlsCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            TextField(NSLocalizedString("Search wallet, asset, symbol, or address", comment: ""), text: $searchText)
+            TextField(localizedHistoryString("Search wallet, asset, symbol, or address"), text: $searchText)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .padding(.horizontal, 14)
@@ -180,43 +189,43 @@ struct HistoryView: View {
             
             HStack(spacing: 10) {
                 Menu {
-                    Picker(NSLocalizedString("Wallet", comment: ""), selection: $selectedWalletID) {
-                        Text(NSLocalizedString("All Wallets", comment: "")).tag(Optional<UUID>.none)
+                    Picker(localizedHistoryString("Wallet"), selection: $selectedWalletID) {
+                        Text(localizedHistoryString("All Wallets")).tag(Optional<UUID>.none)
                         ForEach(portfolioState.wallets) { wallet in
                             Text(wallet.name).tag(Optional(wallet.id))
                         }
                     }
                 } label: {
                     filterCapsuleLabel(
-                        title: NSLocalizedString("Wallet", comment: ""),
+                        title: localizedHistoryString("Wallet"),
                         value: selectedWalletName,
                         systemImage: "wallet.pass"
                     )
                 }
 
                 Menu {
-                    Picker(NSLocalizedString("Type", comment: ""), selection: $selectedFilter) {
+                    Picker(localizedHistoryString("Type"), selection: $selectedFilter) {
                         ForEach(HistoryFilter.allCases) { filter in
                             Text(filter.localizedTitle).tag(filter)
                         }
                     }
                 } label: {
                     filterCapsuleLabel(
-                        title: NSLocalizedString("Type", comment: ""),
+                        title: localizedHistoryString("Type"),
                         value: selectedFilter.localizedTitle,
                         systemImage: "line.3.horizontal.decrease.circle"
                     )
                 }
 
                 Menu {
-                    Picker(NSLocalizedString("Sort", comment: ""), selection: $selectedSortOrder) {
+                    Picker(localizedHistoryString("Sort"), selection: $selectedSortOrder) {
                         ForEach(HistorySortOrder.allCases) { sortOrder in
                             Text(sortOrder.localizedTitle).tag(sortOrder)
                         }
                     }
                 } label: {
                     filterCapsuleLabel(
-                        title: NSLocalizedString("Sort", comment: ""),
+                        title: localizedHistoryString("Sort"),
                         value: selectedSortOrder.localizedTitle,
                         systemImage: "arrow.up.arrow.down.circle"
                     )
@@ -232,7 +241,7 @@ struct HistoryView: View {
 
                     Spacer()
 
-                    Button(NSLocalizedString("Clear Filters", comment: "")) {
+                    Button(localizedHistoryString("Clear Filters")) {
                         selectedWalletID = nil
                         selectedFilter = .all
                         selectedSortOrder = .newest
@@ -287,29 +296,29 @@ struct HistoryView: View {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: pagedRows) { row in
             if calendar.isDateInToday(row.transaction.createdAt) {
-                return NSLocalizedString("Today", comment: "")
+                return localizedHistoryString("Today")
             }
             
             if calendar.isDateInYesterday(row.transaction.createdAt) {
-                return NSLocalizedString("Yesterday", comment: "")
+                return localizedHistoryString("Yesterday")
             }
             
-            return NSLocalizedString("Older", comment: "")
+            return localizedHistoryString("Older")
         }
         
         let order: [String]
         switch selectedSortOrder {
         case .newest:
             order = [
-                NSLocalizedString("Today", comment: ""),
-                NSLocalizedString("Yesterday", comment: ""),
-                NSLocalizedString("Older", comment: "")
+                localizedHistoryString("Today"),
+                localizedHistoryString("Yesterday"),
+                localizedHistoryString("Older")
             ]
         case .oldest:
             order = [
-                NSLocalizedString("Older", comment: ""),
-                NSLocalizedString("Yesterday", comment: ""),
-                NSLocalizedString("Today", comment: "")
+                localizedHistoryString("Older"),
+                localizedHistoryString("Yesterday"),
+                localizedHistoryString("Today")
             ]
         }
         
@@ -468,24 +477,24 @@ struct HistoryView: View {
     
     private var emptyStateTitle: String {
         transactionState.normalizedHistoryIndex.isEmpty
-            ? NSLocalizedString("No activity yet", comment: "")
-            : NSLocalizedString("No matches found", comment: "")
+            ? localizedHistoryString("No activity yet")
+            : localizedHistoryString("No matches found")
     }
     
     private var emptyStateMessage: String {
         if portfolioState.wallets.isEmpty {
-            return NSLocalizedString("No wallets are currently loaded. Import a wallet to view activity.", comment: "")
+            return localizedHistoryString("No wallets are currently loaded. Import a wallet to view activity.")
         }
         if transactionState.normalizedHistoryIndex.isEmpty {
-            return NSLocalizedString("Send funds or receive funds to build a persistent transaction log.", comment: "")
+            return localizedHistoryString("Send funds or receive funds to build a persistent transaction log.")
         }
-        return NSLocalizedString("Try a different filter or search term.", comment: "")
+        return localizedHistoryString("Try a different filter or search term.")
     }
 
     private var selectedWalletName: String {
         guard let selectedWalletID,
               let wallet = store.wallet(for: selectedWalletID.uuidString) else {
-            return NSLocalizedString("All Wallets", comment: "")
+            return localizedHistoryString("All Wallets")
         }
         return wallet.name
     }
@@ -605,6 +614,6 @@ struct HistoryView: View {
 }
 
 private func localizedFormat(_ key: String, _ arguments: CVarArg...) -> String {
-    let format = NSLocalizedString(key, comment: "")
-    return String(format: format, locale: Locale.current, arguments: arguments)
+    let format = AppLocalization.string(key)
+    return String(format: format, locale: AppLocalization.locale, arguments: arguments)
 }

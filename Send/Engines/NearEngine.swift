@@ -23,7 +23,7 @@ enum NearWalletEngineError: LocalizedError {
         case .invalidResponse:
             return CommonLocalization.invalidProviderResponse("NEAR")
         case .accessKeyUnavailable:
-            return NSLocalizedString("No full-access NEAR key was found for this account.", comment: "")
+            return AppLocalization.string("No full-access NEAR key was found for this account.")
         case .signingFailed(let message):
             return CommonLocalization.signingFailed("NEAR", message: message)
         case .networkError(let message):

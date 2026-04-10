@@ -13,8 +13,8 @@ enum TronBalanceServiceError: LocalizedError {
         case .invalidResponse:
             return CommonLocalization.invalidProviderResponse("Tron")
         case .httpError(let status):
-            let format = NSLocalizedString("The Tron provider returned HTTP %d.", comment: "")
-            return String(format: format, locale: .current, status)
+            let format = AppLocalization.string("The Tron provider returned HTTP %d.")
+            return String(format: format, locale: AppLocalization.locale, status)
         }
     }
 }

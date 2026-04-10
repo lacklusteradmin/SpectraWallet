@@ -1102,11 +1102,11 @@ extension WalletStore {
                     xrpAddresses: xrpAddressEntries,
                     stellarAddresses: stellarAddressEntries,
                     cardanoAddresses: cardanoAddressEntries,
-                    suiAddresses: suiAddressEntries.map(\.lowercased()),
+                    suiAddresses: suiAddressEntries.map { $0.lowercased() },
                     aptosAddresses: aptosAddressEntries.map { normalizedAddress($0, for: "Aptos") },
                     tonAddresses: tonAddressEntries.map { normalizedAddress($0, for: "TON") },
                     icpAddresses: icpAddressEntries.map { normalizedAddress($0, for: "Internet Computer") },
-                    nearAddresses: nearAddressEntries.map(\.lowercased()),
+                    nearAddresses: nearAddressEntries.map { $0.lowercased() },
                     polkadotAddresses: polkadotAddressEntries
                 )
             )
@@ -1119,7 +1119,7 @@ extension WalletStore {
                 return
             }
 
-            let createdWallets = importPlan.wallets.compactMap { plannedWallet in
+            let createdWallets: [ImportedWallet] = importPlan.wallets.compactMap { plannedWallet in
                 guard let walletID = UUID(uuidString: plannedWallet.walletID) else {
                     return nil
                 }

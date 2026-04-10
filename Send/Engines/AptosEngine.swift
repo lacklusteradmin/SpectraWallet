@@ -23,7 +23,7 @@ enum AptosWalletEngineError: LocalizedError {
         case .invalidResponse:
             return CommonLocalization.invalidProviderResponse("Aptos")
         case .insufficientBalance:
-            return NSLocalizedString("Insufficient APT balance to cover amount and network fee.", comment: "")
+            return AppLocalization.string("Insufficient APT balance to cover amount and network fee.")
         case .networkError(let message):
             return CommonLocalization.networkRequestFailed("Aptos", message: message)
         case .signingFailed(let message):

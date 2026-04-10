@@ -203,7 +203,7 @@ struct StandardChainDiagnosticsView: View {
 
     private var moneroBackendChoices: [(id: String, title: String)] {
         let trusted = MoneroBalanceService.trustedBackends.map { ($0.id, $0.displayName) }
-        return trusted + [(moneroCustomBackendID, NSLocalizedString("Custom URL", comment: ""))]
+        return trusted + [(moneroCustomBackendID, AppLocalization.string("Custom URL"))]
     }
 
     private var selectedTrustedMoneroBackend: MoneroBalanceService.TrustedBackend? {
@@ -852,8 +852,8 @@ struct StandardChainDiagnosticsView: View {
     @ViewBuilder
     private var chainSpecificSections: some View {
         if chain == .bitcoin {
-            Section(NSLocalizedString("Bitcoin Settings", comment: "")) {
-                Picker(NSLocalizedString("Send Fee Priority", comment: ""), selection: Binding(
+            Section(AppLocalization.string("Bitcoin Settings")) {
+                Picker(AppLocalization.string("Send Fee Priority"), selection: Binding(
                     get: { store.bitcoinFeePriority },
                     set: { store.bitcoinFeePriority = $0 }
                 )) {
@@ -864,7 +864,7 @@ struct StandardChainDiagnosticsView: View {
                 .pickerStyle(.segmented)
 
                 TextField(
-                    NSLocalizedString("Custom Esplora endpoints (comma-separated, optional)", comment: ""),
+                    AppLocalization.string("Custom Esplora endpoints (comma-separated, optional)"),
                     text: Binding(
                         get: { store.bitcoinEsploraEndpoints },
                         set: { store.bitcoinEsploraEndpoints = $0 }
@@ -887,9 +887,9 @@ struct StandardChainDiagnosticsView: View {
         }
 
         if chain == .ethereum {
-            Section(NSLocalizedString("Ethereum RPC", comment: "")) {
+            Section(AppLocalization.string("Ethereum RPC")) {
                 TextField(
-                    NSLocalizedString("Ethereum RPC URL (Optional)", comment: ""),
+                    AppLocalization.string("Ethereum RPC URL (Optional)"),
                     text: Binding(
                         get: { store.ethereumRPCEndpoint },
                         set: { store.ethereumRPCEndpoint = $0 }
@@ -909,9 +909,9 @@ struct StandardChainDiagnosticsView: View {
                 }
             }
 
-            Section(NSLocalizedString("Etherscan (Optional)", comment: "")) {
+            Section(AppLocalization.string("Etherscan (Optional)")) {
                 TextField(
-                    NSLocalizedString("Etherscan API Key", comment: ""),
+                    AppLocalization.string("Etherscan API Key"),
                     text: Binding(
                         get: { store.etherscanAPIKey },
                         set: { store.etherscanAPIKey = $0 }
@@ -926,8 +926,8 @@ struct StandardChainDiagnosticsView: View {
         }
 
         if chain == .monero {
-            Section(NSLocalizedString("Monero Backend", comment: "")) {
-                Picker(NSLocalizedString("Trusted Backend", comment: ""), selection: $selectedMoneroBackendID) {
+            Section(AppLocalization.string("Monero Backend")) {
+                Picker(AppLocalization.string("Trusted Backend"), selection: $selectedMoneroBackendID) {
                     ForEach(moneroBackendChoices, id: \.id) { choice in
                         Text(choice.title).tag(choice.id)
                     }
@@ -935,7 +935,7 @@ struct StandardChainDiagnosticsView: View {
 
                 if selectedMoneroBackendID == moneroCustomBackendID {
                     TextField(
-                        NSLocalizedString("Monero Backend URL (Optional)", comment: ""),
+                        AppLocalization.string("Monero Backend URL (Optional)"),
                         text: Binding(
                             get: { store.moneroBackendBaseURL },
                             set: { store.moneroBackendBaseURL = $0 }
@@ -961,7 +961,7 @@ struct StandardChainDiagnosticsView: View {
                 }
 
                 TextField(
-                    NSLocalizedString("Monero Backend API Key (Optional)", comment: ""),
+                    AppLocalization.string("Monero Backend API Key (Optional)"),
                     text: Binding(
                         get: { store.moneroBackendAPIKey },
                         set: { store.moneroBackendAPIKey = $0 }
@@ -975,8 +975,8 @@ struct StandardChainDiagnosticsView: View {
             }
         }
         if supportsUTXOChainActions {
-            Section(NSLocalizedString("Chain Actions", comment: "")) {
-                Button(isRunningChainSelfTests ? NSLocalizedString("Running Self-Tests...", comment: "") : chainSelfTestButtonTitle) {
+            Section(AppLocalization.string("Chain Actions")) {
+                Button(isRunningChainSelfTests ? AppLocalization.string("Running Self-Tests...") : chainSelfTestButtonTitle) {
                     runChainSelfTests()
                 }
                 .disabled(isRunningChainSelfTests)
@@ -990,10 +990,10 @@ struct StandardChainDiagnosticsView: View {
             }
         }
 
-        Section(NSLocalizedString("Operational Events", comment: "")) {
+        Section(AppLocalization.string("Operational Events")) {
             let events = store.operationalEvents(for: chain.title)
             if events.isEmpty {
-                Text(NSLocalizedString("No operational events recorded yet.", comment: ""))
+                Text(AppLocalization.string("No operational events recorded yet."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -1015,10 +1015,10 @@ struct StandardChainDiagnosticsView: View {
             }
         }
 
-        Section(NSLocalizedString("Owned Address Management", comment: "")) {
+        Section(AppLocalization.string("Owned Address Management")) {
             let diagnostics = store.chainKeypoolDiagnostics(for: chain.title)
             if diagnostics.isEmpty {
-                Text(NSLocalizedString("No owned-address management state recorded yet.", comment: ""))
+                Text(AppLocalization.string("No owned-address management state recorded yet."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
@@ -1100,34 +1100,34 @@ struct StandardChainDiagnosticsView: View {
 
     private var chainSelfTestButtonTitle: String {
         switch chain {
-        case .bitcoin: return NSLocalizedString("Run BTC Self-Tests", comment: "")
-        case .bitcoinCash: return NSLocalizedString("Run BCH Self-Tests", comment: "")
-        case .bitcoinSV: return NSLocalizedString("Run BSV Self-Tests", comment: "")
-        case .litecoin: return NSLocalizedString("Run LTC Self-Tests", comment: "")
-        case .dogecoin: return NSLocalizedString("Run DOGE Self-Tests", comment: "")
-        default: return NSLocalizedString("Run Self-Tests", comment: "")
+        case .bitcoin: return AppLocalization.string("Run BTC Self-Tests")
+        case .bitcoinCash: return AppLocalization.string("Run BCH Self-Tests")
+        case .bitcoinSV: return AppLocalization.string("Run BSV Self-Tests")
+        case .litecoin: return AppLocalization.string("Run LTC Self-Tests")
+        case .dogecoin: return AppLocalization.string("Run DOGE Self-Tests")
+        default: return AppLocalization.string("Run Self-Tests")
         }
     }
 
     private var chainRescanButtonTitle: String {
         switch chain {
-        case .bitcoin: return NSLocalizedString("Run BTC Rescan", comment: "")
-        case .bitcoinCash: return NSLocalizedString("Run BCH Rescan", comment: "")
-        case .bitcoinSV: return NSLocalizedString("Run BSV Rescan", comment: "")
-        case .litecoin: return NSLocalizedString("Run LTC Rescan", comment: "")
-        case .dogecoin: return NSLocalizedString("Run DOGE Rescan", comment: "")
-        default: return NSLocalizedString("Run Rescan", comment: "")
+        case .bitcoin: return AppLocalization.string("Run BTC Rescan")
+        case .bitcoinCash: return AppLocalization.string("Run BCH Rescan")
+        case .bitcoinSV: return AppLocalization.string("Run BSV Rescan")
+        case .litecoin: return AppLocalization.string("Run LTC Rescan")
+        case .dogecoin: return AppLocalization.string("Run DOGE Rescan")
+        default: return AppLocalization.string("Run Rescan")
         }
     }
 
     private var chainRescanInFlightTitle: String {
         switch chain {
-        case .bitcoin: return NSLocalizedString("Rescanning BTC...", comment: "")
-        case .bitcoinCash: return NSLocalizedString("Rescanning BCH...", comment: "")
-        case .bitcoinSV: return NSLocalizedString("Rescanning BSV...", comment: "")
-        case .litecoin: return NSLocalizedString("Rescanning LTC...", comment: "")
-        case .dogecoin: return NSLocalizedString("Rescanning DOGE...", comment: "")
-        default: return NSLocalizedString("Rescanning...", comment: "")
+        case .bitcoin: return AppLocalization.string("Rescanning BTC...")
+        case .bitcoinCash: return AppLocalization.string("Rescanning BCH...")
+        case .bitcoinSV: return AppLocalization.string("Rescanning BSV...")
+        case .litecoin: return AppLocalization.string("Rescanning LTC...")
+        case .dogecoin: return AppLocalization.string("Rescanning DOGE...")
+        default: return AppLocalization.string("Rescanning...")
         }
     }
 

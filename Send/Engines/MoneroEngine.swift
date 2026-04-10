@@ -14,9 +14,9 @@ enum MoneroWalletEngineError: LocalizedError {
         case .invalidAmount:
             return CommonLocalization.invalidAmount("Monero")
         case .backendNotConfigured:
-            return NSLocalizedString("Monero backend is not configured.", comment: "")
+            return AppLocalization.string("Monero backend is not configured.")
         case .backendRejected(let message):
-            return NSLocalizedString(message, comment: "")
+            return AppLocalization.string(message)
         case .invalidResponse:
             return CommonLocalization.invalidProviderResponse("Monero")
         }
