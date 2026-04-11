@@ -547,6 +547,54 @@ struct WalletRustStoreDerivedStatePlan: Decodable {
     let privateKeyBackedWalletIDs: [String]
 }
 
+struct WalletRustOwnedAddressAggregationRequest: Encodable {
+    let candidateAddresses: [String]
+}
+
+struct WalletRustReceiveSelectionHoldingInput: Encodable {
+    let holdingIndex: Int
+    let chainName: String
+    let hasContractAddress: Bool
+}
+
+struct WalletRustReceiveSelectionRequest: Encodable {
+    let receiveChainName: String
+    let availableReceiveChains: [String]
+    let availableReceiveHoldings: [WalletRustReceiveSelectionHoldingInput]
+}
+
+struct WalletRustReceiveSelectionPlan: Decodable {
+    let resolvedChainName: String
+    let selectedReceiveHoldingIndex: Int?
+}
+
+struct WalletRustPendingSelfSendConfirmationInput: Encodable {
+    let walletID: String
+    let chainName: String
+    let symbol: String
+    let destinationAddressLowercased: String
+    let amount: Double
+    let createdAtUnix: Double
+}
+
+struct WalletRustSelfSendConfirmationRequest: Encodable {
+    let pendingConfirmation: WalletRustPendingSelfSendConfirmationInput?
+    let walletID: String
+    let chainName: String
+    let symbol: String
+    let destinationAddress: String
+    let amount: Double
+    let nowUnix: Double
+    let windowSeconds: Double
+    let ownedAddresses: [String]
+}
+
+struct WalletRustSelfSendConfirmationPlan: Decodable {
+    let requiresConfirmation: Bool
+    let consumeExistingConfirmation: Bool
+    let clearPendingConfirmation: Bool
+}
+
 struct WalletRustCoreBootstrap: Decodable {
     struct Capabilities: Decodable {
         let schemaVersion: UInt32
@@ -791,6 +839,24 @@ enum WalletRustAppCoreBridge {
         _ request: WalletRustStoreDerivedStateRequest
     ) throws -> WalletRustStoreDerivedStatePlan {
         try sendCoreJSONRequest(request, decode: WalletRustStoreDerivedStatePlan.self, invoke: corePlanStoreDerivedStateJson)
+    }
+
+    static func aggregateOwnedAddresses(
+        _ request: WalletRustOwnedAddressAggregationRequest
+    ) throws -> [String] {
+        try sendCoreJSONRequest(request, decode: [String].self, invoke: coreAggregateOwnedAddressesJson)
+    }
+
+    static func planReceiveSelection(
+        _ request: WalletRustReceiveSelectionRequest
+    ) throws -> WalletRustReceiveSelectionPlan {
+        try sendCoreJSONRequest(request, decode: WalletRustReceiveSelectionPlan.self, invoke: corePlanReceiveSelectionJson)
+    }
+
+    static func planSelfSendConfirmation(
+        _ request: WalletRustSelfSendConfirmationRequest
+    ) throws -> WalletRustSelfSendConfirmationPlan {
+        try sendCoreJSONRequest(request, decode: WalletRustSelfSendConfirmationPlan.self, invoke: corePlanSelfSendConfirmationJson)
     }
 
     static func routeSendAsset(

@@ -708,6 +708,13 @@ public func coreActiveMaintenancePlanJson(requestJson: String)throws  -> String 
     )
 })
 }
+public func coreAggregateOwnedAddressesJson(requestJson: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
+    uniffi_spectra_derivation_fn_func_core_aggregate_owned_addresses_json(
+        FfiConverterString.lower(requestJson),$0
+    )
+})
+}
 public func coreBootstrapJson()throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
     uniffi_spectra_derivation_fn_func_core_bootstrap_json($0
@@ -802,6 +809,20 @@ public func corePlanDogecoinRefreshTargetsJson(requestJson: String)throws  -> St
 public func corePlanEvmRefreshTargetsJson(requestJson: String)throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
     uniffi_spectra_derivation_fn_func_core_plan_evm_refresh_targets_json(
+        FfiConverterString.lower(requestJson),$0
+    )
+})
+}
+public func corePlanReceiveSelectionJson(requestJson: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
+    uniffi_spectra_derivation_fn_func_core_plan_receive_selection_json(
+        FfiConverterString.lower(requestJson),$0
+    )
+})
+}
+public func corePlanSelfSendConfirmationJson(requestJson: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
+    uniffi_spectra_derivation_fn_func_core_plan_self_send_confirmation_json(
         FfiConverterString.lower(requestJson),$0
     )
 })
@@ -1030,6 +1051,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_spectra_derivation_checksum_func_core_active_maintenance_plan_json() != 27087) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_derivation_checksum_func_core_aggregate_owned_addresses_json() != 18759) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_derivation_checksum_func_core_bootstrap_json() != 64465) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -1070,6 +1094,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_derivation_checksum_func_core_plan_evm_refresh_targets_json() != 47700) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_func_core_plan_receive_selection_json() != 60395) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_func_core_plan_self_send_confirmation_json() != 628) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_derivation_checksum_func_core_plan_send_preview_routing_json() != 43864) {

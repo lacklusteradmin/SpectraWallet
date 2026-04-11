@@ -92,7 +92,7 @@ class WalletStore: ObservableObject {
         var errorDescription: String? {
             switch self {
             case .timedOut(let seconds):
-                return localizedStoreFormat("Timed out after %ds", Int(seconds))
+                return "Timed out after \(Int(seconds))s"
             }
         }
     }
@@ -105,13 +105,13 @@ class WalletStore: ObservableObject {
         var errorDescription: String? {
             switch self {
             case .unavailable:
-                return localizedStoreString("No seed phrase is stored for this wallet.")
+                return "No seed phrase is stored for this wallet."
             case .authenticationRequired:
-                return localizedStoreString("Face ID authentication is required to view this seed phrase.")
+                return "Face ID authentication is required to view this seed phrase."
             case .passwordRequired:
-                return localizedStoreString("Enter the wallet password to view this seed phrase.")
+                return "Enter the wallet password to view this seed phrase."
             case .invalidPassword:
-                return localizedStoreString("The wallet password is incorrect.")
+                return "The wallet password is incorrect."
             }
         }
     }

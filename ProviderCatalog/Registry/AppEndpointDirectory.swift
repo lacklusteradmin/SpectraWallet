@@ -76,8 +76,6 @@ struct AppEndpointRecord: Hashable, Decodable {
 }
 
 enum AppEndpointDirectory {
-    static let records: [AppEndpointRecord] = loadRecords()
-
     static func endpoint(_ id: String) -> String {
         do {
             return try WalletRustEndpointCatalogBridge.endpoint(id)
@@ -179,14 +177,6 @@ enum AppEndpointDirectory {
             return try WalletRustEndpointCatalogBridge.bitcoinWalletStoreDefaultBaseURLs(for: networkMode)
         } catch {
             preconditionFailure("Rust Bitcoin wallet-store lookup failed for \(networkMode.rawValue): \(error.localizedDescription)")
-        }
-    }
-
-    private static func loadRecords() -> [AppEndpointRecord] {
-        do {
-            return try WalletRustEndpointCatalogBridge.records()
-        } catch {
-            preconditionFailure("Rust endpoint catalog failed to load: \(error.localizedDescription)")
         }
     }
 }

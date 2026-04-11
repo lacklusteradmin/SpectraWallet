@@ -64,9 +64,6 @@ enum ChainBackendRegistry {
             "tron.trongrid.rpc.pro",
             "tron.trongrid.rpc.network"
         ])
-        static let tronScanProbeURL = AppEndpointDirectory.diagnosticsChecks(for: tronChainName).first(where: { $0.endpoint.contains("tronscan") })?.probeURL ?? ""
-        static let tronGridProbeURL = AppEndpointDirectory.diagnosticsChecks(for: tronChainName).first(where: { $0.endpoint.contains("trongrid") })?.probeURL ?? ""
-        static let tronGridBaseURL = AppEndpointDirectory.endpoint("tron.trongrid.rpc.io")
     }
 
     enum SolanaRuntimeEndpoints {
@@ -100,10 +97,6 @@ enum ChainBackendRegistry {
             "cardano.koios.xray",
             "cardano.koios.happystaking"
         ])
-
-        static var primaryBaseURL: URL {
-            URL(string: koiosBaseURLs[0])!
-        }
     }
 
     enum AptosRuntimeEndpoints {
@@ -116,19 +109,11 @@ enum ChainBackendRegistry {
         static var rpcURLs: [URL] {
             rpcBaseURLs.compactMap(URL.init(string:))
         }
-
-        static var primaryRPCURL: URL {
-            rpcURLs[0]
-        }
     }
 
     enum TONRuntimeEndpoints {
         static let apiV2BaseURLs = AppEndpointDirectory.endpoints(for: ["ton.api.v2"])
         static let apiV3BaseURLs = AppEndpointDirectory.endpoints(for: ["ton.api.v3"])
-
-        static var primaryAPIv2URL: URL {
-            URL(string: apiV2BaseURLs[0])!
-        }
     }
 
     enum SuiRuntimeEndpoints {
@@ -142,10 +127,6 @@ enum ChainBackendRegistry {
 
         static var rpcURLs: [URL] {
             rpcBaseURLs.compactMap(URL.init(string:))
-        }
-
-        static var primaryRPCURL: URL {
-            rpcURLs[0]
         }
     }
 
@@ -374,10 +355,6 @@ enum ChainBackendRegistry {
 
     static var endpointCatalogChains: [AppChainDescriptor] {
         appChains.filter(\.supportsEndpointCatalog)
-    }
-
-    static var futureIntegrationHeadline: String {
-        "Bitcoin, Bitcoin Cash, and Litecoin are live today. Ethereum is live for seed-derived ETH send/receive plus ETH, USDT, USDC, and DAI balance tracking. Arbitrum is live for seed-derived ETH receive/send plus tracked ERC-20 balances and history on Arbitrum One. Optimism is live for seed-derived ETH receive/send plus tracked ERC-20 balances and history on Optimism mainnet. Ethereum Classic is live for seed-derived ETC send/receive and balance refresh. BNB Chain is live for seed-derived BNB send/receive and balance refresh. Avalanche is live for seed-derived AVAX send/receive and balance refresh. Hyperliquid is live for seed-derived HYPE receive/send plus tracked ERC-20 balances and history on HyperEVM. Dogecoin is live with seed-derived address import, balance refresh, receive, and in-app send. Tron is live for seed or watched-address import, TRX + USDT balance refresh, receive, history, and in-app send. Solana is live for seed or watched-address import, SOL balance refresh, receive, history, and in-app send. XRP Ledger is live for seed or watched-address import plus XRP balance and history refresh. Monero is live in remote-backend mode for balance, history, receive, and send. Cardano is live for seed-derived ADA balance/history, receive, and in-app send. Sui is live for seed or watched-address import plus SUI balance/history/send. Aptos is live for seed or watched-address APT receive, balance refresh, history, diagnostics, and in-app send. TON is live for seed or watched-address TON receive, balance refresh, history, diagnostics, and in-app send. Internet Computer is live for seed or watched-address ICP receive, balance refresh, history, diagnostics, and in-app send. NEAR is live for seed-derived receive, history, balance refresh, and in-app send. Polkadot is live for seed or watched-address DOT receive, balance refresh, history, diagnostics, and in-app send. Stellar is live for seed or watched-address XLM receive, balance refresh, history, diagnostics, and in-app send."
     }
 
     private static func loadChainBackends() -> [ChainBackendRecord] {

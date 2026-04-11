@@ -33,10 +33,6 @@ struct AppEndpointExplorerEntry: Decodable {
 }
 
 enum WalletRustEndpointCatalogBridge {
-    static func records() throws -> [AppEndpointRecord] {
-        try decodePayload([AppEndpointRecord].self, json: try appCoreEndpointRecordsJson())
-    }
-
     static func endpoint(_ id: String) throws -> String {
         try decodePayload(String.self, json: try appCoreEndpointForIdJson(id: id))
     }

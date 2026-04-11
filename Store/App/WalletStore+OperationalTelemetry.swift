@@ -219,6 +219,20 @@ extension WalletStore {
         destinationAddress: String,
         amount: Double
     ) -> Bool {
+        if let plan = rustSelfSendConfirmationPlan(
+            walletID: walletID,
+            chainName: chainName,
+            symbol: symbol,
+            destinationAddress: destinationAddress,
+            amount: amount,
+            ownedAddresses: []
+        ) {
+            if plan.clearPendingConfirmation {
+                pendingSelfSendConfirmation = nil
+            }
+            return plan.consumeExistingConfirmation
+        }
+
         guard let pendingSelfSendConfirmation else { return false }
 
         let isExpired = Date().timeIntervalSince(pendingSelfSendConfirmation.createdAt) > Self.selfSendConfirmationWindowSeconds
@@ -247,12 +261,45 @@ extension WalletStore {
         destinationAddress: String,
         amount: Double
     ) -> Bool {
-        let ownAddressSet: Set<String>
+        let ownAddresses: [String]
         if holding.chainName == "Dogecoin" {
-            ownAddressSet = Set(knownDogecoinAddresses(for: wallet).map { $0.lowercased() })
+            ownAddresses = knownDogecoinAddresses(for: wallet)
         } else {
-            ownAddressSet = Set(knownOwnedAddresses(for: wallet.id).map { $0.lowercased() })
+            ownAddresses = knownOwnedAddresses(for: wallet.id)
         }
+
+        if let plan = rustSelfSendConfirmationPlan(
+            walletID: wallet.id,
+            chainName: holding.chainName,
+            symbol: holding.symbol,
+            destinationAddress: destinationAddress,
+            amount: amount,
+            ownedAddresses: ownAddresses
+        ) {
+            if plan.clearPendingConfirmation {
+                pendingSelfSendConfirmation = nil
+            }
+            guard plan.requiresConfirmation else { return false }
+            if plan.consumeExistingConfirmation {
+                pendingSelfSendConfirmation = nil
+                return false
+            }
+
+            registerPendingSelfSendConfirmation(
+                walletID: wallet.id,
+                chainName: holding.chainName,
+                symbol: holding.symbol,
+                destinationAddress: destinationAddress,
+                amount: amount
+            )
+            sendError = "This \(holding.symbol) destination belongs to your wallet. Tap Send again within \(Int(Self.selfSendConfirmationWindowSeconds))s to confirm intentional self-send."
+            if holding.chainName == "Dogecoin" {
+                appendChainOperationalEvent(.warning, chainName: "Dogecoin", message: "DOGE self-send confirmation required.")
+            }
+            return true
+        }
+
+        let ownAddressSet = Set(ownAddresses.map { $0.lowercased() })
         guard ownAddressSet.contains(destinationAddress.lowercased()) else { return false }
 
         if consumePendingSelfSendConfirmation(
@@ -277,6 +324,37 @@ extension WalletStore {
             appendChainOperationalEvent(.warning, chainName: "Dogecoin", message: "DOGE self-send confirmation required.")
         }
         return true
+    }
+
+    private func rustSelfSendConfirmationPlan(
+        walletID: UUID,
+        chainName: String,
+        symbol: String,
+        destinationAddress: String,
+        amount: Double,
+        ownedAddresses: [String]
+    ) -> WalletRustSelfSendConfirmationPlan? {
+        let request = WalletRustSelfSendConfirmationRequest(
+            pendingConfirmation: pendingSelfSendConfirmation.map {
+                WalletRustPendingSelfSendConfirmationInput(
+                    walletID: $0.walletID.uuidString,
+                    chainName: $0.chainName,
+                    symbol: $0.symbol,
+                    destinationAddressLowercased: $0.destinationAddressLowercased,
+                    amount: $0.amount,
+                    createdAtUnix: $0.createdAt.timeIntervalSince1970
+                )
+            },
+            walletID: walletID.uuidString,
+            chainName: chainName,
+            symbol: symbol,
+            destinationAddress: destinationAddress,
+            amount: amount,
+            nowUnix: Date().timeIntervalSince1970,
+            windowSeconds: Self.selfSendConfirmationWindowSeconds,
+            ownedAddresses: ownedAddresses
+        )
+        return try? WalletRustAppCoreBridge.planSelfSendConfirmation(request)
     }
 
     func finalityConfirmations(for chainName: String) -> Int {

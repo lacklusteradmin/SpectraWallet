@@ -118,17 +118,11 @@ func resetImportForm() {
     func knownOwnedAddresses(for walletID: UUID) -> [String] {
         guard let wallet = cachedWalletByID[walletID] else { return [] }
 
-        var ordered: [String] = []
-        var seen: Set<String> = []
+        var candidateAddresses: [String] = []
 
         func appendAddress(_ candidate: String?) {
             guard let candidate else { return }
-            let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { return }
-            let normalized = trimmed.lowercased()
-            guard !seen.contains(normalized) else { return }
-            seen.insert(normalized)
-            ordered.append(trimmed)
+            candidateAddresses.append(candidate)
         }
 
         appendAddress(wallet.bitcoinAddress)
@@ -178,6 +172,21 @@ func resetImportForm() {
             }
         }
 
+        let request = WalletRustOwnedAddressAggregationRequest(candidateAddresses: candidateAddresses)
+        if let aggregated = try? WalletRustAppCoreBridge.aggregateOwnedAddresses(request) {
+            return aggregated
+        }
+
+        var ordered: [String] = []
+        var seen: Set<String> = []
+        for candidate in candidateAddresses {
+            let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+            let normalized = trimmed.lowercased()
+            guard !seen.contains(normalized) else { continue }
+            seen.insert(normalized)
+            ordered.append(trimmed)
+        }
         return ordered
     }
 
@@ -235,11 +244,20 @@ func resetImportForm() {
     }
 
     func selectedReceiveCoin(for walletID: String) -> Coin? {
+        let receiveCoins = availableReceiveCoins(for: walletID)
+        if let plan = rustReceiveSelectionPlan(for: walletID, coins: receiveCoins) {
+            guard let selectedIndex = plan.selectedReceiveHoldingIndex,
+                  receiveCoins.indices.contains(selectedIndex) else {
+                return nil
+            }
+            return receiveCoins[selectedIndex]
+        }
+
         let resolvedChainName = resolvedReceiveChainName(for: walletID)
         guard !resolvedChainName.isEmpty else { return nil }
 
         var firstMatchingCoin: Coin?
-        for coin in availableReceiveCoins(for: walletID) where coin.chainName == resolvedChainName {
+        for coin in receiveCoins where coin.chainName == resolvedChainName {
             if firstMatchingCoin == nil {
                 firstMatchingCoin = coin
             }
@@ -252,10 +270,38 @@ func resetImportForm() {
 
     func resolvedReceiveChainName(for walletID: String) -> String {
         let availableChains = availableReceiveChains(for: walletID)
+        if let plan = rustReceiveSelectionPlan(
+            for: walletID,
+            coins: availableReceiveCoins(for: walletID),
+            chains: availableChains
+        ) {
+            return plan.resolvedChainName
+        }
         if availableChains.contains(receiveChainName) {
             return receiveChainName
         }
         return availableChains.first ?? ""
+    }
+
+    private func rustReceiveSelectionPlan(
+        for walletID: String,
+        coins: [Coin]? = nil,
+        chains: [String]? = nil
+    ) -> WalletRustReceiveSelectionPlan? {
+        let receiveCoins = coins ?? availableReceiveCoins(for: walletID)
+        let availableChains = chains ?? availableReceiveChains(for: walletID)
+        let request = WalletRustReceiveSelectionRequest(
+            receiveChainName: receiveChainName,
+            availableReceiveChains: availableChains,
+            availableReceiveHoldings: receiveCoins.enumerated().map { offset, coin in
+                WalletRustReceiveSelectionHoldingInput(
+                    holdingIndex: offset,
+                    chainName: coin.chainName,
+                    hasContractAddress: coin.contractAddress != nil
+                )
+            }
+        )
+        return try? WalletRustAppCoreBridge.planReceiveSelection(request)
     }
 
     var sendEnabledWallets: [ImportedWallet] {
