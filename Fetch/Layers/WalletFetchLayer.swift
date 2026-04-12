@@ -68,10 +68,10 @@ enum WalletFetchLayer {
                           let sat = RustBalanceDecoder.uint64Field("balance_sat", from: balance) else { return }
                     updatedHoldings = store.applyBitcoinCashBalance(Double(sat) / 1e8, to: wallet.holdings)
                 case "Bitcoin SV":
-                    // Bitcoin SV is not in the Rust chain list — fall back to Swift service.
                     guard let address = store.resolvedBitcoinSVAddress(for: wallet) else { return }
-                    guard let balance = try? await BitcoinSVBalanceService.fetchBalance(for: address) else { return }
-                    updatedHoldings = store.applyBitcoinSVBalance(balance, to: wallet.holdings)
+                    guard let json = try? await bridge.fetchBalanceJSON(chainId: SpectraChainID.bitcoinSv, address: address),
+                          let sat = RustBalanceDecoder.uint64Field("balance_sat", from: json) else { return }
+                    updatedHoldings = store.applyBitcoinSVBalance(Double(sat) / 1e8, to: wallet.holdings)
                 case "Litecoin":
                     guard let address = store.resolvedLitecoinAddress(for: wallet) else { return }
                     guard let balance = try? await bridge.fetchBalanceJSON(chainId: SpectraChainID.litecoin, address: address),
@@ -155,9 +155,25 @@ enum WalletFetchLayer {
                 guard let json = try? await bridge.fetchBalanceJSON(chainId: SpectraChainID.tron, address: address),
                       let sun = RustBalanceDecoder.uint64Field("sun", from: json) else { return }
                 let nativeTrx = Double(sun) / 1e6
+                let tronTrackedTokens = store.enabledTronTrackedTokens()
+                let tronTuples = tronTrackedTokens.map { t in (contract: t.contractAddress, symbol: t.symbol, decimals: t.decimals) }
+                var tronTokenBalances: [TronTokenBalanceSnapshot] = []
+                if !tronTuples.isEmpty,
+                   let tokenJSON = try? await bridge.fetchTokenBalancesJSON(chainId: SpectraChainID.tron, address: address, tokens: tronTuples),
+                   let tokenData = tokenJSON.data(using: .utf8),
+                   let tokenArr = try? JSONSerialization.jsonObject(with: tokenData) as? [[String: Any]] {
+                    tronTokenBalances = tokenArr.compactMap { obj in
+                        guard let contract = obj["contract"] as? String,
+                              let symbol = obj["symbol"] as? String,
+                              let displayStr = obj["balance_display"] as? String,
+                              let balance = Double(displayStr) else { return nil }
+                        return TronTokenBalanceSnapshot(symbol: symbol, contractAddress: contract, balance: balance)
+                    }
+                }
+                let resolvedTrx = store.resolvedTronNativeBalance(fetchedNativeBalance: nativeTrx, tokenBalances: tronTokenBalances, wallet: wallet)
                 updatedHoldings = store.applyTronBalances(
-                    nativeBalance: nativeTrx,
-                    tokenBalances: [],
+                    nativeBalance: resolvedTrx,
+                    tokenBalances: tronTokenBalances,
                     to: wallet.holdings
                 )
 
@@ -165,9 +181,36 @@ enum WalletFetchLayer {
                 guard let address = store.resolvedSolanaAddress(for: wallet) else { return }
                 guard let json = try? await bridge.fetchBalanceJSON(chainId: SpectraChainID.solana, address: address),
                       let lamports = RustBalanceDecoder.uint64Field("lamports", from: json) else { return }
+                let nativeSol = Double(lamports) / 1e9
+                let solTrackedTokens = store.enabledSolanaTrackedTokens()
+                let solTuples = solTrackedTokens.map { mint, meta in (contract: mint, symbol: meta.symbol, decimals: meta.decimals) }
+                var splTokenBalances: [SolanaSPLTokenBalanceSnapshot] = []
+                if !solTuples.isEmpty,
+                   let tokenJSON = try? await bridge.fetchTokenBalancesJSON(chainId: SpectraChainID.solana, address: address, tokens: solTuples),
+                   let tokenData = tokenJSON.data(using: .utf8),
+                   let tokenArr = try? JSONSerialization.jsonObject(with: tokenData) as? [[String: Any]] {
+                    splTokenBalances = tokenArr.compactMap { obj -> SolanaSPLTokenBalanceSnapshot? in
+                        guard let mint = obj["contract"] as? String,
+                              let displayStr = obj["balance_display"] as? String,
+                              let balance = Double(displayStr),
+                              balance > 0 else { return nil }
+                        let meta = solTrackedTokens[mint]
+                        return SolanaSPLTokenBalanceSnapshot(
+                            mintAddress: mint,
+                            sourceTokenAccountAddress: "",
+                            symbol: meta?.symbol ?? (obj["symbol"] as? String ?? ""),
+                            name: meta?.name ?? "",
+                            tokenStandard: "SPL",
+                            decimals: meta?.decimals ?? (obj["decimals"] as? Int ?? 0),
+                            balance: balance,
+                            marketDataID: meta?.marketDataID ?? "",
+                            coinGeckoID: meta?.coinGeckoID ?? ""
+                        )
+                    }
+                }
                 updatedHoldings = store.applySolanaPortfolio(
-                    nativeBalance: Double(lamports) / 1e9,
-                    tokenBalances: [],
+                    nativeBalance: nativeSol,
+                    tokenBalances: splTokenBalances,
                     to: wallet.holdings
                 )
 

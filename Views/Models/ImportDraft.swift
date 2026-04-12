@@ -149,21 +149,27 @@ final class WalletImportDraft: ObservableObject {
         guard !isEditingWallet else { return nil }
         guard isSeedPhraseEntryComplete else { return nil }
         guard invalidSeedWords.isEmpty else { return nil }
-        return BitcoinWalletEngine.validateMnemonic(seedPhrase, expectedWordCount: selectedSeedPhraseWordCount)
+        let words = seedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
+        guard words.count == selectedSeedPhraseWordCount else {
+            return "Seed phrase must be \(selectedSeedPhraseWordCount) words."
+        }
+        guard WalletServiceBridge.shared.rustValidateMnemonic(seedPhrase) else {
+            return "Invalid seed phrase checksum. Please verify your words."
+        }
+        return nil
     }
 
     var hasValidSeedPhraseChecksum: Bool {
         guard !isEditingWallet else { return false }
         guard isSeedPhraseEntryComplete else { return false }
         guard invalidSeedWords.isEmpty else { return false }
-        return BitcoinWalletEngine.hasValidMnemonicChecksum(
-            seedPhrase,
-            expectedWordCount: selectedSeedPhraseWordCount
-        )
+        let words = seedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
+        guard words.count == selectedSeedPhraseWordCount else { return false }
+        return WalletServiceBridge.shared.rustValidateMnemonic(seedPhrase)
     }
 
     var seedPhraseWords: [String] {
-        BitcoinWalletEngine.normalizedMnemonicWords(from: seedPhrase)
+        seedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
     }
 
     var normalizedWalletPassword: String? {
@@ -186,7 +192,9 @@ final class WalletImportDraft: ObservableObject {
 
     var invalidSeedWords: [String] {
         guard !isEditingWallet else { return [] }
-        return BitcoinWalletEngine.invalidEnglishWords(in: seedPhrase)
+        let wordlist = Set(WalletServiceBridge.shared.rustBip39Wordlist())
+        let words = seedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
+        return words.filter { !wordlist.contains($0) }
     }
 
     var seedPhraseLengthWarning: String? {
@@ -196,7 +204,7 @@ final class WalletImportDraft: ObservableObject {
         if count < 12 {
             return "Seed phrase is too short. Use at least 12 words."
         }
-        if !BitcoinWalletEngine.validMnemonicWordCounts.contains(count) {
+        if ![12, 15, 18, 21, 24].contains(count) {
             return "Non-standard length selected. BIP-39 standard lengths are 12, 15, 18, 21, or 24 words."
         }
         return nil
@@ -262,7 +270,7 @@ final class WalletImportDraft: ObservableObject {
         let hasValidBitcoinAddress = !wantsBitcoin
             || !isWatchOnlyMode
             || bitcoinAddressEntries.allSatisfy(isLikelyValidBitcoinAddress)
-            || BitcoinWalletEngine.isLikelyExtendedPublicKey(trimmedBitcoinXPub)
+            || (trimmedBitcoinXPub.hasPrefix("xpub") || trimmedBitcoinXPub.hasPrefix("ypub") || trimmedBitcoinXPub.hasPrefix("zpub"))
         let hasValidDogecoinAddress = !wantsDogecoin
             || !isWatchOnlyMode
             || dogecoinAddressEntries.allSatisfy { AddressValidation.isValidDogecoinAddress($0) }
@@ -589,16 +597,16 @@ final class WalletImportDraft: ObservableObject {
 
     func regenerateSeedPhrase() {
         guard isCreateMode else { return }
-        guard BitcoinWalletEngine.validMnemonicWordCounts.contains(selectedSeedPhraseWordCount) else {
+        guard [12, 15, 18, 21, 24].contains(selectedSeedPhraseWordCount) else {
             seedPhrase = ""
             seedPhraseEntries = Array(repeating: "", count: selectedSeedPhraseWordCount)
             backupVerificationWordIndices = []
             backupVerificationEntries = []
             return
         }
-        let generatedPhrase = (try? BitcoinWalletEngine.generateMnemonic(wordCount: selectedSeedPhraseWordCount)) ?? ""
+        let generatedPhrase = WalletServiceBridge.shared.rustGenerateMnemonic(wordCount: selectedSeedPhraseWordCount)
         seedPhrase = generatedPhrase
-        let generatedWords = BitcoinWalletEngine.normalizedMnemonicWords(from: generatedPhrase)
+        let generatedWords = generatedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
         var entries = Array(repeating: "", count: selectedSeedPhraseWordCount)
         for (index, word) in generatedWords.enumerated() where index < entries.count {
             entries[index] = word
@@ -616,7 +624,7 @@ final class WalletImportDraft: ObservableObject {
     func updateSeedPhraseEntry(at index: Int, with newValue: String) {
         guard seedPhraseEntries.indices.contains(index) else { return }
 
-        let pastedWords = BitcoinWalletEngine.normalizedMnemonicWords(from: newValue)
+        let pastedWords = newValue.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
         if pastedWords.count > 1 {
             var updatedEntries = seedPhraseEntries
             for offset in 0 ..< pastedWords.count {

@@ -621,7 +621,7 @@ struct SetupView: View {
 
             HStack(spacing: 12) {
                 Picker("Seed Phrase Length", selection: $draft.selectedSeedPhraseWordCount) {
-                    ForEach(BitcoinWalletEngine.validMnemonicWordCounts, id: \.self) { wordCount in
+                    ForEach([12, 15, 18, 21, 24], id: \.self) { wordCount in
                         Text(walletFlowLocalizedFormat("%lld words", wordCount)).tag(wordCount)
                     }
                 }
@@ -638,7 +638,7 @@ struct SetupView: View {
                         draft.regenerateSeedPhrase()
                     }
                     .buttonStyle(.glass)
-                    .disabled(!BitcoinWalletEngine.validMnemonicWordCounts.contains(draft.selectedSeedPhraseWordCount))
+                    .disabled(![12, 15, 18, 21, 24].contains(draft.selectedSeedPhraseWordCount))
                 }
             }
 

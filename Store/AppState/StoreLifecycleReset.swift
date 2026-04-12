@@ -181,7 +181,6 @@ extension WalletStore {
 
         if scopes.contains(.walletsAndSecrets) || scopes.contains(.historyAndCache) {
             clearNetworkAndTransportCaches()
-            DogecoinWalletEngine.resetUTXOCache()
         }
 
         UserDefaults.standard.set(true, forKey: Self.installMarkerDefaultsKey)
@@ -551,7 +550,6 @@ extension WalletStore {
     private func resetProviderState() async {
         await SpectraNetworkRouter.shared.resetToDefault()
         clearNetworkAndTransportCaches()
-        DogecoinWalletEngine.resetUTXOCache()
     }
 
     // Clears URL/network-level caches that can leak stale RPC/API responses across resets.

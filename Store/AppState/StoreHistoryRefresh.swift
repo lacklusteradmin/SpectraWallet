@@ -46,87 +46,202 @@ func fetchBitcoinHistoryPage(
     limit: Int,
     cursor: String?
     ) async throws -> BitcoinHistoryPage {
+    // Seed-phrase path: derive account xpub via Rust, then scan HD addresses.
     if cursor == nil,
        let seedPhrase = storedSeedPhrase(for: wallet.id),
-       !seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-       let inventory = try? BitcoinWalletEngine.addressInventory(for: wallet, seedPhrase: seedPhrase, scanLimit: 20) {
-        let ownedAddresses = inventory.entries.map(\.address)
-        let indexedAddresses = Array(ownedAddresses.enumerated())
-        let fetchedSnapshots = await collectLimitedConcurrentIndexedResults(from: indexedAddresses, maxConcurrent: 4) { entry in
-            let (index, address) = entry
-            do {
-                let page = try await BitcoinBalanceService.fetchTransactionPage(
-                    for: address,
-                    networkMode: wallet.bitcoinNetworkMode,
-                    limit: limit,
-                    cursor: nil
-                )
-                return (index, page.snapshots)
-            } catch {
-                return (index, nil)
-            }
-        }
-
-        let mergedSnapshots = try WalletRustAppCoreBridge.mergeBitcoinHistorySnapshots(
-            WalletRustMergeBitcoinHistorySnapshotsRequest(
-                snapshots: fetchedSnapshots
-                    .sorted { $0.key < $1.key }
-                    .flatMap(\.value)
-                    .map { snapshot in
-                        WalletRustBitcoinHistorySnapshotPayload(
-                            txid: snapshot.txid,
-                            amountBTC: snapshot.amountBTC,
-                            kind: snapshot.kind.rawValue,
-                            status: snapshot.status.rawValue,
-                            counterpartyAddress: snapshot.counterpartyAddress,
-                            blockHeight: snapshot.blockHeight,
-                            createdAtUnix: snapshot.createdAt.timeIntervalSince1970
-                        )
-                    },
-                ownedAddresses: ownedAddresses,
-                limit: limit
-            )
-        )
-        if !mergedSnapshots.isEmpty {
-            return BitcoinHistoryPage(
-                snapshots: mergedSnapshots.map { snapshot in
-                    BitcoinHistorySnapshot(
-                        txid: snapshot.txid,
-                        amountBTC: snapshot.amountBTC,
-                        kind: TransactionKind(rawValue: snapshot.kind) ?? .send,
-                        status: TransactionStatus(rawValue: snapshot.status) ?? .pending,
-                        counterpartyAddress: snapshot.counterpartyAddress,
-                        blockHeight: snapshot.blockHeight,
-                        createdAt: Date(timeIntervalSince1970: snapshot.createdAtUnix)
-                    )
-                },
-                nextCursor: nil,
-                sourceUsed: "wallet.inventory"
-            )
+       !seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+        let pathParts = wallet.seedDerivationPaths.bitcoin.split(separator: "/")
+        let accountPath = String(pathParts.prefix(4).joined(separator: "/"))
+        if let xpub = try? await WalletServiceBridge.shared.deriveBitcoinAccountXpub(
+            mnemonicPhrase: seedPhrase,
+            passphrase: "",
+            accountPath: accountPath
+        ) {
+            let page = try await fetchBitcoinHDHistoryPage(xpub: xpub, limit: limit)
+            if !page.snapshots.isEmpty { return page }
         }
     }
 
+    // Single-address path (watch-only or imported address).
     if let bitcoinAddress = wallet.bitcoinAddress?.trimmingCharacters(in: .whitespacesAndNewlines),
        !bitcoinAddress.isEmpty {
-        return try await BitcoinBalanceService.fetchTransactionPage(
-            for: bitcoinAddress,
-            networkMode: wallet.bitcoinNetworkMode,
-            limit: limit,
-            cursor: cursor
-        )
+        let json = try await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.bitcoin, address: bitcoinAddress)
+        return decodeBitcoinHistoryPageFromRust(json: json, limit: limit)
     }
 
+    // xpub-only path: derive HD addresses via Rust and scan per-address.
     if let bitcoinXPub = wallet.bitcoinXPub?.trimmingCharacters(in: .whitespacesAndNewlines),
        !bitcoinXPub.isEmpty {
-        return try await BitcoinBalanceService.fetchTransactionPage(
-            forExtendedPublicKey: bitcoinXPub,
-            limit: limit,
-            cursor: cursor
-        )
+        return try await fetchBitcoinHDHistoryPage(xpub: bitcoinXPub, limit: limit)
     }
 
     throw URLError(.fileDoesNotExist)
 }
+
+private func fetchBitcoinHDHistoryPage(xpub: String, limit: Int) async throws -> BitcoinHistoryPage {
+    struct HdAddr: Decodable { let address: String }
+    async let receiveTask = WalletServiceBridge.shared.deriveBitcoinHdAddressesJSON(
+        xpub: xpub, change: 0, startIndex: 0, count: 20)
+    async let changeTask = WalletServiceBridge.shared.deriveBitcoinHdAddressesJSON(
+        xpub: xpub, change: 1, startIndex: 0, count: 10)
+    let (receiveJSON, changeJSON) = try await (receiveTask, changeTask)
+    let receiveAddrs = (try? JSONDecoder().decode([HdAddr].self, from: Data(receiveJSON.utf8)))?.map(\.address) ?? []
+    let changeAddrs = (try? JSONDecoder().decode([HdAddr].self, from: Data(changeJSON.utf8)))?.map(\.address) ?? []
+    let allAddresses = receiveAddrs + changeAddrs
+    guard !allAddresses.isEmpty else {
+        return BitcoinHistoryPage(snapshots: [], nextCursor: nil, sourceUsed: "rust.hd")
+    }
+    let indexedAddresses = Array(allAddresses.enumerated())
+    let fetchedSnapshots = await collectLimitedConcurrentIndexedResults(from: indexedAddresses, maxConcurrent: 4) { entry in
+        let (index, address) = entry
+        do {
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.bitcoin, address: address
+            )
+            let entries = decodeRustHistoryJSON(json: json)
+            let payloads = entries.compactMap { obj -> WalletRustBitcoinHistorySnapshotPayload? in
+                guard let txid = obj["txid"] as? String else { return nil }
+                let netSats = obj["net_sats"] as? Int ?? 0
+                let confirmed = obj["confirmed"] as? Bool ?? false
+                return WalletRustBitcoinHistorySnapshotPayload(
+                    txid: txid,
+                    amountBTC: Double(abs(netSats)) / 100_000_000,
+                    kind: netSats >= 0 ? "receive" : "send",
+                    status: confirmed ? "confirmed" : "pending",
+                    counterpartyAddress: "",
+                    blockHeight: obj["block_height"] as? Int,
+                    createdAtUnix: obj["block_time"] as? Double ?? 0
+                )
+            }
+            return (index, payloads)
+        } catch {
+            return (index, nil)
+        }
+    }
+    let mergedSnapshots = try WalletRustAppCoreBridge.mergeBitcoinHistorySnapshots(
+        WalletRustMergeBitcoinHistorySnapshotsRequest(
+            snapshots: fetchedSnapshots.sorted { $0.key < $1.key }.flatMap(\.value),
+            ownedAddresses: allAddresses,
+            limit: limit
+        )
+    )
+    return BitcoinHistoryPage(
+        snapshots: mergedSnapshots.map { snapshot in
+            BitcoinHistorySnapshot(
+                txid: snapshot.txid,
+                amountBTC: snapshot.amountBTC,
+                kind: TransactionKind(rawValue: snapshot.kind) ?? .send,
+                status: TransactionStatus(rawValue: snapshot.status) ?? .pending,
+                counterpartyAddress: snapshot.counterpartyAddress,
+                blockHeight: snapshot.blockHeight,
+                createdAt: Date(timeIntervalSince1970: snapshot.createdAtUnix)
+            )
+        },
+        nextCursor: nil,
+        sourceUsed: "rust.hd"
+    )
+}
+func decodeBitcoinHistoryPageFromRust(json: String, limit: Int) -> BitcoinHistoryPage {
+    guard let data = json.data(using: .utf8),
+          let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        return BitcoinHistoryPage(snapshots: [], nextCursor: nil, sourceUsed: "rust")
+    }
+    let snapshots: [BitcoinHistorySnapshot] = arr.prefix(limit).compactMap { obj in
+        guard let txid = obj["txid"] as? String else { return nil }
+        let netSats = (obj["net_sats"] as? Int) ?? 0
+        let confirmed = (obj["confirmed"] as? Bool) ?? false
+        let blockHeight = obj["block_height"] as? Int
+        let blockTime = obj["block_time"] as? Double
+        let amountBTC = Double(abs(netSats)) / 100_000_000.0
+        let kind: TransactionKind = netSats >= 0 ? .receive : .send
+        let status: TransactionStatus = confirmed ? .confirmed : .pending
+        let createdAt = blockTime.map { Date(timeIntervalSince1970: $0) } ?? Date()
+        return BitcoinHistorySnapshot(
+            txid: txid,
+            amountBTC: amountBTC,
+            kind: kind,
+            status: status,
+            counterpartyAddress: "",
+            blockHeight: blockHeight,
+            createdAt: createdAt
+        )
+    }
+    let nextCursor = arr.count > limit ? arr[limit - 1]["txid"] as? String : nil
+    return BitcoinHistoryPage(snapshots: snapshots, nextCursor: nextCursor, sourceUsed: "rust")
+}
+
+// MARK: - Rust history decode helpers
+
+/// Parse a Rust JSON array of `{txid, amount_sat|amount_koin, block_height, timestamp, is_incoming}` objects.
+func decodeSatHistoryFromRust(json: String) -> [[String: Any]] {
+    guard let data = json.data(using: .utf8),
+          let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        return []
+    }
+    return arr
+}
+
+/// Parse a Rust JSON array of `TronTransfer` objects.
+func decodeTronTransfersFromRust(json: String) -> [[String: Any]] {
+    guard let data = json.data(using: .utf8),
+          let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        return []
+    }
+    return arr
+}
+
+/// Parse a Rust JSON array of `SolanaTransfer` objects.
+func decodeSolanaTransfersFromRust(json: String) -> [[String: Any]] {
+    guard let data = json.data(using: .utf8),
+          let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        return []
+    }
+    return arr
+}
+
+/// Map a Tron token symbol to a display asset name.
+func tronAssetName(symbol: String) -> String {
+    switch symbol {
+    case "TRX": return "Tron"
+    case "USDT": return "Tether USD"
+    case "USDC": return "USD Coin"
+    case "BTT": return "BitTorrent"
+    default: return symbol
+    }
+}
+
+/// Resolve a Solana mint address to a (symbol, assetName) pair using the token registry.
+func solanaSymbolAndAssetName(
+    mint: String,
+    rawSymbol: String,
+    tokenMeta: [String: SolanaBalanceService.KnownTokenMetadata]
+) -> (String, String) {
+    if mint.isEmpty {
+        return ("SOL", "Solana")
+    }
+    if let meta = tokenMeta[mint] {
+        return (meta.symbol, meta.name)
+    }
+    // Mint address not in registry — rawSymbol is the mint address from Rust.
+    // Fall back to a short label derived from the mint.
+    return (rawSymbol, rawSymbol)
+}
+
+/// Collect enabled Solana tracked tokens keyed by mint address.
+/// `enabledSolanaTrackedTokens()` already returns a mint-keyed dict.
+func enabledSolanaTrackedTokensByMint() -> [String: SolanaBalanceService.KnownTokenMetadata] {
+    enabledSolanaTrackedTokens()
+}
+
+/// Generic JSON array decoder for Rust history responses.
+func decodeRustHistoryJSON(json: String) -> [[String: Any]] {
+    guard let data = json.data(using: .utf8),
+          let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+        return []
+    }
+    return arr
+}
+
 func refreshBitcoinTransactions(limit: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<UUID>? = nil) async {
     let walletSnapshot = wallets
     let bitcoinWallets = walletSnapshot.filter { wallet in
@@ -255,39 +370,41 @@ func refreshBitcoinCashTransactions(limit: Int? = nil, loadMore: Bool = false, t
         }
 
         guard let bitcoinCashAddress = resolvedBitcoinCashAddress(for: wallet) else { continue }
-        let cursor = loadMore ? bitcoinCashHistoryCursorByWallet[wallet.id] : nil
+        if loadMore && bitcoinCashHistoryCursorByWallet[wallet.id] == nil {
+            // Rust returns a flat list; treat first fetch as exhausting the page.
+            exhaustedBitcoinCashHistoryWalletIDs.insert(wallet.id)
+            continue
+        }
         do {
-            let page = try await BitcoinCashBalanceService.fetchTransactionPage(
-                for: bitcoinCashAddress,
-                limit: requestedLimit,
-                cursor: cursor
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.bitcoinCash, address: bitcoinCashAddress
             )
-            bitcoinCashHistoryCursorByWallet[wallet.id] = page.nextCursor
-            if page.nextCursor == nil {
-                exhaustedBitcoinCashHistoryWalletIDs.insert(wallet.id)
-            } else {
-                exhaustedBitcoinCashHistoryWalletIDs.remove(wallet.id)
-            }
+            bitcoinCashHistoryCursorByWallet[wallet.id] = nil
+            exhaustedBitcoinCashHistoryWalletIDs.insert(wallet.id)
 
-            discoveredTransactions.append(
-                contentsOf: page.snapshots.map { snapshot in
-                    TransactionRecord(
-                        walletID: wallet.id,
-                        kind: snapshot.kind,
-                        status: snapshot.status,
-                        walletName: wallet.name,
-                        assetName: "Bitcoin Cash",
-                        symbol: "BCH",
-                        chainName: "Bitcoin Cash",
-                        amount: snapshot.amountBCH,
-                        address: snapshot.counterpartyAddress,
-                        transactionHash: snapshot.txid,
-                        receiptBlockNumber: snapshot.blockHeight,
-                        transactionHistorySource: page.sourceUsed,
-                        createdAt: snapshot.createdAt
-                    )
-                }
-            )
+            let records = decodeSatHistoryFromRust(json: json).prefix(requestedLimit).compactMap { entry -> TransactionRecord? in
+                guard let txid = entry["txid"] as? String else { return nil }
+                let amountSat = (entry["amount_sat"] as? Int) ?? 0
+                let blockHeight = entry["block_height"] as? Int
+                let timestamp = (entry["timestamp"] as? Double) ?? 0
+                let isIncoming = (entry["is_incoming"] as? Bool) ?? (amountSat >= 0)
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: blockHeight.map { $0 > 0 } ?? false ? .confirmed : .pending,
+                    walletName: wallet.name,
+                    assetName: "Bitcoin Cash",
+                    symbol: "BCH",
+                    chainName: "Bitcoin Cash",
+                    amount: Double(abs(amountSat)) / 1e8,
+                    address: "",
+                    transactionHash: txid,
+                    receiptBlockNumber: blockHeight,
+                    transactionHistorySource: "rust",
+                    createdAt: timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : Date()
+                )
+            }
+            discoveredTransactions.append(contentsOf: records)
         } catch {
             encounteredErrors = true
             bitcoinCashHistoryCursorByWallet[wallet.id] = nil
@@ -338,39 +455,40 @@ func refreshBitcoinSVTransactions(limit: Int? = nil, loadMore: Bool = false, tar
         }
 
         guard let bitcoinSVAddress = resolvedBitcoinSVAddress(for: wallet) else { continue }
-        let cursor = loadMore ? bitcoinSVHistoryCursorByWallet[wallet.id] : nil
+        if loadMore && bitcoinSVHistoryCursorByWallet[wallet.id] == nil {
+            exhaustedBitcoinSVHistoryWalletIDs.insert(wallet.id)
+            continue
+        }
         do {
-            let page = try await BitcoinSVBalanceService.fetchTransactionPage(
-                for: bitcoinSVAddress,
-                limit: requestedLimit,
-                cursor: cursor
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.bitcoinSv, address: bitcoinSVAddress
             )
-            bitcoinSVHistoryCursorByWallet[wallet.id] = page.nextCursor
-            if page.nextCursor == nil {
-                exhaustedBitcoinSVHistoryWalletIDs.insert(wallet.id)
-            } else {
-                exhaustedBitcoinSVHistoryWalletIDs.remove(wallet.id)
-            }
+            bitcoinSVHistoryCursorByWallet[wallet.id] = nil
+            exhaustedBitcoinSVHistoryWalletIDs.insert(wallet.id)
 
-            discoveredTransactions.append(
-                contentsOf: page.snapshots.map { snapshot in
-                    TransactionRecord(
-                        walletID: wallet.id,
-                        kind: snapshot.kind,
-                        status: snapshot.status,
-                        walletName: wallet.name,
-                        assetName: "Bitcoin SV",
-                        symbol: "BSV",
-                        chainName: "Bitcoin SV",
-                        amount: snapshot.amountBSV,
-                        address: snapshot.counterpartyAddress,
-                        transactionHash: snapshot.txid,
-                        receiptBlockNumber: snapshot.blockHeight,
-                        transactionHistorySource: page.sourceUsed,
-                        createdAt: snapshot.createdAt
-                    )
-                }
-            )
+            let records = decodeSatHistoryFromRust(json: json).prefix(requestedLimit).compactMap { entry -> TransactionRecord? in
+                guard let txid = entry["txid"] as? String else { return nil }
+                let amountSat = (entry["amount_sat"] as? Int) ?? 0
+                let blockHeight = entry["block_height"] as? Int
+                let timestamp = (entry["timestamp"] as? Double) ?? 0
+                let isIncoming = (entry["is_incoming"] as? Bool) ?? (amountSat >= 0)
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: blockHeight.map { $0 > 0 } ?? false ? .confirmed : .pending,
+                    walletName: wallet.name,
+                    assetName: "Bitcoin SV",
+                    symbol: "BSV",
+                    chainName: "Bitcoin SV",
+                    amount: Double(abs(amountSat)) / 1e8,
+                    address: "",
+                    transactionHash: txid,
+                    receiptBlockNumber: blockHeight,
+                    transactionHistorySource: "rust",
+                    createdAt: timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : Date()
+                )
+            }
+            discoveredTransactions.append(contentsOf: records)
         } catch {
             encounteredErrors = true
             bitcoinSVHistoryCursorByWallet[wallet.id] = nil
@@ -421,39 +539,40 @@ func refreshLitecoinTransactions(limit: Int? = nil, loadMore: Bool = false, targ
         }
 
         guard let litecoinAddress = resolvedLitecoinAddress(for: wallet) else { continue }
-        let cursor = loadMore ? litecoinHistoryCursorByWallet[wallet.id] : nil
+        if loadMore && litecoinHistoryCursorByWallet[wallet.id] == nil {
+            exhaustedLitecoinHistoryWalletIDs.insert(wallet.id)
+            continue
+        }
         do {
-            let page = try await LitecoinBalanceService.fetchTransactionPage(
-                for: litecoinAddress,
-                limit: requestedLimit,
-                cursor: cursor
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.litecoin, address: litecoinAddress
             )
-            litecoinHistoryCursorByWallet[wallet.id] = page.nextCursor
-            if page.nextCursor == nil {
-                exhaustedLitecoinHistoryWalletIDs.insert(wallet.id)
-            } else {
-                exhaustedLitecoinHistoryWalletIDs.remove(wallet.id)
-            }
+            litecoinHistoryCursorByWallet[wallet.id] = nil
+            exhaustedLitecoinHistoryWalletIDs.insert(wallet.id)
 
-            discoveredTransactions.append(
-                contentsOf: page.snapshots.map { snapshot in
-                    TransactionRecord(
-                        walletID: wallet.id,
-                        kind: snapshot.kind,
-                        status: snapshot.status,
-                        walletName: wallet.name,
-                        assetName: "Litecoin",
-                        symbol: "LTC",
-                        chainName: "Litecoin",
-                        amount: snapshot.amountLTC,
-                        address: snapshot.counterpartyAddress,
-                        transactionHash: snapshot.txid,
-                        receiptBlockNumber: snapshot.blockHeight,
-                        transactionHistorySource: page.sourceUsed,
-                        createdAt: snapshot.createdAt
-                    )
-                }
-            )
+            let records = decodeSatHistoryFromRust(json: json).prefix(requestedLimit).compactMap { entry -> TransactionRecord? in
+                guard let txid = entry["txid"] as? String else { return nil }
+                let amountSat = (entry["amount_sat"] as? Int) ?? 0
+                let blockHeight = entry["block_height"] as? Int
+                let timestamp = (entry["timestamp"] as? Double) ?? 0
+                let isIncoming = (entry["is_incoming"] as? Bool) ?? (amountSat >= 0)
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: blockHeight.map { $0 > 0 } ?? false ? .confirmed : .pending,
+                    walletName: wallet.name,
+                    assetName: "Litecoin",
+                    symbol: "LTC",
+                    chainName: "Litecoin",
+                    amount: Double(abs(amountSat)) / 1e8,
+                    address: "",
+                    transactionHash: txid,
+                    receiptBlockNumber: blockHeight,
+                    transactionHistorySource: "rust",
+                    createdAt: timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : Date()
+                )
+            }
+            discoveredTransactions.append(contentsOf: records)
         } catch {
             encounteredErrors = true
             litecoinHistoryCursorByWallet[wallet.id] = nil
@@ -508,37 +627,42 @@ func refreshTronTransactions(loadMore: Bool = false, targetWalletIDs: Set<UUID>?
             continue
         }
         guard let tronAddress = resolvedTronAddress(for: wallet) else { continue }
-        let result = await TronBalanceService.fetchRecentHistoryWithDiagnostics(for: tronAddress, limit: HistoryPaging.endpointBatchSize)
-        tronHistoryDiagnosticsByWallet[wallet.id] = result.diagnostics
-        tronHistoryDiagnosticsLastUpdatedAt = Date()
-
-        if let error = result.diagnostics.error, !error.isEmpty {
+        do {
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.tron, address: tronAddress
+            )
+            let entries = decodeTronTransfersFromRust(json: json)
+            if entries.isEmpty {
+                exhaustedTronHistoryWalletIDs.insert(wallet.id)
+            } else {
+                exhaustedTronHistoryWalletIDs.remove(wallet.id)
+            }
+            let records = entries.map { entry -> TransactionRecord in
+                let symbol = entry["symbol"] as? String ?? "TRX"
+                let amount = Double(entry["amount_display"] as? String ?? "0") ?? 0
+                let isIncoming = (entry["is_incoming"] as? Bool) ?? false
+                let timestampMs = (entry["timestamp_ms"] as? Double) ?? 0
+                let txid = entry["txid"] as? String ?? ""
+                let counterparty = isIncoming ? (entry["from"] as? String ?? "") : (entry["to"] as? String ?? "")
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: .confirmed,
+                    walletName: wallet.name,
+                    assetName: tronAssetName(symbol: symbol),
+                    symbol: symbol,
+                    chainName: "Tron",
+                    amount: amount,
+                    address: counterparty,
+                    transactionHash: txid,
+                    transactionHistorySource: "tronscan",
+                    createdAt: timestampMs > 0 ? Date(timeIntervalSince1970: timestampMs / 1000) : Date()
+                )
+            }
+            discoveredTransactions.append(contentsOf: records)
+        } catch {
             encounteredErrors = true
         }
-
-        if result.snapshots.isEmpty {
-            exhaustedTronHistoryWalletIDs.insert(wallet.id)
-        } else {
-            exhaustedTronHistoryWalletIDs.remove(wallet.id)
-        }
-
-        let records = result.snapshots.map { item in
-            TransactionRecord(
-                walletID: wallet.id,
-                kind: item.kind,
-                status: item.status,
-                walletName: wallet.name,
-                assetName: item.symbol == "USDT" ? "Tether USD" : "Tron",
-                symbol: item.symbol,
-                chainName: "Tron",
-                amount: item.amount,
-                address: item.counterpartyAddress,
-                transactionHash: item.transactionHash,
-                transactionHistorySource: "tronscan",
-                createdAt: item.createdAt
-            )
-        }
-        discoveredTransactions.append(contentsOf: records)
     }
 
     if !discoveredTransactions.isEmpty {
@@ -566,31 +690,45 @@ func refreshSolanaTransactions(loadMore: Bool = false) async {
 
     for wallet in solanaWallets {
         guard let solanaAddress = resolvedSolanaAddress(for: wallet) else { continue }
-        let result = await SolanaBalanceService.fetchRecentHistoryWithDiagnostics(for: solanaAddress, limit: HistoryPaging.endpointBatchSize)
-        solanaHistoryDiagnosticsByWallet[wallet.id] = result.diagnostics
-        solanaHistoryDiagnosticsLastUpdatedAt = Date()
-
-        if let error = result.diagnostics.error, !error.isEmpty {
+        do {
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.solana, address: solanaAddress
+            )
+            let entries = decodeSolanaTransfersFromRust(json: json)
+            let tokenMeta = enabledSolanaTrackedTokensByMint()
+            let records = entries.compactMap { entry -> TransactionRecord? in
+                let symbol = entry["symbol"] as? String ?? "SOL"
+                let mint = entry["mint"] as? String ?? ""
+                let isIncoming = (entry["is_incoming"] as? Bool) ?? false
+                let amountDisplay = entry["amount_display"] as? String ?? "0"
+                let amount = Double(amountDisplay) ?? 0
+                let timestampSec = (entry["timestamp"] as? Double) ?? 0
+                let sig = entry["signature"] as? String ?? ""
+                let from = entry["from"] as? String ?? ""
+                let to = entry["to"] as? String ?? ""
+                let counterparty = isIncoming ? from : to
+                let (resolvedSymbol, assetName) = solanaSymbolAndAssetName(
+                    mint: mint, rawSymbol: symbol, tokenMeta: tokenMeta
+                )
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: .confirmed,
+                    walletName: wallet.name,
+                    assetName: assetName,
+                    symbol: resolvedSymbol,
+                    chainName: "Solana",
+                    amount: amount,
+                    address: counterparty,
+                    transactionHash: sig,
+                    transactionHistorySource: "solana-rpc",
+                    createdAt: timestampSec > 0 ? Date(timeIntervalSince1970: timestampSec) : Date()
+                )
+            }
+            discoveredTransactions.append(contentsOf: records)
+        } catch {
             encounteredErrors = true
         }
-
-        let records = result.snapshots.map { item in
-            TransactionRecord(
-                walletID: wallet.id,
-                kind: item.kind,
-                status: item.status,
-                walletName: wallet.name,
-                assetName: item.assetName,
-                symbol: item.symbol,
-                chainName: "Solana",
-                amount: item.amount,
-                address: item.counterpartyAddress,
-                transactionHash: item.transactionHash,
-                transactionHistorySource: "solana-rpc",
-                createdAt: item.createdAt
-            )
-        }
-        discoveredTransactions.append(contentsOf: records)
     }
 
     if !discoveredTransactions.isEmpty {
@@ -627,29 +765,35 @@ func refreshCardanoTransactions(loadMore: Bool = false) async {
 
     for wallet in cardanoWallets {
         guard let cardanoAddress = resolvedCardanoAddress(for: wallet) else { continue }
-        let result = await CardanoBalanceService.fetchRecentHistoryWithDiagnostics(for: cardanoAddress, limit: HistoryPaging.endpointBatchSize)
-
-        if let error = result.diagnostics.error, !error.isEmpty {
+        do {
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.cardano, address: cardanoAddress
+            )
+            let entries = decodeRustHistoryJSON(json: json)
+            let records = entries.map { entry -> TransactionRecord in
+                let isIncoming = entry["is_incoming"] as? Bool ?? false
+                let lovelace = entry["amount_lovelace"] as? Int ?? 0
+                let amount = Double(abs(lovelace)) / 1_000_000
+                let blockTime = entry["block_time"] as? Double ?? 0
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: .confirmed,
+                    walletName: wallet.name,
+                    assetName: "Cardano",
+                    symbol: "ADA",
+                    chainName: "Cardano",
+                    amount: amount,
+                    address: "",
+                    transactionHash: entry["txid"] as? String ?? "",
+                    transactionHistorySource: "blockfrost",
+                    createdAt: blockTime > 0 ? Date(timeIntervalSince1970: blockTime) : Date()
+                )
+            }
+            discoveredTransactions.append(contentsOf: records)
+        } catch {
             encounteredErrors = true
         }
-
-        let records = result.snapshots.map { item in
-            TransactionRecord(
-                walletID: wallet.id,
-                kind: item.kind,
-                status: item.status,
-                walletName: wallet.name,
-                assetName: "Cardano",
-                symbol: "ADA",
-                chainName: "Cardano",
-                amount: item.amount,
-                address: item.counterpartyAddress,
-                transactionHash: item.transactionHash,
-                transactionHistorySource: result.diagnostics.sourceUsed,
-                createdAt: item.createdAt
-            )
-        }
-        discoveredTransactions.append(contentsOf: records)
     }
 
     if !discoveredTransactions.isEmpty {
@@ -677,29 +821,38 @@ func refreshXRPTransactions(loadMore: Bool = false) async {
 
     for wallet in xrpWallets {
         guard let xrpAddress = resolvedXRPAddress(for: wallet) else { continue }
-        let result = await XRPBalanceService.fetchRecentHistoryWithDiagnostics(for: xrpAddress, limit: HistoryPaging.endpointBatchSize)
-
-        if let error = result.diagnostics.error, !error.isEmpty {
+        do {
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.xrp, address: xrpAddress
+            )
+            let entries = decodeRustHistoryJSON(json: json)
+            let records = entries.map { entry -> TransactionRecord in
+                let isIncoming = entry["is_incoming"] as? Bool ?? false
+                let drops = entry["amount_drops"] as? Int ?? 0
+                let amount = Double(drops) / 1_000_000
+                let timestamp = entry["timestamp"] as? Double ?? 0
+                let from = entry["from"] as? String ?? ""
+                let to = entry["to"] as? String ?? ""
+                let counterparty = isIncoming ? from : to
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: .confirmed,
+                    walletName: wallet.name,
+                    assetName: "XRP",
+                    symbol: "XRP",
+                    chainName: "XRP Ledger",
+                    amount: amount,
+                    address: counterparty,
+                    transactionHash: entry["txid"] as? String ?? "",
+                    transactionHistorySource: "xrpscan",
+                    createdAt: timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : Date()
+                )
+            }
+            discoveredTransactions.append(contentsOf: records)
+        } catch {
             encounteredErrors = true
         }
-
-        let records = result.snapshots.map { item in
-            TransactionRecord(
-                walletID: wallet.id,
-                kind: item.kind,
-                status: item.status,
-                walletName: wallet.name,
-                assetName: "XRP",
-                symbol: "XRP",
-                chainName: "XRP Ledger",
-                amount: item.amount,
-                address: item.counterpartyAddress,
-                transactionHash: item.transactionHash,
-                transactionHistorySource: "xrpscan",
-                createdAt: item.createdAt
-            )
-        }
-        discoveredTransactions.append(contentsOf: records)
     }
 
     if !discoveredTransactions.isEmpty {
@@ -727,29 +880,40 @@ func refreshStellarTransactions(loadMore: Bool = false) async {
 
     for wallet in stellarWallets {
         guard let stellarAddress = resolvedStellarAddress(for: wallet) else { continue }
-        let result = await StellarBalanceService.fetchRecentHistoryWithDiagnostics(for: stellarAddress, limit: HistoryPaging.endpointBatchSize)
-
-        if let error = result.diagnostics.error, !error.isEmpty {
+        do {
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.stellar, address: stellarAddress
+            )
+            let entries = decodeRustHistoryJSON(json: json)
+            let isoFormatter = ISO8601DateFormatter()
+            let records = entries.map { entry -> TransactionRecord in
+                let isIncoming = entry["is_incoming"] as? Bool ?? false
+                let stroops = entry["amount_stroops"] as? Int ?? 0
+                let amount = Double(abs(stroops)) / 10_000_000
+                let timestampStr = entry["timestamp"] as? String ?? ""
+                let date = isoFormatter.date(from: timestampStr) ?? Date()
+                let from = entry["from"] as? String ?? ""
+                let to = entry["to"] as? String ?? ""
+                let counterparty = isIncoming ? from : to
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: .confirmed,
+                    walletName: wallet.name,
+                    assetName: "Stellar Lumens",
+                    symbol: "XLM",
+                    chainName: "Stellar",
+                    amount: amount,
+                    address: counterparty,
+                    transactionHash: entry["txid"] as? String ?? "",
+                    transactionHistorySource: "horizon",
+                    createdAt: date
+                )
+            }
+            discoveredTransactions.append(contentsOf: records)
+        } catch {
             encounteredErrors = true
         }
-
-        let records = result.snapshots.map { item in
-            TransactionRecord(
-                walletID: wallet.id,
-                kind: item.kind,
-                status: item.status,
-                walletName: wallet.name,
-                assetName: "Stellar Lumens",
-                symbol: "XLM",
-                chainName: "Stellar",
-                amount: item.amount,
-                address: item.counterpartyAddress,
-                transactionHash: item.transactionHash,
-                transactionHistorySource: result.diagnostics.sourceUsed,
-                createdAt: item.createdAt
-            )
-        }
-        discoveredTransactions.append(contentsOf: records)
     }
 
     if !discoveredTransactions.isEmpty {
@@ -771,35 +935,41 @@ func refreshMoneroTransactions(loadMore: Bool = false) async {
     }
     guard !moneroWallets.isEmpty else { return }
 
-    let requestedLimit = max(20, min(loadMore ? HistoryPaging.endpointBatchSize * 2 : HistoryPaging.endpointBatchSize, 300))
+    _ = loadMore
     var discoveredTransactions: [TransactionRecord] = []
     var encounteredErrors = false
 
     for wallet in moneroWallets {
         guard let moneroAddress = resolvedMoneroAddress(for: wallet) else { continue }
-        let result = await MoneroBalanceService.fetchRecentHistoryWithDiagnostics(for: moneroAddress, limit: requestedLimit)
-
-        if let error = result.diagnostics.error, !error.isEmpty {
+        do {
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.monero, address: moneroAddress
+            )
+            let entries = decodeRustHistoryJSON(json: json)
+            let records = entries.map { entry -> TransactionRecord in
+                let isIncoming = entry["is_incoming"] as? Bool ?? false
+                let piconeros = entry["amount_piconeros"] as? Double ?? 0
+                let amount = piconeros / 1_000_000_000_000
+                let timestamp = entry["timestamp"] as? Double ?? 0
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: .confirmed,
+                    walletName: wallet.name,
+                    assetName: "Monero",
+                    symbol: "XMR",
+                    chainName: "Monero",
+                    amount: amount,
+                    address: "",
+                    transactionHash: entry["txid"] as? String ?? "",
+                    transactionHistorySource: "monero-rpc",
+                    createdAt: timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : Date()
+                )
+            }
+            discoveredTransactions.append(contentsOf: records)
+        } catch {
             encounteredErrors = true
         }
-
-        let records = result.snapshots.map { item in
-            TransactionRecord(
-                walletID: wallet.id,
-                kind: item.kind,
-                status: item.status,
-                walletName: wallet.name,
-                assetName: "Monero",
-                symbol: "XMR",
-                chainName: "Monero",
-                amount: item.amount,
-                address: item.counterpartyAddress,
-                transactionHash: item.transactionHash,
-                transactionHistorySource: result.diagnostics.sourceUsed,
-                createdAt: item.createdAt
-            )
-        }
-        discoveredTransactions.append(contentsOf: records)
     }
 
     if !discoveredTransactions.isEmpty {
@@ -827,30 +997,36 @@ func refreshSuiTransactions(loadMore: Bool = false) async {
 
     for wallet in suiWallets {
         guard let suiAddress = resolvedSuiAddress(for: wallet) else { continue }
-        let result = await SuiBalanceService.fetchRecentHistoryWithDiagnostics(for: suiAddress, limit: HistoryPaging.endpointBatchSize)
-
-        if let error = result.diagnostics.error, !error.isEmpty {
+        do {
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.sui, address: suiAddress
+            )
+            let entries = decodeRustHistoryJSON(json: json)
+            let records = entries.map { entry -> TransactionRecord in
+                let isIncoming = entry["is_incoming"] as? Bool ?? false
+                let mist = entry["amount_mist"] as? Double ?? 0
+                let amount = mist / 1_000_000_000
+                let timestampMs = entry["timestamp_ms"] as? Double ?? 0
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: .confirmed,
+                    walletName: wallet.name,
+                    assetName: "Sui",
+                    symbol: "SUI",
+                    chainName: "Sui",
+                    amount: amount,
+                    address: "",
+                    transactionHash: entry["digest"] as? String ?? "",
+                    sourceAddress: suiAddress,
+                    transactionHistorySource: "sui-rpc",
+                    createdAt: timestampMs > 0 ? Date(timeIntervalSince1970: timestampMs / 1000) : Date()
+                )
+            }
+            discoveredTransactions.append(contentsOf: records)
+        } catch {
             encounteredErrors = true
         }
-
-        let records = result.snapshots.map { item in
-            TransactionRecord(
-                walletID: wallet.id,
-                kind: item.kind,
-                status: item.status,
-                walletName: wallet.name,
-                assetName: "Sui",
-                symbol: "SUI",
-                chainName: "Sui",
-                amount: item.amount,
-                address: item.counterpartyAddress,
-                transactionHash: item.transactionHash,
-                sourceAddress: suiAddress,
-                transactionHistorySource: result.diagnostics.sourceUsed,
-                createdAt: item.createdAt
-            )
-        }
-        discoveredTransactions.append(contentsOf: records)
     }
 
     if !discoveredTransactions.isEmpty {
@@ -877,27 +1053,38 @@ func refreshICPTransactions(loadMore: Bool = false) async {
 
     for wallet in icpWallets {
         guard let address = resolvedICPAddress(for: wallet) else { continue }
-        let result = await ICPBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: HistoryPaging.endpointBatchSize)
-        if let error = result.diagnostics.error, !error.isEmpty {
+        do {
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.icp, address: address
+            )
+            let entries = decodeRustHistoryJSON(json: json)
+            discoveredTransactions.append(contentsOf: entries.map { entry -> TransactionRecord in
+                let isIncoming = entry["is_incoming"] as? Bool ?? false
+                let e8s = entry["amount_e8s"] as? Double ?? 0
+                let amount = e8s / 100_000_000
+                let timestampNs = entry["timestamp_ns"] as? Double ?? 0
+                let blockIndex = entry["block_index"] as? Int ?? 0
+                let from = entry["from"] as? String ?? ""
+                let to = entry["to"] as? String ?? ""
+                let counterparty = isIncoming ? from : to
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: .confirmed,
+                    walletName: wallet.name,
+                    assetName: "Internet Computer",
+                    symbol: "ICP",
+                    chainName: "Internet Computer",
+                    amount: amount,
+                    address: counterparty,
+                    transactionHash: String(blockIndex),
+                    transactionHistorySource: "rosetta",
+                    createdAt: timestampNs > 0 ? Date(timeIntervalSince1970: timestampNs / 1_000_000_000) : Date()
+                )
+            })
+        } catch {
             encounteredErrors = true
         }
-
-        discoveredTransactions.append(contentsOf: result.snapshots.map { item in
-            TransactionRecord(
-                walletID: wallet.id,
-                kind: item.kind,
-                status: item.status,
-                walletName: wallet.name,
-                assetName: "Internet Computer",
-                symbol: "ICP",
-                chainName: "Internet Computer",
-                amount: item.amount,
-                address: item.counterpartyAddress,
-                transactionHash: item.transactionHash,
-                transactionHistorySource: result.diagnostics.sourceUsed,
-                createdAt: item.createdAt
-            )
-        })
     }
 
     if !discoveredTransactions.isEmpty {
@@ -925,29 +1112,38 @@ func refreshAptosTransactions(loadMore: Bool = false) async {
 
     for wallet in aptosWallets {
         guard let aptosAddress = resolvedAptosAddress(for: wallet) else { continue }
-        let result = await AptosBalanceService.fetchRecentHistoryWithDiagnostics(for: aptosAddress, limit: HistoryPaging.endpointBatchSize)
-
-        if let error = result.diagnostics.error, !error.isEmpty {
+        do {
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.aptos, address: aptosAddress
+            )
+            let entries = decodeRustHistoryJSON(json: json)
+            let records = entries.map { entry -> TransactionRecord in
+                let isIncoming = entry["is_incoming"] as? Bool ?? false
+                let octas = entry["amount_octas"] as? Double ?? 0
+                let amount = octas / 100_000_000
+                let timestampUs = entry["timestamp_us"] as? Double ?? 0
+                let from = entry["from"] as? String ?? ""
+                let to = entry["to"] as? String ?? ""
+                let counterparty = isIncoming ? from : to
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: .confirmed,
+                    walletName: wallet.name,
+                    assetName: "Aptos",
+                    symbol: "APT",
+                    chainName: "Aptos",
+                    amount: amount,
+                    address: counterparty,
+                    transactionHash: entry["txid"] as? String ?? "",
+                    transactionHistorySource: "aptos-rpc",
+                    createdAt: timestampUs > 0 ? Date(timeIntervalSince1970: timestampUs / 1_000_000) : Date()
+                )
+            }
+            discoveredTransactions.append(contentsOf: records)
+        } catch {
             encounteredErrors = true
         }
-
-        let records = result.snapshots.map { item in
-            TransactionRecord(
-                walletID: wallet.id,
-                kind: item.kind,
-                status: item.status,
-                walletName: wallet.name,
-                assetName: "Aptos",
-                symbol: "APT",
-                chainName: "Aptos",
-                amount: item.amount,
-                address: item.counterpartyAddress,
-                transactionHash: item.transactionHash,
-                transactionHistorySource: result.diagnostics.sourceUsed,
-                createdAt: item.createdAt
-            )
-        }
-        discoveredTransactions.append(contentsOf: records)
     }
 
     if !discoveredTransactions.isEmpty {
@@ -974,28 +1170,38 @@ func refreshTONTransactions(loadMore: Bool = false) async {
 
     for wallet in tonWallets {
         guard let address = resolvedTONAddress(for: wallet) else { continue }
-        let result = await TONBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: HistoryPaging.endpointBatchSize)
-        if let error = result.diagnostics.error, !error.isEmpty {
+        do {
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.ton, address: address
+            )
+            let entries = decodeRustHistoryJSON(json: json)
+            let records = entries.map { entry -> TransactionRecord in
+                let isIncoming = entry["is_incoming"] as? Bool ?? false
+                let nanotons = entry["amount_nanotons"] as? Double ?? 0
+                let amount = nanotons / 1_000_000_000
+                let timestamp = entry["timestamp"] as? Double ?? 0
+                let from = entry["from"] as? String ?? ""
+                let to = entry["to"] as? String ?? ""
+                let counterparty = isIncoming ? from : to
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: .confirmed,
+                    walletName: wallet.name,
+                    assetName: "Toncoin",
+                    symbol: "TON",
+                    chainName: "TON",
+                    amount: amount,
+                    address: counterparty,
+                    transactionHash: entry["txid"] as? String ?? "",
+                    transactionHistorySource: "tonapi",
+                    createdAt: timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : Date()
+                )
+            }
+            discoveredTransactions.append(contentsOf: records)
+        } catch {
             encounteredErrors = true
         }
-
-        let records = result.snapshots.map { item in
-            TransactionRecord(
-                walletID: wallet.id,
-                kind: item.kind,
-                status: item.status,
-                walletName: wallet.name,
-                assetName: "Toncoin",
-                symbol: "TON",
-                chainName: "TON",
-                amount: item.amount,
-                address: item.counterpartyAddress,
-                transactionHash: item.transactionHash,
-                transactionHistorySource: result.diagnostics.sourceUsed,
-                createdAt: item.createdAt
-            )
-        }
-        discoveredTransactions.append(contentsOf: records)
     }
 
     if !discoveredTransactions.isEmpty {
@@ -1023,29 +1229,38 @@ func refreshNearTransactions(loadMore: Bool = false) async {
 
     for wallet in nearWallets {
         guard let nearAddress = resolvedNearAddress(for: wallet) else { continue }
-        let result = await NearBalanceService.fetchRecentHistoryWithDiagnostics(for: nearAddress, limit: HistoryPaging.endpointBatchSize)
-
-        if let error = result.diagnostics.error, !error.isEmpty {
+        do {
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.near, address: nearAddress
+            )
+            let entries = decodeRustHistoryJSON(json: json)
+            let records = entries.map { entry -> TransactionRecord in
+                let isIncoming = entry["is_incoming"] as? Bool ?? false
+                let yoctoStr = entry["amount_yocto"] as? String ?? "0"
+                let amount = (Double(yoctoStr) ?? 0) / 1e24
+                let timestampNs = entry["timestamp_ns"] as? Double ?? 0
+                let signer = entry["signer_id"] as? String ?? ""
+                let receiver = entry["receiver_id"] as? String ?? ""
+                let counterparty = isIncoming ? signer : receiver
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: .confirmed,
+                    walletName: wallet.name,
+                    assetName: "NEAR Protocol",
+                    symbol: "NEAR",
+                    chainName: "NEAR",
+                    amount: amount,
+                    address: counterparty,
+                    transactionHash: entry["txid"] as? String ?? "",
+                    transactionHistorySource: "near-rpc",
+                    createdAt: timestampNs > 0 ? Date(timeIntervalSince1970: timestampNs / 1_000_000_000) : Date()
+                )
+            }
+            discoveredTransactions.append(contentsOf: records)
+        } catch {
             encounteredErrors = true
         }
-
-        let records = result.snapshots.map { item in
-            TransactionRecord(
-                walletID: wallet.id,
-                kind: item.kind,
-                status: item.status,
-                walletName: wallet.name,
-                assetName: "NEAR Protocol",
-                symbol: "NEAR",
-                chainName: "NEAR",
-                amount: item.amount,
-                address: item.counterpartyAddress,
-                transactionHash: item.transactionHash,
-                transactionHistorySource: result.diagnostics.sourceUsed,
-                createdAt: item.createdAt
-            )
-        }
-        discoveredTransactions.append(contentsOf: records)
     }
 
     if !discoveredTransactions.isEmpty {
@@ -1073,29 +1288,38 @@ func refreshPolkadotTransactions(loadMore: Bool = false) async {
 
     for wallet in polkadotWallets {
         guard let polkadotAddress = resolvedPolkadotAddress(for: wallet) else { continue }
-        let result = await PolkadotBalanceService.fetchRecentHistoryWithDiagnostics(for: polkadotAddress, limit: HistoryPaging.endpointBatchSize)
-
-        if let error = result.diagnostics.error, !error.isEmpty {
+        do {
+            let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.polkadot, address: polkadotAddress
+            )
+            let entries = decodeRustHistoryJSON(json: json)
+            let records = entries.map { entry -> TransactionRecord in
+                let isIncoming = entry["is_incoming"] as? Bool ?? false
+                let planck = entry["amount_planck"] as? Double ?? 0
+                let amount = planck / 10_000_000_000
+                let timestamp = entry["timestamp"] as? Double ?? 0
+                let from = entry["from"] as? String ?? ""
+                let to = entry["to"] as? String ?? ""
+                let counterparty = isIncoming ? from : to
+                return TransactionRecord(
+                    walletID: wallet.id,
+                    kind: isIncoming ? .receive : .send,
+                    status: .confirmed,
+                    walletName: wallet.name,
+                    assetName: "Polkadot",
+                    symbol: "DOT",
+                    chainName: "Polkadot",
+                    amount: amount,
+                    address: counterparty,
+                    transactionHash: entry["txid"] as? String ?? "",
+                    transactionHistorySource: "subscan",
+                    createdAt: timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : Date()
+                )
+            }
+            discoveredTransactions.append(contentsOf: records)
+        } catch {
             encounteredErrors = true
         }
-
-        let records = result.snapshots.map { item in
-            TransactionRecord(
-                walletID: wallet.id,
-                kind: item.kind,
-                status: item.status,
-                walletName: wallet.name,
-                assetName: "Polkadot",
-                symbol: "DOT",
-                chainName: "Polkadot",
-                amount: item.amount,
-                address: item.counterpartyAddress,
-                transactionHash: item.transactionHash,
-                transactionHistorySource: result.diagnostics.sourceUsed,
-                createdAt: item.createdAt
-            )
-        }
-        discoveredTransactions.append(contentsOf: records)
     }
 
     if !discoveredTransactions.isEmpty {
@@ -1233,64 +1457,35 @@ func refreshEVMTokenTransactions(
         var tokenHistoryError: Error?
         var nativeTransfers: [EthereumNativeTransferSnapshot] = []
 
-        // Fetch both native and token transfers.
-        // Rust path: all Etherscan-indexed EVM chains (ETH, ARB, OP, AVAX, BASE, ETC, BSC).
-        // Swift fallback: Hyperliquid (custom explorer, not yet in Rust).
-        if let chainId = SpectraChainID.id(for: chainName) {
-            let tokenTuples: [(contract: String, symbol: String, name: String, decimals: Int)] =
-                (trackedTokens ?? []).map { ($0.contractAddress, $0.symbol, $0.name, $0.decimals) }
-            do {
-                let json = try await WalletServiceBridge.shared.fetchEVMHistoryPageJSON(
-                    chainId: chainId,
-                    address: normalizedAddress,
-                    tokens: tokenTuples,
-                    page: page,
-                    pageSize: requestedPageSize
-                )
-                let (decodedToken, decodedNative) = decodeEvmHistoryPageJSON(json)
-                tokenHistory = decodedToken
-                nativeTransfers = decodedNative
-                tokenDiagnostics = EthereumTokenTransferHistoryDiagnostics(
-                    address: normalizedAddress,
-                    rpcTransferCount: 0, rpcError: nil,
-                    blockscoutTransferCount: 0, blockscoutError: nil,
-                    etherscanTransferCount: decodedToken.count, etherscanError: nil,
-                    ethplorerTransferCount: 0, ethplorerError: nil,
-                    sourceUsed: "rust/etherscan"
-                )
-            } catch {
-                tokenHistoryError = error
-                encounteredErrors = true
-            }
-        } else {
-            // Swift fallback for chains not yet in Rust (Hyperliquid etc.)
-            do {
-                let result = try await EthereumWalletEngine.fetchSupportedTokenTransferHistoryPageWithDiagnostics(
-                    for: normalizedAddress,
-                    rpcEndpoint: nil,
-                    etherscanAPIKey: nil,
-                    page: page,
-                    pageSize: requestedPageSize,
-                    trackedTokens: trackedTokens,
-                    chain: chain
-                )
-                tokenHistory = result.snapshots
-                tokenDiagnostics = result.diagnostics
-            } catch {
-                tokenHistoryError = error
-                encounteredErrors = true
-            }
-            do {
-                nativeTransfers = try await EthereumWalletEngine.fetchNativeTransferHistoryPageFromEtherscan(
-                    for: normalizedAddress,
-                    apiKey: nil,
-                    page: page,
-                    pageSize: requestedPageSize,
-                    chain: chain
-                )
-            } catch {
-                encounteredErrors = true
-            }
+        // Fetch both native and token transfers via Rust for all Etherscan-indexed EVM chains.
+        guard let chainId = SpectraChainID.id(for: chainName) else {
+            encounteredErrors = true
+            continue
+        }
+        let tokenTuples: [(contract: String, symbol: String, name: String, decimals: Int)] =
+            (trackedTokens ?? []).map { ($0.contractAddress, $0.symbol, $0.name, $0.decimals) }
+        do {
+            let json = try await WalletServiceBridge.shared.fetchEVMHistoryPageJSON(
+                chainId: chainId,
+                address: normalizedAddress,
+                tokens: tokenTuples,
+                page: page,
+                pageSize: requestedPageSize
+            )
+            let (decodedToken, decodedNative) = decodeEvmHistoryPageJSON(json)
+            tokenHistory = decodedToken
+            nativeTransfers = decodedNative
+            tokenDiagnostics = EthereumTokenTransferHistoryDiagnostics(
+                address: normalizedAddress,
+                rpcTransferCount: 0, rpcError: nil,
+                blockscoutTransferCount: 0, blockscoutError: nil,
+                etherscanTransferCount: decodedToken.count, etherscanError: nil,
+                ethplorerTransferCount: 0, ethplorerError: nil,
+                sourceUsed: "rust/etherscan"
+            )
+        } catch {
+            tokenHistoryError = error
+            encounteredErrors = true
         }
 
         if chain.isEthereumFamily {
@@ -1564,23 +1759,31 @@ func refreshDogecoinTransactions(limit: Int? = nil, loadMore: Bool = false, targ
 
         for dogecoinAddress in dogecoinAddresses {
             do {
-                let page = try await DogecoinBalanceService.fetchTransactionPage(
-                    for: dogecoinAddress,
-                    limit: fetchLimit,
-                    cursor: loadMore ? dogecoinHistoryCursorByWallet[wallet.id] : nil,
-                    networkMode: wallet.dogecoinNetworkMode
+                let json = try await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.dogecoin, address: dogecoinAddress
                 )
-                let snapshots = page.snapshots
-                for snapshot in snapshots {
-                    snapshotsByHash[snapshot.hash, default: []].append(snapshot)
+                let entries = decodeSatHistoryFromRust(json: json)
+                for entry in entries {
+                    guard let txid = entry["txid"] as? String else { continue }
+                    let amountKoin = (entry["amount_koin"] as? Int) ?? 0
+                    let blockHeight = entry["block_height"] as? Int
+                    let timestamp = (entry["timestamp"] as? Double) ?? 0
+                    let isIncoming = (entry["is_incoming"] as? Bool) ?? (amountKoin >= 0)
+                    snapshotsByHash[txid, default: []].append(
+                        DogecoinBalanceService.AddressTransactionSnapshot(
+                            hash: txid,
+                            kind: isIncoming ? .receive : .send,
+                            status: (blockHeight ?? 0) > 0 ? .confirmed : .pending,
+                            amount: Double(abs(amountKoin)) / 1e8,
+                            counterpartyAddress: "",
+                            createdAt: timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : Date.distantPast,
+                            blockNumber: blockHeight
+                        )
+                    )
                 }
-                if let nextCursor = page.nextCursor {
-                    dogecoinHistoryCursorByWallet[wallet.id] = nextCursor
-                    exhaustedDogecoinHistoryWalletIDs.remove(wallet.id)
-                } else {
-                    dogecoinHistoryCursorByWallet[wallet.id] = nil
-                    exhaustedDogecoinHistoryWalletIDs.insert(wallet.id)
-                }
+                // Rust returns flat list — always exhaust after first page.
+                dogecoinHistoryCursorByWallet[wallet.id] = nil
+                exhaustedDogecoinHistoryWalletIDs.insert(wallet.id)
             } catch {
                 encounteredErrors = true
                 continue

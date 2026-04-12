@@ -475,116 +475,67 @@ enum ChainVisualRegistryCatalog {
     }
 }
 
-struct BuiltInTokenRegistrySeed: Decodable {
-    let chain: String
-    let name: String
-    let symbol: String
-    let tokenStandard: String
-    let contractAddress: String
-    let marketDataID: String
-    let coinGeckoID: String
-    let decimals: Int
-    let displayDecimals: Int?
-    let category: String
-    let isBuiltIn: Bool
-    let isEnabledByDefault: Bool
-}
-
-enum BuiltInTokenRegistryCatalog {
-    static func loadEntries() -> [ChainTokenRegistryEntry] {
-        let seeds = StaticContentCatalog.loadRequiredResource("BuiltInTokenRegistry", as: [BuiltInTokenRegistrySeed].self)
-        return seeds.compactMap { seed in
-            guard let chain = tokenTrackingChain(for: seed.chain),
-                  let category = TokenPreferenceCategory(rawValue: seed.category) else {
-                return nil
-            }
-            return ChainTokenRegistryEntry(
-                chain: chain,
-                name: seed.name,
-                symbol: seed.symbol,
-                tokenStandard: seed.tokenStandard,
-                contractAddress: resolvedContractAddress(seed.contractAddress),
-                marketDataID: seed.marketDataID,
-                coinGeckoID: seed.coinGeckoID,
-                decimals: seed.decimals,
-                displayDecimals: seed.displayDecimals,
-                category: category,
-                isBuiltIn: seed.isBuiltIn,
-                isEnabledByDefault: seed.isEnabledByDefault
-            )
-        }
-    }
-
-    private static func tokenTrackingChain(for value: String) -> TokenTrackingChain? {
-        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        switch normalized {
-        case "ethereum":
-            return .ethereum
-        case "arbitrum":
-            return .arbitrum
-        case "optimism":
-            return .optimism
-        case "bnb", "bnb chain":
-            return .bnb
-        case "avalanche":
-            return .avalanche
-        case "hyperliquid":
-            return .hyperliquid
-        case "solana":
-            return .solana
-        case "sui":
-            return .sui
-        case "aptos":
-            return .aptos
-        case "ton":
-            return .ton
-        case "near":
-            return .near
-        case "tron":
-            return .tron
-        default:
-            return TokenTrackingChain.allCases.first {
-                $0.rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized
-            }
-        }
-    }
-
-    private static func resolvedContractAddress(_ value: String) -> String {
-        switch value {
-        case "SolanaBalanceService.usdtMintAddress":
-            return SolanaBalanceService.usdtMintAddress
-        case "SolanaBalanceService.usdcMintAddress":
-            return SolanaBalanceService.usdcMintAddress
-        case "SolanaBalanceService.pyusdMintAddress":
-            return SolanaBalanceService.pyusdMintAddress
-        case "SolanaBalanceService.usdgMintAddress":
-            return SolanaBalanceService.usdgMintAddress
-        case "SolanaBalanceService.usd1MintAddress":
-            return SolanaBalanceService.usd1MintAddress
-        case "SolanaBalanceService.linkMintAddress":
-            return SolanaBalanceService.linkMintAddress
-        case "SolanaBalanceService.wlfiMintAddress":
-            return SolanaBalanceService.wlfiMintAddress
-        case "SolanaBalanceService.jupMintAddress":
-            return SolanaBalanceService.jupMintAddress
-        case "SolanaBalanceService.bonkMintAddress":
-            return SolanaBalanceService.bonkMintAddress
-        case "TronBalanceService.usdtTronContract":
-            return TronBalanceService.usdtTronContract
-        case "TronBalanceService.usddTronContract":
-            return TronBalanceService.usddTronContract
-        case "TronBalanceService.usd1TronContract":
-            return TronBalanceService.usd1TronContract
-        case "TronBalanceService.bttTronContract":
-            return TronBalanceService.bttTronContract
-        default:
-            return value
+private func tokenTrackingChainFor(_ value: String) -> TokenTrackingChain? {
+    let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    switch normalized {
+    case "ethereum":  return .ethereum
+    case "arbitrum":  return .arbitrum
+    case "optimism":  return .optimism
+    case "bnb", "bnb chain": return .bnb
+    case "avalanche": return .avalanche
+    case "hyperliquid": return .hyperliquid
+    case "solana":    return .solana
+    case "sui":       return .sui
+    case "aptos":     return .aptos
+    case "ton":       return .ton
+    case "near":      return .near
+    case "tron":      return .tron
+    default:
+        return TokenTrackingChain.allCases.first {
+            $0.rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized
         }
     }
 }
 
 extension ChainTokenRegistryEntry {
-    static let builtIn: [ChainTokenRegistryEntry] = BuiltInTokenRegistryCatalog.loadEntries()
+    static let builtIn: [ChainTokenRegistryEntry] = {
+        let json = listBuiltinTokensJson(chainId: UInt32.max)
+        guard let data = json.data(using: .utf8),
+              let entries = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else {
+            return []
+        }
+        return entries.compactMap { obj -> ChainTokenRegistryEntry? in
+            guard let chainName = obj["chain"] as? String,
+                  let chain = tokenTrackingChainFor(chainName),
+                  let name = obj["name"] as? String,
+                  let symbol = obj["symbol"] as? String,
+                  let tokenStandard = obj["token_standard"] as? String,
+                  let contract = obj["contract"] as? String,
+                  let marketId = obj["market_id"] as? String,
+                  let coingeckoId = obj["coingecko_id"] as? String,
+                  let decimals = obj["decimals"] as? Int,
+                  let categoryRaw = obj["category"] as? String,
+                  let category = TokenPreferenceCategory(rawValue: categoryRaw) else {
+                return nil
+            }
+            let displayDecimals = obj["display_decimals"] as? Int
+            let enabled = obj["enabled"] as? Bool ?? true
+            return ChainTokenRegistryEntry(
+                chain: chain,
+                name: name,
+                symbol: symbol,
+                tokenStandard: tokenStandard,
+                contractAddress: contract,
+                marketDataID: marketId,
+                coinGeckoID: coingeckoId,
+                decimals: decimals,
+                displayDecimals: displayDecimals,
+                category: category,
+                isBuiltIn: true,
+                isEnabledByDefault: enabled
+            )
+        }
+    }()
 }
 
 enum BIP39EnglishWordList {

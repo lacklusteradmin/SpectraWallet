@@ -234,7 +234,7 @@ extension WalletStore {
                 return true
             }
             if let xpub = wallet.bitcoinXPub,
-               BitcoinWalletEngine.isLikelyExtendedPublicKey(xpub) {
+               (xpub.hasPrefix("xpub") || xpub.hasPrefix("ypub") || xpub.hasPrefix("zpub")) {
                 return true
             }
             return false

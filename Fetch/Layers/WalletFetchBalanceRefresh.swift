@@ -100,7 +100,13 @@ extension WalletFetchLayer {
         guard !walletsToRefresh.isEmpty else { return }
 
         let resolvedBalances = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, bitcoinCashAddress) in
-            let balance = try? await BitcoinCashBalanceService.fetchBalance(for: bitcoinCashAddress)
+            let balance: Double?
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.bitcoinCash, address: bitcoinCashAddress),
+               let sat = RustBalanceDecoder.uint64Field("balance_sat", from: json) {
+                balance = Double(sat) / 1e8
+            } else {
+                balance = nil
+            }
             return (index, balance)
         }
 
@@ -140,7 +146,13 @@ extension WalletFetchLayer {
         guard !walletsToRefresh.isEmpty else { return }
 
         let resolvedBalances = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, bitcoinSVAddress) in
-            let balance = try? await BitcoinSVBalanceService.fetchBalance(for: bitcoinSVAddress)
+            let balance: Double?
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.bitcoinSv, address: bitcoinSVAddress),
+               let sat = RustBalanceDecoder.uint64Field("balance_sat", from: json) {
+                balance = Double(sat) / 1e8
+            } else {
+                balance = nil
+            }
             return (index, balance)
         }
 
@@ -169,7 +181,13 @@ extension WalletFetchLayer {
         guard !walletsToRefresh.isEmpty else { return }
 
         let resolvedBalances = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, litecoinAddress) in
-            let balance = try? await LitecoinBalanceService.fetchBalance(for: litecoinAddress)
+            let balance: Double?
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.litecoin, address: litecoinAddress),
+               let sat = RustBalanceDecoder.uint64Field("balance_sat", from: json) {
+                balance = Double(sat) / 1e8
+            } else {
+                balance = nil
+            }
             return (index, balance)
         }
 
@@ -213,12 +231,13 @@ extension WalletFetchLayer {
         guard !walletsToRefresh.isEmpty else { return }
 
         var updatedWallets = walletSnapshot
-        let resolvedBalances = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, wallet, dogecoinAddresses) in
+        let resolvedBalances = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, dogecoinAddresses) in
             var didResolve = false
             var totalBalance: Double = 0
             for dogecoinAddress in dogecoinAddresses {
-                if let balance = try? await DogecoinBalanceService.fetchBalance(for: dogecoinAddress, networkMode: wallet.dogecoinNetworkMode) {
-                    totalBalance += balance
+                if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.dogecoin, address: dogecoinAddress),
+                   let koin = RustBalanceDecoder.uint64Field("balance_koin", from: json) {
+                    totalBalance += Double(koin) / 1e8
                     didResolve = true
                 }
             }
@@ -265,12 +284,30 @@ extension WalletFetchLayer {
         guard !walletsToRefresh.isEmpty else { return }
 
         var updatedWallets = walletSnapshot
+        let trackedTronTokens = store.enabledTronTrackedTokens()
+        let tronTokenTuples = trackedTronTokens.map { t in
+            (contract: t.contractAddress, symbol: t.symbol, decimals: t.decimals)
+        }
         let resolvedBalances = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, tronAddress) in
-            let balances = try? await TronBalanceService.fetchBalances(
-                for: tronAddress,
-                trackedTokens: store.enabledTronTrackedTokens()
-            )
-            return (index, balances.map { ($0.trxBalance, $0.tokenBalances) })
+            guard let nativeJSON = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.tron, address: tronAddress),
+                  let sun = RustBalanceDecoder.uint64Field("sun", from: nativeJSON) else {
+                return (index, nil as (Double, [TronTokenBalanceSnapshot])?)
+            }
+            let trxBalance = Double(sun) / 1e6
+            var tokenBalances: [TronTokenBalanceSnapshot] = []
+            if !tronTokenTuples.isEmpty,
+               let tokenJSON = try? await WalletServiceBridge.shared.fetchTokenBalancesJSON(chainId: SpectraChainID.tron, address: tronAddress, tokens: tronTokenTuples),
+               let tokenData = tokenJSON.data(using: .utf8),
+               let tokenArr = try? JSONSerialization.jsonObject(with: tokenData) as? [[String: Any]] {
+                tokenBalances = tokenArr.compactMap { obj in
+                    guard let contract = obj["contract"] as? String,
+                          let symbol = obj["symbol"] as? String,
+                          let displayStr = obj["balance_display"] as? String,
+                          let balance = Double(displayStr) else { return nil }
+                    return TronTokenBalanceSnapshot(symbol: symbol, contractAddress: contract, balance: balance)
+                }
+            }
+            return (index, (trxBalance, tokenBalances))
         }
 
         var fallbackNativeBalances: [Int: Double] = [:]
@@ -326,12 +363,41 @@ extension WalletFetchLayer {
         guard !walletsToRefresh.isEmpty else { return }
 
         var updatedWallets = walletSnapshot
+        let trackedSolanaTokens = store.enabledSolanaTrackedTokens()
+        let solanaTokenTuples = trackedSolanaTokens.map { mint, meta in
+            (contract: mint, symbol: meta.symbol, decimals: meta.decimals)
+        }
         let resolvedPortfolios = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, address) in
-            let portfolio = try? await SolanaBalanceService.fetchPortfolio(
-                for: address,
-                trackedTokenMetadataByMint: store.enabledSolanaTrackedTokens()
-            )
-            return (index, portfolio)
+            guard let nativeJSON = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.solana, address: address),
+                  let lamports = RustBalanceDecoder.uint64Field("lamports", from: nativeJSON) else {
+                return (index, nil as SolanaPortfolioSnapshot?)
+            }
+            let nativeBalance = Double(lamports) / 1e9
+            var tokenBalances: [SolanaSPLTokenBalanceSnapshot] = []
+            if !solanaTokenTuples.isEmpty,
+               let tokenJSON = try? await WalletServiceBridge.shared.fetchTokenBalancesJSON(chainId: SpectraChainID.solana, address: address, tokens: solanaTokenTuples),
+               let tokenData = tokenJSON.data(using: .utf8),
+               let tokenArr = try? JSONSerialization.jsonObject(with: tokenData) as? [[String: Any]] {
+                tokenBalances = tokenArr.compactMap { obj -> SolanaSPLTokenBalanceSnapshot? in
+                    guard let mint = obj["contract"] as? String,
+                          let displayStr = obj["balance_display"] as? String,
+                          let balance = Double(displayStr),
+                          balance > 0 else { return nil }
+                    let meta = trackedSolanaTokens[mint]
+                    return SolanaSPLTokenBalanceSnapshot(
+                        mintAddress: mint,
+                        sourceTokenAccountAddress: "",
+                        symbol: meta?.symbol ?? (obj["symbol"] as? String ?? ""),
+                        name: meta?.name ?? "",
+                        tokenStandard: "SPL",
+                        decimals: meta?.decimals ?? (obj["decimals"] as? Int ?? 0),
+                        balance: balance,
+                        marketDataID: meta?.marketDataID ?? "",
+                        coinGeckoID: meta?.coinGeckoID ?? ""
+                    )
+                }
+            }
+            return (index, SolanaPortfolioSnapshot(nativeBalance: nativeBalance, tokenBalances: tokenBalances))
         }
 
         var fallbackNativeBalances: [Int: Double] = [:]
@@ -383,8 +449,12 @@ extension WalletFetchLayer {
 
         var updatedWallets = walletSnapshot
         let resolvedBalances = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, address) in
-            let balance = try? await store.withTimeout(seconds: 25) {
-                try await CardanoBalanceService.fetchBalance(for: address)
+            let balance: Double?
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.cardano, address: address),
+               let lovelace = RustBalanceDecoder.uint64Field("lovelace", from: json) {
+                balance = Double(lovelace) / 1_000_000
+            } else {
+                balance = nil
             }
             return (index, balance)
         }
@@ -428,7 +498,13 @@ extension WalletFetchLayer {
 
         var updatedWallets = walletSnapshot
         let resolvedBalances = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, address) in
-            let balance = try? await XRPBalanceService.fetchBalance(for: address)
+            let balance: Double?
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.xrp, address: address),
+               let drops = RustBalanceDecoder.uint64Field("drops", from: json) {
+                balance = Double(drops) / 1_000_000
+            } else {
+                balance = nil
+            }
             return (index, balance)
         }
 
@@ -471,7 +547,13 @@ extension WalletFetchLayer {
 
         var updatedWallets = walletSnapshot
         let resolvedBalances = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, address) in
-            let balance = try? await StellarBalanceService.fetchBalance(for: address)
+            let balance: Double?
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.stellar, address: address),
+               let stroops = RustBalanceDecoder.int64Field("stroops", from: json) {
+                balance = Double(stroops) / 10_000_000
+            } else {
+                balance = nil
+            }
             return (index, balance)
         }
 
@@ -511,7 +593,13 @@ extension WalletFetchLayer {
 
         var updatedWallets = walletSnapshot
         let resolvedBalances = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, address) in
-            let balance = try? await MoneroBalanceService.fetchBalance(for: address)
+            let balance: Double?
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.monero, address: address),
+               let piconeros = RustBalanceDecoder.uint64Field("piconeros", from: json) {
+                balance = Double(piconeros) / 1_000_000_000_000
+            } else {
+                balance = nil
+            }
             return (index, balance)
         }
 
@@ -555,10 +643,13 @@ extension WalletFetchLayer {
 
         var updatedWallets = walletSnapshot
         let resolvedPortfolios = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, address) in
-            let portfolio = try? await SuiBalanceService.fetchPortfolio(
-                for: address,
-                trackedTokenMetadataByCoinType: trackedTokens
-            )
+            let portfolio: SuiPortfolioSnapshot?
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.sui, address: address),
+               let mist = RustBalanceDecoder.uint64Field("mist", from: json) {
+                portfolio = SuiPortfolioSnapshot(nativeBalance: Double(mist) / 1_000_000_000, tokenBalances: [])
+            } else {
+                portfolio = nil
+            }
             return (index, portfolio)
         }
 
@@ -606,10 +697,13 @@ extension WalletFetchLayer {
         var updatedWallets = walletSnapshot
         let trackedTokens = store.enabledAptosTrackedTokens()
         let resolvedBalances = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, address) in
-            let portfolio = try? await AptosBalanceService.fetchPortfolio(
-                for: address,
-                trackedTokenMetadataByType: trackedTokens
-            )
+            let portfolio: AptosPortfolioSnapshot?
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.aptos, address: address),
+               let octas = RustBalanceDecoder.uint64Field("octas", from: json) {
+                portfolio = AptosPortfolioSnapshot(nativeBalance: Double(octas) / 100_000_000, tokenBalances: [])
+            } else {
+                portfolio = nil
+            }
             return (index, portfolio)
         }
 
@@ -654,10 +748,13 @@ extension WalletFetchLayer {
 
         var updatedWallets = walletSnapshot
         let resolvedBalances: [Int: TONPortfolioSnapshot] = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, address) in
-            let portfolio = try? await TONBalanceService.fetchPortfolio(
-                for: address,
-                trackedTokenMetadataByMasterAddress: trackedTokens
-            )
+            let portfolio: TONPortfolioSnapshot?
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.ton, address: address),
+               let nanotons = RustBalanceDecoder.uint64Field("nanotons", from: json) {
+                portfolio = TONPortfolioSnapshot(nativeBalance: Double(nanotons) / 1_000_000_000, tokenBalances: [])
+            } else {
+                portfolio = nil
+            }
             return (index, portfolio)
         }
 
@@ -701,7 +798,13 @@ extension WalletFetchLayer {
 
         var updatedWallets = walletSnapshot
         let resolvedBalances = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, address) in
-            let balance = try? await ICPBalanceService.fetchBalance(for: address)
+            let balance: Double?
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.icp, address: address),
+               let e8s = RustBalanceDecoder.uint64Field("e8s", from: json) {
+                balance = Double(e8s) / 100_000_000
+            } else {
+                balance = nil
+            }
             return (index, balance)
         }
 
@@ -731,18 +834,47 @@ extension WalletFetchLayer {
 
         var updatedWallets = walletSnapshot
         let resolvedBalances: [Int: (Double?, [NearTokenBalanceSnapshot]?)] = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, address) in
-            async let nativeBalanceTask = try? await NearBalanceService.fetchBalance(for: address)
-            let tokenBalances: [NearTokenBalanceSnapshot]?
-            if trackedTokens.isEmpty {
-                tokenBalances = nil
-            } else {
-                tokenBalances = try? await NearBalanceService.fetchTrackedTokenBalances(
-                    for: address,
-                    trackedTokenMetadataByContract: trackedTokens
-                )
+            // Native NEAR balance via Rust.
+            var nativeBalance: Double? = nil
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.near, address: address),
+               let data = json.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let yoctoStr = obj["yocto_near"] as? String,
+               let yocto = Double(yoctoStr) {
+                nativeBalance = yocto / 1e24
             }
 
-            let nativeBalance = await nativeBalanceTask
+            // NEP-141 token balances via Rust fetch_token_balances.
+            var tokenBalances: [NearTokenBalanceSnapshot]? = nil
+            if !trackedTokens.isEmpty {
+                let tokenTuples = trackedTokens.map { (contract, meta) in
+                    (contract: contract, symbol: meta.symbol, decimals: meta.decimals)
+                }
+                if let resultJson = try? await WalletServiceBridge.shared.fetchTokenBalancesJSON(
+                       chainId: SpectraChainID.near, address: address, tokens: tokenTuples),
+                   let resultData = resultJson.data(using: .utf8),
+                   let results = try? JSONSerialization.jsonObject(with: resultData) as? [[String: Any]] {
+                    tokenBalances = results.compactMap { obj -> NearTokenBalanceSnapshot? in
+                        guard let contract = obj["contract"] as? String,
+                              let rawStr = obj["balance_raw"] as? String,
+                              let decimals = obj["decimals"] as? Int,
+                              let meta = trackedTokens[contract],
+                              let rawDouble = Double(rawStr) else { return nil }
+                        let balance = rawDouble / pow(10, Double(decimals))
+                        return NearTokenBalanceSnapshot(
+                            contractAddress: contract,
+                            symbol: meta.symbol,
+                            name: meta.name,
+                            tokenStandard: meta.tokenStandard,
+                            decimals: decimals,
+                            balance: balance,
+                            marketDataID: meta.marketDataID,
+                            coinGeckoID: meta.coinGeckoID
+                        )
+                    }
+                }
+            }
+
             guard nativeBalance != nil || tokenBalances != nil else {
                 return (index, nil)
             }
@@ -793,7 +925,13 @@ extension WalletFetchLayer {
 
         var updatedWallets = walletSnapshot
         let resolvedBalances = await store.collectLimitedConcurrentIndexedResults(from: walletsToRefresh) { (index, _, address) in
-            let balance = try? await PolkadotBalanceService.fetchBalance(for: address)
+            let balance: Double?
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.polkadot, address: address),
+               let planck = RustBalanceDecoder.uint128StringField("planck", from: json) {
+                balance = planck / 10_000_000_000
+            } else {
+                balance = nil
+            }
             return (index, balance)
         }
 

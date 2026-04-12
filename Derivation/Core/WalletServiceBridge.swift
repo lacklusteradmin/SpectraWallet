@@ -27,6 +27,7 @@ enum SpectraChainID {
     static let ethereumClassic:  UInt32 = 21
     static let bitcoinSv:        UInt32 = 22
     static let bsc:              UInt32 = 23
+    static let hyperliquid:      UInt32 = 24
 
     // Logical offsets for secondary endpoint bundles (mirrors service.rs)
     static let subscaOffset:  UInt32 = 100   // Polkadot Subscan
@@ -62,6 +63,7 @@ enum SpectraChainID {
         "Ethereum Classic":   ethereumClassic,
         "Bitcoin SV":         bitcoinSv,
         "BNB Chain":          bsc,
+        "Hyperliquid":        hyperliquid,
     ]
 }
 
@@ -219,6 +221,30 @@ actor WalletServiceBridge {
                 decimals: decimals
             )
         }
+    }
+
+    // MARK: Token balances (TRC-20 / SPL batch)
+
+    /// Fetch balances for a list of tokens in one call.
+    ///
+    /// `tokens` is an array of `(contract, symbol, decimals)` tuples where
+    /// `contract` is the token contract address (or mint address for Solana).
+    ///
+    /// Returns the raw JSON array from Rust. Each element has:
+    ///   `contract`, `symbol`, `decimals`, `balance_raw`, `balance_display`.
+    func fetchTokenBalancesJSON(
+        chainId: UInt32,
+        address: String,
+        tokens: [(contract: String, symbol: String, decimals: Int)]
+    ) async throws -> String {
+        guard !tokens.isEmpty else { return "[]" }
+        let tokenArray = tokens.map { t in
+            ["contract": t.contract, "symbol": t.symbol, "decimals": t.decimals] as [String: Any]
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: tokenArray),
+              let tokensJSON = String(data: data, encoding: .utf8) else { return "[]" }
+        return try await service().fetchTokenBalances(
+            chainId: chainId, address: address, tokensJson: tokensJSON)
     }
 
     // MARK: Bitcoin HD — seed → xpub
@@ -665,6 +691,23 @@ extension WalletServiceBridge {
         try await service().saveState(dbPath: sqliteDbPath(), key: key, stateJson: stateJSON)
     }
 
+    // MARK: - Token catalog
+
+    /// Return the built-in token catalog for a chain as a JSON array string.
+    /// Pass `chainId: UInt32.max` to get all chains.
+    func listBuiltinTokensJSON(chainId: UInt32) async throws -> String {
+        try await service().listBuiltinTokens(chainId: chainId)
+    }
+
+    // MARK: - UTXO tx status
+
+    /// Fetch the confirmation status of a UTXO transaction.
+    /// Returns JSON `{"txid","confirmed","block_height","block_time"}`.
+    /// Supported chain IDs: 0 (BTC), 3 (DOGE), 5 (LTC), 6 (BCH), 22 (BSV).
+    func fetchUTXOTxStatusJSON(chainId: UInt32, txid: String) async throws -> String {
+        try await service().fetchUtxoTxStatus(chainId: chainId, txid: txid)
+    }
+
     private func sqliteDbPath() -> String {
         let docs = FileManager.default
             .urls(for: .documentDirectory, in: .userDomainMask)
@@ -761,6 +804,7 @@ private extension WalletServiceBridge {
         payloads += evmPayloads(chainId: SpectraChainID.ethereumClassic, chainName: "Ethereum Classic")
         payloads += rpcPayloads(chainId: SpectraChainID.bitcoinSv,       chainName: "Bitcoin SV")
         payloads += evmPayloads(chainId: SpectraChainID.bsc,             chainName: "BNB Chain")
+        payloads += evmPayloads(chainId: SpectraChainID.hyperliquid,     chainName: "Hyperliquid")
 
         // Subscan secondary endpoints for Polkadot (chain_id 110).
         payloads += explorerPayloads(

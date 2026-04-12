@@ -23,7 +23,7 @@ struct UTXOKilobyteFeePolicy {
 }
 
 enum UTXOFeePriorityMultiplierPolicy {
-    static func multiplier(for priority: DogecoinWalletEngine.FeePriority) -> Double {
+    static func multiplier(for priority: DogecoinFeePriority) -> Double {
         switch priority {
         case .economy:
             return 0.9

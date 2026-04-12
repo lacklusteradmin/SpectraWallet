@@ -1,11 +1,28 @@
 import Foundation
 
+/// Errors thrown by EVM address/contract operations.
+enum EthereumWalletEngineError: LocalizedError {
+    case invalidAddress
+    case invalidResponse
+    case rpcFailure(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidAddress:
+            return "Invalid EVM address."
+        case .invalidResponse:
+            return "Unexpected response from EVM provider."
+        case .rpcFailure(let detail):
+            return detail
+        }
+    }
+}
+
 /// Standalone EVM address utilities.
 ///
 /// These are pure string functions — no chain SDK dependency — so they can be
 /// called from any layer (store, fetch, history, views) without importing the
-/// full engine. The EthereumWalletEngine extension in EthereumEngine+Account.swift
-/// delegates to these to keep a single implementation.
+/// full engine.
 
 /// Lowercase-trim an EVM address. Returns the address with whitespace stripped
 /// and all hex characters lowercased. Does not validate format.

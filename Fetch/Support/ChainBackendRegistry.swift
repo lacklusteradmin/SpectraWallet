@@ -10,9 +10,6 @@ enum ChainBackendRegistry {
     }
 
     enum BitcoinRuntimeEndpoints {
-        static let blockchainInfoMultiAddressBaseURL = AppEndpointDirectory.endpoint("bitcoin.blockchain_info.multiaddr")
-        static let blockchairXPubDashboardBaseURL = AppEndpointDirectory.endpoint("bitcoin.blockchair.xpub")
-
         static func esploraBaseURLs(for networkMode: BitcoinNetworkMode) -> [String] {
             AppEndpointDirectory.bitcoinEsploraBaseURLs(for: networkMode)
         }

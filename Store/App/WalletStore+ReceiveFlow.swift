@@ -531,36 +531,33 @@ extension WalletStore {
             return
         }
 
-        if storedSeedPhrase(for: wallet.id) == nil,
-           let bitcoinXPub = wallet.bitcoinXPub?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !bitcoinXPub.isEmpty {
-            guard !isResolvingReceiveAddress else { return }
-            isResolvingReceiveAddress = true
-            defer { isResolvingReceiveAddress = false }
-
-            do {
-                receiveResolvedAddress = activateLiveReceiveAddress(
-                    try await BitcoinBalanceService.fetchReceiveAddress(forExtendedPublicKey: bitcoinXPub),
-                    for: wallet,
-                    chainName: receiveCoin.chainName
-                )
-            } catch {
-                receiveResolvedAddress = ""
-            }
-            return
-        }
-
         guard !isResolvingReceiveAddress else { return }
         isResolvingReceiveAddress = true
         defer { isResolvingReceiveAddress = false }
 
         do {
-            guard let seedPhrase = storedSeedPhrase(for: wallet.id) else {
+            let xpub: String
+            if let stored = wallet.bitcoinXPub?.trimmingCharacters(in: .whitespacesAndNewlines), !stored.isEmpty {
+                xpub = stored
+            } else if let seedPhrase = storedSeedPhrase(for: wallet.id) {
+                xpub = try await WalletServiceBridge.shared.deriveBitcoinAccountXpub(
+                    mnemonicPhrase: seedPhrase, passphrase: "", accountPath: "m/84'/0'/0'")
+            } else {
                 receiveResolvedAddress = ""
                 return
             }
+            let json = try await WalletServiceBridge.shared.fetchBitcoinNextUnusedAddressJSON(xpub: xpub)
+            let address: String?
+            if json.trimmingCharacters(in: .whitespacesAndNewlines) == "null" {
+                address = nil
+            } else if let data = json.data(using: .utf8),
+                      let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                address = obj["address"] as? String
+            } else {
+                address = nil
+            }
             receiveResolvedAddress = activateLiveReceiveAddress(
-                try await BitcoinWalletEngine.nextReceiveAddressInBackground(for: wallet, seedPhrase: seedPhrase),
+                address ?? wallet.bitcoinReceiveAddress ?? "",
                 for: wallet,
                 chainName: receiveCoin.chainName
             )
@@ -591,7 +588,7 @@ extension WalletStore {
         defer { isImportingWallet = false }
 
         let coins = importDraft.selectedCoins
-        let trimmedSeedPhrase = BitcoinWalletEngine.normalizedMnemonicPhrase(from: importDraft.seedPhrase)
+        let trimmedSeedPhrase = importDraft.seedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }.joined(separator: " ")
         let trimmedPrivateKey = PrivateKeyHex.normalized(from: importDraft.privateKeyInput)
         let trimmedWalletPassword = importDraft.normalizedWalletPassword
         let bitcoinAddressEntries = importDraft.watchOnlyEntries(from: importDraft.bitcoinAddressInput)
@@ -744,7 +741,7 @@ extension WalletStore {
         if isWatchOnlyImport && wantsBitcoinImport {
             let hasValidAddress = !bitcoinAddressEntries.isEmpty
                 && bitcoinAddressEntries.allSatisfy { AddressValidation.isValidBitcoinAddress($0, networkMode: self.bitcoinNetworkMode) }
-            let hasValidXPub = resolvedBitcoinXPub.map(BitcoinWalletEngine.isLikelyExtendedPublicKey) ?? false
+            let hasValidXPub = resolvedBitcoinXPub.map { $0.hasPrefix("xpub") || $0.hasPrefix("ypub") || $0.hasPrefix("zpub") } ?? false
             if !hasValidAddress && !hasValidXPub {
                 importError = "Enter one valid Bitcoin address per line or a valid xpub/zpub for watched addresses."
                 return
@@ -1997,7 +1994,9 @@ extension WalletStore {
         guard let address, !address.isEmpty else {
             throw WalletImportSyncError.bitcoinCash
         }
-        return try await BitcoinCashBalanceService.fetchBalance(for: address)
+        let json = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.bitcoinCash, address: address)
+        guard let sat = RustBalanceDecoder.uint64Field("balance_sat", from: json) else { return nil }
+        return Double(sat) / 1e8
     }
 
     func fetchBitcoinSVImportBalanceIfNeeded(
@@ -2008,7 +2007,9 @@ extension WalletStore {
         guard let address, !address.isEmpty else {
             throw WalletImportSyncError.bitcoinSV
         }
-        return try await BitcoinSVBalanceService.fetchBalance(for: address)
+        let json = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.bitcoinSv, address: address)
+        guard let sat = RustBalanceDecoder.uint64Field("balance_sat", from: json) else { return nil }
+        return Double(sat) / 1e8
     }
 
     func walletByReplacingHoldings(_ wallet: ImportedWallet, with holdings: [Coin]) -> ImportedWallet {
@@ -2051,7 +2052,9 @@ extension WalletStore {
         guard let address, !address.isEmpty else {
             throw WalletImportSyncError.dogecoin
         }
-        return try await DogecoinBalanceService.fetchBalance(for: address, networkMode: dogecoinNetworkMode)
+        let json = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.dogecoin, address: address)
+        guard let koin = RustBalanceDecoder.uint64Field("balance_koin", from: json) else { return nil }
+        return Double(koin) / 1e8
     }
 
     func fetchLitecoinImportBalanceIfNeeded(
@@ -2062,7 +2065,9 @@ extension WalletStore {
         guard let address, !address.isEmpty else {
             throw WalletImportSyncError.litecoin
         }
-        return try await LitecoinBalanceService.fetchBalance(for: address)
+        let json = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.litecoin, address: address)
+        guard let sat = RustBalanceDecoder.uint64Field("balance_sat", from: json) else { return nil }
+        return Double(sat) / 1e8
     }
 
     func fetchEthereumImportPortfolioIfNeeded(
@@ -2108,11 +2113,25 @@ extension WalletStore {
         guard let address, !address.isEmpty else {
             throw WalletImportSyncError.tron
         }
-        let balances = try await TronBalanceService.fetchBalances(
-            for: address,
-            trackedTokens: enabledTronTrackedTokens()
-        )
-        return (balances.trxBalance, balances.tokenBalances)
+        let nativeJSON = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.tron, address: address)
+        let sun = RustBalanceDecoder.uint64Field("sun", from: nativeJSON) ?? 0
+        let trxBalance = Double(sun) / 1e6
+        let trackedTokens = enabledTronTrackedTokens()
+        let tuples = trackedTokens.map { t in (contract: t.contractAddress, symbol: t.symbol, decimals: t.decimals) }
+        var tokenBalances: [TronTokenBalanceSnapshot] = []
+        if !tuples.isEmpty,
+           let tokenJSON = try? await WalletServiceBridge.shared.fetchTokenBalancesJSON(chainId: SpectraChainID.tron, address: address, tokens: tuples),
+           let tokenData = tokenJSON.data(using: .utf8),
+           let tokenArr = try? JSONSerialization.jsonObject(with: tokenData) as? [[String: Any]] {
+            tokenBalances = tokenArr.compactMap { obj in
+                guard let contract = obj["contract"] as? String,
+                      let symbol = obj["symbol"] as? String,
+                      let displayStr = obj["balance_display"] as? String,
+                      let balance = Double(displayStr) else { return nil }
+                return TronTokenBalanceSnapshot(symbol: symbol, contractAddress: contract, balance: balance)
+            }
+        }
+        return (trxBalance, tokenBalances)
     }
 
     func fetchCardanoImportBalanceIfNeeded(
@@ -2121,7 +2140,9 @@ extension WalletStore {
     ) async throws -> Double? {
         guard shouldFetch else { return nil }
         guard let address, !address.isEmpty else { return nil }
-        return try await CardanoBalanceService.fetchBalance(for: address)
+        let json = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.cardano, address: address)
+        guard let lovelace = RustBalanceDecoder.uint64Field("lovelace", from: json) else { return nil }
+        return Double(lovelace) / 1_000_000
     }
 
     func fetchXRPImportBalanceIfNeeded(
@@ -2129,7 +2150,9 @@ extension WalletStore {
         address: String?
     ) async throws -> Double? {
         guard shouldFetch, let address else { return nil }
-        return try await XRPBalanceService.fetchBalance(for: address)
+        let json = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.xrp, address: address)
+        guard let drops = RustBalanceDecoder.uint64Field("drops", from: json) else { return nil }
+        return Double(drops) / 1_000_000
     }
 
     func fetchStellarImportBalanceIfNeeded(
@@ -2137,10 +2160,10 @@ extension WalletStore {
         address: String?
     ) async throws -> Double? {
         guard shouldFetch else { return nil }
-        guard let address, !address.isEmpty else {
-            throw WalletImportSyncError.stellar
-        }
-        return try await StellarBalanceService.fetchBalance(for: address)
+        guard let address, !address.isEmpty else { throw WalletImportSyncError.stellar }
+        let json = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.stellar, address: address)
+        guard let stroops = RustBalanceDecoder.int64Field("stroops", from: json) else { return nil }
+        return Double(stroops) / 10_000_000
     }
 
     func fetchMoneroImportBalanceIfNeeded(
@@ -2148,10 +2171,10 @@ extension WalletStore {
         address: String?
     ) async throws -> Double? {
         guard shouldFetch else { return nil }
-        guard let address, !address.isEmpty else {
-            throw WalletImportSyncError.monero
-        }
-        return try await MoneroBalanceService.fetchBalance(for: address)
+        guard let address, !address.isEmpty else { throw WalletImportSyncError.monero }
+        let json = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.monero, address: address)
+        guard let piconeros = RustBalanceDecoder.uint64Field("piconeros", from: json) else { return nil }
+        return Double(piconeros) / 1_000_000_000_000
     }
 
     func fetchNearImportBalanceIfNeeded(
@@ -2159,10 +2182,13 @@ extension WalletStore {
         address: String?
     ) async throws -> Double? {
         guard shouldFetch else { return nil }
-        guard let address, !address.isEmpty else {
-            throw WalletImportSyncError.near
-        }
-        return try await NearBalanceService.fetchBalance(for: address)
+        guard let address, !address.isEmpty else { throw WalletImportSyncError.near }
+        let json = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.near, address: address)
+        guard let data = json.data(using: .utf8),
+              let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let yoctoStr = obj["yocto_near"] as? String,
+              let yocto = Double(yoctoStr) else { return nil }
+        return yocto / 1e24
     }
 
     func fetchPolkadotImportBalanceIfNeeded(
@@ -2170,10 +2196,10 @@ extension WalletStore {
         address: String?
     ) async throws -> Double? {
         guard shouldFetch else { return nil }
-        guard let address, !address.isEmpty else {
-            throw WalletImportSyncError.polkadot
-        }
-        return try await PolkadotBalanceService.fetchBalance(for: address)
+        guard let address, !address.isEmpty else { throw WalletImportSyncError.polkadot }
+        let json = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.polkadot, address: address)
+        guard let planck = RustBalanceDecoder.uint128StringField("planck", from: json) else { return nil }
+        return planck / 10_000_000_000
     }
 
     func fetchSolanaImportPortfolioIfNeeded(
@@ -2184,10 +2210,38 @@ extension WalletStore {
         guard let address, !address.isEmpty else {
             throw WalletImportSyncError.solana
         }
-        return try await SolanaBalanceService.fetchPortfolio(
-            for: address,
-            trackedTokenMetadataByMint: enabledSolanaTrackedTokens()
-        )
+        let nativeJSON = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.solana, address: address)
+        guard let lamports = RustBalanceDecoder.uint64Field("lamports", from: nativeJSON) else {
+            throw WalletImportSyncError.solana
+        }
+        let nativeBalance = Double(lamports) / 1e9
+        let trackedTokensByMint = enabledSolanaTrackedTokens()
+        let tuples = trackedTokensByMint.map { mint, meta in (contract: mint, symbol: meta.symbol, decimals: meta.decimals) }
+        var tokenBalances: [SolanaSPLTokenBalanceSnapshot] = []
+        if !tuples.isEmpty,
+           let tokenJSON = try? await WalletServiceBridge.shared.fetchTokenBalancesJSON(chainId: SpectraChainID.solana, address: address, tokens: tuples),
+           let tokenData = tokenJSON.data(using: .utf8),
+           let tokenArr = try? JSONSerialization.jsonObject(with: tokenData) as? [[String: Any]] {
+            tokenBalances = tokenArr.compactMap { obj -> SolanaSPLTokenBalanceSnapshot? in
+                guard let mint = obj["contract"] as? String,
+                      let displayStr = obj["balance_display"] as? String,
+                      let balance = Double(displayStr),
+                      balance > 0 else { return nil }
+                let meta = trackedTokensByMint[mint]
+                return SolanaSPLTokenBalanceSnapshot(
+                    mintAddress: mint,
+                    sourceTokenAccountAddress: "",
+                    symbol: meta?.symbol ?? (obj["symbol"] as? String ?? ""),
+                    name: meta?.name ?? "",
+                    tokenStandard: "SPL",
+                    decimals: meta?.decimals ?? (obj["decimals"] as? Int ?? 0),
+                    balance: balance,
+                    marketDataID: meta?.marketDataID ?? "",
+                    coinGeckoID: meta?.coinGeckoID ?? ""
+                )
+            }
+        }
+        return SolanaPortfolioSnapshot(nativeBalance: nativeBalance, tokenBalances: tokenBalances)
     }
 
     var portfolio: [Coin] {

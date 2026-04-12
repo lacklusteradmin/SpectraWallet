@@ -77,7 +77,7 @@ enum SeedPhraseAddressDerivation {
         )
         let address = try UTXOAddressCodec.legacyP2PKHAddress(
             privateKeyData: material.privateKeyData,
-            version: DogecoinWalletEngine.p2pkhVersion(for: networkMode)
+            version: networkMode == .mainnet ? 0x1e : 0x71
         )
         guard AddressValidation.isValidDogecoinAddress(address, networkMode: networkMode) else {
             throw WalletCoreDerivationError.invalidMnemonic

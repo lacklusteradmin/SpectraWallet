@@ -305,13 +305,44 @@ extension WalletSendLayer {
             }
         }
 
+        guard let address = store.resolvedDogecoinAddress(for: wallet) else {
+            store.dogecoinSendPreview = nil
+            store.isPreparingDogecoinSend = false
+            return
+        }
+
         do {
-            store.dogecoinSendPreview = try await DogecoinWalletEngine.fetchSendPreviewInBackground(
-                from: store.walletWithResolvedDogecoinAddress(wallet),
-                seedPhrase: seedPhrase,
-                amountDOGE: amount,
+            let json = try await WalletServiceBridge.shared.fetchUTXOFeePreviewJSON(
+                chainId: SpectraChainID.dogecoin,
+                address: address,
+                feeRateSvb: 0
+            )
+            let rate       = UInt64(WalletSendLayer.rustField("fee_rate_svb", from: json)) ?? 1
+            let feeSat     = UInt64(WalletSendLayer.rustField("estimated_fee_sat", from: json)) ?? 0
+            let txBytes    = Int(WalletSendLayer.rustField("estimated_tx_bytes", from: json)) ?? 0
+            let inputCount = Int(WalletSendLayer.rustField("selected_input_count", from: json)) ?? 0
+            let spendSat   = UInt64(WalletSendLayer.rustField("spendable_balance_sat", from: json)) ?? 0
+            let maxSat     = UInt64(WalletSendLayer.rustField("max_sendable_sat", from: json)) ?? 0
+            let satPerCoin: Double = 100_000_000
+            guard spendSat > 0 else {
+                store.dogecoinSendPreview = nil
+                store.sendError = "Insufficient DOGE funds."
+                return
+            }
+            let feeDOGE = Double(feeSat) / satPerCoin
+            store.dogecoinSendPreview = DogecoinSendPreview(
+                spendableBalanceDOGE: Double(spendSat) / satPerCoin,
+                requestedAmountDOGE:  amount,
+                estimatedNetworkFeeDOGE: feeDOGE,
+                estimatedFeeRateDOGEPerKB: Double(rate) * 1000 / satPerCoin,
+                estimatedTransactionBytes: txBytes,
+                selectedInputCount: inputCount,
+                usesChangeOutput: spendSat > UInt64(amount * satPerCoin) + feeSat,
                 feePriority: store.dogecoinFeePriority,
-                maxInputCount: store.sendAdvancedMode && store.sendUTXOMaxInputCount > 0 ? store.sendUTXOMaxInputCount : nil
+                maxSendableDOGE: Double(maxSat) / satPerCoin,
+                spendableBalance: Double(spendSat) / satPerCoin,
+                feeRateDescription: "\(rate) sat/vB",
+                maxSendable: Double(maxSat) / satPerCoin
             )
             store.sendError = nil
         } catch {

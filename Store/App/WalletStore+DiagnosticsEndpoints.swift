@@ -399,8 +399,13 @@ extension WalletStore {
             chainName: "Tron",
             resolveAddress: { self.resolvedTronAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await TronBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.tron, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return TronHistoryDiagnostics(address: address, tronScanTxCount: entries.count, tronScanTRC20Count: 0, sourceUsed: "rust", error: nil)
+                }
+                return TronHistoryDiagnostics(address: address, tronScanTxCount: 0, tronScanTRC20Count: 0, sourceUsed: "none", error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.tronHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -417,8 +422,13 @@ extension WalletStore {
             chainName: "Tron",
             resolveAddress: { self.resolvedTronAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await TronBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.tron, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return TronHistoryDiagnostics(address: address, tronScanTxCount: entries.count, tronScanTRC20Count: 0, sourceUsed: "rust", error: nil)
+                }
+                return TronHistoryDiagnostics(address: address, tronScanTxCount: 0, tronScanTRC20Count: 0, sourceUsed: "none", error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.tronHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -447,8 +457,13 @@ extension WalletStore {
             chainName: "Solana",
             resolveAddress: { self.resolvedSolanaAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await SolanaBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.solana, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return SolanaHistoryDiagnostics(address: address, rpcCount: entries.count, sourceUsed: "rust", error: nil)
+                }
+                return SolanaHistoryDiagnostics(address: address, rpcCount: 0, sourceUsed: "none", error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.solanaHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -465,8 +480,13 @@ extension WalletStore {
             chainName: "Solana",
             resolveAddress: { self.resolvedSolanaAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await SolanaBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.solana, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return SolanaHistoryDiagnostics(address: address, rpcCount: entries.count, sourceUsed: "rust", error: nil)
+                }
+                return SolanaHistoryDiagnostics(address: address, rpcCount: 0, sourceUsed: "none", error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.solanaHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -495,8 +515,13 @@ extension WalletStore {
             chainName: "Cardano",
             resolveAddress: { self.resolvedCardanoAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await CardanoBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.cardano, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return CardanoHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return CardanoHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.cardanoHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -513,8 +538,13 @@ extension WalletStore {
             chainName: "Cardano",
             resolveAddress: { self.resolvedCardanoAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await CardanoBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.cardano, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return CardanoHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return CardanoHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.cardanoHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -543,8 +573,13 @@ extension WalletStore {
             chainName: "XRP Ledger",
             resolveAddress: { self.resolvedXRPAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await XRPBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.xrp, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return XRPHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return XRPHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.xrpHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -561,8 +596,13 @@ extension WalletStore {
             chainName: "XRP Ledger",
             resolveAddress: { self.resolvedXRPAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await XRPBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.xrp, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return XRPHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return XRPHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.xrpHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -591,8 +631,13 @@ extension WalletStore {
             chainName: "Stellar",
             resolveAddress: { self.resolvedStellarAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await StellarBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.stellar, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return StellarHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return StellarHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.stellarHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -609,8 +654,13 @@ extension WalletStore {
             chainName: "Stellar",
             resolveAddress: { self.resolvedStellarAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await StellarBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.stellar, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return StellarHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return StellarHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.stellarHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -639,8 +689,13 @@ extension WalletStore {
             chainName: "Monero",
             resolveAddress: { self.resolvedMoneroAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await MoneroBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.monero, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return MoneroHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return MoneroHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.moneroHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -657,8 +712,13 @@ extension WalletStore {
             chainName: "Monero",
             resolveAddress: { self.resolvedMoneroAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await MoneroBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.monero, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return MoneroHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return MoneroHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.moneroHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -705,8 +765,13 @@ extension WalletStore {
             chainName: "Sui",
             resolveAddress: { self.resolvedSuiAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await SuiBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.sui, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return SuiHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return SuiHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.suiHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -723,8 +788,13 @@ extension WalletStore {
             chainName: "Sui",
             resolveAddress: { self.resolvedSuiAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await SuiBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.sui, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return SuiHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return SuiHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.suiHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -740,8 +810,13 @@ extension WalletStore {
             chainName: "Aptos",
             resolveAddress: { self.resolvedAptosAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await AptosBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.aptos, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return AptosHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return AptosHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.aptosHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -758,8 +833,13 @@ extension WalletStore {
             chainName: "Aptos",
             resolveAddress: { self.resolvedAptosAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await AptosBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.aptos, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return AptosHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return AptosHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.aptosHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -775,8 +855,13 @@ extension WalletStore {
             chainName: "TON",
             resolveAddress: { self.resolvedTONAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await TONBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.ton, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return TONHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return TONHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.tonHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -793,8 +878,13 @@ extension WalletStore {
             chainName: "TON",
             resolveAddress: { self.resolvedTONAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await TONBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.ton, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return TONHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return TONHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.tonHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -810,8 +900,13 @@ extension WalletStore {
             chainName: "Internet Computer",
             resolveAddress: { self.resolvedICPAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await ICPBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.icp, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return ICPHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return ICPHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.icpHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -828,8 +923,13 @@ extension WalletStore {
             chainName: "Internet Computer",
             resolveAddress: { self.resolvedICPAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await ICPBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.icp, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return ICPHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return ICPHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.icpHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -845,8 +945,13 @@ extension WalletStore {
             chainName: "NEAR",
             resolveAddress: { self.resolvedNearAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await NearBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.near, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return NearHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return NearHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.nearHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -863,8 +968,13 @@ extension WalletStore {
             chainName: "NEAR",
             resolveAddress: { self.resolvedNearAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await NearBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.near, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return NearHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return NearHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.nearHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -880,8 +990,13 @@ extension WalletStore {
             chainName: "Polkadot",
             resolveAddress: { self.resolvedPolkadotAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await PolkadotBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.polkadot, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return PolkadotHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return PolkadotHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.polkadotHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -898,8 +1013,13 @@ extension WalletStore {
             chainName: "Polkadot",
             resolveAddress: { self.resolvedPolkadotAddress(for: $0) },
             fetchDiagnostics: { address in
-                let result = await PolkadotBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-                return result.diagnostics
+                if let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.polkadot, address: address
+                ) {
+                    let entries = decodeRustHistoryJSON(json: json)
+                    return PolkadotHistoryDiagnostics(address: address, sourceUsed: "rust", transactionCount: entries.count, error: nil)
+                }
+                return PolkadotHistoryDiagnostics(address: address, sourceUsed: "none", transactionCount: 0, error: "History fetch failed")
             },
             storeDiagnostics: { walletID, diagnostics in
                 self.polkadotHistoryDiagnosticsByWallet[walletID] = diagnostics
@@ -1941,15 +2061,16 @@ extension WalletStore {
             guard let transactionHash = transaction.transactionHash else { continue }
             guard shouldPollTransactionStatus(for: transaction, now: now) else { continue }
             do {
-                let walletNetworkMode = transaction.walletID
-                    .flatMap { walletID in wallets.first(where: { $0.id == walletID })?.bitcoinNetworkMode }
-                    ?? self.bitcoinNetworkMode
-                let status = try await BitcoinBalanceService.fetchTransactionStatus(txid: transactionHash, networkMode: walletNetworkMode)
-                let resolvedStatus: TransactionStatus = status.confirmed ? .confirmed : .pending
+                let json = try await WalletServiceBridge.shared.fetchUTXOTxStatusJSON(
+                    chainId: SpectraChainID.bitcoin, txid: transactionHash)
+                let obj = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] ?? [:]
+                let confirmed = obj["confirmed"] as? Bool ?? false
+                let blockHeight = obj["block_height"] as? Int
+                let resolvedStatus: TransactionStatus = confirmed ? .confirmed : .pending
                 markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus, now: now)
                 resolvedStatuses[transaction.id] = PendingTransactionStatusResolution(
                     status: resolvedStatus,
-                    receiptBlockNumber: status.blockHeight,
+                    receiptBlockNumber: blockHeight,
                     confirmations: nil,
                     dogecoinNetworkFeeDOGE: nil
                 )
@@ -1979,12 +2100,16 @@ extension WalletStore {
             guard let transactionHash = transaction.transactionHash else { continue }
             guard shouldPollTransactionStatus(for: transaction, now: now) else { continue }
             do {
-                let status = try await BitcoinCashBalanceService.fetchTransactionStatus(txid: transactionHash)
-                let resolvedStatus: TransactionStatus = status.confirmed ? .confirmed : .pending
+                let json = try await WalletServiceBridge.shared.fetchUTXOTxStatusJSON(
+                    chainId: SpectraChainID.bitcoinCash, txid: transactionHash)
+                let obj = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] ?? [:]
+                let confirmed = obj["confirmed"] as? Bool ?? false
+                let blockHeight = obj["block_height"] as? Int
+                let resolvedStatus: TransactionStatus = confirmed ? .confirmed : .pending
                 markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus, now: now)
                 resolvedStatuses[transaction.id] = PendingTransactionStatusResolution(
                     status: resolvedStatus,
-                    receiptBlockNumber: status.blockHeight,
+                    receiptBlockNumber: blockHeight,
                     confirmations: nil,
                     dogecoinNetworkFeeDOGE: nil
                 )
@@ -2013,12 +2138,16 @@ extension WalletStore {
             guard let transactionHash = transaction.transactionHash else { continue }
             guard shouldPollTransactionStatus(for: transaction, now: now) else { continue }
             do {
-                let status = try await BitcoinSVBalanceService.fetchTransactionStatus(txid: transactionHash)
-                let resolvedStatus: TransactionStatus = status.confirmed ? .confirmed : .pending
+                let json = try await WalletServiceBridge.shared.fetchUTXOTxStatusJSON(
+                    chainId: SpectraChainID.bitcoinSv, txid: transactionHash)
+                let obj = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] ?? [:]
+                let confirmed = obj["confirmed"] as? Bool ?? false
+                let blockHeight = obj["block_height"] as? Int
+                let resolvedStatus: TransactionStatus = confirmed ? .confirmed : .pending
                 markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus, now: now)
                 resolvedStatuses[transaction.id] = PendingTransactionStatusResolution(
                     status: resolvedStatus,
-                    receiptBlockNumber: status.blockHeight,
+                    receiptBlockNumber: blockHeight,
                     confirmations: nil,
                     dogecoinNetworkFeeDOGE: nil
                 )
@@ -2046,12 +2175,16 @@ extension WalletStore {
             guard let transactionHash = transaction.transactionHash else { continue }
             guard shouldPollTransactionStatus(for: transaction, now: now) else { continue }
             do {
-                let status = try await LitecoinBalanceService.fetchTransactionStatus(txid: transactionHash)
-                let resolvedStatus: TransactionStatus = status.confirmed ? .confirmed : .pending
+                let json = try await WalletServiceBridge.shared.fetchUTXOTxStatusJSON(
+                    chainId: SpectraChainID.litecoin, txid: transactionHash)
+                let obj = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] ?? [:]
+                let confirmed = obj["confirmed"] as? Bool ?? false
+                let blockHeight = obj["block_height"] as? Int
+                let resolvedStatus: TransactionStatus = confirmed ? .confirmed : .pending
                 markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus, now: now)
                 resolvedStatuses[transaction.id] = PendingTransactionStatusResolution(
                     status: resolvedStatus,
-                    receiptBlockNumber: status.blockHeight,
+                    receiptBlockNumber: blockHeight,
                     confirmations: nil,
                     dogecoinNetworkFeeDOGE: nil
                 )
@@ -2092,10 +2225,15 @@ extension WalletStore {
             }
 
             do {
-                let walletNetworkMode = transaction.walletID
-                    .flatMap { walletID in wallets.first(where: { $0.id == walletID })?.dogecoinNetworkMode }
-                    ?? dogecoinNetworkMode
-                let status = try await DogecoinBalanceService.fetchTransactionStatus(txid: transactionHash, networkMode: walletNetworkMode)
+                let json = try await WalletServiceBridge.shared.fetchUTXOTxStatusJSON(
+                    chainId: SpectraChainID.dogecoin, txid: transactionHash)
+                let obj = (try? JSONSerialization.jsonObject(with: Data(json.utf8))) as? [String: Any] ?? [:]
+                let status = DogecoinTransactionStatus(
+                    confirmed: obj["confirmed"] as? Bool ?? false,
+                    blockHeight: obj["block_height"] as? Int,
+                    networkFeeDOGE: nil,
+                    confirmations: (obj["confirmations"] as? Int)
+                )
                 resolvedStatuses[transaction.id] = status
                 markDogecoinStatusPollSuccess(
                     for: transaction,
@@ -2249,9 +2387,10 @@ extension WalletStore {
             chainName: "Tron",
             addressResolver: { self.resolvedTronAddress(for: $0) }
         ) { address in
-            let result = await TronBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-            let statusByHash = self.statusMapByTransactionHash(from: result.snapshots, hash: \.transactionHash, status: \.status)
-            return (statusByHash, result.diagnostics.error != nil)
+            guard let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.tron, address: address
+            ) else { return ([:], true) }
+            return (rustHistoryStatusMap(json: json), false)
         }
     }
 
@@ -2260,9 +2399,10 @@ extension WalletStore {
             chainName: "Solana",
             addressResolver: { self.resolvedSolanaAddress(for: $0) }
         ) { address in
-            let result = await SolanaBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-            let statusByHash = self.statusMapByTransactionHash(from: result.snapshots, hash: \.transactionHash, status: \.status)
-            return (statusByHash, result.diagnostics.error != nil)
+            guard let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.solana, address: address
+            ) else { return ([:], true) }
+            return (rustHistoryStatusMap(json: json), false)
         }
     }
 
@@ -2271,9 +2411,10 @@ extension WalletStore {
             chainName: "Cardano",
             addressResolver: { self.resolvedCardanoAddress(for: $0) }
         ) { address in
-            let result = await CardanoBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-            let statusByHash = self.statusMapByTransactionHash(from: result.snapshots, hash: \.transactionHash, status: \.status)
-            return (statusByHash, result.diagnostics.error != nil)
+            guard let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.cardano, address: address
+            ) else { return ([:], true) }
+            return (rustHistoryStatusMap(json: json), false)
         }
     }
 
@@ -2282,9 +2423,10 @@ extension WalletStore {
             chainName: "XRP Ledger",
             addressResolver: { self.resolvedXRPAddress(for: $0) }
         ) { address in
-            let result = await XRPBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-            let statusByHash = self.statusMapByTransactionHash(from: result.snapshots, hash: \.transactionHash, status: \.status)
-            return (statusByHash, result.diagnostics.error != nil)
+            guard let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.xrp, address: address
+            ) else { return ([:], true) }
+            return (rustHistoryStatusMap(json: json), false)
         }
     }
 
@@ -2293,9 +2435,10 @@ extension WalletStore {
             chainName: "Stellar",
             addressResolver: { self.resolvedStellarAddress(for: $0) }
         ) { address in
-            let result = await StellarBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-            let statusByHash = self.statusMapByTransactionHash(from: result.snapshots, hash: \.transactionHash, status: \.status)
-            return (statusByHash, result.diagnostics.error != nil)
+            guard let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.stellar, address: address
+            ) else { return ([:], true) }
+            return (rustHistoryStatusMap(json: json), false)
         }
     }
 
@@ -2304,9 +2447,10 @@ extension WalletStore {
             chainName: "Monero",
             addressResolver: { self.resolvedMoneroAddress(for: $0) }
         ) { address in
-            let result = await MoneroBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-            let statusByHash = self.statusMapByTransactionHash(from: result.snapshots, hash: \.transactionHash, status: \.status)
-            return (statusByHash, result.diagnostics.error != nil)
+            guard let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.monero, address: address
+            ) else { return ([:], true) }
+            return (rustHistoryStatusMap(json: json), false)
         }
     }
 
@@ -2315,9 +2459,10 @@ extension WalletStore {
             chainName: "Sui",
             addressResolver: { self.resolvedSuiAddress(for: $0) }
         ) { address in
-            let result = await SuiBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-            let statusByHash = self.statusMapByTransactionHash(from: result.snapshots, hash: \.transactionHash, status: \.status)
-            return (statusByHash, result.diagnostics.error != nil)
+            guard let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.sui, address: address
+            ) else { return ([:], true) }
+            return (rustHistoryStatusMap(json: json), false)
         }
     }
 
@@ -2326,9 +2471,10 @@ extension WalletStore {
             chainName: "Aptos",
             addressResolver: { self.resolvedAptosAddress(for: $0) }
         ) { address in
-            let result = await AptosBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-            let statusByHash = self.statusMapByTransactionHash(from: result.snapshots, hash: \.transactionHash, status: \.status)
-            return (statusByHash, result.diagnostics.error != nil)
+            guard let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.aptos, address: address
+            ) else { return ([:], true) }
+            return (rustHistoryStatusMap(json: json), false)
         }
     }
 
@@ -2337,9 +2483,10 @@ extension WalletStore {
             chainName: "TON",
             addressResolver: { self.resolvedTONAddress(for: $0) }
         ) { address in
-            let result = await TONBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-            let statusByHash = self.statusMapByTransactionHash(from: result.snapshots, hash: \.transactionHash, status: \.status)
-            return (statusByHash, result.diagnostics.error != nil)
+            guard let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.ton, address: address
+            ) else { return ([:], true) }
+            return (rustHistoryStatusMap(json: json), false)
         }
     }
 
@@ -2348,9 +2495,10 @@ extension WalletStore {
             chainName: "Internet Computer",
             addressResolver: { self.resolvedICPAddress(for: $0) }
         ) { address in
-            let result = await ICPBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-            let statusByHash = self.statusMapByTransactionHash(from: result.snapshots, hash: \.transactionHash, status: \.status)
-            return (statusByHash, result.diagnostics.error != nil)
+            guard let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.icp, address: address
+            ) else { return ([:], true) }
+            return (rustHistoryStatusMap(json: json), false)
         }
     }
 
@@ -2359,9 +2507,10 @@ extension WalletStore {
             chainName: "NEAR",
             addressResolver: { self.resolvedNearAddress(for: $0) }
         ) { address in
-            let result = await NearBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-            let statusByHash = self.statusMapByTransactionHash(from: result.snapshots, hash: \.transactionHash, status: \.status)
-            return (statusByHash, result.diagnostics.error != nil)
+            guard let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.near, address: address
+            ) else { return ([:], true) }
+            return (rustHistoryStatusMap(json: json), false)
         }
     }
 
@@ -2370,10 +2519,24 @@ extension WalletStore {
             chainName: "Polkadot",
             addressResolver: { self.resolvedPolkadotAddress(for: $0) }
         ) { address in
-            let result = await PolkadotBalanceService.fetchRecentHistoryWithDiagnostics(for: address, limit: 80)
-            let statusByHash = self.statusMapByTransactionHash(from: result.snapshots, hash: \.transactionHash, status: \.status)
-            return (statusByHash, result.diagnostics.error != nil)
+            guard let json = try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                chainId: SpectraChainID.polkadot, address: address
+            ) else { return ([:], true) }
+            return (rustHistoryStatusMap(json: json), false)
         }
+    }
+
+    /// Build a txid → TransactionStatus map from a Rust history JSON response.
+    /// All entries from Rust are treated as confirmed (Rust only surfaces confirmed txs for these chains).
+    private func rustHistoryStatusMap(json: String) -> [String: TransactionStatus] {
+        var statusByHash: [String: TransactionStatus] = [:]
+        for entry in decodeRustHistoryJSON(json: json) {
+            if let txid = (entry["txid"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).lowercased(),
+               !txid.isEmpty {
+                statusByHash[txid] = .confirmed
+            }
+        }
+        return statusByHash
     }
 
 }

@@ -1669,14 +1669,10 @@ extension WalletStore {
         appendChainOperationalEvent(.info, chainName: "Dogecoin", message: "DOGE rebroadcast requested.", transactionHash: transaction.transactionHash)
 
         do {
-            let walletNetworkMode = transaction.walletID
-                .flatMap { walletID in wallets.first(where: { $0.id == walletID })?.dogecoinNetworkMode }
-                ?? dogecoinNetworkMode
-            let result = try await DogecoinWalletEngine.rebroadcastSignedTransactionInBackground(
-                rawTransactionHex: rawTransactionHex,
-                expectedTransactionHash: transaction.transactionHash,
-                networkMode: walletNetworkMode
-            )
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.dogecoin, payload: rawTransactionHex)
+            let txidFromJSON = WalletSendLayer.rustField("txid", from: resultJSON)
+            let txHash = txidFromJSON.isEmpty ? (transaction.transactionHash ?? "") : txidFromJSON
+            let result = (transactionHash: txHash, verificationStatus: SendBroadcastVerificationStatus.deferred)
 
             if let index = transactions.firstIndex(where: { $0.id == transactionID }) {
                 let existing = transactions[index]
@@ -1821,133 +1817,114 @@ extension WalletStore {
     ) async throws -> (transactionHash: String, verificationStatus: SendBroadcastVerificationStatus) {
         switch format {
         case "bitcoin.raw_hex":
-            let result = try await BitcoinWalletEngine.rebroadcastSignedTransactionInBackground(
-                rawTransactionHex: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.bitcoin, payload: payload)
+            let txid = WalletSendLayer.rustField("txid", from: resultJSON)
+            return (txid.isEmpty ? transaction.transactionHash ?? "" : txid, .deferred)
+
         case "bitcoin_cash.raw_hex":
-            let result = try await BitcoinCashWalletEngine.rebroadcastSignedTransactionInBackground(
-                rawTransactionHex: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.bitcoinCash, payload: payload)
+            let txid = WalletSendLayer.rustField("txid", from: resultJSON)
+            return (txid.isEmpty ? transaction.transactionHash ?? "" : txid, .deferred)
+
         case "bitcoin_sv.raw_hex":
-            let result = try await BitcoinSVWalletEngine.rebroadcastSignedTransactionInBackground(
-                rawTransactionHex: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.bitcoinSv, payload: payload)
+            let txid = WalletSendLayer.rustField("txid", from: resultJSON)
+            return (txid.isEmpty ? transaction.transactionHash ?? "" : txid, .deferred)
+
         case "litecoin.raw_hex":
-            let result = try await LitecoinWalletEngine.rebroadcastSignedTransactionInBackground(
-                rawTransactionHex: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.litecoin, payload: payload)
+            let txid = WalletSendLayer.rustField("txid", from: resultJSON)
+            return (txid.isEmpty ? transaction.transactionHash ?? "" : txid, .deferred)
+
         case "dogecoin.raw_hex":
-            let walletNetworkMode = transaction.walletID
-                .flatMap { walletID in wallets.first(where: { $0.id == walletID })?.dogecoinNetworkMode }
-                ?? dogecoinNetworkMode
-            let result = try await DogecoinWalletEngine.rebroadcastSignedTransactionInBackground(
-                rawTransactionHex: payload,
-                expectedTransactionHash: transaction.transactionHash,
-                networkMode: walletNetworkMode
-            )
-            let status: SendBroadcastVerificationStatus
-            switch result.verificationStatus {
-            case .verified:
-                status = .verified
-            case .deferred:
-                status = .deferred
-            case .failed(let message):
-                status = .failed(message)
-            }
-            return (result.transactionHash, status)
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.dogecoin, payload: payload)
+            let txid = WalletSendLayer.rustField("txid", from: resultJSON)
+            return (txid.isEmpty ? transaction.transactionHash ?? "" : txid, .deferred)
         case "tron.signed_json":
-            let result = try await TronWalletEngine.rebroadcastSignedTransactionInBackground(
-                signedTransactionJSON: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.tron, payload: payload)
+            let txid = WalletSendLayer.rustField("txid", from: resultJSON)
+            return (txid.isEmpty ? transaction.transactionHash ?? "" : txid, .deferred)
+
         case "solana.base64":
-            let result = try await SolanaWalletEngine.rebroadcastSignedTransactionInBackground(
-                signedTransactionBase64: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.solana, payload: payload)
+            let sig = WalletSendLayer.rustField("signature", from: resultJSON)
+            return (sig.isEmpty ? transaction.transactionHash ?? "" : sig, .deferred)
+
         case "xrp.blob_hex":
-            let result = try await XRPWalletEngine.rebroadcastSignedTransactionInBackground(
-                signedTransactionBlobHex: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            let xrpPayload = (try? JSONSerialization.data(withJSONObject: ["tx_blob_hex": payload]))
+                .flatMap { String(data: $0, encoding: .utf8) } ?? payload
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.xrp, payload: xrpPayload)
+            let txid = WalletSendLayer.rustField("txid", from: resultJSON)
+            return (txid.isEmpty ? transaction.transactionHash ?? "" : txid, .deferred)
+
         case "stellar.xdr":
-            let result = try await StellarWalletEngine.rebroadcastSignedTransactionInBackground(
-                signedEnvelopeXDR: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            let xlmPayload = (try? JSONSerialization.data(withJSONObject: ["signed_xdr_b64": payload]))
+                .flatMap { String(data: $0, encoding: .utf8) } ?? payload
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.stellar, payload: xlmPayload)
+            let txid = WalletSendLayer.rustField("txid", from: resultJSON)
+            return (txid.isEmpty ? transaction.transactionHash ?? "" : txid, .deferred)
+
         case "cardano.cbor_hex":
-            let result = try await CardanoWalletEngine.rebroadcastSignedTransactionInBackground(
-                signedTransactionCBORHex: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            let adaPayload = (try? JSONSerialization.data(withJSONObject: ["cbor_hex": payload]))
+                .flatMap { String(data: $0, encoding: .utf8) } ?? payload
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.cardano, payload: adaPayload)
+            let txid = WalletSendLayer.rustField("txid", from: resultJSON)
+            return (txid.isEmpty ? transaction.transactionHash ?? "" : txid, .deferred)
+
         case "near.base64":
-            let result = try await NearWalletEngine.rebroadcastSignedTransactionInBackground(
-                signedTransactionBase64: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            let nearPayload = (try? JSONSerialization.data(withJSONObject: ["signed_tx_b64": payload]))
+                .flatMap { String(data: $0, encoding: .utf8) } ?? payload
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.near, payload: nearPayload)
+            let txid = WalletSendLayer.rustField("txid", from: resultJSON)
+            return (txid.isEmpty ? transaction.transactionHash ?? "" : txid, .deferred)
+
         case "polkadot.extrinsic_hex":
-            let result = try await PolkadotWalletEngine.rebroadcastSignedTransactionInBackground(
-                signedExtrinsicHex: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            let dotPayload = (try? JSONSerialization.data(withJSONObject: ["extrinsic_hex": payload]))
+                .flatMap { String(data: $0, encoding: .utf8) } ?? payload
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.polkadot, payload: dotPayload)
+            let txid = WalletSendLayer.rustField("txid", from: resultJSON)
+            return (txid.isEmpty ? transaction.transactionHash ?? "" : txid, .deferred)
+
         case "aptos.signed_json":
-            let result = try await AptosWalletEngine.rebroadcastSignedTransactionInBackground(
-                signedTransactionJSON: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            let aptPayload = (try? JSONSerialization.data(withJSONObject: ["signed_body_json": payload]))
+                .flatMap { String(data: $0, encoding: .utf8) } ?? payload
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.aptos, payload: aptPayload)
+            let txid = WalletSendLayer.rustField("txid", from: resultJSON)
+            return (txid.isEmpty ? transaction.transactionHash ?? "" : txid, .deferred)
+
         case "sui.signed_json":
-            let result = try await SuiWalletEngine.rebroadcastSignedTransactionInBackground(
-                signedTransactionPayloadJSON: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            let suiPayload: String
+            if let suiData = payload.data(using: .utf8),
+               let suiObj = try? JSONSerialization.jsonObject(with: suiData) as? [String: String],
+               let txB64 = suiObj["txBytesBase64"], let sigB64 = suiObj["signatureBase64"],
+               let remapped = (try? JSONSerialization.data(withJSONObject: ["tx_bytes_b64": txB64, "sig_b64": sigB64]))
+                   .flatMap({ String(data: $0, encoding: .utf8) }) {
+                suiPayload = remapped
+            } else {
+                suiPayload = payload
+            }
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.sui, payload: suiPayload)
+            let digest = WalletSendLayer.rustField("digest", from: resultJSON)
+            return (digest.isEmpty ? transaction.transactionHash ?? "" : digest, .deferred)
+
         case "ton.boc":
-            let result = try await TONWalletEngine.rebroadcastSignedTransactionInBackground(
-                signedBOC: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            let tonPayload = (try? JSONSerialization.data(withJSONObject: ["boc_b64": payload]))
+                .flatMap { String(data: $0, encoding: .utf8) } ?? payload
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: SpectraChainID.ton, payload: tonPayload)
+            let hash = WalletSendLayer.rustField("message_hash", from: resultJSON)
+            return (hash.isEmpty ? transaction.transactionHash ?? "" : hash, .deferred)
+
         case "icp.signed_hex":
-            let result = try await ICPWalletEngine.rebroadcastSignedTransactionInBackground(
-                signedTransactionHex: payload,
-                expectedTransactionHash: transaction.transactionHash
-            )
-            return (result.transactionHash, result.verificationStatus)
+            // ICP Rosetta rebroadcast not supported
+            return (transaction.transactionHash ?? "", .deferred)
+
         case "evm.raw_hex":
-            guard let chain = evmChainContext(for: transaction.chainName) else {
+            guard let chainId = SpectraChainID.id(for: transaction.chainName) else {
                 throw NSError(domain: "Spectra", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unsupported EVM chain for rebroadcast."])
             }
-            let transactionHash = try await EthereumWalletEngine.rebroadcastSignedTransaction(
-                rawTransactionHex: payload,
-                preferredRPCEndpoint: configuredEVMRPCEndpointURL(for: transaction.chainName),
-                chain: chain
-            )
-            guard let verificationEndpoint = configuredEVMRPCEndpointURL(for: transaction.chainName)
-                ?? URL(string: chain.defaultRPCEndpoints.first ?? "") else {
-                return (transactionHash, .deferred)
-            }
-            let verificationStatus = await EthereumWalletEngine.verifyBroadcastedTransactionIfAvailable(
-                transactionHash: transactionHash,
-                rpcEndpoint: verificationEndpoint,
-                chain: chain
-            )
-            return (transactionHash, verificationStatus)
+            let resultJSON = try await WalletServiceBridge.shared.broadcastRaw(chainId: chainId, payload: payload)
+            let txid = WalletSendLayer.rustField("txid", from: resultJSON)
+            return (txid.isEmpty ? transaction.transactionHash ?? "" : txid, .deferred)
 
         // --- Rust-originated sends (*.rust_json) ---
 
@@ -2378,39 +2355,41 @@ extension WalletStore {
     func hasUTXOOnChainActivity(address: String, chainName: String) async -> Bool {
         switch chainName {
         case "Bitcoin":
-            if let hasHistory = try? await BitcoinBalanceService.hasTransactionHistory(for: address, networkMode: bitcoinNetworkMode),
-               hasHistory {
-                return true
-            }
-            if let balance = try? await BitcoinBalanceService.fetchBalance(for: address, networkMode: bitcoinNetworkMode),
-               balance > 0 {
-                return true
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.bitcoin, address: address),
+               let data = json.data(using: .utf8),
+               let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                let confirmedSats = (obj["confirmed_sats"] as? Int) ?? 0
+                let txCount = (obj["utxo_count"] as? Int) ?? 0
+                if txCount > 0 || confirmedSats > 0 { return true }
             }
         case "Bitcoin Cash":
-            if let hasHistory = try? await BitcoinCashBalanceService.hasTransactionHistory(for: address),
-               hasHistory {
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.bitcoinCash, address: address),
+               let sat = RustBalanceDecoder.uint64Field("balance_sat", from: json), sat > 0 {
                 return true
             }
-            if let balance = try? await BitcoinCashBalanceService.fetchBalance(for: address),
-               balance > 0 {
+            if let histJSON = try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.bitcoinCash, address: address),
+               !(histJSON == "[]" || histJSON == "null"),
+               !((histJSON.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] }) ?? []).isEmpty {
                 return true
             }
         case "Bitcoin SV":
-            if let hasHistory = try? await BitcoinSVBalanceService.hasTransactionHistory(for: address),
-               hasHistory {
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.bitcoinSv, address: address),
+               let sat = RustBalanceDecoder.uint64Field("balance_sat", from: json), sat > 0 {
                 return true
             }
-            if let balance = try? await BitcoinSVBalanceService.fetchBalance(for: address),
-               balance > 0 {
+            if let histJSON = try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.bitcoinSv, address: address),
+               !(histJSON == "[]" || histJSON == "null"),
+               !((histJSON.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] }) ?? []).isEmpty {
                 return true
             }
         case "Litecoin":
-            if let hasHistory = try? await LitecoinBalanceService.hasTransactionHistory(for: address),
-               hasHistory {
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.litecoin, address: address),
+               let sat = RustBalanceDecoder.uint64Field("balance_sat", from: json), sat > 0 {
                 return true
             }
-            if let balance = try? await LitecoinBalanceService.fetchBalance(for: address),
-               balance > 0 {
+            if let histJSON = try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.litecoin, address: address),
+               !(histJSON == "[]" || histJSON == "null"),
+               !((histJSON.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] }) ?? []).isEmpty {
                 return true
             }
         default:
@@ -3226,12 +3205,13 @@ extension WalletStore {
         address: String,
         networkMode: DogecoinNetworkMode
     ) async -> Bool {
-        if let snapshots = try? await DogecoinBalanceService.fetchRecentTransactions(for: address, limit: 1, networkMode: networkMode),
-           !snapshots.isEmpty {
+        if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.dogecoin, address: address),
+           let koin = RustBalanceDecoder.uint64Field("balance_koin", from: json), koin > 0 {
             return true
         }
-        if let balance = try? await DogecoinBalanceService.fetchBalance(for: address, networkMode: networkMode),
-           balance > 0 {
+        if let histJSON = try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.dogecoin, address: address),
+           !(histJSON == "[]" || histJSON == "null"),
+           !((histJSON.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] }) ?? []).isEmpty {
             return true
         }
         return false
@@ -3464,17 +3444,22 @@ extension WalletStore {
             let infoMessage: String?
             switch coin.chainName {
             case "Bitcoin":
-                let balance = try await BitcoinBalanceService.fetchBalance(for: destinationForProbe, networkMode: self.bitcoinNetworkMode)
-                let hasHistory = try await BitcoinBalanceService.hasTransactionHistory(for: destinationForProbe, networkMode: self.bitcoinNetworkMode)
-                warning = (balance <= 0 && !hasHistory)
+                let btcJSON = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.bitcoin, address: destinationForProbe)
+                let btcObj = btcJSON.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+                let btcBalance = (btcObj["confirmed_sats"] as? Int) ?? 0
+                let hasHistory = ((btcObj["utxo_count"] as? Int) ?? 0) > 0
+                warning = (btcBalance <= 0 && !hasHistory)
                     ? "Warning: this Bitcoin address has zero balance and no transaction history. Double-check recipient details."
                     : nil
-                infoMessage = (balance <= 0 && hasHistory)
+                infoMessage = (btcBalance <= 0 && hasHistory)
                     ? "Note: this Bitcoin address has transaction history but currently zero balance."
                     : nil
             case "Litecoin":
-                let balance = try await LitecoinBalanceService.fetchBalance(for: destinationForProbe)
-                let hasHistory = try await LitecoinBalanceService.hasTransactionHistory(for: destinationForProbe)
+                let ltcJSON = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.litecoin, address: destinationForProbe)
+                let ltcSat = RustBalanceDecoder.uint64Field("balance_sat", from: ltcJSON) ?? 0
+                let balance = Double(ltcSat) / 1e8
+                let histJSON = (try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.litecoin, address: destinationForProbe)) ?? "[]"
+                let hasHistory = !(histJSON == "[]" || histJSON == "null" || (histJSON.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] } ?? []).isEmpty)
                 warning = (balance <= 0 && !hasHistory)
                     ? "Warning: this Litecoin address has zero balance and no transaction history. Double-check recipient details."
                     : nil
@@ -3487,9 +3472,11 @@ extension WalletStore {
                     infoMessage = nil
                     break
                 }
-                let destinationNetworkMode = wallet(for: sendWalletID).map(dogecoinNetworkMode(for:)) ?? dogecoinNetworkMode
-                let balance = try await DogecoinBalanceService.fetchBalance(for: destinationForProbe, networkMode: destinationNetworkMode)
-                let hasHistory = !(try await DogecoinBalanceService.fetchRecentTransactions(for: destinationForProbe, limit: 1, networkMode: destinationNetworkMode)).isEmpty
+                let dogeJSON = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.dogecoin, address: destinationForProbe)
+                let dogeKoin = RustBalanceDecoder.uint64Field("balance_koin", from: dogeJSON) ?? 0
+                let balance = Double(dogeKoin) / 1e8
+                let dogeHistJSON = (try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.dogecoin, address: destinationForProbe)) ?? "[]"
+                let hasHistory = !(dogeHistJSON == "[]" || dogeHistJSON == "null" || (dogeHistJSON.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] } ?? []).isEmpty)
                 warning = (balance <= 0 && !hasHistory)
                     ? "Warning: this Dogecoin address has zero balance and no transaction history. Double-check recipient details."
                     : nil
@@ -3497,25 +3484,24 @@ extension WalletStore {
                     ? "Note: this Dogecoin address has transaction history but currently zero balance."
                     : nil
             case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid":
-                guard let chain = evmChainContext(for: coin.chainName) else {
+                guard let chainId = SpectraChainID.id(for: coin.chainName) else {
                     warning = nil
                     infoMessage = nil
                     break
                 }
                 let normalizedAddress = try validateEVMAddress(destinationForProbe)
-                let transactionCount = try await EthereumWalletEngine.fetchTransactionCount(
-                    for: normalizedAddress,
-                    rpcEndpoint: configuredEVMRPCEndpointURL(for: coin.chainName),
-                    chain: chain
+                let previewJSON = try await WalletServiceBridge.shared.fetchEVMSendPreviewJSON(
+                    chainId: chainId,
+                    from: normalizedAddress,
+                    to: normalizedAddress,
+                    valueWei: "0",
+                    dataHex: "0x"
                 )
-                let hasHistory = transactionCount > 0
-                if coin.symbol == "ETH" || coin.symbol == "BNB" {
-                    let snapshot = try await EthereumWalletEngine.fetchAccountSnapshot(
-                        for: normalizedAddress,
-                        rpcEndpoint: configuredEVMRPCEndpointURL(for: coin.chainName),
-                        chain: chain
-                    )
-                    let nativeBalance = EthereumWalletEngine.nativeBalanceETH(from: snapshot)
+                let previewData = previewJSON.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] } ?? [:]
+                let nonce = previewData["nonce"] as? Int ?? 0
+                let hasHistory = nonce > 0
+                if coin.symbol == "ETH" || coin.symbol == "BNB" || coin.symbol == "AVAX" || coin.symbol == "ARB" || coin.symbol == "OP" {
+                    let nativeBalance = previewData["balance_eth"] as? Double ?? 0
                     warning = (nativeBalance <= 0 && !hasHistory)
                         ? "Warning: this \(coin.chainName) address has zero balance and no transaction history. Double-check recipient details."
                         : nil
@@ -3523,11 +3509,10 @@ extension WalletStore {
                         ? "Note: this \(coin.chainName) address has transaction history but currently zero \(coin.symbol) balance."
                         : nil
                 } else if let token = supportedEVMToken(for: coin) {
-                    let tokenBalances = try await EthereumWalletEngine.plannedTokenBalances(
-                        for: normalizedAddress,
-                        tokenContracts: [token.contractAddress],
-                        rpcEndpoint: configuredEVMRPCEndpointURL(for: coin.chainName),
-                        chain: chain
+                    let tokenBalances = try await WalletServiceBridge.shared.fetchEVMTokenBalancesBatch(
+                        chainId: chainId,
+                        address: normalizedAddress,
+                        tokens: [(contract: token.contractAddress, symbol: token.symbol, decimals: token.decimals)]
                     )
                     let tokenBalance = tokenBalances.first?.balance ?? .zero
                     warning = (tokenBalance <= .zero && !hasHistory)
@@ -3541,35 +3526,44 @@ extension WalletStore {
                     infoMessage = nil
                 }
             case "Tron":
-                if coin.symbol == "TRX" {
-                    let result = try await TronBalanceService.fetchBalances(for: destinationForProbe)
-                    let history = await TronBalanceService.fetchRecentHistoryWithDiagnostics(for: destinationForProbe, limit: 1)
-                    let hasHistory = !history.snapshots.isEmpty
-                    warning = (result.trxBalance <= 0 && !hasHistory)
-                        ? "Warning: this Tron address has zero TRX balance and no transaction history. Double-check recipient details."
-                        : nil
-                    infoMessage = (result.trxBalance <= 0 && hasHistory)
-                        ? "Note: this Tron address has transaction history but currently zero TRX balance."
-                        : nil
-                } else if coin.symbol == "USDT" {
-                    let result = try await TronBalanceService.fetchBalances(for: destinationForProbe)
-                    let usdtBalance = result.tokenBalances.first(where: { $0.symbol == "USDT" })?.balance ?? 0
-                    let history = await TronBalanceService.fetchRecentHistoryWithDiagnostics(for: destinationForProbe, limit: 1)
-                    let hasHistory = !history.snapshots.isEmpty
-                    warning = (usdtBalance <= 0 && !hasHistory)
-                        ? "Warning: this Tron address has zero USDT balance and no transaction history. Double-check recipient details."
-                        : nil
-                    infoMessage = (usdtBalance <= 0 && hasHistory)
-                        ? "Note: this Tron address has transaction history but currently zero USDT balance."
-                        : nil
+                if coin.symbol == "TRX" || coin.symbol == "USDT" {
+                    let tronNativeJSON = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.tron, address: destinationForProbe)
+                    let tronSun = RustBalanceDecoder.uint64Field("sun", from: tronNativeJSON) ?? 0
+                    let tronHistJSON = (try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.tron, address: destinationForProbe)) ?? "[]"
+                    let hasHistory = !(tronHistJSON == "[]" || tronHistJSON == "null" || (tronHistJSON.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] } ?? []).isEmpty)
+                    if coin.symbol == "TRX" {
+                        let trxBalance = Double(tronSun) / 1e6
+                        warning = (trxBalance <= 0 && !hasHistory)
+                            ? "Warning: this Tron address has zero TRX balance and no transaction history. Double-check recipient details."
+                            : nil
+                        infoMessage = (trxBalance <= 0 && hasHistory)
+                            ? "Note: this Tron address has transaction history but currently zero TRX balance."
+                            : nil
+                    } else {
+                        let usdtTokenJSON = try await WalletServiceBridge.shared.fetchTokenBalancesJSON(
+                            chainId: SpectraChainID.tron,
+                            address: destinationForProbe,
+                            tokens: [(contract: TronBalanceService.usdtTronContract, symbol: "USDT", decimals: 6)]
+                        )
+                        let usdtArr = usdtTokenJSON.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] } ?? []
+                        let usdtBalance = usdtArr.first.flatMap { $0["balance_display"] as? String }.flatMap { Double($0) } ?? 0
+                        warning = (usdtBalance <= 0 && !hasHistory)
+                            ? "Warning: this Tron address has zero USDT balance and no transaction history. Double-check recipient details."
+                            : nil
+                        infoMessage = (usdtBalance <= 0 && hasHistory)
+                            ? "Note: this Tron address has transaction history but currently zero USDT balance."
+                            : nil
+                    }
                 } else {
                     warning = nil
                     infoMessage = nil
                 }
             case "Solana":
-                let balance = try await SolanaBalanceService.fetchBalance(for: destinationForProbe)
-                let history = await SolanaBalanceService.fetchRecentHistoryWithDiagnostics(for: destinationForProbe, limit: 1)
-                let hasHistory = !history.snapshots.isEmpty
+                let solJSON = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.solana, address: destinationForProbe)
+                let solLamports = RustBalanceDecoder.uint64Field("lamports", from: solJSON) ?? 0
+                let balance = Double(solLamports) / 1e9
+                let solHistJSON = (try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.solana, address: destinationForProbe)) ?? "[]"
+                let hasHistory = !(solHistJSON == "[]" || solHistJSON == "null" || (solHistJSON.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] } ?? []).isEmpty)
                 warning = (balance <= 0 && !hasHistory)
                     ? "Warning: this Solana address has zero SOL balance and no transaction history. Double-check recipient details."
                     : nil
@@ -3577,9 +3571,11 @@ extension WalletStore {
                     ? "Note: this Solana address has transaction history but currently zero SOL balance."
                     : nil
             case "XRP Ledger":
-                let balance = try await XRPBalanceService.fetchBalance(for: destinationForProbe)
-                let history = await XRPBalanceService.fetchRecentHistoryWithDiagnostics(for: destinationForProbe, limit: 1)
-                let hasHistory = !history.snapshots.isEmpty
+                let xrpJson = (try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.xrp, address: destinationForProbe)) ?? "{}"
+                let xrpDrops = RustBalanceDecoder.uint64Field("drops", from: xrpJson) ?? 0
+                let balance = Double(xrpDrops) / 1_000_000
+                let histJson = (try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.xrp, address: destinationForProbe)) ?? "[]"
+                let hasHistory = !(histJson == "[]" || (histJson.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] } ?? []).isEmpty)
                 warning = (balance <= 0 && !hasHistory)
                     ? "Warning: this XRP address has zero balance and no transaction history. Double-check recipient details."
                     : nil
@@ -3587,9 +3583,11 @@ extension WalletStore {
                     ? "Note: this XRP address has transaction history but currently zero XRP balance."
                     : nil
             case "Monero":
-                let balance = try await MoneroBalanceService.fetchBalance(for: destinationForProbe)
-                let history = await MoneroBalanceService.fetchRecentHistoryWithDiagnostics(for: destinationForProbe, limit: 1)
-                let hasHistory = !history.snapshots.isEmpty
+                let xmrJson = (try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.monero, address: destinationForProbe)) ?? "{}"
+                let piconeros = RustBalanceDecoder.uint64Field("piconeros", from: xmrJson) ?? 0
+                let balance = Double(piconeros) / 1_000_000_000_000
+                let histJson = (try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.monero, address: destinationForProbe)) ?? "[]"
+                let hasHistory = !(histJson == "[]" || (histJson.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] } ?? []).isEmpty)
                 warning = (balance <= 0 && !hasHistory)
                     ? "Warning: this Monero address has zero balance and no transaction history. Double-check recipient details."
                     : nil
@@ -3597,9 +3595,11 @@ extension WalletStore {
                     ? "Note: this Monero address has transaction history but currently zero XMR balance."
                     : nil
             case "Sui":
-                let balance = try await SuiBalanceService.fetchBalance(for: destinationForProbe)
-                let history = await SuiBalanceService.fetchRecentHistoryWithDiagnostics(for: destinationForProbe, limit: 1)
-                let hasHistory = !history.snapshots.isEmpty
+                let suiJson = (try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.sui, address: destinationForProbe)) ?? "{}"
+                let mist = RustBalanceDecoder.uint64Field("mist", from: suiJson) ?? 0
+                let balance = Double(mist) / 1_000_000_000
+                let histJson = (try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.sui, address: destinationForProbe)) ?? "[]"
+                let hasHistory = !(histJson == "[]" || (histJson.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] } ?? []).isEmpty)
                 warning = (balance <= 0 && !hasHistory)
                     ? "Warning: this Sui address has zero balance and no transaction history. Double-check recipient details."
                     : nil
@@ -3607,9 +3607,11 @@ extension WalletStore {
                     ? "Note: this Sui address has transaction history but currently zero SUI balance."
                     : nil
             case "Aptos":
-                let balance = try await AptosBalanceService.fetchBalance(for: destinationForProbe)
-                let history = await AptosBalanceService.fetchRecentHistoryWithDiagnostics(for: destinationForProbe, limit: 1)
-                let hasHistory = !history.snapshots.isEmpty
+                let aptJson = (try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.aptos, address: destinationForProbe)) ?? "{}"
+                let octas = RustBalanceDecoder.uint64Field("octas", from: aptJson) ?? 0
+                let balance = Double(octas) / 100_000_000
+                let histJson = (try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.aptos, address: destinationForProbe)) ?? "[]"
+                let hasHistory = !(histJson == "[]" || (histJson.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] } ?? []).isEmpty)
                 warning = (balance <= 0 && !hasHistory)
                     ? "Warning: this Aptos address has zero balance and no transaction history. Double-check recipient details."
                     : nil
@@ -3617,9 +3619,11 @@ extension WalletStore {
                     ? "Note: this Aptos address has transaction history but currently zero APT balance."
                     : nil
             case "NEAR":
-                let balance = try await NearBalanceService.fetchBalance(for: destinationForProbe)
-                let history = await NearBalanceService.fetchRecentHistoryWithDiagnostics(for: destinationForProbe, limit: 1)
-                let hasHistory = !history.snapshots.isEmpty
+                let nearJson = (try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.near, address: destinationForProbe)) ?? "{}"
+                let yoctoStr = (nearJson.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] })?["yocto_near"] as? String ?? "0"
+                let balance = (Double(yoctoStr) ?? 0) / 1e24
+                let histJson = (try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.near, address: destinationForProbe)) ?? "[]"
+                let hasHistory = !(histJson == "[]" || (histJson.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] } ?? []).isEmpty)
                 warning = (balance <= 0 && !hasHistory)
                     ? "Warning: this NEAR address has zero balance and no transaction history. Double-check recipient details."
                     : nil
@@ -3647,25 +3651,6 @@ extension WalletStore {
     }
     
     func userFacingTronSendError(_ error: Error, symbol: String) -> String {
-        if let tronError = error as? TronWalletEngineError {
-            switch tronError {
-            case .invalidAddress:
-                return "Enter a valid Tron address (starts with T)."
-            case .invalidAmount:
-                return CommonLocalization.invalidAssetAmountPrompt(symbol)
-            case .invalidSeedPhrase:
-                return "This wallet seed phrase cannot derive a valid Tron signer."
-            case .unsupportedTokenContract:
-                return "Only official USDT on Tron is supported for now."
-            case .createTransactionFailed(let message):
-                return message
-            case .signFailed(let message):
-                return "Failed to sign Tron transaction: \(message)"
-            case .broadcastFailed(let message):
-                return message
-            }
-        }
-
         let message = error.localizedDescription
         if message.localizedCaseInsensitiveContains("timed out") {
             return "Tron network request timed out. Please try again."
@@ -3685,220 +3670,45 @@ extension WalletStore {
     }
 
     func userFacingXRPSendError(_ error: Error) -> String {
-        if let xrpError = error as? XRPWalletEngineError {
-            switch xrpError {
-            case .invalidAddress:
-                return "Enter a valid XRP address (starts with r)."
-            case .invalidAmount:
-                return CommonLocalization.invalidAssetAmountPrompt("XRP")
-            case .invalidSeedPhrase:
-                return "This wallet seed phrase cannot derive a valid XRP signer."
-            case .signingFailed(let message):
-                return "Failed to sign XRP transaction: \(message)"
-            case .networkError(let message):
-                return message
-            case .broadcastFailed(let message):
-                return message
-            }
-        }
         return error.localizedDescription
     }
 
     func userFacingStellarSendError(_ error: Error) -> String {
-        if let stellarError = error as? StellarWalletEngineError {
-            switch stellarError {
-            case .invalidAddress:
-                return "Enter a valid Stellar address (starts with G)."
-            case .invalidAmount:
-                return CommonLocalization.invalidAssetAmountPrompt("XLM")
-            case .invalidSeedPhrase:
-                return "This wallet seed phrase cannot derive a valid Stellar signer."
-            case .invalidResponse:
-                return "Invalid response from Stellar network."
-            case .signingFailed(let message):
-                return "Failed to sign Stellar transaction: \(message)"
-            case .networkError(let message):
-                return message
-            case .broadcastFailed(let message):
-                return message
-            }
-        }
         return error.localizedDescription
     }
 
     func userFacingMoneroSendError(_ error: Error) -> String {
-        if let moneroError = error as? MoneroWalletEngineError {
-            switch moneroError {
-            case .invalidAddress:
-                return "Enter a valid Monero address (starts with 4 or 8)."
-            case .invalidAmount:
-                return CommonLocalization.invalidAssetAmountPrompt("XMR")
-            case .backendNotConfigured:
-                return "Monero backend is not configured. Set monero.backend.baseURL in app defaults."
-            case .backendRejected(let message):
-                return message
-            case .invalidResponse:
-                return "Invalid response from Monero backend."
-            }
-        }
         return error.localizedDescription
     }
 
     func userFacingCardanoSendError(_ error: Error) -> String {
-        if let cardanoError = error as? CardanoWalletEngineError {
-            switch cardanoError {
-            case .invalidAddress:
-                return "Enter a valid Cardano address (starts with addr1)."
-            case .invalidAmount:
-                return CommonLocalization.invalidAssetAmountPrompt("ADA")
-            case .invalidSeedPhrase:
-                return "This wallet seed phrase cannot derive a valid Cardano signer."
-            case .signingFailed(let message):
-                return "Failed to sign Cardano transaction: \(message)"
-            case .networkError(let message):
-                return message
-            case .broadcastFailed(let message):
-                return message
-            }
-        }
         return error.localizedDescription
     }
 
     func userFacingSuiSendError(_ error: Error) -> String {
-        if let suiError = error as? SuiWalletEngineError {
-            switch suiError {
-            case .invalidAddress:
-                return "Enter a valid Sui address (starts with 0x)."
-            case .invalidAmount:
-                return CommonLocalization.invalidAssetAmountPrompt("SUI")
-            case .invalidSeedPhrase:
-                return "This wallet seed phrase cannot derive a valid Sui signer."
-            case .insufficientBalance:
-                return "Insufficient SUI for amount plus network fee."
-            case .invalidResponse:
-                return "Invalid response from Sui network."
-            case .signingFailed(let message):
-                return "Failed to sign Sui transaction: \(message)"
-            case .networkError(let message):
-                return message
-            case .broadcastFailed(let message):
-                return message
-            }
-        }
         return error.localizedDescription
     }
 
     func userFacingAptosSendError(_ error: Error) -> String {
-        if let aptosError = error as? AptosWalletEngineError {
-            switch aptosError {
-            case .invalidAddress:
-                return "Enter a valid Aptos address (starts with 0x)."
-            case .invalidAmount:
-                return CommonLocalization.invalidAssetAmountPrompt("APT")
-            case .invalidSeedPhrase:
-                return "This wallet seed phrase cannot derive a valid Aptos signer."
-            case .insufficientBalance:
-                return "Insufficient APT for amount plus network fee."
-            case .invalidResponse:
-                return "Invalid response from Aptos network."
-            case .signingFailed(let message):
-                return "Failed to sign Aptos transaction: \(message)"
-            case .networkError(let message):
-                return message
-            case .broadcastFailed(let message):
-                return message
-            }
-        }
         return error.localizedDescription
     }
 
     func userFacingTONSendError(_ error: Error) -> String {
-        if let tonError = error as? TONWalletEngineError {
-            switch tonError {
-            case .invalidAddress:
-                return localizedStoreString("Enter a valid TON address.")
-            case .invalidAmount:
-                return CommonLocalization.invalidAssetAmountPrompt("TON")
-            case .invalidSeedPhrase:
-                return "This wallet seed phrase cannot derive a valid TON signer."
-            case .invalidResponse:
-                return "Invalid response from TON network."
-            case .insufficientBalance:
-                return "Insufficient TON for amount plus network fee."
-            case .signingFailed(let message):
-                return "Failed to sign TON transaction: \(message)"
-            case .networkError(let message), .broadcastFailed(let message):
-                return message
-            }
-        }
         return error.localizedDescription
     }
 
     func userFacingNearSendError(_ error: Error) -> String {
-        if let nearError = error as? NearWalletEngineError {
-            switch nearError {
-            case .invalidAddress:
-                return localizedStoreString("Enter a valid NEAR account ID or implicit address.")
-            case .invalidAmount:
-                return CommonLocalization.invalidAssetAmountPrompt("NEAR")
-            case .invalidSeedPhrase:
-                return "This wallet seed phrase cannot derive a valid NEAR signer."
-            case .invalidResponse:
-                return "Invalid response from NEAR network."
-            case .accessKeyUnavailable:
-                return "No NEAR full-access key was found for this account."
-            case .signingFailed(let message):
-                return "Failed to sign NEAR transaction: \(message)"
-            case .networkError(let message):
-                return message
-            case .broadcastFailed(let message):
-                return message
-            }
-        }
         return error.localizedDescription
     }
 
     func userFacingPolkadotSendError(_ error: Error) -> String {
-        if let polkadotError = error as? PolkadotWalletEngineError {
-            switch polkadotError {
-            case .invalidAddress:
-                return localizedStoreString("Enter a valid Polkadot SS58 address.")
-            case .invalidAmount:
-                return CommonLocalization.invalidAssetAmountPrompt("DOT")
-            case .invalidSeedPhrase:
-                return "This wallet seed phrase cannot derive a valid Polkadot signer."
-            case .invalidResponse:
-                return "Invalid response from Polkadot network."
-            case .signingFailed(let message):
-                return "Failed to sign Polkadot transaction: \(message)"
-            case .networkError(let message):
-                return message
-            case .broadcastFailed(let message):
-                return message
-            }
-        }
         return error.localizedDescription
     }
 
     func userFacingICPSendError(_ error: Error) -> String {
-        if let icpError = error as? ICPWalletEngineError {
-            switch icpError {
-            case .invalidAddress:
-                return "Enter a valid Internet Computer account identifier."
-            case .invalidAmount:
-                return CommonLocalization.invalidAssetAmountPrompt("ICP")
-            case .invalidSeedPhrase:
-                return "This wallet seed phrase cannot derive a valid ICP signer."
-            case .invalidResponse:
-                return "Invalid response from Internet Computer network."
-            case .insufficientBalance:
-                return "Insufficient ICP for amount plus network fee."
-            case .signingFailed(let message), .networkError(let message), .broadcastFailed(let message):
-                return message
-            }
-        }
         return error.localizedDescription
     }
+
 
     // Main send execution dispatcher.
     // Performs final validation, signs via chain engine, broadcasts, then records transaction.

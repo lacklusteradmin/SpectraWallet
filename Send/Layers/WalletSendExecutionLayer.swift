@@ -306,7 +306,7 @@ extension WalletSendLayer {
                         paramsJson: paramsJson
                     )
                 } else {
-                    throw ICPWalletEngineError.invalidSeedPhrase
+                    throw NSError(domain: "ICPSend", code: 1, userInfo: [NSLocalizedDescriptionKey: "This wallet seed phrase cannot derive a valid ICP signer."])
                 }
 
                 let txid = WalletSendLayer.rustField("block_index", from: resultJSON)
@@ -1448,8 +1448,7 @@ extension WalletSendLayer {
                     customFees: customFees
                 )
                 let rustSupportsChain = spectraEvmChainId != nil
-                let nativeEvmSymbols: Set<String> = ["ETH", "ETC", "BNB"]
-                if nativeEvmSymbols.contains(holding.symbol) && rustSupportsChain, let chainId = spectraEvmChainId {
+                if preflight.isNativeEVMAsset && rustSupportsChain, let chainId = spectraEvmChainId {
                     let valueWei = WalletSendLayer.ethToWeiString(amount)
                     guard let sourceAddress = store.resolvedEVMAddress(for: wallet, chainName: holding.chainName) else {
                         store.sendError = "Unable to resolve this wallet's \(holding.chainName) signing address."
