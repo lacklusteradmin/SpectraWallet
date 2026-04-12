@@ -147,94 +147,44 @@ extension WalletStore {
     }
 
     func runLitecoinHistoryDiagnostics() async {
-        guard !isRunningLitecoinHistoryDiagnostics else { return }
-        isRunningLitecoinHistoryDiagnostics = true
-        defer { isRunningLitecoinHistoryDiagnostics = false }
-
-        let ltcWallets = wallets.filter { $0.selectedChain == "Litecoin" }
-        guard !ltcWallets.isEmpty else {
-            litecoinHistoryDiagnosticsLastUpdatedAt = Date()
-            return
-        }
-
-        for wallet in ltcWallets {
-            guard let litecoinAddress = resolvedLitecoinAddress(for: wallet) else {
-                litecoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
-                    walletID: wallet.id,
-                    identifier: "missing litecoin address",
-                    sourceUsed: "none",
-                    transactionCount: 0,
-                    nextCursor: nil,
-                    error: "Wallet has no LTC address configured."
-                )
-                continue
-            }
-
-            do {
-                let page = try await withTimeout(seconds: 20) {
-                    try await LitecoinBalanceService.fetchTransactionPage(
-                        for: litecoinAddress,
-                        limit: HistoryPaging.endpointBatchSize,
-                        cursor: nil
-                    )
-                }
-                litecoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
-                    walletID: wallet.id,
-                    identifier: litecoinAddress,
-                    sourceUsed: page.sourceUsed,
-                    transactionCount: page.snapshots.count,
-                    nextCursor: page.nextCursor,
-                    error: nil
-                )
-            } catch {
-                litecoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
-                    walletID: wallet.id,
-                    identifier: litecoinAddress,
-                    sourceUsed: "none",
-                    transactionCount: 0,
-                    nextCursor: nil,
-                    error: error.localizedDescription
-                )
-            }
-            litecoinHistoryDiagnosticsLastUpdatedAt = Date()
-        }
+        await runAddressHistoryDiagnosticsForAllWallets(
+            isRunning: { self.isRunningLitecoinHistoryDiagnostics },
+            setRunning: { self.isRunningLitecoinHistoryDiagnostics = $0 },
+            chainName: "Litecoin",
+            resolveAddress: { self.resolvedLitecoinAddress(for: $0) },
+            fetchDiagnostics: { address in
+                let count = (try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.litecoin, address: address
+                )).map { decodeRustHistoryJSON(json: $0).count } ?? 0
+                return BitcoinHistoryDiagnostics(walletID: UUID(), identifier: address,
+                    sourceUsed: "rust", transactionCount: count, nextCursor: nil, error: nil)
+            },
+            storeDiagnostics: { walletID, d in
+                self.litecoinHistoryDiagnosticsByWallet[walletID] = BitcoinHistoryDiagnostics(
+                    walletID: walletID, identifier: d.identifier, sourceUsed: d.sourceUsed,
+                    transactionCount: d.transactionCount, nextCursor: d.nextCursor, error: d.error)
+            },
+            markUpdated: { self.litecoinHistoryDiagnosticsLastUpdatedAt = Date() }
+        )
     }
 
     func runLitecoinHistoryDiagnostics(for walletID: UUID) async {
-        guard !isRunningLitecoinHistoryDiagnostics else { return }
-        guard let wallet = wallets.first(where: { $0.id == walletID }),
-              wallet.selectedChain == "Litecoin",
-              let litecoinAddress = resolvedLitecoinAddress(for: wallet) else { return }
-        isRunningLitecoinHistoryDiagnostics = true
-        defer { isRunningLitecoinHistoryDiagnostics = false }
-
-        do {
-            let page = try await withTimeout(seconds: 20) {
-                try await LitecoinBalanceService.fetchTransactionPage(
-                    for: litecoinAddress,
-                    limit: HistoryPaging.endpointBatchSize,
-                    cursor: nil
-                )
-            }
-            litecoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
-                walletID: wallet.id,
-                identifier: litecoinAddress,
-                sourceUsed: page.sourceUsed,
-                transactionCount: page.snapshots.count,
-                nextCursor: page.nextCursor,
-                error: nil
-            )
-        } catch {
-            litecoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
-                walletID: wallet.id,
-                identifier: litecoinAddress,
-                sourceUsed: "none",
-                transactionCount: 0,
-                nextCursor: nil,
-                error: error.localizedDescription
-            )
-        }
-        litecoinHistoryDiagnosticsLastUpdatedAt = Date()
+        await runAddressHistoryDiagnosticsForWallet(
+            walletID: walletID,
+            isRunning: { self.isRunningLitecoinHistoryDiagnostics },
+            setRunning: { self.isRunningLitecoinHistoryDiagnostics = $0 },
+            chainName: "Litecoin",
+            resolveAddress: { self.resolvedLitecoinAddress(for: $0) },
+            fetchDiagnostics: { address in
+                let count = (try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.litecoin, address: address
+                )).map { decodeRustHistoryJSON(json: $0).count } ?? 0
+                return BitcoinHistoryDiagnostics(walletID: walletID, identifier: address,
+                    sourceUsed: "rust", transactionCount: count, nextCursor: nil, error: nil)
+            },
+            storeDiagnostics: { _, d in self.litecoinHistoryDiagnosticsByWallet[walletID] = d },
+            markUpdated: { self.litecoinHistoryDiagnosticsLastUpdatedAt = Date() }
+        )
     }
 
     func runLitecoinEndpointReachabilityDiagnostics() async {
@@ -251,61 +201,25 @@ extension WalletStore {
     }
 
     func runBitcoinCashHistoryDiagnostics() async {
-        guard !isRunningBitcoinCashHistoryDiagnostics else { return }
-        isRunningBitcoinCashHistoryDiagnostics = true
-        defer { isRunningBitcoinCashHistoryDiagnostics = false }
-
-        let walletsToRefresh = wallets.compactMap { wallet -> (ImportedWallet, String)? in
-            guard wallet.selectedChain == "Bitcoin Cash",
-                  let address = resolvedBitcoinCashAddress(for: wallet) else {
-                return nil
-            }
-            return (wallet, address)
-        }
-        guard !walletsToRefresh.isEmpty else {
-            bitcoinCashHistoryDiagnosticsLastUpdatedAt = Date()
-            return
-        }
-
-        for (wallet, address) in walletsToRefresh {
-            bitcoinCashHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
-                walletID: wallet.id,
-                identifier: address,
-                sourceUsed: "running",
-                transactionCount: 0,
-                nextCursor: nil,
-                error: "Running..."
-            )
-            bitcoinCashHistoryDiagnosticsLastUpdatedAt = Date()
-
-            do {
-                let page = try await withTimeout(seconds: 15) {
-                    try await BitcoinCashBalanceService.fetchTransactionPage(
-                        for: address,
-                        limit: HistoryPaging.endpointBatchSize
-                    )
-                }
-                bitcoinCashHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
-                    walletID: wallet.id,
-                    identifier: address,
-                    sourceUsed: page.sourceUsed,
-                    transactionCount: page.snapshots.count,
-                    nextCursor: page.nextCursor ?? "",
-                    error: nil
-                )
-            } catch {
-                bitcoinCashHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
-                    walletID: wallet.id,
-                    identifier: address,
-                    sourceUsed: "none",
-                    transactionCount: 0,
-                    nextCursor: nil,
-                    error: error.localizedDescription
-                )
-            }
-        }
-
-        bitcoinCashHistoryDiagnosticsLastUpdatedAt = Date()
+        await runAddressHistoryDiagnosticsForAllWallets(
+            isRunning: { self.isRunningBitcoinCashHistoryDiagnostics },
+            setRunning: { self.isRunningBitcoinCashHistoryDiagnostics = $0 },
+            chainName: "Bitcoin Cash",
+            resolveAddress: { self.resolvedBitcoinCashAddress(for: $0) },
+            fetchDiagnostics: { address in
+                let count = (try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.bitcoinCash, address: address
+                )).map { decodeRustHistoryJSON(json: $0).count } ?? 0
+                return BitcoinHistoryDiagnostics(walletID: UUID(), identifier: address,
+                    sourceUsed: "rust", transactionCount: count, nextCursor: nil, error: nil)
+            },
+            storeDiagnostics: { walletID, d in
+                self.bitcoinCashHistoryDiagnosticsByWallet[walletID] = BitcoinHistoryDiagnostics(
+                    walletID: walletID, identifier: d.identifier, sourceUsed: d.sourceUsed,
+                    transactionCount: d.transactionCount, nextCursor: d.nextCursor, error: d.error)
+            },
+            markUpdated: { self.bitcoinCashHistoryDiagnosticsLastUpdatedAt = Date() }
+        )
     }
 
     func runBitcoinCashEndpointReachabilityDiagnostics() async {
@@ -322,61 +236,25 @@ extension WalletStore {
     }
 
     func runBitcoinSVHistoryDiagnostics() async {
-        guard !isRunningBitcoinSVHistoryDiagnostics else { return }
-        isRunningBitcoinSVHistoryDiagnostics = true
-        defer { isRunningBitcoinSVHistoryDiagnostics = false }
-
-        let walletsToRefresh = wallets.compactMap { wallet -> (ImportedWallet, String)? in
-            guard wallet.selectedChain == "Bitcoin SV",
-                  let address = resolvedBitcoinSVAddress(for: wallet) else {
-                return nil
-            }
-            return (wallet, address)
-        }
-        guard !walletsToRefresh.isEmpty else {
-            bitcoinSVHistoryDiagnosticsLastUpdatedAt = Date()
-            return
-        }
-
-        for (wallet, address) in walletsToRefresh {
-            bitcoinSVHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
-                walletID: wallet.id,
-                identifier: address,
-                sourceUsed: "running",
-                transactionCount: 0,
-                nextCursor: nil,
-                error: "Running..."
-            )
-            bitcoinSVHistoryDiagnosticsLastUpdatedAt = Date()
-
-            do {
-                let page = try await withTimeout(seconds: 15) {
-                    try await BitcoinSVBalanceService.fetchTransactionPage(
-                        for: address,
-                        limit: HistoryPaging.endpointBatchSize
-                    )
-                }
-                bitcoinSVHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
-                    walletID: wallet.id,
-                    identifier: address,
-                    sourceUsed: page.sourceUsed,
-                    transactionCount: page.snapshots.count,
-                    nextCursor: page.nextCursor ?? "",
-                    error: nil
-                )
-            } catch {
-                bitcoinSVHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
-                    walletID: wallet.id,
-                    identifier: address,
-                    sourceUsed: "none",
-                    transactionCount: 0,
-                    nextCursor: nil,
-                    error: error.localizedDescription
-                )
-            }
-        }
-
-        bitcoinSVHistoryDiagnosticsLastUpdatedAt = Date()
+        await runAddressHistoryDiagnosticsForAllWallets(
+            isRunning: { self.isRunningBitcoinSVHistoryDiagnostics },
+            setRunning: { self.isRunningBitcoinSVHistoryDiagnostics = $0 },
+            chainName: "Bitcoin SV",
+            resolveAddress: { self.resolvedBitcoinSVAddress(for: $0) },
+            fetchDiagnostics: { address in
+                let count = (try? await WalletServiceBridge.shared.fetchHistoryJSON(
+                    chainId: SpectraChainID.bitcoinSv, address: address
+                )).map { decodeRustHistoryJSON(json: $0).count } ?? 0
+                return BitcoinHistoryDiagnostics(walletID: UUID(), identifier: address,
+                    sourceUsed: "rust", transactionCount: count, nextCursor: nil, error: nil)
+            },
+            storeDiagnostics: { walletID, d in
+                self.bitcoinSVHistoryDiagnosticsByWallet[walletID] = BitcoinHistoryDiagnostics(
+                    walletID: walletID, identifier: d.identifier, sourceUsed: d.sourceUsed,
+                    transactionCount: d.transactionCount, nextCursor: d.nextCursor, error: d.error)
+            },
+            markUpdated: { self.bitcoinSVHistoryDiagnosticsLastUpdatedAt = Date() }
+        )
     }
 
     func runBitcoinSVEndpointReachabilityDiagnostics() async {

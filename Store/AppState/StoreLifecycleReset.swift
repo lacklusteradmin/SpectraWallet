@@ -67,7 +67,6 @@ extension WalletStore {
         chainOwnedAddressMapByChain = loadChainOwnedAddressMap()
         chainOperationalEventsByChain = loadChainOperationalEvents()
         syncChainOwnedAddressManagementState()
-        applyBitcoinRuntimeConfiguration()
         if UserDefaults.standard.object(forKey: Self.hideBalancesDefaultsKey) != nil {
             hideBalances = UserDefaults.standard.bool(forKey: Self.hideBalancesDefaultsKey)
         }
@@ -283,28 +282,7 @@ extension WalletStore {
         UserDefaults.standard.removeObject(forKey: Self.chainKeypoolDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.chainOwnedAddressMapDefaultsKey)
         transactions = []
-        bitcoinHistoryCursorByWallet = [:]
-        exhaustedBitcoinHistoryWalletIDs = []
-        bitcoinCashHistoryCursorByWallet = [:]
-        exhaustedBitcoinCashHistoryWalletIDs = []
-        bitcoinSVHistoryCursorByWallet = [:]
-        exhaustedBitcoinSVHistoryWalletIDs = []
-        litecoinHistoryCursorByWallet = [:]
-        exhaustedLitecoinHistoryWalletIDs = []
-        dogecoinHistoryCursorByWallet = [:]
-        exhaustedDogecoinHistoryWalletIDs = []
-        ethereumHistoryPageByWallet = [:]
-        exhaustedEthereumHistoryWalletIDs = []
-        arbitrumHistoryPageByWallet = [:]
-        exhaustedArbitrumHistoryWalletIDs = []
-        optimismHistoryPageByWallet = [:]
-        exhaustedOptimismHistoryWalletIDs = []
-        bnbHistoryPageByWallet = [:]
-        exhaustedBNBHistoryWalletIDs = []
-        hyperliquidHistoryPageByWallet = [:]
-        exhaustedHyperliquidHistoryWalletIDs = []
-        tronHistoryCursorByWallet = [:]
-        exhaustedTronHistoryWalletIDs = []
+        resetAllHistoryPagination()
         bitcoinSelfTestResults = []
         bitcoinSelfTestsLastRunAt = nil
         bitcoinCashSelfTestResults = []

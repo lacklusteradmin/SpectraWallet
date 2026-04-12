@@ -1,7 +1,6 @@
 import Foundation
-import BitcoinDevKit
 
-// File-scope alias captures the UniFFI free function before SeedPhraseSafety shadows it.
+// File-scope alias captures the UniFFI free function before SeedPhraseSafety.generateMnemonic shadows it.
 private let _rustGenerateMnemonic: (UInt32) -> String = generateMnemonic(wordCount:)
 
 enum SeedPhraseSafety {
@@ -58,10 +57,6 @@ enum SeedPhraseSafety {
 
     static func hasValidChecksum(_ seedPhrase: String, expectedWordCount: Int? = nil) -> Bool {
         validationError(for: seedPhrase, expectedWordCount: expectedWordCount) == nil
-    }
-
-    static func validatedMnemonic(from seedPhrase: String) throws -> BitcoinDevKit.Mnemonic {
-        try BitcoinDevKit.Mnemonic.fromString(mnemonic: normalizedPhrase(from: seedPhrase))
     }
 
     static func generateMnemonic(wordCount: Int) throws -> String {

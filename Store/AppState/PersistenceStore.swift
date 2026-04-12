@@ -1,5 +1,24 @@
 import Foundation
 
+// MARK: - Rust SQLite decode helpers (file-private)
+
+/// Mirrors `KeypoolState` from wallet_db.rs (camelCase via serde rename_all).
+private struct RustKeypoolState: Decodable {
+    let nextExternalIndex: Int
+    let nextChangeIndex: Int
+    let reservedReceiveIndex: Int?
+}
+
+/// Mirrors `OwnedAddressRecord` from wallet_db.rs (camelCase via serde rename_all).
+private struct RustOwnedAddressRecord: Decodable {
+    let walletId: String
+    let chainName: String
+    let address: String
+    let derivationPath: String?
+    let branch: String?
+    let branchIndex: Int?
+}
+
 extension WalletStore {
     func persistCodableToUserDefaults<T: Encodable>(_ value: T, key: String) {
         guard let data = try? JSONEncoder().encode(value) else { return }
@@ -50,6 +69,79 @@ extension WalletStore {
             addressBook = abPayload.entries.map {
                 AddressBookEntry(id: $0.id, name: $0.name, chainName: $0.chainName, address: $0.address, note: $0.note)
             }
+        }
+
+        // Load keypool state from Rust SQLite (authoritative after first write-through).
+        // JSON shape: { chainName: { walletUUIDString: { nextExternalIndex, nextChangeIndex, reservedReceiveIndex } } }
+        if let keypoolJSON = try? await WalletServiceBridge.shared.loadAllKeypoolState(),
+           let keypoolData = keypoolJSON.data(using: .utf8),
+           let allKeypool = try? JSONDecoder().decode(
+               [String: [String: RustKeypoolState]].self, from: keypoolData
+           ),
+           !allKeypool.isEmpty {
+            // Dogecoin maps to its own dedicated dictionary.
+            if let dogeWalletMap = allKeypool["Dogecoin"] {
+                var rebuilt: [UUID: DogecoinKeypoolState] = [:]
+                for (uuidStr, state) in dogeWalletMap {
+                    guard let uuid = UUID(uuidString: uuidStr) else { continue }
+                    rebuilt[uuid] = DogecoinKeypoolState(
+                        nextExternalIndex: state.nextExternalIndex,
+                        nextChangeIndex: state.nextChangeIndex,
+                        reservedReceiveIndex: state.reservedReceiveIndex
+                    )
+                }
+                if !rebuilt.isEmpty { dogecoinKeypoolByWalletID = rebuilt }
+            }
+            // All other chains go into chainKeypoolByChain.
+            var rebuiltChains: [String: [UUID: ChainKeypoolState]] = [:]
+            for (chainName, walletMap) in allKeypool where chainName != "Dogecoin" {
+                var rebuilt: [UUID: ChainKeypoolState] = [:]
+                for (uuidStr, state) in walletMap {
+                    guard let uuid = UUID(uuidString: uuidStr) else { continue }
+                    rebuilt[uuid] = ChainKeypoolState(
+                        nextExternalIndex: state.nextExternalIndex,
+                        nextChangeIndex: state.nextChangeIndex,
+                        reservedReceiveIndex: state.reservedReceiveIndex
+                    )
+                }
+                if !rebuilt.isEmpty { rebuiltChains[chainName] = rebuilt }
+            }
+            if !rebuiltChains.isEmpty { chainKeypoolByChain = rebuiltChains }
+        }
+
+        // Load owned address maps from Rust SQLite.
+        // JSON shape: array of { walletId, chainName, address, derivationPath?, branch?, branchIndex? }
+        if let addrJSON = try? await WalletServiceBridge.shared.loadAllOwnedAddresses(),
+           let addrData = addrJSON.data(using: .utf8),
+           let allRecords = try? JSONDecoder().decode([RustOwnedAddressRecord].self, from: addrData),
+           !allRecords.isEmpty {
+            var dogeMap: [String: DogecoinOwnedAddressRecord] = [:]
+            var chainMap: [String: [String: ChainOwnedAddressRecord]] = [:]
+            for rec in allRecords {
+                guard let walletUUID = UUID(uuidString: rec.walletId),
+                      !rec.address.isEmpty else { continue }
+                if rec.chainName == "Dogecoin" {
+                    dogeMap[rec.address] = DogecoinOwnedAddressRecord(
+                        address: rec.address,
+                        walletID: walletUUID,
+                        derivationPath: rec.derivationPath ?? "",
+                        index: rec.branchIndex.map(Int.init) ?? 0,
+                        branch: rec.branch ?? ""
+                    )
+                } else {
+                    let chainRecord = ChainOwnedAddressRecord(
+                        chainName: rec.chainName,
+                        address: rec.address,
+                        walletID: walletUUID,
+                        derivationPath: rec.derivationPath,
+                        index: rec.branchIndex.map(Int.init),
+                        branch: rec.branch
+                    )
+                    chainMap[rec.chainName, default: [:]][rec.address] = chainRecord
+                }
+            }
+            if !dogeMap.isEmpty { dogecoinOwnedAddressMap = dogeMap }
+            if !chainMap.isEmpty { chainOwnedAddressMapByChain = chainMap }
         }
     }
 

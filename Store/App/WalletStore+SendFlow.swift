@@ -1441,20 +1441,17 @@ extension WalletStore {
 
         for (wallet, address) in walletsToRefresh {
             do {
-                let page = try await withTimeout(seconds: 20) {
-                    try await DogecoinBalanceService.fetchTransactionPage(
-                        for: address,
-                        limit: HistoryPaging.endpointBatchSize,
-                        cursor: nil,
-                        networkMode: self.dogecoinNetworkMode(for: wallet)
+                let json = try await withTimeout(seconds: 20) {
+                    try await WalletServiceBridge.shared.fetchHistoryJSON(
+                        chainId: SpectraChainID.dogecoin, address: address
                     )
                 }
                 dogecoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
                     walletID: wallet.id,
                     identifier: address,
-                    sourceUsed: page.sourceUsed,
-                    transactionCount: page.snapshots.count,
-                    nextCursor: page.nextCursor,
+                    sourceUsed: "rust",
+                    transactionCount: decodeRustHistoryJSON(json: json).count,
+                    nextCursor: nil,
                     error: nil
                 )
             } catch {

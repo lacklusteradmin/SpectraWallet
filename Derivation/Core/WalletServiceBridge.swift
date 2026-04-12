@@ -93,6 +93,13 @@ actor WalletServiceBridge {
     // Lazily initialised on first use.
     private var _service: WalletService?
 
+    // Nonisolated cache — set once when the service is first constructed.
+    // WalletService (UniFFI) is @unchecked Sendable / internally thread-safe.
+    nonisolated(unsafe) private static var _syncService: WalletService?
+
+    // MARK: Phase 3 — Balance refresh engine (must be stored in class body, not extension)
+    private var _balanceRefreshEngine: BalanceRefreshEngine?
+
     // MARK: Service access
 
     private func service() throws -> WalletService {
@@ -100,6 +107,7 @@ actor WalletServiceBridge {
         let endpointsJSON = Self.buildEndpointsJSON()
         let svc = try WalletService(endpointsJson: endpointsJSON)
         _service = svc
+        WalletServiceBridge._syncService = svc
         return svc
     }
 
@@ -122,6 +130,12 @@ actor WalletServiceBridge {
             throw WalletServiceBridgeError.unsupportedChain(chainName)
         }
         return try await fetchBalanceJSON(chainId: chainId, address: address)
+    }
+
+    /// Like `fetchBalanceJSON` but auto-detects extended public keys (xpub/ypub/zpub)
+    /// and routes them through the HD-wallet balance path.
+    func fetchBalanceAuto(chainId: UInt32, address: String) async throws -> String {
+        try await service().fetchBalanceAuto(chainId: chainId, address: address)
     }
 
     // MARK: History
@@ -755,6 +769,93 @@ extension WalletServiceBridge {
         try await service().loadAppSettings(dbPath: sqliteDbPath())
     }
 
+    // MARK: Phase 2.1 — Relational wallet state (keypool + owned addresses)
+
+    // Keypool persistence — replaces UserDefaults JSON blobs.
+
+    /// Persist keypool state for one (walletId, chainName) pair.
+    /// `stateJSON` must encode `{ nextExternalIndex, nextChangeIndex, reservedReceiveIndex? }`.
+    /// Fire-and-forget; errors are silently discarded (state is also kept in-memory).
+    func saveKeypoolState(walletId: String, chainName: String, stateJSON: String) {
+        Task {
+            try? await service().saveKeypoolState(
+                dbPath: sqliteDbPath(), walletId: walletId,
+                chainName: chainName, stateJson: stateJSON
+            )
+        }
+    }
+
+    /// Load keypool state for one (walletId, chainName). Returns `nil` if not yet saved.
+    func loadKeypoolState(walletId: String, chainName: String) async throws -> String? {
+        try await service().loadKeypoolState(
+            dbPath: sqliteDbPath(), walletId: walletId, chainName: chainName
+        )
+    }
+
+    /// Bulk-load the entire keypool table as `{ chainName: { walletId: state } }` JSON.
+    /// Call once at startup to restore in-memory keypool dictionaries.
+    func loadAllKeypoolState() async throws -> String {
+        try await service().loadAllKeypoolState(dbPath: sqliteDbPath())
+    }
+
+    /// Remove all keypool entries for a wallet being deleted.
+    func deleteKeypoolForWallet(walletId: String) {
+        Task {
+            try? await service().deleteKeypoolForWallet(dbPath: sqliteDbPath(), walletId: walletId)
+        }
+    }
+
+    /// Remove all keypool entries for a chain (called when network mode changes, triggering rescan).
+    func deleteKeypoolForChain(chainName: String) {
+        Task {
+            try? await service().deleteKeypoolForChain(dbPath: sqliteDbPath(), chainName: chainName)
+        }
+    }
+
+    // Owned address persistence — replaces UserDefaults JSON blobs.
+
+    /// Upsert one owned address record.
+    /// `recordJSON` must encode `OwnedAddressRecord` (walletId, chainName, address, derivationPath?, branch?, branchIndex?).
+    /// Fire-and-forget.
+    func saveOwnedAddress(recordJSON: String) {
+        Task {
+            try? await service().saveOwnedAddress(dbPath: sqliteDbPath(), recordJson: recordJSON)
+        }
+    }
+
+    /// Load all owned address records across all wallets and chains as a JSON array.
+    /// Call once at startup to restore in-memory address maps.
+    func loadAllOwnedAddresses() async throws -> String {
+        try await service().loadAllOwnedAddresses(dbPath: sqliteDbPath())
+    }
+
+    /// Remove all owned address records for a wallet being deleted.
+    func deleteOwnedAddressesForWallet(walletId: String) {
+        Task {
+            try? await service().deleteOwnedAddressesForWallet(
+                dbPath: sqliteDbPath(), walletId: walletId
+            )
+        }
+    }
+
+    /// Remove all owned address records for a chain (called after a full rescan).
+    func deleteOwnedAddressesForChain(chainName: String) {
+        Task {
+            try? await service().deleteOwnedAddressesForChain(
+                dbPath: sqliteDbPath(), chainName: chainName
+            )
+        }
+    }
+
+    /// Remove all relational data (keypool + addresses) for a deleted wallet.
+    func deleteWalletRelationalData(walletId: String) {
+        Task {
+            try? await service().deleteWalletRelationalData(
+                dbPath: sqliteDbPath(), walletId: walletId
+            )
+        }
+    }
+
     // MARK: Phase 2.3 — History cache
 
     /// Return cached history JSON for `(chainId, address)`, or `nil` if cold/expired.
@@ -775,6 +876,69 @@ extension WalletServiceBridge {
     /// Fetch history, returning cached value if still fresh (5-min TTL).
     func fetchHistoryCachedJSON(chainId: UInt32, address: String) async throws -> String {
         try await service().fetchHistoryCached(chainId: chainId, address: address)
+    }
+
+    // MARK: Phase 2.3 — History pagination state
+    // These methods are nonisolated so WalletStore can call them synchronously from
+    // @MainActor context without needing `await`. WalletService (UniFFI) is internally
+    // thread-safe, and _syncService is set once at service-initialisation time.
+
+    /// Current cursor for the next history fetch, or `nil` if no fetch has been done yet.
+    nonisolated func historyNextCursor(chainId: UInt32, walletId: String) throws -> String? {
+        try WalletServiceBridge._syncService?.historyNextCursor(chainId: chainId, walletId: walletId)
+    }
+
+    /// Current zero-based page index for page-numbered chains (EVM, etc.).
+    nonisolated func historyNextPage(chainId: UInt32, walletId: String) throws -> UInt32 {
+        try WalletServiceBridge._syncService?.historyNextPage(chainId: chainId, walletId: walletId) ?? 0
+    }
+
+    /// `true` when all history pages have been fetched — no further fetch should be attempted.
+    nonisolated func isHistoryExhausted(chainId: UInt32, walletId: String) throws -> Bool {
+        try WalletServiceBridge._syncService?.isHistoryExhausted(chainId: chainId, walletId: walletId) ?? false
+    }
+
+    /// Record the cursor returned after a successful cursor-based fetch.
+    /// Pass `nil` when there are no more pages — marks the pair as exhausted.
+    nonisolated func advanceHistoryCursor(chainId: UInt32, walletId: String, nextCursor: String?) throws {
+        try WalletServiceBridge._syncService?.advanceHistoryCursor(chainId: chainId, walletId: walletId, nextCursor: nextCursor)
+    }
+
+    /// Increment the page counter after a successful page-based fetch.
+    /// Pass `isLast: true` when the returned page was empty or the chain indicated no next page.
+    nonisolated func advanceHistoryPage(chainId: UInt32, walletId: String, isLast: Bool) throws {
+        try WalletServiceBridge._syncService?.advanceHistoryPage(chainId: chainId, walletId: walletId, isLast: isLast)
+    }
+
+    /// Directly set the page counter for page-based chains (EVM, 1-indexed).
+    nonisolated func setHistoryPage(chainId: UInt32, walletId: String, page: UInt32) throws {
+        try WalletServiceBridge._syncService?.setHistoryPage(chainId: chainId, walletId: walletId, page: page)
+    }
+
+    /// Explicitly mark a (chain, wallet) pair as exhausted or not.
+    nonisolated func setHistoryExhausted(chainId: UInt32, walletId: String, exhausted: Bool) throws {
+        try WalletServiceBridge._syncService?.setHistoryExhausted(chainId: chainId, walletId: walletId, exhausted: exhausted)
+    }
+
+    /// Reset pagination for one (chain, wallet) pair — clears cursor, page, and exhaustion.
+    /// Call after pull-to-refresh or post-send confirmation.
+    nonisolated func resetHistory(chainId: UInt32, walletId: String) throws {
+        try WalletServiceBridge._syncService?.resetHistory(chainId: chainId, walletId: walletId)
+    }
+
+    /// Reset pagination for all chains of one wallet (wallet deleted or full history refresh).
+    nonisolated func resetHistoryForWallet(walletId: String) throws {
+        try WalletServiceBridge._syncService?.resetHistoryForWallet(walletId: walletId)
+    }
+
+    /// Reset pagination for all wallets on one chain (re-org or endpoint switch).
+    nonisolated func resetHistoryForChain(chainId: UInt32) throws {
+        try WalletServiceBridge._syncService?.resetHistoryForChain(chainId: chainId)
+    }
+
+    /// Clear all history pagination state (account wipe / logout).
+    nonisolated func resetAllHistory() throws {
+        try WalletServiceBridge._syncService?.resetAllHistory()
     }
 
     // MARK: - Token catalog
@@ -971,5 +1135,38 @@ private extension WalletServiceBridge {
         let endpoints = (try? WalletRustEndpointCatalogBridge.explorerSupplementalEndpoints(for: chainName)) ?? []
         guard !endpoints.isEmpty else { return [] }
         return [ChainEndpointsPayload(chainId: chainId, endpoints: endpoints, apiKey: nil)]
+    }
+
+}
+
+// MARK: - Phase 3 — Balance refresh engine
+
+extension WalletServiceBridge {
+
+    private func balanceRefreshEngine() throws -> BalanceRefreshEngine {
+        if let engine = _balanceRefreshEngine { return engine }
+        let engine = BalanceRefreshEngine(walletService: try service())
+        _balanceRefreshEngine = engine
+        return engine
+    }
+
+    func setBalanceObserver(_ observer: BalanceObserver) throws {
+        try balanceRefreshEngine().setObserver(observer: observer)
+    }
+
+    func setRefreshEntries(_ entriesJson: String) throws {
+        try balanceRefreshEngine().setEntries(entriesJson: entriesJson)
+    }
+
+    func startBalanceRefresh(intervalSecs: UInt64) async throws {
+        try await balanceRefreshEngine().start(intervalSecs: intervalSecs)
+    }
+
+    func stopBalanceRefresh() throws {
+        try balanceRefreshEngine().stop()
+    }
+
+    func triggerImmediateBalanceRefresh() async throws {
+        try await balanceRefreshEngine().triggerImmediate()
     }
 }

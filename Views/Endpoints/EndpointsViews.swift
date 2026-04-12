@@ -32,14 +32,14 @@ struct EndpointCatalogSettingsView: View {
     }
 
     private var bitcoinEndpoints: [String] {
-        BitcoinWalletEngine.endpointCatalog(for: store.bitcoinNetworkMode, custom: parsedBitcoinCustomEndpoints)
+        EsploraProvider.runtimeBaseURLs(for: store.bitcoinNetworkMode, custom: parsedBitcoinCustomEndpoints)
     }
 
     private var bitcoinEndpointsByNetwork: [(title: String, endpoints: [String])] {
         BitcoinNetworkMode.allCases.map { mode in
             let custom = mode == store.bitcoinNetworkMode ? parsedBitcoinCustomEndpoints : []
             let title = mode == .mainnet ? "Bitcoin" : "Bitcoin \(mode.displayName)"
-            return (title: title, endpoints: BitcoinWalletEngine.endpointCatalog(for: mode, custom: custom))
+            return (title: title, endpoints: EsploraProvider.runtimeBaseURLs(for: mode, custom: custom))
         }
     }
 

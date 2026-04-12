@@ -655,7 +655,7 @@ struct StandardChainDiagnosticsView: View {
                 .components(separatedBy: CharacterSet(charactersIn: ",;\n"))
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
-            return BitcoinWalletEngine.endpointCatalog(for: store.bitcoinNetworkMode, custom: parsedCustom)
+            return EsploraProvider.runtimeBaseURLs(for: store.bitcoinNetworkMode, custom: parsedCustom)
         case .bitcoinCash:
             return BitcoinCashBalanceService.endpointCatalog()
         case .bitcoinSV:

@@ -408,8 +408,7 @@ class WalletStore: ObservableObject {
     @Published var ethereumNetworkMode: EthereumNetworkMode = .mainnet {
         didSet {
             UserDefaults.standard.set(ethereumNetworkMode.rawValue, forKey: Self.ethereumNetworkModeDefaultsKey)
-            ethereumHistoryPageByWallet = [:]
-            exhaustedEthereumHistoryWalletIDs = []
+            try? WalletServiceBridge.shared.resetHistoryForChain(chainId: 1)
         }
     }
     @Published var etherscanAPIKey: String = "" {
@@ -478,9 +477,7 @@ class WalletStore: ObservableObject {
     @Published var bitcoinNetworkMode: BitcoinNetworkMode = .mainnet {
         didSet {
             UserDefaults.standard.set(bitcoinNetworkMode.rawValue, forKey: Self.bitcoinNetworkModeDefaultsKey)
-            applyBitcoinRuntimeConfiguration()
-            bitcoinHistoryCursorByWallet = [:]
-            exhaustedBitcoinHistoryWalletIDs = []
+            try? WalletServiceBridge.shared.resetHistoryForChain(chainId: 0)
         }
     }
     @Published var dogecoinNetworkMode: DogecoinNetworkMode = .mainnet {
@@ -491,9 +488,7 @@ class WalletStore: ObservableObject {
     @Published var bitcoinEsploraEndpoints: String = "" {
         didSet {
             UserDefaults.standard.set(bitcoinEsploraEndpoints, forKey: Self.bitcoinEsploraEndpointsDefaultsKey)
-            applyBitcoinRuntimeConfiguration()
-            bitcoinHistoryCursorByWallet = [:]
-            exhaustedBitcoinHistoryWalletIDs = []
+            try? WalletServiceBridge.shared.resetHistoryForChain(chainId: 0)
         }
     }
     @Published var bitcoinStopGap: Int = 10 {
@@ -504,7 +499,6 @@ class WalletStore: ObservableObject {
                 return
             }
             UserDefaults.standard.set(bitcoinStopGap, forKey: Self.bitcoinStopGapDefaultsKey)
-            applyBitcoinRuntimeConfiguration()
         }
     }
     @Published var bitcoinFeePriority: BitcoinFeePriority = .normal {
@@ -638,28 +632,8 @@ class WalletStore: ObservableObject {
     var pendingDogecoinSendPreviewRefresh: Bool = false
     @Published var discoveredDogecoinAddressesByWallet: [UUID: [String]] = [:]
     @Published var discoveredUTXOAddressesByChain: [String: [UUID: [String]]] = [:]
-    @Published var bitcoinHistoryCursorByWallet: [UUID: String] = [:]
-    @Published var exhaustedBitcoinHistoryWalletIDs: Set<UUID> = []
-    @Published var bitcoinCashHistoryCursorByWallet: [UUID: String] = [:]
-    @Published var exhaustedBitcoinCashHistoryWalletIDs: Set<UUID> = []
-    @Published var bitcoinSVHistoryCursorByWallet: [UUID: String] = [:]
-    @Published var exhaustedBitcoinSVHistoryWalletIDs: Set<UUID> = []
-    @Published var litecoinHistoryCursorByWallet: [UUID: String] = [:]
-    @Published var exhaustedLitecoinHistoryWalletIDs: Set<UUID> = []
-    @Published var dogecoinHistoryCursorByWallet: [UUID: String] = [:]
-    @Published var exhaustedDogecoinHistoryWalletIDs: Set<UUID> = []
-    @Published var ethereumHistoryPageByWallet: [UUID: Int] = [:]
-    @Published var exhaustedEthereumHistoryWalletIDs: Set<UUID> = []
-    @Published var arbitrumHistoryPageByWallet: [UUID: Int] = [:]
-    @Published var exhaustedArbitrumHistoryWalletIDs: Set<UUID> = []
-    @Published var optimismHistoryPageByWallet: [UUID: Int] = [:]
-    @Published var exhaustedOptimismHistoryWalletIDs: Set<UUID> = []
-    @Published var bnbHistoryPageByWallet: [UUID: Int] = [:]
-    @Published var exhaustedBNBHistoryWalletIDs: Set<UUID> = []
-    @Published var hyperliquidHistoryPageByWallet: [UUID: Int] = [:]
-    @Published var exhaustedHyperliquidHistoryWalletIDs: Set<UUID> = []
-    @Published var tronHistoryCursorByWallet: [UUID: String] = [:]
-    @Published var exhaustedTronHistoryWalletIDs: Set<UUID> = []
+    // Phase 2.3 — History pagination state lives in Rust (HistoryPaginationStore).
+    // Access via historyPagination*(chainId:walletId:) helpers in StoreHistoryRefresh.swift.
     @Published var isLoadingMoreOnChainHistory: Bool = false
     let diagnostics = WalletDiagnosticsState()
     @Published var chainOperationalEventsByChain: [String: [ChainOperationalEvent]] = [:] {
@@ -884,15 +858,6 @@ class WalletStore: ObservableObject {
             return configured
         }
         return ChainBackendRegistry.BitcoinRuntimeEndpoints.walletStoreDefaultBaseURLs(for: bitcoinNetworkMode)
-    }
-
-    // Applies runtime Bitcoin settings to the engine without requiring app restart.
-    func applyBitcoinRuntimeConfiguration() {
-        BitcoinWalletEngine.configureRuntime(
-            networkMode: self.bitcoinNetworkMode,
-            esploraEndpoints: parsedBitcoinEsploraEndpoints(),
-            stopGap: bitcoinStopGap
-        )
     }
 
     var bitcoinEsploraEndpointsValidationError: String? {
@@ -1141,6 +1106,7 @@ class WalletStore: ObservableObject {
             startMaintenanceLoopIfNeeded()
             await reloadPersistedStateFromSQLite()
             SpectraSecretStoreAdapter.registerWithBridge()
+            setupRustRefreshEngine()
             await refreshFiatExchangeRates()
         }
     }

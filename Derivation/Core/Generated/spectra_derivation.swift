@@ -522,6 +522,521 @@ fileprivate struct FfiConverterData: FfiConverterRustBuffer {
 
 
 /**
+ * Callback interface implemented by Swift. Rust calls these from the tokio
+ * task that owns the refresh timer loop. Implementations must be
+ * `Send + Sync` (UniFFI enforces this for foreign trait objects).
+ */
+public protocol BalanceObserver: AnyObject, Sendable {
+    
+    /**
+     * Called after each successful balance fetch within a cycle.
+     * `balance_json` is the raw JSON from `WalletService::fetch_balance_auto`.
+     */
+    func onBalanceUpdated(chainId: UInt32, walletId: String, balanceJson: String) 
+    
+    /**
+     * Called once the full sweep of all registered entries completes.
+     */
+    func onRefreshCycleComplete(refreshed: UInt32, errors: UInt32) 
+    
+}
+/**
+ * Callback interface implemented by Swift. Rust calls these from the tokio
+ * task that owns the refresh timer loop. Implementations must be
+ * `Send + Sync` (UniFFI enforces this for foreign trait objects).
+ */
+open class BalanceObserverImpl: BalanceObserver, @unchecked Sendable {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_spectra_derivation_fn_clone_balanceobserver(self.pointer, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_spectra_derivation_fn_free_balanceobserver(pointer, $0) }
+    }
+
+    
+
+    
+    /**
+     * Called after each successful balance fetch within a cycle.
+     * `balance_json` is the raw JSON from `WalletService::fetch_balance_auto`.
+     */
+open func onBalanceUpdated(chainId: UInt32, walletId: String, balanceJson: String)  {try! rustCall() {
+    uniffi_spectra_derivation_fn_method_balanceobserver_on_balance_updated(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(chainId),
+        FfiConverterString.lower(walletId),
+        FfiConverterString.lower(balanceJson),$0
+    )
+}
+}
+    
+    /**
+     * Called once the full sweep of all registered entries completes.
+     */
+open func onRefreshCycleComplete(refreshed: UInt32, errors: UInt32)  {try! rustCall() {
+    uniffi_spectra_derivation_fn_method_balanceobserver_on_refresh_cycle_complete(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(refreshed),
+        FfiConverterUInt32.lower(errors),$0
+    )
+}
+}
+    
+
+}
+
+
+// Put the implementation in a struct so we don't pollute the top-level namespace
+fileprivate struct UniffiCallbackInterfaceBalanceObserver {
+
+    // Create the VTable using a series of closures.
+    // Swift automatically converts these into C callback functions.
+    //
+    // This creates 1-element array, since this seems to be the only way to construct a const
+    // pointer that we can pass to the Rust code.
+    static let vtable: [UniffiVTableCallbackInterfaceBalanceObserver] = [UniffiVTableCallbackInterfaceBalanceObserver(
+        onBalanceUpdated: { (
+            uniffiHandle: UInt64,
+            chainId: UInt32,
+            walletId: RustBuffer,
+            balanceJson: RustBuffer,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterTypeBalanceObserver.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onBalanceUpdated(
+                     chainId: try FfiConverterUInt32.lift(chainId),
+                     walletId: try FfiConverterString.lift(walletId),
+                     balanceJson: try FfiConverterString.lift(balanceJson)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        onRefreshCycleComplete: { (
+            uniffiHandle: UInt64,
+            refreshed: UInt32,
+            errors: UInt32,
+            uniffiOutReturn: UnsafeMutableRawPointer,
+            uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
+        ) in
+            let makeCall = {
+                () throws -> () in
+                guard let uniffiObj = try? FfiConverterTypeBalanceObserver.handleMap.get(handle: uniffiHandle) else {
+                    throw UniffiInternalError.unexpectedStaleHandle
+                }
+                return uniffiObj.onRefreshCycleComplete(
+                     refreshed: try FfiConverterUInt32.lift(refreshed),
+                     errors: try FfiConverterUInt32.lift(errors)
+                )
+            }
+
+            
+            let writeReturn = { () }
+            uniffiTraitInterfaceCall(
+                callStatus: uniffiCallStatus,
+                makeCall: makeCall,
+                writeReturn: writeReturn
+            )
+        },
+        uniffiFree: { (uniffiHandle: UInt64) -> () in
+            let result = try? FfiConverterTypeBalanceObserver.handleMap.remove(handle: uniffiHandle)
+            if result == nil {
+                print("Uniffi callback interface BalanceObserver: handle missing in uniffiFree")
+            }
+        }
+    )]
+}
+
+private func uniffiCallbackInitBalanceObserver() {
+    uniffi_spectra_derivation_fn_init_callback_vtable_balanceobserver(UniffiCallbackInterfaceBalanceObserver.vtable)
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeBalanceObserver: FfiConverter {
+    fileprivate static let handleMap = UniffiHandleMap<BalanceObserver>()
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = BalanceObserver
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> BalanceObserver {
+        return BalanceObserverImpl(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: BalanceObserver) -> UnsafeMutableRawPointer {
+        guard let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: handleMap.insert(obj: value))) else {
+            fatalError("Cast to UnsafeMutableRawPointer failed")
+        }
+        return ptr
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BalanceObserver {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: BalanceObserver, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeBalanceObserver_lift(_ pointer: UnsafeMutableRawPointer) throws -> BalanceObserver {
+    return try FfiConverterTypeBalanceObserver.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeBalanceObserver_lower(_ value: BalanceObserver) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeBalanceObserver.lower(value)
+}
+
+
+
+
+
+
+/**
+ * Rust-owned periodic balance refresh engine.
+ *
+ * Lifecycle:
+ * 1. `new(walletService:)` — create once per app session.
+ * 2. `set_observer(:)` — register the Swift balance observer.
+ * 3. `set_entries(:)` — push the initial wallet-address list.
+ * 4. `await start(intervalSecs:)` — begin the timer loop.
+ * 5. Call `set_entries` again whenever wallets are added/removed.
+ * 6. `stop()` on background or logout.
+ */
+public protocol BalanceRefreshEngineProtocol: AnyObject, Sendable {
+    
+    /**
+     * Clear the observer (e.g. on logout or memory pressure).
+     */
+    func clearObserver() 
+    
+    /**
+     * Replace the registered wallet-address entries.
+     *
+     * `entries_json` must be a JSON array of objects with fields:
+     * `chain_id` (u32), `wallet_id` (String), `address` (String).
+     *
+     * Call this whenever wallets are added, removed, or their selected chain
+     * changes so the engine refreshes the correct set.
+     */
+    func setEntries(entriesJson: String) 
+    
+    /**
+     * Register the Swift observer that receives balance notifications.
+     */
+    func setObserver(observer: BalanceObserver) 
+    
+    /**
+     * Start the periodic refresh loop.
+     *
+     * This method is `async` to ensure it runs inside the UniFFI tokio runtime,
+     * which is required for `tokio::spawn` to work. No-op if already running.
+     */
+    func start(intervalSecs: UInt64) async 
+    
+    /**
+     * Stop the periodic refresh loop. Safe to call even if not started.
+     */
+    func stop() 
+    
+    /**
+     * Run one refresh cycle immediately without waiting for the next tick.
+     * Also `async` to guarantee Tokio context for `tokio::spawn`.
+     */
+    func triggerImmediate() async 
+    
+}
+/**
+ * Rust-owned periodic balance refresh engine.
+ *
+ * Lifecycle:
+ * 1. `new(walletService:)` — create once per app session.
+ * 2. `set_observer(:)` — register the Swift balance observer.
+ * 3. `set_entries(:)` — push the initial wallet-address list.
+ * 4. `await start(intervalSecs:)` — begin the timer loop.
+ * 5. Call `set_entries` again whenever wallets are added/removed.
+ * 6. `stop()` on background or logout.
+ */
+open class BalanceRefreshEngine: BalanceRefreshEngineProtocol, @unchecked Sendable {
+    fileprivate let pointer: UnsafeMutableRawPointer!
+
+    /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoPointer {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
+        self.pointer = pointer
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noPointer: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing [Pointer] the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noPointer: NoPointer) {
+        self.pointer = nil
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiClonePointer() -> UnsafeMutableRawPointer {
+        return try! rustCall { uniffi_spectra_derivation_fn_clone_balancerefreshengine(self.pointer, $0) }
+    }
+    /**
+     * Construct a new engine backed by the given WalletService instance.
+     */
+public convenience init(walletService: WalletService) {
+    let pointer =
+        try! rustCall() {
+    uniffi_spectra_derivation_fn_constructor_balancerefreshengine_new(
+        FfiConverterTypeWalletService_lower(walletService),$0
+    )
+}
+    self.init(unsafeFromRawPointer: pointer)
+}
+
+    deinit {
+        guard let pointer = pointer else {
+            return
+        }
+
+        try! rustCall { uniffi_spectra_derivation_fn_free_balancerefreshengine(pointer, $0) }
+    }
+
+    
+
+    
+    /**
+     * Clear the observer (e.g. on logout or memory pressure).
+     */
+open func clearObserver()  {try! rustCall() {
+    uniffi_spectra_derivation_fn_method_balancerefreshengine_clear_observer(self.uniffiClonePointer(),$0
+    )
+}
+}
+    
+    /**
+     * Replace the registered wallet-address entries.
+     *
+     * `entries_json` must be a JSON array of objects with fields:
+     * `chain_id` (u32), `wallet_id` (String), `address` (String).
+     *
+     * Call this whenever wallets are added, removed, or their selected chain
+     * changes so the engine refreshes the correct set.
+     */
+open func setEntries(entriesJson: String)  {try! rustCall() {
+    uniffi_spectra_derivation_fn_method_balancerefreshengine_set_entries(self.uniffiClonePointer(),
+        FfiConverterString.lower(entriesJson),$0
+    )
+}
+}
+    
+    /**
+     * Register the Swift observer that receives balance notifications.
+     */
+open func setObserver(observer: BalanceObserver)  {try! rustCall() {
+    uniffi_spectra_derivation_fn_method_balancerefreshengine_set_observer(self.uniffiClonePointer(),
+        FfiConverterTypeBalanceObserver_lower(observer),$0
+    )
+}
+}
+    
+    /**
+     * Start the periodic refresh loop.
+     *
+     * This method is `async` to ensure it runs inside the UniFFI tokio runtime,
+     * which is required for `tokio::spawn` to work. No-op if already running.
+     */
+open func start(intervalSecs: UInt64)async   {
+    return
+        try!  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_spectra_derivation_fn_method_balancerefreshengine_start(
+                    self.uniffiClonePointer(),
+                    FfiConverterUInt64.lower(intervalSecs)
+                )
+            },
+            pollFunc: ffi_spectra_derivation_rust_future_poll_void,
+            completeFunc: ffi_spectra_derivation_rust_future_complete_void,
+            freeFunc: ffi_spectra_derivation_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: nil
+            
+        )
+}
+    
+    /**
+     * Stop the periodic refresh loop. Safe to call even if not started.
+     */
+open func stop()  {try! rustCall() {
+    uniffi_spectra_derivation_fn_method_balancerefreshengine_stop(self.uniffiClonePointer(),$0
+    )
+}
+}
+    
+    /**
+     * Run one refresh cycle immediately without waiting for the next tick.
+     * Also `async` to guarantee Tokio context for `tokio::spawn`.
+     */
+open func triggerImmediate()async   {
+    return
+        try!  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_spectra_derivation_fn_method_balancerefreshengine_trigger_immediate(
+                    self.uniffiClonePointer()
+                    
+                )
+            },
+            pollFunc: ffi_spectra_derivation_rust_future_poll_void,
+            completeFunc: ffi_spectra_derivation_rust_future_complete_void,
+            freeFunc: ffi_spectra_derivation_rust_future_free_void,
+            liftFunc: { $0 },
+            errorHandler: nil
+            
+        )
+}
+    
+
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeBalanceRefreshEngine: FfiConverter {
+
+    typealias FfiType = UnsafeMutableRawPointer
+    typealias SwiftType = BalanceRefreshEngine
+
+    public static func lift(_ pointer: UnsafeMutableRawPointer) throws -> BalanceRefreshEngine {
+        return BalanceRefreshEngine(unsafeFromRawPointer: pointer)
+    }
+
+    public static func lower(_ value: BalanceRefreshEngine) -> UnsafeMutableRawPointer {
+        return value.uniffiClonePointer()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BalanceRefreshEngine {
+        let v: UInt64 = try readInt(&buf)
+        // The Rust code won't compile if a pointer won't fit in a UInt64.
+        // We have to go via `UInt` because that's the thing that's the size of a pointer.
+        let ptr = UnsafeMutableRawPointer(bitPattern: UInt(truncatingIfNeeded: v))
+        if (ptr == nil) {
+            throw UniffiInternalError.unexpectedNullPointer
+        }
+        return try lift(ptr!)
+    }
+
+    public static func write(_ value: BalanceRefreshEngine, into buf: inout [UInt8]) {
+        // This fiddling is because `Int` is the thing that's the same size as a pointer.
+        // The Rust code won't compile if a pointer won't fit in a `UInt64`.
+        writeInt(&buf, UInt64(bitPattern: Int64(Int(bitPattern: lower(value)))))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeBalanceRefreshEngine_lift(_ pointer: UnsafeMutableRawPointer) throws -> BalanceRefreshEngine {
+    return try FfiConverterTypeBalanceRefreshEngine.lift(pointer)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeBalanceRefreshEngine_lower(_ value: BalanceRefreshEngine) -> UnsafeMutableRawPointer {
+    return FfiConverterTypeBalanceRefreshEngine.lower(value)
+}
+
+
+
+
+
+
+/**
  * Keychain / secure-storage abstraction. Implemented in Swift, called from Rust.
  */
 public protocol SecretStore: AnyObject, Sendable {
@@ -1012,6 +1527,20 @@ public func FfiConverterTypeSendStateMachine_lower(_ value: SendStateMachine) ->
 public protocol WalletServiceProtocol: AnyObject, Sendable {
     
     /**
+     * Record the cursor returned after a successful cursor-based fetch (UTXO
+     * chains). Pass `None` when the chain confirms there are no more pages —
+     * this marks the chain as exhausted.
+     */
+    func advanceHistoryCursor(chainId: UInt32, walletId: String, nextCursor: String?) 
+    
+    /**
+     * Increment the page counter after a successful page-based fetch (EVM,
+     * etc.). Pass `is_last = true` when the returned page was empty or the
+     * chain indicated no next page.
+     */
+    func advanceHistoryPage(chainId: UInt32, walletId: String, isLast: Bool) 
+    
+    /**
      * Rebroadcast a previously signed transaction.
      *
      * `chain_id` is the Spectra chain ID. `payload` is the chain-specific
@@ -1080,6 +1609,15 @@ public protocol WalletServiceProtocol: AnyObject, Sendable {
     func evictExpiredBalanceCache() 
     
     func fetchBalance(chainId: UInt32, address: String) async throws  -> String
+    
+    /**
+     * Fetch balance, auto-detecting Bitcoin HD paths.
+     *
+     * For chain_id=0 (Bitcoin) with an extended public key (xpub/ypub/zpub),
+     * delegates to `fetch_bitcoin_xpub_balance`; otherwise calls `fetch_balance`.
+     * Used internally by `BalanceRefreshEngine`; also callable from Swift.
+     */
+    func fetchBalanceAuto(chainId: UInt32, address: String) async throws  -> String
     
     /**
      * Fetch the balance, returning the cached value if still fresh, otherwise
@@ -1315,6 +1853,18 @@ public protocol WalletServiceProtocol: AnyObject, Sendable {
     func fetchUtxoTxStatus(chainId: UInt32, txid: String) async throws  -> String
     
     /**
+     * Current cursor for the next history fetch, or `None` if no fetch has
+     * been done yet. Pass the returned value as the starting point for the
+     * next page request.
+     */
+    func historyNextCursor(chainId: UInt32, walletId: String)  -> String?
+    
+    /**
+     * Current zero-based page index for page-numbered chains (EVM, etc.).
+     */
+    func historyNextPage(chainId: UInt32, walletId: String)  -> UInt32
+    
+    /**
      * Evict a specific cached balance (call after a send completes).
      */
     func invalidateCachedBalance(chainId: UInt32, address: String) 
@@ -1323,6 +1873,13 @@ public protocol WalletServiceProtocol: AnyObject, Sendable {
      * Evict the history cache entry for `(chain_id, address)`.
      */
     func invalidateCachedHistory(chainId: UInt32, address: String) 
+    
+    /**
+     * Returns `true` when all history pages have been fetched and no more
+     * pages are available. Swift should not attempt another fetch until
+     * `reset_history` is called.
+     */
+    func isHistoryExhausted(chainId: UInt32, walletId: String)  -> Bool
     
     /**
      * Return the built-in token catalog for the given chain as a JSON array.
@@ -1359,6 +1916,30 @@ public protocol WalletServiceProtocol: AnyObject, Sendable {
     func loadWalletSnapshot(dbPath: String) async throws  -> String
     
     /**
+     * Clear all history pagination state. Used on full account wipe / logout.
+     */
+    func resetAllHistory() 
+    
+    /**
+     * Reset pagination state for one (chain, wallet) pair — clears cursor,
+     * page, and exhaustion flag. Call after the user pulls-to-refresh or
+     * after a send confirmation.
+     */
+    func resetHistory(chainId: UInt32, walletId: String) 
+    
+    /**
+     * Reset pagination for all wallets on one chain (e.g. chain re-org or
+     * endpoint switch).
+     */
+    func resetHistoryForChain(chainId: UInt32) 
+    
+    /**
+     * Reset pagination for all chains of one wallet (e.g. wallet deleted or
+     * user triggers a full history refresh for that wallet).
+     */
+    func resetHistoryForWallet(walletId: String) 
+    
+    /**
      * Resolve an ENS name to an Ethereum address via the ENS Ideas public API.
      *
      * Returns `{"address": "0x…"}` when resolved, `{"address": ""}` when the
@@ -1389,6 +1970,20 @@ public protocol WalletServiceProtocol: AnyObject, Sendable {
      * Key is fixed ("wallets.snapshot.v1") so old values are overwritten.
      */
     func saveWalletSnapshot(dbPath: String, snapshotJson: String) async throws 
+    
+    /**
+     * Explicitly mark a (chain, wallet) pair as exhausted or not. Used when
+     * Swift detects an empty page without going through `advance_history_*`.
+     */
+    func setHistoryExhausted(chainId: UInt32, walletId: String, exhausted: Bool) 
+    
+    /**
+     * Directly set the page counter to `page`. For page-based chains (EVM)
+     * where Swift tracks absolute page numbers (1-indexed). Swift sets the
+     * page to 1 on reset and stores the page that was just fetched after each
+     * successful request.
+     */
+    func setHistoryPage(chainId: UInt32, walletId: String, page: UInt32) 
     
     /**
      * Register the Swift Keychain implementation. Must be called once at app
@@ -1491,6 +2086,34 @@ public convenience init(endpointsJson: String)throws  {
 
     
 
+    
+    /**
+     * Record the cursor returned after a successful cursor-based fetch (UTXO
+     * chains). Pass `None` when the chain confirms there are no more pages —
+     * this marks the chain as exhausted.
+     */
+open func advanceHistoryCursor(chainId: UInt32, walletId: String, nextCursor: String?)  {try! rustCall() {
+    uniffi_spectra_derivation_fn_method_walletservice_advance_history_cursor(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(chainId),
+        FfiConverterString.lower(walletId),
+        FfiConverterOptionString.lower(nextCursor),$0
+    )
+}
+}
+    
+    /**
+     * Increment the page counter after a successful page-based fetch (EVM,
+     * etc.). Pass `is_last = true` when the returned page was empty or the
+     * chain indicated no next page.
+     */
+open func advanceHistoryPage(chainId: UInt32, walletId: String, isLast: Bool)  {try! rustCall() {
+    uniffi_spectra_derivation_fn_method_walletservice_advance_history_page(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(chainId),
+        FfiConverterString.lower(walletId),
+        FfiConverterBool.lower(isLast),$0
+    )
+}
+}
     
     /**
      * Rebroadcast a previously signed transaction.
@@ -1641,6 +2264,30 @@ open func fetchBalance(chainId: UInt32, address: String)async throws  -> String 
         try  await uniffiRustCallAsync(
             rustFutureFunc: {
                 uniffi_spectra_derivation_fn_method_walletservice_fetch_balance(
+                    self.uniffiClonePointer(),
+                    FfiConverterUInt32.lower(chainId),FfiConverterString.lower(address)
+                )
+            },
+            pollFunc: ffi_spectra_derivation_rust_future_poll_rust_buffer,
+            completeFunc: ffi_spectra_derivation_rust_future_complete_rust_buffer,
+            freeFunc: ffi_spectra_derivation_rust_future_free_rust_buffer,
+            liftFunc: FfiConverterString.lift,
+            errorHandler: FfiConverterTypeSpectraBridgeError_lift
+        )
+}
+    
+    /**
+     * Fetch balance, auto-detecting Bitcoin HD paths.
+     *
+     * For chain_id=0 (Bitcoin) with an extended public key (xpub/ypub/zpub),
+     * delegates to `fetch_bitcoin_xpub_balance`; otherwise calls `fetch_balance`.
+     * Used internally by `BalanceRefreshEngine`; also callable from Swift.
+     */
+open func fetchBalanceAuto(chainId: UInt32, address: String)async throws  -> String  {
+    return
+        try  await uniffiRustCallAsync(
+            rustFutureFunc: {
+                uniffi_spectra_derivation_fn_method_walletservice_fetch_balance_auto(
                     self.uniffiClonePointer(),
                     FfiConverterUInt32.lower(chainId),FfiConverterString.lower(address)
                 )
@@ -2172,6 +2819,32 @@ open func fetchUtxoTxStatus(chainId: UInt32, txid: String)async throws  -> Strin
 }
     
     /**
+     * Current cursor for the next history fetch, or `None` if no fetch has
+     * been done yet. Pass the returned value as the starting point for the
+     * next page request.
+     */
+open func historyNextCursor(chainId: UInt32, walletId: String) -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+    uniffi_spectra_derivation_fn_method_walletservice_history_next_cursor(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(chainId),
+        FfiConverterString.lower(walletId),$0
+    )
+})
+}
+    
+    /**
+     * Current zero-based page index for page-numbered chains (EVM, etc.).
+     */
+open func historyNextPage(chainId: UInt32, walletId: String) -> UInt32  {
+    return try!  FfiConverterUInt32.lift(try! rustCall() {
+    uniffi_spectra_derivation_fn_method_walletservice_history_next_page(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(chainId),
+        FfiConverterString.lower(walletId),$0
+    )
+})
+}
+    
+    /**
      * Evict a specific cached balance (call after a send completes).
      */
 open func invalidateCachedBalance(chainId: UInt32, address: String)  {try! rustCall() {
@@ -2191,6 +2864,20 @@ open func invalidateCachedHistory(chainId: UInt32, address: String)  {try! rustC
         FfiConverterString.lower(address),$0
     )
 }
+}
+    
+    /**
+     * Returns `true` when all history pages have been fetched and no more
+     * pages are available. Swift should not attempt another fetch until
+     * `reset_history` is called.
+     */
+open func isHistoryExhausted(chainId: UInt32, walletId: String) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_spectra_derivation_fn_method_walletservice_is_history_exhausted(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(chainId),
+        FfiConverterString.lower(walletId),$0
+    )
+})
 }
     
     /**
@@ -2300,6 +2987,50 @@ open func loadWalletSnapshot(dbPath: String)async throws  -> String  {
 }
     
     /**
+     * Clear all history pagination state. Used on full account wipe / logout.
+     */
+open func resetAllHistory()  {try! rustCall() {
+    uniffi_spectra_derivation_fn_method_walletservice_reset_all_history(self.uniffiClonePointer(),$0
+    )
+}
+}
+    
+    /**
+     * Reset pagination state for one (chain, wallet) pair — clears cursor,
+     * page, and exhaustion flag. Call after the user pulls-to-refresh or
+     * after a send confirmation.
+     */
+open func resetHistory(chainId: UInt32, walletId: String)  {try! rustCall() {
+    uniffi_spectra_derivation_fn_method_walletservice_reset_history(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(chainId),
+        FfiConverterString.lower(walletId),$0
+    )
+}
+}
+    
+    /**
+     * Reset pagination for all wallets on one chain (e.g. chain re-org or
+     * endpoint switch).
+     */
+open func resetHistoryForChain(chainId: UInt32)  {try! rustCall() {
+    uniffi_spectra_derivation_fn_method_walletservice_reset_history_for_chain(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(chainId),$0
+    )
+}
+}
+    
+    /**
+     * Reset pagination for all chains of one wallet (e.g. wallet deleted or
+     * user triggers a full history refresh for that wallet).
+     */
+open func resetHistoryForWallet(walletId: String)  {try! rustCall() {
+    uniffi_spectra_derivation_fn_method_walletservice_reset_history_for_wallet(self.uniffiClonePointer(),
+        FfiConverterString.lower(walletId),$0
+    )
+}
+}
+    
+    /**
      * Resolve an ENS name to an Ethereum address via the ENS Ideas public API.
      *
      * Returns `{"address": "0x…"}` when resolved, `{"address": ""}` when the
@@ -2396,6 +3127,34 @@ open func saveWalletSnapshot(dbPath: String, snapshotJson: String)async throws  
             liftFunc: { $0 },
             errorHandler: FfiConverterTypeSpectraBridgeError_lift
         )
+}
+    
+    /**
+     * Explicitly mark a (chain, wallet) pair as exhausted or not. Used when
+     * Swift detects an empty page without going through `advance_history_*`.
+     */
+open func setHistoryExhausted(chainId: UInt32, walletId: String, exhausted: Bool)  {try! rustCall() {
+    uniffi_spectra_derivation_fn_method_walletservice_set_history_exhausted(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(chainId),
+        FfiConverterString.lower(walletId),
+        FfiConverterBool.lower(exhausted),$0
+    )
+}
+}
+    
+    /**
+     * Directly set the page counter to `page`. For page-based chains (EVM)
+     * where Swift tracks absolute page numbers (1-indexed). Swift sets the
+     * page to 1 on reset and stores the page that was just fetched after each
+     * successful request.
+     */
+open func setHistoryPage(chainId: UInt32, walletId: String, page: UInt32)  {try! rustCall() {
+    uniffi_spectra_derivation_fn_method_walletservice_set_history_page(self.uniffiClonePointer(),
+        FfiConverterUInt32.lower(chainId),
+        FfiConverterString.lower(walletId),
+        FfiConverterUInt32.lower(page),$0
+    )
+}
 }
     
     /**
@@ -3365,6 +4124,30 @@ private let initializationResult: InitializationResult = {
     if (uniffi_spectra_derivation_checksum_func_validate_mnemonic() != 27248) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_derivation_checksum_method_balanceobserver_on_balance_updated() != 53118) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_balanceobserver_on_refresh_cycle_complete() != 15795) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_balancerefreshengine_clear_observer() != 55697) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_balancerefreshengine_set_entries() != 10717) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_balancerefreshengine_set_observer() != 13622) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_balancerefreshengine_start() != 1780) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_balancerefreshengine_stop() != 35875) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_balancerefreshengine_trigger_immediate() != 32266) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_derivation_checksum_method_secretstore_load_secret() != 8153) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -3384,6 +4167,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_derivation_checksum_method_sendstatemachine_reset() != 40965) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_walletservice_advance_history_cursor() != 9834) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_walletservice_advance_history_page() != 39773) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_derivation_checksum_method_walletservice_broadcast_raw() != 38543) {
@@ -3414,6 +4203,9 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_derivation_checksum_method_walletservice_fetch_balance() != 63583) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_walletservice_fetch_balance_auto() != 13111) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_derivation_checksum_method_walletservice_fetch_balance_cached() != 2497) {
@@ -3473,10 +4265,19 @@ private let initializationResult: InitializationResult = {
     if (uniffi_spectra_derivation_checksum_method_walletservice_fetch_utxo_tx_status() != 63431) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_derivation_checksum_method_walletservice_history_next_cursor() != 57527) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_walletservice_history_next_page() != 49091) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_derivation_checksum_method_walletservice_invalidate_cached_balance() != 26757) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_derivation_checksum_method_walletservice_invalidate_cached_history() != 19770) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_walletservice_is_history_exhausted() != 26898) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_derivation_checksum_method_walletservice_list_builtin_tokens() != 46420) {
@@ -3497,6 +4298,18 @@ private let initializationResult: InitializationResult = {
     if (uniffi_spectra_derivation_checksum_method_walletservice_load_wallet_snapshot() != 39295) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_derivation_checksum_method_walletservice_reset_all_history() != 29033) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_walletservice_reset_history() != 32130) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_walletservice_reset_history_for_chain() != 61930) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_walletservice_reset_history_for_wallet() != 41893) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_derivation_checksum_method_walletservice_resolve_ens_name() != 38520) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -3512,6 +4325,12 @@ private let initializationResult: InitializationResult = {
     if (uniffi_spectra_derivation_checksum_method_walletservice_save_wallet_snapshot() != 53607) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_derivation_checksum_method_walletservice_set_history_exhausted() != 59373) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_derivation_checksum_method_walletservice_set_history_page() != 7406) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_derivation_checksum_method_walletservice_set_secret_store() != 38476) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -3524,6 +4343,9 @@ private let initializationResult: InitializationResult = {
     if (uniffi_spectra_derivation_checksum_method_walletservice_update_endpoints() != 21147) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_derivation_checksum_constructor_balancerefreshengine_new() != 29789) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_derivation_checksum_constructor_sendstatemachine_new() != 17686) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -3531,6 +4353,7 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
 
+    uniffiCallbackInitBalanceObserver()
     uniffiCallbackInitSecretStore()
     return InitializationResult.ok
 }()

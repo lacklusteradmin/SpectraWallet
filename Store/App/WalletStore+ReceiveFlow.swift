@@ -884,63 +884,61 @@ extension WalletStore {
                 .first(where: { $0.0 == "Bitcoin" })?
                 .1
             if requiresSeedPhrase {
-                async let derivedBitcoinCashAddressTask: String? = wantsBitcoinCashImport ? deriveBitcoinCashAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.bitcoinCash) : nil
-                async let derivedBitcoinSVAddressTask: String? = wantsBitcoinSVImport ? deriveBitcoinSVAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.bitcoinSV) : nil
-                async let derivedLitecoinAddressTask: String? = wantsLitecoinImport ? deriveLitecoinAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.litecoin) : nil
-                async let derivedDogecoinAddressTask: String? = wantsDogecoinImport ? deriveDogecoinAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.dogecoin) : nil
-                async let derivedEthereumAddressTask: String? = (wantsEthereumImport || wantsArbitrumImport || wantsOptimismImport || wantsBNBImport || wantsAvalancheImport || wantsHyperliquidImport) ? deriveEthereumAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.ethereum) : nil
-                async let derivedEthereumClassicAddressTask: String? = wantsEthereumClassicImport ? deriveEthereumAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.ethereumClassic) : nil
-                async let derivedTronAddressTask: String? = wantsTronImport ? deriveTronAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.tron) : nil
-                async let derivedSolanaAddressTask: String? = wantsSolanaImport
-                    ? deriveSolanaAddressInBackground(
-                        seedPhrase: trimmedSeedPhrase,
-                        derivationPath: selectedDerivationPaths.solana
-                    )
-                    : nil
-                async let derivedCardanoAddressTask: String? = wantsCardanoImport ? deriveCardanoAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.cardano) : nil
-                async let derivedXRPAddressTask: String? = wantsXRPImport ? deriveXRPAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.xrp) : nil
-                async let derivedStellarAddressTask: String? = wantsStellarImport ? deriveStellarAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.stellar) : nil
-                async let derivedSuiAddressTask: String? = wantsSuiImport ? deriveSuiAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.sui) : nil
-                async let derivedAptosAddressTask: String? = wantsAptosImport ? deriveAptosAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.aptos) : nil
-                async let derivedTONAddressTask: String? = wantsTONImport ? deriveTONAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.ton) : nil
-                async let derivedICPAddressTask: String? = wantsICPImport ? deriveICPAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.internetComputer) : nil
-                async let derivedNearAddressTask: String? = wantsNearImport ? deriveNearAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.near) : nil
-                async let derivedPolkadotAddressTask: String? = wantsPolkadotImport ? derivePolkadotAddressInBackground(seedPhrase: trimmedSeedPhrase, derivationPath: selectedDerivationPaths.polkadot) : nil
+                // Build chain → path map for only the chains the user wants to import,
+                // then derive all addresses in a single Rust call.
+                var chainPaths: [String: String] = [:]
+                if wantsBitcoinImport       { chainPaths["Bitcoin"]           = selectedDerivationPaths.bitcoin }
+                if wantsBitcoinCashImport   { chainPaths["Bitcoin Cash"]      = selectedDerivationPaths.bitcoinCash }
+                if wantsBitcoinSVImport     { chainPaths["Bitcoin SV"]        = selectedDerivationPaths.bitcoinSV }
+                if wantsLitecoinImport      { chainPaths["Litecoin"]          = selectedDerivationPaths.litecoin }
+                if wantsDogecoinImport      { chainPaths["Dogecoin"]          = selectedDerivationPaths.dogecoin }
+                let needsEvm = wantsEthereumImport || wantsArbitrumImport || wantsOptimismImport
+                    || wantsBNBImport || wantsAvalancheImport || wantsHyperliquidImport
+                if needsEvm                 { chainPaths["Ethereum"]          = selectedDerivationPaths.ethereum }
+                if wantsEthereumClassicImport { chainPaths["Ethereum Classic"] = selectedDerivationPaths.ethereumClassic }
+                if wantsTronImport          { chainPaths["Tron"]              = selectedDerivationPaths.tron }
+                if wantsSolanaImport        { chainPaths["Solana"]            = selectedDerivationPaths.solana }
+                if wantsCardanoImport       { chainPaths["Cardano"]           = selectedDerivationPaths.cardano }
+                if wantsXRPImport           { chainPaths["XRP Ledger"]        = selectedDerivationPaths.xrp }
+                if wantsStellarImport       { chainPaths["Stellar"]           = selectedDerivationPaths.stellar }
+                if wantsSuiImport           { chainPaths["Sui"]               = selectedDerivationPaths.sui }
+                if wantsAptosImport         { chainPaths["Aptos"]             = selectedDerivationPaths.aptos }
+                if wantsTONImport           { chainPaths["TON"]               = selectedDerivationPaths.ton }
+                if wantsICPImport           { chainPaths["Internet Computer"] = selectedDerivationPaths.internetComputer }
+                if wantsNearImport          { chainPaths["NEAR"]              = selectedDerivationPaths.near }
+                if wantsPolkadotImport      { chainPaths["Polkadot"]          = selectedDerivationPaths.polkadot }
 
                 do {
+                    let derived = try WalletRustDerivationBridge.deriveAllAddresses(
+                        seedPhrase: trimmedSeedPhrase,
+                        chainPaths: chainPaths
+                    )
                     if wantsBitcoinImport {
                         guard let bitcoinWalletID else {
                             importError = "Bitcoin wallet initialization failed."
                             return
                         }
                         _ = bitcoinWalletID
-                        derivedBitcoinAddress = try deriveSeedPhraseAddress(
-                            seedPhrase: trimmedSeedPhrase,
-                            chain: .bitcoin,
-                            network: derivationNetwork(for: .bitcoin),
-                            derivationPath: selectedDerivationPaths.bitcoin
-                        )
-                    } else {
-                        derivedBitcoinAddress = nil
                     }
-                    bitcoinCashAddress = try await derivedBitcoinCashAddressTask
-                    bitcoinSVAddress = try await derivedBitcoinSVAddressTask
-                    litecoinAddress = try await derivedLitecoinAddressTask
-                    dogecoinAddress = try await derivedDogecoinAddressTask
-                    ethereumAddress = try await derivedEthereumAddressTask
-                    ethereumClassicAddress = try await derivedEthereumClassicAddressTask
-                    tronAddress = try await derivedTronAddressTask
-                    solanaAddress = try await derivedSolanaAddressTask
-                    cardanoAddress = try await derivedCardanoAddressTask
-                    xrpAddress = try await derivedXRPAddressTask
-                    stellarAddress = try await derivedStellarAddressTask
-                    suiAddress = try await derivedSuiAddressTask
-                    aptosAddress = try await derivedAptosAddressTask
-                    tonAddress = try await derivedTONAddressTask
-                    icpAddress = try await derivedICPAddressTask
-                    nearAddress = try await derivedNearAddressTask
-                    polkadotAddress = try await derivedPolkadotAddressTask
-                    moneroAddress = resolvedMoneroAddress
+                    derivedBitcoinAddress    = derived["Bitcoin"]
+                    bitcoinCashAddress       = derived["Bitcoin Cash"]
+                    bitcoinSVAddress         = derived["Bitcoin SV"]
+                    litecoinAddress          = derived["Litecoin"]
+                    dogecoinAddress          = derived["Dogecoin"]
+                    ethereumAddress          = derived["Ethereum"]
+                    ethereumClassicAddress   = derived["Ethereum Classic"]
+                    tronAddress              = derived["Tron"]
+                    solanaAddress            = derived["Solana"]
+                    cardanoAddress           = derived["Cardano"]
+                    xrpAddress               = derived["XRP Ledger"]
+                    stellarAddress           = derived["Stellar"]
+                    suiAddress               = derived["Sui"]
+                    aptosAddress             = derived["Aptos"]
+                    tonAddress               = derived["TON"]
+                    icpAddress               = derived["Internet Computer"]
+                    nearAddress              = derived["NEAR"]
+                    polkadotAddress          = derived["Polkadot"]
+                    moneroAddress            = resolvedMoneroAddress
                 } catch {
                     let resolvedMessage = (error as? LocalizedError)?.errorDescription
                         ?? error.localizedDescription
@@ -1249,24 +1247,6 @@ extension WalletStore {
         let polkadot: String?
     }
 
-    func deriveEthereumAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .ethereum,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
-    func deriveBitcoinSVAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .bitcoinSV,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
     func derivePrivateKeyImportAddress(
         privateKeyHex: String,
         chainName: String?
@@ -1350,144 +1330,6 @@ extension WalletStore {
         }
     }
 
-    static func deriveTronAddress(seedPhrase: String, wallet: ImportedWallet) throws -> String {
-        try deriveSeedPhraseAddress(
-            seedPhrase: seedPhrase,
-            chain: .tron,
-            network: .mainnet,
-            derivationPath: wallet.seedDerivationPaths.tron
-        )
-    }
-
-    func deriveTronAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .tron,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
-    func deriveSolanaAddressInBackground(
-        seedPhrase: String,
-        derivationPath: String
-    ) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .solana,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
-    func deriveXRPAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .xrp,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
-    func deriveStellarAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .stellar,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
-    func deriveSuiAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .sui,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
-    func deriveAptosAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .aptos,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
-    func deriveTONAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .ton,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
-    func deriveICPAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .internetComputer,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
-    func deriveCardanoAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .cardano,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
-    func deriveNearAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .near,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
-    func derivePolkadotAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .polkadot,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
-    func deriveDogecoinAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .dogecoin,
-            network: derivationNetwork(for: .dogecoin),
-            derivationPath: derivationPath
-        )
-    }
-
-    func deriveLitecoinAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .litecoin,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
-    func deriveBitcoinCashAddressInBackground(seedPhrase: String, derivationPath: String) async throws -> String {
-        try await deriveSeedPhraseAddressInBackground(
-            seedPhrase: seedPhrase,
-            chain: .bitcoinCash,
-            network: .mainnet,
-            derivationPath: derivationPath
-        )
-    }
-
     static func deriveSeedPhraseAddress(
         seedPhrase: String,
         chain: SeedDerivationChain,
@@ -1522,36 +1364,6 @@ extension WalletStore {
             network: network,
             derivationPath: derivationPath
         )
-    }
-
-    func deriveSeedPhraseAddressInBackground(
-        seedPhrase: String,
-        chain: SeedDerivationChain,
-        network: WalletDerivationNetwork,
-        derivationPath: String
-    ) async throws -> String {
-        try await withCheckedThrowingContinuation { continuation in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    let result = try WalletDerivationEngine.derive(
-                        seedPhrase: seedPhrase,
-                        request: WalletDerivationRequest(
-                            chain: chain,
-                            network: network,
-                            derivationPath: derivationPath,
-                            curve: WalletDerivationEngine.curve(for: chain),
-                            requestedOutputs: [.address]
-                        )
-                    )
-                    guard let address = result.address else {
-                        throw WalletDerivationEngineError.emptyRequestedOutputs
-                    }
-                    continuation.resume(returning: address)
-                } catch {
-                    continuation.resume(throwing: error)
-                }
-            }
-        }
     }
 
     func derivationNetwork(for chain: SeedDerivationChain, wallet: ImportedWallet? = nil) -> WalletDerivationNetwork {

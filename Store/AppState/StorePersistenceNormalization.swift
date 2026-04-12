@@ -119,6 +119,7 @@ extension WalletStore {
     func applyWalletCollectionSideEffects() {
         rebuildWalletDerivedState()
         rebuildDashboardDerivedState()
+        updateRefreshEngineEntries()
         walletSideEffectsTask?.cancel()
         walletSideEffectsTask = Task { [weak self] in
             guard let self else { return }
@@ -566,28 +567,7 @@ extension WalletStore {
     }
 
     func clearHistoryTracking(for walletID: UUID) {
-        bitcoinHistoryCursorByWallet[walletID] = nil
-        bitcoinCashHistoryCursorByWallet[walletID] = nil
-        bitcoinSVHistoryCursorByWallet[walletID] = nil
-        litecoinHistoryCursorByWallet[walletID] = nil
-        dogecoinHistoryCursorByWallet[walletID] = nil
-        tronHistoryCursorByWallet[walletID] = nil
-        ethereumHistoryPageByWallet[walletID] = nil
-        arbitrumHistoryPageByWallet[walletID] = nil
-        optimismHistoryPageByWallet[walletID] = nil
-        bnbHistoryPageByWallet[walletID] = nil
-        hyperliquidHistoryPageByWallet[walletID] = nil
-        exhaustedBitcoinHistoryWalletIDs.remove(walletID)
-        exhaustedBitcoinCashHistoryWalletIDs.remove(walletID)
-        exhaustedBitcoinSVHistoryWalletIDs.remove(walletID)
-        exhaustedLitecoinHistoryWalletIDs.remove(walletID)
-        exhaustedDogecoinHistoryWalletIDs.remove(walletID)
-        exhaustedEthereumHistoryWalletIDs.remove(walletID)
-        exhaustedArbitrumHistoryWalletIDs.remove(walletID)
-        exhaustedOptimismHistoryWalletIDs.remove(walletID)
-        exhaustedBNBHistoryWalletIDs.remove(walletID)
-        exhaustedHyperliquidHistoryWalletIDs.remove(walletID)
-        exhaustedTronHistoryWalletIDs.remove(walletID)
+        resetHistoryPaginationForWallet(walletID)
         dogecoinHistoryDiagnosticsByWallet[walletID] = nil
         bitcoinHistoryDiagnosticsByWallet[walletID] = nil
         bitcoinCashHistoryDiagnosticsByWallet[walletID] = nil
@@ -683,11 +663,16 @@ extension WalletStore {
     }
 
     func persistDogecoinKeypoolState() {
+        // Legacy UserDefaults write (kept as fallback during SQLite migration).
         let payload = PersistedDogecoinKeypoolStore(
             version: PersistedDogecoinKeypoolStore.currentVersion,
             keypoolByWalletID: dogecoinKeypoolByWalletID
         )
         persistCodableToUserDefaults(payload, key: Self.dogecoinKeypoolDefaultsKey)
+        // Write-through to Rust SQLite (authoritative on next launch).
+        persistKeypoolToRust(chainName: "Dogecoin", walletMap: dogecoinKeypoolByWalletID.mapValues {
+            ChainKeypoolState(nextExternalIndex: $0.nextExternalIndex, nextChangeIndex: $0.nextChangeIndex, reservedReceiveIndex: $0.reservedReceiveIndex)
+        })
     }
 
     func loadDogecoinKeypoolState() -> [UUID: DogecoinKeypoolState] {
@@ -704,11 +689,16 @@ extension WalletStore {
     }
 
     func persistChainKeypoolState() {
+        // Legacy UserDefaults write (kept as fallback during SQLite migration).
         let payload = PersistedChainKeypoolStore(
             version: PersistedChainKeypoolStore.currentVersion,
             keypoolByChain: chainKeypoolByChain
         )
         persistCodableToUserDefaults(payload, key: Self.chainKeypoolDefaultsKey)
+        // Write-through to Rust SQLite.
+        for (chainName, walletMap) in chainKeypoolByChain {
+            persistKeypoolToRust(chainName: chainName, walletMap: walletMap)
+        }
     }
 
     func loadChainKeypoolState() -> [String: [UUID: ChainKeypoolState]] {
@@ -725,11 +715,23 @@ extension WalletStore {
     }
 
     func persistDogecoinOwnedAddressMap() {
+        // Legacy UserDefaults write (kept as fallback during SQLite migration).
         let payload = PersistedDogecoinOwnedAddressStore(
             version: PersistedDogecoinOwnedAddressStore.currentVersion,
             addressMap: dogecoinOwnedAddressMap
         )
         persistCodableToUserDefaults(payload, key: Self.dogecoinOwnedAddressMapDefaultsKey)
+        // Write-through to Rust SQLite.
+        for (_, record) in dogecoinOwnedAddressMap {
+            persistOwnedAddressToRust(
+                walletId: record.walletID.uuidString,
+                chainName: "Dogecoin",
+                address: record.address ?? "",
+                derivationPath: record.derivationPath,
+                branch: record.branch,
+                branchIndex: record.index
+            )
+        }
     }
 
     func loadDogecoinOwnedAddressMap() -> [String: DogecoinOwnedAddressRecord] {
@@ -746,11 +748,25 @@ extension WalletStore {
     }
 
     func persistChainOwnedAddressMap() {
+        // Legacy UserDefaults write (kept as fallback during SQLite migration).
         let payload = PersistedChainOwnedAddressStore(
             version: PersistedChainOwnedAddressStore.currentVersion,
             addressMapByChain: chainOwnedAddressMapByChain
         )
         persistCodableToUserDefaults(payload, key: Self.chainOwnedAddressMapDefaultsKey)
+        // Write-through to Rust SQLite.
+        for (chainName, addressMap) in chainOwnedAddressMapByChain {
+            for (_, record) in addressMap {
+                persistOwnedAddressToRust(
+                    walletId: record.walletID.uuidString,
+                    chainName: chainName,
+                    address: record.address ?? "",
+                    derivationPath: record.derivationPath,
+                    branch: record.branch,
+                    branchIndex: record.index
+                )
+            }
+        }
     }
 
     func loadChainOwnedAddressMap() -> [String: [String: ChainOwnedAddressRecord]] {
@@ -764,6 +780,40 @@ extension WalletStore {
             return [:]
         }
         return payload.addressMapByChain
+    }
+
+    // MARK: - Rust SQLite write-through helpers
+
+    /// Persist all wallets' keypool state for one chain to Rust SQLite.
+    private func persistKeypoolToRust(chainName: String, walletMap: [UUID: ChainKeypoolState]) {
+        for (walletID, state) in walletMap {
+            // Rust expects camelCase JSON matching the KeypoolState struct.
+            let json = """
+            {"nextExternalIndex":\(state.nextExternalIndex),"nextChangeIndex":\(state.nextChangeIndex),"reservedReceiveIndex":\(state.reservedReceiveIndex.map(String.init) ?? "null")}
+            """
+            WalletServiceBridge.shared.saveKeypoolState(
+                walletId: walletID.uuidString, chainName: chainName, stateJSON: json
+            )
+        }
+    }
+
+    /// Persist a single owned address record to Rust SQLite.
+    private func persistOwnedAddressToRust(
+        walletId: String,
+        chainName: String,
+        address: String,
+        derivationPath: String?,
+        branch: String?,
+        branchIndex: Int?
+    ) {
+        guard !address.isEmpty else { return }
+        let pathJSON = derivationPath.map { "\"\($0)\"" } ?? "null"
+        let branchJSON = branch.map { "\"\($0)\"" } ?? "null"
+        let indexJSON = branchIndex.map(String.init) ?? "null"
+        let json = """
+        {"walletId":"\(walletId)","chainName":"\(chainName)","address":"\(address)","derivationPath":\(pathJSON),"branch":\(branchJSON),"branchIndex":\(indexJSON)}
+        """
+        WalletServiceBridge.shared.saveOwnedAddress(recordJSON: json)
     }
 }
 

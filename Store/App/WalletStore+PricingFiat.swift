@@ -256,20 +256,21 @@ extension WalletStore {
     }
 
 
-    // Core chain refresh scheduler.
-    // Runs chains sequentially with per-chain timeouts to avoid shared-state races and
-    // to prevent one degraded provider from freezing the entire refresh cycle.
+    // Core chain refresh — balance portion is now Rust-driven via BalanceRefreshEngine.
+    // History refreshes remain Swift-driven via per-chain descriptors.
     func refreshChainBalances(
         includeHistoryRefreshes: Bool = true,
         historyRefreshInterval: TimeInterval = 120,
         forceChainRefresh: Bool = true
     ) async {
-        await WalletFetchLayer.refreshChainBalances(
-            using: self,
-            includeHistoryRefreshes: includeHistoryRefreshes,
-            historyRefreshInterval: historyRefreshInterval,
-            forceChainRefresh: forceChainRefresh
-        )
+        _ = forceChainRefresh  // Rust always fetches fresh data
+        guard !isRefreshingChainBalances else { return }
+        isRefreshingChainBalances = true
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
+        // isRefreshingChainBalances is cleared by WalletBalanceObserver.onRefreshCycleComplete
+        if includeHistoryRefreshes {
+            await runHistoryRefreshes(for: refreshableChainIDs, interval: historyRefreshInterval)
+        }
     }
 
     func withBalanceRefreshWindow(_ operation: () async -> Void) async {
@@ -280,7 +281,9 @@ extension WalletStore {
     }
 
     func refreshWalletBalance(_ walletID: UUID) async {
-        await WalletFetchLayer.refreshWalletBalance(walletID, using: self)
+        await withBalanceRefreshWindow {
+            try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
+        }
     }
 
     func collectLimitedConcurrentIndexedResults<Item, Value>(

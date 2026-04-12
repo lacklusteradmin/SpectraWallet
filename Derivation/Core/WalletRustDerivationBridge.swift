@@ -583,4 +583,31 @@ enum WalletRustDerivationBridge {
             return .account
         }
     }
+
+    // MARK: - Batch address derivation
+
+    /// Derive addresses for multiple chains in a single Rust call.
+    ///
+    /// - Parameters:
+    ///   - seedPhrase: BIP-39 mnemonic.
+    ///   - chainPaths: Mapping of chain display name → derivation path
+    ///     (e.g. `["Bitcoin": "m/84'/0'/0'/0/0", "Ethereum": "m/44'/60'/0'/0/0"]`).
+    /// - Returns: Mapping of chain display name → derived address.
+    ///   Chains that are unknown or fail derivation are omitted.
+    static func deriveAllAddresses(
+        seedPhrase: String,
+        chainPaths: [String: String]
+    ) throws -> [String: String] {
+        let pathsJSON = try encodeJSONString(chainPaths)
+        let resultJSON = try derivationDeriveAllAddressesJson(
+            seedPhrase: seedPhrase,
+            chainPathsJson: pathsJSON
+        )
+        guard let data = resultJSON.data(using: .utf8),
+              let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+            throw WalletRustDerivationBridgeError.rustCoreReturnedNullResponse
+        }
+        // Filter out null entries (unknown / failed chains).
+        return raw.compactMapValues { $0 as? String }
+    }
 }

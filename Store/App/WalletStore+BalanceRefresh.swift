@@ -4,26 +4,27 @@ import SwiftUI
 @MainActor
 extension WalletStore {
     // MARK: - Per-Chain Balance Refresh
+    // Balance fetching is now Rust-driven. These stubs trigger an immediate Rust
+    // refresh cycle so on-demand callers (send flow, pull-to-refresh) get fresh data.
+
     func refreshBitcoinBalances() async {
-        await WalletFetchLayer.refreshBitcoinBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshBitcoinCashBalances() async {
-        await WalletFetchLayer.refreshBitcoinCashBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshBitcoinSVBalances() async {
-        await WalletFetchLayer.refreshBitcoinSVBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
-    // LTC balance refresh pipeline with deterministic derivation and API fallback behavior.
     func refreshLitecoinBalances() async {
-        await WalletFetchLayer.refreshLitecoinBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
-    // DOGE balance refresh with discovery/keypool awareness and ledger-derived fallback support.
     func refreshDogecoinBalances() async {
-        await WalletFetchLayer.refreshDogecoinBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func ledgerDerivedDogecoinBalance(for walletID: UUID) -> Double? {
@@ -51,87 +52,80 @@ extension WalletStore {
         return fetchedNativeBalance
     }
 
-    // ETH native + tracked token refresh, then holdings merge into wallet snapshot.
     func refreshEthereumBalances() async {
-        await WalletFetchLayer.refreshEthereumBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshBNBBalances() async {
-        await WalletFetchLayer.refreshBNBBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshArbitrumBalances() async {
-        await WalletFetchLayer.refreshArbitrumBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshOptimismBalances() async {
-        await WalletFetchLayer.refreshOptimismBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshETCBalances() async {
-        await WalletFetchLayer.refreshETCBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshAvalancheBalances() async {
-        await WalletFetchLayer.refreshAvalancheBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshHyperliquidBalances() async {
-        await WalletFetchLayer.refreshHyperliquidBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshTronBalances() async {
-        await WalletFetchLayer.refreshTronBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
-    // SOL native + SPL token refresh path.
-    // This is where tracked contract/mint preferences directly affect asset visibility.
     func refreshSolanaBalances() async {
-        await WalletFetchLayer.refreshSolanaBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
-    // ADA balance refresh for selected wallets/chains.
     func refreshCardanoBalances() async {
-        await WalletFetchLayer.refreshCardanoBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
-    // XRP balance refresh for selected wallets/chains.
     func refreshXRPBalances() async {
-        await WalletFetchLayer.refreshXRPBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshStellarBalances() async {
-        await WalletFetchLayer.refreshStellarBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
-    // XMR balance refresh for selected wallets/chains.
     func refreshMoneroBalances() async {
-        await WalletFetchLayer.refreshMoneroBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
-    // SUI balance refresh for selected wallets/chains.
     func refreshSuiBalances() async {
-        await WalletFetchLayer.refreshSuiBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshAptosBalances() async {
-        await WalletFetchLayer.refreshAptosBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshTONBalances() async {
-        await WalletFetchLayer.refreshTONBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshICPBalances() async {
-        await WalletFetchLayer.refreshICPBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshNearBalances() async {
-        await WalletFetchLayer.refreshNearBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
     func refreshPolkadotBalances() async {
-        await WalletFetchLayer.refreshPolkadotBalances(using: self)
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
 
 
@@ -1476,6 +1470,180 @@ extension WalletStore {
             tokenBalances = []
         }
         return (nativeBalance, tokenBalances)
+    }
+
+    // MARK: - Phase 3 — Rust-driven refresh cycle
+
+    /// Apply a balance JSON payload pushed by `BalanceRefreshEngine`.
+    /// Decodes chain-specific fields and updates the wallet's native holding.
+    func applyRustBalance(chainId: UInt32, walletId: String, json: String) {
+        guard let walletIdx = wallets.firstIndex(where: { $0.id.uuidString == walletId }) else { return }
+        let wallet = wallets[walletIdx]
+
+        let updatedHoldings: [Coin]?
+        switch chainId {
+        case SpectraChainID.bitcoin:
+            // confirmed_sats (UInt64 or Number) / 1e8
+            if let sats = RustBalanceDecoder.uint64Field("confirmed_sats", from: json) {
+                updatedHoldings = applyBitcoinBalance(Double(sats) / 1e8, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.ethereum, SpectraChainID.base:
+            if let bal = RustBalanceDecoder.evmNativeBalance(from: json) {
+                updatedHoldings = applyEthereumNativeBalanceOnly(bal, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.solana:
+            if let lamports = RustBalanceDecoder.uint64Field("lamports", from: json) {
+                updatedHoldings = applySolanaNativeBalanceOnly(Double(lamports) / 1e9, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.dogecoin:
+            if let koin = RustBalanceDecoder.uint64Field("balance_koin", from: json) {
+                updatedHoldings = applyDogecoinBalance(Double(koin) / 1e8, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.xrp:
+            if let drops = RustBalanceDecoder.uint64Field("drops", from: json) {
+                updatedHoldings = applyXRPBalance(Double(drops) / 1e6, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.litecoin:
+            if let sat = RustBalanceDecoder.uint64Field("balance_sat", from: json) {
+                updatedHoldings = applyLitecoinBalance(Double(sat) / 1e8, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.bitcoinCash:
+            if let sat = RustBalanceDecoder.uint64Field("balance_sat", from: json) {
+                updatedHoldings = applyBitcoinCashBalance(Double(sat) / 1e8, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.tron:
+            if let sun = RustBalanceDecoder.uint64Field("sun", from: json) {
+                updatedHoldings = applyTronNativeBalanceOnly(Double(sun) / 1e6, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.stellar:
+            if let stroops = RustBalanceDecoder.int64Field("stroops", from: json) {
+                updatedHoldings = applyStellarBalance(Double(abs(stroops)) / 1e7, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.cardano:
+            if let lovelace = RustBalanceDecoder.uint64Field("lovelace", from: json) {
+                updatedHoldings = applyCardanoBalance(Double(lovelace) / 1e6, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.polkadot:
+            if let planck = RustBalanceDecoder.uint128StringField("planck", from: json) {
+                updatedHoldings = applyPolkadotBalance(planck / 10_000_000_000, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.arbitrum:
+            if let bal = RustBalanceDecoder.evmNativeBalance(from: json) {
+                updatedHoldings = applyArbitrumNativeBalanceOnly(bal, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.optimism:
+            if let bal = RustBalanceDecoder.evmNativeBalance(from: json) {
+                updatedHoldings = applyOptimismNativeBalanceOnly(bal, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.avalanche:
+            if let bal = RustBalanceDecoder.evmNativeBalance(from: json) {
+                updatedHoldings = applyAvalancheNativeBalanceOnly(bal, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.sui:
+            if let mist = RustBalanceDecoder.uint64Field("mist", from: json) {
+                updatedHoldings = applySuiBalance(Double(mist) / 1e9, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.aptos:
+            if let octas = RustBalanceDecoder.uint64Field("octas", from: json) {
+                updatedHoldings = applyAptosBalance(Double(octas) / 1e8, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.ton:
+            if let nanotons = RustBalanceDecoder.uint64Field("nanotons", from: json) {
+                updatedHoldings = applyTONBalance(Double(nanotons) / 1e9, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.near:
+            if let near = RustBalanceDecoder.yoctoNearToDouble(from: json) {
+                updatedHoldings = applyNearBalance(near, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.icp:
+            if let e8s = RustBalanceDecoder.uint64Field("e8s", from: json) {
+                updatedHoldings = applyICPBalance(Double(e8s) / 1e8, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.monero:
+            if let piconeros = RustBalanceDecoder.uint64Field("piconeros", from: json) {
+                updatedHoldings = applyMoneroBalance(Double(piconeros) / 1e12, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.ethereumClassic:
+            if let bal = RustBalanceDecoder.evmNativeBalance(from: json) {
+                updatedHoldings = applyETCNativeBalanceOnly(bal, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.bitcoinSv:
+            if let sat = RustBalanceDecoder.uint64Field("balance_sat", from: json) {
+                updatedHoldings = applyBitcoinSVBalance(Double(sat) / 1e8, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.bsc:
+            if let bal = RustBalanceDecoder.evmNativeBalance(from: json) {
+                updatedHoldings = applyBNBNativeBalanceOnly(bal, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        case SpectraChainID.hyperliquid:
+            if let bal = RustBalanceDecoder.evmNativeBalance(from: json) {
+                updatedHoldings = applyHyperliquidNativeBalanceOnly(bal, to: wallet.holdings)
+            } else { updatedHoldings = nil }
+        default:
+            updatedHoldings = nil
+        }
+
+        if let updatedHoldings {
+            wallets[walletIdx] = walletByReplacingHoldings(wallet, with: updatedHoldings)
+        }
+    }
+
+    // MARK: - Refresh engine wiring
+
+    /// Build the refresh entry list from the current wallet snapshot and push to Rust.
+    func updateRefreshEngineEntries() {
+        let entries: [[String: Any]] = wallets.compactMap { wallet -> [String: Any]? in
+            guard let chainId = SpectraChainID.id(for: wallet.selectedChain),
+                  let address = resolvedRefreshAddress(for: wallet) else { return nil }
+            return ["chain_id": chainId, "wallet_id": wallet.id.uuidString, "address": address]
+        }
+        guard let data = try? JSONSerialization.data(withJSONObject: entries),
+              let json = String(data: data, encoding: .utf8) else { return }
+        Task { try? await WalletServiceBridge.shared.setRefreshEntries(json) }
+    }
+
+    /// Start the Rust-owned balance refresh cycle. Call once at app launch.
+    func setupRustRefreshEngine() {
+        let observer = WalletBalanceObserver()
+        observer.store = self
+        Task {
+            try? await WalletServiceBridge.shared.setBalanceObserver(observer)
+            try? await WalletServiceBridge.shared.startBalanceRefresh(intervalSecs: 30)
+        }
+        updateRefreshEngineEntries()
+    }
+
+    /// Resolve the canonical fetch key for a wallet's selected chain.
+    /// For Bitcoin HD wallets returns the xpub; for all others the chain address.
+    private func resolvedRefreshAddress(for wallet: ImportedWallet) -> String? {
+        switch wallet.selectedChain {
+        case "Bitcoin":
+            if let xpub = wallet.bitcoinXPub,
+               !xpub.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                return xpub
+            }
+            return resolvedBitcoinAddress(for: wallet)
+        case "Ethereum", "Arbitrum", "Optimism", "Avalanche",
+             "BNB Chain", "Hyperliquid", "Ethereum Classic", "Base":
+            return resolvedEVMAddress(for: wallet, chainName: wallet.selectedChain)
+        case "Solana":    return resolvedSolanaAddress(for: wallet)
+        case "Tron":      return resolvedTronAddress(for: wallet)
+        case "Sui":       return resolvedSuiAddress(for: wallet)
+        case "Aptos":     return resolvedAptosAddress(for: wallet)
+        case "TON":       return resolvedTONAddress(for: wallet)
+        case "ICP":       return resolvedICPAddress(for: wallet)
+        case "NEAR":      return resolvedNearAddress(for: wallet)
+        case "XRP Ledger":   return resolvedXRPAddress(for: wallet)
+        case "Stellar":      return resolvedStellarAddress(for: wallet)
+        case "Cardano":      return resolvedCardanoAddress(for: wallet)
+        case "Polkadot":     return resolvedPolkadotAddress(for: wallet)
+        case "Monero":       return resolvedMoneroAddress(for: wallet)
+        case "Bitcoin Cash": return resolvedBitcoinCashAddress(for: wallet)
+        case "Bitcoin SV":   return resolvedBitcoinSVAddress(for: wallet)
+        case "Litecoin":     return resolvedLitecoinAddress(for: wallet)
+        case "Dogecoin":     return resolvedDogecoinAddress(for: wallet)
+        default:             return nil
+        }
     }
 
 }
