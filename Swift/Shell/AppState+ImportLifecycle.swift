@@ -92,7 +92,7 @@ func resetImportForm() {
         }
         appendAddress(wallet.bitcoinAddress)
         appendAddress(wallet.bitcoinCashAddress)
-        appendAddress(wallet.bitcoinSVAddress)
+        appendAddress(wallet.bitcoinSvAddress)
         appendAddress(wallet.litecoinAddress)
         appendAddress(wallet.dogecoinAddress)
         appendAddress(wallet.ethereumAddress)

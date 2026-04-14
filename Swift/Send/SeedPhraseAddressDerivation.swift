@@ -18,8 +18,8 @@ enum SeedPhraseAddressDerivation {
     static func bitcoinAddress(forPrivateKey privateKeyHex: String) throws -> String { try materialAddress(privateKeyHex: privateKeyHex, coin: .bitcoin) }
     static func bitcoinCashAddress(seedPhrase: String, derivationPath: String) throws -> String { try materialAddress(seedPhrase: seedPhrase, coin: .bitcoinCash, derivationPath: derivationPath) }
     static func bitcoinCashAddress(forPrivateKey privateKeyHex: String) throws -> String { try materialAddress(privateKeyHex: privateKeyHex, coin: .bitcoinCash) }
-    static func bitcoinSVAddress(seedPhrase: String, derivationPath: String) throws -> String { try materialAddress(seedPhrase: seedPhrase, coin: .bitcoinSV, derivationPath: derivationPath) }
-    static func bitcoinSVAddress(forPrivateKey privateKeyHex: String) throws -> String { try materialAddress(privateKeyHex: privateKeyHex, coin: .bitcoinSV) }
+    static func bitcoinSvAddress(seedPhrase: String, derivationPath: String) throws -> String { try materialAddress(seedPhrase: seedPhrase, coin: .bitcoinSV, derivationPath: derivationPath) }
+    static func bitcoinSvAddress(forPrivateKey privateKeyHex: String) throws -> String { try materialAddress(privateKeyHex: privateKeyHex, coin: .bitcoinSV) }
     static func litecoinAddress(seedPhrase: String, derivationPath: String) throws -> String { try materialAddress(seedPhrase: seedPhrase, coin: .litecoin, derivationPath: derivationPath) }
     static func litecoinAddress(forPrivateKey privateKeyHex: String) throws -> String { try materialAddress(privateKeyHex: privateKeyHex, coin: .litecoin) }
     static func dogecoinAddress(seedPhrase: String, networkMode: DogecoinNetworkMode, isChange: Bool, index: Int, account: Int) throws -> String {

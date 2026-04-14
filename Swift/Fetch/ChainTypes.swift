@@ -156,23 +156,23 @@ struct EthereumSupportedToken {
     let symbol: String
     let contractAddress: String
     let decimals: Int
-    let marketDataID: String
-    let coinGeckoID: String
-    init(name: String, symbol: String, contractAddress: String, decimals: Int, marketDataID: String, coinGeckoID: String) {
+    let marketDataId: String
+    let coinGeckoId: String
+    init(name: String, symbol: String, contractAddress: String, decimals: Int, marketDataId: String, coinGeckoId: String) {
         self.name = name
         self.symbol = symbol
         self.contractAddress = contractAddress
         self.decimals = decimals
-        self.marketDataID = marketDataID
-        self.coinGeckoID = coinGeckoID
+        self.marketDataId = marketDataId
+        self.coinGeckoId = coinGeckoId
     }
     init(registryEntry: ChainTokenRegistryEntry) {
         self.name = registryEntry.name
         self.symbol = registryEntry.symbol
         self.contractAddress = registryEntry.contractAddress
         self.decimals = registryEntry.decimals
-        self.marketDataID = registryEntry.marketDataID
-        self.coinGeckoID = registryEntry.coinGeckoID
+        self.marketDataId = registryEntry.marketDataId
+        self.coinGeckoId = registryEntry.coinGeckoId
     }
 }
 // EthereumTokenTransferHistoryDiagnostics moved to Rust core; see DiagnosticsTypesCompat.swift.
@@ -273,8 +273,8 @@ struct SolanaSPLTokenBalanceSnapshot: Equatable {
     let tokenStandard: String
     let decimals: Int
     let balance: Double
-    let marketDataID: String
-    let coinGeckoID: String
+    let marketDataId: String
+    let coinGeckoId: String
 }
 struct SolanaPortfolioSnapshot: Equatable {
     let nativeBalance: Double
@@ -287,8 +287,8 @@ enum SolanaBalanceService {
         let symbol: String
         let name: String
         let decimals: Int
-        let marketDataID: String
-        let coinGeckoID: String
+        let marketDataId: String
+        let coinGeckoId: String
     }
     static let usdtMintAddress = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
     static let usdcMintAddress = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
@@ -301,20 +301,20 @@ enum SolanaBalanceService {
     static let bonkMintAddress = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
     static let knownTokenMetadataByMint: [String: KnownTokenMetadata] = [
         usdtMintAddress: KnownTokenMetadata(
-            symbol: "USDT", name: "Tether USD", decimals: 6, marketDataID: "825", coinGeckoID: "tether"
+            symbol: "USDT", name: "Tether USD", decimals: 6, marketDataId: "825", coinGeckoId: "tether"
         ), usdcMintAddress: KnownTokenMetadata(
-            symbol: "USDC", name: "USD Coin", decimals: 6, marketDataID: "3408", coinGeckoID: "usd-coin"
+            symbol: "USDC", name: "USD Coin", decimals: 6, marketDataId: "3408", coinGeckoId: "usd-coin"
         ), pyusdMintAddress: KnownTokenMetadata(
-            symbol: "PYUSD", name: "PayPal USD", decimals: 6, marketDataID: "27772", coinGeckoID: "paypal-usd"
+            symbol: "PYUSD", name: "PayPal USD", decimals: 6, marketDataId: "27772", coinGeckoId: "paypal-usd"
         ), usdgMintAddress: KnownTokenMetadata(
-            symbol: "USDG", name: "Global Dollar", decimals: 6, marketDataID: "0", coinGeckoID: "global-dollar"
-        ), usd1MintAddress: KnownTokenMetadata(symbol: "USD1", name: "USD1", decimals: 6, marketDataID: "0", coinGeckoID: ""), linkMintAddress: KnownTokenMetadata(
-            symbol: "LINK", name: "Chainlink", decimals: 8, marketDataID: "1975", coinGeckoID: "chainlink"
+            symbol: "USDG", name: "Global Dollar", decimals: 6, marketDataId: "0", coinGeckoId: "global-dollar"
+        ), usd1MintAddress: KnownTokenMetadata(symbol: "USD1", name: "USD1", decimals: 6, marketDataId: "0", coinGeckoId: ""), linkMintAddress: KnownTokenMetadata(
+            symbol: "LINK", name: "Chainlink", decimals: 8, marketDataId: "1975", coinGeckoId: "chainlink"
         ), wlfiMintAddress: KnownTokenMetadata(
-            symbol: "WLFI", name: "World Liberty Financial", decimals: 6, marketDataID: "0", coinGeckoID: ""
+            symbol: "WLFI", name: "World Liberty Financial", decimals: 6, marketDataId: "0", coinGeckoId: ""
         ), jupMintAddress: KnownTokenMetadata(
-            symbol: "JUP", name: "Jupiter", decimals: 6, marketDataID: "29210", coinGeckoID: "jupiter-exchange-solana"
-        ), bonkMintAddress: KnownTokenMetadata(symbol: "BONK", name: "Bonk", decimals: 5, marketDataID: "23095", coinGeckoID: "bonk")
+            symbol: "JUP", name: "Jupiter", decimals: 6, marketDataId: "29210", coinGeckoId: "jupiter-exchange-solana"
+        ), bonkMintAddress: KnownTokenMetadata(symbol: "BONK", name: "Bonk", decimals: 5, marketDataId: "23095", coinGeckoId: "bonk")
     ]
     static func mintAddress(for symbol: String) -> String? {
         switch symbol.uppercased() {
@@ -349,8 +349,8 @@ struct NearTokenBalanceSnapshot: Equatable {
     let tokenStandard: String
     let decimals: Int
     let balance: Double
-    let marketDataID: String
-    let coinGeckoID: String
+    let marketDataId: String
+    let coinGeckoId: String
 }
 enum NearBalanceService {
     struct KnownTokenMetadata: Equatable {
@@ -358,8 +358,8 @@ enum NearBalanceService {
         let name: String
         let tokenStandard: String
         let decimals: Int
-        let marketDataID: String
-        let coinGeckoID: String
+        let marketDataId: String
+        let coinGeckoId: String
     }
     static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: ChainBackendRegistry.nearChainName) }
     static func rpcEndpointCatalog() -> [String] { ChainBackendRegistry.NearRuntimeEndpoints.rpcBaseURLs }
@@ -388,8 +388,8 @@ struct AptosTokenBalanceSnapshot: Equatable {
     let tokenStandard: String
     let decimals: Int
     let balance: Double
-    let marketDataID: String
-    let coinGeckoID: String
+    let marketDataId: String
+    let coinGeckoId: String
 }
 struct AptosPortfolioSnapshot: Equatable {
     let nativeBalance: Double
@@ -402,8 +402,8 @@ enum AptosBalanceService {
         let name: String
         let tokenStandard: String
         let decimals: Int
-        let marketDataID: String
-        let coinGeckoID: String
+        let marketDataId: String
+        let coinGeckoId: String
     }
     static func endpointCatalog() -> [String] { AptosProvider.endpointCatalog() }
     static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AptosProvider.diagnosticsChecks() }
@@ -418,8 +418,8 @@ struct SuiTokenBalanceSnapshot: Equatable {
     let tokenStandard: String
     let decimals: Int
     let balance: Double
-    let marketDataID: String
-    let coinGeckoID: String
+    let marketDataId: String
+    let coinGeckoId: String
 }
 struct SuiPortfolioSnapshot: Equatable {
     let nativeBalance: Double
@@ -432,8 +432,8 @@ enum SuiBalanceService {
         let name: String
         let tokenStandard: String
         let decimals: Int
-        let marketDataID: String
-        let coinGeckoID: String
+        let marketDataId: String
+        let coinGeckoId: String
     }
     static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: ChainBackendRegistry.suiChainName) }
     static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: ChainBackendRegistry.suiChainName) }
@@ -449,8 +449,8 @@ struct TONJettonBalanceSnapshot: Equatable {
     let tokenStandard: String
     let decimals: Int
     let balance: Double
-    let marketDataID: String
-    let coinGeckoID: String
+    let marketDataId: String
+    let coinGeckoId: String
 }
 struct TONPortfolioSnapshot: Equatable {
     let nativeBalance: Double
@@ -462,8 +462,8 @@ enum TONBalanceService {
         let name: String
         let tokenStandard: String
         let decimals: Int
-        let marketDataID: String
-        let coinGeckoID: String
+        let marketDataId: String
+        let coinGeckoId: String
     }
     static func endpointCatalog() -> [String] { TONProvider.endpointCatalog() }
     static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { TONProvider.diagnosticsChecks() }

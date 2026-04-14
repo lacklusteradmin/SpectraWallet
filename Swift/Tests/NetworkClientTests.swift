@@ -1,34 +1,16 @@
 import Foundation
 import XCTest
 @testable import Spectra
+// Transport has fully moved to Rust (`core/src/http_ffi.rs`). The old Swift
+// router/mock infra and its tests were deleted; kept below is a shared base
+// class retained for source compatibility with other suites.
 @MainActor
 class SpectraNetworkTestCase: XCTestCase {
-    var testNetworkClient: TestSpectraNetworkClient!
     func resetTestState() async throws {}
     override func setUp() async throws {
         try await super.setUp()
-        testNetworkClient = TestSpectraNetworkClient()
-        await SpectraNetworkRouter.shared.install(client: testNetworkClient)
         try await resetTestState()
     }
-    override func tearDown() async throws {
-        await SpectraNetworkRouter.shared.resetToDefault()
-        testNetworkClient = nil
-        try await super.tearDown()
-    }
-    func assertThrowsURLErrorCode(
-        _ expectedCode: URLError.Code, file: StaticString = #filePath, line: UInt = #line, _ operation: () async throws -> Void
-    ) async {
-        do {
-            try await operation()
-            XCTFail("Expected URLError(\(expectedCode.rawValue)) to be thrown", file: file, line: line)
-        } catch {
-            guard let urlError = error as? URLError else {
-                XCTFail("Expected URLError, got \(type(of: error))", file: file, line: line)
-                return
-            }
-            XCTAssertEqual(urlError.code, expectedCode, file: file, line: line)
-        }}
 }
 @MainActor
 private func makeSingleChainDraft(select: (WalletImportDraft) -> Void) -> WalletImportDraft {
@@ -42,36 +24,6 @@ private func chainWikiEntry(id: String) throws -> ChainWikiEntry {
             id: $0.id, name: $0.name, symbol: $0.symbol, tags: [], family: $0.family, consensus: $0.consensus, stateModel: $0.stateModel, primaryUse: $0.primaryUse, slip44CoinType: $0.slip44CoinType, derivationPath: $0.derivationPath, alternateDerivationPath: $0.alternateDerivationPath, totalCirculationModel: $0.totalCirculationModel, notableDetails: $0.notableDetails
         )
     })
-}
-@MainActor
-final class TestSpectraNetworkClientTests: SpectraNetworkTestCase {
-    @MainActor
-    func testConsumesQueuedResponsesDeterministically() async throws {
-        let urlString = "https://example.test/ping"
-        await testNetworkClient.enqueueResponse(url: urlString, statusCode: 200, body: Data("ok".utf8))
-        let request = URLRequest(url: URL(string: urlString)!)
-        let (data, response) = try await SpectraNetworkRouter.shared.data(for: request, profile: .chainRead)
-        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
-        XCTAssertEqual(String(data: data, encoding: .utf8), "ok")
-        await assertThrowsURLErrorCode(.resourceUnavailable) {
-            _ = try await SpectraNetworkRouter.shared.data(for: request, profile: .chainRead)
-        }}
-    @MainActor
-    func testQueuesAreIsolatedByHTTPMethod() async throws {
-        let urlString = "https://example.test/resource"
-        await testNetworkClient.enqueueResponse(method: "GET", url: urlString, statusCode: 200, body: Data("get".utf8))
-        await testNetworkClient.enqueueResponse(method: "POST", url: urlString, statusCode: 201, body: Data("post".utf8))
-        var getRequest = URLRequest(url: URL(string: urlString)!)
-        getRequest.httpMethod = "GET"
-        var postRequest = URLRequest(url: URL(string: urlString)!)
-        postRequest.httpMethod = "POST"
-        let (getData, getResponse) = try await SpectraNetworkRouter.shared.data(for: getRequest, profile: .chainRead)
-        let (postData, postResponse) = try await SpectraNetworkRouter.shared.data(for: postRequest, profile: .chainRead)
-        XCTAssertEqual((getResponse as? HTTPURLResponse)?.statusCode, 200)
-        XCTAssertEqual(String(data: getData, encoding: .utf8), "get")
-        XCTAssertEqual((postResponse as? HTTPURLResponse)?.statusCode, 201)
-        XCTAssertEqual(String(data: postData, encoding: .utf8), "post")
-    }
 }
 @MainActor
 final class EthereumClassicSupportTests: XCTestCase {
@@ -89,8 +41,8 @@ final class EthereumClassicSupportTests: XCTestCase {
             draft.selectedCoins.first { $0.chainName == "Ethereum Classic" && $0.symbol == "ETC" }
         )
         XCTAssertEqual(etcCoin.name, "Ethereum Classic")
-        XCTAssertEqual(etcCoin.coinGeckoID, "ethereum-classic")
-        XCTAssertEqual(etcCoin.marketDataID, "1321")
+        XCTAssertEqual(etcCoin.coinGeckoId, "ethereum-classic")
+        XCTAssertEqual(etcCoin.marketDataId, "1321")
         XCTAssertNil(etcCoin.contractAddress)
     }
     func testEthereumClassicChainWikiEntryIsPresent() throws {
@@ -116,8 +68,8 @@ final class AvalancheSupportTests: XCTestCase {
             draft.selectedCoins.first { $0.chainName == "Avalanche" && $0.symbol == "AVAX" }
         )
         XCTAssertEqual(avaxCoin.name, "Avalanche")
-        XCTAssertEqual(avaxCoin.coinGeckoID, "avalanche-2")
-        XCTAssertEqual(avaxCoin.marketDataID, "5805")
+        XCTAssertEqual(avaxCoin.coinGeckoId, "avalanche-2")
+        XCTAssertEqual(avaxCoin.marketDataId, "5805")
         XCTAssertNil(avaxCoin.contractAddress)
     }
     func testAvalancheChainWikiEntryIsPresent() throws {
@@ -143,8 +95,8 @@ final class HyperliquidSupportTests: XCTestCase {
             draft.selectedCoins.first { $0.chainName == "Hyperliquid" && $0.symbol == "HYPE" }
         )
         XCTAssertEqual(hypeCoin.name, "Hyperliquid")
-        XCTAssertEqual(hypeCoin.coinGeckoID, "hyperliquid")
-        XCTAssertEqual(hypeCoin.marketDataID, "0")
+        XCTAssertEqual(hypeCoin.coinGeckoId, "hyperliquid")
+        XCTAssertEqual(hypeCoin.marketDataId, "0")
         XCTAssertNil(hypeCoin.contractAddress)
     }
     func testHyperliquidChainWikiEntryIsPresent() throws {
@@ -163,7 +115,7 @@ final class AptosSupportTests: XCTestCase {
             draft.selectedCoins.first { $0.chainName == "Aptos" && $0.symbol == "APT" }
         )
         XCTAssertEqual(aptCoin.name, "Aptos")
-        XCTAssertEqual(aptCoin.coinGeckoID, "aptos")
+        XCTAssertEqual(aptCoin.coinGeckoId, "aptos")
         XCTAssertNil(aptCoin.contractAddress)
     }
     func testAptosChainWikiEntryIsPresent() throws {
@@ -229,7 +181,7 @@ final class ICPSupportTests: XCTestCase {
             draft.selectedCoins.first { $0.chainName == "Internet Computer" && $0.symbol == "ICP" }
         )
         XCTAssertEqual(icpCoin.name, "Internet Computer")
-        XCTAssertEqual(icpCoin.coinGeckoID, "internet-computer")
+        XCTAssertEqual(icpCoin.coinGeckoId, "internet-computer")
         XCTAssertNil(icpCoin.contractAddress)
     }
     func testICPChainWikiEntryIsPresent() throws {

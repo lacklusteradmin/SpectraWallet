@@ -782,7 +782,7 @@ struct LargeMovementAlertsSettingsView: View {
 }
 private enum TokenRegistryGrouping {
     nonisolated static func key(for entry: TokenPreferenceEntry) -> String {
-        let geckoID = entry.coinGeckoID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let geckoID = entry.coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if !geckoID.isEmpty { return "gecko:\(geckoID)" }
         return "symbol:\(entry.symbol.lowercased())|\(entry.name.lowercased())"
     }
@@ -915,7 +915,7 @@ struct TokenRegistrySettingsView: View {
             let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             guard !query.isEmpty else { return true }
             let haystack = (
-                [group.symbol, group.name] + group.entries.flatMap { entry in [entry.chain.rawValue, entry.tokenStandard, entry.contractAddress, entry.coinGeckoID] }
+                [group.symbol, group.name] + group.entries.flatMap { entry in [entry.chain.rawValue, entry.tokenStandard, entry.contractAddress, entry.coinGeckoId] }
             ).joined(separator: " ").lowercased()
             return haystack.contains(query)
         }
@@ -962,7 +962,7 @@ struct AddCustomTokenView: View {
     @State private var symbolInput: String = ""
     @State private var nameInput: String = ""
     @State private var contractInput: String = ""
-    @State private var coinGeckoIDInput: String = ""
+    @State private var coinGeckoIdInput: String = ""
     @State private var decimalsInput: Int = 6
     @State private var formMessage: String?
     var body: some View {
@@ -977,20 +977,20 @@ struct AddCustomTokenView: View {
                 TextField(localizedSettingsString("Name"), text: $nameInput)
                 TextField(selectedChain.contractAddressPrompt, text: $contractInput).textInputAutocapitalization(.never).autocorrectionDisabled()
                 Stepper(localizedSettingsFormat("Token Supports: %lld decimals", decimalsInput), value: $decimalsInput, in: 0 ... 30, step: 1)
-                TextField(localizedSettingsString("CoinGecko ID (Optional)"), text: $coinGeckoIDInput).textInputAutocapitalization(.never).autocorrectionDisabled()
+                TextField(localizedSettingsString("CoinGecko ID (Optional)"), text: $coinGeckoIdInput).textInputAutocapitalization(.never).autocorrectionDisabled()
             }
             Section {
                 if let formMessage { Text(formMessage).font(.caption).foregroundStyle(.secondary) }
                 Button(localizedSettingsString("Add Token")) {
                     let message = store.addCustomTokenPreference(
-                        chain: selectedChain, symbol: symbolInput, name: nameInput, contractAddress: contractInput, marketDataID: "0", coinGeckoID: coinGeckoIDInput, decimals: decimalsInput
+                        chain: selectedChain, symbol: symbolInput, name: nameInput, contractAddress: contractInput, marketDataId: "0", coinGeckoId: coinGeckoIdInput, decimals: decimalsInput
                     )
                     if let message { formMessage = message } else {
                         formMessage = localizedSettingsString("Token added.")
                         symbolInput = ""
                         nameInput = ""
                         contractInput = ""
-                        coinGeckoIDInput = ""
+                        coinGeckoIdInput = ""
                     }}}}.navigationTitle(localizedSettingsString("New Token"))
     }
 }
@@ -1063,7 +1063,7 @@ struct DecimalDisplaySettingsView: View {
         guard !query.isEmpty else { return entries }
         return entries.filter { entry in
             [
-                entry.symbol, entry.name, entry.chain.rawValue, entry.contractAddress, entry.coinGeckoID
+                entry.symbol, entry.name, entry.chain.rawValue, entry.contractAddress, entry.coinGeckoId
             ].joined(separator: " ").lowercased().contains(query)
         }}
     @ViewBuilder
@@ -1098,7 +1098,7 @@ struct DecimalDisplaySettingsView: View {
     private func decimalTokenAssetIdentifier(for entry: TokenPreferenceEntry) -> String? {
         let slug = entry.chain.slug
         let symbol = entry.symbol.lowercased()
-        if !entry.coinGeckoID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "\(slug):\(entry.coinGeckoID.lowercased()):\(symbol)" }
+        if !entry.coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "\(slug):\(entry.coinGeckoId.lowercased()):\(symbol)" }
         return "\(slug):\(symbol)"
     }
     private func decimalTokenTint(for chain: TokenTrackingChain) -> Color {

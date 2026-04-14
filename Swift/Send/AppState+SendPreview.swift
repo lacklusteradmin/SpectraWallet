@@ -190,7 +190,7 @@ extension AppState {
             return
         }
         do {
-            if let xpub = wallet.bitcoinXPub?.trimmingCharacters(in: .whitespacesAndNewlines), !xpub.isEmpty {
+            if let xpub = wallet.bitcoinXpub?.trimmingCharacters(in: .whitespacesAndNewlines), !xpub.isEmpty {
                 async let balanceJSONTask = WalletServiceBridge.shared.fetchBitcoinXpubBalanceJSON(xpub: xpub)
                 async let feeJSONTask    = WalletServiceBridge.shared.fetchFeeEstimateJSON(chainId: SpectraChainID.bitcoin)
                 let (balanceJSON, feeJSON) = try await (balanceJSONTask, feeJSONTask)

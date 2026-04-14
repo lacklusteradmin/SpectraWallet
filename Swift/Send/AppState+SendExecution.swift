@@ -6,8 +6,6 @@ func rustField(_ key: String, from json: String) -> String {
     extractJsonStringField(json: json, key: key)
 }
 
-private func nearToYoctoString(_ near: Double) -> String { amountToRawUnitsString(amount: near, decimals: 24) }
-private func dotToPlanckString(_ dot: Double) -> String { amountToRawUnitsString(amount: dot, decimals: 10) }
 private func ethToWeiString(_ eth: Double) -> String { amountToRawUnitsString(amount: eth, decimals: 18) }
 
 private func tokenAmountToRawString(_ amount: Double, decimals: Int) -> String {
@@ -317,13 +315,13 @@ extension AppState {
             if holding.symbol == "TRX" {
                 let totalCost = amount + preview.estimatedNetworkFeeTrx
                 if totalCost > holding.amount {
-                    sendError = "Insufficient TRX for amount plus network fee (needs ~\(String(format: "%.6f", totalCost)) TRX)."
+                    sendError = coreInsufficientFundsForAmountPlusFeeMessage(symbol: "TRX", totalNeeded: totalCost, decimals: 6)
                     return
                 }
             } else {
                 let trxBalance = wallet.holdings.first(where: { $0.chainName == "Tron" && $0.symbol == "TRX" })?.amount ?? 0
                 if preview.estimatedNetworkFeeTrx > trxBalance {
-                    sendError = "Insufficient TRX to cover Tron network fee (~\(String(format: "%.6f", preview.estimatedNetworkFeeTrx)) TRX)."
+                    sendError = coreInsufficientNativeForFeeMessage(nativeSymbol: "TRX", fee: preview.estimatedNetworkFeeTrx, decimals: 6, chainLabel: "Tron")
                     return
                 }}
             isSendingTron = true
@@ -410,7 +408,7 @@ extension AppState {
             if holding.symbol == "SOL" {
                 let totalCost = amount + preview.estimatedNetworkFeeSol
                 if totalCost > holding.amount {
-                    sendError = "Insufficient SOL for amount plus network fee (needs ~\(String(format: "%.6f", totalCost)) SOL)."
+                    sendError = coreInsufficientFundsForAmountPlusFeeMessage(symbol: "SOL", totalNeeded: totalCost, decimals: 6)
                     return
                 }
             } else {
@@ -420,7 +418,7 @@ extension AppState {
                 }
                 let solBalance = wallet.holdings.first(where: { $0.chainName == "Solana" && $0.symbol == "SOL" })?.amount ?? 0
                 if preview.estimatedNetworkFeeSol > solBalance {
-                    sendError = "Insufficient SOL to cover Solana network fee (~\(String(format: "%.6f", preview.estimatedNetworkFeeSol)) SOL)."
+                    sendError = coreInsufficientNativeForFeeMessage(nativeSymbol: "SOL", fee: preview.estimatedNetworkFeeSol, decimals: 6, chainLabel: "Solana")
                     return
                 }}
             isSendingSolana = true
@@ -478,7 +476,7 @@ extension AppState {
             if xrpSendPreview == nil { await refreshXrpSendPreview() }
             guard let preview = xrpSendPreview else { sendError = sendError ?? "Unable to estimate XRP network fee."; return }
             await submitDualKeyChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, networkFee: preview.estimatedNetworkFeeXrp, symbol: "XRP", feeFormat: "%.6f", isSendingPath: \.isSendingXRP, chainId: SpectraChainID.xrp, chain: .xrp, derivationPath: walletDerivationPath(for: wallet, chain: .xrp), sendChain: .xrp, buildSeedJSON: { priv, pub in buildXrpSendPayload(from: sourceAddress, to: destinationAddress, amountXrp: amount, privateKeyHex: priv, publicKeyHex: pub) }, buildPrivKeyJSON: { priv in buildXrpSendPayload(from: sourceAddress, to: destinationAddress, amountXrp: amount, privateKeyHex: priv, publicKeyHex: nil) }, clearPreview: { self.xrpSendPreview = nil }, seedPhrase: seedPhrase, privateKey: privateKey, sourceAddress: sourceAddress
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, networkFee: preview.estimatedNetworkFeeXrp, symbol: "XRP", feeDecimals: 6, isSendingPath: \.isSendingXRP, chainId: SpectraChainID.xrp, chain: .xrp, derivationPath: walletDerivationPath(for: wallet, chain: .xrp), sendChain: .xrp, buildSeedJSON: { priv, pub in buildXrpSendPayload(from: sourceAddress, to: destinationAddress, amountXrp: amount, privateKeyHex: priv, publicKeyHex: pub) }, buildPrivKeyJSON: { priv in buildXrpSendPayload(from: sourceAddress, to: destinationAddress, amountXrp: amount, privateKeyHex: priv, publicKeyHex: nil) }, clearPreview: { self.xrpSendPreview = nil }, seedPhrase: seedPhrase, privateKey: privateKey, sourceAddress: sourceAddress
             )
             return
         }
@@ -493,7 +491,7 @@ extension AppState {
             if stellarSendPreview == nil { await refreshStellarSendPreview() }
             guard let preview = stellarSendPreview else { sendError = sendError ?? "Unable to estimate Stellar network fee."; return }
             await submitDualKeyChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, networkFee: preview.estimatedNetworkFeeXlm, symbol: "XLM", feeFormat: "%.7f", isSendingPath: \.isSendingStellar, chainId: SpectraChainID.stellar, chain: .stellar, derivationPath: wallet.seedDerivationPaths.stellar, sendChain: .stellar, buildSeedJSON: { priv, pub in buildStellarSendPayload(from: sourceAddress, to: destinationAddress, amountXlm: amount, privateKeyHex: priv, publicKeyHex: pub) }, buildPrivKeyJSON: { priv in buildStellarSendPayload(from: sourceAddress, to: destinationAddress, amountXlm: amount, privateKeyHex: priv, publicKeyHex: nil) }, clearPreview: { self.stellarSendPreview = nil }, seedPhrase: seedPhrase, privateKey: privateKey, sourceAddress: sourceAddress
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, networkFee: preview.estimatedNetworkFeeXlm, symbol: "XLM", feeDecimals: 7, isSendingPath: \.isSendingStellar, chainId: SpectraChainID.stellar, chain: .stellar, derivationPath: wallet.seedDerivationPaths.stellar, sendChain: .stellar, buildSeedJSON: { priv, pub in buildStellarSendPayload(from: sourceAddress, to: destinationAddress, amountXlm: amount, privateKeyHex: priv, publicKeyHex: pub) }, buildPrivKeyJSON: { priv in buildStellarSendPayload(from: sourceAddress, to: destinationAddress, amountXlm: amount, privateKeyHex: priv, publicKeyHex: nil) }, clearPreview: { self.stellarSendPreview = nil }, seedPhrase: seedPhrase, privateKey: privateKey, sourceAddress: sourceAddress
             )
             return
         }
@@ -510,7 +508,7 @@ extension AppState {
             }
             let totalCost = amount + preview.estimatedNetworkFeeXmr
             if totalCost > holding.amount {
-                sendError = "Insufficient XMR for amount plus network fee (needs ~\(String(format: "%.6f", totalCost)) XMR)."
+                sendError = coreInsufficientFundsForAmountPlusFeeMessage(symbol: "XMR", totalNeeded: totalCost, decimals: 6)
                 return
             }
             isSendingMonero = true
@@ -640,11 +638,11 @@ extension AppState {
             if preflight.isNativeEvmAsset {
                 let totalCost = amount + preview.estimatedNetworkFeeEth
                 if totalCost > nativeBalance {
-                    sendError = "Insufficient \(nativeSymbol) for amount plus network fee (needs ~\(String(format: "%.6f", totalCost)) \(nativeSymbol))."
+                    sendError = coreInsufficientFundsForAmountPlusFeeMessage(symbol: nativeSymbol, totalNeeded: totalCost, decimals: 6)
                     return
                 }
             } else if preview.estimatedNetworkFeeEth > nativeBalance {
-                sendError = "Insufficient \(nativeSymbol) to cover the network fee (~\(String(format: "%.6f", preview.estimatedNetworkFeeEth)) \(nativeSymbol))."
+                sendError = coreInsufficientNativeForFeeMessage(nativeSymbol: nativeSymbol, fee: preview.estimatedNetworkFeeEth, decimals: 6, chainLabel: nil)
                 return
             }
             isSendingEthereum = true
@@ -735,7 +733,7 @@ extension AppState {
     ) async {
         let totalCost = amount + networkFee
         if totalCost > holding.amount {
-            sendError = "Insufficient \(symbol) for amount plus network fee (needs ~\(String(format: "%.6f", totalCost)) \(symbol))."
+            sendError = coreInsufficientFundsForAmountPlusFeeMessage(symbol: symbol, totalNeeded: totalCost, decimals: 6)
             return
         }
         if checkSelfSend && requiresSelfSendConfirmation(wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount) { return }
@@ -755,11 +753,11 @@ extension AppState {
         }}
 
     @MainActor private func submitDualKeyChainSend(
-        holding: Coin, wallet: ImportedWallet, destinationAddress: String, amount: Double, networkFee: Double, symbol: String, feeFormat: String, isSendingPath: ReferenceWritableKeyPath<AppState, Bool>, chainId: UInt32, chain: SeedDerivationChain, derivationPath: String, sendChain: SendChain, buildSeedJSON: @escaping (String, String) -> String, buildPrivKeyJSON: @escaping (String) -> String, clearPreview: @escaping () -> Void, seedPhrase: String?, privateKey: String?, sourceAddress: String
+        holding: Coin, wallet: ImportedWallet, destinationAddress: String, amount: Double, networkFee: Double, symbol: String, feeDecimals: UInt32, isSendingPath: ReferenceWritableKeyPath<AppState, Bool>, chainId: UInt32, chain: SeedDerivationChain, derivationPath: String, sendChain: SendChain, buildSeedJSON: @escaping (String, String) -> String, buildPrivKeyJSON: @escaping (String) -> String, clearPreview: @escaping () -> Void, seedPhrase: String?, privateKey: String?, sourceAddress: String
     ) async {
         let totalCost = amount + networkFee
         if totalCost > holding.amount {
-            sendError = "Insufficient \(symbol) for amount plus network fee (needs ~\(String(format: feeFormat, totalCost)) \(symbol))."
+            sendError = coreInsufficientFundsForAmountPlusFeeMessage(symbol: symbol, totalNeeded: totalCost, decimals: feeDecimals)
             return
         }
         self[keyPath: isSendingPath] = true
@@ -801,7 +799,7 @@ extension AppState {
             if let preview = getPreview() {
                 let totalCost = amount + preview.estimatedNetworkFeeBtc
                 if totalCost > holding.amount {
-                    sendError = "Insufficient \(symbol) for amount plus network fee (needs ~\(String(format: "%.8f", totalCost)) \(symbol))."
+                    sendError = coreInsufficientFundsForAmountPlusFeeMessage(symbol: symbol, totalNeeded: totalCost, decimals: 8)
                     return
                 }}
             let amountSat = UInt64(amount * 1e8)

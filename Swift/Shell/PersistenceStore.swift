@@ -93,13 +93,13 @@ extension AppState {
                 var d: [String: Any] = [
                     "id": w.id, "name": w.name, "isWatchOnly": false, "selectedChain": w.selectedChain, "includeInPortfolioTotal": w.includeInPortfolioTotal, "bitcoinNetworkMode": w.bitcoinNetworkMode.rawValue, "dogecoinNetworkMode": w.dogecoinNetworkMode.rawValue, "derivationPreset": w.seedDerivationPreset ?? "standard", "derivationPaths": w.seedDerivationPaths ?? [:], "holdings": w.holdings.map { coin -> [String: Any] in
                         var h: [String: Any] = [
-                            "name": coin.name, "symbol": coin.symbol, "marketDataId": coin.marketDataID, "coinGeckoId": coin.coinGeckoID, "chainName": coin.chainName, "tokenStandard": coin.tokenStandard, "amount": coin.amount, "priceUsd": coin.priceUSD
+                            "name": coin.name, "symbol": coin.symbol, "marketDataId": coin.marketDataId, "coinGeckoId": coin.coinGeckoId, "chainName": coin.chainName, "tokenStandard": coin.tokenStandard, "amount": coin.amount, "priceUsd": coin.priceUsd
                         ]
                         if let contract = coin.contractAddress { h["contractAddress"] = contract }
                         return h
                     }, "addresses": []
                 ]
-                if let xpub = w.bitcoinXPub { d["bitcoinXpub"] = xpub }
+                if let xpub = w.bitcoinXpub { d["bitcoinXpub"] = xpub }
                 return d
             }
             if let data = try? JSONSerialization.data(withJSONObject: summaries), let json = String(data: data, encoding: .utf8) { try? await WalletServiceBridge.shared.initWalletState(walletsJson: json) }}
@@ -216,13 +216,9 @@ extension AppState {
         return []
     }
     func sanitizedWallet(_ wallet: ImportedWallet) -> ImportedWallet {
-        let supportedHoldings = wallet.holdings.filter { coin in ChainBackendRegistry.supportsBalanceRefresh(for: coin.chainName) }.map { coin in
-            Coin(
-                name: coin.name, symbol: coin.symbol, marketDataID: coin.marketDataID, coinGeckoID: coin.coinGeckoID, chainName: coin.chainName, tokenStandard: coin.tokenStandard, contractAddress: coin.contractAddress, amount: coin.amount, priceUSD: coin.priceUSD, mark: coin.mark, color: coin.color
-            )
-        }
+        let supportedHoldings = wallet.holdings.filter { coin in ChainBackendRegistry.supportsBalanceRefresh(for: coin.chainName) }
         return ImportedWallet(
-            id: wallet.id, name: wallet.name, bitcoinNetworkMode: wallet.bitcoinNetworkMode, dogecoinNetworkMode: wallet.dogecoinNetworkMode, bitcoinAddress: wallet.bitcoinAddress, bitcoinXPub: wallet.bitcoinXPub, bitcoinCashAddress: wallet.bitcoinCashAddress, litecoinAddress: wallet.litecoinAddress, dogecoinAddress: wallet.dogecoinAddress, ethereumAddress: wallet.ethereumAddress, tronAddress: wallet.tronAddress, solanaAddress: wallet.solanaAddress, stellarAddress: wallet.stellarAddress, xrpAddress: wallet.xrpAddress, moneroAddress: wallet.moneroAddress, cardanoAddress: wallet.cardanoAddress, suiAddress: wallet.suiAddress, nearAddress: wallet.nearAddress, polkadotAddress: wallet.polkadotAddress, seedDerivationPreset: wallet.seedDerivationPreset, seedDerivationPaths: wallet.seedDerivationPaths, selectedChain: wallet.selectedChain, holdings: supportedHoldings
+            id: wallet.id, name: wallet.name, bitcoinNetworkMode: wallet.bitcoinNetworkMode, dogecoinNetworkMode: wallet.dogecoinNetworkMode, bitcoinAddress: wallet.bitcoinAddress, bitcoinXpub: wallet.bitcoinXpub, bitcoinCashAddress: wallet.bitcoinCashAddress, bitcoinSvAddress: wallet.bitcoinSvAddress, litecoinAddress: wallet.litecoinAddress, dogecoinAddress: wallet.dogecoinAddress, ethereumAddress: wallet.ethereumAddress, tronAddress: wallet.tronAddress, solanaAddress: wallet.solanaAddress, stellarAddress: wallet.stellarAddress, xrpAddress: wallet.xrpAddress, moneroAddress: wallet.moneroAddress, cardanoAddress: wallet.cardanoAddress, suiAddress: wallet.suiAddress, aptosAddress: wallet.aptosAddress, tonAddress: wallet.tonAddress, icpAddress: wallet.icpAddress, nearAddress: wallet.nearAddress, polkadotAddress: wallet.polkadotAddress, seedDerivationPreset: wallet.seedDerivationPreset, seedDerivationPaths: wallet.seedDerivationPaths, selectedChain: wallet.selectedChain, holdings: supportedHoldings, includeInPortfolioTotal: wallet.includeInPortfolioTotal
         )
     }
     func persistPriceAlerts() {
@@ -332,7 +328,7 @@ extension AppState {
         return payload.wallets.compactMap { snapshot in
             let hasSeedPhrase = walletHasSigningMaterial(snapshot.id)
             let hasWatchOnlyAddress = [
-                snapshot.bitcoinAddress, snapshot.bitcoinXPub, snapshot.litecoinAddress, snapshot.dogecoinAddress, snapshot.ethereumAddress, snapshot.tronAddress, snapshot.solanaAddress, snapshot.xrpAddress, snapshot.stellarAddress, snapshot.moneroAddress, snapshot.cardanoAddress, snapshot.suiAddress, snapshot.nearAddress, snapshot.polkadotAddress
+                snapshot.bitcoinAddress, snapshot.bitcoinXpub, snapshot.litecoinAddress, snapshot.dogecoinAddress, snapshot.ethereumAddress, snapshot.tronAddress, snapshot.solanaAddress, snapshot.xrpAddress, snapshot.stellarAddress, snapshot.moneroAddress, snapshot.cardanoAddress, snapshot.suiAddress, snapshot.nearAddress, snapshot.polkadotAddress
             ]
             .contains { ($0 ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
             guard hasSeedPhrase || hasWatchOnlyAddress else { return nil }

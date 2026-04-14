@@ -137,12 +137,13 @@ extension AppState {
             sendAddress = cancel ? (wallet.ethereumAddress ?? "") : pendingTransaction.address
             sendAmount = cancel ? "0" : String(format: "%.8f", pendingTransaction.amount)
             ethereumManualNonceEnabled = true; ethereumManualNonce = String(nonce); useCustomEthereumFees = true
-            if customEthereumMaxFeeGwei.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || customEthereumPriorityFeeGwei.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                customEthereumMaxFeeGwei = "4.0"; customEthereumPriorityFeeGwei = "2.0"
-            } else {
-                customEthereumMaxFeeGwei = String(format: "%.3f", max((Double(customEthereumMaxFeeGwei) ?? 4.0) * 1.2, 0.1))
-                customEthereumPriorityFeeGwei = String(format: "%.3f", max((Double(customEthereumPriorityFeeGwei) ?? 2.0) * 1.2, 0.1))
-            }
+            let bump = coreEvmReplacementFeeBump(
+                existingMaxFeeGwei: customEthereumMaxFeeGwei,
+                existingPriorityFeeGwei: customEthereumPriorityFeeGwei,
+                defaultMaxFeeGwei: 4.0, defaultPriorityFeeGwei: 2.0
+            )
+            customEthereumMaxFeeGwei = bump.maxFeeGwei
+            customEthereumPriorityFeeGwei = bump.priorityFeeGwei
             sendError = localizedStoreString(cancel ? "Cancellation context loaded. Review fees and tap Send." : "Replacement context loaded. Review fees and tap Send.")
             await refreshSendPreview()
         } catch {
@@ -214,26 +215,27 @@ extension AppState {
         return (resolved, true)
     }
     func evmRecipientPreflightReasons(holding: Coin, chain: EVMChainContext, destinationAddress: String) async -> [String] {
-        var reasons: [String] = []
-        guard let chainId = SpectraChainID.id(for: holding.chainName) else { return reasons }
+        guard let chainId = SpectraChainID.id(for: holding.chainName) else { return [] }
+        var recipientCode: String? = nil
         do {
             let codeJSON = try await WalletServiceBridge.shared.fetchEVMCodeJSON(chainId: chainId, address: destinationAddress)
-            let code = rustField("code", from: codeJSON)
-            if evmHasContractCode(code) { reasons.append(localizedStoreFormat("Recipient is a smart contract on %@. Confirm it can receive %@ safely.", holding.chainName, holding.symbol)) }
-        } catch {
-            reasons.append(localizedStoreFormat("Could not verify recipient contract state on %@. Review destination carefully.", holding.chainName))
-        }
-        if let token = supportedEVMToken(for: holding) {
+            recipientCode = rustField("code", from: codeJSON)
+        } catch { recipientCode = nil }
+        let token = supportedEVMToken(for: holding)
+        var tokenCode: String? = nil
+        var tokenProbed = false
+        if let token {
+            tokenProbed = true
             do {
-                let codeJSON = try await WalletServiceBridge.shared.fetchEVMCodeJSON(
-                    chainId: chainId, address: token.contractAddress
-                )
-                let code = rustField("code", from: codeJSON)
-                if !evmHasContractCode(code) { reasons.append(localizedStoreFormat("Token contract %@ appears missing on %@. This may be a wrong-network token selection.", token.symbol, holding.chainName)) }
-            } catch {
-                reasons.append(localizedStoreFormat("Could not verify %@ contract bytecode on %@.", token.symbol, holding.chainName))
-            }}
-        return reasons
+                let codeJSON = try await WalletServiceBridge.shared.fetchEVMCodeJSON(chainId: chainId, address: token.contractAddress)
+                tokenCode = rustField("code", from: codeJSON)
+            } catch { tokenCode = nil }
+        }
+        return coreEvmPreflightContractReasons(input: EvmPreflightContractInput(
+            chainName: holding.chainName, symbol: holding.symbol,
+            recipientCode: recipientCode, tokenSymbol: token?.symbol,
+            tokenCode: tokenCode, tokenProbed: tokenProbed
+        )).map { localizedStoreString($0) }
     }
     func evaluateHighRiskSendReasons(wallet: ImportedWallet, holding: Coin, amount: Double, destinationAddress: String, destinationInput: String, usedENSResolution: Bool = false) -> [String] {
         let bookEntries = addressBook.map { ["chain_name": $0.chainName, "address": $0.address] }
@@ -336,12 +338,13 @@ extension AppState {
         let rpcLabel = configuredEthereumRPCEndpointURL()?.absoluteString ?? "default RPC pool"
         do {
             guard let rpcURL = configuredEthereumRPCEndpointURL() ?? URL(string: "https://ethereum.publicnode.com") else { throw URLError(.badURL) }
-            let chainIDRequest = try EthereumRPCProvider.makeRequest(method: "eth_chainId", params: [String](), requestID: 1, endpoint: rpcURL)
-            let blockRequest = try EthereumRPCProvider.makeRequest(method: "eth_blockNumber", params: [String](), requestID: 2, endpoint: rpcURL)
-            let (chainIDData, _) = try await ProviderHTTP.data(for: chainIDRequest, profile: .diagnostics)
-            let (blockData, _) = try await ProviderHTTP.data(for: blockRequest, profile: .diagnostics)
-            let chainIDResp = try JSONDecoder().decode(EthereumRPCProvider.JSONRPCResponse.self, from: chainIDData)
-            let blockResp = try JSONDecoder().decode(EthereumRPCProvider.JSONRPCResponse.self, from: blockData)
+            struct RPCResp: Decodable { let result: String? }
+            let chainIDBody = #"{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}"#
+            let blockBody = #"{"jsonrpc":"2.0","id":2,"method":"eth_blockNumber","params":[]}"#
+            let chainIDText = try await httpPostJson(url: rpcURL.absoluteString, bodyJson: chainIDBody, headers: [:])
+            let blockText = try await httpPostJson(url: rpcURL.absoluteString, bodyJson: blockBody, headers: [:])
+            let chainIDResp = try JSONDecoder().decode(RPCResp.self, from: Data(chainIDText.body.utf8))
+            let blockResp = try JSONDecoder().decode(RPCResp.self, from: Data(blockText.body.utf8))
             let chainID = Int(chainIDResp.result?.dropFirst(2) ?? "", radix: 16) ?? 0
             let latestBlock = Int(blockResp.result?.dropFirst(2) ?? "", radix: 16) ?? 0
             let chainPass = chainID == 1
@@ -414,8 +417,8 @@ extension AppState {
         for (wallet, address) in walletsToRefresh {
             do {
                 let json = try await withTimeout(seconds: 20) { try await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.dogecoin, address: address) }
-                dogecoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(walletID: wallet.id, identifier: address, sourceUsed: "rust", transactionCount: decodeRustHistoryJSON(json: json).count, nextCursor: nil, error: nil)
-            } catch { dogecoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(walletID: wallet.id, identifier: address, sourceUsed: "none", transactionCount: 0, nextCursor: nil, error: error.localizedDescription) }
+                dogecoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(walletId: wallet.id, identifier: address, sourceUsed: "rust", transactionCount: Int32(decodeRustHistoryJSON(json: json).count), nextCursor: nil, error: nil)
+            } catch { dogecoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(walletId: wallet.id, identifier: address, sourceUsed: "none", transactionCount: 0, nextCursor: nil, error: error.localizedDescription) }
             dogecoinHistoryDiagnosticsLastUpdatedAt = Date()
         }
     }
@@ -621,7 +624,7 @@ extension AppState {
     func resolvedBitcoinCashAddress(for wallet: ImportedWallet) -> String? { WalletAddressResolver.resolvedBitcoinCashAddress(for: wallet, using: self) }
     func resolvedBitcoinSVAddress(for wallet: ImportedWallet) -> String? { WalletAddressResolver.resolvedBitcoinSVAddress(for: wallet, using: self) }
     func walletWithResolvedDogecoinAddress(_ wallet: ImportedWallet) -> ImportedWallet {
-        ImportedWallet(id: wallet.id, name: wallet.name, bitcoinNetworkMode: wallet.bitcoinNetworkMode, dogecoinNetworkMode: wallet.dogecoinNetworkMode, bitcoinAddress: wallet.bitcoinAddress, bitcoinXPub: wallet.bitcoinXPub, bitcoinCashAddress: wallet.bitcoinCashAddress, bitcoinSVAddress: wallet.bitcoinSVAddress, litecoinAddress: wallet.litecoinAddress, dogecoinAddress: resolvedDogecoinAddress(for: wallet) ?? wallet.dogecoinAddress, ethereumAddress: wallet.ethereumAddress, tronAddress: wallet.tronAddress, solanaAddress: wallet.solanaAddress, stellarAddress: wallet.stellarAddress, xrpAddress: wallet.xrpAddress, moneroAddress: wallet.moneroAddress, cardanoAddress: wallet.cardanoAddress, suiAddress: wallet.suiAddress, aptosAddress: wallet.aptosAddress, tonAddress: wallet.tonAddress, nearAddress: wallet.nearAddress, polkadotAddress: wallet.polkadotAddress, seedDerivationPreset: wallet.seedDerivationPreset, seedDerivationPaths: wallet.seedDerivationPaths, selectedChain: wallet.selectedChain, holdings: wallet.holdings)
+        ImportedWallet(id: wallet.id, name: wallet.name, bitcoinNetworkMode: wallet.bitcoinNetworkMode, dogecoinNetworkMode: wallet.dogecoinNetworkMode, bitcoinAddress: wallet.bitcoinAddress, bitcoinXpub: wallet.bitcoinXpub, bitcoinCashAddress: wallet.bitcoinCashAddress, bitcoinSvAddress: wallet.bitcoinSvAddress, litecoinAddress: wallet.litecoinAddress, dogecoinAddress: resolvedDogecoinAddress(for: wallet) ?? wallet.dogecoinAddress, ethereumAddress: wallet.ethereumAddress, tronAddress: wallet.tronAddress, solanaAddress: wallet.solanaAddress, stellarAddress: wallet.stellarAddress, xrpAddress: wallet.xrpAddress, moneroAddress: wallet.moneroAddress, cardanoAddress: wallet.cardanoAddress, suiAddress: wallet.suiAddress, aptosAddress: wallet.aptosAddress, tonAddress: wallet.tonAddress, icpAddress: wallet.icpAddress, nearAddress: wallet.nearAddress, polkadotAddress: wallet.polkadotAddress, seedDerivationPreset: wallet.seedDerivationPreset, seedDerivationPaths: wallet.seedDerivationPaths, selectedChain: wallet.selectedChain, holdings: wallet.holdings, includeInPortfolioTotal: wallet.includeInPortfolioTotal)
     }
     func knownDogecoinAddresses(for wallet: ImportedWallet) -> [String] {
         var ordered: [String] = []; var seen: Set<String> = []
@@ -696,7 +699,7 @@ extension AppState {
         switch chainName {
         case "Bitcoin": appendAddress(wallet.bitcoinAddress)
         case "Bitcoin Cash": appendAddress(wallet.bitcoinCashAddress)
-        case "Bitcoin SV": appendAddress(wallet.bitcoinSVAddress)
+        case "Bitcoin SV": appendAddress(wallet.bitcoinSvAddress)
         case "Litecoin": appendAddress(wallet.litecoinAddress)
         default: break
         }

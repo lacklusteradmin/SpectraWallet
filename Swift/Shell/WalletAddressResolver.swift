@@ -182,7 +182,7 @@ enum WalletAddressResolver {
            ), AddressValidation.isValidBitcoinSVAddress(derivedAddress) {
             return derivedAddress
         }
-        if let bitcoinSVAddress = wallet.bitcoinSVAddress, AddressValidation.isValidBitcoinSVAddress(bitcoinSVAddress) { return bitcoinSVAddress.trimmingCharacters(in: .whitespacesAndNewlines) }
+        if let bitcoinSvAddress = wallet.bitcoinSvAddress, AddressValidation.isValidBitcoinSVAddress(bitcoinSvAddress) { return bitcoinSvAddress.trimmingCharacters(in: .whitespacesAndNewlines) }
         return nil
     }
     private static func bitcoinNetwork(for networkMode: BitcoinNetworkMode) -> WalletDerivationNetwork {

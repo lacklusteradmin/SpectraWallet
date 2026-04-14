@@ -8,7 +8,7 @@ final class AppStatePlatformBridgeTests: XCTestCase {
     func testEditingWalletNamePreservesExistingHoldings() async {
         let store = AppState()
         let existingHolding = Coin(
-            name: "Ethereum", symbol: "ETH", marketDataID: "1027", coinGeckoID: "ethereum", chainName: "Ethereum", tokenStandard: "Native", contractAddress: nil, amount: 2, priceUSD: 3000, mark: "E", color: .blue
+            name: "Ethereum", symbol: "ETH", marketDataId: "1027", coinGeckoId: "ethereum", chainName: "Ethereum", tokenStandard: "Native", contractAddress: nil, amount: 2, priceUsd: 3000, mark: "E", color: .blue
         )
         let wallet = ImportedWallet(
             id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!, name: "Primary ETH", ethereumAddress: "0xabc123", selectedChain: "Ethereum", holdings: [existingHolding], includeInPortfolioTotal: false
@@ -23,7 +23,7 @@ final class AppStatePlatformBridgeTests: XCTestCase {
         XCTAssertEqual(store.wallets[0].name, "Renamed ETH")
         XCTAssertEqual(store.wallets[0].holdings.count, 1)
         XCTAssertEqual(store.wallets[0].holdings[0].amount, existingHolding.amount)
-        XCTAssertEqual(store.wallets[0].holdings[0].priceUSD, existingHolding.priceUSD)
+        XCTAssertEqual(store.wallets[0].holdings[0].priceUsd, existingHolding.priceUsd)
         XCTAssertFalse(store.wallets[0].includeInPortfolioTotal)
         XCTAssertNil(store.editingWalletID)
         XCTAssertFalse(store.isShowingWalletImporter)
@@ -76,7 +76,7 @@ final class AppStatePlatformBridgeTests: XCTestCase {
         let store = AppState()
         store.bitcoinNetworkMode = .testnet4
         let coin = Coin(
-            name: "Bitcoin", symbol: "BTC", marketDataID: "1", coinGeckoID: "bitcoin", chainName: "Bitcoin", tokenStandard: "Native", contractAddress: nil, amount: 1.25, priceUSD: 64000, mark: "B", color: .orange
+            name: "Bitcoin", symbol: "BTC", marketDataId: "1", coinGeckoId: "bitcoin", chainName: "Bitcoin", tokenStandard: "Native", contractAddress: nil, amount: 1.25, priceUsd: 64000, mark: "B", color: .orange
         )
         XCTAssertEqual(store.assetIdentityKey(for: coin), "Bitcoin Testnet4|BTC")
         XCTAssertNil(store.currentPriceIfAvailable(for: coin))
@@ -112,7 +112,7 @@ final class AppStatePlatformBridgeTests: XCTestCase {
         let wallet = ImportedWallet(
             id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!, name: "Primary ETH", ethereumAddress: "0xabc123", selectedChain: "Ethereum", holdings: [
                 Coin(
-                    name: "Ethereum", symbol: "ETH", marketDataID: "1027", coinGeckoID: "ethereum", chainName: "Ethereum", tokenStandard: "Native", contractAddress: nil, amount: 2, priceUSD: 3000, mark: "E", color: .blue
+                    name: "Ethereum", symbol: "ETH", marketDataId: "1027", coinGeckoId: "ethereum", chainName: "Ethereum", tokenStandard: "Native", contractAddress: nil, amount: 2, priceUsd: 3000, mark: "E", color: .blue
                 )
             ]
         )

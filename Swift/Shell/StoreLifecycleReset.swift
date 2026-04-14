@@ -420,7 +420,6 @@ extension AppState {
         largeMovementAlertUSDThreshold = 50
     }
     private func resetProviderState() async {
-        await SpectraNetworkRouter.shared.resetToDefault()
         clearNetworkAndTransportCaches()
     }
     private func clearNetworkAndTransportCaches() {

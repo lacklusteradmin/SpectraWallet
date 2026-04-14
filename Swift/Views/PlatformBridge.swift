@@ -8,7 +8,7 @@ private extension String {
 private extension ImportedWallet {
     func makeAddressSnapshots() -> [PlatformWalletAddressSnapshot] {
         let candidates: [(String, String?)] = [
-            ("Bitcoin", bitcoinAddress), ("Bitcoin Cash", bitcoinCashAddress), ("Bitcoin SV", bitcoinSVAddress), ("Litecoin", litecoinAddress), ("Dogecoin", dogecoinAddress), ("Ethereum", ethereumAddress), ("Tron", tronAddress), ("Solana", solanaAddress), ("Stellar", stellarAddress), ("XRP Ledger", xrpAddress), ("Monero", moneroAddress), ("Cardano", cardanoAddress), ("Sui", suiAddress), ("Aptos", aptosAddress), ("TON", tonAddress), ("Internet Computer", icpAddress), ("NEAR", nearAddress), ("Polkadot", polkadotAddress)
+            ("Bitcoin", bitcoinAddress), ("Bitcoin Cash", bitcoinCashAddress), ("Bitcoin SV", bitcoinSvAddress), ("Litecoin", litecoinAddress), ("Dogecoin", dogecoinAddress), ("Ethereum", ethereumAddress), ("Tron", tronAddress), ("Solana", solanaAddress), ("Stellar", stellarAddress), ("XRP Ledger", xrpAddress), ("Monero", moneroAddress), ("Cardano", cardanoAddress), ("Sui", suiAddress), ("Aptos", aptosAddress), ("TON", tonAddress), ("Internet Computer", icpAddress), ("NEAR", nearAddress), ("Polkadot", polkadotAddress)
         ]
         return candidates.compactMap { chainName, address in
             guard let resolvedAddress = address?.platformTrimmedOrNil, let chainID = WalletChainID(chainName) else { return nil }
@@ -21,7 +21,7 @@ extension Coin: PlatformSnapshotConvertible {
     func makePlatformSnapshot() -> PlatformAssetSnapshot {
         let chainID = WalletChainID(chainName) ?? WalletChainID(rawValue: chainName)
         return PlatformAssetSnapshot(
-            id: holdingKey, name: name, symbol: symbol, chainID: chainID.rawValue, chainName: chainID.displayName, tokenStandard: tokenStandard, contractAddress: contractAddress?.platformTrimmedOrNil, marketDataID: marketDataID, coinGeckoID: coinGeckoID, amount: amount, priceUSD: priceUSD, valueUSD: valueUSD
+            id: holdingKey, name: name, symbol: symbol, chainID: chainID.rawValue, chainName: chainID.displayName, tokenStandard: tokenStandard, contractAddress: contractAddress?.platformTrimmedOrNil, marketDataId: marketDataId, coinGeckoId: coinGeckoId, amount: amount, priceUsd: priceUsd, valueUSD: valueUSD
         )
     }
 }

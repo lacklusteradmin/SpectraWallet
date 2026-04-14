@@ -18,7 +18,7 @@ func settingsTokenAssetIdentifier(for entry: TokenPreferenceEntry) -> String? {
     case .tron: chainSlug = "tron"
     }
     let symbol = entry.symbol.lowercased()
-    if !entry.coinGeckoID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "\(chainSlug):\(entry.coinGeckoID.lowercased()):\(symbol)" }
+    if !entry.coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return "\(chainSlug):\(entry.coinGeckoId.lowercased()):\(symbol)" }
     return "\(chainSlug):\(symbol)"
 }
 func settingsTokenFallbackMark(for entry: TokenPreferenceEntry) -> String {
@@ -89,8 +89,8 @@ struct TokenRegistryEntryCardView: View {
                 Text(settingsLocalizedString("Contract / Mint")).font(.caption).foregroundStyle(.secondary)
                 Text(entry.contractAddress).font(.caption.monospaced()).textSelection(.enabled)
             }
-            if !entry.coinGeckoID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { settingsTokenDetailRow(title: settingsLocalizedString("CoinGecko ID"), value: entry.coinGeckoID) }
-            if !entry.marketDataID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, entry.marketDataID != "0" { settingsTokenDetailRow(title: settingsLocalizedString("Market Data ID"), value: entry.marketDataID) }
+            if !entry.coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { settingsTokenDetailRow(title: settingsLocalizedString("CoinGecko ID"), value: entry.coinGeckoId) }
+            if !entry.marketDataId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, entry.marketDataId != "0" { settingsTokenDetailRow(title: settingsLocalizedString("Market Data ID"), value: entry.marketDataId) }
             if !entry.isBuiltIn {
                 Stepper(
                     settingsLocalizedFormat("Supports: %lld decimals", Int(entry.decimals)), value: Binding(get: { Int(entry.decimals) }, set: updateDecimals), in: 0 ... 30, step: 1

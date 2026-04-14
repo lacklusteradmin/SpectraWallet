@@ -573,10 +573,10 @@ struct SetupView: View {
                                 watchedAddressSection(
                                     title: "Bitcoin", text: $draft.bitcoinAddressInput, caption: copy.bitcoinWatchCaption, validationMessage: bitcoinValidation.message, validationColor: bitcoinValidation.color
                                 )
-                                TextField("xpub... / zpub...", text: $draft.bitcoinXPubInput).textInputAutocapitalization(.never).autocorrectionDisabled().padding(14).spectraInputFieldStyle().foregroundStyle(Color.primary)
+                                TextField("xpub... / zpub...", text: $draft.bitcoinXpubInput).textInputAutocapitalization(.never).autocorrectionDisabled().padding(14).spectraInputFieldStyle().foregroundStyle(Color.primary)
                             }
                             conditionalWatchedAddressSection(condition: draft.wantsBitcoinCash, title: "Bitcoin Cash", text: $draft.bitcoinCashAddressInput, validator: { AddressValidation.isValidBitcoinCashAddress($0) })
-                            conditionalWatchedAddressSection(condition: draft.wantsBitcoinSV, title: "Bitcoin SV", text: $draft.bitcoinSVAddressInput, validator: { AddressValidation.isValidBitcoinSVAddress($0) })
+                            conditionalWatchedAddressSection(condition: draft.wantsBitcoinSV, title: "Bitcoin SV", text: $draft.bitcoinSvAddressInput, validator: { AddressValidation.isValidBitcoinSVAddress($0) })
                             conditionalWatchedAddressSection(condition: draft.wantsDogecoin, title: "Dogecoin", text: $draft.dogecoinAddressInput, validator: { AddressValidation.isValidDogecoinAddress($0, networkMode: store.dogecoinNetworkMode) })
                             conditionalWatchedAddressSection(condition: draft.wantsLitecoin, title: "Litecoin", text: $draft.litecoinAddressInput, validator: { AddressValidation.isValidLitecoinAddress($0) })
                             if draft.wantsEthereum || draft.wantsEthereumClassic || draft.wantsArbitrum || draft.wantsOptimism || draft.wantsBNBChain || draft.wantsAvalanche || draft.wantsHyperliquid {

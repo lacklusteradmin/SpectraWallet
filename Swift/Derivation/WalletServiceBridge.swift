@@ -61,7 +61,6 @@ actor WalletServiceBridge {
         try await service().updateEndpoints(endpointsJson: json)
     }
     func fetchBalanceJSON(chainId: UInt32, address: String) async throws -> String { try await service().fetchBalance(chainId: chainId, address: address) }
-    func fetchBalanceAuto(chainId: UInt32, address: String) async throws -> String { try await service().fetchBalanceAuto(chainId: chainId, address: address) }
     func fetchHistoryJSON(chainId: UInt32, address: String) async throws -> String { try await service().fetchHistory(chainId: chainId, address: address) }
     func fetchEVMHistoryPageJSON(
         chainId: UInt32, address: String, tokens: [(contract: String, symbol: String, name: String, decimals: Int)], page: Int, pageSize: Int
@@ -329,7 +328,6 @@ extension WalletServiceBridge {
     nonisolated func resetHistoryForWallet(walletId: String) throws { try WalletServiceBridge._syncService?.resetHistoryForWallet(walletId: walletId) }
     nonisolated func resetHistoryForChain(chainId: UInt32) throws { try WalletServiceBridge._syncService?.resetHistoryForChain(chainId: chainId) }
     nonisolated func resetAllHistory() throws { try WalletServiceBridge._syncService?.resetAllHistory() }
-    func listBuiltinTokensJSON(chainId: UInt32) async throws -> String { try await service().listBuiltinTokens(chainId: chainId) }
     func fetchUTXOTxStatusJSON(chainId: UInt32, txid: String) async throws -> String { try await service().fetchUtxoTxStatus(chainId: chainId, txid: txid) }
     private func sqliteDbPath() -> String {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? NSTemporaryDirectory()

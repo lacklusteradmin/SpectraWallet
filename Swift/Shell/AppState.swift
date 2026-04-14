@@ -908,8 +908,15 @@ class AppState: ObservableObject {
         if recentPerformanceSamples.count > 120 { recentPerformanceSamples = Array(recentPerformanceSamples.prefix(120)) }
         balanceTelemetryLogger.info("perf \(operation, privacy: .public) \(durationMS, format: .fixed(precision: 2))ms \(metadata ?? "", privacy: .public)")
     }
+    // Rust→Swift event-bus bridge (Phase 1 of final Swift-deletion roadmap).
+    // The observer is retained here so its foreign-trait vtable lives as long
+    // as AppState. The handle owns the pump task; dropping it stops the pump.
+    var rustObserver: AppStateRustObserver?
+    var rustObserverHandle: AppStateObserverHandle?
+
     init() {
         clearPersistedSecureDataOnFreshInstallIfNeeded()
+        registerRustObserver()
         walletCollectionObservation = $wallets.dropFirst().sink { [weak self] _ in
             guard let self else { return }
             guard !self.suppressWalletSideEffects else { return }
@@ -930,6 +937,7 @@ class AppState: ObservableObject {
             await refreshFiatExchangeRates()
         }}
     deinit {
+        rustObserverHandle?.unregister()
         maintenanceTask?.cancel()
         userInitiatedRefreshTask?.cancel()
         importRefreshTask?.cancel()
@@ -975,7 +983,7 @@ class AppState: ObservableObject {
         guard !tokenPreferences.isEmpty else { return }
         for index in tokenPreferences.indices { tokenPreferences[index].displayDecimals = nil }}
     @discardableResult
-    func addCustomTokenPreference(chain: TokenTrackingChain, symbol: String, name: String, contractAddress: String, marketDataID: String = "0", coinGeckoID: String = "", decimals: Int) -> String? {
+    func addCustomTokenPreference(chain: TokenTrackingChain, symbol: String, name: String, contractAddress: String, marketDataId: String = "0", coinGeckoId: String = "", decimals: Int) -> String? {
         let normalizedSymbol = symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
         guard !normalizedSymbol.isEmpty else { return localizedStoreString("Symbol is required.") }
         guard normalizedSymbol.count <= 12 else { return localizedStoreString("Symbol is too long.") }
@@ -997,7 +1005,7 @@ class AppState: ObservableObject {
         guard !duplicateExists else { return localizedStoreFormat("This token is already tracked for %@.", chain.rawValue) }
         tokenPreferences.append(
             TokenPreferenceEntry(
-                chain: chain, name: normalizedName, symbol: normalizedSymbol, tokenStandard: chain.tokenStandard, contractAddress: normalizedContract, marketDataID: marketDataID.trimmingCharacters(in: .whitespacesAndNewlines), coinGeckoID: coinGeckoID.trimmingCharacters(in: .whitespacesAndNewlines), decimals: min(max(decimals, 0), 30), category: .custom, isBuiltIn: false, isEnabled: true
+                chain: chain, name: normalizedName, symbol: normalizedSymbol, tokenStandard: chain.tokenStandard, contractAddress: normalizedContract, marketDataId: marketDataId.trimmingCharacters(in: .whitespacesAndNewlines), coinGeckoId: coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines), decimals: min(max(decimals, 0), 30), category: .custom, isBuiltIn: false, isEnabled: true
             )
         )
         tokenPreferences.sort { lhs, rhs in
@@ -1028,7 +1036,7 @@ class AppState: ObservableObject {
     // 6 identical EVM-chain tracked-token builders collapsed to a single helper.
     private func enabledEVMTrackedTokens(for chain: TokenTrackingChain) -> [EthereumSupportedToken] {
         enabledTokenPreferences(for: chain).map { e in
-            EthereumSupportedToken(name: e.name, symbol: e.symbol, contractAddress: normalizeEVMAddress(e.contractAddress), decimals: Int(e.decimals), marketDataID: e.marketDataID, coinGeckoID: e.coinGeckoID)
+            EthereumSupportedToken(name: e.name, symbol: e.symbol, contractAddress: normalizeEVMAddress(e.contractAddress), decimals: Int(e.decimals), marketDataId: e.marketDataId, coinGeckoId: e.coinGeckoId)
         }
     }
     func enabledEthereumTrackedTokens()   -> [EthereumSupportedToken] { enabledEVMTrackedTokens(for: .ethereum) }
@@ -1048,7 +1056,7 @@ class AppState: ObservableObject {
         let entries = includeDisabled ? tokenPreferences.filter { $0.chain == .solana } : enabledTokenPreferences(for: .solana)
         for entry in entries {
             result[entry.contractAddress] = SolanaBalanceService.KnownTokenMetadata(
-                symbol: entry.symbol, name: entry.name, decimals: Int(entry.decimals), marketDataID: entry.marketDataID, coinGeckoID: entry.coinGeckoID
+                symbol: entry.symbol, name: entry.name, decimals: Int(entry.decimals), marketDataId: entry.marketDataId, coinGeckoId: entry.coinGeckoId
             )
         }
         return result
@@ -1063,7 +1071,7 @@ class AppState: ObservableObject {
             uniqueKeysWithValues: enabledTokenPreferences(for: .sui).map { entry in
                 (
                     entry.contractAddress, SuiBalanceService.KnownTokenMetadata(
-                        symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals), marketDataID: entry.marketDataID, coinGeckoID: entry.coinGeckoID
+                        symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals), marketDataId: entry.marketDataId, coinGeckoId: entry.coinGeckoId
                     )
                 )
             }
@@ -1074,7 +1082,7 @@ class AppState: ObservableObject {
             uniqueKeysWithValues: enabledTokenPreferences(for: .aptos).map { entry in
                 (
                     normalizeAptosTokenIdentifier(entry.contractAddress), AptosBalanceService.KnownTokenMetadata(
-                        symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals), marketDataID: entry.marketDataID, coinGeckoID: entry.coinGeckoID
+                        symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals), marketDataId: entry.marketDataId, coinGeckoId: entry.coinGeckoId
                     )
                 )
             }
@@ -1086,7 +1094,7 @@ class AppState: ObservableObject {
             uniqueKeysWithValues: enabledTokenPreferences(for: .near).map { entry in
                 (
                     entry.contractAddress, NearBalanceService.KnownTokenMetadata(
-                        symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals), marketDataID: entry.marketDataID, coinGeckoID: entry.coinGeckoID
+                        symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals), marketDataId: entry.marketDataId, coinGeckoId: entry.coinGeckoId
                     )
                 )
             }
@@ -1097,7 +1105,7 @@ class AppState: ObservableObject {
             uniqueKeysWithValues: enabledTokenPreferences(for: .ton).map { entry in
                 (
                     TONBalanceService.normalizeJettonMasterAddress(entry.contractAddress), TONBalanceService.KnownTokenMetadata(
-                        symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals), marketDataID: entry.marketDataID, coinGeckoID: entry.coinGeckoID
+                        symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals), marketDataId: entry.marketDataId, coinGeckoId: entry.coinGeckoId
                     )
                 )
             }

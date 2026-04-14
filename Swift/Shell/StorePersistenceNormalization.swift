@@ -74,8 +74,8 @@ extension AppState {
             ) else {
                 return nil
             }
-            return Coin(
-                name: representative.name, symbol: representative.symbol, marketDataID: representative.marketDataID, coinGeckoID: representative.coinGeckoID, chainName: representative.chainName, tokenStandard: representative.tokenStandard, contractAddress: representative.contractAddress, amount: Double(group.totalAmount) ?? representative.amount, priceUSD: representative.priceUSD, mark: representative.mark, color: representative.color
+            return Coin.makeCustom(
+                name: representative.name, symbol: representative.symbol, marketDataId: representative.marketDataId, coinGeckoId: representative.coinGeckoId, chainName: representative.chainName, tokenStandard: representative.tokenStandard, contractAddress: representative.contractAddress, amount: Double(group.totalAmount) ?? representative.amount, priceUsd: representative.priceUsd, mark: representative.mark, color: representative.color
             )
         }
         cachedAvailableSendCoinsByWalletID = sendCoinsByWalletID

@@ -50,10 +50,10 @@ struct PlatformAssetSnapshot: Codable, Identifiable {
     let chainName: String
     let tokenStandard: String
     let contractAddress: String?
-    let marketDataID: String
-    let coinGeckoID: String
+    let marketDataId: String
+    let coinGeckoId: String
     let amount: Double
-    let priceUSD: Double
+    let priceUsd: Double
     let valueUSD: Double
 }
 struct PlatformTransactionSnapshot: Codable, Identifiable {

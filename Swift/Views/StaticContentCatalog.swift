@@ -340,7 +340,7 @@ extension ChainTokenRegistryEntry {
             let displayDecimals = obj["display_decimals"] as? Int
             let enabled = obj["enabled"] as? Bool ?? true
             return ChainTokenRegistryEntry(
-                chain: chain, name: name, symbol: symbol, tokenStandard: tokenStandard, contractAddress: contract, marketDataID: marketId, coinGeckoID: coingeckoId, decimals: decimals, displayDecimals: displayDecimals, category: category, isBuiltIn: true, isEnabledByDefault: enabled
+                chain: chain, name: name, symbol: symbol, tokenStandard: tokenStandard, contractAddress: contract, marketDataId: marketId, coinGeckoId: coingeckoId, decimals: decimals, displayDecimals: displayDecimals, category: category, isBuiltIn: true, isEnabledByDefault: enabled
             )
         }}()
 }

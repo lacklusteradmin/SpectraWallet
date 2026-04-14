@@ -4,10 +4,37 @@ import Combine
 extension AppState {
     static let pinnedDashboardAssetSymbolsDefaultsKey = "dashboardPinnedAssetSymbols"
     private var defaultPinnedDashboardAssetSymbols: [String] { ["BTC", "ETH", "USDT", "USDC"] }
+    private static let dashboardPinPrototypeSpecs: [(String, String, String, String, String, String, String?, Double, Double, String, Color)] = [
+        ("Bitcoin", "BTC", "1", "bitcoin", "Bitcoin", "Native", nil, 0, 0, "B", .orange),
+        ("Bitcoin Cash", "BCH", "1831", "bitcoin-cash", "Bitcoin Cash", "Native", nil, 0, 0, "BC", .orange),
+        ("Bitcoin SV", "BSV", "3602", "bitcoin-cash-sv", "Bitcoin SV", "Native", nil, 0, 0, "BS", .orange),
+        ("Litecoin", "LTC", "2", "litecoin", "Litecoin", "Native", nil, 0, 0, "L", .gray),
+        ("Dogecoin", "DOGE", "74", "dogecoin", "Dogecoin", "Native", nil, 0, 0, "D", .brown),
+        ("Ethereum", "ETH", "1027", "ethereum", "Ethereum", "Native", nil, 0, 0, "E", .blue),
+        ("Ethereum Classic", "ETC", "1321", "ethereum-classic", "Ethereum Classic", "Native", nil, 0, 0, "EC", .green),
+        ("Arbitrum", "ARB", "0", "arbitrum", "Arbitrum", "Native", nil, 0, 0, "AR", .cyan),
+        ("Optimism", "OP", "0", "optimism", "Optimism", "Native", nil, 0, 0, "OP", .red),
+        ("BNB Chain", "BNB", "1839", "binancecoin", "BNB Chain", "Native", nil, 0, 0, "BN", .yellow),
+        ("Avalanche", "AVAX", "5805", "avalanche-2", "Avalanche", "Native", nil, 0, 0, "AV", .red),
+        ("Hyperliquid", "HYPE", "0", "", "Hyperliquid", "Native", nil, 0, 0, "HY", .mint),
+        ("Solana", "SOL", "5426", "solana", "Solana", "Native", nil, 0, 0, "S", .purple),
+        ("Cardano", "ADA", "2010", "cardano", "Cardano", "Native", nil, 0, 0, "A", .blue),
+        ("Tron", "TRX", "1958", "tron", "Tron", "Native", nil, 0, 0, "T", .red),
+        ("XRP Ledger", "XRP", "52", "ripple", "XRP Ledger", "Native", nil, 0, 0, "X", .cyan),
+        ("Monero", "XMR", "328", "monero", "Monero", "Native", nil, 0, 0, "M", .orange),
+        ("Sui", "SUI", "20947", "sui", "Sui", "Native", nil, 0, 0, "S", .mint),
+        ("Aptos", "APT", "21794", "aptos", "Aptos", "Native", nil, 0, 0, "AP", .cyan),
+        ("Internet Computer", "ICP", "2416", "internet-computer", "Internet Computer", "Native", nil, 0, 0, "IC", .indigo),
+        ("NEAR Protocol", "NEAR", "6535", "near", "NEAR", "Native", nil, 0, 0, "N", .indigo),
+        ("Polkadot", "DOT", "6636", "polkadot", "Polkadot", "Native", nil, 0, 0, "P", .pink),
+        ("Stellar", "XLM", "512", "stellar", "Stellar", "Native", nil, 0, 0, "XL", .teal),
+        ("Tether USD", "USDT", "825", "tether", "Ethereum", "ERC-20", "0xdAC17F958D2ee523a2206206994597C13D831ec7", 0, 1, "T", .green),
+        ("USD Coin", "USDC", "3408", "usd-coin", "Ethereum", "ERC-20", "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", 0, 1, "U", .blue)
+    ]
     private var dashboardPinPrototypes: [Coin] {
-        [
-            Coin(name: "Bitcoin", symbol: "BTC", marketDataID: "1", coinGeckoID: "bitcoin", chainName: "Bitcoin", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "B", color: .orange), Coin(name: "Bitcoin Cash", symbol: "BCH", marketDataID: "1831", coinGeckoID: "bitcoin-cash", chainName: "Bitcoin Cash", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "BC", color: .orange), Coin(name: "Bitcoin SV", symbol: "BSV", marketDataID: "3602", coinGeckoID: "bitcoin-cash-sv", chainName: "Bitcoin SV", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "BS", color: .orange), Coin(name: "Litecoin", symbol: "LTC", marketDataID: "2", coinGeckoID: "litecoin", chainName: "Litecoin", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "L", color: .gray), Coin(name: "Dogecoin", symbol: "DOGE", marketDataID: "74", coinGeckoID: "dogecoin", chainName: "Dogecoin", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "D", color: .brown), Coin(name: "Ethereum", symbol: "ETH", marketDataID: "1027", coinGeckoID: "ethereum", chainName: "Ethereum", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "E", color: .blue), Coin(name: "Ethereum Classic", symbol: "ETC", marketDataID: "1321", coinGeckoID: "ethereum-classic", chainName: "Ethereum Classic", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "EC", color: .green), Coin(name: "Arbitrum", symbol: "ARB", marketDataID: "0", coinGeckoID: "arbitrum", chainName: "Arbitrum", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "AR", color: .cyan), Coin(name: "Optimism", symbol: "OP", marketDataID: "0", coinGeckoID: "optimism", chainName: "Optimism", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "OP", color: .red), Coin(name: "BNB Chain", symbol: "BNB", marketDataID: "1839", coinGeckoID: "binancecoin", chainName: "BNB Chain", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "BN", color: .yellow), Coin(name: "Avalanche", symbol: "AVAX", marketDataID: "5805", coinGeckoID: "avalanche-2", chainName: "Avalanche", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "AV", color: .red), Coin(name: "Hyperliquid", symbol: "HYPE", marketDataID: "0", coinGeckoID: "", chainName: "Hyperliquid", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "HY", color: .mint), Coin(name: "Solana", symbol: "SOL", marketDataID: "5426", coinGeckoID: "solana", chainName: "Solana", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "S", color: .purple), Coin(name: "Cardano", symbol: "ADA", marketDataID: "2010", coinGeckoID: "cardano", chainName: "Cardano", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "A", color: .blue), Coin(name: "Tron", symbol: "TRX", marketDataID: "1958", coinGeckoID: "tron", chainName: "Tron", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "T", color: .red), Coin(name: "XRP Ledger", symbol: "XRP", marketDataID: "52", coinGeckoID: "ripple", chainName: "XRP Ledger", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "X", color: .cyan), Coin(name: "Monero", symbol: "XMR", marketDataID: "328", coinGeckoID: "monero", chainName: "Monero", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "M", color: .orange), Coin(name: "Sui", symbol: "SUI", marketDataID: "20947", coinGeckoID: "sui", chainName: "Sui", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "S", color: .mint), Coin(name: "Aptos", symbol: "APT", marketDataID: "21794", coinGeckoID: "aptos", chainName: "Aptos", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "AP", color: .cyan), Coin(name: "Internet Computer", symbol: "ICP", marketDataID: "2416", coinGeckoID: "internet-computer", chainName: "Internet Computer", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "IC", color: .indigo), Coin(name: "NEAR Protocol", symbol: "NEAR", marketDataID: "6535", coinGeckoID: "near", chainName: "NEAR", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "N", color: .indigo), Coin(name: "Polkadot", symbol: "DOT", marketDataID: "6636", coinGeckoID: "polkadot", chainName: "Polkadot", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "P", color: .pink), Coin(name: "Stellar", symbol: "XLM", marketDataID: "512", coinGeckoID: "stellar", chainName: "Stellar", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUSD: 0, mark: "XL", color: .teal), Coin(name: "Tether USD", symbol: "USDT", marketDataID: "825", coinGeckoID: "tether", chainName: "Ethereum", tokenStandard: "ERC-20", contractAddress: "0xdAC17F958D2ee523a2206206994597C13D831ec7", amount: 0, priceUSD: 1, mark: "T", color: .green), Coin(name: "USD Coin", symbol: "USDC", marketDataID: "3408", coinGeckoID: "usd-coin", chainName: "Ethereum", tokenStandard: "ERC-20", contractAddress: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", amount: 0, priceUSD: 1, mark: "U", color: .blue)
-        ]
+        Self.dashboardPinPrototypeSpecs.map { spec in
+            Coin.makeCustom(name: spec.0, symbol: spec.1, marketDataId: spec.2, coinGeckoId: spec.3, chainName: spec.4, tokenStandard: spec.5, contractAddress: spec.6, amount: spec.7, priceUsd: spec.8, mark: spec.9, color: spec.10)
+        }
     }
     var pinnedDashboardAssetSymbols: [String] {
         cachedPinnedDashboardAssetSymbols.isEmpty
@@ -43,22 +70,48 @@ extension AppState {
         rebuildDashboardDerivedState()
     }
     private func dashboardAssetGroupingKey(for coin: Coin) -> String {
-        let normalizedCoinGeckoID = coin.coinGeckoID.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let normalizedCoinGeckoID = coin.coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let chainIdentity = runtimeChainIdentity(for: coin.chainName).lowercased()
         if !normalizedCoinGeckoID.isEmpty { return "chain:\(chainIdentity)|cg:\(normalizedCoinGeckoID)" }
         return "chain:\(chainIdentity)|symbol:\(coin.symbol.lowercased())"
     }
+    private func prototypeCoinForTrackedEntry(_ entry: TokenPreferenceEntry) -> Coin {
+        let stableSymbols: Set<String> = ["USDC", "USDT", "FDUSD", "TUSD"]
+        let price: Double = stableSymbols.contains(entry.symbol) ? 1.0 : 0.0
+        let contractAddress: String? = entry.contractAddress
+        let mark: String = Coin.displayMark(for: entry.symbol)
+        let name: String = entry.name
+        let symbol: String = entry.symbol
+        let marketDataIdValue: String = entry.marketDataId
+        let coinGeckoIdValue: String = entry.coinGeckoId
+        let chainName: String = entry.chain.rawValue
+        let tokenStandard: String = entry.tokenStandard
+        var coin = CoreCoin(id: UUID().uuidString, name: name, symbol: symbol, marketDataId: marketDataIdValue, coinGeckoId: coinGeckoIdValue, chainName: chainName, tokenStandard: tokenStandard, contractAddress: contractAddress, amount: 0, priceUsd: price, mark: mark)
+        coin.color = Coin.displayColor(for: entry.symbol)
+        return coin
+    }
     private func dashboardPinnedAssetPrototype(symbol: String) -> Coin? {
         let normalizedSymbol = symbol.uppercased()
         if let existing = cachedIncludedPortfolioHoldingsBySymbol[normalizedSymbol]?.first {
-            return Coin(
-                name: existing.name, symbol: existing.symbol, marketDataID: existing.marketDataID, coinGeckoID: existing.coinGeckoID, chainName: existing.chainName, tokenStandard: existing.tokenStandard, contractAddress: existing.contractAddress, amount: 0, priceUSD: existing.priceUSD, mark: existing.mark, color: existing.color
+            let existingColor = existing.color
+            var coin = CoreCoin(
+                id: UUID().uuidString,
+                name: existing.name,
+                symbol: existing.symbol,
+                marketDataId: existing.marketDataId,
+                coinGeckoId: existing.coinGeckoId,
+                chainName: existing.chainName,
+                tokenStandard: existing.tokenStandard,
+                contractAddress: existing.contractAddress,
+                amount: 0 as Double,
+                priceUsd: existing.priceUsd,
+                mark: existing.mark
             )
+            coin.color = existingColor
+            return coin
         }
         if let trackedEntry = cachedResolvedTokenPreferencesBySymbol[normalizedSymbol]?.first {
-            return Coin(
-                name: trackedEntry.name, symbol: trackedEntry.symbol, marketDataID: trackedEntry.marketDataID, coinGeckoID: trackedEntry.coinGeckoID, chainName: trackedEntry.chain.rawValue, tokenStandard: trackedEntry.tokenStandard, contractAddress: trackedEntry.contractAddress, amount: 0, priceUSD: trackedEntry.symbol == "USDC" || trackedEntry.symbol == "USDT" || trackedEntry.symbol == "FDUSD" || trackedEntry.symbol == "TUSD" ? 1 : 0, mark: Coin.displayMark(for: trackedEntry.symbol), color: Coin.displayColor(for: trackedEntry.symbol)
-            )
+            return prototypeCoinForTrackedEntry(trackedEntry)
         }
         return dashboardPinPrototypes.first(where: { $0.symbol.uppercased() == normalizedSymbol })
     }
@@ -112,9 +165,22 @@ extension AppState {
                 ) ?? "native"
                 let chainKey = "\(runtimeChainIdentity(for: coin.chainName).lowercased())|\(coin.tokenStandard.lowercased())|\(normalizedContract)"
                 if let existing = chainGrouped[chainKey] {
-                    chainGrouped[chainKey] = Coin(
-                        name: existing.name, symbol: existing.symbol, marketDataID: existing.marketDataID, coinGeckoID: existing.coinGeckoID, chainName: existing.chainName, tokenStandard: existing.tokenStandard, contractAddress: existing.contractAddress, amount: existing.amount + coin.amount, priceUSD: coin.priceUSD, mark: existing.mark, color: existing.color
+                    let existingColor = existing.color
+                    var merged = CoreCoin(
+                        id: existing.id,
+                        name: existing.name,
+                        symbol: existing.symbol,
+                        marketDataId: existing.marketDataId,
+                        coinGeckoId: existing.coinGeckoId,
+                        chainName: existing.chainName,
+                        tokenStandard: existing.tokenStandard,
+                        contractAddress: existing.contractAddress,
+                        amount: existing.amount + coin.amount,
+                        priceUsd: coin.priceUsd,
+                        mark: existing.mark
                     )
+                    merged.color = existingColor
+                    chainGrouped[chainKey] = merged
                 } else { chainGrouped[chainKey] = coin }}
             let chainEntries = chainGrouped.values.map { DashboardAssetChainEntry(coin: $0, valueUSD: currentValueIfAvailable(for: $0)) }
                 .sorted {
@@ -133,13 +199,12 @@ extension AppState {
         }
         let existingPinnedSymbols = Set(groups.map { $0.symbol.uppercased() })
         for symbol in storedPinnedSymbols where !existingPinnedSymbols.contains(symbol) {
-            let prototype = holdingsBySymbol[symbol]?.first
-                ?? trackedEntriesBySymbol[symbol]?.first.map {
-                    Coin(
-                        name: $0.name, symbol: $0.symbol, marketDataID: $0.marketDataID, coinGeckoID: $0.coinGeckoID, chainName: $0.chain.rawValue, tokenStandard: $0.tokenStandard, contractAddress: $0.contractAddress, amount: 0, priceUSD: $0.symbol == "USDC" || $0.symbol == "USDT" || $0.symbol == "FDUSD" || $0.symbol == "TUSD" ? 1 : 0, mark: Coin.displayMark(for: $0.symbol), color: Coin.displayColor(for: $0.symbol)
-                    )
-                }
-                ?? prototypeBySymbol[symbol]
+            let stableSymbols: Set<String> = ["USDC", "USDT", "FDUSD", "TUSD"]
+            var prototype: Coin? = holdingsBySymbol[symbol]?.first
+            if prototype == nil, let entry = trackedEntriesBySymbol[symbol]?.first {
+                prototype = prototypeCoinForTrackedEntry(entry)
+            }
+            if prototype == nil { prototype = prototypeBySymbol[symbol] }
             guard let prototype else { continue }
             groups.append(
                 DashboardAssetGroup(

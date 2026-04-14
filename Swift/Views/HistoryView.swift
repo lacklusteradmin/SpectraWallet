@@ -2,10 +2,6 @@ import SwiftUI
 private func localizedHistoryString(_ key: String) -> String {
     AppLocalization.string(key)
 }
-private func localizedHistoryFormat(_ key: String, _ arguments: CVarArg...) -> String {
-    let format = AppLocalization.string(key)
-    return String(format: format, locale: AppLocalization.locale, arguments: arguments)
-}
 private struct HistoryRowPresentation: Identifiable {
     let transaction: TransactionRecord
     let amountText: String?

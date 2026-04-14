@@ -140,7 +140,7 @@ func fetchBitcoinHistoryPage(for wallet: ImportedWallet, limit: Int, cursor: Str
         let json = try await WalletServiceBridge.shared.fetchNormalizedHistoryJSON(chainId: SpectraChainID.bitcoin, address: bitcoinAddress)
         return decodeBitcoinNormalizedPage(json: json, limit: limit)
     }
-    if let bitcoinXPub = wallet.bitcoinXPub?.trimmingCharacters(in: .whitespacesAndNewlines), !bitcoinXPub.isEmpty { return try await fetchBitcoinHDHistoryPage(xpub: bitcoinXPub, limit: limit) }
+    if let bitcoinXpub = wallet.bitcoinXpub?.trimmingCharacters(in: .whitespacesAndNewlines), !bitcoinXpub.isEmpty { return try await fetchBitcoinHDHistoryPage(xpub: bitcoinXpub, limit: limit) }
     throw URLError(.fileDoesNotExist)
 }
 private func fetchBitcoinHDHistoryPage(xpub: String, limit: Int) async throws -> BitcoinHistoryPage {
@@ -215,10 +215,10 @@ func refreshBitcoinTransactions(limit: Int? = nil, loadMore: Bool = false, targe
         let cursor = loadMore ? historyPaginationCursor(chainId: HistoryChainID.bitcoin, walletId: wallet.id) : nil
         do {
             let page = try await fetchBitcoinHistoryPage(for: wallet, limit: requestedLimit, cursor: cursor)
-            let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXPub ?? wallet.name
+            let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? wallet.name
             setHistoryCursor(chainId: HistoryChainID.bitcoin, walletId: wallet.id, cursor: page.nextCursor)
             bitcoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
-                walletID: wallet.id, identifier: identifier, sourceUsed: page.sourceUsed, transactionCount: page.snapshots.count, nextCursor: page.nextCursor, error: nil
+                walletId: wallet.id, identifier: identifier, sourceUsed: page.sourceUsed, transactionCount: Int32(page.snapshots.count), nextCursor: page.nextCursor, error: nil
             )
             bitcoinHistoryDiagnosticsLastUpdatedAt = Date()
             discoveredTransactions.append(
@@ -231,9 +231,9 @@ func refreshBitcoinTransactions(limit: Int? = nil, loadMore: Bool = false, targe
         } catch {
             encounteredErrors = true
             setHistoryCursor(chainId: HistoryChainID.bitcoin, walletId: wallet.id, cursor: nil)
-            let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXPub ?? ""
+            let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? ""
             bitcoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
-                walletID: wallet.id, identifier: identifier, sourceUsed: "none", transactionCount: 0, nextCursor: nil, error: error.localizedDescription
+                walletId: wallet.id, identifier: identifier, sourceUsed: "none", transactionCount: 0, nextCursor: nil, error: error.localizedDescription
             )
             bitcoinHistoryDiagnosticsLastUpdatedAt = Date()
         }}
@@ -379,7 +379,7 @@ extension AppState {
             tokenHistory = decodedToken
             nativeTransfers = decodedNative
             tokenDiagnostics = EthereumTokenTransferHistoryDiagnostics(
-                address: normalizedAddress, rpcTransferCount: 0, rpcError: nil, blockscoutTransferCount: 0, blockscoutError: nil, etherscanTransferCount: decodedToken.count, etherscanError: nil, ethplorerTransferCount: 0, ethplorerError: nil, sourceUsed: "rust/etherscan"
+                address: normalizedAddress, rpcTransferCount: 0, rpcError: nil, blockscoutTransferCount: 0, blockscoutError: nil, etherscanTransferCount: Int32(decodedToken.count), etherscanError: nil, ethplorerTransferCount: 0, ethplorerError: nil, sourceUsed: "rust/etherscan", transferScanCount: 0, decodedTransferCount: 0, unsupportedTransferDropCount: 0, decodingCompletenessRatio: 0
             )
         } catch {
             tokenHistoryError = error
@@ -403,7 +403,7 @@ extension AppState {
                 self[keyPath: diagsKP] = diags
             } else if let tokenHistoryError {
                 let errDiag = EthereumTokenTransferHistoryDiagnostics(
-                    address: normalizedAddress, rpcTransferCount: 0, rpcError: tokenHistoryError.localizedDescription, blockscoutTransferCount: 0, blockscoutError: nil, etherscanTransferCount: 0, etherscanError: nil, ethplorerTransferCount: 0, ethplorerError: nil, sourceUsed: "none"
+                    address: normalizedAddress, rpcTransferCount: 0, rpcError: tokenHistoryError.localizedDescription, blockscoutTransferCount: 0, blockscoutError: nil, etherscanTransferCount: 0, etherscanError: nil, ethplorerTransferCount: 0, ethplorerError: nil, sourceUsed: "none", transferScanCount: 0, decodedTransferCount: 0, unsupportedTransferDropCount: 0, decodingCompletenessRatio: 0
                 )
                 var diags = self[keyPath: diagsKP]
                 for wallet in targetWallets { diags[wallet.id] = errDiag }

@@ -1,11 +1,11 @@
 import Foundation
 
 struct WalletRustImportAddresses {
-    let bitcoinAddress: String?, bitcoinXpub: String?, bitcoinCashAddress: String?, bitcoinSVAddress: String?, litecoinAddress: String?, dogecoinAddress: String?, ethereumAddress: String?, ethereumClassicAddress: String?, tronAddress: String?, solanaAddress: String?, xrpAddress: String?, stellarAddress: String?, moneroAddress: String?, cardanoAddress: String?, suiAddress: String?, aptosAddress: String?, tonAddress: String?, icpAddress: String?, nearAddress: String?, polkadotAddress: String?
+    let bitcoinAddress: String?, bitcoinXpub: String?, bitcoinCashAddress: String?, bitcoinSvAddress: String?, litecoinAddress: String?, dogecoinAddress: String?, ethereumAddress: String?, ethereumClassicAddress: String?, tronAddress: String?, solanaAddress: String?, xrpAddress: String?, stellarAddress: String?, moneroAddress: String?, cardanoAddress: String?, suiAddress: String?, aptosAddress: String?, tonAddress: String?, icpAddress: String?, nearAddress: String?, polkadotAddress: String?
 }
 
 struct WalletRustWatchOnlyEntries {
-    let bitcoinAddresses: [String], bitcoinXpub: String?, bitcoinCashAddresses: [String], bitcoinSVAddresses: [String], litecoinAddresses: [String], dogecoinAddresses: [String], ethereumAddresses: [String], tronAddresses: [String], solanaAddresses: [String], xrpAddresses: [String], stellarAddresses: [String], cardanoAddresses: [String], suiAddresses: [String], aptosAddresses: [String], tonAddresses: [String], icpAddresses: [String], nearAddresses: [String], polkadotAddresses: [String]
+    let bitcoinAddresses: [String], bitcoinXpub: String?, bitcoinCashAddresses: [String], bitcoinSvAddresses: [String], litecoinAddresses: [String], dogecoinAddresses: [String], ethereumAddresses: [String], tronAddresses: [String], solanaAddresses: [String], xrpAddresses: [String], stellarAddresses: [String], cardanoAddresses: [String], suiAddresses: [String], aptosAddresses: [String], tonAddresses: [String], icpAddresses: [String], nearAddresses: [String], polkadotAddresses: [String]
 }
 
 struct WalletRustImportPlanRequest {

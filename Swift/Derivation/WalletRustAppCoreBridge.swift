@@ -219,7 +219,7 @@ private extension WalletRustImportAddresses {
     func toFFI() -> WalletImportAddresses {
         WalletImportAddresses(
             bitcoinAddress: bitcoinAddress, bitcoinXpub: bitcoinXpub,
-            bitcoinCashAddress: bitcoinCashAddress, bitcoinSvAddress: bitcoinSVAddress,
+            bitcoinCashAddress: bitcoinCashAddress, bitcoinSvAddress: bitcoinSvAddress,
             litecoinAddress: litecoinAddress, dogecoinAddress: dogecoinAddress,
             ethereumAddress: ethereumAddress, ethereumClassicAddress: ethereumClassicAddress,
             tronAddress: tronAddress, solanaAddress: solanaAddress,
@@ -236,7 +236,7 @@ private extension WalletImportAddresses {
     func toWalletRust() -> WalletRustImportAddresses {
         WalletRustImportAddresses(
             bitcoinAddress: bitcoinAddress, bitcoinXpub: bitcoinXpub,
-            bitcoinCashAddress: bitcoinCashAddress, bitcoinSVAddress: bitcoinSvAddress,
+            bitcoinCashAddress: bitcoinCashAddress, bitcoinSvAddress: bitcoinSvAddress,
             litecoinAddress: litecoinAddress, dogecoinAddress: dogecoinAddress,
             ethereumAddress: ethereumAddress, ethereumClassicAddress: ethereumClassicAddress,
             tronAddress: tronAddress, solanaAddress: solanaAddress,
@@ -253,7 +253,7 @@ private extension WalletRustWatchOnlyEntries {
     func toFFI() -> WalletImportWatchOnlyEntries {
         WalletImportWatchOnlyEntries(
             bitcoinAddresses: bitcoinAddresses, bitcoinXpub: bitcoinXpub,
-            bitcoinCashAddresses: bitcoinCashAddresses, bitcoinSvAddresses: bitcoinSVAddresses,
+            bitcoinCashAddresses: bitcoinCashAddresses, bitcoinSvAddresses: bitcoinSvAddresses,
             litecoinAddresses: litecoinAddresses, dogecoinAddresses: dogecoinAddresses,
             ethereumAddresses: ethereumAddresses, tronAddresses: tronAddresses,
             solanaAddresses: solanaAddresses, xrpAddresses: xrpAddresses,

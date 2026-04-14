@@ -165,8 +165,5 @@ func validateEVMAddress(_ address: String) throws -> String {
 func receiveEVMAddress(for address: String) throws -> String {
     try validateEVMAddress(address)
 }
-func evmHasContractCode(_ code: String) -> Bool {
-    let normalized = code.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    return normalized != "0x" && normalized != "0x0"
-}
+func evmHasContractCode(_ code: String) -> Bool { coreEvmHasContractCode(code: code) }
 

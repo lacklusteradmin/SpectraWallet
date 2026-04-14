@@ -19,7 +19,7 @@ extension AppState {
             }}}
 
     /// Decode the `holdings` array from a WalletSummary JSON blob and apply
-    /// their amounts to `wallet`.  Visual properties (color, mark, priceUSD)
+    /// their amounts to `wallet`.  Visual properties (color, mark, priceUsd)
     /// are preserved from the existing Coin if found; new holdings get defaults.
     /// Returns `nil` if the JSON could not be parsed.
     private func holdingsApplied(from walletJson: String, to wallet: ImportedWallet) -> ImportedWallet? {
@@ -43,23 +43,27 @@ extension AppState {
             if let idx = merged.firstIndex(where: { holdingLookupKey($0) == key }) {
                 // Update amount in-place, preserve all other fields.
                 let old = merged[idx]
-                merged[idx] = Coin(
-                    name: old.name, symbol: old.symbol, marketDataID: old.marketDataID,
-                    coinGeckoID: old.coinGeckoID, chainName: old.chainName,
+                merged[idx] = CoreCoin(
+                    id: old.id,
+                    name: old.name, symbol: old.symbol, marketDataId: old.marketDataId,
+                    coinGeckoId: old.coinGeckoId, chainName: old.chainName,
                     tokenStandard: old.tokenStandard, contractAddress: old.contractAddress,
-                    amount: amount, priceUSD: old.priceUSD, mark: old.mark, color: old.color)
+                    amount: amount, priceUsd: old.priceUsd, mark: old.mark)
             } else if amount > 0 {
                 // New holding from Rust not yet in Swift — add with defaults.
                 let name         = h["name"]          as? String ?? symbol
                 let tokenStd     = h["tokenStandard"] as? String ?? "Native"
-                let marketDataID = h["marketDataId"]  as? String ?? ""
-                let coinGeckoID  = h["coinGeckoId"]   as? String ?? ""
+                let marketDataId = h["marketDataId"]  as? String ?? ""
+                let coinGeckoId  = h["coinGeckoId"]   as? String ?? ""
                 let mark         = String(symbol.prefix(2)).uppercased()
-                merged.append(Coin(
-                    name: name, symbol: symbol, marketDataID: marketDataID,
-                    coinGeckoID: coinGeckoID, chainName: chainName,
+                var newCoin = CoreCoin(
+                    id: UUID().uuidString,
+                    name: name, symbol: symbol, marketDataId: marketDataId,
+                    coinGeckoId: coinGeckoId, chainName: chainName,
                     tokenStandard: tokenStd, contractAddress: contract,
-                    amount: amount, priceUSD: 0, mark: mark, color: .blue))
+                    amount: amount, priceUsd: 0, mark: mark)
+                newCoin.color = .blue
+                merged.append(newCoin)
             }
         }
         return walletByReplacingHoldings(wallet, with: merged)
@@ -97,7 +101,7 @@ extension AppState {
     private func resolvedRefreshAddress(for wallet: ImportedWallet) -> String? {
         switch wallet.selectedChain {
         case "Bitcoin":
-            if let xpub = wallet.bitcoinXPub, !xpub.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return xpub }
+            if let xpub = wallet.bitcoinXpub, !xpub.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return xpub }
             return resolvedBitcoinAddress(for: wallet)
         case "Ethereum", "Arbitrum", "Optimism", "Avalanche", "BNB Chain", "Hyperliquid", "Ethereum Classic", "Base":
             return resolvedEVMAddress(for: wallet, chainName: wallet.selectedChain)

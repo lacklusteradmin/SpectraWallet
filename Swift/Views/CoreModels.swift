@@ -60,25 +60,7 @@ struct WalletAddressInventory: Equatable, Codable {
 }
 typealias Coin = CoreCoin
 extension CoreCoin: Identifiable {
-    nonisolated(unsafe) private static var colorOverrides: [String: Color] = [:]
-    // Compat init: legacy param names (marketDataID/coinGeckoID/priceUSD/color) preserved.
-    init(id: String = UUID().uuidString, name: String, symbol: String, marketDataID: String, coinGeckoID: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double, priceUSD: Double, mark: String, color: Color) {
-        self.init(id: id, name: name, symbol: symbol, marketDataId: marketDataID, coinGeckoId: coinGeckoID, chainName: chainName, tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUSD, mark: mark)
-        Self.colorOverrides["\(chainName)|\(symbol)"] = color
-    }
-    // Legacy name forwarders.
-    var marketDataID: String {
-        get { marketDataId }
-        set { marketDataId = newValue }
-    }
-    var coinGeckoID: String {
-        get { coinGeckoId }
-        set { coinGeckoId = newValue }
-    }
-    var priceUSD: Double {
-        get { priceUsd }
-        set { priceUsd = newValue }
-    }
+    nonisolated(unsafe) fileprivate static var colorOverrides: [String: Color] = [:]
     var color: Color {
         get { displayColor }
         set { Self.colorOverrides[holdingKey] = newValue }
@@ -106,6 +88,11 @@ extension CoreCoin: Identifiable {
         }
     }
     var valueUSD: Double { amount * priceUsd }
+    static func makeCustom(name: String, symbol: String, marketDataId: String, coinGeckoId: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double, priceUsd: Double, mark: String, color: Color) -> Coin {
+        let coin = CoreCoin(id: UUID().uuidString, name: name, symbol: symbol, marketDataId: marketDataId, coinGeckoId: coinGeckoId, chainName: chainName, tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUsd, mark: mark)
+        Self.colorOverrides["\(chainName)|\(symbol)"] = color
+        return coin
+    }
     var hasVisibleBalance: Bool { amount > 0 }
     var holdingKey: String { "\(chainName)|\(symbol)" }
     var accentMarks: [String] {
@@ -134,25 +121,7 @@ extension CoreCoin: Identifiable {
 typealias ImportedWallet = CoreImportedWallet
 extension CoreImportedWallet: Identifiable { }
 extension CoreImportedWallet {
-    var bitcoinXPub: String? {
-        get { bitcoinXpub }
-        set { bitcoinXpub = newValue }
-    }
-    var bitcoinSVAddress: String? {
-        get { bitcoinSvAddress }
-        set { bitcoinSvAddress = newValue }
-    }
     var totalBalance: Double { holdings.reduce(0) { $0 + $1.valueUSD } }
-    init(
-        id: String, name: String, bitcoinNetworkMode: BitcoinNetworkMode = .mainnet, dogecoinNetworkMode: DogecoinNetworkMode = .mainnet, bitcoinAddress: String? = nil, bitcoinXPub: String? = nil, bitcoinCashAddress: String? = nil, bitcoinSVAddress: String? = nil, litecoinAddress: String? = nil, dogecoinAddress: String? = nil, ethereumAddress: String? = nil, tronAddress: String? = nil, solanaAddress: String? = nil, stellarAddress: String? = nil, xrpAddress: String? = nil, moneroAddress: String? = nil, cardanoAddress: String? = nil, suiAddress: String? = nil, aptosAddress: String? = nil, tonAddress: String? = nil, icpAddress: String? = nil, nearAddress: String? = nil, polkadotAddress: String? = nil, seedDerivationPreset: SeedDerivationPreset = .standard, seedDerivationPaths: SeedDerivationPaths = .defaults, selectedChain: String, holdings: [Coin], includeInPortfolioTotal: Bool = true
-    ) {
-        self.init(id: id, name: name, bitcoinNetworkMode: bitcoinNetworkMode, dogecoinNetworkMode: dogecoinNetworkMode, bitcoinAddress: bitcoinAddress, bitcoinXpub: bitcoinXPub, bitcoinCashAddress: bitcoinCashAddress, bitcoinSvAddress: bitcoinSVAddress, litecoinAddress: litecoinAddress, dogecoinAddress: dogecoinAddress, ethereumAddress: ethereumAddress, tronAddress: tronAddress, solanaAddress: solanaAddress, stellarAddress: stellarAddress, xrpAddress: xrpAddress, moneroAddress: moneroAddress, cardanoAddress: cardanoAddress, suiAddress: suiAddress, aptosAddress: aptosAddress, tonAddress: tonAddress, icpAddress: icpAddress, nearAddress: nearAddress, polkadotAddress: polkadotAddress, seedDerivationPreset: seedDerivationPreset, seedDerivationPaths: seedDerivationPaths, selectedChain: selectedChain, holdings: holdings, includeInPortfolioTotal: includeInPortfolioTotal)
-    }
-    init(
-        id: UUID = UUID(), name: String, bitcoinNetworkMode: BitcoinNetworkMode = .mainnet, dogecoinNetworkMode: DogecoinNetworkMode = .mainnet, bitcoinAddress: String? = nil, bitcoinXPub: String? = nil, bitcoinCashAddress: String? = nil, bitcoinSVAddress: String? = nil, litecoinAddress: String? = nil, dogecoinAddress: String? = nil, ethereumAddress: String? = nil, tronAddress: String? = nil, solanaAddress: String? = nil, stellarAddress: String? = nil, xrpAddress: String? = nil, moneroAddress: String? = nil, cardanoAddress: String? = nil, suiAddress: String? = nil, aptosAddress: String? = nil, tonAddress: String? = nil, icpAddress: String? = nil, nearAddress: String? = nil, polkadotAddress: String? = nil, seedDerivationPreset: SeedDerivationPreset = .standard, seedDerivationPaths: SeedDerivationPaths = .defaults, selectedChain: String, holdings: [Coin], includeInPortfolioTotal: Bool = true
-    ) {
-        self.init(id: id.uuidString, name: name, bitcoinNetworkMode: bitcoinNetworkMode, dogecoinNetworkMode: dogecoinNetworkMode, bitcoinAddress: bitcoinAddress, bitcoinXpub: bitcoinXPub, bitcoinCashAddress: bitcoinCashAddress, bitcoinSvAddress: bitcoinSVAddress, litecoinAddress: litecoinAddress, dogecoinAddress: dogecoinAddress, ethereumAddress: ethereumAddress, tronAddress: tronAddress, solanaAddress: solanaAddress, stellarAddress: stellarAddress, xrpAddress: xrpAddress, moneroAddress: moneroAddress, cardanoAddress: cardanoAddress, suiAddress: suiAddress, aptosAddress: aptosAddress, tonAddress: tonAddress, icpAddress: icpAddress, nearAddress: nearAddress, polkadotAddress: polkadotAddress, seedDerivationPreset: seedDerivationPreset, seedDerivationPaths: seedDerivationPaths, selectedChain: selectedChain, holdings: holdings, includeInPortfolioTotal: includeInPortfolioTotal)
-    }
 }
 typealias SeedDerivationPreset = CoreSeedDerivationPreset
 extension CoreSeedDerivationPreset: RawRepresentable, CaseIterable, Codable, Identifiable {
@@ -584,12 +553,12 @@ func classifySendBroadcastFailure(_ rawMessage: String) -> SendBroadcastFailureD
 extension ImportedWallet {
     @MainActor init(snapshot: PersistedWallet) {
         self.init(
-            id: snapshot.id, name: snapshot.name, bitcoinNetworkMode: snapshot.bitcoinNetworkMode, dogecoinNetworkMode: snapshot.dogecoinNetworkMode, bitcoinAddress: snapshot.bitcoinAddress, bitcoinXPub: snapshot.bitcoinXPub, bitcoinCashAddress: snapshot.bitcoinCashAddress, bitcoinSVAddress: snapshot.bitcoinSVAddress, litecoinAddress: snapshot.litecoinAddress, dogecoinAddress: snapshot.dogecoinAddress, ethereumAddress: snapshot.ethereumAddress, tronAddress: snapshot.tronAddress, solanaAddress: snapshot.solanaAddress, stellarAddress: snapshot.stellarAddress, xrpAddress: snapshot.xrpAddress, moneroAddress: snapshot.moneroAddress, cardanoAddress: snapshot.cardanoAddress, suiAddress: snapshot.suiAddress, aptosAddress: snapshot.aptosAddress, tonAddress: snapshot.tonAddress, icpAddress: snapshot.icpAddress, nearAddress: snapshot.nearAddress, polkadotAddress: snapshot.polkadotAddress, seedDerivationPreset: snapshot.seedDerivationPreset, seedDerivationPaths: snapshot.seedDerivationPaths, selectedChain: snapshot.selectedChain, holdings: snapshot.holdings.map(Coin.init(snapshot:)), includeInPortfolioTotal: snapshot.includeInPortfolioTotal
+            id: snapshot.id, name: snapshot.name, bitcoinNetworkMode: snapshot.bitcoinNetworkMode, dogecoinNetworkMode: snapshot.dogecoinNetworkMode, bitcoinAddress: snapshot.bitcoinAddress, bitcoinXpub: snapshot.bitcoinXpub, bitcoinCashAddress: snapshot.bitcoinCashAddress, bitcoinSvAddress: snapshot.bitcoinSvAddress, litecoinAddress: snapshot.litecoinAddress, dogecoinAddress: snapshot.dogecoinAddress, ethereumAddress: snapshot.ethereumAddress, tronAddress: snapshot.tronAddress, solanaAddress: snapshot.solanaAddress, stellarAddress: snapshot.stellarAddress, xrpAddress: snapshot.xrpAddress, moneroAddress: snapshot.moneroAddress, cardanoAddress: snapshot.cardanoAddress, suiAddress: snapshot.suiAddress, aptosAddress: snapshot.aptosAddress, tonAddress: snapshot.tonAddress, icpAddress: snapshot.icpAddress, nearAddress: snapshot.nearAddress, polkadotAddress: snapshot.polkadotAddress, seedDerivationPreset: snapshot.seedDerivationPreset, seedDerivationPaths: snapshot.seedDerivationPaths, selectedChain: snapshot.selectedChain, holdings: snapshot.holdings.map(Coin.init(snapshot:)), includeInPortfolioTotal: snapshot.includeInPortfolioTotal
         )
     }
     var persistedSnapshot: PersistedWallet {
         PersistedWallet(
-            id: id, name: name, bitcoinNetworkMode: bitcoinNetworkMode, dogecoinNetworkMode: dogecoinNetworkMode, bitcoinAddress: bitcoinAddress, bitcoinXPub: bitcoinXPub, bitcoinCashAddress: bitcoinCashAddress, bitcoinSVAddress: bitcoinSVAddress, litecoinAddress: litecoinAddress, dogecoinAddress: dogecoinAddress, ethereumAddress: ethereumAddress, tronAddress: tronAddress, solanaAddress: solanaAddress, stellarAddress: stellarAddress, xrpAddress: xrpAddress, moneroAddress: moneroAddress, cardanoAddress: cardanoAddress, suiAddress: suiAddress, aptosAddress: aptosAddress, tonAddress: tonAddress, icpAddress: icpAddress, nearAddress: nearAddress, polkadotAddress: polkadotAddress, seedDerivationPreset: seedDerivationPreset, seedDerivationPaths: seedDerivationPaths, selectedChain: selectedChain, holdings: holdings.map(\.persistedSnapshot), includeInPortfolioTotal: includeInPortfolioTotal
+            id: id, name: name, bitcoinNetworkMode: bitcoinNetworkMode, dogecoinNetworkMode: dogecoinNetworkMode, bitcoinAddress: bitcoinAddress, bitcoinXpub: bitcoinXpub, bitcoinCashAddress: bitcoinCashAddress, bitcoinSvAddress: bitcoinSvAddress, litecoinAddress: litecoinAddress, dogecoinAddress: dogecoinAddress, ethereumAddress: ethereumAddress, tronAddress: tronAddress, solanaAddress: solanaAddress, stellarAddress: stellarAddress, xrpAddress: xrpAddress, moneroAddress: moneroAddress, cardanoAddress: cardanoAddress, suiAddress: suiAddress, aptosAddress: aptosAddress, tonAddress: tonAddress, icpAddress: icpAddress, nearAddress: nearAddress, polkadotAddress: polkadotAddress, seedDerivationPreset: seedDerivationPreset, seedDerivationPaths: seedDerivationPaths, selectedChain: selectedChain, holdings: holdings.map(\.persistedSnapshot), includeInPortfolioTotal: includeInPortfolioTotal
         )
     }
 }

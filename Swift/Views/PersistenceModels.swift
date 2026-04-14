@@ -6,13 +6,13 @@ import UIKit
 struct PersistedCoin: Codable {
     let name: String
     let symbol: String
-    let marketDataID: String
-    let coinGeckoID: String
+    let marketDataId: String
+    let coinGeckoId: String
     let chainName: String
     let tokenStandard: String
     let contractAddress: String?
     let amount: Double
-    let priceUSD: Double
+    let priceUsd: Double
 }
 struct PersistedWallet: Codable {
     let id: String
@@ -20,9 +20,9 @@ struct PersistedWallet: Codable {
     let bitcoinNetworkMode: BitcoinNetworkMode
     let dogecoinNetworkMode: DogecoinNetworkMode
     let bitcoinAddress: String?
-    let bitcoinXPub: String?
+    let bitcoinXpub: String?
     let bitcoinCashAddress: String?
-    let bitcoinSVAddress: String?
+    let bitcoinSvAddress: String?
     let litecoinAddress: String?
     let dogecoinAddress: String?
     let ethereumAddress: String?
@@ -49,9 +49,9 @@ struct PersistedWallet: Codable {
         case bitcoinNetworkMode
         case dogecoinNetworkMode
         case bitcoinAddress
-        case bitcoinXPub
+        case bitcoinXpub
         case bitcoinCashAddress
-        case bitcoinSVAddress
+        case bitcoinSvAddress
         case litecoinAddress
         case dogecoinAddress
         case ethereumAddress
@@ -74,16 +74,16 @@ struct PersistedWallet: Codable {
         case includeInPortfolioTotal
     }
     init(
-        id: String, name: String, bitcoinNetworkMode: BitcoinNetworkMode = .mainnet, dogecoinNetworkMode: DogecoinNetworkMode = .mainnet, bitcoinAddress: String?, bitcoinXPub: String?, bitcoinCashAddress: String?, bitcoinSVAddress: String?, litecoinAddress: String?, dogecoinAddress: String?, ethereumAddress: String?, tronAddress: String?, solanaAddress: String?, stellarAddress: String?, xrpAddress: String?, moneroAddress: String?, cardanoAddress: String?, suiAddress: String?, aptosAddress: String?, tonAddress: String?, icpAddress: String?, nearAddress: String?, polkadotAddress: String?, seedDerivationPreset: SeedDerivationPreset, seedDerivationPaths: SeedDerivationPaths, selectedChain: String, holdings: [PersistedCoin], includeInPortfolioTotal: Bool
+        id: String, name: String, bitcoinNetworkMode: BitcoinNetworkMode = .mainnet, dogecoinNetworkMode: DogecoinNetworkMode = .mainnet, bitcoinAddress: String?, bitcoinXpub: String?, bitcoinCashAddress: String?, bitcoinSvAddress: String?, litecoinAddress: String?, dogecoinAddress: String?, ethereumAddress: String?, tronAddress: String?, solanaAddress: String?, stellarAddress: String?, xrpAddress: String?, moneroAddress: String?, cardanoAddress: String?, suiAddress: String?, aptosAddress: String?, tonAddress: String?, icpAddress: String?, nearAddress: String?, polkadotAddress: String?, seedDerivationPreset: SeedDerivationPreset, seedDerivationPaths: SeedDerivationPaths, selectedChain: String, holdings: [PersistedCoin], includeInPortfolioTotal: Bool
     ) {
         self.id = id
         self.name = name
         self.bitcoinNetworkMode = bitcoinNetworkMode
         self.dogecoinNetworkMode = dogecoinNetworkMode
         self.bitcoinAddress = bitcoinAddress
-        self.bitcoinXPub = bitcoinXPub
+        self.bitcoinXpub = bitcoinXpub
         self.bitcoinCashAddress = bitcoinCashAddress
-        self.bitcoinSVAddress = bitcoinSVAddress
+        self.bitcoinSvAddress = bitcoinSvAddress
         self.litecoinAddress = litecoinAddress
         self.dogecoinAddress = dogecoinAddress
         self.ethereumAddress = ethereumAddress
@@ -112,9 +112,9 @@ struct PersistedWallet: Codable {
         bitcoinNetworkMode = try container.decodeIfPresent(BitcoinNetworkMode.self, forKey: .bitcoinNetworkMode) ?? .mainnet
         dogecoinNetworkMode = try container.decodeIfPresent(DogecoinNetworkMode.self, forKey: .dogecoinNetworkMode) ?? .mainnet
         bitcoinAddress = try container.decodeIfPresent(String.self, forKey: .bitcoinAddress)
-        bitcoinXPub = try container.decodeIfPresent(String.self, forKey: .bitcoinXPub)
+        bitcoinXpub = try container.decodeIfPresent(String.self, forKey: .bitcoinXpub)
         bitcoinCashAddress = try container.decodeIfPresent(String.self, forKey: .bitcoinCashAddress)
-        bitcoinSVAddress = try container.decodeIfPresent(String.self, forKey: .bitcoinSVAddress)
+        bitcoinSvAddress = try container.decodeIfPresent(String.self, forKey: .bitcoinSvAddress)
         litecoinAddress = try container.decodeIfPresent(String.self, forKey: .litecoinAddress)
         dogecoinAddress = try container.decodeIfPresent(String.self, forKey: .dogecoinAddress)
         ethereumAddress = try container.decodeIfPresent(String.self, forKey: .ethereumAddress)
