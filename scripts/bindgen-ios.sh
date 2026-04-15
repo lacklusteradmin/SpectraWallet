@@ -24,10 +24,13 @@ CARGO_TARGET_DIR="${CARGO_TARGET_DIR}" cargo run --manifest-path "${BINDGEN_MANI
 
 cp "${OUT_DIR}/spectra_coreFFI.modulemap" "${OUT_DIR}/module.modulemap"
 
-# Patch for Swift 6 MainActor isolation
-sed -i '' \
+# Patch for Swift 6 MainActor isolation. Write the temp file OUTSIDE OUT_DIR so
+# Xcode's synchronized root group can't catch a transient .!NNNN! ghost.
+PATCH_TMP="$(mktemp -t spectra_core.swift.XXXXXX)"
+sed \
   -e 's/@escaping UniffiRustFutureContinuationCallback/UniffiRustFutureContinuationCallback/g' \
   -e 's/^fileprivate func uniffiFutureContinuationCallback/nonisolated fileprivate func uniffiFutureContinuationCallback/' \
-  "${OUT_DIR}/spectra_core.swift"
+  "${OUT_DIR}/spectra_core.swift" > "${PATCH_TMP}"
+mv "${PATCH_TMP}" "${OUT_DIR}/spectra_core.swift"
 
 echo "Swift bindings written to ${OUT_DIR}"

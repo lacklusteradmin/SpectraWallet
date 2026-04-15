@@ -42,15 +42,17 @@ enum StaticContentCatalog {
             guard let resourceURL = bundle.resourceURL else { continue }
             for localeIdentifier in localeIdentifiers {
                 if localeIdentifier == "Base" {
+                    append(resourceURL.appendingPathComponent("\(baseName).json", isDirectory: false))
                     append(resourceURL .appendingPathComponent("Resources", isDirectory: true).appendingPathComponent("Localization", isDirectory: true).appendingPathComponent("Base", isDirectory: true).appendingPathComponent("\(baseName).json", isDirectory: false))
                     append(resourceURL .appendingPathComponent("Localization", isDirectory: true).appendingPathComponent("Base", isDirectory: true).appendingPathComponent("\(baseName).json", isDirectory: false))
                 } else {
+                    append(resourceURL.appendingPathComponent("\(baseName).\(localeIdentifier).json", isDirectory: false))
                     append(resourceURL .appendingPathComponent("Resources", isDirectory: true).appendingPathComponent("Localization", isDirectory: true).appendingPathComponent(localeIdentifier, isDirectory: true).appendingPathComponent("\(baseName).\(localeIdentifier).json", isDirectory: false))
                     append(resourceURL .appendingPathComponent("Localization", isDirectory: true).appendingPathComponent(localeIdentifier, isDirectory: true).appendingPathComponent("\(baseName).\(localeIdentifier).json", isDirectory: false))
                 }}
+            append(resourceURL.appendingPathComponent("\(baseName).json", isDirectory: false))
             append(resourceURL .appendingPathComponent("Resources", isDirectory: true).appendingPathComponent("Localization", isDirectory: true).appendingPathComponent("Base", isDirectory: true).appendingPathComponent("\(baseName).json", isDirectory: false))
             append(resourceURL .appendingPathComponent("Localization", isDirectory: true).appendingPathComponent("Base", isDirectory: true).appendingPathComponent("\(baseName).json", isDirectory: false))
-            append(resourceURL.appendingPathComponent("\(baseName).json", isDirectory: false))
         }
         return candidates
     }
@@ -64,11 +66,10 @@ enum StaticContentCatalog {
         }
         for bundle in candidateBundles {
             guard let resourceURL = bundle.resourceURL else { continue }
-            append(resourceURL .appendingPathComponent("Resources", isDirectory: true).appendingPathComponent("\(baseName).txt", isDirectory: false))
-            append(resourceURL .appendingPathComponent("Resources", isDirectory: true).appendingPathComponent("\(baseName).md", isDirectory: false))
             append(resourceURL .appendingPathComponent("\(baseName).txt", isDirectory: false))
             append(resourceURL .appendingPathComponent("\(baseName).md", isDirectory: false))
-            append(resourceURL .appendingPathComponent("\(baseName).txt", isDirectory: false))
+            append(resourceURL .appendingPathComponent("Resources", isDirectory: true).appendingPathComponent("\(baseName).txt", isDirectory: false))
+            append(resourceURL .appendingPathComponent("Resources", isDirectory: true).appendingPathComponent("\(baseName).md", isDirectory: false))
         }
         return candidates
     }

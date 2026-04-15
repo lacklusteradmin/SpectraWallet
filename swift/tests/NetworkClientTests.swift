@@ -1,17 +1,6 @@
 import Foundation
 import XCTest
 @testable import Spectra
-// Transport has fully moved to Rust (`core/src/http_ffi.rs`). The old Swift
-// router/mock infra and its tests were deleted; kept below is a shared base
-// class retained for source compatibility with other suites.
-@MainActor
-class SpectraNetworkTestCase: XCTestCase {
-    func resetTestState() async throws {}
-    override func setUp() async throws {
-        try await super.setUp()
-        try await resetTestState()
-    }
-}
 @MainActor
 private func makeSingleChainDraft(select: (WalletImportDraft) -> Void) -> WalletImportDraft {
     let draft = WalletImportDraft()

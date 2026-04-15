@@ -295,28 +295,28 @@ typedef void (*UniffiCallbackInterfaceBalanceObserverMethod1)(uint64_t, uint32_t
 #endif
 #ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_SECRET_STORE_METHOD0
 #define UNIFFI_FFIDEF_CALLBACK_INTERFACE_SECRET_STORE_METHOD0
-typedef void (*UniffiCallbackInterfaceSecretStoreMethod0)(uint64_t, RustBuffer, RustBuffer* _Nonnull, 
+typedef void (*UniffiCallbackInterfaceSecretStoreMethod0)(uint64_t, RustBuffer, RustBuffer, RustBuffer* _Nonnull, 
         RustCallStatus *_Nonnull uniffiCallStatus
     );
 
 #endif
 #ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_SECRET_STORE_METHOD1
 #define UNIFFI_FFIDEF_CALLBACK_INTERFACE_SECRET_STORE_METHOD1
-typedef void (*UniffiCallbackInterfaceSecretStoreMethod1)(uint64_t, RustBuffer, RustBuffer, int8_t* _Nonnull, 
+typedef void (*UniffiCallbackInterfaceSecretStoreMethod1)(uint64_t, RustBuffer, RustBuffer, RustBuffer, void* _Nonnull, 
         RustCallStatus *_Nonnull uniffiCallStatus
     );
 
 #endif
 #ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_SECRET_STORE_METHOD2
 #define UNIFFI_FFIDEF_CALLBACK_INTERFACE_SECRET_STORE_METHOD2
-typedef void (*UniffiCallbackInterfaceSecretStoreMethod2)(uint64_t, RustBuffer, int8_t* _Nonnull, 
+typedef void (*UniffiCallbackInterfaceSecretStoreMethod2)(uint64_t, RustBuffer, RustBuffer, void* _Nonnull, 
         RustCallStatus *_Nonnull uniffiCallStatus
     );
 
 #endif
 #ifndef UNIFFI_FFIDEF_CALLBACK_INTERFACE_SECRET_STORE_METHOD3
 #define UNIFFI_FFIDEF_CALLBACK_INTERFACE_SECRET_STORE_METHOD3
-typedef void (*UniffiCallbackInterfaceSecretStoreMethod3)(uint64_t, RustBuffer, RustBuffer* _Nonnull, 
+typedef void (*UniffiCallbackInterfaceSecretStoreMethod3)(uint64_t, RustBuffer, RustBuffer, RustBuffer* _Nonnull, 
         RustCallStatus *_Nonnull uniffiCallStatus
     );
 
@@ -1665,22 +1665,22 @@ void uniffi_spectra_core_fn_init_callback_vtable_secretstore(const UniffiVTableC
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_SECRETSTORE_LOAD_SECRET
 #define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_SECRETSTORE_LOAD_SECRET
-RustBuffer uniffi_spectra_core_fn_method_secretstore_load_secret(void*_Nonnull ptr, RustBuffer key, RustCallStatus *_Nonnull out_status
+RustBuffer uniffi_spectra_core_fn_method_secretstore_load_secret(void*_Nonnull ptr, RustBuffer kind, RustBuffer key, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_SECRETSTORE_SAVE_SECRET
 #define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_SECRETSTORE_SAVE_SECRET
-int8_t uniffi_spectra_core_fn_method_secretstore_save_secret(void*_Nonnull ptr, RustBuffer key, RustBuffer value, RustCallStatus *_Nonnull out_status
+void uniffi_spectra_core_fn_method_secretstore_save_secret(void*_Nonnull ptr, RustBuffer kind, RustBuffer key, RustBuffer value, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_SECRETSTORE_DELETE_SECRET
 #define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_SECRETSTORE_DELETE_SECRET
-int8_t uniffi_spectra_core_fn_method_secretstore_delete_secret(void*_Nonnull ptr, RustBuffer key, RustCallStatus *_Nonnull out_status
+void uniffi_spectra_core_fn_method_secretstore_delete_secret(void*_Nonnull ptr, RustBuffer kind, RustBuffer key, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_SECRETSTORE_LIST_KEYS
 #define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_SECRETSTORE_LIST_KEYS
-RustBuffer uniffi_spectra_core_fn_method_secretstore_list_keys(void*_Nonnull ptr, RustBuffer prefix_filter, RustCallStatus *_Nonnull out_status
+RustBuffer uniffi_spectra_core_fn_method_secretstore_list_keys(void*_Nonnull ptr, RustBuffer kind, RustBuffer prefix_filter, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_CLONE_SENDSTATEMACHINE
@@ -1802,11 +1802,6 @@ uint64_t uniffi_spectra_core_fn_method_walletservice_delete_owned_addresses_for_
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_DELETE_OWNED_ADDRESSES_FOR_WALLET
 #define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_DELETE_OWNED_ADDRESSES_FOR_WALLET
 uint64_t uniffi_spectra_core_fn_method_walletservice_delete_owned_addresses_for_wallet(void*_Nonnull ptr, RustBuffer db_path, RustBuffer wallet_id
-);
-#endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_DELETE_SECRET
-#define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_DELETE_SECRET
-int8_t uniffi_spectra_core_fn_method_walletservice_delete_secret(void*_Nonnull ptr, RustBuffer key, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_DELETE_WALLET_RELATIONAL_DATA
@@ -1984,11 +1979,6 @@ int8_t uniffi_spectra_core_fn_method_walletservice_is_history_exhausted(void*_No
 uint64_t uniffi_spectra_core_fn_method_walletservice_list_builtin_tokens(void*_Nonnull ptr, uint32_t chain_id
 );
 #endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_LIST_SECRET_KEYS
-#define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_LIST_SECRET_KEYS
-RustBuffer uniffi_spectra_core_fn_method_walletservice_list_secret_keys(void*_Nonnull ptr, RustBuffer prefix_filter, RustCallStatus *_Nonnull out_status
-);
-#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_LIST_WALLETS_JSON
 #define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_LIST_WALLETS_JSON
 uint64_t uniffi_spectra_core_fn_method_walletservice_list_wallets_json(void*_Nonnull ptr
@@ -2017,11 +2007,6 @@ uint64_t uniffi_spectra_core_fn_method_walletservice_load_keypool_state(void*_No
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_LOAD_OWNED_ADDRESSES
 #define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_LOAD_OWNED_ADDRESSES
 uint64_t uniffi_spectra_core_fn_method_walletservice_load_owned_addresses(void*_Nonnull ptr, RustBuffer db_path, RustBuffer wallet_id, RustBuffer chain_name
-);
-#endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_LOAD_SECRET
-#define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_LOAD_SECRET
-RustBuffer uniffi_spectra_core_fn_method_walletservice_load_secret(void*_Nonnull ptr, RustBuffer key, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_LOAD_STATE
@@ -2082,11 +2067,6 @@ uint64_t uniffi_spectra_core_fn_method_walletservice_save_keypool_state(void*_No
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_SAVE_OWNED_ADDRESS
 #define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_SAVE_OWNED_ADDRESS
 uint64_t uniffi_spectra_core_fn_method_walletservice_save_owned_address(void*_Nonnull ptr, RustBuffer db_path, RustBuffer record_json
-);
-#endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_SAVE_SECRET
-#define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_SAVE_SECRET
-int8_t uniffi_spectra_core_fn_method_walletservice_save_secret(void*_Nonnull ptr, RustBuffer key, RustBuffer value, RustCallStatus *_Nonnull out_status
 );
 #endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_METHOD_WALLETSERVICE_SAVE_STATE
@@ -9057,12 +9037,6 @@ uint16_t uniffi_spectra_core_checksum_method_walletservice_delete_owned_addresse
     
 );
 #endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_DELETE_SECRET
-#define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_DELETE_SECRET
-uint16_t uniffi_spectra_core_checksum_method_walletservice_delete_secret(void
-    
-);
-#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_DELETE_WALLET_RELATIONAL_DATA
 #define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_DELETE_WALLET_RELATIONAL_DATA
 uint16_t uniffi_spectra_core_checksum_method_walletservice_delete_wallet_relational_data(void
@@ -9273,12 +9247,6 @@ uint16_t uniffi_spectra_core_checksum_method_walletservice_list_builtin_tokens(v
     
 );
 #endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_LIST_SECRET_KEYS
-#define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_LIST_SECRET_KEYS
-uint16_t uniffi_spectra_core_checksum_method_walletservice_list_secret_keys(void
-    
-);
-#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_LIST_WALLETS_JSON
 #define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_LIST_WALLETS_JSON
 uint16_t uniffi_spectra_core_checksum_method_walletservice_list_wallets_json(void
@@ -9312,12 +9280,6 @@ uint16_t uniffi_spectra_core_checksum_method_walletservice_load_keypool_state(vo
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_LOAD_OWNED_ADDRESSES
 #define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_LOAD_OWNED_ADDRESSES
 uint16_t uniffi_spectra_core_checksum_method_walletservice_load_owned_addresses(void
-    
-);
-#endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_LOAD_SECRET
-#define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_LOAD_SECRET
-uint16_t uniffi_spectra_core_checksum_method_walletservice_load_secret(void
     
 );
 #endif
@@ -9390,12 +9352,6 @@ uint16_t uniffi_spectra_core_checksum_method_walletservice_save_keypool_state(vo
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_SAVE_OWNED_ADDRESS
 #define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_SAVE_OWNED_ADDRESS
 uint16_t uniffi_spectra_core_checksum_method_walletservice_save_owned_address(void
-    
-);
-#endif
-#ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_SAVE_SECRET
-#define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_METHOD_WALLETSERVICE_SAVE_SECRET
-uint16_t uniffi_spectra_core_checksum_method_walletservice_save_secret(void
     
 );
 #endif

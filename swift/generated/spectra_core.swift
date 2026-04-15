@@ -3737,34 +3737,36 @@ public func FfiConverterTypeBalanceRefreshEngine_lower(_ value: BalanceRefreshEn
 
 
 /**
- * Keychain / secure-storage abstraction. Implemented in Swift, called from Rust.
+ * Platform-backed secret store. Implemented in Swift/Kotlin, called from Rust.
  */
 public protocol SecretStore: AnyObject, Sendable {
     
     /**
-     * Read the secret stored under `key`. Returns `None` if absent.
+     * Read the secret stored under `key` within the `kind` bucket.
      */
-    func loadSecret(key: String)  -> String?
+    func loadSecret(kind: SecretClass, key: String) throws  -> String
     
     /**
-     * Write `value` under `key`. Returns `true` on success.
+     * Write `value` under `key` within the `kind` bucket, replacing any
+     * existing entry.
      */
-    func saveSecret(key: String, value: String)  -> Bool
+    func saveSecret(kind: SecretClass, key: String, value: String) throws 
     
     /**
-     * Remove the entry for `key`. Returns `true` if the key existed.
+     * Remove the entry for `key` within the `kind` bucket. Succeeds whether
+     * or not the key existed (idempotent delete).
      */
-    func deleteSecret(key: String)  -> Bool
+    func deleteSecret(kind: SecretClass, key: String) throws 
     
     /**
-     * Return all keys whose prefix matches `prefix_filter`. Used to enumerate
-     * e.g. all seed-phrase keys for a specific wallet.
+     * Return all keys inside `kind` whose name starts with `prefix_filter`.
+     * Pass an empty string to list every key in the bucket.
      */
-    func listKeys(prefixFilter: String)  -> [String]
+    func listKeys(kind: SecretClass, prefixFilter: String) throws  -> [String]
     
 }
 /**
- * Keychain / secure-storage abstraction. Implemented in Swift, called from Rust.
+ * Platform-backed secret store. Implemented in Swift/Kotlin, called from Rust.
  */
 open class SecretStoreImpl: SecretStore, @unchecked Sendable {
     fileprivate let pointer: UnsafeMutableRawPointer!
@@ -3819,46 +3821,50 @@ open class SecretStoreImpl: SecretStore, @unchecked Sendable {
 
     
     /**
-     * Read the secret stored under `key`. Returns `None` if absent.
+     * Read the secret stored under `key` within the `kind` bucket.
      */
-open func loadSecret(key: String) -> String?  {
-    return try!  FfiConverterOptionString.lift(try! rustCall() {
+open func loadSecret(kind: SecretClass, key: String)throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSecretStoreError_lift) {
     uniffi_spectra_core_fn_method_secretstore_load_secret(self.uniffiClonePointer(),
+        FfiConverterTypeSecretClass_lower(kind),
         FfiConverterString.lower(key),$0
     )
 })
 }
     
     /**
-     * Write `value` under `key`. Returns `true` on success.
+     * Write `value` under `key` within the `kind` bucket, replacing any
+     * existing entry.
      */
-open func saveSecret(key: String, value: String) -> Bool  {
-    return try!  FfiConverterBool.lift(try! rustCall() {
+open func saveSecret(kind: SecretClass, key: String, value: String)throws   {try rustCallWithError(FfiConverterTypeSecretStoreError_lift) {
     uniffi_spectra_core_fn_method_secretstore_save_secret(self.uniffiClonePointer(),
+        FfiConverterTypeSecretClass_lower(kind),
         FfiConverterString.lower(key),
         FfiConverterString.lower(value),$0
     )
-})
+}
 }
     
     /**
-     * Remove the entry for `key`. Returns `true` if the key existed.
+     * Remove the entry for `key` within the `kind` bucket. Succeeds whether
+     * or not the key existed (idempotent delete).
      */
-open func deleteSecret(key: String) -> Bool  {
-    return try!  FfiConverterBool.lift(try! rustCall() {
+open func deleteSecret(kind: SecretClass, key: String)throws   {try rustCallWithError(FfiConverterTypeSecretStoreError_lift) {
     uniffi_spectra_core_fn_method_secretstore_delete_secret(self.uniffiClonePointer(),
+        FfiConverterTypeSecretClass_lower(kind),
         FfiConverterString.lower(key),$0
     )
-})
+}
 }
     
     /**
-     * Return all keys whose prefix matches `prefix_filter`. Used to enumerate
-     * e.g. all seed-phrase keys for a specific wallet.
+     * Return all keys inside `kind` whose name starts with `prefix_filter`.
+     * Pass an empty string to list every key in the bucket.
      */
-open func listKeys(prefixFilter: String) -> [String]  {
-    return try!  FfiConverterSequenceString.lift(try! rustCall() {
+open func listKeys(kind: SecretClass, prefixFilter: String)throws  -> [String]  {
+    return try  FfiConverterSequenceString.lift(try rustCallWithError(FfiConverterTypeSecretStoreError_lift) {
     uniffi_spectra_core_fn_method_secretstore_list_keys(self.uniffiClonePointer(),
+        FfiConverterTypeSecretClass_lower(kind),
         FfiConverterString.lower(prefixFilter),$0
     )
 })
@@ -3879,80 +3885,90 @@ fileprivate struct UniffiCallbackInterfaceSecretStore {
     static let vtable: [UniffiVTableCallbackInterfaceSecretStore] = [UniffiVTableCallbackInterfaceSecretStore(
         loadSecret: { (
             uniffiHandle: UInt64,
+            kind: RustBuffer,
             key: RustBuffer,
             uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
             uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
         ) in
             let makeCall = {
-                () throws -> String? in
+                () throws -> String in
                 guard let uniffiObj = try? FfiConverterTypeSecretStore.handleMap.get(handle: uniffiHandle) else {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
-                return uniffiObj.loadSecret(
+                return try uniffiObj.loadSecret(
+                     kind: try FfiConverterTypeSecretClass_lift(kind),
                      key: try FfiConverterString.lift(key)
                 )
             }
 
             
-            let writeReturn = { uniffiOutReturn.pointee = FfiConverterOptionString.lower($0) }
-            uniffiTraitInterfaceCall(
+            let writeReturn = { uniffiOutReturn.pointee = FfiConverterString.lower($0) }
+            uniffiTraitInterfaceCallWithError(
                 callStatus: uniffiCallStatus,
                 makeCall: makeCall,
-                writeReturn: writeReturn
+                writeReturn: writeReturn,
+                lowerError: FfiConverterTypeSecretStoreError_lower
             )
         },
         saveSecret: { (
             uniffiHandle: UInt64,
+            kind: RustBuffer,
             key: RustBuffer,
             value: RustBuffer,
-            uniffiOutReturn: UnsafeMutablePointer<Int8>,
+            uniffiOutReturn: UnsafeMutableRawPointer,
             uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
         ) in
             let makeCall = {
-                () throws -> Bool in
+                () throws -> () in
                 guard let uniffiObj = try? FfiConverterTypeSecretStore.handleMap.get(handle: uniffiHandle) else {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
-                return uniffiObj.saveSecret(
+                return try uniffiObj.saveSecret(
+                     kind: try FfiConverterTypeSecretClass_lift(kind),
                      key: try FfiConverterString.lift(key),
                      value: try FfiConverterString.lift(value)
                 )
             }
 
             
-            let writeReturn = { uniffiOutReturn.pointee = FfiConverterBool.lower($0) }
-            uniffiTraitInterfaceCall(
+            let writeReturn = { () }
+            uniffiTraitInterfaceCallWithError(
                 callStatus: uniffiCallStatus,
                 makeCall: makeCall,
-                writeReturn: writeReturn
+                writeReturn: writeReturn,
+                lowerError: FfiConverterTypeSecretStoreError_lower
             )
         },
         deleteSecret: { (
             uniffiHandle: UInt64,
+            kind: RustBuffer,
             key: RustBuffer,
-            uniffiOutReturn: UnsafeMutablePointer<Int8>,
+            uniffiOutReturn: UnsafeMutableRawPointer,
             uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
         ) in
             let makeCall = {
-                () throws -> Bool in
+                () throws -> () in
                 guard let uniffiObj = try? FfiConverterTypeSecretStore.handleMap.get(handle: uniffiHandle) else {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
-                return uniffiObj.deleteSecret(
+                return try uniffiObj.deleteSecret(
+                     kind: try FfiConverterTypeSecretClass_lift(kind),
                      key: try FfiConverterString.lift(key)
                 )
             }
 
             
-            let writeReturn = { uniffiOutReturn.pointee = FfiConverterBool.lower($0) }
-            uniffiTraitInterfaceCall(
+            let writeReturn = { () }
+            uniffiTraitInterfaceCallWithError(
                 callStatus: uniffiCallStatus,
                 makeCall: makeCall,
-                writeReturn: writeReturn
+                writeReturn: writeReturn,
+                lowerError: FfiConverterTypeSecretStoreError_lower
             )
         },
         listKeys: { (
             uniffiHandle: UInt64,
+            kind: RustBuffer,
             prefixFilter: RustBuffer,
             uniffiOutReturn: UnsafeMutablePointer<RustBuffer>,
             uniffiCallStatus: UnsafeMutablePointer<RustCallStatus>
@@ -3962,17 +3978,19 @@ fileprivate struct UniffiCallbackInterfaceSecretStore {
                 guard let uniffiObj = try? FfiConverterTypeSecretStore.handleMap.get(handle: uniffiHandle) else {
                     throw UniffiInternalError.unexpectedStaleHandle
                 }
-                return uniffiObj.listKeys(
+                return try uniffiObj.listKeys(
+                     kind: try FfiConverterTypeSecretClass_lift(kind),
                      prefixFilter: try FfiConverterString.lift(prefixFilter)
                 )
             }
 
             
             let writeReturn = { uniffiOutReturn.pointee = FfiConverterSequenceString.lower($0) }
-            uniffiTraitInterfaceCall(
+            uniffiTraitInterfaceCallWithError(
                 callStatus: uniffiCallStatus,
                 makeCall: makeCall,
-                writeReturn: writeReturn
+                writeReturn: writeReturn,
+                lowerError: FfiConverterTypeSecretStoreError_lower
             )
         },
         uniffiFree: { (uniffiHandle: UInt64) -> () in
@@ -4309,11 +4327,6 @@ public protocol WalletServiceProtocol: AnyObject, Sendable {
      * Remove all owned address records for a deleted wallet.
      */
     func deleteOwnedAddressesForWallet(dbPath: String, walletId: String) async throws 
-    
-    /**
-     * Delete a secret via the registered `SecretStore`.
-     */
-    func deleteSecret(key: String)  -> Bool
     
     /**
      * Remove all relational wallet state (keypool + addresses) for a deleted wallet.
@@ -4677,11 +4690,6 @@ public protocol WalletServiceProtocol: AnyObject, Sendable {
     func listBuiltinTokens(chainId: UInt32) async throws  -> String
     
     /**
-     * List all secret keys matching a prefix via the registered `SecretStore`.
-     */
-    func listSecretKeys(prefixFilter: String)  -> [String]
-    
-    /**
      * Return all wallets as a JSON array of WalletSummary objects.
      */
     func listWalletsJson() async throws  -> String
@@ -4714,11 +4722,6 @@ public protocol WalletServiceProtocol: AnyObject, Sendable {
      * Returns a JSON array of `OwnedAddressRecord` objects.
      */
     func loadOwnedAddresses(dbPath: String, walletId: String, chainName: String) async throws  -> String
-    
-    /**
-     * Read a secret via the registered `SecretStore`.
-     */
-    func loadSecret(key: String)  -> String?
     
     /**
      * Load the JSON state blob stored under `key` in the SQLite database at
@@ -4794,11 +4797,6 @@ public protocol WalletServiceProtocol: AnyObject, Sendable {
     func saveOwnedAddress(dbPath: String, recordJson: String) async throws 
     
     /**
-     * Write a secret via the registered `SecretStore`.
-     */
-    func saveSecret(key: String, value: String)  -> Bool
-    
-    /**
      * Persist the JSON state blob under `key` in the SQLite database at
      * `db_path`. Creates the file (and the `state` table) on first use.
      */
@@ -4832,8 +4830,11 @@ public protocol WalletServiceProtocol: AnyObject, Sendable {
     func setNativeBalance(walletId: String, chainId: UInt32, amount: Double) async throws  -> String?
     
     /**
-     * Register the Swift Keychain implementation. Must be called once at app
-     * start before any method that reads or writes secrets.
+     * Register the platform Keychain implementation. Must be called once at
+     * app start before any code path that reads or writes secrets. Rust code
+     * that needs secret I/O calls the delegate directly via `self.secret_store`;
+     * there are deliberately no pass-through FFI wrappers — all secret traffic
+     * is driven by Rust.
      */
     func setSecretStore(store: SecretStore) 
     
@@ -5224,17 +5225,6 @@ open func deleteOwnedAddressesForWallet(dbPath: String, walletId: String)async t
             liftFunc: { $0 },
             errorHandler: FfiConverterTypeSpectraBridgeError_lift
         )
-}
-    
-    /**
-     * Delete a secret via the registered `SecretStore`.
-     */
-open func deleteSecret(key: String) -> Bool  {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_spectra_core_fn_method_walletservice_delete_secret(self.uniffiClonePointer(),
-        FfiConverterString.lower(key),$0
-    )
-})
 }
     
     /**
@@ -6064,17 +6054,6 @@ open func listBuiltinTokens(chainId: UInt32)async throws  -> String  {
 }
     
     /**
-     * List all secret keys matching a prefix via the registered `SecretStore`.
-     */
-open func listSecretKeys(prefixFilter: String) -> [String]  {
-    return try!  FfiConverterSequenceString.lift(try! rustCall() {
-    uniffi_spectra_core_fn_method_walletservice_list_secret_keys(self.uniffiClonePointer(),
-        FfiConverterString.lower(prefixFilter),$0
-    )
-})
-}
-    
-    /**
      * Return all wallets as a JSON array of WalletSummary objects.
      */
 open func listWalletsJson()async throws  -> String  {
@@ -6196,17 +6175,6 @@ open func loadOwnedAddresses(dbPath: String, walletId: String, chainName: String
             liftFunc: FfiConverterString.lift,
             errorHandler: FfiConverterTypeSpectraBridgeError_lift
         )
-}
-    
-    /**
-     * Read a secret via the registered `SecretStore`.
-     */
-open func loadSecret(key: String) -> String?  {
-    return try!  FfiConverterOptionString.lift(try! rustCall() {
-    uniffi_spectra_core_fn_method_walletservice_load_secret(self.uniffiClonePointer(),
-        FfiConverterString.lower(key),$0
-    )
-})
 }
     
     /**
@@ -6423,18 +6391,6 @@ open func saveOwnedAddress(dbPath: String, recordJson: String)async throws   {
 }
     
     /**
-     * Write a secret via the registered `SecretStore`.
-     */
-open func saveSecret(key: String, value: String) -> Bool  {
-    return try!  FfiConverterBool.lift(try! rustCall() {
-    uniffi_spectra_core_fn_method_walletservice_save_secret(self.uniffiClonePointer(),
-        FfiConverterString.lower(key),
-        FfiConverterString.lower(value),$0
-    )
-})
-}
-    
-    /**
      * Persist the JSON state blob under `key` in the SQLite database at
      * `db_path`. Creates the file (and the `state` table) on first use.
      */
@@ -6527,8 +6483,11 @@ open func setNativeBalance(walletId: String, chainId: UInt32, amount: Double)asy
 }
     
     /**
-     * Register the Swift Keychain implementation. Must be called once at app
-     * start before any method that reads or writes secrets.
+     * Register the platform Keychain implementation. Must be called once at
+     * app start before any code path that reads or writes secrets. Rust code
+     * that needs secret I/O calls the delegate directly via `self.secret_store`;
+     * there are deliberately no pass-through FFI wrappers — all secret traffic
+     * is driven by Rust.
      */
 open func setSecretStore(store: SecretStore)  {try! rustCall() {
     uniffi_spectra_core_fn_method_walletservice_set_secret_store(self.uniffiClonePointer(),
@@ -25439,6 +25398,201 @@ extension JsonFieldValue: Equatable, Hashable {}
 
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+/**
+ * Classification hint that tells the platform layer *what kind* of secret is
+ * being stored. The adapter maps each class to the correct backend bucket and
+ * the appropriate accessibility / encryption policy.
+ */
+
+public enum SecretClass {
+    
+    /**
+     * BIP39 seed phrase. Platform should apply the strongest available
+     * protection (on iOS: envelope-encrypted with AES-GCM, stored with
+     * `kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly`).
+     */
+    case seed
+    /**
+     * Raw private-key material (hex/WIF). Stored in a dedicated Keychain
+     * service distinct from the seed bucket.
+     */
+    case privateKey
+    /**
+     * Non-seed secrets: API tokens, password verifiers, per-wallet config.
+     */
+    case generic
+}
+
+
+#if compiler(>=6)
+extension SecretClass: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSecretClass: FfiConverterRustBuffer {
+    typealias SwiftType = SecretClass
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SecretClass {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .seed
+        
+        case 2: return .privateKey
+        
+        case 3: return .generic
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: SecretClass, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .seed:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .privateKey:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .generic:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSecretClass_lift(_ buf: RustBuffer) throws -> SecretClass {
+    return try FfiConverterTypeSecretClass.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSecretClass_lower(_ value: SecretClass) -> RustBuffer {
+    return FfiConverterTypeSecretClass.lower(value)
+}
+
+
+extension SecretClass: Equatable, Hashable {}
+
+
+
+
+
+
+
+/**
+ * Error surface returned across the FFI. Keeps "not found" distinct from
+ * infrastructure failures so callers can react correctly.
+ */
+public enum SecretStoreError: Swift.Error {
+
+    
+    
+    /**
+     * No entry exists under the requested key.
+     */
+    case NotFound
+    /**
+     * `WalletService::set_secret_store` has not been called yet.
+     */
+    case Unavailable
+    /**
+     * Platform backend (Keychain / Keystore) reported a failure.
+     */
+    case Backend(message: String
+    )
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeSecretStoreError: FfiConverterRustBuffer {
+    typealias SwiftType = SecretStoreError
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SecretStoreError {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+
+        
+
+        
+        case 1: return .NotFound
+        case 2: return .Unavailable
+        case 3: return .Backend(
+            message: try FfiConverterString.read(from: &buf)
+            )
+
+         default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: SecretStoreError, into buf: inout [UInt8]) {
+        switch value {
+
+        
+
+        
+        
+        case .NotFound:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .Unavailable:
+            writeInt(&buf, Int32(2))
+        
+        
+        case let .Backend(message):
+            writeInt(&buf, Int32(3))
+            FfiConverterString.write(message, into: &buf)
+            
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSecretStoreError_lift(_ buf: RustBuffer) throws -> SecretStoreError {
+    return try FfiConverterTypeSecretStoreError.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeSecretStoreError_lower(_ value: SecretStoreError) -> RustBuffer {
+    return FfiConverterTypeSecretStoreError.lower(value)
+}
+
+
+extension SecretStoreError: Equatable, Hashable {}
+
+
+
+
+extension SecretStoreError: Foundation.LocalizedError {
+    public var errorDescription: String? {
+        String(reflecting: self)
+    }
+}
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
 public enum SendChain {
     
@@ -35221,16 +35375,16 @@ private let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_method_balancerefreshengine_trigger_immediate() != 47202) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_method_secretstore_load_secret() != 53875) {
+    if (uniffi_spectra_core_checksum_method_secretstore_load_secret() != 2339) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_method_secretstore_save_secret() != 45923) {
+    if (uniffi_spectra_core_checksum_method_secretstore_save_secret() != 45729) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_method_secretstore_delete_secret() != 19437) {
+    if (uniffi_spectra_core_checksum_method_secretstore_delete_secret() != 31077) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_method_secretstore_list_keys() != 57871) {
+    if (uniffi_spectra_core_checksum_method_secretstore_list_keys() != 17141) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_method_sendstatemachine_apply_event() != 50084) {
@@ -35285,9 +35439,6 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_method_walletservice_delete_owned_addresses_for_wallet() != 29938) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_spectra_core_checksum_method_walletservice_delete_secret() != 51600) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_method_walletservice_delete_wallet_relational_data() != 13474) {
@@ -35395,9 +35546,6 @@ private let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_method_walletservice_list_builtin_tokens() != 39339) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_method_walletservice_list_secret_keys() != 8127) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_spectra_core_checksum_method_walletservice_list_wallets_json() != 64179) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -35414,9 +35562,6 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_method_walletservice_load_owned_addresses() != 23493) {
-        return InitializationResult.apiChecksumMismatch
-    }
-    if (uniffi_spectra_core_checksum_method_walletservice_load_secret() != 24146) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_method_walletservice_load_state() != 44182) {
@@ -35455,9 +35600,6 @@ private let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_method_walletservice_save_owned_address() != 26566) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_method_walletservice_save_secret() != 3868) {
-        return InitializationResult.apiChecksumMismatch
-    }
     if (uniffi_spectra_core_checksum_method_walletservice_save_state() != 52684) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -35473,7 +35615,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_method_walletservice_set_native_balance() != 16796) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_method_walletservice_set_secret_store() != 39337) {
+    if (uniffi_spectra_core_checksum_method_walletservice_set_secret_store() != 36955) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_method_walletservice_sign_and_send() != 648) {

@@ -11,18 +11,17 @@ import UIKit
 // platform provides; the on-disk layout (a flat folder of {assetName}.png files) stays identical.
 enum BundleImageLoader {
     private static func url(forImageNamed name: String) -> URL? {
+        // Xcode's PBXFileSystemSynchronizedRootGroup flattens the referenced
+        // folder's contents into the bundle root, so TokenIcons/*.png end up
+        // at the top level. Ask Bundle first, then fall back to legacy subpaths.
+        if let url = Bundle.main.url(forResource: name, withExtension: "png") { return url }
         guard let resourceURL = Bundle.main.resourceURL else { return nil }
-        // Primary: Resources/TokenIcons/ (matches the project's synchronized group layout)
-        let primary = resourceURL
-            .appendingPathComponent("Resources", isDirectory: true)
-            .appendingPathComponent("TokenIcons", isDirectory: true)
-            .appendingPathComponent("\(name).png")
-        if FileManager.default.fileExists(atPath: primary.path) { return primary }
-        // Fallback: bundle root (in case the Resources prefix was stripped by the build system)
-        let fallback = resourceURL
-            .appendingPathComponent("TokenIcons", isDirectory: true)
-            .appendingPathComponent("\(name).png")
-        if FileManager.default.fileExists(atPath: fallback.path) { return fallback }
+        for subpath in ["TokenIcons", "Resources/TokenIcons"] {
+            let candidate = resourceURL
+                .appendingPathComponent(subpath, isDirectory: true)
+                .appendingPathComponent("\(name).png")
+            if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
+        }
         return nil
     }
 

@@ -9,6 +9,14 @@
 
 import Foundation
 
+enum MainAppTab: Hashable {
+    case home
+    case history
+    case staking
+    case donate
+    case settings
+}
+
 extension AppState {
     enum ResetScope: String, CaseIterable, Identifiable {
         case walletsAndSecrets

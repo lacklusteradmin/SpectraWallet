@@ -1,40 +1,64 @@
 import Foundation
+
 final class SpectraSecretStoreAdapter: SecretStoreImpl {
     static func registerWithBridge() {
         let adapter = SpectraSecretStoreAdapter(noPointer: .init())
         Task {
             try? await WalletServiceBridge.shared.registerSecretStore(adapter)
-        }}
-    override func loadSecret(key: String) -> String? {
-        if key.hasPrefix("wallet.seed.") { return try? SecureSeedStore.loadValue(for: key) } else if key.hasPrefix("wallet.privatekey.") {
+        }
+    }
+
+    override func loadSecret(kind: SecretClass, key: String) throws -> String {
+        switch kind {
+        case .seed:
+            do {
+                return try SecureSeedStore.loadValue(for: key)
+            } catch KeychainStoreError.missingValue {
+                throw SecretStoreError.NotFound
+            } catch {
+                throw SecretStoreError.Backend(message: String(describing: error))
+            }
+        case .privateKey:
             let value = SecurePrivateKeyStore.loadValue(for: key)
-            return value.isEmpty ? nil : value
-        } else {
+            if value.isEmpty { throw SecretStoreError.NotFound }
+            return value
+        case .generic:
             let value = SecureStore.loadValue(for: key)
-            return value.isEmpty ? nil : value
-        }}
-    override func saveSecret(key: String, value: String) -> Bool {
-        if key.hasPrefix("wallet.seed.") { return (try? SecureSeedStore.save(value, for: key)) != nil } else if key.hasPrefix("wallet.privatekey.") {
+            if value.isEmpty { throw SecretStoreError.NotFound }
+            return value
+        }
+    }
+
+    override func saveSecret(kind: SecretClass, key: String, value: String) throws {
+        switch kind {
+        case .seed:
+            do { try SecureSeedStore.save(value, for: key) }
+            catch { throw SecretStoreError.Backend(message: String(describing: error)) }
+        case .privateKey:
             SecurePrivateKeyStore.save(value, for: key)
-            return true
-        } else {
+        case .generic:
             SecureStore.save(value, for: key)
-            return true
-        }}
-    override func deleteSecret(key: String) -> Bool {
-        if key.hasPrefix("wallet.seed.") { return (try? SecureSeedStore.deleteValue(for: key)) != nil } else if key.hasPrefix("wallet.privatekey.") {
+        }
+    }
+
+    override func deleteSecret(kind: SecretClass, key: String) throws {
+        switch kind {
+        case .seed:
+            do { try SecureSeedStore.deleteValue(for: key) }
+            catch { throw SecretStoreError.Backend(message: String(describing: error)) }
+        case .privateKey:
             SecurePrivateKeyStore.deleteValue(for: key)
-            return true
-        } else {
+        case .generic:
             SecureStore.deleteValue(for: key)
-            return true
-        }}
-    override func listKeys(prefixFilter: String) -> [String] {
-        var results: [String] = []
-        if prefixFilter.isEmpty || prefixFilter.hasPrefix("wallet.seed.") {
         }
-        if prefixFilter.isEmpty || prefixFilter.hasPrefix("wallet.privatekey.") {
-        }
-        return results
+    }
+
+    override func listKeys(kind: SecretClass, prefixFilter: String) throws -> [String] {
+        // No current caller in Rust needs enumeration; the KeychainAccess wrapper
+        // hides the underlying keychain handle, so wiring allKeys() up would mean
+        // exposing private state for a feature nobody uses yet. Return empty for
+        // now — when a caller arrives, add allAccounts() to SecureStores and plumb
+        // it through here.
+        return []
     }
 }

@@ -172,4 +172,105 @@ extension AppState {
                 }, )
         ]
     }
+
+    func runPlannedChainRefreshes(using refreshPlanByChain: [WalletChainID: Bool], timeout: Double) async {
+        for descriptor in plannedChainRefreshDescriptors {
+            guard let refreshHistory = refreshPlanByChain[descriptor.chainID] else { continue }
+            await runTimedChainRefresh(descriptor.chainID, refreshHistory: refreshHistory, timeout: timeout) {
+                await descriptor.executeRefresh(self, refreshHistory)
+            }}}
+    func refreshImportedWalletBalances(forChains chainNames: Set<String>) async {
+        for descriptor in importedWalletRefreshDescriptors where chainNames.contains(descriptor.chainName) { await descriptor.executeBalancesOnly(self) }}
+    func runHistoryRefreshes(for trackedChains: Set<WalletChainID>, interval: TimeInterval) async {
+        let plannedHistoryChains = Set(
+            WalletRefreshPlanner.historyPlans(
+                for: trackedChains, now: Date(), interval: interval, lastHistoryRefreshAtByChainID: lastHistoryRefreshAtByChainID
+            )
+        )
+        guard !plannedHistoryChains.isEmpty else { return }
+        await withTaskGroup(of: Void.self) { group in
+            for descriptor in plannedChainRefreshDescriptors {
+                guard plannedHistoryChains.contains(descriptor.chainID), let executeHistoryOnly = descriptor.executeHistoryOnly else { continue }
+                group.addTask {
+                    await executeHistoryOnly(self)
+                }}
+            await group.waitForAll()
+        }}
+    func runPendingTransactionHistoryRefreshes(for trackedChains: Set<WalletChainID>, interval: TimeInterval) async { await runHistoryRefreshes(for: trackedChains, interval: interval) }
+    private func runTimedChainRefresh(
+        _ chainID: WalletChainID, refreshHistory: Bool, timeout: Double, operation: @escaping () async -> Void
+    ) async {
+        let chainName = chainID.displayName
+        do {
+            try await withTimeout(seconds: timeout) {
+                await operation()
+                return ()
+            }
+            if refreshHistory { lastHistoryRefreshAtByChainID[chainID] = Date() }
+        } catch {
+            markChainDegraded(chainName, detail: "\(chainName) refresh timed out. Using cached balances and history.")
+            appendOperationalLog(
+                .warning, category: "Chain Sync", message: "\(chainName) refresh timeout", chainName: chainName, source: "timeout", metadata: error.localizedDescription
+            )
+        }}
+
+    func performUserInitiatedRefresh(forChain chainName: String) async {
+        let startedAt = CFAbsoluteTimeGetCurrent()
+        if appIsActive { await refreshPendingTransactions(includeHistoryRefreshes: false) }
+        await withBalanceRefreshWindow {
+            switch chainName {
+            case "Bitcoin": await refreshBalances()
+                await refreshBitcoinTransactions(limit: 20)
+            case "Bitcoin Cash": await refreshBalances()
+                await refreshBitcoinCashTransactions(limit: 20)
+            case "Bitcoin SV": await refreshBalances()
+                await refreshBitcoinSVTransactions(limit: 20)
+            case "Litecoin": await refreshBalances()
+                await refreshLitecoinTransactions(limit: 20)
+            case "Dogecoin": await refreshBalances()
+                await refreshDogecoinTransactions(limit: 20)
+            case "Ethereum": await refreshBalances()
+                await refreshEVMTokenTransactions(chainName: "Ethereum", maxResults: 20, loadMore: false)
+            case "Arbitrum": await refreshBalances()
+                await refreshEVMTokenTransactions(chainName: "Arbitrum", maxResults: 20, loadMore: false)
+            case "Optimism": await refreshBalances()
+                await refreshEVMTokenTransactions(chainName: "Optimism", maxResults: 20, loadMore: false)
+            case "Ethereum Classic": await refreshBalances()
+            case "BNB Chain": await refreshBalances()
+                await refreshEVMTokenTransactions(chainName: "BNB Chain", maxResults: 20, loadMore: false)
+            case "Avalanche": await refreshBalances()
+                await refreshEVMTokenTransactions(chainName: "Avalanche", maxResults: 20, loadMore: false)
+            case "Hyperliquid": await refreshBalances()
+                await refreshEVMTokenTransactions(chainName: "Hyperliquid", maxResults: 20, loadMore: false)
+            case "Tron": await refreshBalances()
+                await refreshTronTransactions(loadMore: false)
+            case "Solana": await refreshBalances()
+                await refreshSolanaTransactions(loadMore: false)
+            case "Cardano": await refreshBalances()
+                await refreshCardanoTransactions(loadMore: false)
+            case "XRP Ledger": await refreshBalances()
+                await refreshXRPTransactions(loadMore: false)
+            case "Stellar": await refreshBalances()
+                await refreshStellarTransactions(loadMore: false)
+            case "Monero": await refreshBalances()
+                await refreshMoneroTransactions(loadMore: false)
+            case "Sui": await refreshBalances()
+                await refreshSuiTransactions(loadMore: false)
+            case "Aptos": await refreshBalances()
+                await refreshAptosTransactions(loadMore: false)
+            case "TON": await refreshBalances()
+                await refreshTONTransactions(loadMore: false)
+            case "Internet Computer": await refreshBalances()
+                await refreshICPTransactions(loadMore: false)
+            case "NEAR": await refreshBalances()
+                await refreshNearTransactions(loadMore: false)
+            case "Polkadot": await refreshBalances()
+                await refreshPolkadotTransactions(loadMore: false)
+            default: await performUserInitiatedRefresh()
+                return
+            }}
+        await refreshLivePrices()
+        await refreshFiatExchangeRatesIfNeeded()
+        recordPerformanceSample("user_refresh_chain", startedAt: startedAt, metadata: chainName)
+    }
 }

@@ -2,12 +2,14 @@ import Foundation
 import CryptoKit
 import KeychainAccess
 import CommonCrypto
+enum KeychainStoreError: Error, Equatable {
+    case missingValue
+    case invalidEncoding
+}
+
 private struct KeychainBackedSecureStore {
     private let keychain: Keychain
-    enum StoreError: Error {
-        case missingValue
-        case invalidEncoding
-    }
+    typealias StoreError = KeychainStoreError
     init(service: String) {
         keychain = Keychain(service: service).accessibility(.whenPasscodeSetThisDeviceOnly)
     }

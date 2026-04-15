@@ -1,6 +1,16 @@
 import Foundation
 import SwiftUI
+
+// SwiftUI `Binding` accessors over @Published AppState fields used by
+// receive/send sheets. Pure forwarders — any logic belongs on the
+// underlying @Published property, not here.
 extension AppState {
+    var receiveWalletIDBinding: Binding<String> {
+        Binding(get: { self.receiveWalletID }, set: { self.receiveWalletID = $0 })
+    }
+    var isShowingReceiveSheetBinding: Binding<Bool> {
+        Binding(get: { self.isShowingReceiveSheet }, set: { self.isShowingReceiveSheet = $0 })
+    }
     var sendWalletIDBinding: Binding<String> {
         Binding(get: { self.sendWalletID }, set: { self.sendWalletID = $0 })
     }

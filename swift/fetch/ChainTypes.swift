@@ -18,8 +18,16 @@ extension RustStringEnum {
         for (c, r) in Self.rawMap where r == rawValue { self = c; return }
         return nil
     }
-    public var rawValue: String { Self.rawMap.first(where: { $0.0 == self })?.1 ?? "" }
+    // Compare by case name via Mirror instead of `==`. The default `==` from
+    // RawRepresentable routes through rawValue, which would re-enter this getter.
+    public var rawValue: String {
+        let key = String(describing: self)
+        return Self.rawMap.first(where: { String(describing: $0.0) == key })?.1 ?? ""
+    }
     public static var allCases: [Self] { Self.rawMap.map(\.0) }
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        String(describing: lhs) == String(describing: rhs)
+    }
     public var id: String { rawValue }
     public init(from decoder: Decoder) throws {
         let c = try decoder.singleValueContainer()
