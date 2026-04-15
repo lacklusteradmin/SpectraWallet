@@ -117,7 +117,17 @@
 		90AA000A2F60000100BBB001 /* SharedResources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			name = SharedResources;
-			path = ../Resources;
+			path = ../resources;
+			sourceTree = "<group>";
+		};
+		90AA00202F60000200BBB001 /* generated */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = generated;
+			sourceTree = "<group>";
+		};
+		90AA00212F60000200BBB001 /* rustbridge */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = rustbridge;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -158,6 +168,8 @@
 			children = (
 				90AEE1792F5AFB43008CFE5E /* Spectra.xctestplan */,
 				907491652F56D1E500D098D2 /* derivation */,
+				90AA00202F60000200BBB001 /* generated */,
+				90AA00212F60000200BBB001 /* rustbridge */,
 				907491662F56D1E500D098D2 /* fetch */,
 				907491672F56D1E500D098D2 /* providercatalog */,
 				907491682F56D1E500D098D2 /* send */,
@@ -209,6 +221,8 @@
 				9074916C2F56D1E500D098D2 /* views */,
 				9074916D2F56D1E500D098D2 /* extensions/SharedLiveActivities */,
 				90AA000A2F60000100BBB001 /* SharedResources */,
+				90AA00202F60000200BBB001 /* generated */,
+				90AA00212F60000200BBB001 /* rustbridge */,
 			);
 			name = Spectra;
 			packageProductDependencies = (
@@ -361,7 +375,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "set -euo pipefail\n\nRUST_DIR=\"${SRCROOT}/../ffi\"\nRUST_BUILD_ROOT=\"${PROJECT_TEMP_DIR}/spectra-rust\"\nCARGO_TARGET_DIR=\"${RUST_BUILD_ROOT}/cargo-target\"\nTARGET_ROOT=\"${RUST_BUILD_ROOT}/apple\"\nSIM_OUT=\"${TARGET_ROOT}/ios-simulator\"\nDEVICE_OUT=\"${TARGET_ROOT}/ios-device\"\nGENERATED_SWIFT_DIR=\"${SRCROOT}/Derivation/Generated\"\nBINDGEN_MANIFEST=\"${SRCROOT}/../tools/uniffi-bindgen/Cargo.toml\"\nHOST_DYLIB=\"${CARGO_TARGET_DIR}/debug/libspectra_core.dylib\"\n\n# Xcode build phases run in a minimal shell, so cargo may not be on PATH.\nexport PATH=\"${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}\"\nif [[ -f \"${HOME}/.cargo/env\" ]]; then\n  # shellcheck disable=SC1090\n  source \"${HOME}/.cargo/env\"\nfi\n\nif ! command -v cargo >/dev/null 2>&1; then\n  echo \"error: cargo is required to build the Rust wallet core\"\n  echo \"hint: install Rust with 'brew install rustup-init && rustup-init' or from https://rustup.rs\"\n  exit 1\nfi\n\nmkdir -p \"${GENERATED_SWIFT_DIR}\"\nCARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\"\n(\n  cd \"${RUST_DIR}\"\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo run --manifest-path \"${BINDGEN_MANIFEST}\" -- generate --language swift --library \"${HOST_DYLIB}\" --out-dir \"${GENERATED_SWIFT_DIR}\"\n)\ncp \"${GENERATED_SWIFT_DIR}/spectra_coreFFI.modulemap\" \"${GENERATED_SWIFT_DIR}/module.modulemap\"\n\n# Patch uniffi 0.29 Swift bindings for Swift 6 default MainActor isolation:\n#   1. Remove @escaping on UniffiRustFutureContinuationCallback (it is a C function pointer).\n#   2. Mark uniffiFutureContinuationCallback nonisolated so Swift can form a C function pointer to it.\n/usr/bin/sed -i '' -e 's/@escaping UniffiRustFutureContinuationCallback/UniffiRustFutureContinuationCallback/g' -e 's/^fileprivate func uniffiFutureContinuationCallback/nonisolated fileprivate func uniffiFutureContinuationCallback/' \"${GENERATED_SWIFT_DIR}/spectra_core.swift\"\n\nif [[ \"${PLATFORM_NAME}\" == *simulator* ]]; then\n  mkdir -p \"${SIM_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios-sim x86_64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios-sim\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target x86_64-apple-ios\n\n  lipo -create \\\n    \"${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libspectra_core.a\" \\\n    \"${CARGO_TARGET_DIR}/x86_64-apple-ios/debug/libspectra_core.a\" \\\n    -output \"${SIM_OUT}/libspectra_core.a\"\nelse\n  mkdir -p \"${DEVICE_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios\n  cp \"${CARGO_TARGET_DIR}/aarch64-apple-ios/debug/libspectra_core.a\" \"${DEVICE_OUT}/libspectra_core.a\"\nfi\n";
+			shellScript = "set -euo pipefail\n\n# Purge cloud-sync placeholder files (OneDrive / Synology Drive leave .!NNNN!foo partial copies that Xcode tries to compile).\nfind \"${SRCROOT}\" -name '.!*' -type f -delete 2>/dev/null || true\n\nRUST_DIR=\"${SRCROOT}/../ffi\"\nRUST_BUILD_ROOT=\"${PROJECT_TEMP_DIR}/spectra-rust\"\nCARGO_TARGET_DIR=\"${RUST_BUILD_ROOT}/cargo-target\"\nTARGET_ROOT=\"${RUST_BUILD_ROOT}/apple\"\nSIM_OUT=\"${TARGET_ROOT}/ios-simulator\"\nDEVICE_OUT=\"${TARGET_ROOT}/ios-device\"\nGENERATED_SWIFT_DIR=\"${SRCROOT}/generated\"\nBINDGEN_MANIFEST=\"${SRCROOT}/../tools/uniffi-bindgen/Cargo.toml\"\nHOST_DYLIB=\"${CARGO_TARGET_DIR}/debug/libspectra_core.dylib\"\n\n# Xcode build phases run in a minimal shell, so cargo may not be on PATH.\nexport PATH=\"${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}\"\nif [[ -f \"${HOME}/.cargo/env\" ]]; then\n  # shellcheck disable=SC1090\n  source \"${HOME}/.cargo/env\"\nfi\n\nif ! command -v cargo >/dev/null 2>&1; then\n  echo \"error: cargo is required to build the Rust wallet core\"\n  echo \"hint: install Rust with 'brew install rustup-init && rustup-init' or from https://rustup.rs\"\n  exit 1\nfi\n\nmkdir -p \"${GENERATED_SWIFT_DIR}\"\nCARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\"\n(\n  cd \"${RUST_DIR}\"\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo run --manifest-path \"${BINDGEN_MANIFEST}\" -- generate --language swift --library \"${HOST_DYLIB}\" --out-dir \"${GENERATED_SWIFT_DIR}\"\n)\ncp \"${GENERATED_SWIFT_DIR}/spectra_coreFFI.modulemap\" \"${GENERATED_SWIFT_DIR}/module.modulemap\"\n\n# Patch uniffi 0.29 Swift bindings for Swift 6 default MainActor isolation:\n#   1. Remove @escaping on UniffiRustFutureContinuationCallback (it is a C function pointer).\n#   2. Mark uniffiFutureContinuationCallback nonisolated so Swift can form a C function pointer to it.\n/usr/bin/sed -i '' -e 's/@escaping UniffiRustFutureContinuationCallback/UniffiRustFutureContinuationCallback/g' -e 's/^fileprivate func uniffiFutureContinuationCallback/nonisolated fileprivate func uniffiFutureContinuationCallback/' \"${GENERATED_SWIFT_DIR}/spectra_core.swift\"\n\nif [[ \"${PLATFORM_NAME}\" == *simulator* ]]; then\n  mkdir -p \"${SIM_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios-sim x86_64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios-sim\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target x86_64-apple-ios\n\n  lipo -create \\\n    \"${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/debug/libspectra_core.a\" \\\n    \"${CARGO_TARGET_DIR}/x86_64-apple-ios/debug/libspectra_core.a\" \\\n    -output \"${SIM_OUT}/libspectra_core.a\"\nelse\n  mkdir -p \"${DEVICE_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios\n  cp \"${CARGO_TARGET_DIR}/aarch64-apple-ios/debug/libspectra_core.a\" \"${DEVICE_OUT}/libspectra_core.a\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -538,7 +552,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/Derivation/Generated",
+					"$(SRCROOT)/generated",
 				);
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Spectra uses the camera to scan QR codes for wallet addresses.";
@@ -589,7 +603,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Derivation/Generated";
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/generated";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;
@@ -608,7 +622,7 @@
 				GENERATE_INFOPLIST_FILE = YES;
 				HEADER_SEARCH_PATHS = (
 					"$(inherited)",
-					"$(SRCROOT)/Derivation/Generated",
+					"$(SRCROOT)/generated",
 				);
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.finance";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Spectra uses the camera to scan QR codes for wallet addresses.";
@@ -659,7 +673,7 @@
 				SWIFT_APPROACHABLE_CONCURRENCY = YES;
 				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/Derivation/Generated";
+				SWIFT_INCLUDE_PATHS = "$(SRCROOT)/generated";
 				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = 1;

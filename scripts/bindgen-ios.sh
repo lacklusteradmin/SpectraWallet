@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Generate Swift UniFFI bindings from the compiled ffi crate.
 # Run after build-ios.sh or any cargo build that produces libspectra_core.dylib (host).
-# Output: swift/derivation/generated/
+# Output: swift/generated/
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -9,7 +9,7 @@ FFI_DIR="${REPO_ROOT}/ffi"
 CARGO_TARGET_DIR="${REPO_ROOT}/target"
 BINDGEN_MANIFEST="${REPO_ROOT}/tools/uniffi-bindgen/Cargo.toml"
 HOST_DYLIB="${CARGO_TARGET_DIR}/debug/libspectra_core.dylib"
-OUT_DIR="${REPO_ROOT}/swift/derivation/generated"
+OUT_DIR="${REPO_ROOT}/swift/generated"
 
 export PATH="${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}"
 if [[ -f "${HOME}/.cargo/env" ]]; then source "${HOME}/.cargo/env"; fi
