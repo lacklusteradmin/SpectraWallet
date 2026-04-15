@@ -3,9 +3,9 @@ import SwiftUI
 import UIKit
 #endif
 
-// Loads token images from Resources/TokenIcons/ via Bundle.main — no xcassets dependency.
-// The project's PBXFileSystemSynchronizedRootGroup preserves the Resources/ directory tree
-// inside the bundle, so the actual in-bundle path is:
+// Loads token images from the root /Resources/TokenIcons/ folder via Bundle.main — no xcassets dependency.
+// A PBXFileSystemSynchronizedRootGroup in the Xcode project references ../Resources so the
+// directory lands in the bundle as:
 //   {bundle.resourceURL}/Resources/TokenIcons/{name}.png
 // On non-Apple targets, replace the UIKit branch with whatever image-loading API the
 // platform provides; the on-disk layout (a flat folder of {assetName}.png files) stays identical.

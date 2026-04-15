@@ -81,7 +81,7 @@
 			path = Send;
 			sourceTree = "<group>";
 		};
-		907491692F56D1E500D098D2 /* Store */ = {
+		907491692F56D1E500D098D2 /* Shell */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Shell;
 			sourceTree = "<group>";
@@ -112,6 +112,12 @@
 				90F0BA0D2F5C4A76004E29F3 /* Exceptions for "Extensions/SpectraLiveActivityExtension" folder in "SpectraLiveActivityExtension" target */,
 			);
 			path = Extensions/SpectraLiveActivityExtension;
+			sourceTree = "<group>";
+		};
+		90AA000A2F60000100BBB001 /* SharedResources */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			name = SharedResources;
+			path = ../Resources;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -155,11 +161,12 @@
 				907491662F56D1E500D098D2 /* Fetch */,
 				907491672F56D1E500D098D2 /* ProviderCatalog */,
 				907491682F56D1E500D098D2 /* Send */,
-				907491692F56D1E500D098D2 /* Store */,
+				907491692F56D1E500D098D2 /* Shell */,
 				9074916C2F56D1E500D098D2 /* Views */,
 				9074916D2F56D1E500D098D2 /* Extensions/SharedLiveActivities */,
 				907491712F56D1E600D098D2 /* Extensions/SpectraLiveActivityExtension */,
 				9074916A2F56D1E500D098D2 /* Resources */,
+				90AA000A2F60000100BBB001 /* SharedResources */,
 				9074916B2F56D1E500D098D2 /* Tests */,
 			);
 			sourceTree = "<group>";
@@ -197,10 +204,11 @@
 				907491662F56D1E500D098D2 /* Fetch */,
 				907491672F56D1E500D098D2 /* ProviderCatalog */,
 				907491682F56D1E500D098D2 /* Send */,
-				907491692F56D1E500D098D2 /* Store */,
+				907491692F56D1E500D098D2 /* Shell */,
 				9074916A2F56D1E500D098D2 /* Resources */,
 				9074916C2F56D1E500D098D2 /* Views */,
 				9074916D2F56D1E500D098D2 /* Extensions/SharedLiveActivities */,
+				90AA000A2F60000100BBB001 /* SharedResources */,
 			);
 			name = Spectra;
 			packageProductDependencies = (

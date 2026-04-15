@@ -12,6 +12,6 @@ This folder is organized by UI product area.
 - `Staking/`: staking UI.
 - `Models/`: UI-facing model and presentation helpers.
 - `Support/`: UI support utilities (interop, localization, activity helpers).
-- `Resources/`: assets, localization, and static data consumed by Views.
+- `Swift/Resources/`: Swift-only bundle assets (xcassets). Shared data (localization JSON, token/chain registries, BIP39, TokenIcons) lives in the repo-root `/Resources/` folder.
 
 `ContentView.swift` now lives at `Views/App/ContentView.swift`.
