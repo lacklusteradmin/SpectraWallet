@@ -78,7 +78,17 @@ class AppState: ObservableObject {
     // (whole-assignment, subscript read, `[k] = v`, `[k] = nil`, `.remove(k)`,
     // `.insert(k)`) keep compiling. Setters bump `cachesRevision` so SwiftUI refreshes.
     @Published private(set) var cachesRevision: UInt64 = 0
-    private func bumpCachesRevision() { cachesRevision &+= 1 }
+    private var cacheBatchDepth: Int = 0
+    private func bumpCachesRevision() {
+        guard cacheBatchDepth == 0 else { return }
+        cachesRevision &+= 1
+    }
+    func batchCacheUpdates(_ block: () -> Void) {
+        cacheBatchDepth += 1
+        block()
+        cacheBatchDepth -= 1
+        if cacheBatchDepth == 0 { cachesRevision &+= 1 }
+    }
     var cachedWalletByID: [String: ImportedWallet] {
         get { cachesGetWalletById() }
         set { cachesReplaceWalletById(entries: newValue); bumpCachesRevision() }
@@ -937,7 +947,7 @@ class AppState: ObservableObject {
             await refreshFiatExchangeRates()
         }}
     deinit {
-        rustObserverHandle?.unregister()
+        MainActor.assumeIsolated { rustObserverHandle?.unregister() }
         maintenanceTask?.cancel()
         userInitiatedRefreshTask?.cancel()
         importRefreshTask?.cancel()

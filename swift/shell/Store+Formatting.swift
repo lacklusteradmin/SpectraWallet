@@ -254,7 +254,7 @@ extension AppState {
                 )
             }, unknownLabel: localizedStoreString("Unknown")
         )
-        guard let entries = try? WalletRustAppCoreBridge.normalizeHistory(request) else { return [] }
+        let entries = WalletRustAppCoreBridge.normalizeHistory(request)
         return entries.compactMap { entry in
             guard let transactionID = UUID(uuidString: entry.transactionId), let kind = TransactionKind(rawValue: entry.kind), let status = TransactionStatus(rawValue: entry.status) else { return nil }
             return NormalizedHistoryEntry(

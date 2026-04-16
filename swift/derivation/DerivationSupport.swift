@@ -29,7 +29,7 @@ struct DerivationPathSegment: Equatable {
     var isHardened: Bool
 }
 enum DerivationPathParser {
-    static func parse(_ rawPath: String) -> [DerivationPathSegment]? {
+    nonisolated static func parse(_ rawPath: String) -> [DerivationPathSegment]? {
         let trimmed = rawPath.trimmingCharacters(in: .whitespacesAndNewlines)
         let components = trimmed.split(separator: "/").map(String.init)
         guard components.first?.lowercased() == "m" else { return nil }
@@ -39,19 +39,19 @@ enum DerivationPathParser {
             guard let value = UInt32(valueString) else { return nil }
             return DerivationPathSegment(value: value, isHardened: hardened)
         }}
-    static func normalize(_ rawPath: String, fallback: String) -> String {
+    nonisolated static func normalize(_ rawPath: String, fallback: String) -> String {
         guard let segments = parse(rawPath) else { return fallback }
         return string(from: segments)
     }
-    static func string(from segments: [DerivationPathSegment]) -> String {
+    nonisolated static func string(from segments: [DerivationPathSegment]) -> String {
         let suffix = segments.map { "\($0.value)\($0.isHardened ? "'" : "")" }.joined(separator: "/")
         return suffix.isEmpty ? "m" : "m/\(suffix)"
     }
-    static func segmentValue(at index: Int, in rawPath: String) -> UInt32? {
+    nonisolated static func segmentValue(at index: Int, in rawPath: String) -> UInt32? {
         guard let segments = parse(rawPath), segments.indices.contains(index) else { return nil }
         return segments[index].value
     }
-    static func replacingLastTwoSegments(in rawPath: String, branch: UInt32, index: UInt32, fallback: String) -> String {
+    nonisolated static func replacingLastTwoSegments(in rawPath: String, branch: UInt32, index: UInt32, fallback: String) -> String {
         let normalized = normalize(rawPath, fallback: fallback)
         guard var segments = parse(normalized), segments.count >= 2 else { return fallback }
         segments[segments.count - 2] = DerivationPathSegment(value: branch, isHardened: false)

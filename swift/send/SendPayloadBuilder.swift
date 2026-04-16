@@ -4,7 +4,7 @@ import Foundation
 // Every chain-specific send-payload JSON assembles through here so escaping and
 // field-ordering live in one Rust implementation rather than N Swift interpolations.
 
-enum SendField {
+enum SendField: Sendable {
     case str(String, String)
     case uint(String, UInt64)
     case int(String, Int64)
@@ -12,7 +12,7 @@ enum SendField {
     case bool(String, Bool)
     case raw(String, String)
 
-    var toJsonField: JsonField {
+    nonisolated var toJsonField: JsonField {
         switch self {
         case .str(let k, let v):    return JsonField(name: k, value: .str(value: v))
         case .uint(let k, let v):   return JsonField(name: k, value: .uInt(value: v))
@@ -24,6 +24,6 @@ enum SendField {
     }
 }
 
-func sendPayload(_ fields: SendField...) -> String {
+nonisolated func sendPayload(_ fields: SendField...) -> String {
     buildJsonObject(fields: fields.map(\.toJsonField))
 }

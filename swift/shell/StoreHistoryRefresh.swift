@@ -17,16 +17,16 @@ private enum HistoryChainID {
 extension AppState {
     private var wsb: WalletServiceBridge { WalletServiceBridge.shared }
     private func notifyHistoryMutation() { objectWillChange.send() }
-    func historyPaginationExhausted(chainId: UInt32, walletId: String) -> Bool { (try? wsb.isHistoryExhausted(chainId: chainId, walletId: walletId)) ?? false }
-    func historyPaginationCursor(chainId: UInt32, walletId: String) -> String? { try? wsb.historyNextCursor(chainId: chainId, walletId: walletId) }
-    func historyPaginationPage(chainId: UInt32, walletId: String) -> Int { Int((try? wsb.historyNextPage(chainId: chainId, walletId: walletId)) ?? 0) }
-    func setHistoryCursor(chainId: UInt32, walletId: String, cursor: String?) { try? wsb.advanceHistoryCursor(chainId: chainId, walletId: walletId, nextCursor: cursor); notifyHistoryMutation() }
-    func setHistoryPage(chainId: UInt32, walletId: String, page: Int) { try? wsb.setHistoryPage(chainId: chainId, walletId: walletId, page: UInt32(max(0, page))); notifyHistoryMutation() }
-    func markHistoryExhausted(chainId: UInt32, walletId: String) { try? wsb.setHistoryExhausted(chainId: chainId, walletId: walletId, exhausted: true); notifyHistoryMutation() }
-    func markHistoryActive(chainId: UInt32, walletId: String) { try? wsb.setHistoryExhausted(chainId: chainId, walletId: walletId, exhausted: false); notifyHistoryMutation() }
-    func resetHistoryPagination(chainId: UInt32, walletId: String) { try? wsb.resetHistory(chainId: chainId, walletId: walletId); notifyHistoryMutation() }
-    func resetHistoryPaginationForWallet(_ walletId: String) { try? wsb.resetHistoryForWallet(walletId: walletId); notifyHistoryMutation() }
-    func resetAllHistoryPagination() { try? wsb.resetAllHistory(); notifyHistoryMutation() }
+    func historyPaginationExhausted(chainId: UInt32, walletId: String) -> Bool { wsb.isHistoryExhausted(chainId: chainId, walletId: walletId) }
+    func historyPaginationCursor(chainId: UInt32, walletId: String) -> String? { wsb.historyNextCursor(chainId: chainId, walletId: walletId) }
+    func historyPaginationPage(chainId: UInt32, walletId: String) -> Int { Int(wsb.historyNextPage(chainId: chainId, walletId: walletId)) }
+    func setHistoryCursor(chainId: UInt32, walletId: String, cursor: String?) { wsb.advanceHistoryCursor(chainId: chainId, walletId: walletId, nextCursor: cursor); notifyHistoryMutation() }
+    func setHistoryPage(chainId: UInt32, walletId: String, page: Int) { wsb.setHistoryPage(chainId: chainId, walletId: walletId, page: UInt32(max(0, page))); notifyHistoryMutation() }
+    func markHistoryExhausted(chainId: UInt32, walletId: String) { wsb.setHistoryExhausted(chainId: chainId, walletId: walletId, exhausted: true); notifyHistoryMutation() }
+    func markHistoryActive(chainId: UInt32, walletId: String) { wsb.setHistoryExhausted(chainId: chainId, walletId: walletId, exhausted: false); notifyHistoryMutation() }
+    func resetHistoryPagination(chainId: UInt32, walletId: String) { wsb.resetHistory(chainId: chainId, walletId: walletId); notifyHistoryMutation() }
+    func resetHistoryPaginationForWallet(_ walletId: String) { wsb.resetHistoryForWallet(walletId: walletId); notifyHistoryMutation() }
+    func resetAllHistoryPagination() { wsb.resetAllHistory(); notifyHistoryMutation() }
 }
 // ────────────────────────────────────────────────────────────────────────────
 // Normalized history fetch: a single function replaces all per-chain
@@ -256,7 +256,6 @@ func refreshDogecoinTransactions(limit: Int? = nil, loadMore: Bool = false, targ
         return (wallet, knownDogecoinAddresses(for: wallet))
     }
     guard !walletsToRefresh.isEmpty else { return }
-    let fetchLimit = max(10, min(limit ?? HistoryPaging.endpointBatchSize, 200))
     if !loadMore {
         for walletID in Set(walletsToRefresh.map { $0.0.id }) {
             resetHistoryPagination(chainId: HistoryChainID.dogecoin, walletId: walletID)

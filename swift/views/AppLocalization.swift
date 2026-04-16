@@ -8,9 +8,9 @@ enum AppLocalization {
         let locale: Locale
         let bundles: [Bundle]
     }
-    private struct RuntimeStringCatalog: Decodable {
+    private struct RuntimeStringManifest: Decodable {
         let sourceLanguage: String
-        let locales: [String: [String: String]]
+        let availableLocales: [String]
     }
     private static let candidateBundles: [Bundle] = {
         var seen = Set<URL>()
@@ -20,8 +20,10 @@ enum AppLocalization {
         }}()
     private static var localizedStringCache: [String: String] = [:]
     private static var cachedState: LocalizationState?
-    private static var runtimeCatalog: RuntimeStringCatalog?
-    private static var runtimeCatalogLoadAttempted = false
+    private static var runtimeManifest: RuntimeStringManifest?
+    private static var manifestLoadAttempted = false
+    private static var runtimeStringsBaseURL: URL?
+    private static var loadedLocaleDicts: [String: [String: String]] = [:]
     static var locale: Locale { localizationState().locale }
     static func string(_ key: String, table: String? = nil) -> String {
         let state = localizationState()
@@ -55,7 +57,7 @@ enum AppLocalization {
             cachedState = state
             return state
         }
-        let development = loadRuntimeCatalog()?.sourceLanguage ?? Bundle.main.developmentLocalization ?? "en"
+        let development = loadManifest()?.sourceLanguage ?? Bundle.main.developmentLocalization ?? "en"
         let preferred = preferredLanguageCandidates()
         let resolved = preferred.compactMap { preferredLocalization(for: $0, supported: supported) }
         var ordered: [String] = []
@@ -77,9 +79,9 @@ enum AppLocalization {
     private static func preferenceSignature() -> String { (Locale.preferredLanguages + Bundle.main.preferredLocalizations).joined(separator: "|") }
     private static func supportedLocalizationIdentifiers() -> [String] {
         var supported = Set(Bundle.main.localizations.filter { $0 != "Base" })
-        if let catalog = loadRuntimeCatalog() {
-            supported.formUnion(catalog.locales.keys)
-            supported.insert(catalog.sourceLanguage)
+        if let manifest = loadManifest() {
+            supported.formUnion(manifest.availableLocales)
+            supported.insert(manifest.sourceLanguage)
         }
         return supported.isEmpty ? ["en"] : supported.sorted()
     }
@@ -89,7 +91,7 @@ enum AppLocalization {
         for identifier in Locale.preferredLanguages + Bundle.main.preferredLocalizations {
             for fallback in localizationFallbacks(for: identifier) where seen.insert(fallback).inserted { candidates.append(fallback) }}
         if candidates.isEmpty {
-            let fallbackIdentifiers = [loadRuntimeCatalog()?.sourceLanguage ?? Bundle.main.developmentLocalization ?? "en"]
+            let fallbackIdentifiers = [loadManifest()?.sourceLanguage ?? Bundle.main.developmentLocalization ?? "en"]
             for identifier in fallbackIdentifiers {
                 for fallback in localizationFallbacks(for: identifier) where seen.insert(fallback).inserted { candidates.append(fallback) }}}
         return candidates
@@ -112,25 +114,39 @@ enum AppLocalization {
         return fallbacks
     }
     private static func runtimeString(for key: String, localizationIdentifiers: [String]) -> String? {
-        guard let catalog = loadRuntimeCatalog() else { return nil }
+        guard loadManifest() != nil else { return nil }
         for identifier in localizationIdentifiers {
             for fallback in localizationFallbacks(for: identifier) {
-                if let value = catalog.locales[fallback]?[key] { return value }}}
-        return catalog.locales[catalog.sourceLanguage]?[key]
+                if let dict = loadLocaleDict(fallback), let value = dict[key] { return value }}}
+        if let sourceLanguage = runtimeManifest?.sourceLanguage, let dict = loadLocaleDict(sourceLanguage) { return dict[key] }
+        return nil
     }
-    private static func loadRuntimeCatalog() -> RuntimeStringCatalog? {
-        if runtimeCatalogLoadAttempted { return runtimeCatalog }
-        runtimeCatalogLoadAttempted = true
+    private static func loadManifest() -> RuntimeStringManifest? {
+        if manifestLoadAttempted { return runtimeManifest }
+        manifestLoadAttempted = true
         let decoder = JSONDecoder()
         for bundle in candidateBundles {
             guard let resourceURL = bundle.resourceURL else { continue }
-            let candidateURLs = [
-                resourceURL.appendingPathComponent("Resources", isDirectory: true).appendingPathComponent("Localization", isDirectory: true).appendingPathComponent("RuntimeStrings.json", isDirectory: false), resourceURL.appendingPathComponent("Localization", isDirectory: true).appendingPathComponent("RuntimeStrings.json", isDirectory: false), resourceURL.appendingPathComponent("RuntimeStrings.json", isDirectory: false), ]
-            for url in candidateURLs {
-                guard let data = try? Data(contentsOf: url), let catalog = try? decoder.decode(RuntimeStringCatalog.self, from: data) else { continue }
-                runtimeCatalog = catalog
-                return catalog
+            let candidateDirs = [
+                resourceURL.appendingPathComponent("Resources", isDirectory: true).appendingPathComponent("strings", isDirectory: true),
+                resourceURL.appendingPathComponent("strings", isDirectory: true),
+                resourceURL,
+            ]
+            for dir in candidateDirs {
+                let url = dir.appendingPathComponent("RuntimeStrings.manifest.json")
+                guard let data = try? Data(contentsOf: url), let manifest = try? decoder.decode(RuntimeStringManifest.self, from: data) else { continue }
+                runtimeManifest = manifest
+                runtimeStringsBaseURL = dir
+                return manifest
             }}
         return nil
+    }
+    private static func loadLocaleDict(_ locale: String) -> [String: String]? {
+        if let cached = loadedLocaleDicts[locale] { return cached }
+        guard let baseURL = runtimeStringsBaseURL else { return nil }
+        let url = baseURL.appendingPathComponent("RuntimeStrings.\(locale).json")
+        guard let data = try? Data(contentsOf: url), let dict = try? JSONDecoder().decode([String: String].self, from: data) else { return nil }
+        loadedLocaleDicts[locale] = dict
+        return dict
     }
 }

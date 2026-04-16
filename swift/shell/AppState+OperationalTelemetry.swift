@@ -138,7 +138,7 @@ extension AppState {
                 )
             }, walletID: walletID, chainName: chainName, symbol: symbol, destinationAddress: destinationAddress, amount: amount, nowUnix: Date().timeIntervalSince1970, windowSeconds: Self.selfSendConfirmationWindowSeconds, ownedAddresses: ownedAddresses
         )
-        return try? WalletRustAppCoreBridge.planSelfSendConfirmation(request)
+        return WalletRustAppCoreBridge.planSelfSendConfirmation(request)
     }
     func finalityConfirmations(for chainName: String) -> Int { Self.standardFinalityConfirmations }
     func updatedTransaction(_ transaction: TransactionRecord, status: TransactionStatus, receiptBlockNumber: Int? = nil, failureReason: String? = nil, dogecoinConfirmations: Int? = nil, dogecoinConfirmedNetworkFeeDoge: Double? = nil) -> TransactionRecord {

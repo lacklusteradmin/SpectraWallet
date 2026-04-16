@@ -69,8 +69,8 @@ enum ChainBackendRegistry {
         ])
         static var rpcURLs: [URL] { rpcBaseURLs.compactMap(URL.init(string:)) }}
     enum TONRuntimeEndpoints {
-        static let apiV2BaseURLs = AppEndpointDirectory.endpoints(for: ["ton.api.v2"])
-        static let apiV3BaseURLs = AppEndpointDirectory.endpoints(for: ["ton.api.v3"])
+        nonisolated(unsafe) static let apiV2BaseURLs = AppEndpointDirectory.endpoints(for: ["ton.api.v2"])
+        nonisolated(unsafe) static let apiV3BaseURLs = AppEndpointDirectory.endpoints(for: ["ton.api.v3"])
     }
     enum SuiRuntimeEndpoints {
         static let rpcBaseURLs = AppEndpointDirectory.endpoints(for: [

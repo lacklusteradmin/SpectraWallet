@@ -1,39 +1,39 @@
 import Foundation
-enum SpectraChainID {
-    static let bitcoin:          UInt32 = 0
-    static let ethereum:         UInt32 = 1
-    static let solana:           UInt32 = 2
-    static let dogecoin:         UInt32 = 3
-    static let xrp:              UInt32 = 4
-    static let litecoin:         UInt32 = 5
-    static let bitcoinCash:      UInt32 = 6
-    static let tron:             UInt32 = 7
-    static let stellar:          UInt32 = 8
-    static let cardano:          UInt32 = 9
-    static let polkadot:         UInt32 = 10
-    static let arbitrum:         UInt32 = 11
-    static let optimism:         UInt32 = 12
-    static let avalanche:        UInt32 = 13
-    static let sui:              UInt32 = 14
-    static let aptos:            UInt32 = 15
-    static let ton:              UInt32 = 16
-    static let near:             UInt32 = 17
-    static let icp:              UInt32 = 18
-    static let monero:           UInt32 = 19
-    static let base:             UInt32 = 20
-    static let ethereumClassic:  UInt32 = 21
-    static let bitcoinSv:        UInt32 = 22
-    static let bsc:              UInt32 = 23
-    static let hyperliquid:      UInt32 = 24
-    static let subscaOffset:   UInt32 = 100  // Polkadot Subscan
-    static let icOffset:       UInt32 = 100  // ICP Rosetta
-    static let tonV3Offset:    UInt32 = 100  // TON TonCenter v3 API
-    static let explorerOffset: UInt32 = 200  // Etherscan-compatible explorers
-    static func id(for chainName: String) -> UInt32? { chainNameTable[chainName] }
-    private static let chainNameTable: [String: UInt32] = [
+enum SpectraChainID: Sendable {
+    nonisolated static let bitcoin:          UInt32 = 0
+    nonisolated static let ethereum:         UInt32 = 1
+    nonisolated static let solana:           UInt32 = 2
+    nonisolated static let dogecoin:         UInt32 = 3
+    nonisolated static let xrp:              UInt32 = 4
+    nonisolated static let litecoin:         UInt32 = 5
+    nonisolated static let bitcoinCash:      UInt32 = 6
+    nonisolated static let tron:             UInt32 = 7
+    nonisolated static let stellar:          UInt32 = 8
+    nonisolated static let cardano:          UInt32 = 9
+    nonisolated static let polkadot:         UInt32 = 10
+    nonisolated static let arbitrum:         UInt32 = 11
+    nonisolated static let optimism:         UInt32 = 12
+    nonisolated static let avalanche:        UInt32 = 13
+    nonisolated static let sui:              UInt32 = 14
+    nonisolated static let aptos:            UInt32 = 15
+    nonisolated static let ton:              UInt32 = 16
+    nonisolated static let near:             UInt32 = 17
+    nonisolated static let icp:              UInt32 = 18
+    nonisolated static let monero:           UInt32 = 19
+    nonisolated static let base:             UInt32 = 20
+    nonisolated static let ethereumClassic:  UInt32 = 21
+    nonisolated static let bitcoinSv:        UInt32 = 22
+    nonisolated static let bsc:              UInt32 = 23
+    nonisolated static let hyperliquid:      UInt32 = 24
+    nonisolated static let subscaOffset:   UInt32 = 100  // Polkadot Subscan
+    nonisolated static let icOffset:       UInt32 = 100  // ICP Rosetta
+    nonisolated static let tonV3Offset:    UInt32 = 100  // TON TonCenter v3 API
+    nonisolated static let explorerOffset: UInt32 = 200  // Etherscan-compatible explorers
+    nonisolated static func id(for chainName: String) -> UInt32? { chainNameTable[chainName] }
+    nonisolated private static let chainNameTable: [String: UInt32] = [
         "Bitcoin":            bitcoin, "Ethereum":           ethereum, "Solana":             solana, "Dogecoin":           dogecoin, "XRP Ledger":         xrp, "Litecoin":           litecoin, "Bitcoin Cash":       bitcoinCash, "Tron":               tron, "Stellar":            stellar, "Cardano":            cardano, "Polkadot":           polkadot, "Arbitrum":           arbitrum, "Optimism":           optimism, "Avalanche":          avalanche, "Sui":                sui, "Aptos":              aptos, "TON":                ton, "NEAR":               near, "Internet Computer":  icp, "Monero":             monero, "Base":               base, "Ethereum Classic":   ethereumClassic, "Bitcoin SV":         bitcoinSv, "BNB Chain":          bsc, "Hyperliquid":        hyperliquid, ]
 }
-private struct ChainEndpointsPayload: Encodable {
+private struct ChainEndpointsPayload: Encodable, Sendable {
     let chainId: UInt32
     let endpoints: [String]
     let apiKey: String?
@@ -317,53 +317,65 @@ extension WalletServiceBridge {
     func storeHistoryCache(chainId: UInt32, address: String, json: String) throws { try service().cacheHistory(chainId: chainId, address: address, historyJson: json) }
     func invalidateHistoryCache(chainId: UInt32, address: String) throws { try service().invalidateCachedHistory(chainId: chainId, address: address) }
     func fetchHistoryCachedJSON(chainId: UInt32, address: String) async throws -> String { try await service().fetchHistoryCached(chainId: chainId, address: address) }
-    nonisolated func historyNextCursor(chainId: UInt32, walletId: String) throws -> String? { try WalletServiceBridge._syncService?.historyNextCursor(chainId: chainId, walletId: walletId) }
-    nonisolated func historyNextPage(chainId: UInt32, walletId: String) throws -> UInt32 { try WalletServiceBridge._syncService?.historyNextPage(chainId: chainId, walletId: walletId) ?? 0 }
-    nonisolated func isHistoryExhausted(chainId: UInt32, walletId: String) throws -> Bool { try WalletServiceBridge._syncService?.isHistoryExhausted(chainId: chainId, walletId: walletId) ?? false }
-    nonisolated func advanceHistoryCursor(chainId: UInt32, walletId: String, nextCursor: String?) throws { try WalletServiceBridge._syncService?.advanceHistoryCursor(chainId: chainId, walletId: walletId, nextCursor: nextCursor) }
-    nonisolated func advanceHistoryPage(chainId: UInt32, walletId: String, isLast: Bool) throws { try WalletServiceBridge._syncService?.advanceHistoryPage(chainId: chainId, walletId: walletId, isLast: isLast) }
-    nonisolated func setHistoryPage(chainId: UInt32, walletId: String, page: UInt32) throws { try WalletServiceBridge._syncService?.setHistoryPage(chainId: chainId, walletId: walletId, page: page) }
-    nonisolated func setHistoryExhausted(chainId: UInt32, walletId: String, exhausted: Bool) throws { try WalletServiceBridge._syncService?.setHistoryExhausted(chainId: chainId, walletId: walletId, exhausted: exhausted) }
-    nonisolated func resetHistory(chainId: UInt32, walletId: String) throws { try WalletServiceBridge._syncService?.resetHistory(chainId: chainId, walletId: walletId) }
-    nonisolated func resetHistoryForWallet(walletId: String) throws { try WalletServiceBridge._syncService?.resetHistoryForWallet(walletId: walletId) }
-    nonisolated func resetHistoryForChain(chainId: UInt32) throws { try WalletServiceBridge._syncService?.resetHistoryForChain(chainId: chainId) }
-    nonisolated func resetAllHistory() throws { try WalletServiceBridge._syncService?.resetAllHistory() }
+    nonisolated func historyNextCursor(chainId: UInt32, walletId: String) -> String? { WalletServiceBridge._syncService?.historyNextCursor(chainId: chainId, walletId: walletId) }
+    nonisolated func historyNextPage(chainId: UInt32, walletId: String) -> UInt32 { WalletServiceBridge._syncService?.historyNextPage(chainId: chainId, walletId: walletId) ?? 0 }
+    nonisolated func isHistoryExhausted(chainId: UInt32, walletId: String) -> Bool { WalletServiceBridge._syncService?.isHistoryExhausted(chainId: chainId, walletId: walletId) ?? false }
+    nonisolated func advanceHistoryCursor(chainId: UInt32, walletId: String, nextCursor: String?) { WalletServiceBridge._syncService?.advanceHistoryCursor(chainId: chainId, walletId: walletId, nextCursor: nextCursor) }
+    nonisolated func advanceHistoryPage(chainId: UInt32, walletId: String, isLast: Bool) { WalletServiceBridge._syncService?.advanceHistoryPage(chainId: chainId, walletId: walletId, isLast: isLast) }
+    nonisolated func setHistoryPage(chainId: UInt32, walletId: String, page: UInt32) { WalletServiceBridge._syncService?.setHistoryPage(chainId: chainId, walletId: walletId, page: page) }
+    nonisolated func setHistoryExhausted(chainId: UInt32, walletId: String, exhausted: Bool) { WalletServiceBridge._syncService?.setHistoryExhausted(chainId: chainId, walletId: walletId, exhausted: exhausted) }
+    nonisolated func resetHistory(chainId: UInt32, walletId: String) { WalletServiceBridge._syncService?.resetHistory(chainId: chainId, walletId: walletId) }
+    nonisolated func resetHistoryForWallet(walletId: String) { WalletServiceBridge._syncService?.resetHistoryForWallet(walletId: walletId) }
+    nonisolated func resetHistoryForChain(chainId: UInt32) { WalletServiceBridge._syncService?.resetHistoryForChain(chainId: chainId) }
+    nonisolated func resetAllHistory() { WalletServiceBridge._syncService?.resetAllHistory() }
     func fetchUTXOTxStatusJSON(chainId: UInt32, txid: String) async throws -> String { try await service().fetchUtxoTxStatus(chainId: chainId, txid: txid) }
     private func sqliteDbPath() -> String {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? NSTemporaryDirectory()
         return "\(docs)/spectra_state.db"
     }
 }
-struct SolanaBalanceResponse: Decodable {
+struct SolanaBalanceResponse: Sendable {
     let lamports: UInt64
     let solDisplay: String
-    enum CodingKeys: String, CodingKey {
-        case lamports
-        case solDisplay = "sol_display"
+}
+extension SolanaBalanceResponse: Decodable {
+    private enum CodingKeys: String, CodingKey { case lamports; case solDisplay = "sol_display" }
+    nonisolated init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        lamports = try c.decode(UInt64.self, forKey: .lamports)
+        solDisplay = try c.decode(String.self, forKey: .solDisplay)
     }
 }
-struct NearBalanceResponse: Decodable {
+struct NearBalanceResponse: Sendable {
     let yoctoNear: String
     let nearDisplay: String
-    enum CodingKeys: String, CodingKey {
-        case yoctoNear  = "yocto_near"
-        case nearDisplay = "near_display"
+}
+extension NearBalanceResponse: Decodable {
+    private enum CodingKeys: String, CodingKey { case yoctoNear = "yocto_near"; case nearDisplay = "near_display" }
+    nonisolated init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        yoctoNear = try c.decode(String.self, forKey: .yoctoNear)
+        nearDisplay = try c.decode(String.self, forKey: .nearDisplay)
     }
 }
-struct Erc20BalanceResponse: Decodable {
+struct Erc20BalanceResponse: Sendable {
     let contract: String
     let holder: String
     let balanceRaw: String
     let balanceDisplay: String
     let decimals: UInt8
     let symbol: String
-    enum CodingKeys: String, CodingKey {
-        case contract
-        case holder
-        case balanceRaw = "balance_raw"
-        case balanceDisplay = "balance_display"
-        case decimals
-        case symbol
+}
+extension Erc20BalanceResponse: Decodable {
+    private enum CodingKeys: String, CodingKey { case contract; case holder; case balanceRaw = "balance_raw"; case balanceDisplay = "balance_display"; case decimals; case symbol }
+    nonisolated init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        contract = try c.decode(String.self, forKey: .contract)
+        holder = try c.decode(String.self, forKey: .holder)
+        balanceRaw = try c.decode(String.self, forKey: .balanceRaw)
+        balanceDisplay = try c.decode(String.self, forKey: .balanceDisplay)
+        decimals = try c.decode(UInt8.self, forKey: .decimals)
+        symbol = try c.decode(String.self, forKey: .symbol)
     }
 }
 enum WalletServiceBridgeError: LocalizedError {

@@ -30,6 +30,16 @@ PATCH_TMP="$(mktemp -t spectra_core.swift.XXXXXX)"
 sed \
   -e 's/@escaping UniffiRustFutureContinuationCallback/UniffiRustFutureContinuationCallback/g' \
   -e 's/^fileprivate func uniffiFutureContinuationCallback/nonisolated fileprivate func uniffiFutureContinuationCallback/' \
+  -e 's/^fileprivate let uniffiContinuationHandleMap/fileprivate nonisolated(unsafe) let uniffiContinuationHandleMap/' \
+  -e 's/^public func /nonisolated public func /' \
+  -e 's/^open func /nonisolated open func /' \
+  -e '/^    func .*[^{]$/s/^    func /    nonisolated func /' \
+  -e 's/^    required public init/    nonisolated required public init/' \
+  -e 's/^    public convenience init/    nonisolated public convenience init/' \
+  -e 's/^    public init/    nonisolated public init/' \
+  -e 's/^public convenience init/nonisolated public convenience init/' \
+  -e 's/^public init/nonisolated public init/' \
+  -e 's/^required public init/nonisolated required public init/' \
   "${OUT_DIR}/spectra_core.swift" > "${PATCH_TMP}"
 mv "${PATCH_TMP}" "${OUT_DIR}/spectra_core.swift"
 

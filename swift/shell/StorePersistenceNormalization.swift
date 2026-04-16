@@ -16,7 +16,7 @@ private func encodeHistoryRecords(_ snapshots: [CorePersistedTransactionRecord])
     return try? WalletRustAppCoreBridge.encodeHistoryRecordsJSON(inputs)
 }
 extension AppState {
-    func rebuildTokenPreferenceDerivedState() {
+    func rebuildTokenPreferenceDerivedState() { batchCacheUpdates {
         let resolvedPreferences = tokenPreferences.isEmpty ? ChainTokenRegistryEntry.builtIn.map(\.tokenPreferenceEntry) : tokenPreferences
         cachedResolvedTokenPreferences = resolvedPreferences
         cachedTokenPreferencesByChain = Dictionary(grouping: resolvedPreferences, by: \.chain)
@@ -26,8 +26,10 @@ extension AppState {
         cachedEnabledTrackedTokenPreferences = resolvedPreferences.filter(\.isEnabled)
         cachedTokenPreferenceByChainAndSymbol = resolvedPreferences.reduce(into: [:]) { partialResult, entry in
             partialResult[tokenPreferenceLookupKey(chainName: entry.chain.rawValue, symbol: entry.symbol)] = entry
-        }}
-    func rebuildWalletDerivedState() {
+        }
+    }}
+    func rebuildWalletDerivedState() { batchCacheUpdates { _rebuildWalletDerivedStateBody() } }
+    private func _rebuildWalletDerivedStateBody() {
         cachedWalletByID = Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) })
         cachedWalletByIDString = Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) })
         cachedRefreshableChainNames = Set(wallets.map(\.selectedChain))
@@ -85,8 +87,10 @@ extension AppState {
         cachedReceiveEnabledWallets = receiveWallets
     }
     func applyWalletCollectionSideEffects() {
-        rebuildWalletDerivedState()
-        rebuildDashboardDerivedState()
+        batchCacheUpdates {
+            rebuildWalletDerivedState()
+            rebuildDashboardDerivedState()
+        }
         updateRefreshEngineEntries()
         walletSideEffectsTask?.cancel()
         walletSideEffectsTask = Task { [weak self] in
@@ -202,7 +206,7 @@ extension AppState {
         let request = WalletRustTransactionMergeRequest(
             existingTransactions: existingTransactions.map(\.rustBridgeRecord), incomingTransactions: incomingTransactions.map(\.rustBridgeRecord), strategy: strategy, chainName: chainName, includeSymbolInIdentity: includeSymbolInIdentity, preserveCreatedAtSentinelUnix: preserveCreatedAtSentinelUnix
         )
-        guard let mergedRecords = try? WalletRustAppCoreBridge.mergeTransactions(request) else { return nil }
+        let mergedRecords = WalletRustAppCoreBridge.mergeTransactions(request)
         var resolvedTransactions: [TransactionRecord] = []
         resolvedTransactions.reserveCapacity(mergedRecords.count)
         for record in mergedRecords {
@@ -344,14 +348,8 @@ private extension AppState {
                 )
             }
         )
-        do {
-            return try WalletRustAppCoreBridge.planStoreDerivedState(request)
-        } catch {
-            assertionFailure("Rust store derived-state planning failed: \(error)")
-            return WalletRustStoreDerivedStatePlan(
-                includedPortfolioHoldingRefs: [], uniquePriceRequestHoldingRefs: [], groupedPortfolio: [], signingMaterialWalletIDs: [], privateKeyBackedWalletIDs: []
-            )
-        }}
+        return WalletRustAppCoreBridge.planStoreDerivedState(request)
+    }
     func resolveHolding(_ reference: WalletRustWalletHoldingRef, in wallets: [ImportedWallet]) -> Coin? {
         guard let wallet = cachedWalletByIDString[reference.walletID]
             ?? wallets.first(where: { $0.id == reference.walletID }), wallet.holdings.indices.contains(reference.holdingIndex) else {
@@ -372,12 +370,6 @@ private extension AppState {
                 )
             }
         )
-        do {
-            return try WalletRustAppCoreBridge.planTransferAvailability(request)
-        } catch {
-            assertionFailure("Rust transfer availability planning failed: \(error)")
-            return WalletRustTransferAvailabilityPlan(
-                wallets: [], sendEnabledWalletIDs: [], receiveEnabledWalletIDs: []
-            )
-        }}
+        return WalletRustAppCoreBridge.planTransferAvailability(request)
+    }
 }

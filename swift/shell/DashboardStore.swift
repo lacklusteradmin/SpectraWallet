@@ -117,7 +117,8 @@ extension AppState {
     }
     var dashboardAssetGroups: [DashboardAssetGroup] { cachedDashboardAssetGroups }
     func dashboardSupportedTokenEntries(symbol: String) -> [TokenPreferenceEntry] { cachedDashboardSupportedTokenEntriesBySymbol[symbol.uppercased()] ?? [] }
-    func rebuildDashboardDerivedState() {
+    func rebuildDashboardDerivedState() { batchCacheUpdates { _rebuildDashboardDerivedStateBody() } }
+    private func _rebuildDashboardDerivedStateBody() {
         let includedHoldings = cachedIncludedPortfolioHoldings
         let holdingsBySymbol = cachedIncludedPortfolioHoldingsBySymbol
         let trackedEntriesBySymbol = cachedResolvedTokenPreferencesBySymbol
@@ -199,7 +200,6 @@ extension AppState {
         }
         let existingPinnedSymbols = Set(groups.map { $0.symbol.uppercased() })
         for symbol in storedPinnedSymbols where !existingPinnedSymbols.contains(symbol) {
-            let stableSymbols: Set<String> = ["USDC", "USDT", "FDUSD", "TUSD"]
             var prototype: Coin? = holdingsBySymbol[symbol]?.first
             if prototype == nil, let entry = trackedEntriesBySymbol[symbol]?.first {
                 prototype = prototypeCoinForTrackedEntry(entry)

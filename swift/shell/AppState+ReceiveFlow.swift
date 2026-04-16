@@ -79,7 +79,7 @@ extension AppState {
                 let simpleResolvers: [String: (ImportedWallet) -> String?] = [
                     "Tron": resolvedTronAddress(for:), "Solana": resolvedSolanaAddress(for:), "Cardano": resolvedCardanoAddress(for:), "XRP Ledger": resolvedXRPAddress(for:), "Stellar": resolvedStellarAddress(for:), "Monero": resolvedMoneroAddress(for:), "Sui": resolvedSuiAddress(for:), "Aptos": resolvedAptosAddress(for:), "TON": resolvedTONAddress(for:), "Internet Computer": resolvedICPAddress(for:), "NEAR": resolvedNearAddress(for:), "Polkadot": resolvedPolkadotAddress(for:),
                 ]
-                chainAddress = simpleResolvers[receiveCoin.chainName]?(wallet) ?? nil
+                chainAddress = simpleResolvers[receiveCoin.chainName]?(wallet)
             }
         }
         let hasWatchAddress = wallet.dogecoinAddress?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false

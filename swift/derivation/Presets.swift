@@ -1,26 +1,26 @@
 import Foundation
-struct WalletDerivationNetworkPreset: Codable, Equatable, Identifiable {
+struct WalletDerivationNetworkPreset: Codable, Equatable, Identifiable, Sendable {
     let network: WalletDerivationNetwork
     let title: String
     let detail: String
     let isDefault: Bool
-    var id: String { network.rawValue }
+    nonisolated var id: String { network.rawValue }
 }
-struct WalletDerivationPathPreset: Codable, Equatable, Identifiable {
+struct WalletDerivationPathPreset: Codable, Equatable, Identifiable, Sendable {
     let title: String
     let detail: String
     let derivationPath: String
     let isDefault: Bool
-    var id: String { "\(title)|\(derivationPath)" }
-    var uiPreset: SeedDerivationPathPreset { SeedDerivationPathPreset(title: title, detail: detail, path: derivationPath) }
+    nonisolated var id: String { "\(title)|\(derivationPath)" }
+    nonisolated var uiPreset: SeedDerivationPathPreset { SeedDerivationPathPreset(title: title, detail: detail, path: derivationPath) }
 }
-struct WalletDerivationChainPreset: Codable, Equatable {
+struct WalletDerivationChainPreset: Codable, Equatable, Sendable {
     let chain: SeedDerivationChain
     let curve: WalletDerivationCurve
     let networks: [WalletDerivationNetworkPreset]
     let derivationPaths: [WalletDerivationPathPreset]
-    var defaultNetwork: WalletDerivationNetworkPreset { networks.first(where: \.isDefault) ?? networks[0] }
-    var defaultPath: WalletDerivationPathPreset { derivationPaths.first(where: \.isDefault) ?? derivationPaths[0] }
+    nonisolated var defaultNetwork: WalletDerivationNetworkPreset { networks.first(where: \.isDefault) ?? networks[0] }
+    nonisolated var defaultPath: WalletDerivationPathPreset { derivationPaths.first(where: \.isDefault) ?? derivationPaths[0] }
 }
 enum WalletDerivationRequestDerivationAlgorithmPreset: String, Codable, Equatable {
     case bip32Secp256k1
@@ -48,7 +48,7 @@ enum WalletDerivationRequestScriptPolicyPreset: String, Codable, Equatable {
     case fixed
     case bitcoinPurpose
 }
-struct WalletDerivationRequestCompilationPreset: Codable, Equatable {
+struct WalletDerivationRequestCompilationPreset: Codable, Equatable, Sendable {
     let chain: SeedDerivationChain
     let derivationAlgorithm: WalletDerivationRequestDerivationAlgorithmPreset
     let addressAlgorithm: WalletDerivationRequestAddressAlgorithmPreset
@@ -71,28 +71,28 @@ extension WalletDerivationRequestedOutputs {
     }
 }
 enum WalletDerivationPresetCatalog {
-    static let all: [WalletDerivationChainPreset] = load()
-    static let requestCompilationAll: [WalletDerivationRequestCompilationPreset] = loadRequestCompilation()
-    static func chainPreset(for chain: SeedDerivationChain) -> WalletDerivationChainPreset {
+    nonisolated(unsafe) static let all: [WalletDerivationChainPreset] = load()
+    nonisolated(unsafe) static let requestCompilationAll: [WalletDerivationRequestCompilationPreset] = loadRequestCompilation()
+    nonisolated static func chainPreset(for chain: SeedDerivationChain) -> WalletDerivationChainPreset {
         guard let preset = all.first(where: { $0.chain == chain }) else {
             fatalError("Missing derivation preset for \(chain.rawValue)")
         }
         return preset
     }
-    static func networkPresets(for chain: SeedDerivationChain) -> [WalletDerivationNetworkPreset] { chainPreset(for: chain).networks }
-    static func pathPresets(for chain: SeedDerivationChain) -> [WalletDerivationPathPreset] { chainPreset(for: chain).derivationPaths }
-    static func curve(for chain: SeedDerivationChain) -> WalletDerivationCurve { chainPreset(for: chain).curve }
-    static func requestCompilationPreset(for chain: SeedDerivationChain) -> WalletDerivationRequestCompilationPreset {
+    nonisolated static func networkPresets(for chain: SeedDerivationChain) -> [WalletDerivationNetworkPreset] { chainPreset(for: chain).networks }
+    nonisolated static func pathPresets(for chain: SeedDerivationChain) -> [WalletDerivationPathPreset] { chainPreset(for: chain).derivationPaths }
+    nonisolated static func curve(for chain: SeedDerivationChain) -> WalletDerivationCurve { chainPreset(for: chain).curve }
+    nonisolated static func requestCompilationPreset(for chain: SeedDerivationChain) -> WalletDerivationRequestCompilationPreset {
         guard let preset = requestCompilationAll.first(where: { $0.chain == chain }) else {
             fatalError("Missing derivation request compilation preset for \(chain.rawValue)")
         }
         return preset
     }
-    static func defaultNetwork(for chain: SeedDerivationChain) -> WalletDerivationNetworkPreset { chainPreset(for: chain).defaultNetwork }
-    static func defaultPathPreset(for chain: SeedDerivationChain) -> WalletDerivationPathPreset { chainPreset(for: chain).defaultPath }
-    static func defaultPreset(for chain: SeedDerivationChain) -> WalletDerivationPathPreset { defaultPathPreset(for: chain) }
-    static func defaultPath(for chain: SeedDerivationChain, network _: WalletDerivationNetwork = .mainnet) -> String { return chainPreset(for: chain).defaultPath.derivationPath }
-    static func mainnetUIPresets(for chain: SeedDerivationChain) -> [SeedDerivationPathPreset] { pathPresets(for: chain).map(\.uiPreset) }
+    nonisolated static func defaultNetwork(for chain: SeedDerivationChain) -> WalletDerivationNetworkPreset { chainPreset(for: chain).defaultNetwork }
+    nonisolated static func defaultPathPreset(for chain: SeedDerivationChain) -> WalletDerivationPathPreset { chainPreset(for: chain).defaultPath }
+    nonisolated static func defaultPreset(for chain: SeedDerivationChain) -> WalletDerivationPathPreset { defaultPathPreset(for: chain) }
+    nonisolated static func defaultPath(for chain: SeedDerivationChain, network _: WalletDerivationNetwork = .mainnet) -> String { return chainPreset(for: chain).defaultPath.derivationPath }
+    nonisolated static func mainnetUIPresets(for chain: SeedDerivationChain) -> [SeedDerivationPathPreset] { pathPresets(for: chain).map(\.uiPreset) }
     private static func load() -> [WalletDerivationChainPreset] {
         do {
             return try WalletRustAppCoreBridge.chainPresets()

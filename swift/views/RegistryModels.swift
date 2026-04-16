@@ -18,11 +18,11 @@ struct WalletChainID: Hashable, Codable, Identifiable, Comparable {
         let collapsed = normalized.replacingOccurrences(of: "[^a-z0-9]+", with: "-", options: .regularExpression)
         return collapsed.trimmingCharacters(in: CharacterSet(charactersIn: "-"))
     }
-    nonisolated(unsafe) private static let chainWikiEntries: [ChainWikiEntry] = StaticContentCatalog.loadResource("ChainWikiEntries", as: [ChainWikiEntry].self) ?? []
-    nonisolated(unsafe) private static let displayNameByID: [String: String] = Dictionary(
+    nonisolated private static let chainWikiEntries: [ChainWikiEntry] = StaticContentCatalog.loadResource("ChainWikiEntries", as: [ChainWikiEntry].self) ?? []
+    nonisolated private static let displayNameByID: [String: String] = Dictionary(
         uniqueKeysWithValues: chainWikiEntries.map { ($0.id.lowercased(), $0.name) }
     )
-    nonisolated(unsafe) private static let lookupByNormalizedAlias: [String: String] = {
+    nonisolated private static let lookupByNormalizedAlias: [String: String] = {
         var entries: [String: String] = [:]
         for entry in chainWikiEntries {
             entries[entry.id.lowercased()] = entry.id

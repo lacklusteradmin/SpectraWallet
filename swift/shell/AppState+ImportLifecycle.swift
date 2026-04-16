@@ -131,18 +131,7 @@ func resetImportForm() {
         for addresses in chainOwnedAddressMapByChain.values {
             for value in addresses.values where value.walletID == walletID { appendAddress(value.address) }}
         let request = WalletRustOwnedAddressAggregationRequest(candidateAddresses: candidateAddresses)
-        if let aggregated = try? WalletRustAppCoreBridge.aggregateOwnedAddresses(request) { return aggregated }
-        var ordered: [String] = []
-        var seen: Set<String> = []
-        for candidate in candidateAddresses {
-            let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty else { continue }
-            let normalized = trimmed.lowercased()
-            guard !seen.contains(normalized) else { continue }
-            seen.insert(normalized)
-            ordered.append(trimmed)
-        }
-        return ordered
+        return WalletRustAppCoreBridge.aggregateOwnedAddresses(request)
     }
     func canRevealSeedPhrase(for walletID: String) -> Bool { storedSeedPhrase(for: walletID) != nil }
     func verifySeedPhrasePassword(_ password: String, for walletID: String) -> Bool {
@@ -197,7 +186,7 @@ func resetImportForm() {
                 )
             }
         )
-        return try? WalletRustAppCoreBridge.planReceiveSelection(request)
+        return WalletRustAppCoreBridge.planReceiveSelection(request)
     }
     var sendEnabledWallets: [ImportedWallet] { cachedSendEnabledWallets }
     var receiveEnabledWallets: [ImportedWallet] { cachedReceiveEnabledWallets }

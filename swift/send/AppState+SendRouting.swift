@@ -56,7 +56,8 @@ extension AppState {
         let request = WalletRustSendPreviewRoutingRequest(
             asset: rustSendAssetRoutingInput(for: coin)
         )
-        guard let plan = try? WalletRustAppCoreBridge.planSendPreviewRouting(request), let activePreviewKind = plan.activePreviewKind else { return nil }
+        let plan = WalletRustAppCoreBridge.planSendPreviewRouting(request)
+        guard let activePreviewKind = plan.activePreviewKind else { return nil }
         return SendPreviewKind(rawValue: activePreviewKind)
     }
     private func rustSendAssetRoutingInput(for coin: Coin) -> WalletRustSendAssetRoutingInput {

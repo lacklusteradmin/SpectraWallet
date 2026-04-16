@@ -109,28 +109,28 @@ struct SendView: View {
                     store.saveLastSentRecipientToAddressBook()
                 } label: {
                     Label(
-                        store.canSaveLastSentRecipientToAddressBook() ? "Save Recipient To Address Book" : "Recipient Already Saved", systemImage: store.canSaveLastSentRecipientToAddressBook() ? "book.closed" : "checkmark.circle"
+                        store.canSaveLastSentRecipientToAddressBook() ? localized("Save Recipient To Address Book") : localized("Recipient Already Saved"), systemImage: store.canSaveLastSentRecipientToAddressBook() ? "book.closed" : "checkmark.circle"
                     ).font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 10)
                 }.disabled(!store.canSaveLastSentRecipientToAddressBook())
             }}
-        optionalSendingSection(store.isSendingBitcoin, "Broadcasting Bitcoin transaction...")
-        optionalSendingSection(store.isSendingBitcoinCash, "Broadcasting Bitcoin Cash transaction...")
-        optionalSendingSection(store.isSendingBitcoinSV, "Broadcasting Bitcoin SV transaction...")
-        optionalSendingSection(store.isSendingLitecoin, "Broadcasting Litecoin transaction...")
-        optionalSendingSection(store.isSendingEthereum, "Broadcasting \(store.selectedSendCoin?.chainName ?? "EVM") transaction...")
-        optionalSendingSection(store.isSendingDogecoin, "Broadcasting Dogecoin transaction...")
-        optionalSendingSection(store.isSendingTron, "Broadcasting Tron transaction...")
-        optionalSendingSection(store.isSendingSolana, "Broadcasting Solana transaction...")
-        optionalSendingSection(store.isSendingXRP, "Broadcasting XRP transaction...")
-        optionalSendingSection(store.isSendingStellar, "Broadcasting Stellar transaction...")
-        optionalSendingSection(store.isSendingMonero, "Broadcasting Monero transaction...")
-        optionalSendingSection(store.isSendingCardano, "Broadcasting Cardano transaction...")
-        optionalSendingSection(store.isSendingSui, "Broadcasting Sui transaction...")
-        optionalSendingSection(store.isSendingAptos, "Broadcasting Aptos transaction...")
-        optionalSendingSection(store.isSendingTON, "Broadcasting TON transaction...")
-        optionalSendingSection(store.isSendingICP, "Broadcasting Internet Computer transaction...")
-        optionalSendingSection(store.isSendingNear, "Broadcasting NEAR transaction...")
-        optionalSendingSection(store.isSendingPolkadot, "Broadcasting Polkadot transaction...")
+        optionalSendingSection(store.isSendingBitcoin, localized("Broadcasting Bitcoin transaction..."))
+        optionalSendingSection(store.isSendingBitcoinCash, localized("Broadcasting Bitcoin Cash transaction..."))
+        optionalSendingSection(store.isSendingBitcoinSV, localized("Broadcasting Bitcoin SV transaction..."))
+        optionalSendingSection(store.isSendingLitecoin, localized("Broadcasting Litecoin transaction..."))
+        optionalSendingSection(store.isSendingEthereum, localized("Broadcasting \(store.selectedSendCoin?.chainName ?? "EVM") transaction..."))
+        optionalSendingSection(store.isSendingDogecoin, localized("Broadcasting Dogecoin transaction..."))
+        optionalSendingSection(store.isSendingTron, localized("Broadcasting Tron transaction..."))
+        optionalSendingSection(store.isSendingSolana, localized("Broadcasting Solana transaction..."))
+        optionalSendingSection(store.isSendingXRP, localized("Broadcasting XRP transaction..."))
+        optionalSendingSection(store.isSendingStellar, localized("Broadcasting Stellar transaction..."))
+        optionalSendingSection(store.isSendingMonero, localized("Broadcasting Monero transaction..."))
+        optionalSendingSection(store.isSendingCardano, localized("Broadcasting Cardano transaction..."))
+        optionalSendingSection(store.isSendingSui, localized("Broadcasting Sui transaction..."))
+        optionalSendingSection(store.isSendingAptos, localized("Broadcasting Aptos transaction..."))
+        optionalSendingSection(store.isSendingTON, localized("Broadcasting TON transaction..."))
+        optionalSendingSection(store.isSendingICP, localized("Broadcasting Internet Computer transaction..."))
+        optionalSendingSection(store.isSendingNear, localized("Broadcasting NEAR transaction..."))
+        optionalSendingSection(store.isSendingPolkadot, localized("Broadcasting Polkadot transaction..."))
     }
     @ViewBuilder
     private func optionalSendingSection(_ isActive: Bool, _ message: String) -> some View {
@@ -161,7 +161,7 @@ struct SendView: View {
     @ViewBuilder
     private func sendPreviewDetailsSection(for selectedCoin: Coin) -> some View {
         if let details = store.sendPreviewDetails(for: selectedCoin), details.hasVisibleContent {
-            Section("Preview Details") {
+            Section(localized("Preview Details")) {
                 if let spendableBalance = details.spendableBalance { Text("Spendable Balance: \(formattedPreviewAssetAmount(spendableBalance, for: selectedCoin))") }
                 if let feeRateDescription = details.feeRateDescription { Text("Fee Rate: \(feeRateDescription)") }
                 if let estimatedTransactionBytes = details.estimatedTransactionBytes { Text("Estimated Size: \(estimatedTransactionBytes) bytes") }
@@ -174,26 +174,26 @@ struct SendView: View {
     @ViewBuilder
     private func networkSendSections(selectedCoin: Coin?) -> some View {
         if let selectedCoin, selectedCoin.chainName == "Bitcoin" || selectedCoin.chainName == "Bitcoin Cash" || selectedCoin.chainName == "Bitcoin SV" || selectedCoin.chainName == "Litecoin" || selectedCoin.chainName == "Dogecoin" {
-            Section("Advanced UTXO Mode") {
-                Toggle("Enable Advanced Controls", isOn: sendAdvancedModeBinding)
+            Section(localized("Advanced UTXO Mode")) {
+                Toggle(localized("Enable Advanced Controls"), isOn: sendAdvancedModeBinding)
                 if store.sendAdvancedMode {
                     Stepper(
                         "Max Inputs: \(store.sendUTXOMaxInputCount == 0 ? "Auto" : "\(store.sendUTXOMaxInputCount)")", value: sendUTXOMaxInputCountBinding, in: 0 ... 50
                     )
                     if selectedCoin.chainName == "Litecoin" {
-                        Toggle("Enable RBF Policy", isOn: sendEnableRBFBinding)
-                        Picker("Change Strategy", selection: sendLitecoinChangeStrategyBinding) {
+                        Toggle(localized("Enable RBF Policy"), isOn: sendEnableRBFBinding)
+                        Picker(localized("Change Strategy"), selection: sendLitecoinChangeStrategyBinding) {
                             ForEach(LitecoinChangeStrategy.allCases) { strategy in Text(strategy.displayName).tag(strategy) }}.pickerStyle(.menu)
-                        Text("For LTC sends, max input cap is applied for coin selection, RBF policy is encoded in input sequence numbers, and change strategy controls whether change uses a derived change path or your source address.").font(.caption).foregroundStyle(.secondary)
+                        Text(localized("For LTC sends, max input cap is applied for coin selection, RBF policy is encoded in input sequence numbers, and change strategy controls whether change uses a derived change path or your source address.")).font(.caption).foregroundStyle(.secondary)
                     } else {
-                        Toggle("RBF Intent", isOn: sendEnableRBFBinding)
-                        Toggle("CPFP Intent", isOn: sendEnableCPFPBinding)
-                        if selectedCoin.chainName == "Bitcoin" { Text("For Bitcoin sends, advanced mode records RBF/CPFP intent and applies the max-input cap for coin selection.").font(.caption).foregroundStyle(.secondary) } else if selectedCoin.chainName == "Bitcoin Cash" { Text("For Bitcoin Cash sends, advanced mode records RBF intent and applies the max-input cap for coin selection.").font(.caption).foregroundStyle(.secondary) } else if selectedCoin.chainName == "Dogecoin" { Text("For Dogecoin sends, advanced mode records RBF/CPFP intent and applies the max-input cap for coin selection.").font(.caption).foregroundStyle(.secondary) }}}}}
+                        Toggle(localized("RBF Intent"), isOn: sendEnableRBFBinding)
+                        Toggle(localized("CPFP Intent"), isOn: sendEnableCPFPBinding)
+                        if selectedCoin.chainName == "Bitcoin" { Text(localized("For Bitcoin sends, advanced mode records RBF/CPFP intent and applies the max-input cap for coin selection.")).font(.caption).foregroundStyle(.secondary) } else if selectedCoin.chainName == "Bitcoin Cash" { Text(localized("For Bitcoin Cash sends, advanced mode records RBF intent and applies the max-input cap for coin selection.")).font(.caption).foregroundStyle(.secondary) } else if selectedCoin.chainName == "Dogecoin" { Text(localized("For Dogecoin sends, advanced mode records RBF/CPFP intent and applies the max-input cap for coin selection.")).font(.caption).foregroundStyle(.secondary) }}}}}
         if let selectedCoin, selectedCoin.chainName != "Bitcoin", selectedCoin.chainName != "Bitcoin Cash", selectedCoin.chainName != "Bitcoin SV", selectedCoin.chainName != "Litecoin", selectedCoin.chainName != "Dogecoin" {
-            Section("Fee Priority") {
-                Picker("Fee Priority", selection: chainFeePriorityBinding(for: selectedCoin.chainName)) {
+            Section(localized("Fee Priority")) {
+                Picker(localized("Fee Priority"), selection: chainFeePriorityBinding(for: selectedCoin.chainName)) {
                     ForEach(ChainFeePriorityOption.allCases) { priority in Text(priority.displayName).tag(priority) }}.pickerStyle(.segmented)
-                Text("Spectra stores this preference per chain. Some networks still use provider-managed fee estimation in this build.").font(.caption).foregroundStyle(.secondary)
+                Text(localized("Spectra stores this preference per chain. Some networks still use provider-managed fee estimation in this build.")).font(.caption).foregroundStyle(.secondary)
             }}
         if let selectedCoin, ((selectedCoin.chainName == "Bitcoin" && selectedCoin.symbol == "BTC")
                || (selectedCoin.chainName == "Bitcoin Cash" && selectedCoin.symbol == "BCH")
@@ -202,14 +202,14 @@ struct SendView: View {
                || (selectedCoin.chainName == "Dogecoin" && selectedCoin.symbol == "DOGE")) {
             let feeSymbol = selectedCoin.symbol
             let utxoPreview = utxoPreview(for: selectedCoin)
-            Section("\(selectedCoin.chainName) Network") {
-                Picker("Fee Priority", selection: chainFeePriorityBinding(for: selectedCoin.chainName)) {
+            Section(localized("\(selectedCoin.chainName) Network")) {
+                Picker(localized("Fee Priority"), selection: chainFeePriorityBinding(for: selectedCoin.chainName)) {
                     ForEach(ChainFeePriorityOption.allCases) { priority in Text(priority.displayName).tag(priority) }}.pickerStyle(.segmented)
-                Text("Spectra stores fee priority separately for each UTXO chain and applies it to live send previews for supported chains.").font(.caption).foregroundStyle(.secondary)
+                Text(localized("Spectra stores fee priority separately for each UTXO chain and applies it to live send previews for supported chains.")).font(.caption).foregroundStyle(.secondary)
                 if selectedCoin.chainName == "Dogecoin", store.isPreparingDogecoinSend {
                     HStack(spacing: 10) {
                         ProgressView()
-                        Text("Loading UTXOs and fee estimate...").font(.caption)
+                        Text(localized("Loading UTXOs and fee estimate...")).font(.caption)
                     }
                 } else if selectedCoin.chainName == "Dogecoin", let dogecoinSendPreview = store.dogecoinSendPreview {
                     if let fiatFee = store.formattedFiatAmount(fromNative: dogecoinSendPreview.estimatedNetworkFeeDoge, symbol: feeSymbol) { Text("Estimated Network Fee: \(dogecoinSendPreview.estimatedNetworkFeeDoge, specifier: "%.6f") \(feeSymbol) (~\(fiatFee))") } else { Text("Estimated Network Fee: \(dogecoinSendPreview.estimatedNetworkFeeDoge, specifier: "%.6f") \(feeSymbol)") }
@@ -219,32 +219,32 @@ struct SendView: View {
                     if let fiatFee = store.formattedFiatAmount(fromNative: utxoPreview.estimatedNetworkFeeBtc, symbol: feeSymbol) { Text("Estimated Network Fee: \(utxoPreview.estimatedNetworkFeeBtc, specifier: "%.8f") \(feeSymbol) (~\(fiatFee))") } else { Text("Estimated Network Fee: \(utxoPreview.estimatedNetworkFeeBtc, specifier: "%.8f") \(feeSymbol)") }
                 } else { Text("Enter amount to preview estimated \(selectedCoin.chainName) network fee.").font(.caption).foregroundStyle(.secondary) }}}
         if let selectedCoin, (selectedCoin.chainName == "Ethereum" || selectedCoin.chainName == "Ethereum Classic" || selectedCoin.chainName == "Arbitrum" || selectedCoin.chainName == "Optimism" || selectedCoin.chainName == "BNB Chain" || selectedCoin.chainName == "Avalanche" || selectedCoin.chainName == "Hyperliquid") {
-            Section("\(selectedCoin.chainName) Network") {
-                Toggle("Use Custom Fees", isOn: useCustomEthereumFeesBinding)
+            Section(localized("\(selectedCoin.chainName) Network")) {
+                Toggle(localized("Use Custom Fees"), isOn: useCustomEthereumFeesBinding)
                 if store.useCustomEthereumFees {
-                    TextField("Max Fee (gwei)", text: customEthereumMaxFeeGweiBinding).keyboardType(.decimalPad)
-                    TextField("Priority Fee (gwei)", text: customEthereumPriorityFeeGweiBinding).keyboardType(.decimalPad)
-                    if let customEthereumFeeValidationError = store.customEthereumFeeValidationError { Text(customEthereumFeeValidationError).font(.caption).foregroundStyle(.red) } else { Text("Custom EIP-1559 fees are applied to this send and preview.").font(.caption).foregroundStyle(.secondary) }}
-                Toggle("Manual Nonce", isOn: ethereumManualNonceEnabledBinding)
+                    TextField(localized("Max Fee (gwei)"), text: customEthereumMaxFeeGweiBinding).keyboardType(.decimalPad)
+                    TextField(localized("Priority Fee (gwei)"), text: customEthereumPriorityFeeGweiBinding).keyboardType(.decimalPad)
+                    if let customEthereumFeeValidationError = store.customEthereumFeeValidationError { Text(customEthereumFeeValidationError).font(.caption).foregroundStyle(.red) } else { Text(localized("Custom EIP-1559 fees are applied to this send and preview.")).font(.caption).foregroundStyle(.secondary) }}
+                Toggle(localized("Manual Nonce"), isOn: ethereumManualNonceEnabledBinding)
                 if store.ethereumManualNonceEnabled {
-                    TextField("Nonce", text: ethereumManualNonceBinding).keyboardType(.numberPad)
+                    TextField(localized("Nonce"), text: ethereumManualNonceBinding).keyboardType(.numberPad)
                     if let customEthereumNonceValidationError = store.customEthereumNonceValidationError { Text(customEthereumNonceValidationError).font(.caption).foregroundStyle(.red) }}
                 if selectedCoin.chainName == "Ethereum" {
                     if store.isPreparingEthereumReplacementContext {
                         HStack(spacing: 10) {
                             ProgressView()
-                            Text("Preparing replacement/cancel context...").font(.caption)
+                            Text(localized("Preparing replacement/cancel context...")).font(.caption)
                         }
                     } else if store.hasPendingEthereumSendForSelectedWallet {
-                        Button("Speed Up Pending Transaction") {
+                        Button(localized("Speed Up Pending Transaction")) {
                             Task { await store.prepareEthereumSpeedUpContext() }}
-                        Button("Cancel Pending Transaction") {
+                        Button(localized("Cancel Pending Transaction")) {
                             Task { await store.prepareEthereumCancelContext() }}}
                     if let ethereumReplacementNonceStateMessage = store.ethereumReplacementNonceStateMessage { Text(ethereumReplacementNonceStateMessage).font(.caption).foregroundStyle(.secondary) }}
                 if store.isPreparingEthereumSend {
                     HStack(spacing: 10) {
                         ProgressView()
-                        Text("Loading nonce and fee estimate...").font(.caption)
+                        Text(localized("Loading nonce and fee estimate...")).font(.caption)
                     }
                 } else if let ethereumSendPreview = store.ethereumSendPreview {
                     Text("Nonce: \(ethereumSendPreview.nonce)")
@@ -253,8 +253,8 @@ struct SendView: View {
                     Text("Priority Fee: \(ethereumSendPreview.maxPriorityFeePerGasGwei, specifier: "%.2f") gwei")
                     let feeSymbol = selectedCoin.chainName == "BNB Chain" ? "BNB" : (selectedCoin.chainName == "Ethereum Classic" ? "ETC" : (selectedCoin.chainName == "Avalanche" ? "AVAX" : (selectedCoin.chainName == "Hyperliquid" ? "HYPE" : "ETH")))
                     if let fiatFee = store.formattedFiatAmount(fromNative: ethereumSendPreview.estimatedNetworkFeeEth, symbol: feeSymbol) { Text("Estimated Network Fee: \(ethereumSendPreview.estimatedNetworkFeeEth, specifier: "%.6f") \(feeSymbol) (~\(fiatFee))").font(.subheadline.weight(.semibold)) } else { Text("Estimated Network Fee: \(ethereumSendPreview.estimatedNetworkFeeEth, specifier: "%.6f") \(feeSymbol)").font(.subheadline.weight(.semibold)) }
-                } else { Text("Enter an amount to load a live nonce and fee preview. Add a valid destination address before sending.").font(.caption).foregroundStyle(.secondary) }
-                Text("Spectra signs and broadcasts supported \(selectedCoin.chainName) transfers. This preview is the live nonce and fee estimate for the transaction you are about to send.").font(.caption).foregroundStyle(.secondary)
+                } else { Text(localized("Enter an amount to load a live nonce and fee preview. Add a valid destination address before sending.")).font(.caption).foregroundStyle(.secondary) }
+                Text(localized("Spectra signs and broadcasts supported \(selectedCoin.chainName) transfers. This preview is the live nonce and fee estimate for the transaction you are about to send.")).font(.caption).foregroundStyle(.secondary)
             }}
         simpleSendNetworkSection(
             for: selectedCoin, chainName: "Tron", isPreparing: store.isPreparingTronSend, fee: store.tronSendPreview.map { ($0.estimatedNetworkFeeTrx, "TRX", "%.6f") }, footer: "Spectra signs and broadcasts Tron transfers in-app, including TRX and TRC-20 USDT.", extraCaption: selectedCoin?.symbol == "USDT" ? "USDT on Tron uses TRX for network fees. Keep a TRX balance for gas." : nil
@@ -327,22 +327,22 @@ struct SendView: View {
                     }
                     sendStatusSections
                 }.padding(20)
-            }.navigationTitle("Send").sheet(isPresented: $isShowingQRScanner) {
-                SendQRScannerSheet { payload in applyScannedRecipientPayload(payload) }}.alert("QR Scanner", isPresented: qrScannerAlertBinding) {
-                Button("OK", role: .cancel) {}} message: {
+            }.navigationTitle(localized("Send")).sheet(isPresented: $isShowingQRScanner) {
+                SendQRScannerSheet { payload in applyScannedRecipientPayload(payload) }}.alert(localized("QR Scanner"), isPresented: qrScannerAlertBinding) {
+                Button(localized("OK"), role: .cancel) {}} message: {
                 if let qrScannerErrorMessage { Text(verbatim: qrScannerErrorMessage) }}.onChange(of: store.sendHoldingKey) { _, _ in
                 selectedAddressBookEntryID = ""
             }.toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button("Send") {
+                    Button(localized("Send")) {
                         Task {
                             await store.submitSend()
                         }}.disabled(isSendBusy)
-                }}.alert("High-Risk Send", isPresented: store.isShowingHighRiskSendConfirmationBinding) {
-                Button("Cancel", role: .cancel) {
+                }}.alert(localized("High-Risk Send"), isPresented: store.isShowingHighRiskSendConfirmationBinding) {
+                Button(localized("Cancel"), role: .cancel) {
                     store.clearHighRiskSendConfirmation()
                 }
-                Button("Send Anyway", role: .destructive) {
+                Button(localized("Send Anyway"), role: .destructive) {
                     Task {
                         await store.confirmHighRiskSendAndSubmit()
                     }}} message: {
@@ -365,12 +365,12 @@ struct SendView: View {
     private func applyScannedRecipientPayload(_ payload: String) {
         let trimmedPayload = payload.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmedPayload.isEmpty else {
-            qrScannerErrorMessage = "The scanned QR code did not contain a usable address."
+            qrScannerErrorMessage = localizedSendString("The scanned QR code did not contain a usable address.")
             return
         }
         let selectedChainName = store.availableSendCoins(for: store.sendWalletID).first(where: { $0.holdingKey == store.sendHoldingKey })? .chainName
         guard let resolvedAddress = resolvedRecipientAddress(from: trimmedPayload, chainName: selectedChainName) else {
-            qrScannerErrorMessage = "The scanned QR code does not contain a valid address for the selected asset."
+            qrScannerErrorMessage = localizedSendString("The scanned QR code does not contain a valid address for the selected asset.")
             return
         }
         store.sendAddress = resolvedAddress
@@ -478,37 +478,37 @@ private struct SendPrimarySectionsView: View {
                         )
                     } else { Image(systemName: "arrow.up.right.circle.fill").font(.system(size: 38)).foregroundStyle(.mint) }
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Send").font(.title3.weight(.bold))
+                        Text(localizedSendString("Send")).font(.title3.weight(.bold))
                         if let wallet = presentation.selectedWallet { Text(wallet.name).font(.subheadline).foregroundStyle(.secondary) }}
                     Spacer()
                     if let selectedCoin = presentation.selectedCoin { Text(selectedCoin.symbol).font(.caption.weight(.bold)).padding(.horizontal, 10).padding(.vertical, 6).background(selectedCoin.color.opacity(0.18), in: Capsule()).foregroundStyle(selectedCoin.color) }}
                 if let selectedCoin = presentation.selectedCoin {
                     HStack {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text("Available").font(.caption).foregroundStyle(.secondary)
+                            Text(localizedSendString("Available")).font(.caption).foregroundStyle(.secondary)
                             Text(presentation.selectedCoinAmountText ?? "").font(.headline.weight(.semibold)).spectraNumericTextLayout()
                         }
                         Spacer()
                         VStack(alignment: .trailing, spacing: 4) {
-                            Text("Network").font(.caption).foregroundStyle(.secondary)
+                            Text(localizedSendString("Network")).font(.caption).foregroundStyle(.secondary)
                             Text(selectedCoin.chainName).font(.subheadline.weight(.semibold))
                         }}
-                } else { Text("Choose a wallet and asset to prepare a transfer with live fee previews and risk checks.").font(.subheadline).foregroundStyle(.secondary) }}}}
+                } else { Text(localizedSendString("Choose a wallet and asset to prepare a transfer with live fee previews and risk checks.")).font(.subheadline).foregroundStyle(.secondary) }}}}
     private var walletAssetSection: some View {
         sendDetailCard(title: "Wallet & Asset") {
             VStack(alignment: .leading, spacing: 12) {
-                Picker("Wallet", selection: store.sendWalletIDBinding) {
+                Picker(localizedSendString("Wallet"), selection: store.sendWalletIDBinding) {
                     ForEach(presentation.sendWallets) { wallet in Text(wallet.name).tag(wallet.id) }}.onChange(of: store.sendWalletID) { _, _ in
                     store.syncSendAssetSelection()
                 }
-                Picker("Asset", selection: store.sendHoldingKeyBinding) {
+                Picker(localizedSendString("Asset"), selection: store.sendHoldingKeyBinding) {
                     ForEach(presentation.availableSendCoins, id: \.holdingKey) { coin in Text("\(coin.name) on \(store.displayChainTitle(for: coin.chainName))").tag(coin.holdingKey) }}}}}
     private var recipientSection: some View {
         sendDetailCard(title: "Recipient") {
             VStack(alignment: .leading, spacing: 12) {
                 if !presentation.addressBookEntries.isEmpty {
-                    Picker("Saved Recipient", selection: $selectedAddressBookEntryID) {
-                        Text("None").tag("")
+                    Picker(localizedSendString("Saved Recipient"), selection: $selectedAddressBookEntryID) {
+                        Text(localizedSendString("None")).tag("")
                         ForEach(presentation.addressBookEntries) { entry in Text("\(entry.name) • \(entry.chainName)").tag(entry.id.uuidString) }}.onChange(of: selectedAddressBookEntryID) { _, newValue in
                         guard let selectedEntry = presentation.addressBookEntries.first(where: { $0.id.uuidString == newValue }) else {
                             return
@@ -516,42 +516,42 @@ private struct SendPrimarySectionsView: View {
                         store.sendAddress = selectedEntry.address
                     }}
                 HStack(spacing: 10) {
-                    TextField("Recipient address", text: store.sendAddressBinding).textInputAutocapitalization(.never).autocorrectionDisabled().padding(.horizontal, 12).padding(.vertical, 10).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    TextField(localizedSendString("Recipient address"), text: store.sendAddressBinding).textInputAutocapitalization(.never).autocorrectionDisabled().padding(.horizontal, 12).padding(.vertical, 10).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                     Button {
                         guard DataScannerViewController.isSupported else {
-                            qrScannerErrorMessage = "QR scanning is not supported on this device."
+                            qrScannerErrorMessage = localizedSendString("QR scanning is not supported on this device.")
                             return
                         }
                         guard DataScannerViewController.isAvailable else {
-                            qrScannerErrorMessage = "QR scanning is unavailable right now. Check camera permission and try again."
+                            qrScannerErrorMessage = localizedSendString("QR scanning is unavailable right now. Check camera permission and try again.")
                             return
                         }
                         isShowingQRScanner = true
                     } label: {
                         Image(systemName: "qrcode.viewfinder").font(.title3.weight(.semibold)).frame(width: 40, height: 40)
-                    }.buttonStyle(.glass).accessibilityLabel("Scan QR Code")
+                    }.buttonStyle(.glass).accessibilityLabel(localizedSendString("Scan QR Code"))
                 }
                 if let qrScannerErrorMessage { Text(qrScannerErrorMessage).font(.caption).foregroundStyle(.orange) }
                 if store.isCheckingSendDestinationBalance {
                     HStack(spacing: 8) {
                         ProgressView()
-                        Text("Checking destination on-chain balance...").font(.caption).foregroundStyle(.secondary)
+                        Text(localizedSendString("Checking destination on-chain balance...")).font(.caption).foregroundStyle(.secondary)
                     }}
                 if let sendDestinationRiskWarning = store.sendDestinationRiskWarning { Text(sendDestinationRiskWarning).font(.caption).foregroundStyle(.orange) }
                 if let sendDestinationInfoMessage = store.sendDestinationInfoMessage { Text(sendDestinationInfoMessage).font(.caption).foregroundStyle(.secondary) }}}}
     private var amountSection: some View {
         sendDetailCard(title: "Amount") {
             VStack(alignment: .leading, spacing: 12) {
-                TextField("Amount", text: store.sendAmountBinding).keyboardType(.decimalPad).padding(.horizontal, 12).padding(.vertical, 10).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                TextField(localizedSendString("Amount"), text: store.sendAmountBinding).keyboardType(.decimalPad).padding(.horizontal, 12).padding(.vertical, 10).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
                 if let selectedCoin = presentation.selectedCoin {
                     HStack {
-                        Text("Using").foregroundStyle(.secondary)
+                        Text(localizedSendString("Using")).foregroundStyle(.secondary)
                         Spacer()
                         Text(selectedCoin.symbol).font(.subheadline.weight(.semibold))
                     }
                     if let fiatAmount = presentation.selectedCoinApproximateFiatText {
                         HStack {
-                            Text("Approx. Value").foregroundStyle(.secondary)
+                            Text(localizedSendString("Approx. Value")).foregroundStyle(.secondary)
                             Spacer()
                             Text(fiatAmount).font(.subheadline.weight(.semibold)).spectraNumericTextLayout()
                         }}}}}}

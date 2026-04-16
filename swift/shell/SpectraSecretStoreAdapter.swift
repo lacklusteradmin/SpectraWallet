@@ -1,6 +1,6 @@
 import Foundation
 
-final class SpectraSecretStoreAdapter: SecretStoreImpl {
+final class SpectraSecretStoreAdapter: SecretStoreImpl, @unchecked Sendable {
     static func registerWithBridge() {
         let adapter = SpectraSecretStoreAdapter(noPointer: .init())
         Task {

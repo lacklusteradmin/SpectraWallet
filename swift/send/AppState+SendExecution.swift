@@ -605,7 +605,7 @@ extension AppState {
             return
         }
         if isEVMChain(holding.chainName) {
-            guard let chain = evmChainContext(for: holding.chainName) else {
+            guard evmChainContext(for: holding.chainName) != nil else {
                 sendError = "\(holding.chainName) native sending is not enabled yet."
                 return
             }

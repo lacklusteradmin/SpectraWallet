@@ -1,10 +1,10 @@
 import Foundation
-struct WalletDerivationRequestedOutputs: OptionSet {
+struct WalletDerivationRequestedOutputs: OptionSet, Sendable {
     let rawValue: Int
-    static let address = WalletDerivationRequestedOutputs(rawValue: 1 << 0)
-    static let publicKey = WalletDerivationRequestedOutputs(rawValue: 1 << 1)
-    static let privateKey = WalletDerivationRequestedOutputs(rawValue: 1 << 2)
-    static let all: WalletDerivationRequestedOutputs = [.address, .publicKey, .privateKey]
+    nonisolated(unsafe) static let address = WalletDerivationRequestedOutputs(rawValue: 1 << 0)
+    nonisolated(unsafe) static let publicKey = WalletDerivationRequestedOutputs(rawValue: 1 << 1)
+    nonisolated(unsafe) static let privateKey = WalletDerivationRequestedOutputs(rawValue: 1 << 2)
+    nonisolated(unsafe) static let all: WalletDerivationRequestedOutputs = [.address, .publicKey, .privateKey]
 }
 enum WalletDerivationCurve: String, Codable {
     case secp256k1

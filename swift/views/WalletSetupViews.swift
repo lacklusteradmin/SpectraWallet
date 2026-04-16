@@ -89,7 +89,7 @@ struct SetupView: View {
     private var isShowingAdvancedPage: Bool { setupPage == .advanced }
     private var isSimpleSetupSelected: Bool { setupModeChoice == .simple }
     private var setupTitle: String {
-        if isShowingSetupModeChoicePage { return "Choose Setup Type" }
+        if isShowingSetupModeChoicePage { return localizedSetupString("Choose Setup Type") }
         if isShowingBackupVerificationPage { return copy.backupVerificationTitle }
         if isShowingAdvancedPage { return copy.advancedTitle }
         if isShowingPasswordPage { return localizedSetupString("import_flow.wallet_password_title") }
@@ -103,7 +103,7 @@ struct SetupView: View {
         return isWatchAddressesImportMode ? copy.watchAddressesTitle : copy.importWalletTitle
     }
     private var setupSubtitle: String {
-        if isShowingSetupModeChoicePage { return "Start with a guided simple setup or continue with full advanced controls." }
+        if isShowingSetupModeChoicePage { return localizedSetupString("Start with a guided simple setup or continue with full advanced controls.") }
         if isShowingBackupVerificationPage { return copy.backupVerificationSubtitle }
         if isShowingAdvancedPage { return copy.advancedSubtitle }
         if isShowingPasswordPage { return localizedSetupString("import_flow.wallet_password_subtitle") }
@@ -215,10 +215,10 @@ struct SetupView: View {
     private var setupModeChoiceSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             setupModeButton(
-                title: "Simple Setup", subtitle: "Recommended defaults and fewer required choices.", iconName: "sparkles", tint: .green, choice: .simple
+                title: localizedSetupString("Simple Setup"), subtitle: localizedSetupString("Recommended defaults and fewer required choices."), iconName: "sparkles", tint: .green, choice: .simple
             )
             setupModeButton(
-                title: "Advanced Setup", subtitle: "Configure derivation paths and network-level options.", iconName: "slider.horizontal.3", tint: .orange, choice: .advanced
+                title: localizedSetupString("Advanced Setup"), subtitle: localizedSetupString("Configure derivation paths and network-level options."), iconName: "slider.horizontal.3", tint: .orange, choice: .advanced
             )
         }}
     @ViewBuilder
@@ -292,13 +292,13 @@ struct SetupView: View {
                 Picker("Seed Phrase Length", selection: $draft.selectedSeedPhraseWordCount) {
                     ForEach([12, 15, 18, 21, 24], id: \.self) { wordCount in Text(walletFlowLocalizedFormat("%lld words", wordCount)).tag(wordCount) }}.labelsHidden().pickerStyle(.menu).padding(.horizontal, 14).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading).spectraInputFieldStyle().tint(.white)
                 if showsRegenerateButton {
-                    Button("Regenerate") {
+                    Button(localizedSetupString("Regenerate")) {
                         draft.regenerateSeedPhrase()
                     }.buttonStyle(.glass).disabled(![12, 15, 18, 21, 24].contains(draft.selectedSeedPhraseWordCount))
                 }}
             HStack(spacing: 10) {
-                TextField("Custom word count", text: $customSeedPhraseWordCountInput).keyboardType(.numberPad).textInputAutocapitalization(.never).autocorrectionDisabled().padding(.horizontal, 14).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading).spectraInputFieldStyle()
-                Button("Apply") {
+                TextField(localizedWalletFlowString("Custom word count"), text: $customSeedPhraseWordCountInput).keyboardType(.numberPad).textInputAutocapitalization(.never).autocorrectionDisabled().padding(.horizontal, 14).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading).spectraInputFieldStyle()
+                Button(localizedSetupString("Apply")) {
                     draft.applyCustomSeedPhraseWordCount(customSeedPhraseWordCountInput)
                     customSeedPhraseWordCountInput = String(draft.selectedSeedPhraseWordCount)
                 }.buttonStyle(.glass)
@@ -353,28 +353,28 @@ struct SetupView: View {
                     )
                 }}}}
     private var advancedDescriptionText: String {
-        if hasBitcoinSelection && hasEthereumSelection && hasDogecoinSelection { return "Control the derivation path used for each selected chain and choose the Bitcoin, Ethereum, and Dogecoin networks when needed." }
-        if hasBitcoinSelection && hasEthereumSelection { return "Control the derivation path used for each selected chain and choose the Bitcoin and Ethereum networks when needed." }
-        if hasBitcoinSelection && hasDogecoinSelection { return "Control the derivation path used for each selected chain and choose the Bitcoin and Dogecoin networks when needed." }
-        if hasEthereumSelection && hasDogecoinSelection { return "Control the derivation path used for each selected chain and choose the Ethereum and Dogecoin networks when needed." }
-        if hasBitcoinSelection { return "Control the derivation path used for each selected chain and choose the Bitcoin network when needed." }
-        if hasEthereumSelection { return "Control the derivation path used for each selected chain and choose the Ethereum network when needed." }
-        if hasDogecoinSelection { return "Control the derivation path used for each selected chain and choose the Dogecoin network when needed." }
-        return "Control the derivation path used for each selected chain."
+        if hasBitcoinSelection && hasEthereumSelection && hasDogecoinSelection { return localizedSetupString("Control the derivation path used for each selected chain and choose the Bitcoin, Ethereum, and Dogecoin networks when needed.") }
+        if hasBitcoinSelection && hasEthereumSelection { return localizedSetupString("Control the derivation path used for each selected chain and choose the Bitcoin and Ethereum networks when needed.") }
+        if hasBitcoinSelection && hasDogecoinSelection { return localizedSetupString("Control the derivation path used for each selected chain and choose the Bitcoin and Dogecoin networks when needed.") }
+        if hasEthereumSelection && hasDogecoinSelection { return localizedSetupString("Control the derivation path used for each selected chain and choose the Ethereum and Dogecoin networks when needed.") }
+        if hasBitcoinSelection { return localizedSetupString("Control the derivation path used for each selected chain and choose the Bitcoin network when needed.") }
+        if hasEthereumSelection { return localizedSetupString("Control the derivation path used for each selected chain and choose the Ethereum network when needed.") }
+        if hasDogecoinSelection { return localizedSetupString("Control the derivation path used for each selected chain and choose the Dogecoin network when needed.") }
+        return localizedSetupString("Control the derivation path used for each selected chain.")
     }
     private var bitcoinNetworkAdvancedSection: some View {
         networkModePicker(
-            title: "Bitcoin Network", accentColor: .orange, caption: "This controls Bitcoin wallet import, address validation, and endpoint usage for Bitcoin wallets.", modeOptions: BitcoinNetworkMode.allCases.map { ($0.rawValue, $0.displayName) }, currentModeID: store.bitcoinNetworkMode.rawValue, selectMode: { store.bitcoinNetworkMode = BitcoinNetworkMode(rawValue: $0) ?? .mainnet }
+            title: localizedSetupString("Bitcoin Network"), accentColor: .orange, caption: localizedSetupString("This controls Bitcoin wallet import, address validation, and endpoint usage for Bitcoin wallets."), modeOptions: BitcoinNetworkMode.allCases.map { ($0.rawValue, $0.displayName) }, currentModeID: store.bitcoinNetworkMode.rawValue, selectMode: { store.bitcoinNetworkMode = BitcoinNetworkMode(rawValue: $0) ?? .mainnet }
         )
     }
     private var ethereumNetworkAdvancedSection: some View {
         networkModePicker(
-            title: "Ethereum Network", accentColor: .blue, caption: "This controls Ethereum wallet import, balance refresh, history, and endpoint usage for Ethereum wallets.", modeOptions: EthereumNetworkMode.allCases.map { ($0.rawValue, $0.displayName) }, currentModeID: store.ethereumNetworkMode.rawValue, selectMode: { store.ethereumNetworkMode = EthereumNetworkMode(rawValue: $0) ?? .mainnet }
+            title: localizedSetupString("Ethereum Network"), accentColor: .blue, caption: localizedSetupString("This controls Ethereum wallet import, balance refresh, history, and endpoint usage for Ethereum wallets."), modeOptions: EthereumNetworkMode.allCases.map { ($0.rawValue, $0.displayName) }, currentModeID: store.ethereumNetworkMode.rawValue, selectMode: { store.ethereumNetworkMode = EthereumNetworkMode(rawValue: $0) ?? .mainnet }
         )
     }
     private var dogecoinNetworkAdvancedSection: some View {
         networkModePicker(
-            title: "Dogecoin Network", accentColor: .yellow, accentForeground: .yellow.opacity(0.9), caption: "This controls Dogecoin wallet import, address validation, history, and endpoint usage for Dogecoin wallets.", modeOptions: DogecoinNetworkMode.allCases.map { ($0.rawValue, $0.displayName) }, currentModeID: store.dogecoinNetworkMode.rawValue, selectMode: { store.dogecoinNetworkMode = DogecoinNetworkMode(rawValue: $0) ?? .mainnet }
+            title: localizedSetupString("Dogecoin Network"), accentColor: .yellow, accentForeground: .yellow.opacity(0.9), caption: localizedSetupString("This controls Dogecoin wallet import, address validation, history, and endpoint usage for Dogecoin wallets."), modeOptions: DogecoinNetworkMode.allCases.map { ($0.rawValue, $0.displayName) }, currentModeID: store.dogecoinNetworkMode.rawValue, selectMode: { store.dogecoinNetworkMode = DogecoinNetworkMode(rawValue: $0) ?? .mainnet }
         )
     }
     private func networkModePicker(
@@ -409,7 +409,7 @@ struct SetupView: View {
                 HStack(spacing: 12) {
                     Image(systemName: "slider.horizontal.3").font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(width: 26, height: 26).background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Advanced").font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
+                        Text(localizedSetupString("Advanced")).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
                         Text(advancedButtonSubtitle).font(.caption2).foregroundStyle(Color.primary.opacity(0.68))
                     }
                     Spacer()
@@ -418,14 +418,14 @@ struct SetupView: View {
             }.buttonStyle(.plain)
         }}
     private var advancedButtonSubtitle: String {
-        if hasBitcoinSelection && hasEthereumSelection && hasDogecoinSelection { return "Adjust derivation paths plus Bitcoin, Ethereum, and Dogecoin networks." }
-        if hasBitcoinSelection && hasEthereumSelection { return "Adjust derivation paths plus Bitcoin and Ethereum networks." }
-        if hasBitcoinSelection && hasDogecoinSelection { return "Adjust derivation paths plus Bitcoin and Dogecoin networks." }
-        if hasEthereumSelection && hasDogecoinSelection { return "Adjust derivation paths plus Ethereum and Dogecoin networks." }
-        if hasBitcoinSelection { return "Adjust derivation paths and Bitcoin network." }
-        if hasEthereumSelection { return "Adjust derivation paths and Ethereum network." }
-        if hasDogecoinSelection { return "Adjust derivation paths and Dogecoin network." }
-        return "Adjust derivation paths."
+        if hasBitcoinSelection && hasEthereumSelection && hasDogecoinSelection { return localizedSetupString("Adjust derivation paths plus Bitcoin, Ethereum, and Dogecoin networks.") }
+        if hasBitcoinSelection && hasEthereumSelection { return localizedSetupString("Adjust derivation paths plus Bitcoin and Ethereum networks.") }
+        if hasBitcoinSelection && hasDogecoinSelection { return localizedSetupString("Adjust derivation paths plus Bitcoin and Dogecoin networks.") }
+        if hasEthereumSelection && hasDogecoinSelection { return localizedSetupString("Adjust derivation paths plus Ethereum and Dogecoin networks.") }
+        if hasBitcoinSelection { return localizedSetupString("Adjust derivation paths and Bitcoin network.") }
+        if hasEthereumSelection { return localizedSetupString("Adjust derivation paths and Ethereum network.") }
+        if hasDogecoinSelection { return localizedSetupString("Adjust derivation paths and Dogecoin network.") }
+        return localizedSetupString("Adjust derivation paths.")
     }
     @ViewBuilder
     private var importSecretModePicker: some View {
@@ -474,7 +474,7 @@ struct SetupView: View {
             Text(copy.privateKeyTitle).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.88))
             Text(copy.privateKeyPrompt).font(.footnote).foregroundStyle(Color.primary.opacity(0.7))
             TextField(copy.privateKeyPlaceholder, text: $draft.privateKeyInput).textInputAutocapitalization(.never).autocorrectionDisabled().padding(14).spectraInputFieldStyle().foregroundStyle(Color.primary)
-            if !draft.unsupportedPrivateKeyChainNames.isEmpty { Text(walletFlowLocalizedFormat("Private key import is not available for: %@.", draft.unsupportedPrivateKeyChainNames.joined(separator: ", "))).font(.footnote).foregroundStyle(.orange.opacity(0.9)) } else if !draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !PrivateKeyHex.isLikely(draft.privateKeyInput) { Text("Enter a valid 32-byte hex private key.").font(.footnote).foregroundStyle(.red.opacity(0.9)) }}}
+            if !draft.unsupportedPrivateKeyChainNames.isEmpty { Text(walletFlowLocalizedFormat("Private key import is not available for: %@.", draft.unsupportedPrivateKeyChainNames.joined(separator: ", "))).font(.footnote).foregroundStyle(.orange.opacity(0.9)) } else if !draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !PrivateKeyHex.isLikely(draft.privateKeyInput) { Text(localizedSetupString("Enter a valid 32-byte hex private key.")).font(.footnote).foregroundStyle(.red.opacity(0.9)) }}}
     @ViewBuilder
     private var walletSecretStepSection: some View {
         if isCreateMode {
@@ -529,7 +529,7 @@ struct SetupView: View {
                         setupCard {
                             VStack(alignment: .leading, spacing: 14) {
                                 HStack(alignment: .center, spacing: 12) {
-                                    VStack(alignment: .leading, spacing: 4) { Text("Chains").font(.headline).foregroundStyle(Color.primary) }
+                                    VStack(alignment: .leading, spacing: 4) { Text(localizedSetupString("Chains")).font(.headline).foregroundStyle(Color.primary) }
                                     Spacer()
                                     Text(chainSelectionSummary).font(.caption.weight(.semibold)).foregroundStyle(selectedChainCount == 0 ? Color.primary.opacity(0.68) : .orange).padding(.horizontal, 10).padding(.vertical, 6).background(
                                             Capsule(style: .continuous).fill(selectedChainCount == 0 ? Color.white.opacity(colorScheme == .light ? 0.55 : 0.08) : Color.orange.opacity(0.12))
@@ -545,8 +545,8 @@ struct SetupView: View {
                                         HStack(spacing: 12) {
                                             Image(systemName: "square.grid.2x2").font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(width: 26, height: 26).background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                                             VStack(alignment: .leading, spacing: 4) {
-                                                Text("See All Chains").font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-                                                Text("Browse the full chain list.").font(.caption2).foregroundStyle(Color.primary.opacity(0.68))
+                                                Text(localizedSetupString("See All Chains")).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
+                                                Text(localizedSetupString("Browse the full chain list.")).font(.caption2).foregroundStyle(Color.primary.opacity(0.68))
                                             }
                                             Spacer()
                                             Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Color.primary.opacity(0.72))
@@ -600,7 +600,7 @@ struct SetupView: View {
                             conditionalWatchedAddressSection(condition: draft.wantsNear, title: "NEAR", text: $draft.nearAddressInput, validator: { AddressValidation.isValidNearAddress($0) })
                             conditionalWatchedAddressSection(condition: draft.wantsPolkadot, title: "Polkadot", text: $draft.polkadotAddressInput, validator: { AddressValidation.isValidPolkadotAddress($0) })
                             conditionalWatchedAddressSection(condition: draft.wantsStellar, title: "Stellar", text: $draft.stellarAddressInput, validator: { AddressValidation.isValidStellarAddress($0) })
-                            if !draft.wantsBitcoin && !draft.wantsBitcoinCash && !draft.wantsBitcoinSV && !draft.wantsLitecoin && !draft.wantsDogecoin && !draft.wantsEthereum && !draft.wantsEthereumClassic && !draft.wantsSolana && !draft.wantsBNBChain && !draft.wantsTron && !draft.wantsXRP && !draft.wantsMonero && !draft.wantsCardano && !draft.wantsSui && !draft.wantsAptos && !draft.wantsTON && !draft.wantsICP && !draft.wantsNear && !draft.wantsPolkadot && !draft.wantsStellar { Text("Select a supported chain above to enter its address to watch.").font(.caption).foregroundStyle(.orange.opacity(0.9)) }}}}
+                            if !draft.wantsBitcoin && !draft.wantsBitcoinCash && !draft.wantsBitcoinSV && !draft.wantsLitecoin && !draft.wantsDogecoin && !draft.wantsEthereum && !draft.wantsEthereumClassic && !draft.wantsSolana && !draft.wantsBNBChain && !draft.wantsTron && !draft.wantsXRP && !draft.wantsMonero && !draft.wantsCardano && !draft.wantsSui && !draft.wantsAptos && !draft.wantsTON && !draft.wantsICP && !draft.wantsNear && !draft.wantsPolkadot && !draft.wantsStellar { Text(localizedSetupString("Select a supported chain above to enter its address to watch.")).font(.caption).foregroundStyle(.orange.opacity(0.9)) }}}}
                     if isShowingDetailsPage || isEditingWallet {
                         setupCard {
                             VStack(alignment: .leading, spacing: 14) {

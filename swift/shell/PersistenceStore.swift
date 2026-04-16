@@ -90,8 +90,10 @@ extension AppState {
         if let feePrios = await loadCodableFromSQLite([String: String].self, key: Self.selectedFeePriorityOptionsByChainDefaultsKey), !feePrios.isEmpty { selectedFeePriorityOptionRawByChain = feePrios }
         if !wallets.isEmpty {
             let summaries: [[String: Any]] = wallets.map { w in
+                let derivationPreset: String = w.seedDerivationPreset ?? "standard"
+                let derivationPaths: [String: String] = w.seedDerivationPaths ?? [:]
                 var d: [String: Any] = [
-                    "id": w.id, "name": w.name, "isWatchOnly": false, "selectedChain": w.selectedChain, "includeInPortfolioTotal": w.includeInPortfolioTotal, "bitcoinNetworkMode": w.bitcoinNetworkMode.rawValue, "dogecoinNetworkMode": w.dogecoinNetworkMode.rawValue, "derivationPreset": w.seedDerivationPreset ?? "standard", "derivationPaths": w.seedDerivationPaths ?? [:], "holdings": w.holdings.map { coin -> [String: Any] in
+                    "id": w.id, "name": w.name, "isWatchOnly": false, "selectedChain": w.selectedChain, "includeInPortfolioTotal": w.includeInPortfolioTotal, "bitcoinNetworkMode": w.bitcoinNetworkMode.rawValue, "dogecoinNetworkMode": w.dogecoinNetworkMode.rawValue, "derivationPreset": derivationPreset, "derivationPaths": derivationPaths, "holdings": w.holdings.map { coin -> [String: Any] in
                         var h: [String: Any] = [
                             "name": coin.name, "symbol": coin.symbol, "marketDataId": coin.marketDataId, "coinGeckoId": coin.coinGeckoId, "chainName": coin.chainName, "tokenStandard": coin.tokenStandard, "amount": coin.amount, "priceUsd": coin.priceUsd
                         ]

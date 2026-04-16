@@ -63,7 +63,7 @@ struct HistoryDetailView: View {
                         }
                         if let amountText = store.formattedTransactionDetailAmount(displayedTransaction) { Text(amountText).font(.system(size: 30, weight: .black, design: .rounded)).foregroundStyle(Color.primary).spectraNumericTextLayout(minimumScaleFactor: 0.5) }}.padding(20).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.033)), in: .rect(cornerRadius: 28))
                     detailCard(title: "Overview") {
-                        detailRow(label: "Type", value: displayedTransaction.kind == .send ? "Send" : "Receive")
+                        detailRow(label: "Type", value: displayedTransaction.kind == .send ? localized("Send") : localized("Receive"))
                         detailRow(label: "Status", value: displayedTransaction.statusText)
                         detailRow(label: "Wallet", value: displayedTransaction.walletName)
                         detailRow(label: "Asset", value: displayedTransaction.assetName)
@@ -91,7 +91,7 @@ struct HistoryDetailView: View {
                             if store.isPreparingEthereumReplacementContext {
                                 HStack(spacing: 10) {
                                     ProgressView()
-                                    Text("Preparing replacement/cancel context...").font(.caption).foregroundStyle(Color.primary.opacity(0.78))
+                                    Text(localized("Preparing replacement/cancel context...")).font(.caption).foregroundStyle(Color.primary.opacity(0.78))
                                 }
                             } else {
                                 Button {
@@ -100,7 +100,7 @@ struct HistoryDetailView: View {
                                             for: displayedTransaction.id, cancel: false
                                         )
                                     }} label: {
-                                    Text("Speed Up This Transaction").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 12)
+                                    Text(localized("Speed Up This Transaction")).font(.headline).frame(maxWidth: .infinity).padding(.vertical, 12)
                                 }.buttonStyle(.glassProminent)
                                 Button {
                                     Task {
@@ -108,9 +108,9 @@ struct HistoryDetailView: View {
                                             for: displayedTransaction.id, cancel: true
                                         )
                                     }} label: {
-                                    Text("Cancel This Transaction").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 12)
+                                    Text(localized("Cancel This Transaction")).font(.headline).frame(maxWidth: .infinity).padding(.vertical, 12)
                                 }.buttonStyle(.glass)
-                                Text("This opens the Send composer with the same nonce and higher fee defaults so you can safely speed up or cancel the pending transaction.").font(.caption).foregroundStyle(Color.primary.opacity(0.72))
+                                Text(localized("This opens the Send composer with the same nonce and higher fee defaults so you can safely speed up or cancel the pending transaction.")).font(.caption).foregroundStyle(Color.primary.opacity(0.72))
                             }
                             if let ethereumReplacementMessage { Text(ethereumReplacementMessage).font(.caption).foregroundStyle(Color.primary.opacity(0.72)) }}}
                     detailCard(title: "Addresses") {
@@ -128,7 +128,7 @@ struct HistoryDetailView: View {
                         detailCard(title: "Raw Transaction Hex") {
                             Text(rawTransactionHexText).font(.body.monospaced()).foregroundStyle(Color.primary.opacity(0.82)).textSelection(.enabled).padding(14).frame(maxWidth: .infinity, alignment: .leading).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
                         }}}.padding(20)
-            }}.navigationTitle("Transaction").navigationBarTitleDisplayMode(.inline).onAppear {
+            }}.navigationTitle(localized("Transaction")).navigationBarTitleDisplayMode(.inline).onAppear {
             rebuildDisplayedTransactionState()
         }.onChange(of: store.transactionRevision) { _, _ in
             rebuildDisplayedTransactionState()

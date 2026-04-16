@@ -60,13 +60,13 @@ struct HistoryView: View {
                                                             Button {
                                                                 Task {
                                                                     _ = await store.retryUTXOTransactionStatus(for: row.transaction.id)
-                                                                }} label: { Label("Recheck", systemImage: "arrow.clockwise") }.tint(.blue)
+                                                                }} label: { Label(localizedHistoryString("Recheck"), systemImage: "arrow.clockwise") }.tint(.blue)
                                                         }
                                                         if row.transaction.supportsSignedRebroadcast {
                                                             Button {
                                                                 Task {
                                                                     _ = await store.rebroadcastSignedTransaction(for: row.transaction.id)
-                                                                }} label: { Label("Rebroadcast", systemImage: "dot.radiowaves.up.forward") }.tint(.mint)
+                                                                }} label: { Label(localizedHistoryString("Rebroadcast"), systemImage: "dot.radiowaves.up.forward") }.tint(.mint)
                                                         }}}}}}.padding(18).frame(maxWidth: .infinity, alignment: .leading).glassEffect(.regular.tint(.white.opacity(0.028)), in: .rect(cornerRadius: 24))
                                 }}
                             if shouldShowPagingControls { historyPagingControls }}.padding(20)
@@ -221,7 +221,7 @@ struct HistoryView: View {
             } label: {
                 HStack(spacing: 6) {
                     Image(systemName: "chevron.left")
-                    Text("Last")
+                    Text(localizedHistoryString("Last"))
                 }.font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
             }.buttonStyle(.plain).disabled(clampedPageIndex == 0 || store.isLoadingMoreOnChainHistory).opacity((clampedPageIndex == 0 || store.isLoadingMoreOnChainHistory) ? 0.4 : 1)
             Text(localizedFormat("Page %lld", clampedPageIndex + 1)).font(.caption.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.78)).padding(.horizontal, 14).padding(.vertical, 8).background(Color.white.opacity(0.06), in: Capsule())
@@ -241,7 +241,7 @@ struct HistoryView: View {
                         pendingScrollToTopToken = UUID()
                     }}} label: {
                 HStack(spacing: 6) {
-                    Text(store.isLoadingMoreOnChainHistory ? "Loading" : "Next")
+                    Text(store.isLoadingMoreOnChainHistory ? localizedHistoryString("Loading") : localizedHistoryString("Next"))
                     if store.isLoadingMoreOnChainHistory { ProgressView().controlSize(.small).tint(.white) } else { Image(systemName: "chevron.right") }}.font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
             }.buttonStyle(.plain).disabled((!hasNextLoadedPage && !canLoadMoreVisibleHistory) || store.isLoadingMoreOnChainHistory).opacity(((!hasNextLoadedPage && !canLoadMoreVisibleHistory) || store.isLoadingMoreOnChainHistory) ? 0.4 : 1)
         }.padding(.horizontal, 16).padding(.vertical, 12).frame(maxWidth: .infinity).glassEffect(.regular.tint(.white.opacity(0.028)), in: .capsule)

@@ -46,14 +46,14 @@ struct ReceiveView: View {
                         }}
                     receiveAddressSections
                 }.padding(20)
-            }.navigationTitle("Receive").task(id: store.receiveWalletID) {
+            }.navigationTitle(localized("Receive")).task(id: store.receiveWalletID) {
                 await store.refreshReceiveAddress()
             }.sheet(isPresented: $isShowingReceiveQRShareSheet) {
-                if let receiveQRImage = presentation.qrImage { ActivityItemSheet(activityItems: [receiveQRImage]) }}.alert("QR Code Export", isPresented: Binding(
+                if let receiveQRImage = presentation.qrImage { ActivityItemSheet(activityItems: [receiveQRImage]) }}.alert(localized("QR Code Export"), isPresented: Binding(
                 get: { receiveQRExportMessage != nil }, set: { isPresented in
                     if !isPresented { receiveQRExportMessage = nil }}
             )) {
-                Button("OK", role: .cancel) {
+                Button(localized("OK"), role: .cancel) {
                     receiveQRExportMessage = nil
                 }} message: {
                 if let receiveQRExportMessage { Text(verbatim: receiveQRExportMessage) }}.toolbar {
@@ -63,7 +63,7 @@ struct ReceiveView: View {
                         didCopyReceiveAddress = true
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.6) {
                             didCopyReceiveAddress = false
-                        }} label: { Label("Copy", systemImage: didCopyReceiveAddress ? "checkmark" : "doc.on.doc") }.disabled(!presentation.canUseAddress || store.isResolvingReceiveAddress)
+                        }} label: { Label(localized("Copy"), systemImage: didCopyReceiveAddress ? "checkmark" : "doc.on.doc") }.disabled(!presentation.canUseAddress || store.isResolvingReceiveAddress)
                 }}}}
     @ViewBuilder
     private var receiveAddressSections: some View {
@@ -71,14 +71,14 @@ struct ReceiveView: View {
             VStack(alignment: .center, spacing: 12) {
                 if presentation.canUseAddress {
                     QRCodeImage(address: presentation.resolvedAddress).frame(width: 184, height: 184).padding(14).background(Color.white, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-                    Text("Scan to receive").font(.headline)
-                    Text("Share this QR code or copy the address below.").font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    Text(localized("Scan to receive")).font(.headline)
+                    Text(localized("Share this QR code or copy the address below.")).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
                     Button {
                         guard let receiveQRImage = presentation.qrImage else { return }
                         let saver = PhotoLibraryImageSaver { result in
                             DispatchQueue.main.async {
                                 switch result {
-                                case .success: receiveQRExportMessage = "QR code saved to Photos."
+                                case .success: receiveQRExportMessage = localized("QR code saved to Photos.")
                                 case .failure(let error): receiveQRExportMessage = error.localizedDescription
                                 }
                                 receiveQRImageSaver = nil
@@ -86,17 +86,17 @@ struct ReceiveView: View {
                         receiveQRImageSaver = saver
                         saver.save(receiveQRImage)
                     } label: {
-                        Label("Save QR Code", systemImage: "square.and.arrow.down").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 10)
+                        Label(localized("Save QR Code"), systemImage: "square.and.arrow.down").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 10)
                     }.buttonStyle(.glass).disabled(presentation.qrImage == nil)
                 } else {
                     ProgressView()
-                    Text("Preparing receive address...").font(.headline)
-                    Text("Spectra is resolving the current address for this wallet.").font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
+                    Text(localized("Preparing receive address...")).font(.headline)
+                    Text(localized("Spectra is resolving the current address for this wallet.")).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
                 }}.frame(maxWidth: .infinity).padding(18).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.028)), in: .rect(cornerRadius: 24))
         }
         receiveDetailCard(title: "Address") {
             Text(presentation.resolvedAddress).font(.body.monospaced()).textSelection(.enabled).padding(14).frame(maxWidth: .infinity, alignment: .leading).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.025)), in: .rect(cornerRadius: 18))
-            if didCopyReceiveAddress { Label("Address copied to clipboard.", systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(.green) }}
+            if didCopyReceiveAddress { Label(localized("Address copied to clipboard."), systemImage: "checkmark.circle.fill").font(.caption).foregroundStyle(.green) }}
         if let receiveCoin = presentation.selectedCoin {
             receiveDetailCard(title: "Asset Details") {
                 VStack(alignment: .leading, spacing: 12) {
@@ -110,14 +110,14 @@ struct ReceiveView: View {
                         }
                         Spacer()
                     }
-                    LabeledContent("Network", value: receiveCoin.chainName)
-                    LabeledContent("Standard", value: receiveCoin.tokenStandard)
+                    LabeledContent(localized("Network"), value: receiveCoin.chainName)
+                    LabeledContent(localized("Standard"), value: receiveCoin.tokenStandard)
                     if let chainSymbols = presentation.sameChainSymbolsText, chainSymbols.contains(",") {
-                        LabeledContent("Also Receives") {
+                        LabeledContent(localized("Also Receives")) {
                             Text(chainSymbols).multilineTextAlignment(.trailing)
                         }}
                     if let contractAddress = receiveCoin.contractAddress {
-                        LabeledContent("Contract") {
+                        LabeledContent(localized("Contract")) {
                             Text(contractAddress).font(.footnote.monospaced()).textSelection(.enabled)
                         }}}}}}
     @ViewBuilder

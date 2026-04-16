@@ -12,7 +12,7 @@ enum WalletRustDerivationBridgeError: LocalizedError {
         case .requestCompilationFailed(let message): return message
         }}
 }
-private struct WalletRustDerivationRequestPayload: Encodable {
+private struct WalletRustDerivationRequestPayload: Encodable, Sendable {
     let chain: UInt32
     let network: UInt32
     let curve: UInt32
@@ -28,7 +28,7 @@ private struct WalletRustDerivationRequestPayload: Encodable {
     let mnemonicWordlist: String?
     let iterationCount: UInt32
 }
-private struct WalletRustPrivateKeyRequestPayload: Encodable {
+private struct WalletRustPrivateKeyRequestPayload: Encodable, Sendable {
     let chain: UInt32
     let network: UInt32
     let curve: UInt32
@@ -37,7 +37,7 @@ private struct WalletRustPrivateKeyRequestPayload: Encodable {
     let scriptType: UInt32
     let privateKeyHex: String
 }
-private struct WalletRustMaterialRequestPayload: Encodable {
+private struct WalletRustMaterialRequestPayload: Encodable, Sendable {
     let chain: UInt32
     let network: UInt32
     let curve: UInt32
@@ -52,7 +52,7 @@ private struct WalletRustMaterialRequestPayload: Encodable {
     let mnemonicWordlist: String?
     let iterationCount: UInt32
 }
-private struct WalletRustPrivateKeyMaterialRequestPayload: Encodable {
+private struct WalletRustPrivateKeyMaterialRequestPayload: Encodable, Sendable {
     let chain: UInt32
     let network: UInt32
     let curve: UInt32
@@ -62,12 +62,12 @@ private struct WalletRustPrivateKeyMaterialRequestPayload: Encodable {
     let privateKeyHex: String
     let derivationPath: String
 }
-private struct WalletRustDerivationResponsePayload: Decodable {
+private struct WalletRustDerivationResponsePayload: Decodable, Sendable {
     let address: String?
     let publicKeyHex: String?
     let privateKeyHex: String?
 }
-private struct WalletRustMaterialResponsePayload: Decodable {
+private struct WalletRustMaterialResponsePayload: Decodable, Sendable {
     let address: String
     let privateKeyHex: String
     let derivationPath: String
@@ -76,8 +76,8 @@ private struct WalletRustMaterialResponsePayload: Decodable {
     let index: UInt32
 }
 enum WalletRustDerivationBridge {
-    static var isAvailable: Bool { true }
-    static func makeRequestModel(chain: SeedDerivationChain, network: WalletDerivationNetwork, seedPhrase: String, derivationPath: String?, passphrase: String?, iterationCount: Int?, hmacKeyString: String?, requestedOutputs: WalletDerivationRequestedOutputs) throws -> WalletRustDerivationRequestModel {
+    nonisolated static var isAvailable: Bool { true }
+    nonisolated static func makeRequestModel(chain: SeedDerivationChain, network: WalletDerivationNetwork, seedPhrase: String, derivationPath: String?, passphrase: String?, iterationCount: Int?, hmacKeyString: String?, requestedOutputs: WalletDerivationRequestedOutputs) throws -> WalletRustDerivationRequestModel {
         guard let ffiChain = WalletRustFFIChain(chain: chain) else { throw WalletRustDerivationBridgeError.rustCoreUnsupportedChain(chain.rawValue) }
         let requestCompilationPreset = WalletDerivationPresetCatalog.requestCompilationPreset(for: chain)
         let effectiveCurve = WalletRustFFICurve(curve: WalletDerivationPresetCatalog.curve(for: chain))
@@ -90,13 +90,13 @@ enum WalletRustDerivationBridge {
             chain: ffiChain, network: WalletRustFFINetwork(network: network), curve: effectiveCurve, requestedOutputs: WalletRustFFIRequestedOutputs(outputs: requestedOutputs), derivationAlgorithm: ffiDerivationAlgorithm(from: requestCompilationPreset.derivationAlgorithm), addressAlgorithm: ffiAddressAlgorithm(from: requestCompilationPreset.addressAlgorithm), publicKeyFormat: ffiPublicKeyFormat(from: requestCompilationPreset.publicKeyFormat), scriptType: compiledScriptType, seedPhrase: seedPhrase, derivationPath: resolvedDerivationPath, passphrase: passphrase, hmacKey: hmacKeyString, mnemonicWordlist: "english", iterationCount: UInt32(iterationCount ?? 2048)
         )
     }
-    static func derive(_ requestModel: WalletRustDerivationRequestModel) throws -> WalletRustDerivationResponseModel {
+    nonisolated static func derive(_ requestModel: WalletRustDerivationRequestModel) throws -> WalletRustDerivationResponseModel {
         let request = WalletRustDerivationRequestPayload(
             chain: requestModel.chain.rawValue, network: requestModel.network.rawValue, curve: requestModel.curve.rawValue, requestedOutputs: requestModel.requestedOutputs.rawValue, derivationAlgorithm: requestModel.derivationAlgorithm.rawValue, addressAlgorithm: requestModel.addressAlgorithm.rawValue, publicKeyFormat: requestModel.publicKeyFormat.rawValue, scriptType: requestModel.scriptType.rawValue, seedPhrase: requestModel.seedPhrase, derivationPath: requestModel.derivationPath, passphrase: requestModel.passphrase, hmacKey: requestModel.hmacKey, mnemonicWordlist: requestModel.mnemonicWordlist, iterationCount: requestModel.iterationCount
         )
         return try decodeResponse(json: try derivationDeriveJson(requestJson: encodeJSONString(request)))
     }
-    static func deriveFromPrivateKey(chain: SeedDerivationChain, network: WalletDerivationNetwork = .mainnet, privateKeyHex: String) throws -> WalletRustDerivationResponseModel {
+    nonisolated static func deriveFromPrivateKey(chain: SeedDerivationChain, network: WalletDerivationNetwork = .mainnet, privateKeyHex: String) throws -> WalletRustDerivationResponseModel {
         guard let ffiChain = WalletRustFFIChain(chain: chain) else { throw WalletRustDerivationBridgeError.rustCoreUnsupportedChain(chain.rawValue) }
         let requestCompilationPreset = WalletDerivationPresetCatalog.requestCompilationPreset(for: chain)
         let requestModel = WalletRustPrivateKeyRequestModel(
@@ -109,7 +109,7 @@ enum WalletRustDerivationBridge {
         )
         return try decodeResponse(json: try derivationDeriveFromPrivateKeyJson(requestJson: encodeJSONString(payload)))
     }
-    static func buildSigningMaterial(_ requestModel: WalletRustDerivationRequestModel) throws -> WalletRustSigningMaterialModel {
+    nonisolated static func buildSigningMaterial(_ requestModel: WalletRustDerivationRequestModel) throws -> WalletRustSigningMaterialModel {
         guard let derivationPath = requestModel.derivationPath else { throw WalletRustDerivationBridgeError.requestCompilationFailed("Signing material requires a derivation path.") }
         let payload = WalletRustMaterialRequestPayload(
             chain: requestModel.chain.rawValue, network: requestModel.network.rawValue, curve: requestModel.curve.rawValue, derivationAlgorithm: requestModel.derivationAlgorithm.rawValue, addressAlgorithm: requestModel.addressAlgorithm.rawValue, publicKeyFormat: requestModel.publicKeyFormat.rawValue, scriptType: requestModel.scriptType.rawValue, seedPhrase: requestModel.seedPhrase, derivationPath: derivationPath, passphrase: requestModel.passphrase, hmacKey: requestModel.hmacKey, mnemonicWordlist: requestModel.mnemonicWordlist, iterationCount: requestModel.iterationCount
@@ -118,7 +118,7 @@ enum WalletRustDerivationBridge {
             json: try derivationBuildMaterialJson(requestJson: encodeJSONString(payload))
         )
     }
-    static func buildSigningMaterialFromPrivateKey(chain: SeedDerivationChain, network: WalletDerivationNetwork = .mainnet, privateKeyHex: String, derivationPath: String) throws -> WalletRustSigningMaterialModel {
+    nonisolated static func buildSigningMaterialFromPrivateKey(chain: SeedDerivationChain, network: WalletDerivationNetwork = .mainnet, privateKeyHex: String, derivationPath: String) throws -> WalletRustSigningMaterialModel {
         guard let ffiChain = WalletRustFFIChain(chain: chain) else { throw WalletRustDerivationBridgeError.rustCoreUnsupportedChain(chain.rawValue) }
         let requestCompilationPreset = WalletDerivationPresetCatalog.requestCompilationPreset(for: chain)
         let payload = WalletRustPrivateKeyMaterialRequestPayload(
@@ -128,18 +128,18 @@ enum WalletRustDerivationBridge {
             json: try derivationBuildMaterialFromPrivateKeyJson(requestJson: encodeJSONString(payload))
         )
     }
-    static func deriveAllAddresses(seedPhrase: String, chainPaths: [String: String]) throws -> [String: String] {
+    nonisolated static func deriveAllAddresses(seedPhrase: String, chainPaths: [String: String]) throws -> [String: String] {
         let pathsJSON = try encodeJSONString(chainPaths)
         let resultJSON = try derivationDeriveAllAddressesJson(seedPhrase: seedPhrase, chainPathsJson: pathsJSON)
         guard let data = resultJSON.data(using: .utf8), let raw = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { throw WalletRustDerivationBridgeError.rustCoreReturnedNullResponse }
         return raw.compactMapValues { $0 as? String }
     }
-    private static func encodeJSONString<T: Encodable>(_ value: T) throws -> String {
+    nonisolated private static func encodeJSONString<T: Encodable>(_ value: T) throws -> String {
         let data = try JSONEncoder().encode(value)
         guard let json = String(data: data, encoding: .utf8) else { throw WalletRustDerivationBridgeError.requestCompilationFailed("Rust derivation request was not valid UTF-8 JSON.") }
         return json
     }
-    private static func decodeResponse(json: String) throws -> WalletRustDerivationResponseModel {
+    nonisolated private static func decodeResponse(json: String) throws -> WalletRustDerivationResponseModel {
         guard let data = json.data(using: .utf8) else { throw WalletRustDerivationBridgeError.rustCoreFailed("Rust derivation response was not valid UTF-8.") }
         let payload: WalletRustDerivationResponsePayload
         do {
@@ -151,7 +151,7 @@ enum WalletRustDerivationBridge {
             address: payload.address, publicKeyHex: payload.publicKeyHex, privateKeyHex: payload.privateKeyHex
         )
     }
-    private static func decodeMaterialResponse(json: String) throws -> WalletRustSigningMaterialModel {
+    nonisolated private static func decodeMaterialResponse(json: String) throws -> WalletRustSigningMaterialModel {
         guard let data = json.data(using: .utf8) else { throw WalletRustDerivationBridgeError.rustCoreFailed("Rust derivation material response was not valid UTF-8.") }
         let payload: WalletRustMaterialResponsePayload
         do {
@@ -163,25 +163,25 @@ enum WalletRustDerivationBridge {
             address: payload.address, privateKeyHex: payload.privateKeyHex, derivationPath: payload.derivationPath, account: payload.account, branch: payload.branch, index: payload.index
         )
     }
-    private static func ffiDerivationAlgorithm(from preset: WalletDerivationRequestDerivationAlgorithmPreset) -> WalletRustFFIDerivationAlgorithm {
+    nonisolated private static func ffiDerivationAlgorithm(from preset: WalletDerivationRequestDerivationAlgorithmPreset) -> WalletRustFFIDerivationAlgorithm {
         switch preset {
         case .bip32Secp256k1: return .bip32Secp256k1
         case .slip10Ed25519: return .slip10Ed25519
         }}
-    private static func ffiAddressAlgorithm(from preset: WalletDerivationRequestAddressAlgorithmPreset) -> WalletRustFFIAddressAlgorithm {
+    nonisolated private static func ffiAddressAlgorithm(from preset: WalletDerivationRequestAddressAlgorithmPreset) -> WalletRustFFIAddressAlgorithm {
         switch preset {
         case .bitcoin: return .bitcoin
         case .evm: return .evm
         case .solana: return .solana
         }}
-    private static func ffiPublicKeyFormat(from preset: WalletDerivationRequestPublicKeyFormatPreset) -> WalletRustFFIPublicKeyFormat {
+    nonisolated private static func ffiPublicKeyFormat(from preset: WalletDerivationRequestPublicKeyFormatPreset) -> WalletRustFFIPublicKeyFormat {
         switch preset {
         case .compressed: return .compressed
         case .uncompressed: return .uncompressed
         case .xOnly: return .xOnly
         case .raw: return .raw
         }}
-    private static func compileScriptType(from preset: WalletDerivationRequestCompilationPreset, derivationPath: String?) throws -> WalletRustFFIScriptType {
+    nonisolated private static func compileScriptType(from preset: WalletDerivationRequestCompilationPreset, derivationPath: String?) throws -> WalletRustFFIScriptType {
         switch preset.scriptPolicy {
         case .bitcoinPurpose: guard let purpose = derivationPath.flatMap({ DerivationPathParser.segmentValue(at: 0, in: $0) }) else {
                 throw WalletRustDerivationBridgeError.requestCompilationFailed("Unable to compile Bitcoin script type from derivation path.")
@@ -195,7 +195,7 @@ enum WalletRustDerivationBridge {
         case .fixed: guard let fixedScriptType = preset.fixedScriptType else { throw WalletRustDerivationBridgeError.requestCompilationFailed("Fixed script policy requires fixedScriptType.") }
             return ffiScriptType(from: fixedScriptType)
         }}
-    private static func ffiScriptType(from preset: WalletDerivationRequestScriptTypePreset) -> WalletRustFFIScriptType {
+    nonisolated private static func ffiScriptType(from preset: WalletDerivationRequestScriptTypePreset) -> WalletRustFFIScriptType {
         switch preset {
         case .p2pkh: return .p2pkh
         case .p2shP2wpkh: return .p2shP2wpkh

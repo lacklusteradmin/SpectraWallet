@@ -33,7 +33,7 @@ enum WalletRustFFICurve: UInt32 {
     case secp256k1 = 0
     case ed25519 = 1
 }
-struct WalletRustFFIRequestedOutputs: OptionSet {
+struct WalletRustFFIRequestedOutputs: OptionSet, Sendable {
     let rawValue: UInt32
     static let address = WalletRustFFIRequestedOutputs(rawValue: 1 << 0)
     static let publicKey = WalletRustFFIRequestedOutputs(rawValue: 1 << 1)
@@ -65,7 +65,7 @@ enum WalletRustFFIScriptType: UInt32 {
     case p2tr = 4
     case account = 5
 }
-struct WalletRustDerivationRequestModel {
+struct WalletRustDerivationRequestModel: Sendable {
     let chain: WalletRustFFIChain
     let network: WalletRustFFINetwork
     let curve: WalletRustFFICurve
@@ -81,7 +81,7 @@ struct WalletRustDerivationRequestModel {
     let mnemonicWordlist: String?
     let iterationCount: UInt32
 }
-struct WalletRustPrivateKeyRequestModel {
+struct WalletRustPrivateKeyRequestModel: Sendable {
     let chain: WalletRustFFIChain
     let network: WalletRustFFINetwork
     let curve: WalletRustFFICurve
@@ -90,7 +90,7 @@ struct WalletRustPrivateKeyRequestModel {
     let scriptType: WalletRustFFIScriptType
     let privateKeyHex: String
 }
-struct WalletRustSigningMaterialModel {
+struct WalletRustSigningMaterialModel: Sendable {
     let address: String
     let privateKeyHex: String
     let derivationPath: String
@@ -98,13 +98,13 @@ struct WalletRustSigningMaterialModel {
     let branch: UInt32
     let index: UInt32
 }
-struct WalletRustDerivationResponseModel {
+struct WalletRustDerivationResponseModel: Sendable {
     let address: String?
     let publicKeyHex: String?
     let privateKeyHex: String?
 }
 extension WalletRustFFIChain {
-    init?(chain: SeedDerivationChain) {
+    nonisolated init?(chain: SeedDerivationChain) {
         switch chain {
         case .bitcoin: self = .bitcoin
         case .ethereum: self = .ethereum
@@ -131,7 +131,7 @@ extension WalletRustFFIChain {
         }}
 }
 extension WalletRustFFINetwork {
-    init(network: WalletDerivationNetwork) {
+    nonisolated init(network: WalletDerivationNetwork) {
         switch network {
         case .mainnet: self = .mainnet
         case .testnet: self = .testnet
@@ -140,14 +140,14 @@ extension WalletRustFFINetwork {
         }}
 }
 extension WalletRustFFICurve {
-    init(curve: WalletDerivationCurve) {
+    nonisolated init(curve: WalletDerivationCurve) {
         switch curve {
         case .secp256k1: self = .secp256k1
         case .ed25519: self = .ed25519
         }}
 }
 extension WalletRustFFIRequestedOutputs {
-    init(outputs: WalletDerivationRequestedOutputs) {
+    nonisolated init(outputs: WalletDerivationRequestedOutputs) {
         var value: WalletRustFFIRequestedOutputs = []
         if outputs.contains(.address) { value.insert(.address) }
         if outputs.contains(.publicKey) { value.insert(.publicKey) }

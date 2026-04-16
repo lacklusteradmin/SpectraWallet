@@ -1,4 +1,7 @@
 import SwiftUI
+private func localizedAddWalletString(_ key: String) -> String {
+    AppLocalization.string(key)
+}
 struct AddWalletEntryView: View {
     let store: AppState
     var body: some View {
@@ -7,21 +10,21 @@ struct AddWalletEntryView: View {
             ScrollView(showsIndicators: false) {
                 VStack(spacing: 14) {
                     actionCard(
-                        title: "Create New Wallet", subtitle: "Generate a new seed phrase and set up your wallet.", icon: "plus.circle.fill", tint: Color.green
+                        title: localizedAddWalletString("Create New Wallet"), subtitle: localizedAddWalletString("Generate a new seed phrase and set up your wallet."), icon: "plus.circle.fill", tint: Color.green
                     ) {
                         store.beginWalletCreation()
                     }
                     actionCard(
-                        title: "Import Wallet", subtitle: "Use an existing seed phrase or private key.", icon: "arrow.down.circle.fill", tint: Color.blue
+                        title: localizedAddWalletString("Import Wallet"), subtitle: localizedAddWalletString("Use an existing seed phrase or private key."), icon: "arrow.down.circle.fill", tint: Color.blue
                     ) {
                         store.beginWalletImport()
                     }
                     actionCard(
-                        title: "Watch Addresses", subtitle: "Track public addresses without adding private keys.", icon: "eye.circle.fill", tint: Color.orange
+                        title: localizedAddWalletString("Watch Addresses"), subtitle: localizedAddWalletString("Track public addresses without adding private keys."), icon: "eye.circle.fill", tint: Color.orange
                     ) {
                         store.beginWatchAddressesImport()
                     }}.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
-            }}.navigationTitle("Add Wallet").navigationBarTitleDisplayMode(.inline)
+            }}.navigationTitle(localizedAddWalletString("Add Wallet")).navigationBarTitleDisplayMode(.inline)
     }
     private func actionCard(
         title: String, subtitle: String, icon: String, tint: Color, action: @escaping () -> Void

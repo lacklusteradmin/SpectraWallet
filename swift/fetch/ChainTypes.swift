@@ -2,34 +2,34 @@ import Foundation
 
 // MARK: - RustBalanceDecoder (thin Swift forwarders; logic lives in Rust core/src/balance_decoder.rs)
 enum RustBalanceDecoder {
-    static func uint64Field(_ field: String, from json: String) -> UInt64? { balanceDecoderU64Field(field: field, json: json) }
-    static func int64Field(_ field: String, from json: String) -> Int64? { balanceDecoderI64Field(field: field, json: json) }
-    static func uint128StringField(_ field: String, from json: String) -> Double? { balanceDecoderU128StringFieldAsF64(field: field, json: json) }
-    static func evmNativeBalance(from json: String) -> Double? { balanceDecoderEvmNativeBalance(json: json) }
-    static func yoctoNearToDouble(from json: String) -> Double? { balanceDecoderYoctoNearToDouble(json: json) }
+    nonisolated static func uint64Field(_ field: String, from json: String) -> UInt64? { balanceDecoderU64Field(field: field, json: json) }
+    nonisolated static func int64Field(_ field: String, from json: String) -> Int64? { balanceDecoderI64Field(field: field, json: json) }
+    nonisolated static func uint128StringField(_ field: String, from json: String) -> Double? { balanceDecoderU128StringFieldAsF64(field: field, json: json) }
+    nonisolated static func evmNativeBalance(from json: String) -> Double? { balanceDecoderEvmNativeBalance(json: json) }
+    nonisolated static func yoctoNearToDouble(from json: String) -> Double? { balanceDecoderYoctoNearToDouble(json: json) }
 }
 
 // MARK: - Codable/RawRepresentable helpers for Rust-owned enums
 protocol RustStringEnum: RawRepresentable, CaseIterable, Codable, Identifiable, Equatable where RawValue == String {
-    static var rawMap: [(Self, String)] { get }
+    nonisolated static var rawMap: [(Self, String)] { get }
 }
 extension RustStringEnum {
-    public init?(rawValue: String) {
+    nonisolated public init?(rawValue: String) {
         for (c, r) in Self.rawMap where r == rawValue { self = c; return }
         return nil
     }
     // Compare by case name via Mirror instead of `==`. The default `==` from
     // RawRepresentable routes through rawValue, which would re-enter this getter.
-    public var rawValue: String {
+    nonisolated public var rawValue: String {
         let key = String(describing: self)
         return Self.rawMap.first(where: { String(describing: $0.0) == key })?.1 ?? ""
     }
-    public static var allCases: [Self] { Self.rawMap.map(\.0) }
-    public static func == (lhs: Self, rhs: Self) -> Bool {
+    nonisolated public static var allCases: [Self] { Self.rawMap.map(\.0) }
+    nonisolated public static func == (lhs: Self, rhs: Self) -> Bool {
         String(describing: lhs) == String(describing: rhs)
     }
-    public var id: String { rawValue }
-    public init(from decoder: Decoder) throws {
+    nonisolated public var id: String { rawValue }
+    nonisolated public init(from decoder: Decoder) throws {
         let c = try decoder.singleValueContainer()
         let raw = try c.decode(String.self)
         guard let v = Self(rawValue: raw) else {
@@ -37,7 +37,7 @@ extension RustStringEnum {
         }
         self = v
     }
-    public func encode(to encoder: Encoder) throws {
+    nonisolated public func encode(to encoder: Encoder) throws {
         var c = encoder.singleValueContainer(); try c.encode(rawValue)
     }
 }

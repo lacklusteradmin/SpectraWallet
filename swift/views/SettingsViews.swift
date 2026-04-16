@@ -1356,7 +1356,7 @@ struct MainTabView: View {
     }
     var body: some View {
         TabView(selection: selectedMainTabBinding) {
-            DashboardView(store: store).tabItem {
+            LazyTab { DashboardView(store: store) }.tabItem {
                     Label(localizedSettingsString("Home"), systemImage: "chart.pie.fill")
                 }.tag(MainAppTab.home)
             LazyTab { HistoryView(store: store) }.tabItem {

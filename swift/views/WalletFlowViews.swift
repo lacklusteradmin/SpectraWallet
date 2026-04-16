@@ -35,9 +35,9 @@ struct SendQRScannerSheet: View {
             QRCodeScannerView { payload in
                 onScan(payload)
                 dismiss()
-            }.ignoresSafeArea(edges: .bottom).navigationTitle("Scan QR Code").navigationBarTitleDisplayMode(.inline).toolbar {
+            }.ignoresSafeArea(edges: .bottom).navigationTitle(localizedWalletFlowString("Scan QR Code")).navigationBarTitleDisplayMode(.inline).toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Cancel") {
+                    Button(localizedWalletFlowString("Cancel")) {
                         dismiss()
                     }}}}}
 }
@@ -279,31 +279,31 @@ struct WalletDetailView: View {
                         Text(store.displayChainTitle(for: detailPresentation.wallet)).font(.subheadline).foregroundStyle(Color.primary.opacity(0.75))
                     }}.frame(maxWidth: .infinity, alignment: .leading).padding(16).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.025)), in: .rect(cornerRadius: 24))
                 VStack(alignment: .leading, spacing: 12) {
-                    detailRow(label: "Mode", value: isWatchOnly ? "Watch Addresses" : (isPrivateKeyWallet ? "Private Key" : "Seed-Based"))
+                    detailRow(label: "Mode", value: isWatchOnly ? localizedWalletFlowString("Watch Addresses") : (isPrivateKeyWallet ? localizedWalletFlowString("Private Key") : localizedWalletFlowString("Seed-Based")))
                     detailRow(label: "Current Value", value: detailPresentation.walletTotalValueText)
                     detailRow(label: "Asset Count", value: "\(detailPresentation.nonZeroAssetCount)")
                     detailRow(label: "First Activity", value: firstActivityDateText)
                 }.padding(16).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.025)), in: .rect(cornerRadius: 24))
                 VStack(alignment: .leading, spacing: 12) {
                     HStack {
-                        Text("Holdings").font(.headline).foregroundStyle(Color.primary)
+                        Text(localizedWalletFlowString("Holdings")).font(.headline).foregroundStyle(Color.primary)
                         Spacer()
                         Text("\(detailPresentation.visibleHoldingPresentations.count)").font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.68))
                     }
-                    if detailPresentation.visibleHoldingPresentations.isEmpty { Text("No assets loaded for this wallet yet.").font(.subheadline).foregroundStyle(Color.primary.opacity(0.72)) } else {
+                    if detailPresentation.visibleHoldingPresentations.isEmpty { Text(localizedWalletFlowString("No assets loaded for this wallet yet.")).font(.subheadline).foregroundStyle(Color.primary.opacity(0.72)) } else {
                         ForEach(detailPresentation.visibleHoldingPresentations) { holding in
                             holdingRow(holding)
                         }}}.padding(16).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.025)), in: .rect(cornerRadius: 24))
                 if let walletAddress = detailPresentation.walletAddress {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack {
-                            Text("Wallet Address").font(.headline).foregroundStyle(Color.primary)
+                            Text(localizedWalletFlowString("Wallet Address")).font(.headline).foregroundStyle(Color.primary)
                             Spacer()
                             Button {
                                 UIPasteboard.general.string = walletAddress
                                 didCopyWalletAddress = true
                             } label: {
-                                Label(didCopyWalletAddress ? "Copied" : "Copy", systemImage: didCopyWalletAddress ? "checkmark" : "doc.on.doc").font(.caption.weight(.semibold))
+                                Label(didCopyWalletAddress ? localizedWalletFlowString("Copied") : localizedWalletFlowString("Copy"), systemImage: didCopyWalletAddress ? "checkmark" : "doc.on.doc").font(.caption.weight(.semibold))
                             }.buttonStyle(.borderless).foregroundStyle(Color.primary)
                         }
                         Text(walletAddress).font(.footnote.monospaced()).foregroundStyle(Color.primary.opacity(0.8)).textSelection(.enabled)
@@ -314,7 +314,7 @@ struct WalletDetailView: View {
                         withAnimation(.easeInOut(duration: 0.25)) {
                             store.beginEditingWallet(wallet)
                         }} label: {
-                        Label("Edit Name", systemImage: "pencil").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 9)
+                        Label(localizedWalletFlowString("Edit Name"), systemImage: "pencil").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 9)
                     }.buttonStyle(.glass)
                     if !isWatchOnly && !isPrivateKeyWallet {
                         Button {
@@ -327,22 +327,22 @@ struct WalletDetailView: View {
                                 }}} label: {
                             Label(
                                 isRevealingSeedPhrase
-                                    ? "Checking Face ID..."
-                                    : (requiresSeedPhrasePassword ? "Show Seed Phrase (Password)" : "Show Seed Phrase"), systemImage: requiresSeedPhrasePassword ? "lock.shield" : "faceid"
+                                    ? localizedWalletFlowString("Checking Face ID...")
+                                    : (requiresSeedPhrasePassword ? localizedWalletFlowString("Show Seed Phrase (Password)") : localizedWalletFlowString("Show Seed Phrase")), systemImage: requiresSeedPhrasePassword ? "lock.shield" : "faceid"
                             ).font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 9)
                         }.buttonStyle(.glass).disabled(isRevealingSeedPhrase || !store.canRevealSeedPhrase(for: wallet.id))
                     }
                     Button(role: .destructive) {
                         isShowingDeleteWalletAlert = true
                     } label: {
-                        Label("Delete Wallet", systemImage: "trash").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 9)
+                        Label(localizedWalletFlowString("Delete Wallet"), systemImage: "trash").font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 9)
                     }.buttonStyle(.glass)
                 }}.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
         }.background(SpectraBackdrop()).refreshable {
             await store.refreshWalletBalance(wallet.id)
-        }.navigationTitle("Wallet Details").navigationBarTitleDisplayMode(.inline).toolbar {
+        }.navigationTitle(localizedWalletFlowString("Wallet Details")).navigationBarTitleDisplayMode(.inline).toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button("Advanced") {
+                Button(localizedWalletFlowString("Advanced")) {
                     isShowingAdvancedPage = true
                 }}}.navigationDestination(isPresented: $isShowingAdvancedPage) {
             WalletAdvancedDetailsView(
@@ -353,21 +353,21 @@ struct WalletDetailView: View {
                 if !isPresented { store.isShowingWalletImporter = false }}
         )) {
             SetupView(store: store, draft: store.importDraft)
-        }.alert("Delete Wallet?", isPresented: $isShowingDeleteWalletAlert) {
-            Button("Delete", role: .destructive) {
+        }.alert(localizedWalletFlowString("Delete Wallet?"), isPresented: $isShowingDeleteWalletAlert) {
+            Button(localizedWalletFlowString("Delete"), role: .destructive) {
                 Task {
                     store.confirmDeleteWallet(wallet)
                     await store.deletePendingWallet()
                 }}
-            Button("Cancel", role: .cancel) {
+            Button(localizedWalletFlowString("Cancel"), role: .cancel) {
                 isShowingDeleteWalletAlert = false
             }} message: {
             Text(deleteWalletMessage)
-        }.alert("Cannot Reveal Seed Phrase", isPresented: Binding(
+        }.alert(localizedWalletFlowString("Cannot Reveal Seed Phrase"), isPresented: Binding(
             get: { seedPhraseErrorMessage != nil }, set: { isPresented in
                 if !isPresented { seedPhraseErrorMessage = nil }}
         )) {
-            Button("OK", role: .cancel) {}} message: {
+            Button(localizedWalletFlowString("OK"), role: .cancel) {}} message: {
             Text(seedPhraseErrorMessage ?? "Unknown error")
         }.onChange(of: wallet.id) { _, _ in
             didCopyWalletAddress = false
@@ -382,20 +382,20 @@ struct WalletDetailView: View {
                 ZStack {
                     SpectraBackdrop()
                     VStack(alignment: .leading, spacing: 16) {
-                        Text("This wallet has an optional seed phrase password. Enter it after Face ID to reveal the recovery phrase.").font(.subheadline).foregroundStyle(Color.primary.opacity(0.76))
-                        SecureField("Wallet Password", text: $seedPhrasePasswordInput).textInputAutocapitalization(.never).autocorrectionDisabled().privacySensitive().padding(14).spectraInputFieldStyle().foregroundStyle(Color.primary)
+                        Text(localizedWalletFlowString("This wallet has an optional seed phrase password. Enter it after Face ID to reveal the recovery phrase.")).font(.subheadline).foregroundStyle(Color.primary.opacity(0.76))
+                        SecureField(localizedWalletFlowString("Wallet Password"), text: $seedPhrasePasswordInput).textInputAutocapitalization(.never).autocorrectionDisabled().privacySensitive().padding(14).spectraInputFieldStyle().foregroundStyle(Color.primary)
                         Button {
                             isShowingSeedPhrasePasswordPrompt = false
                             Task {
                                 await revealSeedPhrase(password: seedPhrasePasswordInput)
                             }} label: {
-                            Text("Reveal Seed Phrase").font(.headline).frame(maxWidth: .infinity)
+                            Text(localizedWalletFlowString("Reveal Seed Phrase")).font(.headline).frame(maxWidth: .infinity)
                         }.buttonStyle(.glassProminent).disabled(seedPhrasePasswordInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         Spacer()
                     }.padding(20)
-                }.navigationTitle("Wallet Password").navigationBarTitleDisplayMode(.inline).toolbar {
+                }.navigationTitle(localizedWalletFlowString("Wallet Password")).navigationBarTitleDisplayMode(.inline).toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Cancel") {
+                        Button(localizedWalletFlowString("Cancel")) {
                             isShowingSeedPhrasePasswordPrompt = false
                         }}}}}.sheet(isPresented: $isShowingSeedPhraseSheet, onDismiss: {
             revealedSeedPhrase = ""
@@ -405,12 +405,12 @@ struct WalletDetailView: View {
                     SpectraBackdrop()
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: 16) {
-                            Text("Write this down and keep it offline. Anyone with this phrase can control your funds.").font(.subheadline).foregroundStyle(Color.primary.opacity(0.76))
+                            Text(localizedWalletFlowString("Write this down and keep it offline. Anyone with this phrase can control your funds.")).font(.subheadline).foregroundStyle(Color.primary.opacity(0.76))
                             Text(revealedSeedPhrase).font(.body.monospaced()).foregroundStyle(Color.primary).privacySensitive().padding(12).frame(maxWidth: .infinity, alignment: .leading).spectraInputFieldStyle(cornerRadius: 16)
                         }.padding(16).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24)).padding(20)
-                    }}.navigationTitle("Seed Phrase").navigationBarTitleDisplayMode(.inline).toolbar {
+                    }}.navigationTitle(localizedWalletFlowString("Seed Phrase")).navigationBarTitleDisplayMode(.inline).toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button("Done") {
+                        Button(localizedWalletFlowString("Done")) {
                             isShowingSeedPhraseSheet = false
                         }}}}}}
     @ViewBuilder
@@ -462,7 +462,7 @@ private struct WalletAdvancedDetailsView: View {
                         walletDetailRow(label: "Wallet ID", value: walletID)
                         if let derivationPathsText { walletDetailRow(label: "Derivation Paths", value: derivationPathsText) }}.padding(16).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.025)), in: .rect(cornerRadius: 24))
                 }.padding(20)
-            }}.navigationTitle("Advanced").navigationBarTitleDisplayMode(.inline)
+            }}.navigationTitle(localizedWalletFlowString("Advanced")).navigationBarTitleDisplayMode(.inline)
     }
 }
 private func walletDetailRow(label: String, value: String) -> some View {
@@ -486,7 +486,7 @@ struct SeedPathSlotEditor: View {
             HStack {
                 Text(localizedWalletFlowString(title)).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
                 Spacer()
-                Button("Reset") {
+                Button(localizedWalletFlowString("Reset")) {
                     path = defaultPath
                 }.font(.caption.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.72))
             }
