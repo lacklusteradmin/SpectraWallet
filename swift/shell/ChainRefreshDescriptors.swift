@@ -31,38 +31,45 @@ extension AppState {
         [
             WalletChainRefreshDescriptor(
                 chainID: WalletChainID("Bitcoin")!, executeRefresh: { store, refreshHistory in
+                    await store.refreshUTXOAddressDiscovery(chainName: "Bitcoin")
+                    await store.refreshUTXOReceiveReservationState(chainName: "Bitcoin")
                     await store.refreshBalances()
                     if refreshHistory { await store.refreshBitcoinTransactions(limit: 20, loadMore: false) }
                     await store.refreshPendingBitcoinTransactions()
-                }, ), WalletChainRefreshDescriptor(
+                }, executeHistoryOnly: { store in await store.refreshBitcoinTransactions(limit: 20, loadMore: false) }
+            ), WalletChainRefreshDescriptor(
                 chainID: WalletChainID("Bitcoin Cash")!, executeRefresh: { store, refreshHistory in
                     await store.refreshUTXOAddressDiscovery(chainName: "Bitcoin Cash")
                     await store.refreshUTXOReceiveReservationState(chainName: "Bitcoin Cash")
                     await store.refreshBalances()
                     if refreshHistory { await store.refreshBitcoinCashTransactions(limit: 20, loadMore: false) }
                     await store.refreshPendingBitcoinCashTransactions()
-                }, ), WalletChainRefreshDescriptor(
+                }, executeHistoryOnly: { store in await store.refreshBitcoinCashTransactions(limit: 20, loadMore: false) }
+            ), WalletChainRefreshDescriptor(
                 chainID: WalletChainID("Bitcoin SV")!, executeRefresh: { store, refreshHistory in
                     await store.refreshUTXOAddressDiscovery(chainName: "Bitcoin SV")
                     await store.refreshUTXOReceiveReservationState(chainName: "Bitcoin SV")
                     await store.refreshBalances()
                     if refreshHistory { await store.refreshBitcoinSVTransactions(limit: 20, loadMore: false) }
                     await store.refreshPendingBitcoinSVTransactions()
-                }, ), WalletChainRefreshDescriptor(
+                }, executeHistoryOnly: { store in await store.refreshBitcoinSVTransactions(limit: 20, loadMore: false) }
+            ), WalletChainRefreshDescriptor(
                 chainID: WalletChainID("Litecoin")!, executeRefresh: { store, refreshHistory in
                     await store.refreshUTXOAddressDiscovery(chainName: "Litecoin")
                     await store.refreshUTXOReceiveReservationState(chainName: "Litecoin")
                     await store.refreshBalances()
                     if refreshHistory { await store.refreshLitecoinTransactions(limit: 20, loadMore: false) }
                     await store.refreshPendingLitecoinTransactions()
-                }, ), WalletChainRefreshDescriptor(
+                }, executeHistoryOnly: { store in await store.refreshLitecoinTransactions(limit: 20, loadMore: false) }
+            ), WalletChainRefreshDescriptor(
                 chainID: WalletChainID("Dogecoin")!, executeRefresh: { store, refreshHistory in
-                    await store.refreshDogecoinAddressDiscovery()
-                    await store.refreshDogecoinReceiveReservationState()
+                    await store.refreshUTXOAddressDiscovery(chainName: "Dogecoin")
+                    await store.refreshUTXOReceiveReservationState(chainName: "Dogecoin")
                     await store.refreshBalances()
                     if refreshHistory { await store.refreshDogecoinTransactions(loadMore: false) }
                     await store.refreshPendingDogecoinTransactions()
-                }, ), WalletChainRefreshDescriptor(
+                }, executeHistoryOnly: { store in await store.refreshDogecoinTransactions(loadMore: false) }
+            ), WalletChainRefreshDescriptor(
                 chainID: WalletChainID("Ethereum")!, executeRefresh: { store, refreshHistory in
                     await store.refreshBalances()
                     if refreshHistory { await store.refreshEVMTokenTransactions(chainName: "Ethereum", loadMore: false) }
@@ -81,10 +88,12 @@ extension AppState {
                     await store.refreshPendingOptimismTransactions()
                 }, executeHistoryOnly: { store in await store.refreshEVMTokenTransactions(chainName: "Optimism") }
             ), WalletChainRefreshDescriptor(
-                chainID: WalletChainID("Ethereum Classic")!, executeRefresh: { store, _ in
+                chainID: WalletChainID("Ethereum Classic")!, executeRefresh: { store, refreshHistory in
                     await store.refreshBalances()
+                    if refreshHistory { await store.refreshEVMTokenTransactions(chainName: "Ethereum Classic", loadMore: false) }
                     await store.refreshPendingETCTransactions()
-                }, ), WalletChainRefreshDescriptor(
+                }, executeHistoryOnly: { store in await store.refreshEVMTokenTransactions(chainName: "Ethereum Classic") }
+            ), WalletChainRefreshDescriptor(
                 chainID: WalletChainID("BNB Chain")!, executeRefresh: { store, refreshHistory in
                     await store.refreshBalances()
                     if refreshHistory { await store.refreshEVMTokenTransactions(chainName: "BNB Chain", loadMore: false) }
@@ -95,7 +104,8 @@ extension AppState {
                     await store.refreshBalances()
                     if refreshHistory { await store.refreshEVMTokenTransactions(chainName: "Avalanche", loadMore: false) }
                     await store.refreshPendingAvalancheTransactions()
-                }, ), WalletChainRefreshDescriptor(
+                }, executeHistoryOnly: { store in await store.refreshEVMTokenTransactions(chainName: "Avalanche") }
+            ), WalletChainRefreshDescriptor(
                 chainID: WalletChainID("Hyperliquid")!, executeRefresh: { store, refreshHistory in
                     await store.refreshBalances()
                     if refreshHistory { await store.refreshEVMTokenTransactions(chainName: "Hyperliquid", loadMore: false) }
@@ -154,7 +164,8 @@ extension AppState {
                     await store.refreshBalances()
                     if refreshHistory { await store.refreshPolkadotTransactions(loadMore: false) }
                     await store.refreshPendingPolkadotTransactions()
-                }, )
+                }, executeHistoryOnly: { store in await store.refreshPolkadotTransactions(loadMore: false) }
+            )
         ]
     }
     var importedWalletRefreshDescriptors: [WalletChainRefreshDescriptor] {
@@ -164,12 +175,14 @@ extension AppState {
                     await store.refreshBalances()
                     if refreshHistory { await store.refreshAptosTransactions(loadMore: false) }
                     await store.refreshPendingAptosTransactions()
-                }, ), WalletChainRefreshDescriptor(
+                }, executeHistoryOnly: { store in await store.refreshAptosTransactions(loadMore: false) }
+            ), WalletChainRefreshDescriptor(
                 chainID: WalletChainID("Internet Computer")!, executeRefresh: { store, refreshHistory in
                     await store.refreshBalances()
                     if refreshHistory { await store.refreshICPTransactions(loadMore: false) }
                     await store.refreshPendingICPTransactions()
-                }, )
+                }, executeHistoryOnly: { store in await store.refreshICPTransactions(loadMore: false) }
+            )
         ]
     }
 
@@ -236,6 +249,7 @@ extension AppState {
             case "Optimism": await refreshBalances()
                 await refreshEVMTokenTransactions(chainName: "Optimism", maxResults: 20, loadMore: false)
             case "Ethereum Classic": await refreshBalances()
+                await refreshEVMTokenTransactions(chainName: "Ethereum Classic", maxResults: 20, loadMore: false)
             case "BNB Chain": await refreshBalances()
                 await refreshEVMTokenTransactions(chainName: "BNB Chain", maxResults: 20, loadMore: false)
             case "Avalanche": await refreshBalances()

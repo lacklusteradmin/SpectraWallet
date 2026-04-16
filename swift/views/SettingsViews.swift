@@ -1328,6 +1328,24 @@ struct TokenIconSettingsView: View {
                 }.disabled(tokenIconPreferencesStorage.isEmpty)
             }}}
 }
+/// Defers evaluation of a tab's content until the tab is first selected.
+/// After that initial render the view stays alive (SwiftUI's TabView keeps
+/// it in memory), but the expensive first-build is skipped until the user
+/// actually taps the tab.
+private struct LazyTab<Content: View>: View {
+    @State private var hasAppeared = false
+    let build: () -> Content
+    var body: some View {
+        Group {
+            if hasAppeared {
+                build()
+            } else {
+                Color.clear
+            }
+        }.onAppear { hasAppeared = true }
+    }
+}
+
 struct MainTabView: View {
     let store: AppState
     init(store: AppState) {
@@ -1341,16 +1359,16 @@ struct MainTabView: View {
             DashboardView(store: store).tabItem {
                     Label(localizedSettingsString("Home"), systemImage: "chart.pie.fill")
                 }.tag(MainAppTab.home)
-            HistoryView(store: store).tabItem {
+            LazyTab { HistoryView(store: store) }.tabItem {
                     Label(localizedSettingsString("History"), systemImage: "clock.arrow.circlepath")
                 }.tag(MainAppTab.history)
-            StakingView().tabItem {
+            LazyTab { StakingView() }.tabItem {
                     Label(localizedSettingsString("Staking"), systemImage: "link.circle.fill")
                 }.tag(MainAppTab.staking)
-            DonationsView().tabItem {
+            LazyTab { DonationsView() }.tabItem {
                     Label(localizedSettingsString("Donate"), systemImage: "heart.fill")
                 }.tag(MainAppTab.donate)
-            SettingsView(store: store).tabItem {
+            LazyTab { SettingsView(store: store) }.tabItem {
                     Label(localizedSettingsString("Settings"), systemImage: "gearshape.fill")
                 }.tag(MainAppTab.settings)
         }}

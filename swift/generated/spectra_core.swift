@@ -25182,9 +25182,6 @@ public enum HttpRetryProfile {
     case chainRead
     case chainWrite
     case diagnostics
-    case litecoinRead
-    case litecoinWrite
-    case litecoinDiagnostics
 }
 
 
@@ -25208,12 +25205,6 @@ public struct FfiConverterTypeHttpRetryProfile: FfiConverterRustBuffer {
         
         case 3: return .diagnostics
         
-        case 4: return .litecoinRead
-        
-        case 5: return .litecoinWrite
-        
-        case 6: return .litecoinDiagnostics
-        
         default: throw UniffiInternalError.unexpectedEnumCase
         }
     }
@@ -25232,18 +25223,6 @@ public struct FfiConverterTypeHttpRetryProfile: FfiConverterRustBuffer {
         
         case .diagnostics:
             writeInt(&buf, Int32(3))
-        
-        
-        case .litecoinRead:
-            writeInt(&buf, Int32(4))
-        
-        
-        case .litecoinWrite:
-            writeInt(&buf, Int32(5))
-        
-        
-        case .litecoinDiagnostics:
-            writeInt(&buf, Int32(6))
         
         }
     }

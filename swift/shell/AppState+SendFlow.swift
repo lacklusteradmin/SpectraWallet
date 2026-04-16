@@ -650,6 +650,7 @@ extension AppState {
         case "Bitcoin Cash": return AddressValidation.isValidBitcoinCashAddress(address)
         case "Bitcoin SV": return AddressValidation.isValidBitcoinSVAddress(address)
         case "Litecoin": return AddressValidation.isValidLitecoinAddress(address)
+        case "Dogecoin": return AddressValidation.isValidDogecoinAddress(address, networkMode: dogecoinNetworkMode)
         default: return false
         }}
     func utxoDiscoveryDerivationPath(for wallet: ImportedWallet, chainName: String, branch: WalletDerivationBranch, index: Int) -> String? {
@@ -668,7 +669,7 @@ extension AppState {
         return Int(pathSegments.last?.value ?? 0)
     }
     func deriveUTXOAddress(for wallet: ImportedWallet, chainName: String, branch: WalletDerivationBranch, index: Int) -> String? {
-        guard let seedPhrase = storedSeedPhrase(for: wallet.id), supportsDeepUTXODiscovery(chainName: chainName) || chainName == "Bitcoin", let derivationPath = utxoDiscoveryDerivationPath(for: wallet, chainName: chainName, branch: branch, index: index), let derivationChain = utxoDiscoveryDerivationChain(for: chainName), let address = try? deriveSeedPhraseAddress(
+        guard let seedPhrase = storedSeedPhrase(for: wallet.id), supportsDeepUTXODiscovery(chainName: chainName), let derivationPath = utxoDiscoveryDerivationPath(for: wallet, chainName: chainName, branch: branch, index: index), let derivationChain = utxoDiscoveryDerivationChain(for: chainName), let address = try? deriveSeedPhraseAddress(
                 seedPhrase: seedPhrase, chain: derivationChain, network: derivationNetwork(for: derivationChain, wallet: wallet), derivationPath: derivationPath
               ), isValidUTXOAddressForPolicy(address, chainName: chainName) else {
             return nil
@@ -684,6 +685,9 @@ extension AppState {
         case "Bitcoin Cash", "Bitcoin SV", "Litecoin": guard let chainId = SpectraChainID.id(for: chainName) else { return false }
             if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: chainId, address: address), let sat = RustBalanceDecoder.uint64Field("balance_sat", from: json), sat > 0 { return true }
             if let histJSON = try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: chainId, address: address), !(histJSON == "[]" || histJSON == "null"), !((histJSON.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] }) ?? []).isEmpty { return true }
+        case "Dogecoin":
+            if let json = try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.dogecoin, address: address), let koin = RustBalanceDecoder.uint64Field("balance_koin", from: json), koin > 0 { return true }
+            if let histJSON = try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.dogecoin, address: address), !(histJSON == "[]" || histJSON == "null"), !((histJSON.data(using: .utf8).flatMap { try? JSONSerialization.jsonObject(with: $0) as? [[String: Any]] }) ?? []).isEmpty { return true }
         default: return false
         }
         return false
@@ -701,6 +705,7 @@ extension AppState {
         case "Bitcoin Cash": appendAddress(wallet.bitcoinCashAddress)
         case "Bitcoin SV": appendAddress(wallet.bitcoinSvAddress)
         case "Litecoin": appendAddress(wallet.litecoinAddress)
+        case "Dogecoin": appendAddress(wallet.dogecoinAddress)
         default: break
         }
         appendAddress(resolvedAddress(for: wallet, chainName: chainName))

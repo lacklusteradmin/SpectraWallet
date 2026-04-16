@@ -14,7 +14,7 @@ enum WalletFetchLayer {
         if store.hasArbitrumWallets { await store.refreshEVMTokenTransactions(chainName: "Arbitrum", maxResults: AppState.HistoryPaging.endpointBatchSize, loadMore: true, targetWalletIDs: eligibleWalletIDs) }
         if store.hasOptimismWallets { await store.refreshEVMTokenTransactions(chainName: "Optimism", maxResults: AppState.HistoryPaging.endpointBatchSize, loadMore: true, targetWalletIDs: eligibleWalletIDs) }
         if store.hasBNBWallets { await store.refreshEVMTokenTransactions(chainName: "BNB Chain", maxResults: AppState.HistoryPaging.endpointBatchSize, loadMore: true, targetWalletIDs: eligibleWalletIDs) }
-        if store.hasAvalancheWallets { await store.refreshEVMTokenTransactions(chainName: "Avalanche", maxResults: AppState.HistoryPaging.endpointBatchSize, loadMore: false) }
+        if store.hasAvalancheWallets { await store.refreshEVMTokenTransactions(chainName: "Avalanche", maxResults: AppState.HistoryPaging.endpointBatchSize, loadMore: true, targetWalletIDs: eligibleWalletIDs) }
         if store.wallets.contains(where: { $0.selectedChain == "Hyperliquid" && store.resolvedEVMAddress(for: $0, chainName: "Hyperliquid") != nil }) {
             await store.refreshEVMTokenTransactions(chainName: "Hyperliquid", maxResults: AppState.HistoryPaging.endpointBatchSize, loadMore: true, targetWalletIDs: eligibleWalletIDs)
         }

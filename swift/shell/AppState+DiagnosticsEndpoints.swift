@@ -131,7 +131,7 @@ extension AppState {
             moneroEndpointHealthResults = [BitcoinEndpointHealthResult(endpoint: "monero.backend.baseURL", reachable: false, statusCode: nil, detail: "Monero backend is not configured.")]
             moneroEndpointHealthLastUpdatedAt = Date(); return
         }
-        let probe = await probeHTTP(baseURL.appendingPathComponent("v1/monero/balance"), profile: .litecoinDiagnostics)
+        let probe = await probeHTTP(baseURL.appendingPathComponent("v1/monero/balance"), profile: .diagnostics)
         moneroEndpointHealthResults = [BitcoinEndpointHealthResult(endpoint: baseURL.absoluteString, reachable: probe.reachable, statusCode: probe.statusCode, detail: probe.detail)]
         moneroEndpointHealthLastUpdatedAt = Date()
     }
@@ -144,7 +144,7 @@ extension AppState {
             if rpcEndpoints.contains(endpoint) {
                 results.append(await probeJSONRPC(endpoint: endpoint, urlString: endpoint, rpcMethod: "status"))
             } else if let url = URL(string: probeURL) {
-                let probe = await probeHTTP(url, profile: .litecoinDiagnostics)
+                let probe = await probeHTTP(url, profile: .diagnostics)
                 results.append(BitcoinEndpointHealthResult(endpoint: endpoint, reachable: probe.reachable, statusCode: probe.statusCode, detail: probe.detail))
             } else {
                 results.append(BitcoinEndpointHealthResult(endpoint: endpoint, reachable: false, statusCode: nil, detail: "Invalid URL"))
@@ -160,7 +160,7 @@ extension AppState {
             if PolkadotBalanceService.sidecarEndpointCatalog().contains(endpoint) {
                 guard URL(string: probeURL) != nil else { results.append(BitcoinEndpointHealthResult(endpoint: endpoint, reachable: false, statusCode: nil, detail: "Invalid URL")); continue }
                 do {
-                    let resp = try await httpRequest(method: "GET", url: probeURL, headers: [], body: nil, profile: .litecoinDiagnostics)
+                    let resp = try await httpRequest(method: "GET", url: probeURL, headers: [], body: nil, profile: .diagnostics)
                     let statusCode = Int(resp.statusCode)
                     let reachable = (200 ... 299).contains(statusCode)
                     results.append(BitcoinEndpointHealthResult(endpoint: endpoint, reachable: reachable, statusCode: statusCode, detail: reachable ? "OK" : "HTTP \(statusCode)"))
@@ -289,7 +289,7 @@ extension AppState {
     private func runSimpleEndpointDiagnostics(isCheckingKP: ReferenceWritableKeyPath<AppState, Bool>, checks: [(endpoint: String, probeURL: String)], resultsKP: ReferenceWritableKeyPath<AppState, [BitcoinEndpointHealthResult]>, tsKP: ReferenceWritableKeyPath<AppState, Date?>) async {
         guard !self[keyPath: isCheckingKP] else { return }
         self[keyPath: isCheckingKP] = true; defer { self[keyPath: isCheckingKP] = false }
-        await runSimpleEndpointReachabilityDiagnostics(checks: checks, profile: .litecoinDiagnostics, setResults: { self[keyPath: resultsKP] = $0 }, markUpdated: { self[keyPath: tsKP] = Date() })
+        await runSimpleEndpointReachabilityDiagnostics(checks: checks, profile: .diagnostics, setResults: { self[keyPath: resultsKP] = $0 }, markUpdated: { self[keyPath: tsKP] = Date() })
     }
     private func runPureEVMEndpointDiagnostics(isCheckingKP: ReferenceWritableKeyPath<AppState, Bool>, chainName: String, context: EVMChainContext, resultsKP: ReferenceWritableKeyPath<AppState, [EthereumEndpointHealthResult]>, tsKP: ReferenceWritableKeyPath<AppState, Date?>) async {
         guard !self[keyPath: isCheckingKP] else { return }
