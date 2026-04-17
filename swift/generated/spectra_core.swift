@@ -13639,6 +13639,76 @@ nonisolated public func FfiConverterTypeCoreWalletRustSecretMaterialDescriptor_l
 }
 
 
+nonisolated public struct DerivationPathSegment {
+    public var value: UInt32
+    public var isHardened: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    nonisolated public init(value: UInt32, isHardened: Bool) {
+        self.value = value
+        self.isHardened = isHardened
+    }
+}
+
+#if compiler(>=6)
+nonisolated extension DerivationPathSegment: Sendable {}
+#endif
+
+
+nonisolated extension DerivationPathSegment: Equatable, Hashable {
+    public static func ==(lhs: DerivationPathSegment, rhs: DerivationPathSegment) -> Bool {
+        if lhs.value != rhs.value {
+            return false
+        }
+        if lhs.isHardened != rhs.isHardened {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(value)
+        hasher.combine(isHardened)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public struct FfiConverterTypeDerivationPathSegment: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DerivationPathSegment {
+        return
+            try DerivationPathSegment(
+                value: FfiConverterUInt32.read(from: &buf), 
+                isHardened: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: DerivationPathSegment, into buf: inout [UInt8]) {
+        FfiConverterUInt32.write(value.value, into: &buf)
+        FfiConverterBool.write(value.isHardened, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeDerivationPathSegment_lift(_ buf: RustBuffer) throws -> DerivationPathSegment {
+    return try FfiConverterTypeDerivationPathSegment.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeDerivationPathSegment_lower(_ value: DerivationPathSegment) -> RustBuffer {
+    return FfiConverterTypeDerivationPathSegment.lower(value)
+}
+
+
 nonisolated public struct DogecoinAggregateInput {
     public var ownAddresses: [String]
     public var entries: [NormalizedHistoryItem]
@@ -18606,6 +18676,92 @@ nonisolated public func FfiConverterTypeKeypoolState_lift(_ buf: RustBuffer) thr
 #endif
 nonisolated public func FfiConverterTypeKeypoolState_lower(_ value: KeypoolState) -> RustBuffer {
     return FfiConverterTypeKeypoolState.lower(value)
+}
+
+
+nonisolated public struct LargeMovementEvaluation {
+    public var shouldAlert: Bool
+    public var absoluteDelta: Double
+    public var ratio: Double
+    public var directionUp: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    nonisolated public init(shouldAlert: Bool, absoluteDelta: Double, ratio: Double, directionUp: Bool) {
+        self.shouldAlert = shouldAlert
+        self.absoluteDelta = absoluteDelta
+        self.ratio = ratio
+        self.directionUp = directionUp
+    }
+}
+
+#if compiler(>=6)
+nonisolated extension LargeMovementEvaluation: Sendable {}
+#endif
+
+
+nonisolated extension LargeMovementEvaluation: Equatable, Hashable {
+    public static func ==(lhs: LargeMovementEvaluation, rhs: LargeMovementEvaluation) -> Bool {
+        if lhs.shouldAlert != rhs.shouldAlert {
+            return false
+        }
+        if lhs.absoluteDelta != rhs.absoluteDelta {
+            return false
+        }
+        if lhs.ratio != rhs.ratio {
+            return false
+        }
+        if lhs.directionUp != rhs.directionUp {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(shouldAlert)
+        hasher.combine(absoluteDelta)
+        hasher.combine(ratio)
+        hasher.combine(directionUp)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public struct FfiConverterTypeLargeMovementEvaluation: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LargeMovementEvaluation {
+        return
+            try LargeMovementEvaluation(
+                shouldAlert: FfiConverterBool.read(from: &buf), 
+                absoluteDelta: FfiConverterDouble.read(from: &buf), 
+                ratio: FfiConverterDouble.read(from: &buf), 
+                directionUp: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: LargeMovementEvaluation, into buf: inout [UInt8]) {
+        FfiConverterBool.write(value.shouldAlert, into: &buf)
+        FfiConverterDouble.write(value.absoluteDelta, into: &buf)
+        FfiConverterDouble.write(value.ratio, into: &buf)
+        FfiConverterBool.write(value.directionUp, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeLargeMovementEvaluation_lift(_ buf: RustBuffer) throws -> LargeMovementEvaluation {
+    return try FfiConverterTypeLargeMovementEvaluation.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeLargeMovementEvaluation_lower(_ value: LargeMovementEvaluation) -> RustBuffer {
+    return FfiConverterTypeLargeMovementEvaluation.lower(value)
 }
 
 
@@ -33011,6 +33167,30 @@ fileprivate struct FfiConverterOptionSequenceTypeCoreTokenPreferenceEntry: FfiCo
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionSequenceTypeDerivationPathSegment: FfiConverterRustBuffer {
+    typealias SwiftType = [DerivationPathSegment]?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterSequenceTypeDerivationPathSegment.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterSequenceTypeDerivationPathSegment.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionDictionaryStringString: FfiConverterRustBuffer {
     typealias SwiftType = [String: String]?
 
@@ -33752,6 +33932,31 @@ fileprivate struct FfiConverterSequenceTypeCoreTransactionRecord: FfiConverterRu
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeCoreTransactionRecord.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeDerivationPathSegment: FfiConverterRustBuffer {
+    typealias SwiftType = [DerivationPathSegment]
+
+    public static func write(_ value: [DerivationPathSegment], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeDerivationPathSegment.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [DerivationPathSegment] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [DerivationPathSegment]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeDerivationPathSegment.read(from: &buf))
         }
         return seq
     }
@@ -37159,6 +37364,31 @@ nonisolated public func coreChainRiskProbeMessages(chainName: String, balanceLab
     )
 })
 }
+nonisolated public func coreDerivationPathReplacingLastTwo(rawPath: String, branch: UInt32, index: UInt32, fallback: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_derivation_path_replacing_last_two(
+        FfiConverterString.lower(rawPath),
+        FfiConverterUInt32.lower(branch),
+        FfiConverterUInt32.lower(index),
+        FfiConverterString.lower(fallback),$0
+    )
+})
+}
+nonisolated public func coreDerivationPathSegmentValue(path: String, index: UInt32) -> UInt32?  {
+    return try!  FfiConverterOptionUInt32.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_derivation_path_segment_value(
+        FfiConverterString.lower(path),
+        FfiConverterUInt32.lower(index),$0
+    )
+})
+}
+nonisolated public func coreDerivationPathString(segments: [DerivationPathSegment]) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_derivation_path_string(
+        FfiConverterSequenceTypeDerivationPathSegment.lower(segments),$0
+    )
+})
+}
 nonisolated public func coreDisplayChainTitle(chainName: String, networkName: String) -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
     uniffi_spectra_core_fn_func_core_display_chain_title(
@@ -37184,6 +37414,13 @@ nonisolated public func coreEncodeHistoryRecordsJson(records: [HistoryRecordEnco
     )
 })
 }
+nonisolated public func coreEndpointRoleMask(roles: [String]) -> UInt32  {
+    return try!  FfiConverterUInt32.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_endpoint_role_mask(
+        FfiConverterSequenceString.lower(roles),$0
+    )
+})
+}
 /**
  * Typed high-risk send evaluation — replaces `core_evaluate_high_risk_send_reasons_json`.
  */
@@ -37191,6 +37428,16 @@ nonisolated public func coreEvaluateHighRiskSendReasons(request: HighRiskSendReq
     return try!  FfiConverterSequenceTypeHighRiskSendWarning.lift(try! rustCall() {
     uniffi_spectra_core_fn_func_core_evaluate_high_risk_send_reasons(
         FfiConverterTypeHighRiskSendRequest_lower(request),$0
+    )
+})
+}
+nonisolated public func coreEvaluateLargeMovement(previousTotalUsd: Double, currentTotalUsd: Double, usdThreshold: Double, percentThreshold: Double) -> LargeMovementEvaluation  {
+    return try!  FfiConverterTypeLargeMovementEvaluation_lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_evaluate_large_movement(
+        FfiConverterDouble.lower(previousTotalUsd),
+        FfiConverterDouble.lower(currentTotalUsd),
+        FfiConverterDouble.lower(usdThreshold),
+        FfiConverterDouble.lower(percentThreshold),$0
     )
 })
 }
@@ -37288,6 +37535,14 @@ nonisolated public func coreMergeTransactions(request: TransactionMergeRequest) 
     )
 })
 }
+nonisolated public func coreNormalizeDerivationPath(rawPath: String, fallback: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_normalize_derivation_path(
+        FfiConverterString.lower(rawPath),
+        FfiConverterString.lower(fallback),$0
+    )
+})
+}
 nonisolated public func coreNormalizeHistory(request: NormalizeHistoryRequest) -> [CoreNormalizedHistoryEntry]  {
     return try!  FfiConverterSequenceTypeCoreNormalizedHistoryEntry.lift(try! rustCall() {
     uniffi_spectra_core_fn_func_core_normalize_history(
@@ -37299,6 +37554,13 @@ nonisolated public func coreOrderEndpointsByReliability(request: EndpointOrderin
     return try!  FfiConverterSequenceString.lift(try! rustCall() {
     uniffi_spectra_core_fn_func_core_order_endpoints_by_reliability(
         FfiConverterTypeEndpointOrderingRequest_lower(request),$0
+    )
+})
+}
+nonisolated public func coreParseDerivationPath(rawPath: String) -> [DerivationPathSegment]?  {
+    return try!  FfiConverterOptionSequenceTypeDerivationPathSegment.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_parse_derivation_path(
+        FfiConverterString.lower(rawPath),$0
     )
 })
 }
@@ -37398,6 +37660,20 @@ nonisolated public func corePlanWalletImport(request: WalletImportRequest)throws
     return try  FfiConverterTypeWalletImportPlan_lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
     uniffi_spectra_core_fn_func_core_plan_wallet_import(
         FfiConverterTypeWalletImportRequest_lower(request),$0
+    )
+})
+}
+nonisolated public func corePrivateKeyHexIsLikely(rawValue: String) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_private_key_hex_is_likely(
+        FfiConverterString.lower(rawValue),$0
+    )
+})
+}
+nonisolated public func corePrivateKeyHexNormalized(rawValue: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_private_key_hex_normalized(
+        FfiConverterString.lower(rawValue),$0
     )
 })
 }
@@ -39958,6 +40234,15 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_func_core_chain_risk_probe_messages() != 53607) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_core_checksum_func_core_derivation_path_replacing_last_two() != 34351) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_derivation_path_segment_value() != 44661) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_derivation_path_string() != 55070) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_core_checksum_func_core_display_chain_title() != 10403) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -39967,7 +40252,13 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_func_core_encode_history_records_json() != 54860) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_core_checksum_func_core_endpoint_role_mask() != 12861) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_core_checksum_func_core_evaluate_high_risk_send_reasons() != 44464) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_evaluate_large_movement() != 46967) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_core_evm_chain_context_tag() != 36726) {
@@ -40006,10 +40297,16 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_func_core_merge_transactions() != 38368) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_core_checksum_func_core_normalize_derivation_path() != 55527) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_core_checksum_func_core_normalize_history() != 40717) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_core_order_endpoints_by_reliability() != 41716) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_parse_derivation_path() != 34150) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_core_parse_dogecoin_derivation_index() != 52136) {
@@ -40052,6 +40349,12 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_core_plan_wallet_import() != 24394) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_private_key_hex_is_likely() != 12251) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_private_key_hex_normalized() != 51581) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_core_rebroadcast_dispatch_for_format() != 30671) {

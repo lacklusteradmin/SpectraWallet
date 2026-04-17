@@ -79,19 +79,6 @@ enum WalletRustEndpointCatalogBridge {
             throw WalletRustEndpointCatalogBridgeError.invalidPayload(error.localizedDescription)
         }}
     nonisolated private static func roleMask(for roles: Set<AppEndpointRole>) -> UInt32 {
-        roles.reduce(into: UInt32.zero) { partialResult, role in
-            let bit: UInt32 = switch role {
-            case .read: 1 << 0
-            case .balance: 1 << 1
-            case .history: 1 << 2
-            case .utxo: 1 << 3
-            case .fee: 1 << 4
-            case .broadcast: 1 << 5
-            case .verification: 1 << 6
-            case .rpc: 1 << 7
-            case .explorer: 1 << 8
-            case .backend: 1 << 9
-            }
-            partialResult |= bit
-        }}
+        coreEndpointRoleMask(roles: roles.map(\.rawValue))
+    }
 }

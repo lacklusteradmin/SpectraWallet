@@ -79,76 +79,39 @@ extension AppState {
         )
         resetLargeMovementAlertBaseline()
     }
-    var hasDogecoinWallets: Bool {
+    func hasWalletForChain(_ chainName: String) -> Bool {
         wallets.contains { wallet in
-            wallet.selectedChain == "Dogecoin"
-                && {
-                    guard let address = wallet.dogecoinAddress else { return false }
-                    return isValidDogecoinAddressForPolicy(address, networkMode: wallet.dogecoinNetworkMode)
-                }()
+            guard wallet.selectedChain == chainName else { return false }
+            if chainName == "Bitcoin" {
+                if let seedPhrase = storedSeedPhrase(for: wallet.id), !seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
+                if let address = wallet.bitcoinAddress, AddressValidation.isValidBitcoinAddress(address, networkMode: wallet.bitcoinNetworkMode) { return true }
+                if let xpub = wallet.bitcoinXpub, (xpub.hasPrefix("xpub") || xpub.hasPrefix("ypub") || xpub.hasPrefix("zpub")) { return true }
+                return false
+            }
+            return resolvedAddress(for: wallet, chainName: chainName) != nil
         }}
-    var hasEthereumWallets: Bool {
-        wallets.contains { wallet in
-            wallet.selectedChain == "Ethereum"
-                && resolvedEthereumAddress(for: wallet) != nil
-        }}
-    var hasLitecoinWallets: Bool {
-        wallets.contains { wallet in
-            wallet.selectedChain == "Litecoin"
-                && resolvedLitecoinAddress(for: wallet) != nil
-        }}
-    var hasBNBWallets: Bool {
-        wallets.contains { wallet in
-            wallet.selectedChain == "BNB Chain"
-                && resolvedEVMAddress(for: wallet, chainName: "BNB Chain") != nil
-        }}
-    var hasArbitrumWallets: Bool {
-        wallets.contains { wallet in
-            wallet.selectedChain == "Arbitrum"
-                && resolvedEVMAddress(for: wallet, chainName: "Arbitrum") != nil
-        }}
-    var hasOptimismWallets: Bool {
-        wallets.contains { wallet in
-            wallet.selectedChain == "Optimism"
-                && resolvedEVMAddress(for: wallet, chainName: "Optimism") != nil
-        }}
-    var hasAvalancheWallets: Bool {
-        wallets.contains { wallet in
-            wallet.selectedChain == "Avalanche"
-                && resolvedEVMAddress(for: wallet, chainName: "Avalanche") != nil
-        }}
-    var hasMoneroWallets: Bool {
-        wallets.contains { wallet in
-            wallet.selectedChain == "Monero"
-                && resolvedMoneroAddress(for: wallet) != nil
-        }}
-    var hasCardanoWallets: Bool {
-        wallets.contains { wallet in
-            wallet.selectedChain == "Cardano"
-                && resolvedCardanoAddress(for: wallet) != nil
-        }}
-    var hasSuiWallets: Bool {
-        wallets.contains { wallet in
-            wallet.selectedChain == "Sui"
-                && resolvedSuiAddress(for: wallet) != nil
-        }}
-    var hasBitcoinWallets: Bool {
-        wallets.contains { wallet in
-            guard wallet.selectedChain == "Bitcoin" else { return false }
-            if let seedPhrase = storedSeedPhrase(for: wallet.id), !seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
-            if let address = wallet.bitcoinAddress, AddressValidation.isValidBitcoinAddress(address, networkMode: wallet.bitcoinNetworkMode) { return true }
-            if let xpub = wallet.bitcoinXpub, (xpub.hasPrefix("xpub") || xpub.hasPrefix("ypub") || xpub.hasPrefix("zpub")) { return true }
-            return false
-        }}
-    var hasBitcoinCashWallets: Bool {
-        wallets.contains { wallet in
-            wallet.selectedChain == "Bitcoin Cash"
-                && resolvedBitcoinCashAddress(for: wallet) != nil
-        }}
-    var hasBitcoinSVWallets: Bool {
-        wallets.contains { wallet in
-            wallet.selectedChain == "Bitcoin SV"
-                && resolvedBitcoinSVAddress(for: wallet) != nil
+    func resolvedAddress(for wallet: ImportedWallet, chainName: String) -> String? {
+        switch chainName {
+        case "Bitcoin": return resolvedBitcoinAddress(for: wallet)
+        case "Bitcoin Cash": return resolvedBitcoinCashAddress(for: wallet)
+        case "Bitcoin SV": return resolvedBitcoinSVAddress(for: wallet)
+        case "Litecoin": return resolvedLitecoinAddress(for: wallet)
+        case "Dogecoin": return resolvedDogecoinAddress(for: wallet)
+        case "Tron": return resolvedTronAddress(for: wallet)
+        case "Solana": return resolvedSolanaAddress(for: wallet)
+        case "XRP Ledger": return resolvedXRPAddress(for: wallet)
+        case "Stellar": return resolvedStellarAddress(for: wallet)
+        case "Monero": return resolvedMoneroAddress(for: wallet)
+        case "Cardano": return resolvedCardanoAddress(for: wallet)
+        case "Sui": return resolvedSuiAddress(for: wallet)
+        case "Aptos": return resolvedAptosAddress(for: wallet)
+        case "TON": return resolvedTONAddress(for: wallet)
+        case "Internet Computer": return resolvedICPAddress(for: wallet)
+        case "NEAR": return resolvedNearAddress(for: wallet)
+        case "Polkadot": return resolvedPolkadotAddress(for: wallet)
+        default:
+            if isEVMChain(chainName) { return resolvedEVMAddress(for: wallet, chainName: chainName) }
+            return nil
         }}
     func refreshChainBalances(includeHistoryRefreshes: Bool = true, historyRefreshInterval: TimeInterval = 120, forceChainRefresh: Bool = true) async {
         _ = forceChainRefresh  // Rust always fetches fresh data

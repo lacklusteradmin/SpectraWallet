@@ -178,7 +178,17 @@ extension AppState {
         persistCodableToSQLite(tokenPreferences, key: Self.tokenPreferencesDefaultsKey)
     }
     // ── App settings persistence (Rust SQLite) ─────────────────────────────────
+    /// Debounced — coalesces rapid-fire settings changes (e.g. slider drags,
+    /// multiple toggles in quick succession) into a single SQLite write.
     func persistAppSettings() {
+        appSettingsPersistTask?.cancel()
+        appSettingsPersistTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms debounce
+            guard !Task.isCancelled, let self else { return }
+            self.persistAppSettingsNow()
+        }
+    }
+    private func persistAppSettingsNow() {
         let settings = PersistedAppSettings(
             pricingProvider: pricingProvider.rawValue,
             selectedFiatCurrency: selectedFiatCurrency.rawValue,

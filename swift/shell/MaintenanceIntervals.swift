@@ -42,11 +42,14 @@ extension AppState {
             return
         }
         guard previousTotalUSD > 0 else { return }
-        let delta = currentTotalUSD - previousTotalUSD
-        let absoluteDelta = abs(delta)
-        let ratio = absoluteDelta / previousTotalUSD
-        guard absoluteDelta >= largeMovementAlertUSDThreshold, ratio >= (largeMovementAlertPercentThreshold / 100.0) else { return }
-        let direction = delta >= 0 ? "up" : "down"
+        let evaluation = coreEvaluateLargeMovement(
+            previousTotalUsd: previousTotalUSD, currentTotalUsd: currentTotalUSD,
+            usdThreshold: largeMovementAlertUSDThreshold, percentThreshold: largeMovementAlertPercentThreshold
+        )
+        guard evaluation.shouldAlert else { return }
+        let direction = evaluation.directionUp ? "up" : "down"
+        let absoluteDelta = evaluation.absoluteDelta
+        let ratio = evaluation.ratio
         let content = UNMutableNotificationContent()
         content.title = "Large portfolio movement detected"
         content.body = "Your portfolio moved \(direction) by \(formattedFiatAmount(fromUSD: absoluteDelta)) (\(Int((ratio * 100).rounded()))%) since last sync."

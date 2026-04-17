@@ -152,7 +152,7 @@ struct SetupView: View {
         let hasChains = !draft.selectedChainNames.isEmpty
         if draft.isPrivateKeyImportMode {
             return hasChains
-                && PrivateKeyHex.isLikely(draft.privateKeyInput)
+                && corePrivateKeyHexIsLikely(rawValue: draft.privateKeyInput)
                 && draft.unsupportedPrivateKeyChainNames.isEmpty
                 && draft.selectedChainNames.count == 1
                 && !store.isImportingWallet
@@ -474,7 +474,7 @@ struct SetupView: View {
             Text(copy.privateKeyTitle).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.88))
             Text(copy.privateKeyPrompt).font(.footnote).foregroundStyle(Color.primary.opacity(0.7))
             TextField(copy.privateKeyPlaceholder, text: $draft.privateKeyInput).textInputAutocapitalization(.never).autocorrectionDisabled().padding(14).spectraInputFieldStyle().foregroundStyle(Color.primary)
-            if !draft.unsupportedPrivateKeyChainNames.isEmpty { Text(walletFlowLocalizedFormat("Private key import is not available for: %@.", draft.unsupportedPrivateKeyChainNames.joined(separator: ", "))).font(.footnote).foregroundStyle(.orange.opacity(0.9)) } else if !draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !PrivateKeyHex.isLikely(draft.privateKeyInput) { Text(localizedSetupString("Enter a valid 32-byte hex private key.")).font(.footnote).foregroundStyle(.red.opacity(0.9)) }}}
+            if !draft.unsupportedPrivateKeyChainNames.isEmpty { Text(walletFlowLocalizedFormat("Private key import is not available for: %@.", draft.unsupportedPrivateKeyChainNames.joined(separator: ", "))).font(.footnote).foregroundStyle(.orange.opacity(0.9)) } else if !draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, !corePrivateKeyHexIsLikely(rawValue: draft.privateKeyInput) { Text(localizedSetupString("Enter a valid 32-byte hex private key.")).font(.footnote).foregroundStyle(.red.opacity(0.9)) }}}
     @ViewBuilder
     private var walletSecretStepSection: some View {
         if isCreateMode {

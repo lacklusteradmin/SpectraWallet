@@ -130,7 +130,7 @@ extension AppState {
         let metadata: String?
     }
 
-    struct ChainKeypoolState: Codable {
+    struct ChainKeypoolState: Codable, Equatable {
         var nextExternalIndex: Int
         var nextChangeIndex: Int
         var reservedReceiveIndex: Int?
@@ -158,7 +158,7 @@ extension AppState {
         let branch: String
     }
 
-    struct ChainOwnedAddressRecord: Codable {
+    struct ChainOwnedAddressRecord: Codable, Equatable {
         let chainName: String
         let address: String?
         let walletID: String

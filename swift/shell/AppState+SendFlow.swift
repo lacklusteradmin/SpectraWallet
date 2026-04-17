@@ -738,17 +738,17 @@ extension AppState {
         default: return false
         }}
     func utxoDiscoveryDerivationPath(for wallet: ImportedWallet, chainName: String, branch: WalletDerivationBranch, index: Int) -> String? {
-        guard let derivationChain = seedDerivationChain(for: chainName), var segments = DerivationPathParser.parse(walletDerivationPath(for: wallet, chain: derivationChain)), segments.count >= 5 else { return nil }
-        segments[segments.count - 2] = DerivationPathSegment(value: UInt32(branch.rawValue), isHardened: false)
-        segments[segments.count - 1] = DerivationPathSegment(value: UInt32(max(0, index)), isHardened: false)
-        return DerivationPathParser.string(from: segments)
+        guard let derivationChain = seedDerivationChain(for: chainName) else { return nil }
+        let rawPath = walletDerivationPath(for: wallet, chain: derivationChain)
+        guard let segments = coreParseDerivationPath(rawPath: rawPath), segments.count >= 5 else { return nil }
+        return coreDerivationPathReplacingLastTwo(rawPath: rawPath, branch: UInt32(branch.rawValue), index: UInt32(max(0, index)), fallback: rawPath)
     }
     func parseUTXODiscoveryIndex(path: String?, chainName: String, branch: WalletDerivationBranch) -> Int? {
-        guard let path, let derivationChain = seedDerivationChain(for: chainName), let pathSegments = DerivationPathParser.parse(path), var walletSegments = DerivationPathParser.parse(derivationChain.defaultPath), pathSegments.count == walletSegments.count, pathSegments.count >= 5 else { return nil }
+        guard let path, let derivationChain = seedDerivationChain(for: chainName), let pathSegments = coreParseDerivationPath(rawPath: path), var walletSegments = coreParseDerivationPath(rawPath: derivationChain.defaultPath), pathSegments.count == walletSegments.count, pathSegments.count >= 5 else { return nil }
         walletSegments[walletSegments.count - 2] = DerivationPathSegment(value: UInt32(branch.rawValue), isHardened: false)
         walletSegments[walletSegments.count - 1] = DerivationPathSegment(value: pathSegments.last?.value ?? 0, isHardened: false)
-        let candidatePrefix = DerivationPathParser.string(from: Array(walletSegments.dropLast()))
-        let pathPrefix = DerivationPathParser.string(from: Array(pathSegments.dropLast()))
+        let candidatePrefix = coreDerivationPathString(segments: Array(walletSegments.dropLast()))
+        let pathPrefix = coreDerivationPathString(segments: Array(pathSegments.dropLast()))
         guard candidatePrefix == pathPrefix, pathSegments[pathSegments.count - 2].value == UInt32(branch.rawValue) else { return nil }
         return Int(pathSegments.last?.value ?? 0)
     }
@@ -931,15 +931,16 @@ extension AppState {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard isValidDogecoinAddressForPolicy(trimmed, networkMode: networkMode) else { return }
         let key = normalizedDogecoinAddressKey(trimmed)
-        dogecoinOwnedAddressMap[key] = DogecoinOwnedAddressRecord(
-            address: trimmed, walletID: walletID, derivationPath: derivationPath, index: index, branch: branch
+        chainOwnedAddressMapByChain["Dogecoin", default: [:]][key] = ChainOwnedAddressRecord(
+            chainName: "Dogecoin", address: trimmed, walletID: walletID, derivationPath: derivationPath, index: index, branch: branch
         )
     }
+    private var dogecoinOwnedAddresses: [String: ChainOwnedAddressRecord] {
+        chainOwnedAddressMapByChain["Dogecoin"] ?? [:]
+    }
     func ownedDogecoinAddresses(for walletID: String) -> [String] {
-        dogecoinOwnedAddressMap.compactMap { key, value in
-            guard value.walletID == walletID else { return nil }
-            return value.address ?? key
-        }}
+        ownedAddresses(for: walletID, chainName: "Dogecoin")
+    }
     func baselineChainKeypoolState(for wallet: ImportedWallet, chainName: String) -> ChainKeypoolState {
         if chainName == "Dogecoin" { return baselineDogecoinKeypoolState(for: wallet) }
         if supportsDeepUTXODiscovery(chainName: chainName) {
@@ -1063,8 +1064,8 @@ extension AppState {
                     path: $0.changeDerivationPath, expectedPrefix: WalletDerivationPath.dogecoinChangePrefix(account: 0)
                 )
             }.max() ?? -1
-        let maxOwnedExternalIndex = dogecoinOwnedAddressMap.values.filter { $0.walletID == wallet.id && $0.branch == "external" }.map(\.index).max() ?? 0
-        let maxOwnedChangeIndex = dogecoinOwnedAddressMap.values.filter { $0.walletID == wallet.id && $0.branch == "change" }.map(\.index).max() ?? -1
+        let maxOwnedExternalIndex = dogecoinOwnedAddresses.values.filter { $0.walletID == wallet.id && $0.branch == "external" }.compactMap(\.index).max() ?? 0
+        let maxOwnedChangeIndex = dogecoinOwnedAddresses.values.filter { $0.walletID == wallet.id && $0.branch == "change" }.compactMap(\.index).max() ?? -1
         return DogecoinKeypoolState(
             nextExternalIndex: max(max(maxExternalIndex, maxOwnedExternalIndex) + 1, 1), nextChangeIndex: max(max(maxChangeIndex, maxOwnedChangeIndex) + 1, 0), reservedReceiveIndex: nil
         )
@@ -1161,7 +1162,7 @@ extension AppState {
         for tx in transactions where tx.chainName == "Dogecoin" && tx.walletID == wallet.id { appendAddress(tx.sourceAddress); appendAddress(tx.changeAddress) }
         if let seedPhrase = storedSeedPhrase(for: wallet.id) {
             let state = keypoolState(for: wallet)
-            let highestOwnedExternal = dogecoinOwnedAddressMap.values.filter { $0.walletID == wallet.id && $0.branch == "external" }.map(\.index).max() ?? 0
+            let highestOwnedExternal = dogecoinOwnedAddresses.values.filter { $0.walletID == wallet.id && $0.branch == "external" }.compactMap(\.index).max() ?? 0
             let reserved = state.reservedReceiveIndex ?? 0
             let scanUpperBound = min(
                 Self.dogecoinDiscoveryMaxIndex, max(state.nextExternalIndex, max(highestOwnedExternal + 1, reserved + 1)) + Self.dogecoinDiscoveryGapLimit

@@ -31,33 +31,6 @@ struct SendPreviewDetails: Equatable {
             || maxSendable != nil
     }
 }
-enum WalletAddressInventoryRole: String, Codable {
-    case primary
-    case external
-    case change
-    case alternate
-}
-struct WalletAddressInventoryEntry: Equatable, Codable, Identifiable {
-    let address: String
-    let derivationPath: String?
-    let account: UInt32?
-    let branchIndex: UInt32?
-    let addressIndex: UInt32?
-    let role: WalletAddressInventoryRole
-    var id: String {
-        if let derivationPath { return "\(role.rawValue)|\(derivationPath.lowercased())|\(address.lowercased())" }
-        return "\(role.rawValue)|\(address.lowercased())"
-    }
-}
-struct WalletAddressInventory: Equatable, Codable {
-    let entries: [WalletAddressInventoryEntry]
-    let supportsDiscoveryScan: Bool
-    let supportsChangeBranch: Bool
-    let scanLimit: UInt32?
-    var primaryEntry: WalletAddressInventoryEntry? {
-        entries.first(where: { $0.role == .primary || $0.role == .external })
-    }
-}
 typealias Coin = CoreCoin
 extension CoreCoin: Identifiable {
     nonisolated(unsafe) fileprivate static var colorOverrides: [String: Color] = [:]

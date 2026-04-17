@@ -182,7 +182,7 @@ extension AppState {
         defer { isImportingWallet = false }
         let coins = importDraft.selectedCoins
         let trimmedSeedPhrase = importDraft.seedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }.joined(separator: " ")
-        let trimmedPrivateKey = PrivateKeyHex.normalized(from: importDraft.privateKeyInput)
+        let trimmedPrivateKey = corePrivateKeyHexNormalized(rawValue: importDraft.privateKeyInput)
         let trimmedWalletPassword = importDraft.normalizedWalletPassword
         let draft = importDraft
         func tr(_ s: String) -> String { s.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -239,7 +239,7 @@ extension AppState {
         let resolvedTONAddress = res(wantsTONImport, typedTonAddress), resolvedICPAddress = res(wantsICPImport, typedICPAddress)
         let resolvedNearAddress = res(wantsNearImport, typedNearAddress), resolvedPolkadotAddress = res(wantsPolkadotImport, typedPolkadotAddress)
         if isPrivateKeyImport {
-            guard PrivateKeyHex.isLikely(trimmedPrivateKey) else {
+            guard corePrivateKeyHexIsLikely(rawValue: trimmedPrivateKey) else {
                 importError = "Enter a valid 32-byte hex key."
                 return
             }

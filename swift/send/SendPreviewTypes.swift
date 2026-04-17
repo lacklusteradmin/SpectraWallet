@@ -148,5 +148,4 @@ func validateEVMAddress(_ address: String) throws -> String {
 func receiveEVMAddress(for address: String) throws -> String {
     try validateEVMAddress(address)
 }
-func evmHasContractCode(_ code: String) -> Bool { coreEvmHasContractCode(code: code) }
 

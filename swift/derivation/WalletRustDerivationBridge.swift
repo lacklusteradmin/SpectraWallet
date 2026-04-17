@@ -80,7 +80,7 @@ enum WalletRustDerivationBridge {
         }}
     nonisolated private static func compileScriptType(from preset: WalletDerivationRequestCompilationPreset, derivationPath: String?) throws -> WalletRustFFIScriptType {
         switch preset.scriptPolicy {
-        case .bitcoinPurpose: guard let purpose = derivationPath.flatMap({ DerivationPathParser.segmentValue(at: 0, in: $0) }) else {
+        case .bitcoinPurpose: guard let purpose = derivationPath.flatMap({ coreDerivationPathSegmentValue(path: $0, index: 0) }) else {
                 throw WalletRustDerivationBridgeError.requestCompilationFailed("Unable to compile Bitcoin script type from derivation path.")
             }
             guard let mappedScript = preset.bitcoinPurposeScriptMap?[String(purpose)] else {

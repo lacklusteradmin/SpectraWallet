@@ -91,12 +91,12 @@ extension AppState {
             rebuildWalletDerivedState()
             rebuildDashboardDerivedState()
         }
-        updateRefreshEngineEntries()
         walletSideEffectsTask?.cancel()
         walletSideEffectsTask = Task { [weak self] in
             guard let self else { return }
             try? await Task.sleep(nanoseconds: 200_000_000)
             guard !Task.isCancelled else { return }
+            self.updateRefreshEngineEntries()
             self.persistWallets()
             self.pruneTransactionsForActiveWallets()
             self.walletSideEffectsTask = nil
@@ -248,6 +248,10 @@ extension AppState {
     }
     func persistChainKeypoolState() {
         for (chainName, walletMap) in chainKeypoolByChain { persistKeypoolToRust(chainName: chainName, walletMap: walletMap) }}
+    func persistKeypoolForChain(_ chainName: String) {
+        guard let walletMap = chainKeypoolByChain[chainName] else { return }
+        persistKeypoolToRust(chainName: chainName, walletMap: walletMap)
+    }
     func loadChainKeypoolState() -> [String: [String: ChainKeypoolState]] {
         guard let payload = loadCodableFromUserDefaults(PersistedChainKeypoolStore.self, key: Self.chainKeypoolDefaultsKey) else { return [:] }
         guard payload.version == PersistedChainKeypoolStore.currentVersion else { return [:] }
@@ -269,6 +273,14 @@ extension AppState {
                     walletId: record.walletID, chainName: chainName, address: record.address ?? "", derivationPath: record.derivationPath, branch: record.branch, branchIndex: record.index
                 )
             }}}
+    func persistOwnedAddressesForChain(_ chainName: String) {
+        guard let addressMap = chainOwnedAddressMapByChain[chainName] else { return }
+        for (_, record) in addressMap {
+            persistOwnedAddressToRust(
+                walletId: record.walletID, chainName: chainName, address: record.address ?? "", derivationPath: record.derivationPath, branch: record.branch, branchIndex: record.index
+            )
+        }
+    }
     func loadChainOwnedAddressMap() -> [String: [String: ChainOwnedAddressRecord]] {
         guard let payload = loadCodableFromUserDefaults(
             PersistedChainOwnedAddressStore.self, key: Self.chainOwnedAddressMapDefaultsKey

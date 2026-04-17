@@ -480,7 +480,7 @@ struct SeedPathSlotEditor: View {
     @Binding var path: String
     let defaultPath: String
     let presetOptions: [SeedDerivationPathPreset]
-    private var segments: [DerivationPathSegment] { DerivationPathParser.parse(path) ?? DerivationPathParser.parse(defaultPath) ?? [] }
+    private var segments: [DerivationPathSegment] { coreParseDerivationPath(rawPath: path) ?? coreParseDerivationPath(rawPath: defaultPath) ?? [] }
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -524,9 +524,9 @@ struct SeedPathSlotEditor: View {
                             }.buttonStyle(.plain)
                         }}}}}}
     private func updateSegment(at index: Int, value: String) {
-        guard var resolvedSegments = DerivationPathParser.parse(path) ?? DerivationPathParser.parse(defaultPath), resolvedSegments.indices.contains(index), let numericValue = UInt32(value.filter(\.isNumber)) else { return }
+        guard var resolvedSegments = coreParseDerivationPath(rawPath: path) ?? coreParseDerivationPath(rawPath: defaultPath), resolvedSegments.indices.contains(index), let numericValue = UInt32(value.filter(\.isNumber)) else { return }
         resolvedSegments[index].value = numericValue
-        path = DerivationPathParser.string(from: resolvedSegments)
+        path = coreDerivationPathString(segments: resolvedSegments)
     }
 }
 struct AssetRowView: View {

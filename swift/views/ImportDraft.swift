@@ -188,7 +188,7 @@ final class WalletImportDraft: ObservableObject {
             isCreateMode: isCreateMode,
             hasValidWalletName: !walletName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
             hasValidSeedPhrase: hasValidSeedPhrase,
-            hasValidPrivateKeyHex: PrivateKeyHex.isLikely(privateKeyInput),
+            hasValidPrivateKeyHex: corePrivateKeyHexIsLikely(rawValue: privateKeyInput),
             isBackupVerificationComplete: isBackupVerificationComplete,
             requiresBackupVerification: requiresBackupVerification,
             watchOnlyEntries: watchEntries

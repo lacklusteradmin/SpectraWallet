@@ -49,6 +49,11 @@ class AppState: ObservableObject {
     // Rust-owned backing store for side-effect-free scalar UI state. @Published
     // replaced by computed props that delegate here and emit objectWillChange.
     let shellState = AppShellState()
+    private var appSettingsPersistTask: Task<Void, Never>?
+    private var priceAlertsPersistTask: Task<Void, Never>?
+    private var addressBookPersistTask: Task<Void, Never>?
+    private var livePricesPersistTask: Task<Void, Never>?
+    private var tokenPreferenceRebuildTask: Task<Void, Never>?
     private var transactionRebuildTask: Task<Void, Never>?
     @Published var transactions: [TransactionRecord] = [] {
         didSet {
@@ -318,11 +323,12 @@ class AppState: ObservableObject {
             .sorted { $0.walletName.localizedCaseInsensitiveCompare($1.walletName) == .orderedAscending }}
     var pricingProvider: PricingProvider {
         get { PricingProvider(rawValue: shellState.getPricingProvider()) ?? .coinGecko }
-        set { objectWillChange.send(); shellState.setPricingProvider(value: newValue.rawValue); persistAppSettings() }
+        set { notifyIfChanged(pricingProvider, newValue) { shellState.setPricingProvider(value: newValue.rawValue) }; persistAppSettings() }
     }
     var selectedFiatCurrency: FiatCurrency {
         get { FiatCurrency(rawValue: shellState.getSelectedFiatCurrency()) ?? .usd }
         set {
+            guard newValue != selectedFiatCurrency else { return }
             objectWillChange.send()
             shellState.setSelectedFiatCurrency(value: newValue.rawValue)
             persistAppSettings()
@@ -332,6 +338,7 @@ class AppState: ObservableObject {
     var fiatRateProvider: FiatRateProvider {
         get { FiatRateProvider(rawValue: shellState.getFiatRateProvider()) ?? .openER }
         set {
+            guard newValue != fiatRateProvider else { return }
             objectWillChange.send()
             shellState.setFiatRateProvider(value: newValue.rawValue)
             persistAppSettings()
@@ -340,15 +347,16 @@ class AppState: ObservableObject {
     }
     var coinGeckoAPIKey: String {
         get { shellState.getCoinGeckoApiKey() }
-        set { objectWillChange.send(); shellState.setCoinGeckoApiKey(value: newValue); SecureStore.save(newValue, for: Self.coinGeckoAPIKeyAccount) }
+        set { notifyIfChanged(coinGeckoAPIKey, newValue) { shellState.setCoinGeckoApiKey(value: newValue) }; SecureStore.save(newValue, for: Self.coinGeckoAPIKeyAccount) }
     }
     var ethereumRPCEndpoint: String {
         get { shellState.getEthereumRpcEndpoint() }
-        set { objectWillChange.send(); shellState.setEthereumRpcEndpoint(value: newValue); persistAppSettings() }
+        set { notifyIfChanged(ethereumRPCEndpoint, newValue) { shellState.setEthereumRpcEndpoint(value: newValue) }; persistAppSettings() }
     }
     var ethereumNetworkMode: EthereumNetworkMode {
         get { EthereumNetworkMode(rawValue: shellState.getEthereumNetworkMode()) ?? .mainnet }
         set {
+            guard newValue != ethereumNetworkMode else { return }
             objectWillChange.send()
             shellState.setEthereumNetworkMode(value: newValue.rawValue)
             persistAppSettings()
@@ -357,45 +365,69 @@ class AppState: ObservableObject {
     }
     var etherscanAPIKey: String {
         get { shellState.getEtherscanApiKey() }
-        set { objectWillChange.send(); shellState.setEtherscanApiKey(value: newValue); persistAppSettings() }
+        set { notifyIfChanged(etherscanAPIKey, newValue) { shellState.setEtherscanApiKey(value: newValue) }; persistAppSettings() }
     }
     var moneroBackendBaseURL: String {
         get { shellState.getMoneroBackendBaseUrl() }
-        set { objectWillChange.send(); shellState.setMoneroBackendBaseUrl(value: newValue); persistAppSettings() }
+        set { notifyIfChanged(moneroBackendBaseURL, newValue) { shellState.setMoneroBackendBaseUrl(value: newValue) }; persistAppSettings() }
     }
     var moneroBackendAPIKey: String {
         get { shellState.getMoneroBackendApiKey() }
-        set { objectWillChange.send(); shellState.setMoneroBackendApiKey(value: newValue); persistAppSettings() }
+        set { notifyIfChanged(moneroBackendAPIKey, newValue) { shellState.setMoneroBackendApiKey(value: newValue) }; persistAppSettings() }
     }
     var isUserInitiatedRefreshInProgress: Bool { get { shellState.getIsUserInitiatedRefreshInProgress() } set { notifyIfChanged(isUserInitiatedRefreshInProgress, newValue) { shellState.setIsUserInitiatedRefreshInProgress(value: newValue) } } }
     @Published var priceAlerts: [PriceAlertRule] = [] {
         didSet {
-            persistPriceAlerts()
+            priceAlertsPersistTask?.cancel()
+            priceAlertsPersistTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms debounce
+                guard !Task.isCancelled, let self else { return }
+                self.persistPriceAlerts()
+            }
         }}
     @Published var addressBook: [AddressBookEntry] = [] {
         didSet {
-            persistAddressBook()
+            addressBookPersistTask?.cancel()
+            addressBookPersistTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 100_000_000) // 100ms debounce
+                guard !Task.isCancelled, let self else { return }
+                self.persistAddressBook()
+            }
         }}
     @Published var tokenPreferences: [TokenPreferenceEntry] = [] {
         didSet {
             persistTokenPreferences()
-            rebuildTokenPreferenceDerivedState()
-            rebuildWalletDerivedState()
-            rebuildDashboardDerivedState()
+            tokenPreferenceRebuildTask?.cancel()
+            tokenPreferenceRebuildTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 30_000_000) // 30ms debounce
+                guard !Task.isCancelled, let self else { return }
+                self.rebuildTokenPreferenceDerivedState()
+                self.rebuildWalletDerivedState()
+                self.rebuildDashboardDerivedState()
+            }
         }}
     var livePrices: [String: Double] {
         get { shellState.getLivePrices() }
         set {
             let oldValue = shellState.getLivePrices()
+            guard newValue != oldValue else { return }
             objectWillChange.send()
             shellState.setLivePrices(value: newValue)
-            persistLivePrices()
+            livePricesPersistTask?.cancel()
+            livePricesPersistTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(nanoseconds: 200_000_000) // 200ms debounce
+                guard !Task.isCancelled, let self else { return }
+                self.persistLivePrices()
+            }
             if shouldRebuildDashboardForLivePriceChange(from: oldValue, to: newValue) { rebuildDashboardDerivedState() }
         }
     }
     var fiatRatesFromUSD: [String: Double] {
         get { shellState.getFiatRatesFromUsd() }
-        set { objectWillChange.send(); shellState.setFiatRatesFromUsd(value: newValue) }
+        set {
+            guard newValue != shellState.getFiatRatesFromUsd() else { return }
+            objectWillChange.send(); shellState.setFiatRatesFromUsd(value: newValue)
+        }
     }
     var fiatRatesRefreshError: String? {
         get { shellState.getFiatRatesRefreshError() }
@@ -525,15 +557,15 @@ class AppState: ObservableObject {
     }
     var bitcoinFeePriority: BitcoinFeePriority {
         get { BitcoinFeePriority(rawValue: shellState.getBitcoinFeePriority()) ?? .normal }
-        set { objectWillChange.send(); shellState.setBitcoinFeePriority(value: newValue.rawValue); persistAppSettings() }
+        set { notifyIfChanged(bitcoinFeePriority, newValue) { shellState.setBitcoinFeePriority(value: newValue.rawValue) }; persistAppSettings() }
     }
     var dogecoinFeePriority: DogecoinFeePriority {
         get { DogecoinFeePriority(rawValue: shellState.getDogecoinFeePriority()) ?? .normal }
-        set { objectWillChange.send(); shellState.setDogecoinFeePriority(value: newValue.rawValue); persistAppSettings() }
+        set { notifyIfChanged(dogecoinFeePriority, newValue) { shellState.setDogecoinFeePriority(value: newValue.rawValue) }; persistAppSettings() }
     }
     var hideBalances: Bool {
         get { shellState.getHideBalances() }
-        set { objectWillChange.send(); shellState.setHideBalances(value: newValue); persistAppSettings() }
+        set { notifyIfChanged(hideBalances, newValue) { shellState.setHideBalances(value: newValue) }; persistAppSettings() }
     }
     var assetDisplayDecimalsByChain: [String: Int] {
         get { shellState.getAssetDisplayDecimalsByChain().mapValues { Int($0) } }
@@ -548,6 +580,7 @@ class AppState: ObservableObject {
     var useFaceID: Bool {
         get { shellState.getUseFaceId() }
         set {
+            guard newValue != useFaceID else { return }
             objectWillChange.send()
             shellState.setUseFaceId(value: newValue)
             persistAppSettings()
@@ -559,23 +592,24 @@ class AppState: ObservableObject {
     }
     var useAutoLock: Bool {
         get { shellState.getUseAutoLock() }
-        set { objectWillChange.send(); shellState.setUseAutoLock(value: newValue); persistAppSettings() }
+        set { notifyIfChanged(useAutoLock, newValue) { shellState.setUseAutoLock(value: newValue) }; persistAppSettings() }
     }
     var useStrictRPCOnly: Bool {
         get { shellState.getUseStrictRpcOnly() }
-        set { objectWillChange.send(); shellState.setUseStrictRpcOnly(value: newValue); persistAppSettings() }
+        set { notifyIfChanged(useStrictRPCOnly, newValue) { shellState.setUseStrictRpcOnly(value: newValue) }; persistAppSettings() }
     }
     var requireBiometricForSendActions: Bool {
         get { shellState.getRequireBiometricForSendActions() }
-        set { objectWillChange.send(); shellState.setRequireBiometricForSendActions(value: newValue); persistAppSettings() }
+        set { notifyIfChanged(requireBiometricForSendActions, newValue) { shellState.setRequireBiometricForSendActions(value: newValue) }; persistAppSettings() }
     }
     var usePriceAlerts: Bool {
         get { shellState.getUsePriceAlerts() }
-        set { objectWillChange.send(); shellState.setUsePriceAlerts(value: newValue); persistAppSettings() }
+        set { notifyIfChanged(usePriceAlerts, newValue) { shellState.setUsePriceAlerts(value: newValue) }; persistAppSettings() }
     }
     var useTransactionStatusNotifications: Bool {
         get { shellState.getUseTransactionStatusNotifications() }
         set {
+            guard newValue != useTransactionStatusNotifications else { return }
             objectWillChange.send()
             shellState.setUseTransactionStatusNotifications(value: newValue)
             persistAppSettings()
@@ -585,6 +619,7 @@ class AppState: ObservableObject {
     var useLargeMovementNotifications: Bool {
         get { shellState.getUseLargeMovementNotifications() }
         set {
+            guard newValue != useLargeMovementNotifications else { return }
             objectWillChange.send()
             shellState.setUseLargeMovementNotifications(value: newValue)
             persistAppSettings()
@@ -594,15 +629,16 @@ class AppState: ObservableObject {
     var automaticRefreshFrequencyMinutes: Int {
         get { Int(shellState.getAutomaticRefreshFrequencyMinutes()) }
         set {
-            objectWillChange.send()
             let clamped = min(max(newValue, 5), 60)
+            guard clamped != automaticRefreshFrequencyMinutes else { return }
+            objectWillChange.send()
             shellState.setAutomaticRefreshFrequencyMinutes(value: Int64(clamped))
             persistAppSettings()
         }
     }
     var backgroundSyncProfile: BackgroundSyncProfile {
         get { BackgroundSyncProfile(rawValue: shellState.getBackgroundSyncProfile()) ?? .balanced }
-        set { objectWillChange.send(); shellState.setBackgroundSyncProfile(value: newValue.rawValue); persistAppSettings() }
+        set { notifyIfChanged(backgroundSyncProfile, newValue) { shellState.setBackgroundSyncProfile(value: newValue.rawValue) }; persistAppSettings() }
     }
     var largeMovementAlertPercentThreshold: Double {
         get { shellState.getLargeMovementAlertPercentThreshold() }
@@ -628,29 +664,13 @@ class AppState: ObservableObject {
     }
     @Published var chainKeypoolByChain: [String: [String: ChainKeypoolState]] = [:] {
         didSet {
-            persistChainKeypoolState()
+            let changedChains = chainKeypoolByChain.keys.filter { chainKeypoolByChain[$0] != oldValue[$0] }
+            for chainName in changedChains { persistKeypoolForChain(chainName) }
         }}
-    var dogecoinOwnedAddressMap: [String: DogecoinOwnedAddressRecord] {
-        get {
-            (chainOwnedAddressMapByChain["Dogecoin"] ?? [:]).reduce(into: [:]) { result, pair in
-                result[pair.key] = DogecoinOwnedAddressRecord(
-                    address: pair.value.address, walletID: pair.value.walletID,
-                    derivationPath: pair.value.derivationPath ?? "", index: pair.value.index ?? 0, branch: pair.value.branch ?? ""
-                )
-            }
-        }
-        set {
-            chainOwnedAddressMapByChain["Dogecoin"] = newValue.reduce(into: [:]) { result, pair in
-                result[pair.key] = ChainOwnedAddressRecord(
-                    chainName: "Dogecoin", address: pair.value.address, walletID: pair.value.walletID,
-                    derivationPath: pair.value.derivationPath, index: pair.value.index, branch: pair.value.branch
-                )
-            }
-        }
-    }
     @Published var chainOwnedAddressMapByChain: [String: [String: ChainOwnedAddressRecord]] = [:] {
         didSet {
-            persistChainOwnedAddressMap()
+            let changedChains = chainOwnedAddressMapByChain.keys.filter { chainOwnedAddressMapByChain[$0] != oldValue[$0] }
+            for chainName in changedChains { persistOwnedAddressesForChain(chainName) }
         }}
     var pendingEthereumSendPreviewRefresh: Bool = false
     var pendingDogecoinSendPreviewRefresh: Bool = false
@@ -946,11 +966,13 @@ class AppState: ObservableObject {
     init() {
         clearPersistedSecureDataOnFreshInstallIfNeeded()
         registerRustObserver()
-        walletCollectionObservation = $wallets.dropFirst().sink { [weak self] _ in
-            guard let self else { return }
-            guard !self.suppressWalletSideEffects else { return }
-            self.applyWalletCollectionSideEffects()
-        }
+        walletCollectionObservation = $wallets.dropFirst()
+            .debounce(for: .milliseconds(30), scheduler: RunLoop.main)
+            .sink { [weak self] _ in
+                guard let self else { return }
+                guard !self.suppressWalletSideEffects else { return }
+                self.applyWalletCollectionSideEffects()
+            }
 
         diagnosticsObservation = diagnostics.objectWillChange.sink { _ in
         }
