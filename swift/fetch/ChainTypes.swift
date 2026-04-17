@@ -4,9 +4,14 @@ import Foundation
 enum RustBalanceDecoder {
     nonisolated static func uint64Field(_ field: String, from json: String) -> UInt64? { balanceDecoderU64Field(field: field, json: json) }
     nonisolated static func int64Field(_ field: String, from json: String) -> Int64? { balanceDecoderI64Field(field: field, json: json) }
+    nonisolated static func f64Field(_ field: String, from json: String) -> Double? { balanceDecoderF64Field(field: field, json: json) }
+    nonisolated static func stringField(_ field: String, from json: String) -> String? { balanceDecoderStringField(field: field, json: json) }
     nonisolated static func uint128StringField(_ field: String, from json: String) -> Double? { balanceDecoderU128StringFieldAsF64(field: field, json: json) }
     nonisolated static func evmNativeBalance(from json: String) -> Double? { balanceDecoderEvmNativeBalance(json: json) }
     nonisolated static func yoctoNearToDouble(from json: String) -> Double? { balanceDecoderYoctoNearToDouble(json: json) }
+    nonisolated static func jsonArrayIsNonEmpty(_ json: String) -> Bool { balanceDecoderJsonArrayIsNonEmpty(json: json) }
+    nonisolated static func hasField(_ field: String, in json: String) -> Bool { balanceDecoderHasField(field: field, json: json) }
+    nonisolated static func firstElementStringField(_ field: String, from json: String) -> String? { balanceDecoderFirstElementStringField(field: field, json: json) }
 }
 
 // MARK: - Codable/RawRepresentable helpers for Rust-owned enums
@@ -57,21 +62,6 @@ extension CoreBitcoinNetworkMode: RustStringEnum {
         }
     }
 }
-struct BitcoinHistorySnapshot: Equatable {
-    let txid: String
-    let amountBTC: Double
-    let kind: TransactionKind
-    let status: TransactionStatus
-    let counterpartyAddress: String
-    let blockHeight: Int?
-    let createdAt: Date
-}
-struct BitcoinHistoryPage {
-    let snapshots: [BitcoinHistorySnapshot]
-    let nextCursor: String?
-    let sourceUsed: String
-}
-
 // MARK: - Dogecoin
 typealias DogecoinNetworkMode = CoreDogecoinNetworkMode
 extension CoreDogecoinNetworkMode: RustStringEnum {
@@ -86,18 +76,9 @@ struct DogecoinTransactionStatus {
 }
 enum DogecoinBalanceService {
     typealias NetworkMode = DogecoinNetworkMode
-    struct AddressTransactionSnapshot {
-        let hash: String
-        let kind: TransactionKind
-        let status: TransactionStatus
-        let amount: Double
-        let counterpartyAddress: String
-        let createdAt: Date
-        let blockNumber: Int?
-    }
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: ChainBackendRegistry.dogecoinChainName) }
-    static func endpointCatalogByNetwork() -> [(title: String, endpoints: [String])] { AppEndpointDirectory.groupedSettingsEntries(for: ChainBackendRegistry.dogecoinChainName) }
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: ChainBackendRegistry.dogecoinChainName) }
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Dogecoin") }
+    static func endpointCatalogByNetwork() -> [(title: String, endpoints: [String])] { AppEndpointDirectory.groupedSettingsEntries(for: "Dogecoin") }
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: "Dogecoin") }
 }
 
 // MARK: - EVM
@@ -105,92 +86,9 @@ struct EthereumCustomFeeConfiguration: Equatable {
     let maxFeePerGasGwei: Double
     let maxPriorityFeePerGasGwei: Double
 }
-struct EthereumTransactionReceipt: Equatable {
-    let transactionHash: String
-    let blockNumber: Int?
-    let status: String?
-    let gasUsed: Decimal?
-    let effectiveGasPriceWei: Decimal?
-    var isConfirmed: Bool { blockNumber != nil }
-    var isFailed: Bool {
-        guard let status else { return false }
-        return status.lowercased() == "0x0"
-    }
-    var gasUsedText: String? {
-        guard let gasUsed else { return nil }
-        return NSDecimalNumber(decimal: gasUsed).stringValue
-    }
-    var effectiveGasPriceGwei: Double? {
-        guard let effectiveGasPriceWei else { return nil }
-        let gweiValue = effectiveGasPriceWei / Decimal(1_000_000_000)
-        return NSDecimalNumber(decimal: gweiValue).doubleValue
-    }
-    var networkFeeETH: Double? {
-        guard let gasUsed, let effectiveGasPriceWei else { return nil }
-        let feeWei = gasUsed * effectiveGasPriceWei
-        let feeETH = feeWei / Decimal(string: "1000000000000000000")!
-        return NSDecimalNumber(decimal: feeETH).doubleValue
-    }
-}
-struct EthereumTokenBalanceSnapshot: Equatable {
-    let contractAddress: String
-    let symbol: String
-    let balance: Decimal
-    let decimals: Int
-}
-struct EthereumTokenTransferSnapshot: Equatable {
-    let contractAddress: String
-    let tokenName: String
-    let symbol: String
-    let decimals: Int
-    let fromAddress: String
-    let toAddress: String
-    let amount: Decimal
-    let transactionHash: String
-    let blockNumber: Int
-    let logIndex: Int
-    let timestamp: Date?
-}
-struct EthereumNativeTransferSnapshot: Equatable {
-    let fromAddress: String
-    let toAddress: String
-    let amount: Decimal
-    let transactionHash: String
-    let blockNumber: Int
-    let timestamp: Date?
-}
-struct EthereumSupportedToken {
-    let name: String
-    let symbol: String
-    let contractAddress: String
-    let decimals: Int
-    let marketDataId: String
-    let coinGeckoId: String
-    init(name: String, symbol: String, contractAddress: String, decimals: Int, marketDataId: String, coinGeckoId: String) {
-        self.name = name
-        self.symbol = symbol
-        self.contractAddress = contractAddress
-        self.decimals = decimals
-        self.marketDataId = marketDataId
-        self.coinGeckoId = coinGeckoId
-    }
-    init(registryEntry: ChainTokenRegistryEntry) {
-        self.name = registryEntry.name
-        self.symbol = registryEntry.symbol
-        self.contractAddress = registryEntry.contractAddress
-        self.decimals = registryEntry.decimals
-        self.marketDataId = registryEntry.marketDataId
-        self.coinGeckoId = registryEntry.coinGeckoId
-    }
-}
 // EthereumTokenTransferHistoryDiagnostics moved to Rust core; see DiagnosticsTypesCompat.swift.
 
 // MARK: - Tron
-struct TronTokenBalanceSnapshot: Equatable {
-    let symbol: String
-    let contractAddress: String?
-    let balance: Double
-}
 // TronHistoryDiagnostics moved to Rust core.
 enum TronBalanceService {
     static let usdtTronContract = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
@@ -202,95 +100,93 @@ enum TronBalanceService {
         let contractAddress: String
         let decimals: Int
     }
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: ChainBackendRegistry.tronChainName) }
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: ChainBackendRegistry.tronChainName) }
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Tron") }
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: "Tron") }
 }
 
 // MARK: - Stellar
 // StellarHistoryDiagnostics moved to Rust core.
 enum StellarBalanceService {
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: ChainBackendRegistry.stellarChainName) }
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: ChainBackendRegistry.stellarChainName) }
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Stellar") }
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: "Stellar") }
 }
 
 // MARK: - ICP
 // ICPHistoryDiagnostics moved to Rust core.
 enum ICPBalanceService {
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: ChainBackendRegistry.icpChainName) }
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: ChainBackendRegistry.icpChainName) }
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Internet Computer") }
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: "Internet Computer") }
 }
 
 // MARK: - XRP
 // XRPHistoryDiagnostics moved to Rust core.
 enum XRPBalanceService {
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: ChainBackendRegistry.xrpChainName) }
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "XRP Ledger") }
     static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { endpointCatalog().map { base in (endpoint: base, probeURL: base) }}
 }
 
 // MARK: - Cardano
 // CardanoHistoryDiagnostics moved to Rust core.
 enum CardanoBalanceService {
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: ChainBackendRegistry.cardanoChainName) }
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: ChainBackendRegistry.cardanoChainName) }
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Cardano") }
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: "Cardano") }
 }
 
 // MARK: - Polkadot
 // PolkadotHistoryDiagnostics moved to Rust core.
 enum PolkadotBalanceService {
-    static func endpointCatalog() -> [String] { PolkadotProvider.endpointCatalog() }
-    static func sidecarEndpointCatalog() -> [String] { PolkadotProvider.sidecarBaseURLs }
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { PolkadotProvider.diagnosticsChecks() }
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Polkadot") }
+    static func sidecarEndpointCatalog() -> [String] { AppEndpointDirectory.endpoints(for: ["polkadot.sidecar.parity"]) }
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: "Polkadot") }
 }
 
 // MARK: - Monero
 // MoneroHistoryDiagnostics moved to Rust core.
 enum MoneroBalanceService {
-    typealias TrustedBackend = MoneroProvider.TrustedBackend
-    static let backendBaseURLDefaultsKey = MoneroProvider.backendBaseURLDefaultsKey
-    static let backendAPIKeyDefaultsKey = MoneroProvider.backendAPIKeyDefaultsKey
-    static let defaultBackendID = MoneroProvider.defaultBackendID
-    static let defaultPublicBackend = MoneroProvider.defaultPublicBackend
-    static let trustedBackends = MoneroProvider.trustedBackends
+    struct TrustedBackend: Identifiable, Hashable {
+        let id: String
+        let displayName: String
+        let baseURL: String
+    }
+    static let backendBaseURLDefaultsKey = "monero.backend.baseURL"
+    static let backendAPIKeyDefaultsKey = "monero.backend.apiKey"
+    static let defaultBackendID = "edge_lws_public"
+    static let defaultPublicBackend = TrustedBackend(
+        id: defaultBackendID, displayName: "Edge Monero LWS (Default)", baseURL: moneroBackendURLs[0]
+    )
+    private static let moneroBackendURLs = AppEndpointDirectory.endpoints(for: ["monero.backend.1", "monero.backend.2", "monero.backend.3"])
+    static let trustedBackends: [TrustedBackend] = [
+        defaultPublicBackend, TrustedBackend(
+            id: "edge_lws_public_2", displayName: "Edge Monero LWS (Fallback 1)", baseURL: moneroBackendURLs[1]
+        ), TrustedBackend(
+            id: "edge_lws_public_3", displayName: "Edge Monero LWS (Fallback 2)", baseURL: moneroBackendURLs[2]
+        )
+    ]
 }
 
 // MARK: - Bitcoin Cash
 enum BitcoinCashBalanceService {
-    static func endpointCatalog() -> [String] { BitcoinCashProvider.endpointCatalog() }
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { BitcoinCashProvider.diagnosticsChecks() }
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Bitcoin Cash") }
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: "Bitcoin Cash") }
 }
 
 // MARK: - Bitcoin SV
 enum BitcoinSVBalanceService {
-    static func endpointCatalog() -> [String] { BitcoinSVProvider.endpointCatalog() }
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { BitcoinSVProvider.diagnosticsChecks() }
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Bitcoin SV") }
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: "Bitcoin SV") }
 }
 
 // MARK: - Litecoin
 enum LitecoinBalanceService {
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: ChainBackendRegistry.litecoinChainName) }
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: ChainBackendRegistry.litecoinChainName) }
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Litecoin") }
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: "Litecoin") }
 }
 
 // MARK: - Solana
 // SolanaHistoryDiagnostics moved to Rust core.
-struct SolanaSPLTokenBalanceSnapshot: Equatable {
-    let mintAddress: String
-    let sourceTokenAccountAddress: String
-    let symbol: String
-    let name: String
-    let tokenStandard: String
-    let decimals: Int
-    let balance: Double
-    let marketDataId: String
-    let coinGeckoId: String
-}
-struct SolanaPortfolioSnapshot: Equatable {
-    let nativeBalance: Double
-    let tokenBalances: [SolanaSPLTokenBalanceSnapshot]
-}
 enum SolanaBalanceService {
-    static func endpointCatalog() -> [String] { SolanaProvider.balanceEndpointCatalog() }
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { SolanaProvider.diagnosticsChecks() }
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.endpoints(for: ["solana.rpc.mainnet", "solana.rpc.ankr", "solana.rpc.publicnode"]) }
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: "Solana") }
     struct KnownTokenMetadata {
         let symbol: String
         let name: String
@@ -341,25 +237,7 @@ enum SolanaBalanceService {
 }
 
 // MARK: - NEAR
-struct NearHistorySnapshot: Equatable {
-    let transactionHash: String
-    let kind: TransactionKind
-    let amount: Double
-    let counterpartyAddress: String
-    let createdAt: Date
-    let status: TransactionStatus
-}
 // NearHistoryDiagnostics moved to Rust core.
-struct NearTokenBalanceSnapshot: Equatable {
-    let contractAddress: String
-    let symbol: String
-    let name: String
-    let tokenStandard: String
-    let decimals: Int
-    let balance: Double
-    let marketDataId: String
-    let coinGeckoId: String
-}
 enum NearBalanceService {
     struct KnownTokenMetadata: Equatable {
         let symbol: String
@@ -369,40 +247,17 @@ enum NearBalanceService {
         let marketDataId: String
         let coinGeckoId: String
     }
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: ChainBackendRegistry.nearChainName) }
-    static func rpcEndpointCatalog() -> [String] { ChainBackendRegistry.NearRuntimeEndpoints.rpcBaseURLs }
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: ChainBackendRegistry.nearChainName) }
-    static func parseHistoryResponse(_ data: Data, ownerAddress: String) throws -> [NearHistorySnapshot] {
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "NEAR") }
+    static func rpcEndpointCatalog() -> [String] { AppEndpointDirectory.endpoints(for: ["near.rpc.mainnet", "near.rpc.fastnear", "near.rpc.lava"]) }
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: "NEAR") }
+    static func parseHistoryResponse(_ data: Data, ownerAddress: String) throws -> [NearHistoryParsedSnapshot] {
         let jsonString = String(data: data, encoding: .utf8) ?? ""
-        return nearParseHistoryResponse(json: jsonString, ownerAddress: ownerAddress).map { parsed in
-            NearHistorySnapshot(
-                transactionHash: parsed.transactionHash,
-                kind: TransactionKind(rawValue: parsed.kind) ?? .send,
-                amount: parsed.amountNear,
-                counterpartyAddress: parsed.counterpartyAddress,
-                createdAt: parsed.createdAtUnixSeconds > 0 ? Date(timeIntervalSince1970: parsed.createdAtUnixSeconds) : Date(),
-                status: .confirmed
-            )
-        }
+        return nearParseHistoryResponse(json: jsonString, ownerAddress: ownerAddress)
     }
 }
 
 // MARK: - Aptos
 // AptosHistoryDiagnostics moved to Rust core.
-struct AptosTokenBalanceSnapshot: Equatable {
-    let coinType: String
-    let symbol: String
-    let name: String
-    let tokenStandard: String
-    let decimals: Int
-    let balance: Double
-    let marketDataId: String
-    let coinGeckoId: String
-}
-struct AptosPortfolioSnapshot: Equatable {
-    let nativeBalance: Double
-    let tokenBalances: [AptosTokenBalanceSnapshot]
-}
 enum AptosBalanceService {
     static let aptosCoinType = "0x1::aptos_coin::aptoscoin"
     struct KnownTokenMetadata: Equatable {
@@ -413,26 +268,12 @@ enum AptosBalanceService {
         let marketDataId: String
         let coinGeckoId: String
     }
-    static func endpointCatalog() -> [String] { AptosProvider.endpointCatalog() }
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AptosProvider.diagnosticsChecks() }
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Aptos") }
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: "Aptos") }
 }
 
 // MARK: - Sui
 // SuiHistoryDiagnostics moved to Rust core.
-struct SuiTokenBalanceSnapshot: Equatable {
-    let coinType: String
-    let symbol: String
-    let name: String
-    let tokenStandard: String
-    let decimals: Int
-    let balance: Double
-    let marketDataId: String
-    let coinGeckoId: String
-}
-struct SuiPortfolioSnapshot: Equatable {
-    let nativeBalance: Double
-    let tokenBalances: [SuiTokenBalanceSnapshot]
-}
 enum SuiBalanceService {
     static let suiCoinType = "0x2::sui::SUI"
     struct KnownTokenMetadata: Equatable {
@@ -443,27 +284,12 @@ enum SuiBalanceService {
         let marketDataId: String
         let coinGeckoId: String
     }
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: ChainBackendRegistry.suiChainName) }
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: ChainBackendRegistry.suiChainName) }
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Sui") }
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: "Sui") }
 }
 
 // MARK: - TON
 // TONHistoryDiagnostics moved to Rust core.
-struct TONJettonBalanceSnapshot: Equatable {
-    let masterAddress: String
-    let walletAddress: String
-    let symbol: String
-    let name: String
-    let tokenStandard: String
-    let decimals: Int
-    let balance: Double
-    let marketDataId: String
-    let coinGeckoId: String
-}
-struct TONPortfolioSnapshot: Equatable {
-    let nativeBalance: Double
-    let tokenBalances: [TONJettonBalanceSnapshot]
-}
 enum TONBalanceService {
     struct KnownTokenMetadata: Equatable {
         let symbol: String
@@ -473,8 +299,8 @@ enum TONBalanceService {
         let marketDataId: String
         let coinGeckoId: String
     }
-    static func endpointCatalog() -> [String] { TONProvider.endpointCatalog() }
-    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { TONProvider.diagnosticsChecks() }
+    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "TON") }
+    static func diagnosticsChecks() -> [(endpoint: String, probeURL: String)] { AppEndpointDirectory.diagnosticsChecks(for: "TON") }
     static func normalizeJettonMasterAddress(_ address: String) -> String { canonicalAddressIdentifier(address) }
     private static func canonicalAddressIdentifier(_ address: String?) -> String { address?.trimmingCharacters(in: .whitespacesAndNewlines) ?? "" }
 }

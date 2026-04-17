@@ -49,6 +49,7 @@ class AppState: ObservableObject {
     // Rust-owned backing store for side-effect-free scalar UI state. @Published
     // replaced by computed props that delegate here and emit objectWillChange.
     let shellState = AppShellState()
+    private var transactionRebuildTask: Task<Void, Never>?
     @Published var transactions: [TransactionRecord] = [] {
         didSet {
             transactionRevision &+= 1
@@ -56,7 +57,12 @@ class AppState: ObservableObject {
             lastObservedTransactions = transactions
             if !suppressSideEffects {
                 persistTransactionsDelta(from: old, to: transactions)
-                rebuildTransactionDerivedState()
+                transactionRebuildTask?.cancel()
+                transactionRebuildTask = Task { @MainActor [weak self] in
+                    try? await Task.sleep(nanoseconds: 30_000_000) // 30ms debounce
+                    guard !Task.isCancelled, let self else { return }
+                    self.rebuildTransactionDerivedState()
+                }
             }}}
     @Published var normalizedHistoryIndex: [NormalizedHistoryEntry] = [] {
         didSet { normalizedHistoryRevision &+= 1 }}
@@ -88,6 +94,12 @@ class AppState: ObservableObject {
         block()
         cacheBatchDepth -= 1
         if cacheBatchDepth == 0 { cachesRevision &+= 1 }
+    }
+    // Skip objectWillChange when the value is unchanged — avoids redundant SwiftUI invalidation.
+    @inline(__always) private func notifyIfChanged<T: Equatable>(_ current: T, _ newValue: T, apply: () -> Void) {
+        guard newValue != current else { return }
+        objectWillChange.send()
+        apply()
     }
     var cachedWalletByID: [String: ImportedWallet] {
         get { cachesGetWalletById() }
@@ -158,54 +170,54 @@ class AppState: ObservableObject {
         set { cachesReplaceSecretDescriptorsByWalletId(entries: newValue); bumpCachesRevision() }
     }
     let importDraft = WalletImportDraft()
-    var importError: String? { get { shellState.getImportError() } set { objectWillChange.send(); shellState.setImportError(value: newValue) } }
-    var isImportingWallet: Bool { get { shellState.getIsImportingWallet() } set { objectWillChange.send(); shellState.setIsImportingWallet(value: newValue) } }
-    var isShowingWalletImporter: Bool { get { shellState.getIsShowingWalletImporter() } set { objectWillChange.send(); shellState.setIsShowingWalletImporter(value: newValue) } }
-    var isShowingSendSheet: Bool { get { shellState.getIsShowingSendSheet() } set { objectWillChange.send(); shellState.setIsShowingSendSheet(value: newValue) } }
-    var isShowingReceiveSheet: Bool { get { shellState.getIsShowingReceiveSheet() } set { objectWillChange.send(); shellState.setIsShowingReceiveSheet(value: newValue) } }
+    var importError: String? { get { shellState.getImportError() } set { notifyIfChanged(importError, newValue) { shellState.setImportError(value: newValue) } } }
+    var isImportingWallet: Bool { get { shellState.getIsImportingWallet() } set { notifyIfChanged(isImportingWallet, newValue) { shellState.setIsImportingWallet(value: newValue) } } }
+    var isShowingWalletImporter: Bool { get { shellState.getIsShowingWalletImporter() } set { notifyIfChanged(isShowingWalletImporter, newValue) { shellState.setIsShowingWalletImporter(value: newValue) } } }
+    var isShowingSendSheet: Bool { get { shellState.getIsShowingSendSheet() } set { notifyIfChanged(isShowingSendSheet, newValue) { shellState.setIsShowingSendSheet(value: newValue) } } }
+    var isShowingReceiveSheet: Bool { get { shellState.getIsShowingReceiveSheet() } set { notifyIfChanged(isShowingReceiveSheet, newValue) { shellState.setIsShowingReceiveSheet(value: newValue) } } }
     @Published var walletPendingDeletion: ImportedWallet?
     var editingWalletID: String? {
         get { shellState.getEditingWalletId() }
-        set { objectWillChange.send(); shellState.setEditingWalletId(value: newValue) }
+        set { notifyIfChanged(editingWalletID, newValue) { shellState.setEditingWalletId(value: newValue) } }
     }
-    var sendWalletID: String { get { shellState.getSendWalletId() } set { objectWillChange.send(); shellState.setSendWalletId(value: newValue) } }
-    var sendHoldingKey: String { get { shellState.getSendHoldingKey() } set { objectWillChange.send(); shellState.setSendHoldingKey(value: newValue) } }
-    var sendAmount: String { get { shellState.getSendAmount() } set { objectWillChange.send(); shellState.setSendAmount(value: newValue) } }
-    var sendAddress: String { get { shellState.getSendAddress() } set { objectWillChange.send(); shellState.setSendAddress(value: newValue) } }
-    var sendError: String? { get { shellState.getSendError() } set { objectWillChange.send(); shellState.setSendError(value: newValue) } }
-    var sendDestinationRiskWarning: String? { get { shellState.getSendDestinationRiskWarning() } set { objectWillChange.send(); shellState.setSendDestinationRiskWarning(value: newValue) } }
-    var sendDestinationInfoMessage: String? { get { shellState.getSendDestinationInfoMessage() } set { objectWillChange.send(); shellState.setSendDestinationInfoMessage(value: newValue) } }
-    var isCheckingSendDestinationBalance: Bool { get { shellState.getIsCheckingSendDestinationBalance() } set { objectWillChange.send(); shellState.setIsCheckingSendDestinationBalance(value: newValue) } }
+    var sendWalletID: String { get { shellState.getSendWalletId() } set { notifyIfChanged(sendWalletID, newValue) { shellState.setSendWalletId(value: newValue) } } }
+    var sendHoldingKey: String { get { shellState.getSendHoldingKey() } set { notifyIfChanged(sendHoldingKey, newValue) { shellState.setSendHoldingKey(value: newValue) } } }
+    var sendAmount: String { get { shellState.getSendAmount() } set { notifyIfChanged(sendAmount, newValue) { shellState.setSendAmount(value: newValue) } } }
+    var sendAddress: String { get { shellState.getSendAddress() } set { notifyIfChanged(sendAddress, newValue) { shellState.setSendAddress(value: newValue) } } }
+    var sendError: String? { get { shellState.getSendError() } set { notifyIfChanged(sendError, newValue) { shellState.setSendError(value: newValue) } } }
+    var sendDestinationRiskWarning: String? { get { shellState.getSendDestinationRiskWarning() } set { notifyIfChanged(sendDestinationRiskWarning, newValue) { shellState.setSendDestinationRiskWarning(value: newValue) } } }
+    var sendDestinationInfoMessage: String? { get { shellState.getSendDestinationInfoMessage() } set { notifyIfChanged(sendDestinationInfoMessage, newValue) { shellState.setSendDestinationInfoMessage(value: newValue) } } }
+    var isCheckingSendDestinationBalance: Bool { get { shellState.getIsCheckingSendDestinationBalance() } set { notifyIfChanged(isCheckingSendDestinationBalance, newValue) { shellState.setIsCheckingSendDestinationBalance(value: newValue) } } }
     var pendingHighRiskSendReasons: [String] {
         get { shellState.getPendingHighRiskSendReasons() }
-        set { objectWillChange.send(); shellState.setPendingHighRiskSendReasons(value: newValue) }
+        set { notifyIfChanged(pendingHighRiskSendReasons, newValue) { shellState.setPendingHighRiskSendReasons(value: newValue) } }
     }
-    var isShowingHighRiskSendConfirmation: Bool { get { shellState.getIsShowingHighRiskSendConfirmation() } set { objectWillChange.send(); shellState.setIsShowingHighRiskSendConfirmation(value: newValue) } }
-    var sendVerificationNotice: String? { get { shellState.getSendVerificationNotice() } set { objectWillChange.send(); shellState.setSendVerificationNotice(value: newValue) } }
-    var sendVerificationNoticeIsWarning: Bool { get { shellState.getSendVerificationNoticeIsWarning() } set { objectWillChange.send(); shellState.setSendVerificationNoticeIsWarning(value: newValue) } }
-    var receiveWalletID: String { get { shellState.getReceiveWalletId() } set { objectWillChange.send(); shellState.setReceiveWalletId(value: newValue) } }
-    var receiveChainName: String { get { shellState.getReceiveChainName() } set { objectWillChange.send(); shellState.setReceiveChainName(value: newValue) } }
-    var receiveHoldingKey: String { get { shellState.getReceiveHoldingKey() } set { objectWillChange.send(); shellState.setReceiveHoldingKey(value: newValue) } }
-    var receiveResolvedAddress: String { get { shellState.getReceiveResolvedAddress() } set { objectWillChange.send(); shellState.setReceiveResolvedAddress(value: newValue) } }
-    var isResolvingReceiveAddress: Bool { get { shellState.getIsResolvingReceiveAddress() } set { objectWillChange.send(); shellState.setIsResolvingReceiveAddress(value: newValue) } }
+    var isShowingHighRiskSendConfirmation: Bool { get { shellState.getIsShowingHighRiskSendConfirmation() } set { notifyIfChanged(isShowingHighRiskSendConfirmation, newValue) { shellState.setIsShowingHighRiskSendConfirmation(value: newValue) } } }
+    var sendVerificationNotice: String? { get { shellState.getSendVerificationNotice() } set { notifyIfChanged(sendVerificationNotice, newValue) { shellState.setSendVerificationNotice(value: newValue) } } }
+    var sendVerificationNoticeIsWarning: Bool { get { shellState.getSendVerificationNoticeIsWarning() } set { notifyIfChanged(sendVerificationNoticeIsWarning, newValue) { shellState.setSendVerificationNoticeIsWarning(value: newValue) } } }
+    var receiveWalletID: String { get { shellState.getReceiveWalletId() } set { notifyIfChanged(receiveWalletID, newValue) { shellState.setReceiveWalletId(value: newValue) } } }
+    var receiveChainName: String { get { shellState.getReceiveChainName() } set { notifyIfChanged(receiveChainName, newValue) { shellState.setReceiveChainName(value: newValue) } } }
+    var receiveHoldingKey: String { get { shellState.getReceiveHoldingKey() } set { notifyIfChanged(receiveHoldingKey, newValue) { shellState.setReceiveHoldingKey(value: newValue) } } }
+    var receiveResolvedAddress: String { get { shellState.getReceiveResolvedAddress() } set { notifyIfChanged(receiveResolvedAddress, newValue) { shellState.setReceiveResolvedAddress(value: newValue) } } }
+    var isResolvingReceiveAddress: Bool { get { shellState.getIsResolvingReceiveAddress() } set { notifyIfChanged(isResolvingReceiveAddress, newValue) { shellState.setIsResolvingReceiveAddress(value: newValue) } } }
     @Published var selectedMainTab: MainAppTab = .home
-    var isAppLocked: Bool { get { shellState.getIsAppLocked() } set { objectWillChange.send(); shellState.setIsAppLocked(value: newValue) } }
-    var appLockError: String? { get { shellState.getAppLockError() } set { objectWillChange.send(); shellState.setAppLockError(value: newValue) } }
-    var isPreparingEthereumReplacementContext: Bool { get { shellState.getIsPreparingEthereumReplacementContext() } set { objectWillChange.send(); shellState.setIsPreparingEthereumReplacementContext(value: newValue) } }
-    var isPreparingEthereumSend: Bool { get { shellState.getIsPreparingEthereumSend() } set { objectWillChange.send(); shellState.setIsPreparingEthereumSend(value: newValue) } }
-    var isPreparingDogecoinSend: Bool { get { shellState.getIsPreparingDogecoinSend() } set { objectWillChange.send(); shellState.setIsPreparingDogecoinSend(value: newValue) } }
-    var isPreparingTronSend: Bool { get { shellState.getIsPreparingTronSend() } set { objectWillChange.send(); shellState.setIsPreparingTronSend(value: newValue) } }
-    var isPreparingSolanaSend: Bool { get { shellState.getIsPreparingSolanaSend() } set { objectWillChange.send(); shellState.setIsPreparingSolanaSend(value: newValue) } }
-    var isPreparingXRPSend: Bool { get { shellState.getIsPreparingXrpSend() } set { objectWillChange.send(); shellState.setIsPreparingXrpSend(value: newValue) } }
-    var isPreparingStellarSend: Bool { get { shellState.getIsPreparingStellarSend() } set { objectWillChange.send(); shellState.setIsPreparingStellarSend(value: newValue) } }
-    var isPreparingMoneroSend: Bool { get { shellState.getIsPreparingMoneroSend() } set { objectWillChange.send(); shellState.setIsPreparingMoneroSend(value: newValue) } }
-    var isPreparingCardanoSend: Bool { get { shellState.getIsPreparingCardanoSend() } set { objectWillChange.send(); shellState.setIsPreparingCardanoSend(value: newValue) } }
-    var isPreparingSuiSend: Bool { get { shellState.getIsPreparingSuiSend() } set { objectWillChange.send(); shellState.setIsPreparingSuiSend(value: newValue) } }
-    var isPreparingAptosSend: Bool { get { shellState.getIsPreparingAptosSend() } set { objectWillChange.send(); shellState.setIsPreparingAptosSend(value: newValue) } }
-    var isPreparingTONSend: Bool { get { shellState.getIsPreparingTonSend() } set { objectWillChange.send(); shellState.setIsPreparingTonSend(value: newValue) } }
-    var isPreparingICPSend: Bool { get { shellState.getIsPreparingIcpSend() } set { objectWillChange.send(); shellState.setIsPreparingIcpSend(value: newValue) } }
-    var isPreparingNearSend: Bool { get { shellState.getIsPreparingNearSend() } set { objectWillChange.send(); shellState.setIsPreparingNearSend(value: newValue) } }
-    var isPreparingPolkadotSend: Bool { get { shellState.getIsPreparingPolkadotSend() } set { objectWillChange.send(); shellState.setIsPreparingPolkadotSend(value: newValue) } }
+    var isAppLocked: Bool { get { shellState.getIsAppLocked() } set { notifyIfChanged(isAppLocked, newValue) { shellState.setIsAppLocked(value: newValue) } } }
+    var appLockError: String? { get { shellState.getAppLockError() } set { notifyIfChanged(appLockError, newValue) { shellState.setAppLockError(value: newValue) } } }
+    var isPreparingEthereumReplacementContext: Bool { get { shellState.getIsPreparingEthereumReplacementContext() } set { notifyIfChanged(isPreparingEthereumReplacementContext, newValue) { shellState.setIsPreparingEthereumReplacementContext(value: newValue) } } }
+    var isPreparingEthereumSend: Bool { get { shellState.getIsPreparingEthereumSend() } set { notifyIfChanged(isPreparingEthereumSend, newValue) { shellState.setIsPreparingEthereumSend(value: newValue) } } }
+    var isPreparingDogecoinSend: Bool { get { shellState.getIsPreparingDogecoinSend() } set { notifyIfChanged(isPreparingDogecoinSend, newValue) { shellState.setIsPreparingDogecoinSend(value: newValue) } } }
+    var isPreparingTronSend: Bool { get { shellState.getIsPreparingTronSend() } set { notifyIfChanged(isPreparingTronSend, newValue) { shellState.setIsPreparingTronSend(value: newValue) } } }
+    var isPreparingSolanaSend: Bool { get { shellState.getIsPreparingSolanaSend() } set { notifyIfChanged(isPreparingSolanaSend, newValue) { shellState.setIsPreparingSolanaSend(value: newValue) } } }
+    var isPreparingXRPSend: Bool { get { shellState.getIsPreparingXrpSend() } set { notifyIfChanged(isPreparingXRPSend, newValue) { shellState.setIsPreparingXrpSend(value: newValue) } } }
+    var isPreparingStellarSend: Bool { get { shellState.getIsPreparingStellarSend() } set { notifyIfChanged(isPreparingStellarSend, newValue) { shellState.setIsPreparingStellarSend(value: newValue) } } }
+    var isPreparingMoneroSend: Bool { get { shellState.getIsPreparingMoneroSend() } set { notifyIfChanged(isPreparingMoneroSend, newValue) { shellState.setIsPreparingMoneroSend(value: newValue) } } }
+    var isPreparingCardanoSend: Bool { get { shellState.getIsPreparingCardanoSend() } set { notifyIfChanged(isPreparingCardanoSend, newValue) { shellState.setIsPreparingCardanoSend(value: newValue) } } }
+    var isPreparingSuiSend: Bool { get { shellState.getIsPreparingSuiSend() } set { notifyIfChanged(isPreparingSuiSend, newValue) { shellState.setIsPreparingSuiSend(value: newValue) } } }
+    var isPreparingAptosSend: Bool { get { shellState.getIsPreparingAptosSend() } set { notifyIfChanged(isPreparingAptosSend, newValue) { shellState.setIsPreparingAptosSend(value: newValue) } } }
+    var isPreparingTONSend: Bool { get { shellState.getIsPreparingTonSend() } set { notifyIfChanged(isPreparingTONSend, newValue) { shellState.setIsPreparingTonSend(value: newValue) } } }
+    var isPreparingICPSend: Bool { get { shellState.getIsPreparingIcpSend() } set { notifyIfChanged(isPreparingICPSend, newValue) { shellState.setIsPreparingIcpSend(value: newValue) } } }
+    var isPreparingNearSend: Bool { get { shellState.getIsPreparingNearSend() } set { notifyIfChanged(isPreparingNearSend, newValue) { shellState.setIsPreparingNearSend(value: newValue) } } }
+    var isPreparingPolkadotSend: Bool { get { shellState.getIsPreparingPolkadotSend() } set { notifyIfChanged(isPreparingPolkadotSend, newValue) { shellState.setIsPreparingPolkadotSend(value: newValue) } } }
     var statusTrackingByTransactionID: [UUID: AppState.TransactionStatusTrackingState] = [:]
     var pendingSelfSendConfirmation: AppState.PendingSelfSendConfirmation?
     var activeEthereumSendWalletIDs: Set<String> = []
@@ -252,25 +264,25 @@ class AppState: ObservableObject {
     @Published var icpSendPreview: IcpSendPreview?
     @Published var nearSendPreview: NearSendPreview?
     @Published var polkadotSendPreview: PolkadotSendPreview?
-    var isSendingBitcoin: Bool { get { shellState.getIsSendingBitcoin() } set { objectWillChange.send(); shellState.setIsSendingBitcoin(value: newValue) } }
-    var isSendingBitcoinCash: Bool { get { shellState.getIsSendingBitcoinCash() } set { objectWillChange.send(); shellState.setIsSendingBitcoinCash(value: newValue) } }
-    var isSendingBitcoinSV: Bool { get { shellState.getIsSendingBitcoinSv() } set { objectWillChange.send(); shellState.setIsSendingBitcoinSv(value: newValue) } }
-    var isSendingLitecoin: Bool { get { shellState.getIsSendingLitecoin() } set { objectWillChange.send(); shellState.setIsSendingLitecoin(value: newValue) } }
-    var isSendingDogecoin: Bool { get { shellState.getIsSendingDogecoin() } set { objectWillChange.send(); shellState.setIsSendingDogecoin(value: newValue) } }
-    var isSendingEthereum: Bool { get { shellState.getIsSendingEthereum() } set { objectWillChange.send(); shellState.setIsSendingEthereum(value: newValue) } }
-    var isSendingTron: Bool { get { shellState.getIsSendingTron() } set { objectWillChange.send(); shellState.setIsSendingTron(value: newValue) } }
-    var isSendingSolana: Bool { get { shellState.getIsSendingSolana() } set { objectWillChange.send(); shellState.setIsSendingSolana(value: newValue) } }
-    var isSendingXRP: Bool { get { shellState.getIsSendingXrp() } set { objectWillChange.send(); shellState.setIsSendingXrp(value: newValue) } }
-    var isSendingStellar: Bool { get { shellState.getIsSendingStellar() } set { objectWillChange.send(); shellState.setIsSendingStellar(value: newValue) } }
-    var isSendingMonero: Bool { get { shellState.getIsSendingMonero() } set { objectWillChange.send(); shellState.setIsSendingMonero(value: newValue) } }
-    var isSendingCardano: Bool { get { shellState.getIsSendingCardano() } set { objectWillChange.send(); shellState.setIsSendingCardano(value: newValue) } }
-    var isSendingSui: Bool { get { shellState.getIsSendingSui() } set { objectWillChange.send(); shellState.setIsSendingSui(value: newValue) } }
-    var isSendingAptos: Bool { get { shellState.getIsSendingAptos() } set { objectWillChange.send(); shellState.setIsSendingAptos(value: newValue) } }
-    var isSendingTON: Bool { get { shellState.getIsSendingTon() } set { objectWillChange.send(); shellState.setIsSendingTon(value: newValue) } }
-    var isSendingICP: Bool { get { shellState.getIsSendingIcp() } set { objectWillChange.send(); shellState.setIsSendingIcp(value: newValue) } }
-    var isSendingNear: Bool { get { shellState.getIsSendingNear() } set { objectWillChange.send(); shellState.setIsSendingNear(value: newValue) } }
-    var isSendingPolkadot: Bool { get { shellState.getIsSendingPolkadot() } set { objectWillChange.send(); shellState.setIsSendingPolkadot(value: newValue) } }
-    var tronLastSendErrorDetails: String? { get { shellState.getTronLastSendErrorDetails() } set { objectWillChange.send(); shellState.setTronLastSendErrorDetails(value: newValue) } }
+    var isSendingBitcoin: Bool { get { shellState.getIsSendingBitcoin() } set { notifyIfChanged(isSendingBitcoin, newValue) { shellState.setIsSendingBitcoin(value: newValue) } } }
+    var isSendingBitcoinCash: Bool { get { shellState.getIsSendingBitcoinCash() } set { notifyIfChanged(isSendingBitcoinCash, newValue) { shellState.setIsSendingBitcoinCash(value: newValue) } } }
+    var isSendingBitcoinSV: Bool { get { shellState.getIsSendingBitcoinSv() } set { notifyIfChanged(isSendingBitcoinSV, newValue) { shellState.setIsSendingBitcoinSv(value: newValue) } } }
+    var isSendingLitecoin: Bool { get { shellState.getIsSendingLitecoin() } set { notifyIfChanged(isSendingLitecoin, newValue) { shellState.setIsSendingLitecoin(value: newValue) } } }
+    var isSendingDogecoin: Bool { get { shellState.getIsSendingDogecoin() } set { notifyIfChanged(isSendingDogecoin, newValue) { shellState.setIsSendingDogecoin(value: newValue) } } }
+    var isSendingEthereum: Bool { get { shellState.getIsSendingEthereum() } set { notifyIfChanged(isSendingEthereum, newValue) { shellState.setIsSendingEthereum(value: newValue) } } }
+    var isSendingTron: Bool { get { shellState.getIsSendingTron() } set { notifyIfChanged(isSendingTron, newValue) { shellState.setIsSendingTron(value: newValue) } } }
+    var isSendingSolana: Bool { get { shellState.getIsSendingSolana() } set { notifyIfChanged(isSendingSolana, newValue) { shellState.setIsSendingSolana(value: newValue) } } }
+    var isSendingXRP: Bool { get { shellState.getIsSendingXrp() } set { notifyIfChanged(isSendingXRP, newValue) { shellState.setIsSendingXrp(value: newValue) } } }
+    var isSendingStellar: Bool { get { shellState.getIsSendingStellar() } set { notifyIfChanged(isSendingStellar, newValue) { shellState.setIsSendingStellar(value: newValue) } } }
+    var isSendingMonero: Bool { get { shellState.getIsSendingMonero() } set { notifyIfChanged(isSendingMonero, newValue) { shellState.setIsSendingMonero(value: newValue) } } }
+    var isSendingCardano: Bool { get { shellState.getIsSendingCardano() } set { notifyIfChanged(isSendingCardano, newValue) { shellState.setIsSendingCardano(value: newValue) } } }
+    var isSendingSui: Bool { get { shellState.getIsSendingSui() } set { notifyIfChanged(isSendingSui, newValue) { shellState.setIsSendingSui(value: newValue) } } }
+    var isSendingAptos: Bool { get { shellState.getIsSendingAptos() } set { notifyIfChanged(isSendingAptos, newValue) { shellState.setIsSendingAptos(value: newValue) } } }
+    var isSendingTON: Bool { get { shellState.getIsSendingTon() } set { notifyIfChanged(isSendingTON, newValue) { shellState.setIsSendingTon(value: newValue) } } }
+    var isSendingICP: Bool { get { shellState.getIsSendingIcp() } set { notifyIfChanged(isSendingICP, newValue) { shellState.setIsSendingIcp(value: newValue) } } }
+    var isSendingNear: Bool { get { shellState.getIsSendingNear() } set { notifyIfChanged(isSendingNear, newValue) { shellState.setIsSendingNear(value: newValue) } } }
+    var isSendingPolkadot: Bool { get { shellState.getIsSendingPolkadot() } set { notifyIfChanged(isSendingPolkadot, newValue) { shellState.setIsSendingPolkadot(value: newValue) } } }
+    var tronLastSendErrorDetails: String? { get { shellState.getTronLastSendErrorDetails() } set { notifyIfChanged(tronLastSendErrorDetails, newValue) { shellState.setTronLastSendErrorDetails(value: newValue) } } }
     var tronLastSendErrorAt: Date? {
         get { shellState.getTronLastSendErrorAt().map { Date(timeIntervalSince1970: $0) } }
         set { objectWillChange.send(); shellState.setTronLastSendErrorAt(value: newValue?.timeIntervalSince1970) }
@@ -340,7 +352,7 @@ class AppState: ObservableObject {
             objectWillChange.send()
             shellState.setEthereumNetworkMode(value: newValue.rawValue)
             persistAppSettings()
-            try? WalletServiceBridge.shared.resetHistoryForChain(chainId: 1)
+            WalletServiceBridge.shared.resetHistoryForChain(chainId: 1)
         }
     }
     var etherscanAPIKey: String {
@@ -355,7 +367,7 @@ class AppState: ObservableObject {
         get { shellState.getMoneroBackendApiKey() }
         set { objectWillChange.send(); shellState.setMoneroBackendApiKey(value: newValue); persistAppSettings() }
     }
-    var isUserInitiatedRefreshInProgress: Bool { get { shellState.getIsUserInitiatedRefreshInProgress() } set { objectWillChange.send(); shellState.setIsUserInitiatedRefreshInProgress(value: newValue) } }
+    var isUserInitiatedRefreshInProgress: Bool { get { shellState.getIsUserInitiatedRefreshInProgress() } set { notifyIfChanged(isUserInitiatedRefreshInProgress, newValue) { shellState.setIsUserInitiatedRefreshInProgress(value: newValue) } } }
     @Published var priceAlerts: [PriceAlertRule] = [] {
         didSet {
             persistPriceAlerts()
@@ -387,11 +399,11 @@ class AppState: ObservableObject {
     }
     var fiatRatesRefreshError: String? {
         get { shellState.getFiatRatesRefreshError() }
-        set { objectWillChange.send(); shellState.setFiatRatesRefreshError(value: newValue) }
+        set { notifyIfChanged(fiatRatesRefreshError, newValue) { shellState.setFiatRatesRefreshError(value: newValue) } }
     }
     var quoteRefreshError: String? {
         get { shellState.getQuoteRefreshError() }
-        set { objectWillChange.send(); shellState.setQuoteRefreshError(value: newValue) }
+        set { notifyIfChanged(quoteRefreshError, newValue) { shellState.setQuoteRefreshError(value: newValue) } }
     }
     var cachedPinnedDashboardAssetSymbols: [String] {
         get { cachesGetPinnedDashboardAssetSymbols() }
@@ -451,26 +463,26 @@ class AppState: ObservableObject {
     }
     var cachedCurrencyFormatters: [String: NumberFormatter] = [:]
     var cachedDecimalFormatters: [String: NumberFormatter] = [:]
-    var useCustomEthereumFees: Bool { get { shellState.getUseCustomEthereumFees() } set { objectWillChange.send(); shellState.setUseCustomEthereumFees(value: newValue) } }
-    var customEthereumMaxFeeGwei: String { get { shellState.getCustomEthereumMaxFeeGwei() } set { objectWillChange.send(); shellState.setCustomEthereumMaxFeeGwei(value: newValue) } }
-    var customEthereumPriorityFeeGwei: String { get { shellState.getCustomEthereumPriorityFeeGwei() } set { objectWillChange.send(); shellState.setCustomEthereumPriorityFeeGwei(value: newValue) } }
-    var sendAdvancedMode: Bool { get { shellState.getSendAdvancedMode() } set { objectWillChange.send(); shellState.setSendAdvancedMode(value: newValue) } }
-    var sendUTXOMaxInputCount: Int { get { Int(shellState.getSendUtxoMaxInputCount()) } set { objectWillChange.send(); shellState.setSendUtxoMaxInputCount(value: Int64(newValue)) } }
-    var sendEnableRBF: Bool { get { shellState.getSendEnableRbf() } set { objectWillChange.send(); shellState.setSendEnableRbf(value: newValue) } }
-    var sendEnableCPFP: Bool { get { shellState.getSendEnableCpfp() } set { objectWillChange.send(); shellState.setSendEnableCpfp(value: newValue) } }
+    var useCustomEthereumFees: Bool { get { shellState.getUseCustomEthereumFees() } set { notifyIfChanged(useCustomEthereumFees, newValue) { shellState.setUseCustomEthereumFees(value: newValue) } } }
+    var customEthereumMaxFeeGwei: String { get { shellState.getCustomEthereumMaxFeeGwei() } set { notifyIfChanged(customEthereumMaxFeeGwei, newValue) { shellState.setCustomEthereumMaxFeeGwei(value: newValue) } } }
+    var customEthereumPriorityFeeGwei: String { get { shellState.getCustomEthereumPriorityFeeGwei() } set { notifyIfChanged(customEthereumPriorityFeeGwei, newValue) { shellState.setCustomEthereumPriorityFeeGwei(value: newValue) } } }
+    var sendAdvancedMode: Bool { get { shellState.getSendAdvancedMode() } set { notifyIfChanged(sendAdvancedMode, newValue) { shellState.setSendAdvancedMode(value: newValue) } } }
+    var sendUTXOMaxInputCount: Int { get { Int(shellState.getSendUtxoMaxInputCount()) } set { notifyIfChanged(sendUTXOMaxInputCount, newValue) { shellState.setSendUtxoMaxInputCount(value: Int64(newValue)) } } }
+    var sendEnableRBF: Bool { get { shellState.getSendEnableRbf() } set { notifyIfChanged(sendEnableRBF, newValue) { shellState.setSendEnableRbf(value: newValue) } } }
+    var sendEnableCPFP: Bool { get { shellState.getSendEnableCpfp() } set { notifyIfChanged(sendEnableCPFP, newValue) { shellState.setSendEnableCpfp(value: newValue) } } }
     var sendLitecoinChangeStrategy: LitecoinChangeStrategy {
         get { LitecoinChangeStrategy(rawValue: shellState.getSendLitecoinChangeStrategy()) ?? .derivedChange }
-        set { objectWillChange.send(); shellState.setSendLitecoinChangeStrategy(value: newValue.rawValue) }
+        set { notifyIfChanged(sendLitecoinChangeStrategy, newValue) { shellState.setSendLitecoinChangeStrategy(value: newValue.rawValue) } }
     }
-    var ethereumManualNonceEnabled: Bool { get { shellState.getEthereumManualNonceEnabled() } set { objectWillChange.send(); shellState.setEthereumManualNonceEnabled(value: newValue) } }
-    var ethereumManualNonce: String { get { shellState.getEthereumManualNonce() } set { objectWillChange.send(); shellState.setEthereumManualNonce(value: newValue) } }
+    var ethereumManualNonceEnabled: Bool { get { shellState.getEthereumManualNonceEnabled() } set { notifyIfChanged(ethereumManualNonceEnabled, newValue) { shellState.setEthereumManualNonceEnabled(value: newValue) } } }
+    var ethereumManualNonce: String { get { shellState.getEthereumManualNonce() } set { notifyIfChanged(ethereumManualNonce, newValue) { shellState.setEthereumManualNonce(value: newValue) } } }
     var bitcoinNetworkMode: BitcoinNetworkMode {
         get { BitcoinNetworkMode(rawValue: shellState.getBitcoinNetworkMode()) ?? .mainnet }
         set {
             objectWillChange.send()
             shellState.setBitcoinNetworkMode(value: newValue.rawValue)
             persistAppSettings()
-            try? WalletServiceBridge.shared.resetHistoryForChain(chainId: 0)
+            WalletServiceBridge.shared.resetHistoryForChain(chainId: 0)
             Task {
                 await WalletServiceBridge.shared.deleteKeypoolForChain(chainName: "Bitcoin")
                 await WalletServiceBridge.shared.deleteOwnedAddressesForChain(chainName: "Bitcoin")
@@ -489,8 +501,8 @@ class AppState: ObservableObject {
                 await WalletServiceBridge.shared.deleteKeypoolForChain(chainName: "Dogecoin")
                 await WalletServiceBridge.shared.deleteOwnedAddressesForChain(chainName: "Dogecoin")
             }
-            dogecoinKeypoolByWalletID = [:]
-            dogecoinOwnedAddressMap = [:]
+            chainKeypoolByChain["Dogecoin"] = [:]
+            chainOwnedAddressMapByChain["Dogecoin"] = [:]
         }
     }
     var bitcoinEsploraEndpoints: String {
@@ -499,7 +511,7 @@ class AppState: ObservableObject {
             objectWillChange.send()
             shellState.setBitcoinEsploraEndpoints(value: newValue)
             persistAppSettings()
-            try? WalletServiceBridge.shared.resetHistoryForChain(chainId: 0)
+            WalletServiceBridge.shared.resetHistoryForChain(chainId: 0)
         }
     }
     var bitcoinStopGap: Int {
@@ -610,27 +622,44 @@ class AppState: ObservableObject {
             persistAppSettings()
         }
     }
-    @Published var dogecoinKeypoolByWalletID: [String: DogecoinKeypoolState] = [:] {
-        didSet {
-            persistDogecoinKeypoolState()
-        }}
+    var dogecoinKeypoolByWalletID: [String: DogecoinKeypoolState] {
+        get { chainKeypoolByChain["Dogecoin"] ?? [:] }
+        set { chainKeypoolByChain["Dogecoin"] = newValue }
+    }
     @Published var chainKeypoolByChain: [String: [String: ChainKeypoolState]] = [:] {
         didSet {
             persistChainKeypoolState()
         }}
-    @Published var dogecoinOwnedAddressMap: [String: DogecoinOwnedAddressRecord] = [:] {
-        didSet {
-            persistDogecoinOwnedAddressMap()
-        }}
+    var dogecoinOwnedAddressMap: [String: DogecoinOwnedAddressRecord] {
+        get {
+            (chainOwnedAddressMapByChain["Dogecoin"] ?? [:]).reduce(into: [:]) { result, pair in
+                result[pair.key] = DogecoinOwnedAddressRecord(
+                    address: pair.value.address, walletID: pair.value.walletID,
+                    derivationPath: pair.value.derivationPath ?? "", index: pair.value.index ?? 0, branch: pair.value.branch ?? ""
+                )
+            }
+        }
+        set {
+            chainOwnedAddressMapByChain["Dogecoin"] = newValue.reduce(into: [:]) { result, pair in
+                result[pair.key] = ChainOwnedAddressRecord(
+                    chainName: "Dogecoin", address: pair.value.address, walletID: pair.value.walletID,
+                    derivationPath: pair.value.derivationPath, index: pair.value.index, branch: pair.value.branch
+                )
+            }
+        }
+    }
     @Published var chainOwnedAddressMapByChain: [String: [String: ChainOwnedAddressRecord]] = [:] {
         didSet {
             persistChainOwnedAddressMap()
         }}
     var pendingEthereumSendPreviewRefresh: Bool = false
     var pendingDogecoinSendPreviewRefresh: Bool = false
-    @Published var discoveredDogecoinAddressesByWallet: [String: [String]] = [:]
+    var discoveredDogecoinAddressesByWallet: [String: [String]] {
+        get { discoveredUTXOAddressesByChain["Dogecoin"] ?? [:] }
+        set { discoveredUTXOAddressesByChain["Dogecoin"] = newValue }
+    }
     @Published var discoveredUTXOAddressesByChain: [String: [String: [String]]] = [:]
-    var isLoadingMoreOnChainHistory: Bool { get { shellState.getIsLoadingMoreOnChainHistory() } set { objectWillChange.send(); shellState.setIsLoadingMoreOnChainHistory(value: newValue) } }
+    var isLoadingMoreOnChainHistory: Bool { get { shellState.getIsLoadingMoreOnChainHistory() } set { notifyIfChanged(isLoadingMoreOnChainHistory, newValue) { shellState.setIsLoadingMoreOnChainHistory(value: newValue) } } }
     let diagnostics = WalletDiagnosticsState()
     @Published var chainOperationalEventsByChain: [String: [ChainOperationalEvent]] = [:] {
         didSet {
@@ -640,27 +669,27 @@ class AppState: ObservableObject {
         get { shellState.getSelectedFeePriorityOptionRawByChain() }
         set { objectWillChange.send(); shellState.setSelectedFeePriorityOptionRawByChain(value: newValue); persistSelectedFeePriorityOptions() }
     }
-    var isRunningBitcoinRescan: Bool { get { shellState.getIsRunningBitcoinRescan() } set { objectWillChange.send(); shellState.setIsRunningBitcoinRescan(value: newValue) } }
+    var isRunningBitcoinRescan: Bool { get { shellState.getIsRunningBitcoinRescan() } set { notifyIfChanged(isRunningBitcoinRescan, newValue) { shellState.setIsRunningBitcoinRescan(value: newValue) } } }
     var bitcoinRescanLastRunAt: Date? {
         get { shellState.getBitcoinRescanLastRunAt().map { Date(timeIntervalSince1970: $0) } }
         set { objectWillChange.send(); shellState.setBitcoinRescanLastRunAt(value: newValue?.timeIntervalSince1970) }
     }
-    var isRunningBitcoinCashRescan: Bool { get { shellState.getIsRunningBitcoinCashRescan() } set { objectWillChange.send(); shellState.setIsRunningBitcoinCashRescan(value: newValue) } }
+    var isRunningBitcoinCashRescan: Bool { get { shellState.getIsRunningBitcoinCashRescan() } set { notifyIfChanged(isRunningBitcoinCashRescan, newValue) { shellState.setIsRunningBitcoinCashRescan(value: newValue) } } }
     var bitcoinCashRescanLastRunAt: Date? {
         get { shellState.getBitcoinCashRescanLastRunAt().map { Date(timeIntervalSince1970: $0) } }
         set { objectWillChange.send(); shellState.setBitcoinCashRescanLastRunAt(value: newValue?.timeIntervalSince1970) }
     }
-    var isRunningBitcoinSVRescan: Bool { get { shellState.getIsRunningBitcoinSvRescan() } set { objectWillChange.send(); shellState.setIsRunningBitcoinSvRescan(value: newValue) } }
+    var isRunningBitcoinSVRescan: Bool { get { shellState.getIsRunningBitcoinSvRescan() } set { notifyIfChanged(isRunningBitcoinSVRescan, newValue) { shellState.setIsRunningBitcoinSvRescan(value: newValue) } } }
     var bitcoinSVRescanLastRunAt: Date? {
         get { shellState.getBitcoinSvRescanLastRunAt().map { Date(timeIntervalSince1970: $0) } }
         set { objectWillChange.send(); shellState.setBitcoinSvRescanLastRunAt(value: newValue?.timeIntervalSince1970) }
     }
-    var isRunningLitecoinRescan: Bool { get { shellState.getIsRunningLitecoinRescan() } set { objectWillChange.send(); shellState.setIsRunningLitecoinRescan(value: newValue) } }
+    var isRunningLitecoinRescan: Bool { get { shellState.getIsRunningLitecoinRescan() } set { notifyIfChanged(isRunningLitecoinRescan, newValue) { shellState.setIsRunningLitecoinRescan(value: newValue) } } }
     var litecoinRescanLastRunAt: Date? {
         get { shellState.getLitecoinRescanLastRunAt().map { Date(timeIntervalSince1970: $0) } }
         set { objectWillChange.send(); shellState.setLitecoinRescanLastRunAt(value: newValue?.timeIntervalSince1970) }
     }
-    var isRunningDogecoinRescan: Bool { get { shellState.getIsRunningDogecoinRescan() } set { objectWillChange.send(); shellState.setIsRunningDogecoinRescan(value: newValue) } }
+    var isRunningDogecoinRescan: Bool { get { shellState.getIsRunningDogecoinRescan() } set { notifyIfChanged(isRunningDogecoinRescan, newValue) { shellState.setIsRunningDogecoinRescan(value: newValue) } } }
     var dogecoinRescanLastRunAt: Date? {
         get { shellState.getDogecoinRescanLastRunAt().map { Date(timeIntervalSince1970: $0) } }
         set { objectWillChange.send(); shellState.setDogecoinRescanLastRunAt(value: newValue?.timeIntervalSince1970) }
@@ -751,14 +780,6 @@ class AppState: ObservableObject {
     func resolvedSeedPhraseAccount(for walletID: String) -> String { cachedSecretDescriptorsByWalletID[walletID]?.seedPhraseStoreKey ?? Self.seedPhraseAccount(for: walletID) }
     func resolvedSeedPhrasePasswordAccount(for walletID: String) -> String { cachedSecretDescriptorsByWalletID[walletID]?.passwordStoreKey ?? Self.seedPhrasePasswordAccount(for: walletID) }
     func resolvedPrivateKeyAccount(for walletID: String) -> String { cachedSecretDescriptorsByWalletID[walletID]?.privateKeyStoreKey ?? Self.privateKeyAccount(for: walletID) }
-    func applyWalletSecretIndex(_ index: WalletRustWalletSecretIndex) {
-        cachedSigningMaterialWalletIDs = Set(index.signingMaterialWalletIDs)
-        cachedPrivateKeyBackedWalletIDs = Set(index.privateKeyBackedWalletIDs)
-        cachedPasswordProtectedWalletIDs = Set(index.passwordProtectedWalletIDs)
-        cachedSecretDescriptorsByWalletID = Dictionary(
-            uniqueKeysWithValues: index.descriptors.map { descriptor in (descriptor.walletID, descriptor) }
-        )
-    }
     func clearWalletSecretIndex() {
         cachedSigningMaterialWalletIDs = []
         cachedPrivateKeyBackedWalletIDs = []
@@ -808,7 +829,7 @@ class AppState: ObservableObject {
     func effectiveBitcoinEsploraEndpoints() -> [String] {
         let configured = parsedBitcoinEsploraEndpoints()
         if !configured.isEmpty { return configured }
-        return ChainBackendRegistry.BitcoinRuntimeEndpoints.walletStoreDefaultBaseURLs(for: bitcoinNetworkMode)
+        return AppEndpointDirectory.bitcoinWalletStoreDefaultBaseURLs(for: bitcoinNetworkMode)
     }
     var bitcoinEsploraEndpointsValidationError: String? {
         Spectra.bitcoinEsploraEndpointsValidationError(raw: bitcoinEsploraEndpoints)
@@ -872,34 +893,32 @@ class AppState: ObservableObject {
         noteSendBroadcastVerification(
             chainName: chainName, verificationStatus: verificationStatus, transactionHash: lastSentTransaction?.chainName == chainName ? lastSentTransaction?.transactionHash : nil
         )
-        await refreshBalances()
-        switch ChainBackendRegistry.appChain(for: chainName)?.id {
-        case .bitcoin:          await refreshPendingBitcoinTransactions()
-        case .bitcoinCash:      await refreshPendingBitcoinCashTransactions()
-        case .bitcoinSV:        await refreshPendingBitcoinSVTransactions()
-        case .litecoin:         await refreshPendingLitecoinTransactions()
-        case .dogecoin:         await refreshPendingDogecoinTransactions()
-        case .ethereum:         await refreshPendingEthereumTransactions()
-        case .ethereumClassic:  await refreshPendingETCTransactions()
-        case .arbitrum:         await refreshPendingArbitrumTransactions()
-        case .optimism:         await refreshPendingOptimismTransactions()
-        case .bnb:              await refreshPendingBNBTransactions()
-        case .avalanche:        await refreshPendingAvalancheTransactions()
-        case .hyperliquid:      await refreshPendingHyperliquidTransactions()
-        case .tron:             await refreshTronTransactions(loadMore: false)
-        case .solana:           await refreshSolanaTransactions(loadMore: false)
-        case .cardano:          await refreshCardanoTransactions(loadMore: false)
-        case .xrp:              await refreshXRPTransactions(loadMore: false)
-        case .stellar:          await refreshStellarTransactions(loadMore: false)
-        case .monero:           await refreshMoneroTransactions(loadMore: false)
-        case .sui:              await refreshSuiTransactions(loadMore: false)
-        case .aptos:            await refreshAptosTransactions(loadMore: false)
-        case .ton:              await refreshTONTransactions(loadMore: false)
-        case .icp:              await refreshICPTransactions(loadMore: false)
-        case .near:             await refreshNearTransactions(loadMore: false)
-        case .polkadot:         await refreshPolkadotTransactions(loadMore: false)
-        case .none:             break
-        }
+        async let balanceRefresh: () = refreshBalances()
+        async let chainRefresh: () = {
+            switch AppEndpointDirectory.appChain(for: chainName)?.id {
+            case .bitcoin:          await self.refreshPendingBitcoinTransactions()
+            case .bitcoinCash:      await self.refreshPendingBitcoinCashTransactions()
+            case .bitcoinSV:        await self.refreshPendingBitcoinSVTransactions()
+            case .litecoin:         await self.refreshPendingLitecoinTransactions()
+            case .dogecoin:         await self.refreshPendingDogecoinTransactions()
+            case .ethereum, .ethereumClassic, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid:
+                                    await self.refreshPendingEVMTransactions(chainName: chainName)
+            case .tron:             await self.refreshTronTransactions(loadMore: false)
+            case .solana:           await self.refreshSolanaTransactions(loadMore: false)
+            case .cardano:          await self.refreshCardanoTransactions(loadMore: false)
+            case .xrp:              await self.refreshXRPTransactions(loadMore: false)
+            case .stellar:          await self.refreshStellarTransactions(loadMore: false)
+            case .monero:           await self.refreshMoneroTransactions(loadMore: false)
+            case .sui:              await self.refreshSuiTransactions(loadMore: false)
+            case .aptos:            await self.refreshAptosTransactions(loadMore: false)
+            case .ton:              await self.refreshTONTransactions(loadMore: false)
+            case .icp:              await self.refreshICPTransactions(loadMore: false)
+            case .near:             await self.refreshNearTransactions(loadMore: false)
+            case .polkadot:         await self.refreshPolkadotTransactions(loadMore: false)
+            case .none:             break
+            }
+        }()
+        _ = await (balanceRefresh, chainRefresh)
         updateSendVerificationNoticeForLastSentTransaction()
     }
     func resetSendComposerState(afterSend extraReset: (() -> Void)? = nil) {
@@ -941,10 +960,12 @@ class AppState: ObservableObject {
         Task { @MainActor in
             rebuildTransactionDerivedState()
             startMaintenanceLoopIfNeeded()
-            await reloadPersistedStateFromSQLite()
             SpectraSecretStoreAdapter.registerWithBridge()
             setupRustRefreshEngine()
-            await refreshFiatExchangeRates()
+            // Network I/O runs concurrently — neither depends on the other.
+            async let sqliteReload: () = reloadPersistedStateFromSQLite()
+            async let fiatRefresh: () = refreshFiatExchangeRates()
+            _ = await (sqliteReload, fiatRefresh)
         }}
     deinit {
         MainActor.assumeIsolated { rustObserverHandle?.unregister() }
@@ -1044,17 +1065,17 @@ class AppState: ObservableObject {
     func normalizeAptosTokenIdentifier(_ v: String) -> String { Spectra.normalizeAptosTokenIdentifier(value: v) }
     func canonicalAptosHexAddress(_ v: String) -> String { Spectra.canonicalAptosHexAddress(value: v) }
     // 6 identical EVM-chain tracked-token builders collapsed to a single helper.
-    private func enabledEVMTrackedTokens(for chain: TokenTrackingChain) -> [EthereumSupportedToken] {
+    private func enabledEVMTrackedTokens(for chain: TokenTrackingChain) -> [ChainTokenRegistryEntry] {
         enabledTokenPreferences(for: chain).map { e in
-            EthereumSupportedToken(name: e.name, symbol: e.symbol, contractAddress: normalizeEVMAddress(e.contractAddress), decimals: Int(e.decimals), marketDataId: e.marketDataId, coinGeckoId: e.coinGeckoId)
+            ChainTokenRegistryEntry(chain: e.chain, name: e.name, symbol: e.symbol, tokenStandard: e.tokenStandard, contractAddress: normalizeEVMAddress(e.contractAddress), marketDataId: e.marketDataId, coinGeckoId: e.coinGeckoId, decimals: e.decimals, displayDecimals: e.displayDecimals, category: e.category, isBuiltIn: e.isBuiltIn, isEnabledByDefault: e.isEnabledByDefault)
         }
     }
-    func enabledEthereumTrackedTokens()   -> [EthereumSupportedToken] { enabledEVMTrackedTokens(for: .ethereum) }
-    func enabledBNBTrackedTokens()        -> [EthereumSupportedToken] { enabledEVMTrackedTokens(for: .bnb) }
-    func enabledArbitrumTrackedTokens()   -> [EthereumSupportedToken] { enabledEVMTrackedTokens(for: .arbitrum) }
-    func enabledOptimismTrackedTokens()   -> [EthereumSupportedToken] { enabledEVMTrackedTokens(for: .optimism) }
-    func enabledAvalancheTrackedTokens()  -> [EthereumSupportedToken] { enabledEVMTrackedTokens(for: .avalanche) }
-    func enabledHyperliquidTrackedTokens()-> [EthereumSupportedToken] { enabledEVMTrackedTokens(for: .hyperliquid) }
+    func enabledEthereumTrackedTokens()   -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .ethereum) }
+    func enabledBNBTrackedTokens()        -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .bnb) }
+    func enabledArbitrumTrackedTokens()   -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .arbitrum) }
+    func enabledOptimismTrackedTokens()   -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .optimism) }
+    func enabledAvalancheTrackedTokens()  -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .avalanche) }
+    func enabledHyperliquidTrackedTokens()-> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .hyperliquid) }
     func enabledTronTrackedTokens() -> [TronBalanceService.TrackedTRC20Token] {
         enabledTokenPreferences(for: .tron).map { entry in
             TronBalanceService.TrackedTRC20Token(

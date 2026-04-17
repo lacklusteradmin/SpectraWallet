@@ -1,45 +1,12 @@
 import Foundation
 
-struct ChainSelfTestResult: Codable {
-    let name: String
-    let passed: Bool
-    let message: String
-}
-
-private struct RustChainSelfTestResult: Decodable {
-    let name: String
-    let passed: Bool
-    let message: String
-    func toResult() -> ChainSelfTestResult {
-        ChainSelfTestResult(name: name, passed: passed, message: message)
-    }
-}
-
 private enum SelfTestsRustBridge {
     static func run(chainKey: String) -> [ChainSelfTestResult] {
-        do {
-            let json = try selfTestsRunChainJson(chainKey: chainKey)
-            let decoded = try JSONDecoder().decode([RustChainSelfTestResult].self, from: Data(json.utf8))
-            return decoded.map { $0.toResult() }
-        } catch {
-            return [
-                ChainSelfTestResult(
-                    name: "\(chainKey) Self Test Bridge",
-                    passed: false,
-                    message: "Failed to invoke Rust self-test runner: \(error)"
-                )
-            ]
-        }
+        selfTestsRunChain(chainKey: chainKey)
     }
 
     static func runAll() -> [String: [ChainSelfTestResult]] {
-        do {
-            let json = try selfTestsRunAllJson()
-            let decoded = try JSONDecoder().decode([String: [RustChainSelfTestResult]].self, from: Data(json.utf8))
-            return decoded.mapValues { $0.map { $0.toResult() } }
-        } catch {
-            return [:]
-        }
+        selfTestsRunAll()
     }
 }
 

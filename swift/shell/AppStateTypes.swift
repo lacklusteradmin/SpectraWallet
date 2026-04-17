@@ -130,17 +130,13 @@ extension AppState {
         let metadata: String?
     }
 
-    struct DogecoinKeypoolState: Codable {
-        var nextExternalIndex: Int
-        var nextChangeIndex: Int
-        var reservedReceiveIndex: Int?
-    }
-
     struct ChainKeypoolState: Codable {
         var nextExternalIndex: Int
         var nextChangeIndex: Int
         var reservedReceiveIndex: Int?
     }
+
+    typealias DogecoinKeypoolState = ChainKeypoolState
 
     struct PersistedDogecoinKeypoolStore: Codable {
         let version: Int
@@ -237,6 +233,5 @@ extension AppState {
         var id: String { "\(chainName):\(walletID)" }
     }
 
-    typealias PendingDogecoinSelfSendConfirmation = PendingSelfSendConfirmation
     typealias DogecoinStatusTrackingState = TransactionStatusTrackingState
 }

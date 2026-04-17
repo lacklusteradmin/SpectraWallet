@@ -57,15 +57,16 @@ func resetImportForm() {
         let hasRemainingWalletsOnDeletedChain = wallets.contains { normalizedWalletChainName($0.selectedChain) == deletedChainName }
         resetLargeMovementAlertBaseline()
         removeTransactions(forWalletID: walletPendingDeletion.id)
-        dogecoinKeypoolByWalletID[walletPendingDeletion.id] = nil
-        discoveredDogecoinAddressesByWallet[walletPendingDeletion.id] = nil
+        for chainName in chainKeypoolByChain.keys { chainKeypoolByChain[chainName]?[walletPendingDeletion.id] = nil }
         for chainName in discoveredUTXOAddressesByChain.keys { discoveredUTXOAddressesByChain[chainName]?[walletPendingDeletion.id] = nil }
         clearHistoryTracking(for: walletPendingDeletion.id)
         clearDeletedWalletDiagnostics(
             walletID: deletedWalletID, chainName: deletedChainName, hasRemainingWalletsOnChain: hasRemainingWalletsOnDeletedChain
         )
-        dogecoinOwnedAddressMap = dogecoinOwnedAddressMap.filter { _, value in
-            value.walletID != walletPendingDeletion.id
+        for chainName in chainOwnedAddressMapByChain.keys {
+            chainOwnedAddressMapByChain[chainName] = chainOwnedAddressMapByChain[chainName]?.filter { _, value in
+                value.walletID != walletPendingDeletion.id
+            }
         }
         if receiveWalletID == deletedWalletIDString {
             receiveWalletID = ""
@@ -182,7 +183,7 @@ func resetImportForm() {
         let request = WalletRustReceiveSelectionRequest(
             receiveChainName: receiveChainName, availableReceiveChains: availableChains, availableReceiveHoldings: receiveCoins.enumerated().map { offset, coin in
                 WalletRustReceiveSelectionHoldingInput(
-                    holdingIndex: offset, chainName: coin.chainName, hasContractAddress: coin.contractAddress != nil
+                    holdingIndex: UInt64(offset), chainName: coin.chainName, hasContractAddress: coin.contractAddress != nil
                 )
             }
         )

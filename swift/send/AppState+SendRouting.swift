@@ -62,7 +62,7 @@ extension AppState {
     }
     private func rustSendAssetRoutingInput(for coin: Coin) -> WalletRustSendAssetRoutingInput {
         WalletRustSendAssetRoutingInput(
-            chainName: coin.chainName, symbol: coin.symbol, isEVMChain: isEVMChain(coin.chainName), supportsSolanaSendCoin: isSupportedSolanaSendCoin(coin), supportsNearTokenSend: isSupportedNearTokenSend(coin)
+            chainName: coin.chainName, symbol: coin.symbol, isEvmChain: isEVMChain(coin.chainName), supportsSolanaSendCoin: isSupportedSolanaSendCoin(coin), supportsNearTokenSend: isSupportedNearTokenSend(coin)
         )
     }
     private func resetAllSendPreviews() {

@@ -206,38 +206,23 @@ extension AppState {
     }
     private func rustAssetDecimalsResolution(symbol: String, chainName: String) -> (supported: UInt32, display: UInt32) {
         let assetDisplay = UInt32(min(max(assetDisplayDecimalPlaces(for: chainName), 0), 30))
-        let override = cachedTokenPreferenceByChainAndSymbol[tokenPreferenceLookupKey(chainName: chainName, symbol: symbol)].map { entry -> [String: Any] in
-            var dict: [String: Any] = [
-                "chainName": chainName,
-                "symbol": symbol,
-                "decimals": max(0, entry.decimals)
-            ]
-            if let displayDecimals = entry.displayDecimals { dict["displayDecimals"] = max(0, displayDecimals) }
-            return dict
+        let tokenOverride = cachedTokenPreferenceByChainAndSymbol[tokenPreferenceLookupKey(chainName: chainName, symbol: symbol)].map { entry in
+            TokenPreferenceOverride(
+                chainName: chainName, symbol: symbol,
+                decimals: UInt32(max(0, entry.decimals)),
+                displayDecimals: entry.displayDecimals.map { UInt32(max(0, $0)) }
+            )
         }
-        var request: [String: Any] = [
-            "chainName": chainName,
-            "symbol": symbol,
-            "assetDisplayDecimals": assetDisplay
-        ]
-        if let override { request["tokenOverride"] = override }
-        do {
-            let payload = try JSONSerialization.data(withJSONObject: request)
-            let json = try formattingResolveAssetDecimalsJson(requestJson: String(data: payload, encoding: .utf8) ?? "{}")
-            struct Response: Decodable { let supported: UInt32; let display: UInt32 }
-            let response = try JSONDecoder().decode(Response.self, from: Data(json.utf8))
-            return (response.supported, response.display)
-        } catch {
-            return (assetDisplay, assetDisplay)
-        }
+        let result = formattingResolveAssetDecimals(request: AssetDecimalsRequest(
+            chainName: chainName, symbol: symbol,
+            assetDisplayDecimals: assetDisplay,
+            tokenOverride: tokenOverride
+        ))
+        return (result.supported, result.display)
     }
     func defaultAssetDisplayDecimalsByChain(defaultValue: Int = 3) -> [String: Int] {
         let normalized = UInt32(min(max(defaultValue, 0), 30))
-        guard
-            let json = try? formattingDefaultAssetDisplayDecimalsByChainJson(defaultValue: normalized),
-            let map = try? JSONDecoder().decode([String: UInt32].self, from: Data(json.utf8))
-        else { return [:] }
-        return map.mapValues { Int($0) }
+        return formattingDefaultAssetDisplayDecimalsByChain(defaultValue: normalized).mapValues { Int($0) }
     }
     private func nativeAssetDisplaySettingsKey(for chainName: String) -> String {
         formattingNativeAssetDisplaySettingsKey(chainName: chainName)
@@ -246,11 +231,11 @@ extension AppState {
         let request = WalletRustNormalizeHistoryRequest(
             wallets: walletByID.map {
                 WalletRustHistoryWallet(
-                    walletID: $0.key.lowercased(), selectedChain: $0.value.selectedChain
+                    walletId: $0.key.lowercased(), selectedChain: $0.value.selectedChain
                 )
             }, transactions: transactions.map {
                 WalletRustHistoryTransaction(
-                    id: $0.id.uuidString.lowercased(), walletID: $0.walletID?.lowercased(), kind: $0.kind.rawValue, status: $0.status.rawValue, walletName: $0.walletName, assetName: $0.assetName, symbol: $0.symbol, chainName: $0.chainName, address: $0.address, transactionHash: $0.transactionHash, transactionHistorySource: $0.transactionHistorySource, createdAtUnix: $0.createdAt.timeIntervalSince1970
+                    id: $0.id.uuidString.lowercased(), walletId: $0.walletID?.lowercased(), kind: $0.kind.rawValue, status: $0.status.rawValue, walletName: $0.walletName, assetName: $0.assetName, symbol: $0.symbol, chainName: $0.chainName, address: $0.address, transactionHash: $0.transactionHash, transactionHistorySource: $0.transactionHistorySource, createdAtUnix: $0.createdAt.timeIntervalSince1970
                 )
             }, unknownLabel: localizedStoreString("Unknown")
         )

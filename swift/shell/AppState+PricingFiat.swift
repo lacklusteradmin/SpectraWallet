@@ -19,7 +19,7 @@ extension AppState {
         }
         do {
             let rustInputs = requestedCoins.map { coin in
-                WalletServiceBridge.PriceRequestCoinInput(
+                PriceRequestCoin(
                     holdingKey: coin.holdingKey, symbol: coin.symbol, coinGeckoId: coin.coinGeckoId
                 )
             }

@@ -71,8 +71,8 @@ extension WalletDerivationRequestedOutputs {
     }
 }
 enum WalletDerivationPresetCatalog {
-    nonisolated(unsafe) static let all: [WalletDerivationChainPreset] = load()
-    nonisolated(unsafe) static let requestCompilationAll: [WalletDerivationRequestCompilationPreset] = loadRequestCompilation()
+    static let all: [WalletDerivationChainPreset] = load()
+    static let requestCompilationAll: [WalletDerivationRequestCompilationPreset] = loadRequestCompilation()
     nonisolated static func chainPreset(for chain: SeedDerivationChain) -> WalletDerivationChainPreset {
         guard let preset = all.first(where: { $0.chain == chain }) else {
             fatalError("Missing derivation preset for \(chain.rawValue)")

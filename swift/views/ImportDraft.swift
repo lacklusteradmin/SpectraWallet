@@ -154,144 +154,45 @@ final class WalletImportDraft: ObservableObject {
         rawValue.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }}
     var canImportWallet: Bool {
-        let hasChains = !selectedChainNames.isEmpty
-        let shouldValidateWatchAddresses = isWatchOnlyMode
-        let requiresEVMWatchAddress = wantsEthereum || wantsEthereumClassic || wantsArbitrum || wantsOptimism || wantsBNBChain || wantsAvalanche || wantsHyperliquid
-        let bitcoinAddressEntries = shouldValidateWatchAddresses && wantsBitcoin ? watchOnlyEntries(from: bitcoinAddressInput) : []
-        let trimmedBitcoinXPub = shouldValidateWatchAddresses && wantsBitcoin ? bitcoinXpubInput.trimmingCharacters(in: .whitespacesAndNewlines) : ""
-        let bitcoinCashAddressEntries = shouldValidateWatchAddresses && wantsBitcoinCash ? watchOnlyEntries(from: bitcoinCashAddressInput) : []
-        let bitcoinSvAddressEntries = shouldValidateWatchAddresses && wantsBitcoinSV ? watchOnlyEntries(from: bitcoinSvAddressInput) : []
-        let litecoinAddressEntries = shouldValidateWatchAddresses && wantsLitecoin ? watchOnlyEntries(from: litecoinAddressInput) : []
-        let dogecoinAddressEntries = shouldValidateWatchAddresses && wantsDogecoin ? watchOnlyEntries(from: dogecoinAddressInput) : []
-        let ethereumAddressEntries = shouldValidateWatchAddresses && requiresEVMWatchAddress ? watchOnlyEntries(from: ethereumAddressInput) : []
-        let tronAddressEntries = shouldValidateWatchAddresses && wantsTron ? watchOnlyEntries(from: tronAddressInput) : []
-        let solanaAddressEntries = shouldValidateWatchAddresses && wantsSolana ? watchOnlyEntries(from: solanaAddressInput) : []
-        let stellarAddressEntries = shouldValidateWatchAddresses && wantsStellar ? watchOnlyEntries(from: stellarAddressInput) : []
-        let xrpAddressEntries = shouldValidateWatchAddresses && wantsXRP ? watchOnlyEntries(from: xrpAddressInput) : []
-        let moneroAddressEntries = shouldValidateWatchAddresses && wantsMonero ? watchOnlyEntries(from: moneroAddressInput) : []
-        let cardanoAddressEntries = shouldValidateWatchAddresses && wantsCardano ? watchOnlyEntries(from: cardanoAddressInput) : []
-        let suiAddressEntries = shouldValidateWatchAddresses && wantsSui ? watchOnlyEntries(from: suiAddressInput) : []
-        let aptosAddressEntries = shouldValidateWatchAddresses && wantsAptos ? watchOnlyEntries(from: aptosAddressInput) : []
-        let tonAddressEntries = shouldValidateWatchAddresses && wantsTON ? watchOnlyEntries(from: tonAddressInput) : []
-        let icpAddressEntries = shouldValidateWatchAddresses && wantsICP ? watchOnlyEntries(from: icpAddressInput) : []
-        let nearAddressEntries = shouldValidateWatchAddresses && wantsNear ? watchOnlyEntries(from: nearAddressInput) : []
-        let polkadotAddressEntries = shouldValidateWatchAddresses && wantsPolkadot ? watchOnlyEntries(from: polkadotAddressInput) : []
-        let hasValidBitcoinAddress = !wantsBitcoin
-            || !isWatchOnlyMode
-            || bitcoinAddressEntries.allSatisfy(isLikelyValidBitcoinAddress)
-            || (trimmedBitcoinXPub.hasPrefix("xpub") || trimmedBitcoinXPub.hasPrefix("ypub") || trimmedBitcoinXPub.hasPrefix("zpub"))
-        let hasValidDogecoinAddress = !wantsDogecoin
-            || !isWatchOnlyMode
-            || dogecoinAddressEntries.allSatisfy { AddressValidation.isValidDogecoinAddress($0) }
-        let hasValidBitcoinCashAddress = !wantsBitcoinCash
-            || !isWatchOnlyMode
-            || bitcoinCashAddressEntries.allSatisfy(AddressValidation.isValidBitcoinCashAddress)
-        let hasValidBitcoinSVAddress = !wantsBitcoinSV
-            || !isWatchOnlyMode
-            || bitcoinSvAddressEntries.allSatisfy(AddressValidation.isValidBitcoinSVAddress)
-        let hasValidLitecoinAddress = !wantsLitecoin
-            || !isWatchOnlyMode
-            || litecoinAddressEntries.allSatisfy(AddressValidation.isValidLitecoinAddress)
-        let hasValidEthereumAddress = !requiresEVMWatchAddress
-            || !isWatchOnlyMode
-            || ethereumAddressEntries.allSatisfy(AddressValidation.isValidEthereumAddress)
-        let hasValidTronAddress = !wantsTron
-            || !isWatchOnlyMode
-            || tronAddressEntries.allSatisfy(AddressValidation.isValidTronAddress)
-        let hasValidSolanaAddress = !wantsSolana
-            || !isWatchOnlyMode
-            || solanaAddressEntries.allSatisfy(AddressValidation.isValidSolanaAddress)
-        let hasValidStellarAddress = !wantsStellar
-            || !isWatchOnlyMode
-            || stellarAddressEntries.allSatisfy(AddressValidation.isValidStellarAddress)
-        let hasValidXRPAddress = !wantsXRP
-            || !isWatchOnlyMode
-            || xrpAddressEntries.allSatisfy(AddressValidation.isValidXRPAddress)
-        let hasValidMoneroAddress = !wantsMonero
-            || moneroAddressEntries.allSatisfy(AddressValidation.isValidMoneroAddress)
-        let hasValidCardanoAddress = !wantsCardano
-            || !isWatchOnlyMode
-            || cardanoAddressEntries.allSatisfy(AddressValidation.isValidCardanoAddress)
-        let hasValidSuiAddress = !wantsSui
-            || !isWatchOnlyMode
-            || suiAddressEntries.allSatisfy(AddressValidation.isValidSuiAddress)
-        let hasValidAptosAddress = !wantsAptos
-            || !isWatchOnlyMode
-            || aptosAddressEntries.allSatisfy(AddressValidation.isValidAptosAddress)
-        let hasValidTONAddress = !wantsTON
-            || !isWatchOnlyMode
-            || tonAddressEntries.allSatisfy(AddressValidation.isValidTONAddress)
-        let hasValidICPAddress = !wantsICP
-            || !isWatchOnlyMode
-            || icpAddressEntries.allSatisfy(AddressValidation.isValidICPAddress)
-        let hasValidNearAddress = !wantsNear
-            || !isWatchOnlyMode
-            || nearAddressEntries.allSatisfy(AddressValidation.isValidNearAddress)
-        let hasValidPolkadotAddress = !wantsPolkadot
-            || !isWatchOnlyMode
-            || polkadotAddressEntries.allSatisfy(AddressValidation.isValidPolkadotAddress)
-        let hasValidPrivateKey = !isPrivateKeyImportMode || PrivateKeyHex.isLikely(privateKeyInput)
-        let supportsSelectedMode = (!wantsMonero || !isWatchOnlyMode)
-            && (!isPrivateKeyImportMode || unsupportedPrivateKeyChainNames.isEmpty)
-            && (!isPrivateKeyImportMode || selectedChainNames.count == 1)
-            && (!isWatchOnlyMode || selectedChainNames.count == 1)
-        let hasWatchOnlyAddresses = !isWatchOnlyMode || (
-            (!wantsBitcoin || !bitcoinAddressEntries.isEmpty || !trimmedBitcoinXPub.isEmpty)
-                && (!wantsBitcoinCash || !bitcoinCashAddressEntries.isEmpty)
-                && (!wantsBitcoinSV || !bitcoinSvAddressEntries.isEmpty)
-                && (!wantsLitecoin || !litecoinAddressEntries.isEmpty)
-                && (!wantsDogecoin || !dogecoinAddressEntries.isEmpty)
-                && (!requiresEVMWatchAddress || !ethereumAddressEntries.isEmpty)
-                && (!wantsTron || !tronAddressEntries.isEmpty)
-                && (!wantsSolana || !solanaAddressEntries.isEmpty)
-                && (!wantsStellar || !stellarAddressEntries.isEmpty)
-                && (!wantsXRP || !xrpAddressEntries.isEmpty)
-                && (!wantsMonero || !moneroAddressEntries.isEmpty)
-                && (!wantsCardano || !cardanoAddressEntries.isEmpty)
-                && (!wantsSui || !suiAddressEntries.isEmpty)
-                && (!wantsAptos || !aptosAddressEntries.isEmpty)
-                && (!wantsTON || !tonAddressEntries.isEmpty)
-                && (!wantsICP || !icpAddressEntries.isEmpty)
-                && (!wantsNear || !nearAddressEntries.isEmpty)
-                && (!wantsPolkadot || !polkadotAddressEntries.isEmpty)
-        )
-        if isEditingWallet { return !walletName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-        if isCreateMode {
-            let hasValidSeedPhrase = seedPhraseWords.count == selectedSeedPhraseWordCount
-                && seedPhraseValidationError == nil
-                && invalidSeedWords.isEmpty
-                && hasValidSeedPhraseChecksum
-            return hasChains && hasValidSeedPhrase && isBackupVerificationComplete
-        }
-        let hasValidSeedPhrase = seedPhraseWords.count == selectedSeedPhraseWordCount
+        let hasValidSeedPhrase = !isEditingWallet
+            && seedPhraseWords.count == selectedSeedPhraseWordCount
             && seedPhraseValidationError == nil
             && invalidSeedWords.isEmpty
             && hasValidSeedPhraseChecksum
-        let isBackupVerified = isWatchOnlyMode || !requiresBackupVerification || isBackupVerificationComplete
-        return hasChains
-            && hasValidBitcoinAddress
-            && hasValidBitcoinCashAddress
-            && hasValidBitcoinSVAddress
-            && hasValidLitecoinAddress
-            && hasValidDogecoinAddress
-            && hasValidEthereumAddress
-            && hasValidTronAddress
-            && hasValidSolanaAddress
-            && hasValidStellarAddress
-            && hasValidXRPAddress
-            && hasValidMoneroAddress
-            && hasValidCardanoAddress
-            && hasValidSuiAddress
-            && hasValidAptosAddress
-            && hasValidTONAddress
-            && hasValidICPAddress
-            && hasValidNearAddress
-            && hasValidPolkadotAddress
-            && hasWatchOnlyAddresses
-            && supportsSelectedMode
-            && (isWatchOnlyMode || isPrivateKeyImportMode || hasValidSeedPhrase)
-            && hasValidPrivateKey
-            && isBackupVerified
+        let trimmedXpub = bitcoinXpubInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let watchEntries = WalletImportWatchOnlyEntries(
+            bitcoinAddresses: isWatchOnlyMode ? watchOnlyEntries(from: bitcoinAddressInput) : [],
+            bitcoinXpub: isWatchOnlyMode && !trimmedXpub.isEmpty ? trimmedXpub : nil,
+            bitcoinCashAddresses: isWatchOnlyMode ? watchOnlyEntries(from: bitcoinCashAddressInput) : [],
+            bitcoinSvAddresses: isWatchOnlyMode ? watchOnlyEntries(from: bitcoinSvAddressInput) : [],
+            litecoinAddresses: isWatchOnlyMode ? watchOnlyEntries(from: litecoinAddressInput) : [],
+            dogecoinAddresses: isWatchOnlyMode ? watchOnlyEntries(from: dogecoinAddressInput) : [],
+            ethereumAddresses: isWatchOnlyMode ? watchOnlyEntries(from: ethereumAddressInput) : [],
+            tronAddresses: isWatchOnlyMode ? watchOnlyEntries(from: tronAddressInput) : [],
+            solanaAddresses: isWatchOnlyMode ? watchOnlyEntries(from: solanaAddressInput) : [],
+            xrpAddresses: isWatchOnlyMode ? watchOnlyEntries(from: xrpAddressInput) : [],
+            stellarAddresses: isWatchOnlyMode ? watchOnlyEntries(from: stellarAddressInput) : [],
+            cardanoAddresses: isWatchOnlyMode ? watchOnlyEntries(from: cardanoAddressInput) : [],
+            suiAddresses: isWatchOnlyMode ? watchOnlyEntries(from: suiAddressInput) : [],
+            aptosAddresses: isWatchOnlyMode ? watchOnlyEntries(from: aptosAddressInput) : [],
+            tonAddresses: isWatchOnlyMode ? watchOnlyEntries(from: tonAddressInput) : [],
+            icpAddresses: isWatchOnlyMode ? watchOnlyEntries(from: icpAddressInput) : [],
+            nearAddresses: isWatchOnlyMode ? watchOnlyEntries(from: nearAddressInput) : [],
+            polkadotAddresses: isWatchOnlyMode ? watchOnlyEntries(from: polkadotAddressInput) : []
+        )
+        return coreValidateWalletImportDraft(request: WalletImportDraftValidationRequest(
+            selectedChainNames: selectedChainNames,
+            isWatchOnly: isWatchOnlyMode,
+            isPrivateKeyImport: isPrivateKeyImportMode,
+            isEditing: isEditingWallet,
+            isCreateMode: isCreateMode,
+            hasValidWalletName: !walletName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+            hasValidSeedPhrase: hasValidSeedPhrase,
+            hasValidPrivateKeyHex: PrivateKeyHex.isLikely(privateKeyInput),
+            isBackupVerificationComplete: isBackupVerificationComplete,
+            requiresBackupVerification: requiresBackupVerification,
+            watchOnlyEntries: watchEntries
+        ))
     }
     var requiresBackupVerification: Bool { isCreateMode }
     var isBackupVerificationComplete: Bool {
@@ -312,7 +213,7 @@ final class WalletImportDraft: ObservableObject {
         return ""
     }
     var unsupportedSelectedChainNames: [String] {
-        selectedChainNames.filter { !ChainBackendRegistry.supportsBalanceRefresh(for: $0) }}
+        selectedChainNames.filter { !AppEndpointDirectory.supportsBalanceRefresh(for: $0) }}
     func configureForNewWallet() {
         mode = .importExisting
         isEditingWallet = false
@@ -500,9 +401,4 @@ final class WalletImportDraft: ObservableObject {
         let combinedSeedPhrase = normalizedEntries.filter { !$0.isEmpty }.joined(separator: " ")
         if seedPhrase != combinedSeedPhrase { seedPhrase = combinedSeedPhrase }
         if !backupVerificationWordIndices.isEmpty, !isBackupVerificationComplete { backupVerificationEntries = Array(repeating: "", count: backupVerificationWordIndices.count) }}
-    private func isLikelyValidBitcoinAddress(_ address: String) -> Bool {
-        AddressValidation.isValidBitcoinAddress(address, networkMode: .mainnet)
-            || AddressValidation.isValidBitcoinAddress(address, networkMode: .testnet)
-            || AddressValidation.isValidBitcoinAddress(address, networkMode: .signet)
-    }
 }

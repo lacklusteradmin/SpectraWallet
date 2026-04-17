@@ -123,4 +123,26 @@ enum AppEndpointDirectory {
         } catch {
             preconditionFailure("Rust Bitcoin wallet-store lookup failed for \(networkMode.rawValue): \(error.localizedDescription)")
         }}
+    static func transactionExplorerURL(for chainName: String, transactionHash: String) -> URL? {
+        guard let baseURL = transactionExplorerBaseURL(for: chainName) else { return nil }
+        if chainName == "Aptos" { return URL(string: "\(baseURL)\(transactionHash)?network=mainnet") }
+        return URL(string: baseURL + transactionHash)
+    }
+    static let liveChainNames = WalletRustEndpointCatalogBridge.liveChainNames()
+    static let allBackends: [ChainBackendRecord] = loadChainBackends()
+    static let appChains: [AppChainDescriptor] = loadAppChains()
+    static func backend(for chainName: String) -> ChainBackendRecord? { allBackends.first { $0.chainName == chainName } }
+    static func supportsBalanceRefresh(for chainName: String) -> Bool { backend(for: chainName)?.supportsBalanceRefresh ?? false }
+    static func supportsReceiveAddress(for chainName: String) -> Bool { backend(for: chainName)?.supportsReceiveAddress ?? false }
+    static func supportsSend(for chainName: String) -> Bool { backend(for: chainName)?.supportsSend ?? false }
+    static func appChain(for chainName: String) -> AppChainDescriptor? { appChains.first { $0.chainName == chainName } }
+    static func appChain(for id: AppChainID) -> AppChainDescriptor { appChains.first(where: { $0.id == id })! }
+    static var diagnosticsChains: [AppChainDescriptor] { appChains.filter(\.supportsDiagnostics) }
+    static var endpointCatalogChains: [AppChainDescriptor] { appChains.filter(\.supportsEndpointCatalog) }
+    private static func loadChainBackends() -> [ChainBackendRecord] {
+        do { return try WalletRustEndpointCatalogBridge.chainBackends() }
+        catch { preconditionFailure("Rust chain backend catalog failed to load: \(error.localizedDescription)") }}
+    private static func loadAppChains() -> [AppChainDescriptor] {
+        do { return try WalletRustEndpointCatalogBridge.appChainDescriptors() }
+        catch { preconditionFailure("Rust app-chain catalog failed to load: \(error.localizedDescription)") }}
 }

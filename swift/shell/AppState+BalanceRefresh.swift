@@ -4,64 +4,75 @@ import SwiftUI
 extension AppState {
     func refreshBalances() async { try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh() }
 
+    /// Pending balance updates accumulated during a refresh cycle. Flushed as a
+    /// single `wallets` mutation so SwiftUI only re-renders once per batch.
+    private struct PendingBalanceUpdate {
+        let chainId: UInt32
+        let walletId: String
+        let json: String
+    }
+    private static var pendingBalanceUpdates: [PendingBalanceUpdate] = []
+    private static var balanceFlushTask: Task<Void, Never>?
+
     /// Called by the Rust balance refresh engine when a new native balance arrives.
-    /// Pushes the update to Rust wallet_state, then syncs the returned holdings
-    /// back to the Swift wallet so the UI reflects the Rust-canonical amounts.
+    /// Accumulates updates and flushes them as a single wallets mutation after a
+    /// short debounce window, so 50+ balance callbacks produce one SwiftUI re-render.
     func applyRustBalance(chainId: UInt32, walletId: String, json: String) {
-        Task { @MainActor [weak self] in
+        Self.pendingBalanceUpdates.append(PendingBalanceUpdate(chainId: chainId, walletId: walletId, json: json))
+        Self.balanceFlushTask?.cancel()
+        Self.balanceFlushTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(nanoseconds: 50_000_000) // 50ms debounce
+            guard !Task.isCancelled else { return }
             guard let self else { return }
-            guard let walletIdx = wallets.firstIndex(where: { $0.id == walletId }),
-                  let walletJson = try? await WalletServiceBridge.shared.updateNativeBalance(
-                      walletId: walletId, chainId: chainId, balanceJson: json)
-            else { return }
-            if let updated = holdingsApplied(from: walletJson, to: wallets[walletIdx]) {
-                wallets[walletIdx] = updated
-            }}}
+            let batch = Self.pendingBalanceUpdates
+            Self.pendingBalanceUpdates = []
+            guard !batch.isEmpty else { return }
+            await self.flushBalanceBatch(batch)
+        }
+    }
+
+    private func flushBalanceBatch(_ batch: [PendingBalanceUpdate]) async {
+        var walletsCopy = wallets
+        let walletIndexById = Dictionary(uniqueKeysWithValues: walletsCopy.enumerated().map { ($1.id, $0) })
+        var anyChanged = false
+        for update in batch {
+            guard let idx = walletIndexById[update.walletId],
+                  let summary = try? await WalletServiceBridge.shared.updateNativeBalanceTyped(
+                      walletId: update.walletId, chainId: update.chainId, balanceJson: update.json)
+            else { continue }
+            if let updated = holdingsAppliedFromSummary(summary, to: walletsCopy[idx]) {
+                walletsCopy[idx] = updated
+                anyChanged = true
+            }
+        }
+        if anyChanged { wallets = walletsCopy }
+    }
 
     /// Decode the `holdings` array from a WalletSummary JSON blob and apply
     /// their amounts to `wallet`.  Visual properties (color, mark, priceUsd)
     /// are preserved from the existing Coin if found; new holdings get defaults.
     /// Returns `nil` if the JSON could not be parsed.
-    private func holdingsApplied(from walletJson: String, to wallet: ImportedWallet) -> ImportedWallet? {
-        guard let data = walletJson.data(using: .utf8),
-              let obj  = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let holdingsArr = obj["holdings"] as? [[String: Any]]
-        else { return nil }
-        // Build lookup: (chainName, symbol, contractAddress?) → existing Coin
-        var lookup: [String: Coin] = [:]
-        for coin in wallet.holdings {
-            lookup[holdingLookupKey(coin)] = coin
-        }
+    private func holdingsAppliedFromSummary(_ summary: WalletSummary, to wallet: ImportedWallet) -> ImportedWallet? {
+        guard !summary.holdings.isEmpty else { return nil }
         var merged = wallet.holdings
-        for h in holdingsArr {
-            guard let symbol   = h["symbol"]    as? String,
-                  let chainName = h["chainName"] as? String,
-                  let amount    = h["amount"]    as? Double
-            else { continue }
-            let contract  = h["contractAddress"] as? String
-            let key = holdingLookupKeyFromParts(symbol: symbol, chainName: chainName, contract: contract)
+        for h in summary.holdings {
+            let key = holdingLookupKeyFromParts(symbol: h.symbol, chainName: h.chainName, contract: h.contractAddress)
             if let idx = merged.firstIndex(where: { holdingLookupKey($0) == key }) {
-                // Update amount in-place, preserve all other fields.
                 let old = merged[idx]
                 merged[idx] = CoreCoin(
                     id: old.id,
                     name: old.name, symbol: old.symbol, marketDataId: old.marketDataId,
                     coinGeckoId: old.coinGeckoId, chainName: old.chainName,
                     tokenStandard: old.tokenStandard, contractAddress: old.contractAddress,
-                    amount: amount, priceUsd: old.priceUsd, mark: old.mark)
-            } else if amount > 0 {
-                // New holding from Rust not yet in Swift — add with defaults.
-                let name         = h["name"]          as? String ?? symbol
-                let tokenStd     = h["tokenStandard"] as? String ?? "Native"
-                let marketDataId = h["marketDataId"]  as? String ?? ""
-                let coinGeckoId  = h["coinGeckoId"]   as? String ?? ""
-                let mark         = String(symbol.prefix(2)).uppercased()
+                    amount: h.amount, priceUsd: old.priceUsd, mark: old.mark)
+            } else if h.amount > 0 {
+                let mark = String(h.symbol.prefix(2)).uppercased()
                 var newCoin = CoreCoin(
                     id: UUID().uuidString,
-                    name: name, symbol: symbol, marketDataId: marketDataId,
-                    coinGeckoId: coinGeckoId, chainName: chainName,
-                    tokenStandard: tokenStd, contractAddress: contract,
-                    amount: amount, priceUsd: 0, mark: mark)
+                    name: h.name, symbol: h.symbol, marketDataId: h.marketDataId,
+                    coinGeckoId: h.coinGeckoId, chainName: h.chainName,
+                    tokenStandard: h.tokenStandard, contractAddress: h.contractAddress,
+                    amount: h.amount, priceUsd: 0, mark: mark)
                 newCoin.color = .blue
                 merged.append(newCoin)
             }
@@ -78,18 +89,16 @@ extension AppState {
     }
 
     func updateRefreshEngineEntries() {
-        let entries: [[String: Any]] = wallets.compactMap { wallet -> [String: Any]? in
+        let entries: [RefreshEntry] = wallets.compactMap { wallet in
             guard let chainId = SpectraChainID.id(for: wallet.selectedChain),
                   let address = resolvedRefreshAddress(for: wallet) else { return nil }
-            return ["chain_id": chainId, "wallet_id": wallet.id, "address": address]
+            return RefreshEntry(chainId: chainId, walletId: wallet.id, address: address)
         }
-        guard let data = try? JSONSerialization.data(withJSONObject: entries),
-              let json = String(data: data, encoding: .utf8) else { return }
-        Task { try? await WalletServiceBridge.shared.setRefreshEntries(json) }
+        Task { try? await WalletServiceBridge.shared.setRefreshEntriesTyped(entries) }
     }
 
     func setupRustRefreshEngine() {
-        let observer = WalletBalanceObserver()
+        let observer = WalletBalanceObserver(noPointer: .init())
         observer.store = self
         Task {
             try? await WalletServiceBridge.shared.setBalanceObserver(observer)
@@ -132,7 +141,7 @@ extension AppState {
         guard !trimmed.isEmpty else { return nil }
         return URL(string: trimmed)
     }
-    func fetchEthereumPortfolio(for address: String) async throws -> (nativeBalance: Double, tokenBalances: [EthereumTokenBalanceSnapshot]) {
+    func fetchEthereumPortfolio(for address: String) async throws -> (nativeBalance: Double, tokenBalances: [TokenBalanceResult]) {
         let ethereumContext = evmChainContext(for: "Ethereum") ?? .ethereum
         let balanceJSON = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.ethereum, address: address)
         let nativeBalance = RustBalanceDecoder.evmNativeBalance(from: balanceJSON) ?? 0

@@ -1,8 +1,8 @@
 import Foundation
 final class WalletBalanceObserver: BalanceObserverImpl, @unchecked Sendable {
     weak var store: AppState?
-    nonisolated init() {
-        super.init(noPointer: BalanceObserverImpl.NoPointer())
+    nonisolated override init(noPointer: BalanceObserverImpl.NoPointer) {
+        super.init(noPointer: noPointer)
     }
     nonisolated required init(unsafeFromRawPointer pointer: UnsafeMutableRawPointer) {
         super.init(unsafeFromRawPointer: pointer)

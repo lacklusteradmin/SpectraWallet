@@ -74,23 +74,6 @@ struct EthereumSendResult: Equatable {
     let preview: EthereumSendPreview
     let verificationStatus: SendBroadcastVerificationStatus
 }
-struct TronSendResult: Equatable {
-    let transactionHash: String
-    let estimatedNetworkFeeTrx: Double
-    let signedTransactionJSON: String
-    let verificationStatus: SendBroadcastVerificationStatus
-}
-struct SolanaSendResult: Equatable {
-    let transactionHash: String
-    let estimatedNetworkFeeSol: Double
-    let signedTransactionBase64: String
-    let verificationStatus: SendBroadcastVerificationStatus
-}
-struct BitcoinSendResult: Equatable {
-    let transactionHash: String
-    let rawTransactionHex: String
-    let verificationStatus: SendBroadcastVerificationStatus
-}
 
 enum EthereumNetworkMode: String, CaseIterable, Identifiable {
     case mainnet

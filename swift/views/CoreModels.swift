@@ -122,6 +122,28 @@ typealias ImportedWallet = CoreImportedWallet
 extension CoreImportedWallet: Identifiable { }
 extension CoreImportedWallet {
     var totalBalance: Double { holdings.reduce(0) { $0 + $1.valueUSD } }
+    var walletSummary: WalletSummary {
+        let chain = selectedChain
+        let networkMode: String? = {
+            switch chain {
+            case "Bitcoin", "Bitcoin Cash", "Bitcoin SV", "Litecoin":
+                return bitcoinNetworkMode.rawValue
+            case "Dogecoin":
+                return dogecoinNetworkMode.rawValue
+            default:
+                return nil
+            }
+        }()
+        let derivationPath: String? = {
+            guard let sdChain = SeedDerivationChain(rawValue: chain) else { return nil }
+            return seedDerivationPaths.path(for: sdChain)
+        }()
+        return WalletSummary(
+            id: id, name: name, isWatchOnly: false, chainName: chain, includeInPortfolioTotal: includeInPortfolioTotal, networkMode: networkMode, xpub: bitcoinXpub, derivationPreset: seedDerivationPreset.rawValue, derivationPath: derivationPath, holdings: holdings.map { coin in
+                AssetHolding(name: coin.name, symbol: coin.symbol, marketDataId: coin.marketDataId, coinGeckoId: coin.coinGeckoId, chainName: coin.chainName, tokenStandard: coin.tokenStandard, contractAddress: coin.contractAddress, amount: coin.amount, priceUsd: coin.priceUsd)
+            }, addresses: []
+        )
+    }
 }
 typealias SeedDerivationPreset = CoreSeedDerivationPreset
 extension CoreSeedDerivationPreset: RawRepresentable, CaseIterable, Codable, Identifiable {
@@ -322,6 +344,11 @@ extension CoreSeedDerivationPaths {
         return CoreSeedDerivationPaths(
             isCustomEnabled: false, bitcoin: "m/84'/0'/\(accountIndex)'/0/0", bitcoinCash: "m/44'/145'/\(accountIndex)'/0/0", bitcoinSv: "m/44'/236'/\(accountIndex)'/0/0", litecoin: "m/44'/2'/\(accountIndex)'/0/0", dogecoin: "m/44'/3'/\(accountIndex)'/0/0", ethereum: "m/44'/60'/\(accountIndex)'/0/0", ethereumClassic: "m/44'/61'/\(accountIndex)'/0/0", arbitrum: "m/44'/60'/\(accountIndex)'/0/0", optimism: "m/44'/60'/\(accountIndex)'/0/0", avalanche: "m/44'/60'/\(accountIndex)'/0/0", hyperliquid: "m/44'/60'/\(accountIndex)'/0/0", tron: "m/44'/195'/\(accountIndex)'/0/0", solana: "m/44'/501'/\(accountIndex)'/0'", stellar: "m/44'/148'/\(accountIndex)'", xrp: "m/44'/144'/\(accountIndex)'/0/0", cardano: "m/1852'/1815'/\(accountIndex)'/0/0", sui: "m/44'/784'/\(accountIndex)'/0'/0'", aptos: "m/44'/637'/\(accountIndex)'/0'/0'", ton: "m/44'/607'/\(accountIndex)'/0/0", internetComputer: "m/44'/223'/\(accountIndex)'/0/0", near: "m/44'/397'/\(accountIndex)'", polkadot: "m/44'/354'/\(accountIndex)'"
         )
+    }
+    func toDictionary() -> [String: String] {
+        var d: [String: String] = [:]
+        for chain in SeedDerivationChain.allCases { d[chain.rawValue] = path(for: chain) }
+        return d
     }
 }
 extension TransactionStatus {
@@ -528,28 +555,7 @@ enum SendBroadcastVerificationStatus: Equatable {
     case deferred
     case failed(String)
 }
-enum SendBroadcastFailureDisposition: Equatable {
-    case alreadyBroadcast
-    case retryable
-    case terminal
-}
-func classifySendBroadcastFailure(_ rawMessage: String) -> SendBroadcastFailureDisposition {
-    let normalized = rawMessage.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    guard !normalized.isEmpty else { return .terminal }
-    let alreadyBroadcastPatterns = [
-        "already known", "already exists", "already imported", "already in mempool", "txn-already-known", "known transaction", "duplicate transaction", "duplicate tx", "tx already exists", "transaction already exists", "transaction already imported", "already have transaction", "already submitted", "already processed", "already confirmed", "tefalready"
-    ]
-    if alreadyBroadcastPatterns.contains(where: { normalized.contains($0) }) {
-        return .alreadyBroadcast
-    }
-    let retryablePatterns = [
-        "timeout", "timed out", "temporary", "temporarily unavailable", "service unavailable", "try again", "too many requests", "rate limit", "429", "500", "502", "503", "504", "connection reset", "network connection was lost", "cannot connect", "could not connect", "connection refused", "broken pipe", "econnreset", "econnrefused", "gateway timeout", "internal error", "internal server error", "bad gateway", "transport error"
-    ]
-    if retryablePatterns.contains(where: { normalized.contains($0) }) {
-        return .retryable
-    }
-    return .terminal
-}
+
 extension ImportedWallet {
     @MainActor init(snapshot: PersistedWallet) {
         self.init(
@@ -756,11 +762,11 @@ extension TransactionRecord {
     var fullTimestampText: String { createdAt.formatted(date: .abbreviated, time: .standard) }
     var transactionExplorerURL: URL? {
         guard let transactionHash, !transactionHash.isEmpty else { return nil }
-        return ChainBackendRegistry.ExplorerRegistry.transactionURL(for: chainName, transactionHash: transactionHash)
+        return AppEndpointDirectory.transactionExplorerURL(for: chainName, transactionHash: transactionHash)
     }
     var transactionExplorerLabel: String? {
         guard transactionHash != nil else { return nil }
-        return ChainBackendRegistry.ExplorerRegistry.transactionLabel(for: chainName)
+        return AppEndpointDirectory.transactionExplorerLabel(for: chainName)
     }
     var rebroadcastPayload: String? {
         if let signedTransactionPayload {

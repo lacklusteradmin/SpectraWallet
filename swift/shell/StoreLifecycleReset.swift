@@ -26,10 +26,8 @@ extension AppState {
         tokenPreferences = loadPersistedTokenPreferences()
         rebuildTokenPreferenceDerivedState()
         livePrices = loadPersistedLivePrices()
-        dogecoinKeypoolByWalletID = loadDogecoinKeypoolState()
-        dogecoinOwnedAddressMap = loadDogecoinOwnedAddressMap()
-        chainKeypoolByChain = loadChainKeypoolState()
-        chainOwnedAddressMapByChain = loadChainOwnedAddressMap()
+        chainKeypoolByChain = mergeDogecoinKeypoolIntoChainMap(loadChainKeypoolState())
+        chainOwnedAddressMapByChain = mergeDogecoinOwnedAddressesIntoChainMap(loadChainOwnedAddressMap())
         chainOperationalEventsByChain = loadChainOperationalEvents()
         syncChainOwnedAddressManagementState()
         if UserDefaults.standard.object(forKey: Self.hideBalancesDefaultsKey) != nil { hideBalances = UserDefaults.standard.bool(forKey: Self.hideBalancesDefaultsKey) }
@@ -95,11 +93,8 @@ extension AppState {
         UserDefaults.standard.removeObject(forKey: Self.walletsAccount)
         clearWalletSecretIndex()
         setWallets([])
-        dogecoinKeypoolByWalletID = [:]
-        dogecoinOwnedAddressMap = [:]
         chainKeypoolByChain = [:]
         chainOwnedAddressMapByChain = [:]
-        discoveredDogecoinAddressesByWallet = [:]
         discoveredUTXOAddressesByChain = [:]
         receiveWalletID = ""
         receiveChainName = ""

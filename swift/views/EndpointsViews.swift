@@ -11,16 +11,16 @@ struct EndpointCatalogSettingsView: View {
             wrappedValue: ViewRefreshSignal([ store.objectWillChange.asVoidSignal() ])
         )
     }
-    private var endpointSections: [AppChainDescriptor] { ChainBackendRegistry.endpointCatalogChains }
+    private var endpointSections: [AppChainDescriptor] { AppEndpointDirectory.endpointCatalogChains }
     private var parsedBitcoinCustomEndpoints: [String] {
         store.bitcoinEsploraEndpoints.components(separatedBy: CharacterSet(charactersIn: ",;\n")).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }}
-    private var bitcoinEndpoints: [String] { EsploraProvider.runtimeBaseURLs(for: store.bitcoinNetworkMode, custom: parsedBitcoinCustomEndpoints) }
+    private var bitcoinEndpoints: [String] { Self.esploraRuntimeBaseURLs(for: store.bitcoinNetworkMode, custom: parsedBitcoinCustomEndpoints) }
     private var bitcoinEndpointsByNetwork: [(title: String, endpoints: [String])] {
         BitcoinNetworkMode.allCases.map { mode in
             let custom = mode == store.bitcoinNetworkMode ? parsedBitcoinCustomEndpoints : []
             let title = mode == .mainnet ? "Bitcoin" : "Bitcoin \(mode.displayName)"
-            return (title: title, endpoints: EsploraProvider.runtimeBaseURLs(for: mode, custom: custom))
+            return (title: title, endpoints: Self.esploraRuntimeBaseURLs(for: mode, custom: custom))
         }}
     private var ethereumEndpoints: [String] {
         var endpoints: [String] = []
@@ -28,7 +28,7 @@ struct EndpointCatalogSettingsView: View {
         if !custom.isEmpty { endpoints.append(custom) }
         let context = store.evmChainContext(for: "Ethereum") ?? .ethereum
         for endpoint in context.defaultRPCEndpoints where !endpoints.contains(endpoint) { endpoints.append(endpoint) }
-        for endpoint in ChainBackendRegistry.EVMExplorerRegistry.supplementalEndpointCatalogEntries(for: ChainBackendRegistry.ethereumChainName) {
+        for endpoint in AppEndpointDirectory.explorerSupplementalEndpoints(for: "Ethereum") {
             if !endpoints.contains(endpoint) { endpoints.append(endpoint) }}
         return endpoints
     }
@@ -45,7 +45,7 @@ struct EndpointCatalogSettingsView: View {
             }
             for endpoint in context.defaultRPCEndpoints where !endpoints.contains(endpoint) { endpoints.append(endpoint) }
             if mode == .mainnet {
-                for endpoint in ChainBackendRegistry.EVMExplorerRegistry.supplementalEndpointCatalogEntries(for: ChainBackendRegistry.ethereumChainName) where !endpoints.contains(endpoint) { endpoints.append(endpoint) }}
+                for endpoint in AppEndpointDirectory.explorerSupplementalEndpoints(for: "Ethereum") where !endpoints.contains(endpoint) { endpoints.append(endpoint) }}
             let title = mode == .mainnet ? "Ethereum" : "Ethereum \(mode.displayName)"
             return (title: title, endpoints: endpoints)
         }}
@@ -54,7 +54,7 @@ struct EndpointCatalogSettingsView: View {
     private var optimismEndpoints: [String] { EVMChainContext.optimism.defaultRPCEndpoints }
     private var bnbEndpoints: [String] {
         var endpoints = EVMChainContext.bnb.defaultRPCEndpoints
-        for endpoint in ChainBackendRegistry.EVMExplorerRegistry.supplementalEndpointCatalogEntries(for: ChainBackendRegistry.bnbChainName) {
+        for endpoint in AppEndpointDirectory.explorerSupplementalEndpoints(for: "BNB Chain") {
             if !endpoints.contains(endpoint) { endpoints.append(endpoint) }}
         return endpoints
     }
@@ -77,6 +77,11 @@ struct EndpointCatalogSettingsView: View {
         endpoints.append(trimmed)
         store.bitcoinEsploraEndpoints = endpoints.joined(separator: "\n")
         newBitcoinEndpoint = ""
+    }
+    private static func esploraRuntimeBaseURLs(for networkMode: BitcoinNetworkMode, custom: [String] = []) -> [String] {
+        let trimmed = custom.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
+        if !trimmed.isEmpty { return trimmed }
+        return AppEndpointDirectory.bitcoinEsploraBaseURLs(for: networkMode)
     }
     @ViewBuilder
     private func endpointRows(_ endpoints: [String]) -> some View {

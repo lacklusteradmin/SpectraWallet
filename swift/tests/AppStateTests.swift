@@ -85,10 +85,10 @@ final class AppStatePlatformBridgeTests: XCTestCase {
     }
     func testBitcoinTestnet4EndpointsAreAvailable() {
         XCTAssertEqual(
-            ChainBackendRegistry.BitcoinRuntimeEndpoints.esploraBaseURLs(for: .testnet4), ["https://mempool.space/testnet4/api"]
+            AppEndpointDirectory.bitcoinEsploraBaseURLs(for: .testnet4), ["https://mempool.space/testnet4/api"]
         )
         XCTAssertEqual(
-            ChainBackendRegistry.BitcoinRuntimeEndpoints.walletStoreDefaultBaseURLs(for: .testnet4), ["https://mempool.space/testnet4/api"]
+            AppEndpointDirectory.bitcoinWalletStoreDefaultBaseURLs(for: .testnet4), ["https://mempool.space/testnet4/api"]
         )
     }
     func testEthereumDisplayNetworkNameUsesSelectedMode() {

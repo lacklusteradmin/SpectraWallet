@@ -92,13 +92,8 @@ extension AppState {
         case "Bitcoin":           await refreshPendingBitcoinTransactions()
         case "Bitcoin Cash":      await refreshPendingBitcoinCashTransactions()
         case "Litecoin":          await refreshPendingLitecoinTransactions()
-        case "Ethereum":          await refreshPendingEthereumTransactions()
-        case "Arbitrum":          await refreshPendingArbitrumTransactions()
-        case "Optimism":          await refreshPendingOptimismTransactions()
-        case "Ethereum Classic":  await refreshPendingETCTransactions()
-        case "BNB Chain":         await refreshPendingBNBTransactions()
-        case "Avalanche":         await refreshPendingAvalancheTransactions()
-        case "Hyperliquid":       await refreshPendingHyperliquidTransactions()
+        case "Ethereum", "Arbitrum", "Optimism", "Ethereum Classic", "BNB Chain", "Avalanche", "Hyperliquid":
+                                  await refreshPendingEVMTransactions(chainName: chainName)
         case "Dogecoin":          await refreshPendingDogecoinTransactions()
         case "Tron":              await refreshPendingTronTransactions()
         case "Solana":            await refreshPendingSolanaTransactions()
@@ -374,7 +369,7 @@ extension AppState {
             } else {
                 plannedWalletIDs = selectedChainNames.map { _ in UUID() }}
             let importPlanRequest = WalletRustImportPlanRequest(
-                walletName: trimmedWalletName, defaultWalletNameStartIndex: defaultWalletNameStartIndex, primarySelectedChainName: primarySelectedChainName, selectedChainNames: selectedChainNames, plannedWalletIDs: plannedWalletIDs.map(\.uuidString), isWatchOnlyImport: isWatchOnlyImport, isPrivateKeyImport: isPrivateKeyImport, hasWalletPassword: trimmedWalletPassword != nil, resolvedAddresses: WalletRustImportAddresses(
+                walletName: trimmedWalletName, defaultWalletNameStartIndex: UInt64(defaultWalletNameStartIndex), primarySelectedChainName: primarySelectedChainName, selectedChainNames: selectedChainNames, plannedWalletIds: plannedWalletIDs.map(\.uuidString), isWatchOnlyImport: isWatchOnlyImport, isPrivateKeyImport: isPrivateKeyImport, hasWalletPassword: trimmedWalletPassword != nil, resolvedAddresses: WalletRustImportAddresses(
                     bitcoinAddress: resolvedBitcoinAddress ?? derivedBitcoinAddress, bitcoinXpub: resolvedBitcoinXPub, bitcoinCashAddress: resolvedBitcoinCashAddress ?? bitcoinCashAddress, bitcoinSvAddress: resolvedBitcoinSVAddress ?? bitcoinSvAddress, litecoinAddress: resolvedLitecoinAddress ?? litecoinAddress, dogecoinAddress: dogecoinAddress, ethereumAddress: ethereumAddress, ethereumClassicAddress: ethereumClassicAddress, tronAddress: resolvedTronAddress ?? tronAddress, solanaAddress: resolvedSolanaAddress ?? solanaAddress, xrpAddress: resolvedXRPAddress ?? xrpAddress, stellarAddress: resolvedStellarAddress ?? stellarAddress, moneroAddress: resolvedMoneroAddress ?? moneroAddress, cardanoAddress: resolvedCardanoAddress ?? cardanoAddress, suiAddress: resolvedSuiAddress ?? suiAddress, aptosAddress: resolvedAptosAddress ?? aptosAddress, tonAddress: resolvedTONAddress ?? tonAddress, icpAddress: resolvedICPAddress ?? icpAddress, nearAddress: resolvedNearAddress ?? nearAddress, polkadotAddress: resolvedPolkadotAddress ?? polkadotAddress
                 ), watchOnlyEntries: WalletRustWatchOnlyEntries(
                     bitcoinAddresses: bitcoinAddressEntries, bitcoinXpub: resolvedBitcoinXPub, bitcoinCashAddresses: bitcoinCashAddressEntries, bitcoinSvAddresses: bitcoinSvAddressEntries, litecoinAddresses: litecoinAddressEntries, dogecoinAddresses: dogecoinAddressEntries, ethereumAddresses: ethereumAddressEntries.map { normalizeEVMAddress($0) }, tronAddresses: tronAddressEntries, solanaAddresses: solanaAddressEntries, xrpAddresses: xrpAddressEntries, stellarAddresses: stellarAddressEntries, cardanoAddresses: cardanoAddressEntries, suiAddresses: suiAddressEntries.map { $0.lowercased() }, aptosAddresses: aptosAddressEntries.map { normalizedAddress($0, for: "Aptos") }, tonAddresses: tonAddressEntries.map { normalizedAddress($0, for: "TON") }, icpAddresses: icpAddressEntries.map { normalizedAddress($0, for: "Internet Computer") }, nearAddresses: nearAddressEntries.map { $0.lowercased() }, polkadotAddresses: polkadotAddressEntries
@@ -404,18 +399,7 @@ extension AppState {
             appendWallets(createdWallets)
             importedWalletsForRefresh = createdWallets
             for w in createdWallets {
-                let holdingsArr: [[String: Any]] = w.holdings.map { coin in
-                    var h: [String: Any] = [
-                        "name": coin.name, "symbol": coin.symbol, "marketDataId": coin.marketDataId, "coinGeckoId": coin.coinGeckoId, "chainName": coin.chainName, "tokenStandard": coin.tokenStandard, "amount": coin.amount, "priceUsd": coin.priceUsd
-                    ]
-                    if let contract = coin.contractAddress { h["contractAddress"] = contract }
-                    return h
-                }
-                let summary: [String: Any] = [
-                    "id": w.id, "name": w.name, "isWatchOnly": false, "selectedChain": w.selectedChain, "includeInPortfolioTotal": w.includeInPortfolioTotal, "bitcoinNetworkMode": w.bitcoinNetworkMode.rawValue, "dogecoinNetworkMode": w.dogecoinNetworkMode.rawValue, "derivationPreset": w.seedDerivationPreset ?? "standard", "derivationPaths": w.seedDerivationPaths ?? [:], "holdings": holdingsArr, "addresses": []
-                ]
-                if let data = try? JSONSerialization.data(withJSONObject: summary), let json = String(data: data, encoding: .utf8) {
-                    Task { try? await WalletServiceBridge.shared.upsertWalletJSON(json) }}}}
+                Task { try? await WalletServiceBridge.shared.upsertWalletDirect(w.walletSummary) }}}
         finishWalletImportFlow()
         withAnimation {
         }
@@ -449,38 +433,31 @@ extension AppState {
     }
     func derivePrivateKeyImportAddress(privateKeyHex: String, chainName: String?) -> PrivateKeyImportAddressResolution {
         guard let chainName else { return .only() }
-        typealias D = SeedPhraseAddressDerivation
-        let p = privateKeyHex
+        func derive(_ chain: SeedDerivationChain) -> String? { try? WalletRustDerivationBridge.deriveFromPrivateKey(chain: chain, privateKeyHex: privateKeyHex).address }
         switch chainName {
-        case "Bitcoin": return .only(bitcoin: try? D.bitcoinAddress(forPrivateKey: p))
-        case "Bitcoin Cash": return .only(bitcoinCash: try? D.bitcoinCashAddress(forPrivateKey: p))
-        case "Bitcoin SV": return .only(bitcoinSV: try? D.bitcoinSvAddress(forPrivateKey: p))
-        case "Litecoin": return .only(litecoin: try? D.litecoinAddress(forPrivateKey: p))
-        case "Dogecoin": return .only(dogecoin: try? D.dogecoinAddress(forPrivateKey: p))
+        case "Bitcoin": return .only(bitcoin: derive(.bitcoin))
+        case "Bitcoin Cash": return .only(bitcoinCash: derive(.bitcoinCash))
+        case "Bitcoin SV": return .only(bitcoinSV: derive(.bitcoinSV))
+        case "Litecoin": return .only(litecoin: derive(.litecoin))
+        case "Dogecoin": return .only(dogecoin: derive(.dogecoin))
         case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid":
-            return .only(evm: try? D.evmAddress(forPrivateKey: p))
-        case "Tron": return .only(tron: try? D.tronAddress(forPrivateKey: p))
-        case "Solana": return .only(solana: try? D.solanaAddress(forPrivateKey: p))
-        case "XRP Ledger": return .only(xrp: try? D.xrpAddress(forPrivateKey: p))
-        case "Stellar": return .only(stellar: try? D.stellarAddress(forPrivateKey: p))
-        case "Cardano": return .only(cardano: try? D.cardanoAddress(forPrivateKey: p))
-        case "Sui": return .only(sui: try? D.suiAddress(forPrivateKey: p))
-        case "Aptos": return .only(aptos: try? D.aptosAddress(forPrivateKey: p))
-        case "TON": return .only(ton: try? D.tonAddress(forPrivateKey: p))
-        case "Internet Computer": return .only(icp: try? D.icpAddress(forPrivateKey: p))
-        case "NEAR": return .only(near: try? D.nearAddress(forPrivateKey: p))
-        case "Polkadot": return .only(polkadot: try? D.polkadotAddress(forPrivateKey: p))
+            return .only(evm: derive(.ethereum))
+        case "Tron": return .only(tron: derive(.tron))
+        case "Solana": return .only(solana: derive(.solana))
+        case "XRP Ledger": return .only(xrp: derive(.xrp))
+        case "Stellar": return .only(stellar: derive(.stellar))
+        case "Cardano": return .only(cardano: derive(.cardano))
+        case "Sui": return .only(sui: derive(.sui))
+        case "Aptos": return .only(aptos: derive(.aptos))
+        case "TON": return .only(ton: derive(.ton))
+        case "Internet Computer": return .only(icp: derive(.internetComputer))
+        case "NEAR": return .only(near: derive(.near))
+        case "Polkadot": return .only(polkadot: derive(.polkadot))
         default: return .only()
         }
     }
     static func deriveSeedPhraseAddress(seedPhrase: String, chain: SeedDerivationChain, network: WalletDerivationNetwork, derivationPath: String) throws -> String {
-        let result = try WalletDerivationLayer.derive(
-            seedPhrase: seedPhrase, request: WalletDerivationRequest(
-                chain: chain, network: network, derivationPath: derivationPath, curve: WalletDerivationEngine.curve(for: chain), requestedOutputs: [.address]
-            )
-        )
-        guard let address = result.address else { throw WalletDerivationEngineError.emptyRequestedOutputs }
-        return address
+        try WalletDerivationLayer.deriveAddress(seedPhrase: seedPhrase, chain: chain, network: network, derivationPath: derivationPath)
     }
     func deriveSeedPhraseAddress(seedPhrase: String, chain: SeedDerivationChain, network: WalletDerivationNetwork, derivationPath: String) throws -> String { try Self.deriveSeedPhraseAddress(seedPhrase: seedPhrase, chain: chain, network: network, derivationPath: derivationPath) }
     func derivationNetwork(for chain: SeedDerivationChain, wallet: ImportedWallet? = nil) -> WalletDerivationNetwork {

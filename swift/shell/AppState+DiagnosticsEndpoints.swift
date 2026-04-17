@@ -242,7 +242,10 @@ extension AppState {
         guard !isCheckingEthereumEndpointHealth else { return }
         isCheckingEthereumEndpointHealth = true; defer { isCheckingEthereumEndpointHealth = false }
         var checks = evmEndpointChecks(chainName: "Ethereum", context: evmChainContext(for: "Ethereum") ?? .ethereum)
-        checks.append(contentsOf: ChainBackendRegistry.EVMExplorerRegistry.diagnosticProbeEntries(for: ChainBackendRegistry.ethereumChainName).map { ($0.0, $0.1, false) })
+        checks.append(contentsOf: [
+            ("Etherscan API", URL(string: "https://api.etherscan.io/api?module=stats&action=ethprice")!),
+            ("Ethplorer API", URL(string: "https://api.ethplorer.io/getAddressInfo/0x0000000000000000000000000000000000000000?apiKey=freekey")!)
+        ].map { ($0.0, $0.1, false) })
         await runLabeledEVMEndpointDiagnostics(checks: checks, setResults: { self.ethereumEndpointHealthResults = $0 }, markUpdated: { self.ethereumEndpointHealthLastUpdatedAt = Date() })
     }
     func runETCEndpointReachabilityDiagnostics() async { await runPureEVMEndpointDiagnostics(isCheckingKP: \.isCheckingETCEndpointHealth, chainName: "Ethereum Classic", context: .ethereumClassic, resultsKP: \.etcEndpointHealthResults, tsKP: \.etcEndpointHealthLastUpdatedAt) }
@@ -254,7 +257,9 @@ extension AppState {
         guard !isCheckingBNBEndpointHealth else { return }
         isCheckingBNBEndpointHealth = true; defer { isCheckingBNBEndpointHealth = false }
         var checks = evmEndpointChecks(chainName: "BNB Chain", context: .bnb)
-        checks.append(contentsOf: ChainBackendRegistry.EVMExplorerRegistry.diagnosticProbeEntries(for: ChainBackendRegistry.bnbChainName).map { ($0.0, $0.1, false) })
+        checks.append(contentsOf: [
+            ("BscScan API", URL(string: "https://api.bscscan.com/api?module=stats&action=bnbprice")!)
+        ].map { ($0.0, $0.1, false) })
         await runLabeledEVMEndpointDiagnostics(checks: checks, setResults: { self.bnbEndpointHealthResults = $0 }, markUpdated: { self.bnbEndpointHealthLastUpdatedAt = Date() })
     }
     func evmEndpointChecks(chainName: String, context: EVMChainContext) -> [(label: String, endpoint: URL, isRPC: Bool)] {

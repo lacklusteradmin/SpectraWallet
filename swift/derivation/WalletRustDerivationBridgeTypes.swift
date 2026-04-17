@@ -33,7 +33,7 @@ enum WalletRustFFICurve: UInt32 {
     case secp256k1 = 0
     case ed25519 = 1
 }
-struct WalletRustFFIRequestedOutputs: OptionSet, Sendable {
+nonisolated struct WalletRustFFIRequestedOutputs: OptionSet, Sendable {
     let rawValue: UInt32
     static let address = WalletRustFFIRequestedOutputs(rawValue: 1 << 0)
     static let publicKey = WalletRustFFIRequestedOutputs(rawValue: 1 << 1)

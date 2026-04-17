@@ -33,16 +33,6 @@ enum SpectraChainID: Sendable {
     nonisolated private static let chainNameTable: [String: UInt32] = [
         "Bitcoin":            bitcoin, "Ethereum":           ethereum, "Solana":             solana, "Dogecoin":           dogecoin, "XRP Ledger":         xrp, "Litecoin":           litecoin, "Bitcoin Cash":       bitcoinCash, "Tron":               tron, "Stellar":            stellar, "Cardano":            cardano, "Polkadot":           polkadot, "Arbitrum":           arbitrum, "Optimism":           optimism, "Avalanche":          avalanche, "Sui":                sui, "Aptos":              aptos, "TON":                ton, "NEAR":               near, "Internet Computer":  icp, "Monero":             monero, "Base":               base, "Ethereum Classic":   ethereumClassic, "Bitcoin SV":         bitcoinSv, "BNB Chain":          bsc, "Hyperliquid":        hyperliquid, ]
 }
-private struct ChainEndpointsPayload: Encodable, Sendable {
-    let chainId: UInt32
-    let endpoints: [String]
-    let apiKey: String?
-    enum CodingKeys: String, CodingKey {
-        case chainId   = "chain_id"
-        case endpoints
-        case apiKey    = "api_key"
-    }
-}
 actor WalletServiceBridge {
     static let shared = WalletServiceBridge()
     private var _service: WalletService?
@@ -50,71 +40,51 @@ actor WalletServiceBridge {
     private var _balanceRefreshEngine: BalanceRefreshEngine?
     private func service() throws -> WalletService {
         if let existing = _service { return existing }
-        let endpointsJSON = Self.buildEndpointsJSON()
-        let svc = try WalletService(endpointsJson: endpointsJSON)
+        let svc = try WalletService.newTyped(endpoints: Self.buildEndpoints())
         _service = svc
         WalletServiceBridge._syncService = svc
         return svc
     }
     func refreshEndpoints() async throws {
-        let json = Self.buildEndpointsJSON()
-        try await service().updateEndpoints(endpointsJson: json)
+        try await service().updateEndpointsTyped(endpoints: Self.buildEndpoints())
     }
     func fetchBalanceJSON(chainId: UInt32, address: String) async throws -> String { try await service().fetchBalance(chainId: chainId, address: address) }
     func fetchHistoryJSON(chainId: UInt32, address: String) async throws -> String { try await service().fetchHistory(chainId: chainId, address: address) }
     func fetchEVMHistoryPageJSON(
         chainId: UInt32, address: String, tokens: [(contract: String, symbol: String, name: String, decimals: Int)], page: Int, pageSize: Int
     ) async throws -> String {
-        let tokenArray: [[String: Any]] = tokens.map { t in ["contract": t.contract, "symbol": t.symbol, "name": t.name, "decimals": t.decimals] }
-        guard let data = try? JSONSerialization.data(withJSONObject: tokenArray), let tokensJson = String(data: data, encoding: .utf8) else {
-            return try await service().fetchEvmHistoryPage(
-                chainId: chainId, address: address, tokensJson: "[]", page: UInt32(max(1, page)), pageSize: UInt32(max(1, pageSize))
-            )
-        }
-        return try await service().fetchEvmHistoryPage(
-            chainId: chainId, address: address, tokensJson: tokensJson, page: UInt32(max(1, page)), pageSize: UInt32(max(1, pageSize))
+        let descriptors = tokens.map { t in TokenDescriptor(contract: t.contract, symbol: t.symbol, decimals: UInt8(t.decimals), name: t.name) }
+        return try await service().fetchEvmHistoryPageTyped(
+            chainId: chainId, address: address, tokens: descriptors, page: UInt32(max(1, page)), pageSize: UInt32(max(1, pageSize))
         )
     }
     func signAndSend(chainId: UInt32, paramsJson: String) async throws -> String { try await service().signAndSend(chainId: chainId, paramsJson: paramsJson) }
+    func executeSend(_ request: SendExecutionRequest) async throws -> SendExecutionResult { try await service().executeSend(request: request) }
     func fetchEVMTokenBalancesBatch(
         chainId: UInt32, address: String, tokens: [(contract: String, symbol: String, decimals: Int)]
-    ) async throws -> [EthereumTokenBalanceSnapshot] {
+    ) async throws -> [TokenBalanceResult] {
         guard !tokens.isEmpty else { return [] }
-        let tokenArray = tokens.map { t in ["contract": t.contract, "symbol": t.symbol, "decimals": t.decimals] as [String: Any] }
-        guard let tokensData = try? JSONSerialization.data(withJSONObject: tokenArray), let tokensJSON = String(data: tokensData, encoding: .utf8) else { return [] }
-        let resultJSON = try await service().fetchEvmTokenBalancesBatch(
-            chainId: chainId, address: address, tokensJson: tokensJSON)
-        guard let data = resultJSON.data(using: .utf8), let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]] else { return [] }
-        return arr.compactMap { obj in
-            guard let contract = obj["contract_address"] as? String, let symbol = obj["symbol"] as? String, let rawStr = obj["balance_raw"] as? String, let rawInt = Decimal(string: rawStr), let decimals = obj["decimals"] as? Int else { return nil }
-            let divisor = pow(Decimal(10), decimals)
-            let balance = rawInt / divisor
-            return EthereumTokenBalanceSnapshot(contractAddress: contract, symbol: symbol, balance: balance, decimals: decimals)
-        }}
+        let descriptors = tokens.map { t in TokenDescriptor(contract: t.contract, symbol: t.symbol, decimals: UInt8(t.decimals), name: nil) }
+        return try await service().fetchEvmTokenBalancesBatchTyped(
+            chainId: chainId, address: address, tokens: descriptors)
+    }
     func fetchTokenBalancesJSON(
         chainId: UInt32, address: String, tokens: [(contract: String, symbol: String, decimals: Int)]
     ) async throws -> String {
         guard !tokens.isEmpty else { return "[]" }
-        let tokenArray = tokens.map { t in ["contract": t.contract, "symbol": t.symbol, "decimals": t.decimals] as [String: Any] }
-        guard let data = try? JSONSerialization.data(withJSONObject: tokenArray), let tokensJSON = String(data: data, encoding: .utf8) else { return "[]" }
-        return try await service().fetchTokenBalances(
-            chainId: chainId, address: address, tokensJson: tokensJSON)
+        let descriptors = tokens.map { t in TokenDescriptor(contract: t.contract, symbol: t.symbol, decimals: UInt8(t.decimals), name: nil) }
+        return try await service().fetchTokenBalancesTyped(
+            chainId: chainId, address: address, tokens: descriptors)
     }
     func deriveBitcoinAccountXpub(mnemonicPhrase: String, passphrase: String = "", accountPath: String) throws -> String {
-        let json = try service().deriveBitcoinAccountXpub(mnemonicPhrase: mnemonicPhrase, passphrase: passphrase, accountPath: accountPath)
-        guard let data = json.data(using: .utf8), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let xpub = obj["xpub"] as? String else { throw NSError(domain: "BitcoinXpub", code: 1, userInfo: [NSLocalizedDescriptionKey: "Failed to derive xpub from seed"]) }
-        return xpub
+        try service().deriveBitcoinAccountXpubTyped(mnemonicPhrase: mnemonicPhrase, passphrase: passphrase, accountPath: accountPath)
     }
     func resolveENSName(_ name: String) async throws -> String? {
-        let json = try await service().resolveEnsName(name: name)
-        guard let data = json.data(using: .utf8), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let address = obj["address"] as? String, !address.isEmpty else { return nil }
-        return address
+        try await service().resolveEnsNameTyped(name: name)
     }
     func fetchEVMCodeJSON(chainId: UInt32, address: String) async throws -> String { try await service().fetchEvmCode(chainId: chainId, address: address) }
     func fetchEVMTxNonce(chainId: UInt32, txHash: String) async throws -> Int {
-        let json = try await service().fetchEvmTxNonce(chainId: chainId, txHash: txHash)
-        guard let data = json.data(using: .utf8), let obj = try? JSONSerialization.jsonObject(with: data) as? [String: Any], let nonce = obj["nonce"] as? Int else { return 0 }
-        return nonce
+        Int(try await service().fetchEvmTxNonceTyped(chainId: chainId, txHash: txHash))
     }
     func fetchEVMReceiptJSON(chainId: UInt32, txHash: String) async throws -> String? {
         let raw = try await service().fetchEvmReceipt(chainId: chainId, txHash: txHash)
@@ -134,26 +104,11 @@ actor WalletServiceBridge {
     func deriveBitcoinHdAddressesJSON(xpub: String, change: UInt32, startIndex: UInt32, count: UInt32) async throws -> String { try await service().deriveBitcoinHdAddresses(xpub: xpub, change: change, startIndex: startIndex, count: count) }
     func fetchBitcoinXpubBalanceJSON(xpub: String, receiveCount: UInt32 = 20, changeCount: UInt32 = 20) async throws -> String { try await service().fetchBitcoinXpubBalance(xpub: xpub, receiveCount: receiveCount, changeCount: changeCount) }
     func fetchBitcoinNextUnusedAddressJSON(xpub: String, change: UInt32 = 0, gapLimit: UInt32 = 20) async throws -> String { try await service().fetchBitcoinNextUnusedAddress(xpub: xpub, change: change, gapLimit: gapLimit) }
-    struct PriceRequestCoinInput: Encodable {
-        let holdingKey: String
-        let symbol: String
-        let coinGeckoId: String
-    }
-    func fetchPricesViaRust(provider: String, coins: [PriceRequestCoinInput], apiKey: String) async throws -> [String: Double] {
-        let coinsJson = try String(
-            data: JSONEncoder().encode(coins), encoding: .utf8
-        ) ?? "[]"
-        let raw = try await service().fetchPrices(provider: provider, coinsJson: coinsJson, apiKey: apiKey)
-        guard let data = raw.data(using: .utf8) else { return [:] }
-        return (try? JSONDecoder().decode([String: Double].self, from: data)) ?? [:]
+    func fetchPricesViaRust(provider: String, coins: [PriceRequestCoin], apiKey: String) async throws -> [String: Double] {
+        try await service().fetchPricesTyped(provider: provider, coins: coins, apiKey: apiKey)
     }
     func fetchFiatRatesViaRust(provider: String, currencies: [String]) async throws -> [String: Double] {
-        let json = try String(
-            data: JSONEncoder().encode(currencies), encoding: .utf8
-        ) ?? "[]"
-        let raw = try await service().fetchFiatRates(provider: provider, currenciesJson: json)
-        guard let data = raw.data(using: .utf8) else { return [:] }
-        return (try? JSONDecoder().decode([String: Double].self, from: data)) ?? [:]
+        return try await service().fetchFiatRatesTyped(provider: provider, currencies: currencies)
     }
     func cachedBalanceJSON(chainId: UInt32, address: String) throws -> String? { try service().cachedBalance(chainId: chainId, address: address) }
     func storeBalanceCache(chainId: UInt32, address: String, json: String) throws { try service().cacheBalance(chainId: chainId, address: address, balanceJson: json) }
@@ -163,74 +118,27 @@ actor WalletServiceBridge {
     func makeSendStateMachine() -> SendStateMachine { SendStateMachine() }
 }
 extension WalletServiceBridge {
-    func signAndSendWithDerivation(
-        chainId: UInt32, seedPhrase: String, chain: SeedDerivationChain, derivationPath: String, paramsBuilder: (_ privateKeyHex: String, _ publicKeyHex: String?) -> String
-    ) async throws -> String {
-        let requestModel = try WalletRustDerivationBridge.makeRequestModel(
-            chain: chain, network: .mainnet, seedPhrase: seedPhrase, derivationPath: derivationPath, passphrase: nil, iterationCount: nil, hmacKeyString: nil, requestedOutputs: [.address, .publicKey, .privateKey]
-        )
-        let derived = try WalletRustDerivationBridge.derive(requestModel)
-        guard let privKeyHex = derived.privateKeyHex else { throw WalletServiceBridgeError.serviceInit("derivation did not return private key for chain \(chainId)") }
-        let paramsJson = paramsBuilder(privKeyHex, derived.publicKeyHex)
-        return try await signAndSend(chainId: chainId, paramsJson: paramsJson)
+    func fetchSolanaBalance(address: String) async throws -> SolanaBalance {
+        try await service().fetchSolanaBalanceTyped(address: address)
     }
-    func signAndSendTokenWithDerivation(
-        chainId: UInt32, seedPhrase: String, chain: SeedDerivationChain, derivationPath: String, paramsBuilder: (_ privateKeyHex: String, _ publicKeyHex: String?) -> String
-    ) async throws -> String {
-        let requestModel = try WalletRustDerivationBridge.makeRequestModel(
-            chain: chain, network: .mainnet, seedPhrase: seedPhrase, derivationPath: derivationPath, passphrase: nil, iterationCount: nil, hmacKeyString: nil, requestedOutputs: [.address, .publicKey, .privateKey]
-        )
-        let derived = try WalletRustDerivationBridge.derive(requestModel)
-        guard let privKeyHex = derived.privateKeyHex else { throw WalletServiceBridgeError.serviceInit("token derivation did not return private key for chain \(chainId)") }
-        let paramsJson = paramsBuilder(privKeyHex, derived.publicKeyHex)
-        return try await signAndSendToken(chainId: chainId, paramsJson: paramsJson)
+    func fetchNearBalance(address: String) async throws -> NearBalance {
+        try await service().fetchNearBalanceTyped(address: address)
     }
-    func signAndSendWithDerivationAndPubKey(
-        chainId: UInt32, seedPhrase: String, chain: SeedDerivationChain, derivationPath: String, paramsBuilder: (_ privateKeyHex: String, _ publicKeyHex: String) -> String
-    ) async throws -> String {
-        let requestModel = try WalletRustDerivationBridge.makeRequestModel(
-            chain: chain, network: .mainnet, seedPhrase: seedPhrase, derivationPath: derivationPath, passphrase: nil, iterationCount: nil, hmacKeyString: nil, requestedOutputs: [.address, .publicKey, .privateKey]
-        )
-        let derived = try WalletRustDerivationBridge.derive(requestModel)
-        guard let privKeyHex = derived.privateKeyHex, let pubKeyHex  = derived.publicKeyHex else { throw WalletServiceBridgeError.serviceInit("derivation did not return key material for chain \(chainId)") }
-        let paramsJson = paramsBuilder(privKeyHex, pubKeyHex)
-        return try await signAndSend(chainId: chainId, paramsJson: paramsJson)
-    }
-}
-extension WalletServiceBridge {
-    func fetchSolanaBalance(address: String) async throws -> SolanaBalanceResponse {
-        let json = try await fetchBalanceJSON(chainId: SpectraChainID.solana, address: address)
-        return try JSONDecoder().decode(SolanaBalanceResponse.self, from: Data(json.utf8))
-    }
-    func fetchNearBalance(address: String) async throws -> NearBalanceResponse {
-        let json = try await fetchBalanceJSON(chainId: SpectraChainID.near, address: address)
-        return try JSONDecoder().decode(NearBalanceResponse.self, from: Data(json.utf8))
-    }
-    func fetchErc20Balance(chainId: UInt32, contract: String, holder: String) async throws -> Erc20BalanceResponse {
-        let payload = """
-        {"contract":"\(contract)","holder":"\(holder)"}
-        """
-        let json = try await fetchTokenBalanceJSON(chainId: chainId, paramsJson: payload)
-        return try JSONDecoder().decode(Erc20BalanceResponse.self, from: Data(json.utf8))
-    }
-    func signAndSendErc20WithDerivation(chainId: UInt32, seedPhrase: String, derivationPath: String, from: String, contract: String, to: String, amountRaw: String) async throws -> String {
-        let requestModel = try WalletRustDerivationBridge.makeRequestModel(
-            chain: .ethereum, network: .mainnet, seedPhrase: seedPhrase, derivationPath: derivationPath, passphrase: nil, iterationCount: nil, hmacKeyString: nil, requestedOutputs: [.address, .privateKey]
-        )
-        let derived = try WalletRustDerivationBridge.derive(requestModel)
-        guard let privKeyHex = derived.privateKeyHex else { throw WalletServiceBridgeError.serviceInit("erc20: derivation missing private key") }
-        let payload = sendPayload(.str("from", from), .str("contract", contract), .str("to", to), .str("amount_raw", amountRaw), .str("private_key_hex", privKeyHex))
-        return try await signAndSendToken(chainId: chainId, paramsJson: payload)
+    func fetchErc20Balance(chainId: UInt32, contract: String, holder: String) async throws -> Erc20Balance {
+        try await service().fetchErc20BalanceTyped(chainId: chainId, contract: contract, holder: holder)
     }
     func loadState(key: String) async throws -> String { try await service().loadState(dbPath: sqliteDbPath(), key: key) }
     func saveState(key: String, stateJSON: String) async throws { try await service().saveState(dbPath: sqliteDbPath(), key: key, stateJson: stateJSON) }
     func initWalletState(walletsJson: String) async throws { try await service().initWalletState(walletsJson: walletsJson) }
+    func initWalletStateDirect(wallets: [WalletSummary]) async throws { try await service().initWalletStateDirect(wallets: wallets) }
     func listWalletsJSON() async throws -> String { try await service().listWalletsJson() }
     @discardableResult
     func upsertWalletJSON(_ walletJson: String) async throws -> String { try await service().upsertWalletJson(walletJson: walletJson) }
+    func upsertWalletDirect(_ wallet: WalletSummary) async throws { try await service().upsertWalletDirect(wallet: wallet) }
     @discardableResult
     func removeWalletJSON(walletId: String) async throws -> String { try await service().removeWalletJson(walletId: walletId) }
     func updateNativeBalance(walletId: String, chainId: UInt32, balanceJson: String) async throws -> String? { try await service().updateNativeBalance(walletId: walletId, chainId: chainId, balanceJson: balanceJson) }
+    func updateNativeBalanceTyped(walletId: String, chainId: UInt32, balanceJson: String) async throws -> WalletSummary? { try await service().updateNativeBalanceTyped(walletId: walletId, chainId: chainId, balanceJson: balanceJson) }
     func setNativeBalance(walletId: String, chainId: UInt32, amount: Double) async throws -> String? { try await service().setNativeBalance(walletId: walletId, chainId: chainId, amount: amount) }
     /// Upsert a batch of asset holdings into a wallet in Rust state.
     /// `holdingsJson` is a JSON array matching the AssetHolding schema
@@ -248,6 +156,9 @@ extension WalletServiceBridge {
     func fetchNormalizedHistoryJSON(chainId: UInt32, address: String) async throws -> String {
         try await service().fetchNormalizedHistoryJson(chainId: chainId, address: address)
     }
+    func fetchNormalizedHistory(chainId: UInt32, address: String) async throws -> [NormalizedHistoryItem] {
+        try await service().fetchNormalizedHistory(chainId: chainId, address: address)
+    }
     func saveWalletSnapshot(json: String) {
         Task {
             try? await service().saveWalletSnapshot(dbPath: sqliteDbPath(), snapshotJson: json)
@@ -258,10 +169,21 @@ extension WalletServiceBridge {
             try? await service().saveAppSettings(dbPath: sqliteDbPath(), settingsJson: json)
         }}
     func loadAppSettings() async throws -> String { try await service().loadAppSettings(dbPath: sqliteDbPath()) }
+    func saveAppSettingsTyped(settings: PersistedAppSettings) {
+        Task {
+            try? await service().saveAppSettingsTyped(dbPath: sqliteDbPath(), settings: settings)
+        }}
+    func loadAppSettingsTyped() async throws -> PersistedAppSettings? { try await service().loadAppSettingsTyped(dbPath: sqliteDbPath()) }
     func saveKeypoolState(walletId: String, chainName: String, stateJSON: String) {
         Task {
             try? await service().saveKeypoolState(
                 dbPath: sqliteDbPath(), walletId: walletId, chainName: chainName, stateJson: stateJSON
+            )
+        }}
+    func saveKeypoolStateTyped(walletId: String, chainName: String, state: KeypoolState) {
+        Task {
+            try? await service().saveKeypoolStateTyped(
+                dbPath: sqliteDbPath(), walletId: walletId, chainName: chainName, state: state
             )
         }}
     func loadKeypoolState(walletId: String, chainName: String) async throws -> String? {
@@ -270,6 +192,7 @@ extension WalletServiceBridge {
         )
     }
     func loadAllKeypoolState() async throws -> String { try await service().loadAllKeypoolState(dbPath: sqliteDbPath()) }
+    func loadAllKeypoolStateTyped() async throws -> [String: [String: KeypoolState]] { try await service().loadAllKeypoolStateTyped(dbPath: sqliteDbPath()) }
     func deleteKeypoolForWallet(walletId: String) {
         Task {
             try? await service().deleteKeypoolForWallet(dbPath: sqliteDbPath(), walletId: walletId)
@@ -282,7 +205,12 @@ extension WalletServiceBridge {
         Task {
             try? await service().saveOwnedAddress(dbPath: sqliteDbPath(), recordJson: recordJSON)
         }}
+    func saveOwnedAddressTyped(record: OwnedAddressRecord) {
+        Task {
+            try? await service().saveOwnedAddressTyped(dbPath: sqliteDbPath(), record: record)
+        }}
     func loadAllOwnedAddresses() async throws -> String { try await service().loadAllOwnedAddresses(dbPath: sqliteDbPath()) }
+    func loadAllOwnedAddressesTyped() async throws -> [OwnedAddressRecord] { try await service().loadAllOwnedAddressesTyped(dbPath: sqliteDbPath()) }
     func deleteOwnedAddressesForWallet(walletId: String) {
         Task {
             try? await service().deleteOwnedAddressesForWallet(
@@ -305,6 +233,7 @@ extension WalletServiceBridge {
     func upsertHistoryRecords(recordsJSON: String) {
         Task { try? await service().upsertHistoryRecords(dbPath: sqliteDbPath(), recordsJson: recordsJSON) }}
     func fetchAllHistoryRecords() async throws -> String { try await service().fetchAllHistoryRecords(dbPath: sqliteDbPath()) }
+    func fetchAllHistoryRecordsTyped() async throws -> [HistoryRecord] { try await service().fetchAllHistoryRecordsTyped(dbPath: sqliteDbPath()) }
     func deleteHistoryRecords(idsJSON: String) {
         Task { try? await service().deleteHistoryRecords(dbPath: sqliteDbPath(), idsJson: idsJSON) }}
     func replaceAllHistoryRecords(recordsJSON: String) {
@@ -334,50 +263,6 @@ extension WalletServiceBridge {
         return "\(docs)/spectra_state.db"
     }
 }
-struct SolanaBalanceResponse: Sendable {
-    let lamports: UInt64
-    let solDisplay: String
-}
-extension SolanaBalanceResponse: Decodable {
-    private enum CodingKeys: String, CodingKey { case lamports; case solDisplay = "sol_display" }
-    nonisolated init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        lamports = try c.decode(UInt64.self, forKey: .lamports)
-        solDisplay = try c.decode(String.self, forKey: .solDisplay)
-    }
-}
-struct NearBalanceResponse: Sendable {
-    let yoctoNear: String
-    let nearDisplay: String
-}
-extension NearBalanceResponse: Decodable {
-    private enum CodingKeys: String, CodingKey { case yoctoNear = "yocto_near"; case nearDisplay = "near_display" }
-    nonisolated init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        yoctoNear = try c.decode(String.self, forKey: .yoctoNear)
-        nearDisplay = try c.decode(String.self, forKey: .nearDisplay)
-    }
-}
-struct Erc20BalanceResponse: Sendable {
-    let contract: String
-    let holder: String
-    let balanceRaw: String
-    let balanceDisplay: String
-    let decimals: UInt8
-    let symbol: String
-}
-extension Erc20BalanceResponse: Decodable {
-    private enum CodingKeys: String, CodingKey { case contract; case holder; case balanceRaw = "balance_raw"; case balanceDisplay = "balance_display"; case decimals; case symbol }
-    nonisolated init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        contract = try c.decode(String.self, forKey: .contract)
-        holder = try c.decode(String.self, forKey: .holder)
-        balanceRaw = try c.decode(String.self, forKey: .balanceRaw)
-        balanceDisplay = try c.decode(String.self, forKey: .balanceDisplay)
-        decimals = try c.decode(UInt8.self, forKey: .decimals)
-        symbol = try c.decode(String.self, forKey: .symbol)
-    }
-}
 enum WalletServiceBridgeError: LocalizedError {
     case unsupportedChain(String)
     case serviceInit(String)
@@ -388,8 +273,8 @@ enum WalletServiceBridgeError: LocalizedError {
         }}
 }
 private extension WalletServiceBridge {
-    static func buildEndpointsJSON() -> String {
-        var payloads: [ChainEndpointsPayload] = []
+    static func buildEndpoints() -> [ChainEndpoints] {
+        var payloads: [ChainEndpoints] = []
         payloads += rpcPayloads(chainId: SpectraChainID.bitcoin,         chainName: "Bitcoin")
         payloads += evmPayloads(chainId: SpectraChainID.ethereum,        chainName: "Ethereum")
         payloads += rpcPayloads(chainId: SpectraChainID.solana,          chainName: "Solana")
@@ -417,36 +302,31 @@ private extension WalletServiceBridge {
         payloads += evmPayloads(chainId: SpectraChainID.hyperliquid,     chainName: "Hyperliquid")
         payloads += explorerPayloads(chainId: SpectraChainID.polkadot + SpectraChainID.subscaOffset, chainName: "Polkadot")
         payloads += explorerPayloads(chainId: SpectraChainID.icp + SpectraChainID.icOffset, chainName: "Internet Computer")
-        let tonV3URLs = ChainBackendRegistry.TONRuntimeEndpoints.apiV3BaseURLs
-        if !tonV3URLs.isEmpty { payloads.append(ChainEndpointsPayload(chainId: SpectraChainID.ton + SpectraChainID.tonV3Offset, endpoints: tonV3URLs, apiKey: nil)) }
+        let tonV3URLs = AppEndpointDirectory.endpoints(for: ["ton.api.v3"])
+        if !tonV3URLs.isEmpty { payloads.append(ChainEndpoints(chainId: SpectraChainID.ton + SpectraChainID.tonV3Offset, endpoints: tonV3URLs, apiKey: nil)) }
         let explorerChains: [(UInt32, String)] = [
             (SpectraChainID.ethereum,        "Ethereum"), (SpectraChainID.tron,            "Tron"), (SpectraChainID.arbitrum,        "Arbitrum"), (SpectraChainID.optimism,        "Optimism"), (SpectraChainID.avalanche,       "Avalanche"), (SpectraChainID.near,            "NEAR"), (SpectraChainID.base,            "Base"), (SpectraChainID.ethereumClassic, "Ethereum Classic"), (SpectraChainID.bsc,             "BNB Chain"), ]
         for (primaryId, chainName) in explorerChains { payloads += explorerPayloads(chainId: SpectraChainID.explorerOffset + primaryId, chainName: chainName) }
-        guard
-            let data = try? JSONEncoder().encode(payloads), let json = String(data: data, encoding: .utf8)
-        else {
-            return "[]"
-        }
-        return json
+        return payloads
     }
-    static func rpcPayloads(chainId: UInt32, chainName: String) -> [ChainEndpointsPayload] {
+    static func rpcPayloads(chainId: UInt32, chainName: String) -> [ChainEndpoints] {
         let endpoints = (
             try? WalletRustEndpointCatalogBridge.endpointRecords(
                 for: chainName, roles: [.rpc, .balance, .backend], settingsVisibleOnly: false
             )
         )?.map(\.endpoint) ?? []
         guard !endpoints.isEmpty else { return [] }
-        return [ChainEndpointsPayload(chainId: chainId, endpoints: endpoints, apiKey: nil)]
+        return [ChainEndpoints(chainId: chainId, endpoints: endpoints, apiKey: nil)]
     }
-    static func evmPayloads(chainId: UInt32, chainName: String) -> [ChainEndpointsPayload] {
+    static func evmPayloads(chainId: UInt32, chainName: String) -> [ChainEndpoints] {
         let endpoints = (try? WalletRustEndpointCatalogBridge.evmRPCEndpoints(for: chainName)) ?? []
         guard !endpoints.isEmpty else { return [] }
-        return [ChainEndpointsPayload(chainId: chainId, endpoints: endpoints, apiKey: nil)]
+        return [ChainEndpoints(chainId: chainId, endpoints: endpoints, apiKey: nil)]
     }
-    static func explorerPayloads(chainId: UInt32, chainName: String) -> [ChainEndpointsPayload] {
+    static func explorerPayloads(chainId: UInt32, chainName: String) -> [ChainEndpoints] {
         let endpoints = (try? WalletRustEndpointCatalogBridge.explorerSupplementalEndpoints(for: chainName)) ?? []
         guard !endpoints.isEmpty else { return [] }
-        return [ChainEndpointsPayload(chainId: chainId, endpoints: endpoints, apiKey: nil)]
+        return [ChainEndpoints(chainId: chainId, endpoints: endpoints, apiKey: nil)]
     }
 }
 extension WalletServiceBridge {
@@ -458,6 +338,7 @@ extension WalletServiceBridge {
     }
     func setBalanceObserver(_ observer: BalanceObserver) throws { try balanceRefreshEngine().setObserver(observer: observer) }
     func setRefreshEntries(_ entriesJson: String) throws { try balanceRefreshEngine().setEntries(entriesJson: entriesJson) }
+    func setRefreshEntriesTyped(_ entries: [RefreshEntry]) throws { try balanceRefreshEngine().setEntriesTyped(entries: entries) }
     func startBalanceRefresh(intervalSecs: UInt64) async throws { try await balanceRefreshEngine().start(intervalSecs: intervalSecs) }
     func stopBalanceRefresh() throws { try balanceRefreshEngine().stop() }
     func triggerImmediateBalanceRefresh() async throws { try await balanceRefreshEngine().triggerImmediate() }

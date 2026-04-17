@@ -143,13 +143,13 @@ final class NearHistoryParsingTests: XCTestCase {
         let snapshots = try NearBalanceService.parseHistoryResponse(data, ownerAddress: owner)
         XCTAssertEqual(snapshots.count, 2)
         let send = try XCTUnwrap(snapshots.first(where: { $0.transactionHash == "hash-send-1" }))
-        XCTAssertEqual(send.kind, .send)
+        XCTAssertEqual(send.kind, "send")
         XCTAssertEqual(send.counterpartyAddress, "merchant.near")
-        XCTAssertEqual(send.amount, 1.5, accuracy: 0.0000001)
+        XCTAssertEqual(send.amountNear, 1.5, accuracy: 0.0000001)
         let receive = try XCTUnwrap(snapshots.first(where: { $0.transactionHash == "hash-receive-1" }))
-        XCTAssertEqual(receive.kind, .receive)
+        XCTAssertEqual(receive.kind, "receive")
         XCTAssertEqual(receive.counterpartyAddress, "payer.near")
-        XCTAssertEqual(receive.amount, 2.5, accuracy: 0.0000001)
+        XCTAssertEqual(receive.amountNear, 2.5, accuracy: 0.0000001)
     }
 }
 @MainActor
@@ -228,13 +228,11 @@ final class XRPDerivationSupportTests: XCTestCase {
     }
 }
 @MainActor
-final class WalletDerivationEngineTests: XCTestCase {
+final class WalletDerivationLayerTests: XCTestCase {
     private let mnemonic = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
     func testBitcoinTestnet4ReturnsOnlyRequestedOutputs() throws {
-        let result = try WalletDerivationEngine.derive(
-            seedPhrase: mnemonic, request: WalletDerivationRequest(
-                chain: .bitcoin, network: .testnet4, derivationPath: "m/84'/1'/0'/0/0", curve: .secp256k1, requestedOutputs: [.address, .publicKey]
-            )
+        let result = try WalletDerivationLayer.derive(
+            seedPhrase: mnemonic, chain: .bitcoin, network: .testnet4, derivationPath: "m/84'/1'/0'/0/0", requestedOutputs: [.address, .publicKey]
         )
         XCTAssertNotNil(result.address)
         XCTAssertTrue(result.address?.hasPrefix("tb1") == true)
@@ -242,10 +240,8 @@ final class WalletDerivationEngineTests: XCTestCase {
         XCTAssertNil(result.privateKeyHex)
     }
     func testSolanaMainnetReturnsRequestedSigningMaterial() throws {
-        let result = try WalletDerivationEngine.derive(
-            seedPhrase: mnemonic, request: WalletDerivationRequest(
-                chain: .solana, network: .mainnet, derivationPath: "m/44'/501'/0'/0'", curve: .ed25519, requestedOutputs: [.address, .publicKey, .privateKey]
-            )
+        let result = try WalletDerivationLayer.derive(
+            seedPhrase: mnemonic, chain: .solana, network: .mainnet, derivationPath: "m/44'/501'/0'/0'", requestedOutputs: [.address, .publicKey, .privateKey]
         )
         XCTAssertFalse(result.address?.isEmpty ?? true)
         XCTAssertFalse(result.publicKeyHex?.isEmpty ?? true)
@@ -255,7 +251,7 @@ final class WalletDerivationEngineTests: XCTestCase {
         let request: [String: Any] = [
             "chain": "Solana", "network": "mainnet", "seedPhrase": mnemonic, "derivationPath": "m/44'/501'/9'", "curve": "ed25519", "passphrase": "", "iterationCount": 2048, "hmacKeyString": "", "requestedOutputs": ["publicKey", "privateKey"], ]
         let requestData = try JSONSerialization.data(withJSONObject: request, options: [])
-        let responseData = try WalletDerivationEngine.derive(jsonData: requestData)
+        let responseData = try WalletDerivationLayer.derive(jsonData: requestData)
         struct DerivationJSONResponse: Decodable {
             let address: String? let publicKeyHex: String? let privateKeyHex: String? }
         let response = try JSONDecoder().decode(DerivationJSONResponse.self, from: responseData)

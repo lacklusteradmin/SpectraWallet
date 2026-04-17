@@ -55,13 +55,13 @@ extension AppState {
             let walletID = wallet.id
             let sendCoins = transferAvailabilityByWalletID[walletID]
                 .map { availability in
-                    availability.sendHoldingIndices.compactMap { index in wallet.holdings.indices.contains(index) ? wallet.holdings[index] : nil }}
+                    availability.sendHoldingIndices.compactMap { i in let index = Int(i); return wallet.holdings.indices.contains(index) ? wallet.holdings[index] : nil }}
                 ?? []
             sendCoinsByWalletID[walletID] = sendCoins
             if rustSendEnabledWalletIDs.contains(walletID) { sendWallets.append(wallet) }
             let receiveCoins = transferAvailabilityByWalletID[walletID]
                 .map { availability in
-                    availability.receiveHoldingIndices.compactMap { index in wallet.holdings.indices.contains(index) ? wallet.holdings[index] : nil }}
+                    availability.receiveHoldingIndices.compactMap { i in let index = Int(i); return wallet.holdings.indices.contains(index) ? wallet.holdings[index] : nil }}
                 ?? []
             receiveCoinsByWalletID[walletID] = receiveCoins
             let receiveChains = transferAvailabilityByWalletID[walletID]?.receiveChains
@@ -72,7 +72,7 @@ extension AppState {
         cachedPrivateKeyBackedWalletIDs = Set(derivedStatePlan.privateKeyBackedWalletIDs)
         cachedPortfolio = derivedStatePlan.groupedPortfolio.compactMap { group in
             guard let representative = resolveHolding(
-                WalletRustWalletHoldingRef(walletID: group.walletID, holdingIndex: group.holdingIndex), in: wallets
+                WalletRustWalletHoldingRef(walletId: group.walletID, holdingIndex: group.holdingIndex), in: wallets
             ) else {
                 return nil
             }
@@ -124,13 +124,6 @@ extension AppState {
         }
         setTransactionsIfChanged(mergedTransactions)
     }
-    func upsertEthereumTransactions(_ newTransactions: [TransactionRecord]) { upsertEVMTransactions(newTransactions, chainName: "Ethereum") }
-    func upsertArbitrumTransactions(_ newTransactions: [TransactionRecord]) { upsertEVMTransactions(newTransactions, chainName: "Arbitrum") }
-    func upsertOptimismTransactions(_ newTransactions: [TransactionRecord]) { upsertEVMTransactions(newTransactions, chainName: "Optimism") }
-    func upsertBNBTransactions(_ newTransactions: [TransactionRecord]) { upsertEVMTransactions(newTransactions, chainName: "BNB Chain") }
-    func upsertAvalancheTransactions(_ newTransactions: [TransactionRecord]) { upsertEVMTransactions(newTransactions, chainName: "Avalanche") }
-    func upsertETCTransactions(_ newTransactions: [TransactionRecord]) { upsertEVMTransactions(newTransactions, chainName: "Ethereum Classic") }
-    func upsertHyperliquidTransactions(_ newTransactions: [TransactionRecord]) { upsertEVMTransactions(newTransactions, chainName: "Hyperliquid") }
     func upsertTronTransactions(_ newTransactions: [TransactionRecord]) { upsertAccountBasedTransactions(newTransactions, chainName: "Tron", includeSymbolInIdentity: true) }
     func upsertSolanaTransactions(_ newTransactions: [TransactionRecord]) { upsertAccountBasedTransactions(newTransactions, chainName: "Solana") }
     func upsertCardanoTransactions(_ newTransactions: [TransactionRecord]) { upsertAccountBasedTransactions(newTransactions, chainName: "Cardano") }
@@ -229,13 +222,29 @@ extension AppState {
         }
         if !upsertSnapshots.isEmpty, let json = encodeHistoryRecords(upsertSnapshots) { Task { await WalletServiceBridge.shared.upsertHistoryRecords(recordsJSON: json) } }
     }
-    func persistDogecoinKeypoolState() {
-        persistKeypoolToRust(chainName: "Dogecoin", walletMap: dogecoinKeypoolByWalletID.mapValues { ChainKeypoolState(nextExternalIndex: $0.nextExternalIndex, nextChangeIndex: $0.nextChangeIndex, reservedReceiveIndex: $0.reservedReceiveIndex) })
-    }
     func loadDogecoinKeypoolState() -> [String: DogecoinKeypoolState] {
         guard let payload = loadCodableFromUserDefaults(PersistedDogecoinKeypoolStore.self, key: Self.dogecoinKeypoolDefaultsKey) else { return [:] }
         guard payload.version == PersistedDogecoinKeypoolStore.currentVersion else { return [:] }
         return payload.keypoolByWalletID
+    }
+    func mergeDogecoinKeypoolIntoChainMap(_ chainMap: [String: [String: ChainKeypoolState]]) -> [String: [String: ChainKeypoolState]] {
+        var result = chainMap
+        let dogeDefaults = loadDogecoinKeypoolState()
+        if !dogeDefaults.isEmpty, result["Dogecoin"] == nil { result["Dogecoin"] = dogeDefaults }
+        return result
+    }
+    func mergeDogecoinOwnedAddressesIntoChainMap(_ chainMap: [String: [String: ChainOwnedAddressRecord]]) -> [String: [String: ChainOwnedAddressRecord]] {
+        var result = chainMap
+        let dogeDefaults = loadDogecoinOwnedAddressMap()
+        if !dogeDefaults.isEmpty, result["Dogecoin"] == nil {
+            result["Dogecoin"] = dogeDefaults.reduce(into: [:]) { r, pair in
+                r[pair.key] = ChainOwnedAddressRecord(
+                    chainName: "Dogecoin", address: pair.value.address, walletID: pair.value.walletID,
+                    derivationPath: pair.value.derivationPath, index: pair.value.index, branch: pair.value.branch
+                )
+            }
+        }
+        return result
     }
     func persistChainKeypoolState() {
         for (chainName, walletMap) in chainKeypoolByChain { persistKeypoolToRust(chainName: chainName, walletMap: walletMap) }}
@@ -244,12 +253,6 @@ extension AppState {
         guard payload.version == PersistedChainKeypoolStore.currentVersion else { return [:] }
         return payload.keypoolByChain
     }
-    func persistDogecoinOwnedAddressMap() {
-        for (_, record) in dogecoinOwnedAddressMap {
-            persistOwnedAddressToRust(
-                walletId: record.walletID, chainName: "Dogecoin", address: record.address ?? "", derivationPath: record.derivationPath, branch: record.branch, branchIndex: record.index
-            )
-        }}
     func loadDogecoinOwnedAddressMap() -> [String: DogecoinOwnedAddressRecord] {
         guard let payload = loadCodableFromUserDefaults(
             PersistedDogecoinOwnedAddressStore.self, key: Self.dogecoinOwnedAddressMapDefaultsKey
@@ -276,61 +279,42 @@ extension AppState {
         return payload.addressMapByChain
     }
     private func persistKeypoolToRust(chainName: String, walletMap: [String: ChainKeypoolState]) {
-        let encoder = JSONEncoder()
         for (walletID, state) in walletMap {
-            let payload = RustKeypoolStatePayload(
-                nextExternalIndex: state.nextExternalIndex,
-                nextChangeIndex: state.nextChangeIndex,
-                reservedReceiveIndex: state.reservedReceiveIndex
+            let typed = KeypoolState(
+                nextExternalIndex: Int64(state.nextExternalIndex),
+                nextChangeIndex: Int64(state.nextChangeIndex),
+                reservedReceiveIndex: state.reservedReceiveIndex.map { Int64($0) }
             )
-            guard let data = try? encoder.encode(payload),
-                  let json = String(data: data, encoding: .utf8) else { continue }
-            Task { await WalletServiceBridge.shared.saveKeypoolState(walletId: walletID, chainName: chainName, stateJSON: json) }
+            Task { await WalletServiceBridge.shared.saveKeypoolStateTyped(walletId: walletID, chainName: chainName, state: typed) }
         }}
     private func persistOwnedAddressToRust(
         walletId: String, chainName: String, address: String, derivationPath: String?, branch: String?, branchIndex: Int? ) {
         guard !address.isEmpty else { return }
-        let payload = RustOwnedAddressPayload(
+        let record = OwnedAddressRecord(
             walletId: walletId,
             chainName: chainName,
             address: address,
             derivationPath: derivationPath,
             branch: branch,
-            branchIndex: branchIndex
+            branchIndex: branchIndex.map { Int64($0) }
         )
-        guard let data = try? JSONEncoder().encode(payload),
-              let json = String(data: data, encoding: .utf8) else { return }
-        Task { await WalletServiceBridge.shared.saveOwnedAddress(recordJSON: json) }
+        Task { await WalletServiceBridge.shared.saveOwnedAddressTyped(record: record) }
     }
-}
-private struct RustKeypoolStatePayload: Encodable {
-    let nextExternalIndex: Int
-    let nextChangeIndex: Int
-    let reservedReceiveIndex: Int?
-}
-private struct RustOwnedAddressPayload: Encodable {
-    let walletId: String
-    let chainName: String
-    let address: String
-    let derivationPath: String?
-    let branch: String?
-    let branchIndex: Int?
 }
 private extension TransactionRecord {
     var rustBridgeRecord: WalletRustTransactionRecord {
         WalletRustTransactionRecord(
-            id: id.uuidString, walletID: walletID, kind: kind.rawValue, status: status.rawValue, walletName: walletName, assetName: assetName, symbol: symbol, chainName: chainName, amount: amount, address: address, transactionHash: transactionHash, ethereumNonce: ethereumNonce, receiptBlockNumber: receiptBlockNumber, receiptGasUsed: receiptGasUsed, receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei, receiptNetworkFeeEth: receiptNetworkFeeEth, feePriorityRaw: feePriorityRaw, feeRateDescription: feeRateDescription, confirmationCount: confirmationCount, dogecoinConfirmedNetworkFeeDoge: dogecoinConfirmedNetworkFeeDoge, dogecoinConfirmations: dogecoinConfirmations, dogecoinFeePriorityRaw: dogecoinFeePriorityRaw, dogecoinEstimatedFeeRateDogePerKb: dogecoinEstimatedFeeRateDogePerKb, usedChangeOutput: usedChangeOutput, dogecoinUsedChangeOutput: dogecoinUsedChangeOutput, sourceDerivationPath: sourceDerivationPath, changeDerivationPath: changeDerivationPath, sourceAddress: sourceAddress, changeAddress: changeAddress, dogecoinRawTransactionHex: dogecoinRawTransactionHex, signedTransactionPayload: signedTransactionPayload, signedTransactionPayloadFormat: signedTransactionPayloadFormat, failureReason: failureReason, transactionHistorySource: transactionHistorySource, createdAtUnix: createdAt.timeIntervalSince1970
+            id: id.uuidString, walletId: walletID, kind: kind.rawValue, status: status.rawValue, walletName: walletName, assetName: assetName, symbol: symbol, chainName: chainName, amount: amount, address: address, transactionHash: transactionHash, ethereumNonce: ethereumNonce.map { Int64($0) }, receiptBlockNumber: receiptBlockNumber.map { Int64($0) }, receiptGasUsed: receiptGasUsed, receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei, receiptNetworkFeeEth: receiptNetworkFeeEth, feePriorityRaw: feePriorityRaw, feeRateDescription: feeRateDescription, confirmationCount: confirmationCount.map { Int64($0) }, dogecoinConfirmedNetworkFeeDoge: dogecoinConfirmedNetworkFeeDoge, dogecoinConfirmations: dogecoinConfirmations.map { Int64($0) }, dogecoinFeePriorityRaw: dogecoinFeePriorityRaw, dogecoinEstimatedFeeRateDogePerKb: dogecoinEstimatedFeeRateDogePerKb, usedChangeOutput: usedChangeOutput, dogecoinUsedChangeOutput: dogecoinUsedChangeOutput, sourceDerivationPath: sourceDerivationPath, changeDerivationPath: changeDerivationPath, sourceAddress: sourceAddress, changeAddress: changeAddress, dogecoinRawTransactionHex: dogecoinRawTransactionHex, signedTransactionPayload: signedTransactionPayload, signedTransactionPayloadFormat: signedTransactionPayloadFormat, failureReason: failureReason, transactionHistorySource: transactionHistorySource, createdAtUnix: createdAt.timeIntervalSince1970
         )
     }
 }
 private extension WalletRustTransactionRecord {
     var transactionRecord: TransactionRecord? {
         guard let resolvedID = UUID(uuidString: id) else { return nil }
-        let resolvedWalletID = walletID
         let resolvedKind = TransactionKind(rawValue: kind) ?? .receive
         let resolvedStatus = TransactionStatus(rawValue: status) ?? .pending
         return TransactionRecord(
-            id: resolvedID, walletID: resolvedWalletID, kind: resolvedKind, status: resolvedStatus, walletName: walletName, assetName: assetName, symbol: symbol, chainName: chainName, amount: amount, address: address, transactionHash: transactionHash, ethereumNonce: ethereumNonce, receiptBlockNumber: receiptBlockNumber, receiptGasUsed: receiptGasUsed, receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei, receiptNetworkFeeEth: receiptNetworkFeeEth, feePriorityRaw: feePriorityRaw, feeRateDescription: feeRateDescription, confirmationCount: confirmationCount, dogecoinConfirmedNetworkFeeDoge: dogecoinConfirmedNetworkFeeDoge, dogecoinConfirmations: dogecoinConfirmations, dogecoinFeePriorityRaw: dogecoinFeePriorityRaw, dogecoinEstimatedFeeRateDogePerKb: dogecoinEstimatedFeeRateDogePerKb, usedChangeOutput: usedChangeOutput, dogecoinUsedChangeOutput: dogecoinUsedChangeOutput, sourceDerivationPath: sourceDerivationPath, changeDerivationPath: changeDerivationPath, sourceAddress: sourceAddress, changeAddress: changeAddress, dogecoinRawTransactionHex: dogecoinRawTransactionHex, signedTransactionPayload: signedTransactionPayload, signedTransactionPayloadFormat: signedTransactionPayloadFormat, failureReason: failureReason, transactionHistorySource: transactionHistorySource, createdAt: Date(timeIntervalSince1970: createdAtUnix)
+            id: resolvedID, walletID: walletId, kind: resolvedKind, status: resolvedStatus, walletName: walletName, assetName: assetName, symbol: symbol, chainName: chainName, amount: amount, address: address, transactionHash: transactionHash, ethereumNonce: ethereumNonce.map { Int($0) }, receiptBlockNumber: receiptBlockNumber.map { Int($0) }, receiptGasUsed: receiptGasUsed, receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei, receiptNetworkFeeEth: receiptNetworkFeeEth, feePriorityRaw: feePriorityRaw, feeRateDescription: feeRateDescription, confirmationCount: confirmationCount.map { Int($0) }, dogecoinConfirmedNetworkFeeDoge: dogecoinConfirmedNetworkFeeDoge, dogecoinConfirmations: dogecoinConfirmations.map { Int($0) }, dogecoinFeePriorityRaw: dogecoinFeePriorityRaw, dogecoinEstimatedFeeRateDogePerKb: dogecoinEstimatedFeeRateDogePerKb, usedChangeOutput: usedChangeOutput, dogecoinUsedChangeOutput: dogecoinUsedChangeOutput, sourceDerivationPath: sourceDerivationPath, changeDerivationPath: changeDerivationPath, sourceAddress: sourceAddress, changeAddress: changeAddress, dogecoinRawTransactionHex: dogecoinRawTransactionHex, signedTransactionPayload: signedTransactionPayload, signedTransactionPayloadFormat: signedTransactionPayloadFormat, failureReason: failureReason, transactionHistorySource: transactionHistorySource, createdAt: Date(timeIntervalSince1970: createdAtUnix)
         )
     }
 }
@@ -340,9 +324,9 @@ private extension AppState {
             wallets: wallets.map { wallet in
                 let signingMaterial = signingMaterialAvailability(for: wallet.id)
                 return WalletRustStoreDerivedWalletInput(
-                    walletID: wallet.id, includeInPortfolioTotal: wallet.includeInPortfolioTotal, hasSigningMaterial: signingMaterial.hasSigningMaterial, isPrivateKeyBacked: signingMaterial.isPrivateKeyBacked, holdings: wallet.holdings.enumerated().map { index, holding in
+                    walletId: wallet.id, includeInPortfolioTotal: wallet.includeInPortfolioTotal, hasSigningMaterial: signingMaterial.hasSigningMaterial, isPrivateKeyBacked: signingMaterial.isPrivateKeyBacked, holdings: wallet.holdings.enumerated().map { index, holding in
                         WalletRustStoreDerivedHoldingInput(
-                            holdingIndex: index, assetIdentityKey: assetIdentityKey(for: holding), symbolUpper: holding.symbol.uppercased(), amount: String(holding.amount), isPricedAsset: isPricedAsset(holding)
+                            holdingIndex: UInt64(index), assetIdentityKey: assetIdentityKey(for: holding), symbolUpper: holding.symbol.uppercased(), amount: String(holding.amount), isPricedAsset: isPricedAsset(holding)
                         )
                     }
                 )
@@ -351,20 +335,21 @@ private extension AppState {
         return WalletRustAppCoreBridge.planStoreDerivedState(request)
     }
     func resolveHolding(_ reference: WalletRustWalletHoldingRef, in wallets: [ImportedWallet]) -> Coin? {
+        let idx = Int(reference.holdingIndex)
         guard let wallet = cachedWalletByIDString[reference.walletID]
-            ?? wallets.first(where: { $0.id == reference.walletID }), wallet.holdings.indices.contains(reference.holdingIndex) else {
+            ?? wallets.first(where: { $0.id == reference.walletID }), wallet.holdings.indices.contains(idx) else {
             return nil
         }
-        return wallet.holdings[reference.holdingIndex]
+        return wallet.holdings[idx]
     }
     func rustTransferAvailabilityPlan(for wallets: [ImportedWallet]) -> WalletRustTransferAvailabilityPlan {
         let request = WalletRustTransferAvailabilityRequest(
             wallets: wallets.map { wallet in
                 let hasSigningMaterial = signingMaterialAvailability(for: wallet.id).hasSigningMaterial
                 return WalletRustTransferWalletInput(
-                    walletID: wallet.id, hasSigningMaterial: hasSigningMaterial, holdings: wallet.holdings.enumerated().map { index, holding in
+                    walletId: wallet.id, hasSigningMaterial: hasSigningMaterial, holdings: wallet.holdings.enumerated().map { index, holding in
                         WalletRustTransferHoldingInput(
-                            index: index, chainName: holding.chainName, symbol: holding.symbol, supportsSend: ChainBackendRegistry.supportsSend(for: holding.chainName), supportsReceiveAddress: ChainBackendRegistry.supportsReceiveAddress(for: holding.chainName), isLiveChain: ChainBackendRegistry.liveChainNames.contains(holding.chainName), supportsEVMToken: supportedEVMToken(for: holding) != nil, supportsSolanaSendCoin: isSupportedSolanaSendCoin(holding)
+                            index: UInt64(index), chainName: holding.chainName, symbol: holding.symbol, supportsSend: AppEndpointDirectory.supportsSend(for: holding.chainName), supportsReceiveAddress: AppEndpointDirectory.supportsReceiveAddress(for: holding.chainName), isLiveChain: AppEndpointDirectory.liveChainNames.contains(holding.chainName), supportsEvmToken: supportedEVMToken(for: holding) != nil, supportsSolanaSendCoin: isSupportedSolanaSendCoin(holding)
                         )
                     }
                 )

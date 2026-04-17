@@ -15,10 +15,8 @@ private enum WalletAddressInventoryFactory {
         )
     }
     static func deriveEntry(seedPhrase: String, chain: SeedDerivationChain, derivationPath: String, role: WalletAddressInventoryRole) throws -> WalletAddressInventoryEntry {
-        let values = try WalletDerivationEngine.derive(
-            seedPhrase: seedPhrase, request: WalletDerivationRequest(
-                chain: chain, network: .mainnet, derivationPath: derivationPath, curve: WalletDerivationEngine.curve(for: chain), requestedOutputs: [.address]
-            )
+        let values = try WalletDerivationLayer.derive(
+            seedPhrase: seedPhrase, chain: chain, network: .mainnet, derivationPath: derivationPath, requestedOutputs: .address
         )
         let segments = DerivationPathParser.parse(derivationPath)
         let account = segments.flatMap { $0.count >= 3 ? $0[2].value : nil }

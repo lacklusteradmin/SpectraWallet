@@ -134,9 +134,9 @@ extension AppState {
         let request = WalletRustSelfSendConfirmationRequest(
             pendingConfirmation: pendingSelfSendConfirmation.map {
                 WalletRustPendingSelfSendConfirmationInput(
-                    walletID: $0.walletID, chainName: $0.chainName, symbol: $0.symbol, destinationAddressLowercased: $0.destinationAddressLowercased, amount: $0.amount, createdAtUnix: $0.createdAt.timeIntervalSince1970
+                    walletId: $0.walletID, chainName: $0.chainName, symbol: $0.symbol, destinationAddressLowercased: $0.destinationAddressLowercased, amount: $0.amount, createdAtUnix: $0.createdAt.timeIntervalSince1970
                 )
-            }, walletID: walletID, chainName: chainName, symbol: symbol, destinationAddress: destinationAddress, amount: amount, nowUnix: Date().timeIntervalSince1970, windowSeconds: Self.selfSendConfirmationWindowSeconds, ownedAddresses: ownedAddresses
+            }, walletId: walletID, chainName: chainName, symbol: symbol, destinationAddress: destinationAddress, amount: amount, nowUnix: Date().timeIntervalSince1970, windowSeconds: Self.selfSendConfirmationWindowSeconds, ownedAddresses: ownedAddresses
         )
         return WalletRustAppCoreBridge.planSelfSendConfirmation(request)
     }

@@ -29,19 +29,6 @@ private func decodeTronSendPreviewLocal(json: String) -> TronSendPreview? {
     return buildTronSendPreviewRecord(json: json)
 }
 
-private struct SimplePreviewFields {
-    let feeDisplay: Double
-    let feeRaw: String
-    let feeRateDescription: String
-    let balanceDisplay: Double
-    let maxSendable: Double
-}
-
-private func decodeSimplePreviewFields(from json: String) -> SimplePreviewFields {
-    let d = decodeSimpleSendPreview(json: json)
-    return SimplePreviewFields(feeDisplay: d.feeDisplay, feeRaw: d.feeRaw, feeRateDescription: d.feeRateDescription, balanceDisplay: d.balanceDisplay, maxSendable: d.maxSendable)
-}
-
 // MARK: - AppState send preview methods
 
 extension AppState {
@@ -253,31 +240,6 @@ extension AppState {
             tronSendPreview = nil
             sendError = "Unable to estimate Tron fee right now. Check provider health and retry."
         }}
-    @MainActor private func refreshSimpleChainSendPreview<Preview>(
-        coinCheck: (Coin) -> Bool,
-        chainId: UInt32,
-        resolveAddress: (ImportedWallet) -> String?,
-        preparingKP: ReferenceWritableKeyPath<AppState, Bool>,
-        previewKP: ReferenceWritableKeyPath<AppState, Preview?>,
-        build: (SimplePreviewFields) -> Preview,
-        onError: ((Error) -> Void)? = nil
-    ) async {
-        guard let wallet = wallet(for: sendWalletID),
-              let selectedSendCoin = selectedSendCoin,
-              coinCheck(selectedSendCoin),
-              let amount = Double(sendAmount), amount > 0
-        else { self[keyPath: previewKP] = nil; self[keyPath: preparingKP] = false; return }
-        guard let src = resolveAddress(wallet) else { self[keyPath: previewKP] = nil; self[keyPath: preparingKP] = false; return }
-        guard !self[keyPath: preparingKP] else { return }
-        self[keyPath: preparingKP] = true; defer { self[keyPath: preparingKP] = false }
-        do {
-            let p = decodeSimplePreviewFields(from: try await WalletServiceBridge.shared.fetchSimpleChainSendPreviewJSON(chainId: chainId, address: src))
-            self[keyPath: previewKP] = build(p); sendError = nil
-        } catch {
-            if isCancelledRequest(error) { return }
-            if let onError { onError(error) } else { self[keyPath: previewKP] = nil; sendError = error.localizedDescription }
-        }
-    }
     // Simple-chain dispatch: Rust owns per-chain defaults (fee raw parsing, priorityLabel,
     // gasBudgetMist, feeStroops, etc.). Swift just resolves address, fetches JSON, and
     // applies the tagged-enum result to the right @Published field.

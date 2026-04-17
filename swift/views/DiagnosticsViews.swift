@@ -12,7 +12,7 @@ struct DiagnosticsHubView: View {
         let makeView: () -> AnyView
     }
     private var chainDestinations: [DiagnosticsDestination] {
-        ChainBackendRegistry.diagnosticsChains.compactMap { descriptor in
+        AppEndpointDirectory.diagnosticsChains.compactMap { descriptor in
             guard let chain = StandardDiagnosticsChain(chainID: descriptor.id) else { return nil }
             let title = store.displayChainTitle(for: descriptor.chainName) + " Diagnostics"
             return DiagnosticsDestination(
@@ -118,7 +118,7 @@ enum StandardDiagnosticsChain: Hashable, CaseIterable {
         case .near: self = .near
         case .polkadot: self = .polkadot
         }}
-    var descriptor: AppChainDescriptor { ChainBackendRegistry.appChain(for: chainID) }
+    var descriptor: AppChainDescriptor { AppEndpointDirectory.appChain(for: chainID) }
     var title: String { descriptor.title }
     var shortLabel: String { descriptor.shortLabel }
 }
@@ -470,7 +470,8 @@ struct StandardChainDiagnosticsView: View {
         switch chain {
         case .bitcoin: let parsedCustom = store.bitcoinEsploraEndpoints.components(separatedBy: CharacterSet(charactersIn: ",;\n")).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 .filter { !$0.isEmpty }
-            return EsploraProvider.runtimeBaseURLs(for: store.bitcoinNetworkMode, custom: parsedCustom)
+            let trimmed = parsedCustom.filter { !$0.isEmpty }
+            return trimmed.isEmpty ? AppEndpointDirectory.bitcoinEsploraBaseURLs(for: store.bitcoinNetworkMode) : trimmed
         case .bitcoinCash: return BitcoinCashBalanceService.endpointCatalog()
         case .bitcoinSV: return BitcoinSVBalanceService.endpointCatalog()
         case .litecoin: return LitecoinBalanceService.endpointCatalog()
@@ -480,13 +481,13 @@ struct StandardChainDiagnosticsView: View {
             if !custom.isEmpty { endpoints.append(custom) }
             let context = store.evmChainContext(for: "Ethereum") ?? .ethereum
             for endpoint in context.defaultRPCEndpoints where !endpoints.contains(endpoint) { endpoints.append(endpoint) }
-            for endpoint in ChainBackendRegistry.EVMExplorerRegistry.supplementalEndpointCatalogEntries(for: ChainBackendRegistry.ethereumChainName) where !endpoints.contains(endpoint) { endpoints.append(endpoint) }
+            for endpoint in AppEndpointDirectory.explorerSupplementalEndpoints(for: "Ethereum") where !endpoints.contains(endpoint) { endpoints.append(endpoint) }
             return endpoints
         case .ethereumClassic: return EVMChainContext.ethereumClassic.defaultRPCEndpoints
         case .arbitrum: return EVMChainContext.arbitrum.defaultRPCEndpoints
         case .optimism: return EVMChainContext.optimism.defaultRPCEndpoints
         case .bnb: var endpoints = EVMChainContext.bnb.defaultRPCEndpoints
-            for endpoint in ChainBackendRegistry.EVMExplorerRegistry.supplementalEndpointCatalogEntries(for: ChainBackendRegistry.bnbChainName) where !endpoints.contains(endpoint) { endpoints.append(endpoint) }
+            for endpoint in AppEndpointDirectory.explorerSupplementalEndpoints(for: "BNB Chain") where !endpoints.contains(endpoint) { endpoints.append(endpoint) }
             return endpoints
         case .avalanche: return EVMChainContext.avalanche.defaultRPCEndpoints
         case .hyperliquid: return EVMChainContext.hyperliquid.defaultRPCEndpoints

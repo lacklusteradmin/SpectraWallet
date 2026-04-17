@@ -1,25 +1,4 @@
 import Foundation
-private struct RustHistoryRecord: Decodable {
-    let id: String
-    let walletId: String?
-    let chainName: String
-    let txHash: String?
-    let createdAt: Double
-    let payload: String  // base64
-}
-private struct RustKeypoolState: Decodable {
-    let nextExternalIndex: Int
-    let nextChangeIndex: Int
-    let reservedReceiveIndex: Int?
-}
-private struct RustOwnedAddressRecord: Decodable {
-    let walletId: String
-    let chainName: String
-    let address: String
-    let derivationPath: String?
-    let branch: String?
-    let branchIndex: Int?
-}
 extension AppState {
     func loadCodableFromUserDefaults<T: Decodable>(_ type: T.Type, key: String) -> T? {
         guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
@@ -43,43 +22,26 @@ extension AppState {
         if let abJSON = try? await WalletServiceBridge.shared.loadState(key: Self.addressBookDefaultsKey), abJSON != "{}", let abPayload = try? decodePersistedAddressBookStoreJson(json: abJSON), abPayload.version == 1 {
             setAddressBook(abPayload.entries.compactMap(AddressBookEntry.init(snapshot:)))
         }
-        if let keypoolJSON = try? await WalletServiceBridge.shared.loadAllKeypoolState(), let keypoolData = keypoolJSON.data(using: .utf8), let allKeypool = try? JSONDecoder().decode(
-               [String: [String: RustKeypoolState]].self, from: keypoolData
-           ), !allKeypool.isEmpty {
-            if let dogeWalletMap = allKeypool["Dogecoin"] {
-                var rebuilt: [String: DogecoinKeypoolState] = [:]
-                for (uuidStr, state) in dogeWalletMap {
-                    rebuilt[uuidStr] = DogecoinKeypoolState(
-                        nextExternalIndex: state.nextExternalIndex, nextChangeIndex: state.nextChangeIndex, reservedReceiveIndex: state.reservedReceiveIndex
-                    )
-                }
-                if !rebuilt.isEmpty { dogecoinKeypoolByWalletID = rebuilt }}
+        if let allKeypool = try? await WalletServiceBridge.shared.loadAllKeypoolStateTyped(), !allKeypool.isEmpty {
             var rebuiltChains: [String: [String: ChainKeypoolState]] = [:]
-            for (chainName, walletMap) in allKeypool where chainName != "Dogecoin" {
+            for (chainName, walletMap) in allKeypool {
                 var rebuilt: [String: ChainKeypoolState] = [:]
                 for (uuidStr, state) in walletMap {
                     rebuilt[uuidStr] = ChainKeypoolState(
-                        nextExternalIndex: state.nextExternalIndex, nextChangeIndex: state.nextChangeIndex, reservedReceiveIndex: state.reservedReceiveIndex
+                        nextExternalIndex: Int(state.nextExternalIndex), nextChangeIndex: Int(state.nextChangeIndex), reservedReceiveIndex: state.reservedReceiveIndex.map { Int($0) }
                     )
                 }
                 if !rebuilt.isEmpty { rebuiltChains[chainName] = rebuilt }}
             if !rebuiltChains.isEmpty { chainKeypoolByChain = rebuiltChains }}
-        if let addrJSON = try? await WalletServiceBridge.shared.loadAllOwnedAddresses(), let addrData = addrJSON.data(using: .utf8), let allRecords = try? JSONDecoder().decode([RustOwnedAddressRecord].self, from: addrData), !allRecords.isEmpty {
-            var dogeMap: [String: DogecoinOwnedAddressRecord] = [:]
+        if let allRecords = try? await WalletServiceBridge.shared.loadAllOwnedAddressesTyped(), !allRecords.isEmpty {
             var chainMap: [String: [String: ChainOwnedAddressRecord]] = [:]
             for rec in allRecords {
                 guard !rec.address.isEmpty else { continue }
-                if rec.chainName == "Dogecoin" {
-                    dogeMap[rec.address] = DogecoinOwnedAddressRecord(
-                        address: rec.address, walletID: rec.walletId, derivationPath: rec.derivationPath ?? "", index: rec.branchIndex.map { Int($0) } ?? 0, branch: rec.branch ?? ""
-                    )
-                } else {
-                    let chainRecord = ChainOwnedAddressRecord(
-                        chainName: rec.chainName, address: rec.address, walletID: rec.walletId, derivationPath: rec.derivationPath, index: rec.branchIndex.map { Int($0) }, branch: rec.branch
-                    )
-                    chainMap[rec.chainName, default: [:]][rec.address] = chainRecord
-                }}
-            if !dogeMap.isEmpty { dogecoinOwnedAddressMap = dogeMap }
+                let chainRecord = ChainOwnedAddressRecord(
+                    chainName: rec.chainName, address: rec.address, walletID: rec.walletId, derivationPath: rec.derivationPath, index: rec.branchIndex.map { Int($0) }, branch: rec.branch
+                )
+                chainMap[rec.chainName, default: [:]][rec.address] = chainRecord
+            }
             if !chainMap.isEmpty { chainOwnedAddressMapByChain = chainMap }}
         if let rates = await loadCodableFromSQLite([String: Double].self, key: Self.fiatRatesFromUSDDefaultsKey), !rates.isEmpty {
             fiatRatesFromUSD = rates
@@ -89,27 +51,10 @@ extension AppState {
         if let events = await loadCodableFromSQLite([String: [ChainOperationalEvent]].self, key: Self.chainOperationalEventsDefaultsKey), !events.isEmpty { chainOperationalEventsByChain = events }
         if let feePrios = await loadCodableFromSQLite([String: String].self, key: Self.selectedFeePriorityOptionsByChainDefaultsKey), !feePrios.isEmpty { selectedFeePriorityOptionRawByChain = feePrios }
         if !wallets.isEmpty {
-            let summaries: [[String: Any]] = wallets.map { w in
-                let derivationPreset: String = w.seedDerivationPreset ?? "standard"
-                let derivationPaths: [String: String] = w.seedDerivationPaths ?? [:]
-                var d: [String: Any] = [
-                    "id": w.id, "name": w.name, "isWatchOnly": false, "selectedChain": w.selectedChain, "includeInPortfolioTotal": w.includeInPortfolioTotal, "bitcoinNetworkMode": w.bitcoinNetworkMode.rawValue, "dogecoinNetworkMode": w.dogecoinNetworkMode.rawValue, "derivationPreset": derivationPreset, "derivationPaths": derivationPaths, "holdings": w.holdings.map { coin -> [String: Any] in
-                        var h: [String: Any] = [
-                            "name": coin.name, "symbol": coin.symbol, "marketDataId": coin.marketDataId, "coinGeckoId": coin.coinGeckoId, "chainName": coin.chainName, "tokenStandard": coin.tokenStandard, "amount": coin.amount, "priceUsd": coin.priceUsd
-                        ]
-                        if let contract = coin.contractAddress { h["contractAddress"] = contract }
-                        return h
-                    }, "addresses": []
-                ]
-                if let xpub = w.bitcoinXpub { d["bitcoinXpub"] = xpub }
-                return d
-            }
-            if let data = try? JSONSerialization.data(withJSONObject: summaries), let json = String(data: data, encoding: .utf8) { try? await WalletServiceBridge.shared.initWalletState(walletsJson: json) }}
+            let summaries: [WalletSummary] = wallets.map { $0.walletSummary }
+            try? await WalletServiceBridge.shared.initWalletStateDirect(wallets: summaries) }
         // ── Load app settings from Rust SQLite ────────────────────────────────
-        if let settingsJSON = try? await WalletServiceBridge.shared.loadAppSettings(),
-           settingsJSON != "{}",
-           let settingsData = settingsJSON.data(using: .utf8),
-           let settings = try? JSONDecoder().decode(PersistedAppSettings.self, from: settingsData) {
+        if let settings = try? await WalletServiceBridge.shared.loadAppSettingsTyped() {
             if let v = PricingProvider(rawValue: settings.pricingProvider) { pricingProvider = v }
             if let v = FiatCurrency(rawValue: settings.selectedFiatCurrency) { selectedFiatCurrency = v }
             if let v = FiatRateProvider(rawValue: settings.fiatRateProvider) { fiatRateProvider = v }
@@ -119,33 +64,30 @@ extension AppState {
             if let v = BitcoinFeePriority(rawValue: settings.bitcoinFeePriority) { bitcoinFeePriority = v }
             if let v = DogecoinFeePriority(rawValue: settings.dogecoinFeePriority) { dogecoinFeePriority = v }
             if let v = BackgroundSyncProfile(rawValue: settings.backgroundSyncProfile) { backgroundSyncProfile = v }
-            ethereumRPCEndpoint = settings.ethereumRPCEndpoint
-            etherscanAPIKey = settings.etherscanAPIKey
-            moneroBackendBaseURL = settings.moneroBackendBaseURL
-            moneroBackendAPIKey = settings.moneroBackendAPIKey
+            ethereumRPCEndpoint = settings.ethereumRpcEndpoint
+            etherscanAPIKey = settings.etherscanApiKey
+            moneroBackendBaseURL = settings.moneroBackendBaseUrl
+            moneroBackendAPIKey = settings.moneroBackendApiKey
             bitcoinEsploraEndpoints = settings.bitcoinEsploraEndpoints
-            bitcoinStopGap = settings.bitcoinStopGap
+            bitcoinStopGap = Int(settings.bitcoinStopGap)
             hideBalances = settings.hideBalances
-            useFaceID = settings.useFaceID
+            useFaceID = settings.useFaceId
             useAutoLock = settings.useAutoLock
-            useStrictRPCOnly = settings.useStrictRPCOnly
+            useStrictRPCOnly = settings.useStrictRpcOnly
             requireBiometricForSendActions = settings.requireBiometricForSendActions
             usePriceAlerts = settings.usePriceAlerts
             useTransactionStatusNotifications = settings.useTransactionStatusNotifications
             useLargeMovementNotifications = settings.useLargeMovementNotifications
-            automaticRefreshFrequencyMinutes = settings.automaticRefreshFrequencyMinutes
+            automaticRefreshFrequencyMinutes = Int(settings.automaticRefreshFrequencyMinutes)
             largeMovementAlertPercentThreshold = settings.largeMovementAlertPercentThreshold
-            largeMovementAlertUSDThreshold = settings.largeMovementAlertUSDThreshold
+            largeMovementAlertUSDThreshold = settings.largeMovementAlertUsdThreshold
             if !settings.pinnedDashboardAssetSymbols.isEmpty { cachedPinnedDashboardAssetSymbols = settings.pinnedDashboardAssetSymbols }
         } else {
             // No SQLite settings yet — persist current (UserDefaults-loaded) values to SQLite for future launches
             persistAppSettings()
         }
         // ── Load transaction history from Rust SQLite ─────────────────────────
-        if let historyJSON = try? await WalletServiceBridge.shared.fetchAllHistoryRecords(),
-           historyJSON != "[]",
-           let historyData = historyJSON.data(using: .utf8),
-           let rustRecords = try? JSONDecoder().decode([RustHistoryRecord].self, from: historyData),
+        if let rustRecords = try? await WalletServiceBridge.shared.fetchAllHistoryRecordsTyped(),
            !rustRecords.isEmpty {
             let rustTransactions = rustRecords.compactMap { rec -> TransactionRecord? in
                 guard let payloadData = Data(base64Encoded: rec.payload),
@@ -171,7 +113,6 @@ extension AppState {
             SecureStore.deleteValue(for: Self.walletsAccount)
             SecureStore.deleteValue(for: Self.walletsCoreSnapshotAccount)
             clearWalletSecretIndex()
-            dogecoinOwnedAddressMap = [:]
             chainOwnedAddressMapByChain = [:]
             chainKeypoolByChain = [:]
             return
@@ -179,9 +120,6 @@ extension AppState {
         let currentWalletIDs = Set(wallets.map(\.id))
         storedWalletIDs().filter { !currentWalletIDs.contains($0) }
             .forEach { walletID in deleteWalletSecrets(for: walletID) }
-        dogecoinOwnedAddressMap = dogecoinOwnedAddressMap.filter { _, value in
-            currentWalletIDs.contains(value.walletID)
-        }
         chainOwnedAddressMapByChain = chainOwnedAddressMapByChain.reduce(into: [:]) { partialResult, entry in
             let filtered = entry.value.filter { _, value in
                 currentWalletIDs.contains(value.walletID)
@@ -197,28 +135,20 @@ extension AppState {
         let payload = PersistedWalletStore(version: PersistedWalletStore.currentVersion, wallets: snapshots)
         guard let data = try? Self.persistenceEncoder.encode(payload) else { return }
         SecureStore.saveData(data, for: Self.walletsAccount)
-        if let coreStateData = try? WalletRustAppCoreBridge.migrateLegacyWalletStoreData(data), let coreSnapshotData = try? WalletRustAppCoreBridge.buildPersistedSnapshotData(
-                appStateData: coreStateData, secretObservations: currentWalletSecretObservations(for: currentWalletIDs)
-           ) {
-            SecureStore.saveData(coreSnapshotData, for: Self.walletsCoreSnapshotAccount)
-            if let secretIndex = try? WalletRustAppCoreBridge.walletSecretIndex(fromCoreSnapshotData: coreSnapshotData) { applyWalletSecretIndex(secretIndex) }
-        } else if let coreStateData = try? WalletRustAppCoreBridge.migrateLegacyWalletStoreData(data) { SecureStore.saveData(coreStateData, for: Self.walletsCoreSnapshotAccount) }}
+    }
     func loadPersistedWallets() -> [ImportedWallet] {
-        if let coreSnapshotData = SecureStore.loadData(for: Self.walletsCoreSnapshotAccount), let secretIndex = try? WalletRustAppCoreBridge.walletSecretIndex(fromCoreSnapshotData: coreSnapshotData) { applyWalletSecretIndex(secretIndex) } else { clearWalletSecretIndex() }
-        if let coreSnapshotData = SecureStore.loadData(for: Self.walletsCoreSnapshotAccount), let exportedLegacyData = try? WalletRustAppCoreBridge.exportLegacyWalletStoreData(fromCoreStateData: coreSnapshotData), let wallets = decodedWalletSnapshots(from: exportedLegacyData) { return wallets }
+        clearWalletSecretIndex()
         guard let data = SecureStore.loadData(for: Self.walletsAccount) else { return [] }
         return decodedWalletSnapshots(from: data) ?? []
     }
     func storedWalletIDs() -> [String] {
-        if let coreSnapshotData = SecureStore.loadData(for: Self.walletsCoreSnapshotAccount), let exportedLegacyData = try? WalletRustAppCoreBridge.exportLegacyWalletStoreData(fromCoreStateData: coreSnapshotData), let payload = try? Self.persistenceDecoder.decode(PersistedWalletStore.self, from: exportedLegacyData), payload.version == PersistedWalletStore.currentVersion {
-            return payload.wallets.map { $0.id }}
         guard let data = SecureStore.loadData(for: Self.walletsAccount) else { return [] }
         if let payload = try? Self.persistenceDecoder.decode(PersistedWalletStore.self, from: data), payload.version == PersistedWalletStore.currentVersion {
             return payload.wallets.map { $0.id }}
         return []
     }
     func sanitizedWallet(_ wallet: ImportedWallet) -> ImportedWallet {
-        let supportedHoldings = wallet.holdings.filter { coin in ChainBackendRegistry.supportsBalanceRefresh(for: coin.chainName) }
+        let supportedHoldings = wallet.holdings.filter { coin in AppEndpointDirectory.supportsBalanceRefresh(for: coin.chainName) }
         return ImportedWallet(
             id: wallet.id, name: wallet.name, bitcoinNetworkMode: wallet.bitcoinNetworkMode, dogecoinNetworkMode: wallet.dogecoinNetworkMode, bitcoinAddress: wallet.bitcoinAddress, bitcoinXpub: wallet.bitcoinXpub, bitcoinCashAddress: wallet.bitcoinCashAddress, bitcoinSvAddress: wallet.bitcoinSvAddress, litecoinAddress: wallet.litecoinAddress, dogecoinAddress: wallet.dogecoinAddress, ethereumAddress: wallet.ethereumAddress, tronAddress: wallet.tronAddress, solanaAddress: wallet.solanaAddress, stellarAddress: wallet.stellarAddress, xrpAddress: wallet.xrpAddress, moneroAddress: wallet.moneroAddress, cardanoAddress: wallet.cardanoAddress, suiAddress: wallet.suiAddress, aptosAddress: wallet.aptosAddress, tonAddress: wallet.tonAddress, icpAddress: wallet.icpAddress, nearAddress: wallet.nearAddress, polkadotAddress: wallet.polkadotAddress, seedDerivationPreset: wallet.seedDerivationPreset, seedDerivationPaths: wallet.seedDerivationPaths, selectedChain: wallet.selectedChain, holdings: supportedHoldings, includeInPortfolioTotal: wallet.includeInPortfolioTotal
         )
@@ -248,67 +178,37 @@ extension AppState {
         persistCodableToSQLite(tokenPreferences, key: Self.tokenPreferencesDefaultsKey)
     }
     // ── App settings persistence (Rust SQLite) ─────────────────────────────────
-    private struct PersistedAppSettings: Codable {
-        var pricingProvider: String
-        var selectedFiatCurrency: String
-        var fiatRateProvider: String
-        var ethereumRPCEndpoint: String
-        var ethereumNetworkMode: String
-        var etherscanAPIKey: String
-        var moneroBackendBaseURL: String
-        var moneroBackendAPIKey: String
-        var bitcoinNetworkMode: String
-        var dogecoinNetworkMode: String
-        var bitcoinEsploraEndpoints: String
-        var bitcoinStopGap: Int
-        var bitcoinFeePriority: String
-        var dogecoinFeePriority: String
-        var hideBalances: Bool
-        var useFaceID: Bool
-        var useAutoLock: Bool
-        var useStrictRPCOnly: Bool
-        var requireBiometricForSendActions: Bool
-        var usePriceAlerts: Bool
-        var useTransactionStatusNotifications: Bool
-        var useLargeMovementNotifications: Bool
-        var automaticRefreshFrequencyMinutes: Int
-        var backgroundSyncProfile: String
-        var largeMovementAlertPercentThreshold: Double
-        var largeMovementAlertUSDThreshold: Double
-        var pinnedDashboardAssetSymbols: [String]
-    }
     func persistAppSettings() {
         let settings = PersistedAppSettings(
             pricingProvider: pricingProvider.rawValue,
             selectedFiatCurrency: selectedFiatCurrency.rawValue,
             fiatRateProvider: fiatRateProvider.rawValue,
-            ethereumRPCEndpoint: ethereumRPCEndpoint,
+            ethereumRpcEndpoint: ethereumRPCEndpoint,
             ethereumNetworkMode: ethereumNetworkMode.rawValue,
-            etherscanAPIKey: etherscanAPIKey,
-            moneroBackendBaseURL: moneroBackendBaseURL,
-            moneroBackendAPIKey: moneroBackendAPIKey,
+            etherscanApiKey: etherscanAPIKey,
+            moneroBackendBaseUrl: moneroBackendBaseURL,
+            moneroBackendApiKey: moneroBackendAPIKey,
             bitcoinNetworkMode: bitcoinNetworkMode.rawValue,
             dogecoinNetworkMode: dogecoinNetworkMode.rawValue,
             bitcoinEsploraEndpoints: bitcoinEsploraEndpoints,
-            bitcoinStopGap: bitcoinStopGap,
+            bitcoinStopGap: Int32(bitcoinStopGap),
             bitcoinFeePriority: bitcoinFeePriority.rawValue,
             dogecoinFeePriority: dogecoinFeePriority.rawValue,
             hideBalances: hideBalances,
-            useFaceID: useFaceID,
+            useFaceId: useFaceID,
             useAutoLock: useAutoLock,
-            useStrictRPCOnly: useStrictRPCOnly,
+            useStrictRpcOnly: useStrictRPCOnly,
             requireBiometricForSendActions: requireBiometricForSendActions,
             usePriceAlerts: usePriceAlerts,
             useTransactionStatusNotifications: useTransactionStatusNotifications,
             useLargeMovementNotifications: useLargeMovementNotifications,
-            automaticRefreshFrequencyMinutes: automaticRefreshFrequencyMinutes,
+            automaticRefreshFrequencyMinutes: Int32(automaticRefreshFrequencyMinutes),
             backgroundSyncProfile: backgroundSyncProfile.rawValue,
             largeMovementAlertPercentThreshold: largeMovementAlertPercentThreshold,
-            largeMovementAlertUSDThreshold: largeMovementAlertUSDThreshold,
+            largeMovementAlertUsdThreshold: largeMovementAlertUSDThreshold,
             pinnedDashboardAssetSymbols: cachedPinnedDashboardAssetSymbols
         )
-        guard let data = try? JSONEncoder().encode(settings), let json = String(data: data, encoding: .utf8) else { return }
-        Task { await WalletServiceBridge.shared.saveAppSettings(json: json) }
+        WalletServiceBridge.shared.saveAppSettingsTyped(settings: settings)
     }
     func loadPersistedTokenPreferences() -> [TokenPreferenceEntry] {
         guard let decoded = loadCodableFromUserDefaults(
@@ -339,19 +239,5 @@ extension AppState {
             logBalanceTelemetry(source: "local", chainName: "PersistedWalletStore", wallet: wallet, holdings: wallet.holdings)
 #endif
             return wallet
-        }}
-    private func currentWalletSecretObservations(for walletIDs: Set<String>) -> [WalletRustSecretObservation] {
-        walletIDs.map { walletID in
-            let seedAccount = Self.seedPhraseAccount(for: walletID)
-            let passwordAccount = Self.seedPhrasePasswordAccount(for: walletID)
-            let privateKeyAccount = Self.privateKeyAccount(for: walletID)
-            let hasSeedPhrase = ((try? SecureSeedStore.loadValue(for: seedAccount)) ?? "").isEmpty == false
-            let hasPrivateKey = SecurePrivateKeyStore.loadValue(for: privateKeyAccount).isEmpty == false
-            let hasPassword = SecureSeedPasswordStore.hasPassword(for: passwordAccount)
-            let secretKind: String?
-            if hasPrivateKey { secretKind = "privateKey" } else if hasSeedPhrase { secretKind = "seedPhrase" } else { secretKind = "watchOnly" }
-            return WalletRustSecretObservation(
-                walletID: walletID, secretKind: secretKind, hasSeedPhrase: hasSeedPhrase, hasPrivateKey: hasPrivateKey, hasPassword: hasPassword
-            )
         }}
 }

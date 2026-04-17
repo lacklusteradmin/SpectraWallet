@@ -2,13 +2,6 @@ import Foundation
 import SwiftUI
 @MainActor
 extension AppState {
-    func refreshPendingEthereumTransactions() async { await refreshPendingEVMTransactions(chainName: "Ethereum") }
-    func refreshPendingArbitrumTransactions() async { await refreshPendingEVMTransactions(chainName: "Arbitrum") }
-    func refreshPendingOptimismTransactions() async { await refreshPendingEVMTransactions(chainName: "Optimism") }
-    func refreshPendingETCTransactions() async { await refreshPendingEVMTransactions(chainName: "Ethereum Classic") }
-    func refreshPendingBNBTransactions() async { await refreshPendingEVMTransactions(chainName: "BNB Chain") }
-    func refreshPendingAvalancheTransactions() async { await refreshPendingEVMTransactions(chainName: "Avalanche") }
-    func refreshPendingHyperliquidTransactions() async { await refreshPendingEVMTransactions(chainName: "Hyperliquid") }
     func refreshPendingEVMTransactions(chainName: String) async {
         let now = Date()
         guard let chainId = SpectraChainID.id(for: chainName) else { return }
@@ -19,7 +12,7 @@ extension AppState {
                 && transaction.transactionHash != nil
         }
         guard !pendingTransactions.isEmpty else { return }
-        var resolvedReceipts: [UUID: (TransactionStatus, EthereumTransactionReceipt)] = [:]
+        var resolvedClassifications: [UUID: (TransactionStatus, EvmReceiptClassification)] = [:]
         for transaction in pendingTransactions {
             guard let transactionHash = transaction.transactionHash else { continue }
             guard shouldPollTransactionStatus(for: transaction, now: now) else { continue }
@@ -35,19 +28,16 @@ extension AppState {
                 }
                 if classified.isConfirmed {
                     let resolvedStatus: TransactionStatus = classified.isFailed ? .failed : .confirmed
-                    let receipt = EthereumTransactionReceipt(
-                        transactionHash: transactionHash, blockNumber: classified.blockNumber.map(Int.init), status: classified.isFailed ? "0x0" : "0x1", gasUsed: nil, effectiveGasPriceWei: nil
-                    )
                     markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus, now: now)
-                    resolvedReceipts[transaction.id] = (resolvedStatus, receipt)
+                    resolvedClassifications[transaction.id] = (resolvedStatus, classified)
                 } else { markTransactionStatusPollSuccess(for: transaction, resolvedStatus: .pending, now: now) }
             } catch {
                 markTransactionStatusPollFailure(for: transaction, now: now)
                 continue
             }}
-        let resolvedStatuses = resolvedReceipts.mapValues { resolvedStatus, receipt in
+        let resolvedStatuses = resolvedClassifications.mapValues { resolvedStatus, classified in
             PendingTransactionStatusResolution(
-                status: resolvedStatus, receiptBlockNumber: receipt.blockNumber, confirmations: nil, dogecoinNetworkFeeDoge: nil
+                status: resolvedStatus, receiptBlockNumber: classified.blockNumber.map(Int.init), confirmations: nil, dogecoinNetworkFeeDoge: nil
             )
         }
         let staleFailureIDs = stalePendingFailureIDs(from: pendingTransactions, now: now)
