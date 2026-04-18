@@ -9,11 +9,10 @@ extension AppState {
         return level < 0 ? 1.0 : level
     }
     func activePendingRefreshIntervalForProfile() -> TimeInterval {
-        switch backgroundSyncProfile {
-        case .conservative: return 30
-        case .balanced: return Self.activePendingRefreshInterval
-        case .aggressive: return 10
-        }}
+        Spectra.activePendingRefreshIntervalForProfile(
+            backgroundSyncProfile: backgroundSyncProfile.rawValue, balancedInterval: Self.activePendingRefreshInterval
+        )
+    }
     func activePriceRefreshIntervalForProfile() -> TimeInterval { TimeInterval(automaticRefreshFrequencyMinutes * 60) }
     func baseBackgroundMaintenanceInterval() -> TimeInterval { TimeInterval(backgroundBalanceRefreshFrequencyMinutes * 60) }
     func backgroundMaintenanceInterval(now _: Date = Date()) -> TimeInterval {
@@ -65,7 +64,7 @@ extension AppState {
         lastObservedPortfolioTotalUSD = totalBalance
         lastObservedPortfolioCompositionSignature = portfolioCompositionSignature()
     }
-    func portfolioCompositionSignature() -> String { portfolio.map(\.holdingKey).sorted().joined(separator: "|") }
+    func portfolioCompositionSignature() -> String { Spectra.portfolioCompositionSignature(holdingKeys: portfolio.map(\.holdingKey)) }
     func performBackgroundMaintenanceTick() async {
         let startedAt = CFAbsoluteTimeGetCurrent()
         logger.log("Running background maintenance tick")

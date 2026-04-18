@@ -60,27 +60,31 @@ enum WalletRustDerivationBridge {
     nonisolated static func deriveAllAddresses(seedPhrase: String, chainPaths: [String: String]) throws -> [String: String] {
         try derivationDeriveAllAddresses(seedPhrase: seedPhrase, chainPaths: chainPaths)
     }
-    nonisolated private static func ffiDerivationAlgorithm(from preset: WalletDerivationRequestDerivationAlgorithmPreset) -> WalletRustFFIDerivationAlgorithm {
-        switch preset {
-        case .bip32Secp256k1: return .bip32Secp256k1
-        case .slip10Ed25519: return .slip10Ed25519
+    nonisolated private static func ffiDerivationAlgorithm(from raw: String) -> WalletRustFFIDerivationAlgorithm {
+        switch raw {
+        case "bip32Secp256k1": return .bip32Secp256k1
+        case "slip10Ed25519": return .slip10Ed25519
+        default: fatalError("Unknown derivation algorithm: \(raw)")
         }}
-    nonisolated private static func ffiAddressAlgorithm(from preset: WalletDerivationRequestAddressAlgorithmPreset) -> WalletRustFFIAddressAlgorithm {
-        switch preset {
-        case .bitcoin: return .bitcoin
-        case .evm: return .evm
-        case .solana: return .solana
+    nonisolated private static func ffiAddressAlgorithm(from raw: String) -> WalletRustFFIAddressAlgorithm {
+        switch raw {
+        case "bitcoin": return .bitcoin
+        case "evm": return .evm
+        case "solana": return .solana
+        default: fatalError("Unknown address algorithm: \(raw)")
         }}
-    nonisolated private static func ffiPublicKeyFormat(from preset: WalletDerivationRequestPublicKeyFormatPreset) -> WalletRustFFIPublicKeyFormat {
-        switch preset {
-        case .compressed: return .compressed
-        case .uncompressed: return .uncompressed
-        case .xOnly: return .xOnly
-        case .raw: return .raw
+    nonisolated private static func ffiPublicKeyFormat(from raw: String) -> WalletRustFFIPublicKeyFormat {
+        switch raw {
+        case "compressed": return .compressed
+        case "uncompressed": return .uncompressed
+        case "xOnly": return .xOnly
+        case "raw": return .raw
+        default: fatalError("Unknown public key format: \(raw)")
         }}
     nonisolated private static func compileScriptType(from preset: WalletDerivationRequestCompilationPreset, derivationPath: String?) throws -> WalletRustFFIScriptType {
         switch preset.scriptPolicy {
-        case .bitcoinPurpose: guard let purpose = derivationPath.flatMap({ coreDerivationPathSegmentValue(path: $0, index: 0) }) else {
+        case "bitcoinPurpose":
+            guard let purpose = derivationPath.flatMap({ coreDerivationPathSegmentValue(path: $0, index: 0) }) else {
                 throw WalletRustDerivationBridgeError.requestCompilationFailed("Unable to compile Bitcoin script type from derivation path.")
             }
             guard let mappedScript = preset.bitcoinPurposeScriptMap?[String(purpose)] else {
@@ -89,16 +93,20 @@ enum WalletRustDerivationBridge {
                 )
             }
             return ffiScriptType(from: mappedScript)
-        case .fixed: guard let fixedScriptType = preset.fixedScriptType else { throw WalletRustDerivationBridgeError.requestCompilationFailed("Fixed script policy requires fixedScriptType.") }
+        case "fixed":
+            guard let fixedScriptType = preset.fixedScriptType else { throw WalletRustDerivationBridgeError.requestCompilationFailed("Fixed script policy requires fixedScriptType.") }
             return ffiScriptType(from: fixedScriptType)
+        default:
+            throw WalletRustDerivationBridgeError.requestCompilationFailed("Unknown script policy: \(preset.scriptPolicy)")
         }}
-    nonisolated private static func ffiScriptType(from preset: WalletDerivationRequestScriptTypePreset) -> WalletRustFFIScriptType {
-        switch preset {
-        case .p2pkh: return .p2pkh
-        case .p2shP2wpkh: return .p2shP2wpkh
-        case .p2wpkh: return .p2wpkh
-        case .p2tr: return .p2tr
-        case .account: return .account
+    nonisolated private static func ffiScriptType(from raw: String) -> WalletRustFFIScriptType {
+        switch raw {
+        case "p2pkh": return .p2pkh
+        case "p2shP2wpkh": return .p2shP2wpkh
+        case "p2wpkh": return .p2wpkh
+        case "p2tr": return .p2tr
+        case "account": return .account
+        default: fatalError("Unknown script type: \(raw)")
         }}
 }
 enum WalletRustFFIChain: UInt32 {

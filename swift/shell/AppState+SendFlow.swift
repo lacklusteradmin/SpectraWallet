@@ -779,9 +779,9 @@ extension AppState {
                     ), index: nextReserved, branch: "external"
                 )
             }}}
-    private static let chainNameToDerivationChain: [String: SeedDerivationChain] = [
-        "Bitcoin": .bitcoin, "Bitcoin Cash": .bitcoinCash, "Bitcoin SV": .bitcoinSV, "Litecoin": .litecoin, "Dogecoin": .dogecoin, "Ethereum": .ethereum, "Ethereum Classic": .ethereumClassic, "Arbitrum": .arbitrum, "Optimism": .optimism, "BNB Chain": .ethereum, "Avalanche": .avalanche, "Hyperliquid": .hyperliquid, "Tron": .tron, "Solana": .solana, "Stellar": .stellar, "XRP Ledger": .xrp, "Cardano": .cardano, "Sui": .sui, "Aptos": .aptos, "TON": .ton, "Internet Computer": .internetComputer, "NEAR": .near, "Polkadot": .polkadot, ]
-    func seedDerivationChain(for chainName: String) -> SeedDerivationChain? { Self.chainNameToDerivationChain[chainName] }
+    func seedDerivationChain(for chainName: String) -> SeedDerivationChain? {
+        coreSeedDerivationChainRaw(chainName: chainName).flatMap(SeedDerivationChain.init(rawValue:))
+    }
     func walletHasAddress(for wallet: ImportedWallet, chainName: String) -> Bool { resolvedAddress(for: wallet, chainName: chainName) != nil }
     func normalizedOwnedAddressKey(chainName: String, address: String) -> String { address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
     func registerOwnedAddress(

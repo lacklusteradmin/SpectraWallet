@@ -135,14 +135,9 @@ enum EthereumWalletEngineError: LocalizedError {
 func normalizeEVMAddress(_ address: String) -> String {
     address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 }
-func isValidEVMAddress(_ address: String) -> Bool {
-    let normalized = normalizeEVMAddress(address)
-    guard normalized.count == 42, normalized.hasPrefix("0x") else { return false }
-    return normalized.dropFirst(2).allSatisfy(\.isHexDigit)
-}
 func validateEVMAddress(_ address: String) throws -> String {
     let normalized = normalizeEVMAddress(address)
-    guard isValidEVMAddress(normalized) else { throw EthereumWalletEngineError.invalidAddress }
+    guard AddressValidation.isValid(normalized, kind: "evm") else { throw EthereumWalletEngineError.invalidAddress }
     return normalized
 }
 func receiveEVMAddress(for address: String) throws -> String {

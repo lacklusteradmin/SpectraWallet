@@ -76,13 +76,14 @@ extension AppState {
         ) else {
             return
         }
-        if scopes.contains(.walletsAndSecrets) { resetWalletsAndSecretsState() }
-        if scopes.contains(.historyAndCache) || scopes.contains(.walletsAndSecrets) { resetHistoryAndCacheState() }
-        if scopes.contains(.alertsAndContacts) { resetAlertsAndContactsState() }
-        if scopes.contains(.settingsAndEndpoints) { resetSettingsAndEndpointsState() }
-        if scopes.contains(.dashboardCustomization) { resetDashboardCustomizationState() }
-        if scopes.contains(.providerState) { await resetProviderState() }
-        if scopes.contains(.walletsAndSecrets) || scopes.contains(.historyAndCache) { clearNetworkAndTransportCaches() }
+        let plan = corePlanResetDispatch(scopes: scopes.map(\.rawValue))
+        if plan.resetWalletsAndSecrets { resetWalletsAndSecretsState() }
+        if plan.resetHistoryAndCache { resetHistoryAndCacheState() }
+        if plan.resetAlertsAndContacts { resetAlertsAndContactsState() }
+        if plan.resetSettingsAndEndpoints { resetSettingsAndEndpointsState() }
+        if plan.resetDashboardCustomization { resetDashboardCustomizationState() }
+        if plan.resetProviderState { await resetProviderState() }
+        if plan.clearNetworkAndTransportCaches { clearNetworkAndTransportCaches() }
         UserDefaults.standard.set(true, forKey: Self.installMarkerDefaultsKey)
     }
     private func resetWalletsAndSecretsState() {

@@ -27,7 +27,7 @@ extension AppState {
             for: wallet, chain: .bitcoin, network: derivationNetwork(for: networkMode),
             derivationPath: walletDerivationPath(for: wallet, chain: .bitcoin),
             storedAddress: wallet.bitcoinAddress,
-            validate: { AddressValidation.isValid($0, kind: "bitcoin", networkMode: networkMode.rawValue) }
+            validationKind: "bitcoin", validationNetworkMode: networkMode.rawValue
         )
     }
 
@@ -39,78 +39,73 @@ extension AppState {
         return resolveDerivedOrStoredAddress(
             for: wallet, chain: .dogecoin, network: derivationNetwork(for: networkMode),
             derivationPath: derivationPath, storedAddress: wallet.dogecoinAddress,
-            validate: { self.isValidDogecoinAddressForPolicy($0, networkMode: networkMode) }
+            validationKind: "dogecoin", validationNetworkMode: networkMode.rawValue
         )
     }
 
     func resolvedTronAddress(for wallet: ImportedWallet) -> String? {
         resolveDerivedOrStoredAddress(
             for: wallet, chain: .tron, derivationPath: wallet.seedDerivationPaths.tron,
-            storedAddress: wallet.tronAddress, validate: { AddressValidation.isValid($0, kind: "tron") }
+            storedAddress: wallet.tronAddress, validationKind: "tron"
         )
     }
 
     func resolvedSolanaAddress(for wallet: ImportedWallet) -> String? {
         resolveDerivedOrStoredAddress(
             for: wallet, chain: .solana, derivationPath: walletDerivationPath(for: wallet, chain: .solana),
-            storedAddress: wallet.solanaAddress, validate: { AddressValidation.isValid($0, kind: "solana") }
+            storedAddress: wallet.solanaAddress, validationKind: "solana"
         )
     }
 
     func resolvedSuiAddress(for wallet: ImportedWallet) -> String? {
         resolveDerivedOrStoredAddress(
             for: wallet, chain: .sui, derivationPath: walletDerivationPath(for: wallet, chain: .sui),
-            storedAddress: wallet.suiAddress, validate: { AddressValidation.isValid($0, kind: "sui") },
-            storedNormalizer: { AddressValidation.normalized($0, kind: "sui") }
+            storedAddress: wallet.suiAddress, validationKind: "sui", normalizeStored: true
         )
     }
 
     func resolvedAptosAddress(for wallet: ImportedWallet) -> String? {
         resolveDerivedOrStoredAddress(
             for: wallet, chain: .aptos, derivationPath: walletDerivationPath(for: wallet, chain: .aptos),
-            storedAddress: wallet.aptosAddress, validate: { AddressValidation.isValid($0, kind: "aptos") },
-            storedNormalizer: { AddressValidation.normalized($0, kind: "aptos") }
+            storedAddress: wallet.aptosAddress, validationKind: "aptos", normalizeStored: true
         )
     }
 
     func resolvedTONAddress(for wallet: ImportedWallet) -> String? {
         resolveDerivedOrStoredAddress(
             for: wallet, chain: .ton, derivationPath: walletDerivationPath(for: wallet, chain: .ton),
-            storedAddress: wallet.tonAddress, validate: { AddressValidation.isValid($0, kind: "ton") },
-            storedNormalizer: { AddressValidation.normalized($0, kind: "ton") }
+            storedAddress: wallet.tonAddress, validationKind: "ton", normalizeStored: true
         )
     }
 
     func resolvedICPAddress(for wallet: ImportedWallet) -> String? {
         resolveDerivedOrStoredAddress(
             for: wallet, chain: .internetComputer, derivationPath: wallet.seedDerivationPaths.internetComputer,
-            storedAddress: wallet.icpAddress, validate: { AddressValidation.isValid($0, kind: "internetComputer") },
-            storedNormalizer: { AddressValidation.normalized($0, kind: "internetComputer") }
+            storedAddress: wallet.icpAddress, validationKind: "internetComputer", normalizeStored: true
         )
     }
 
     func resolvedNearAddress(for wallet: ImportedWallet) -> String? {
         resolveDerivedOrStoredAddress(
             for: wallet, chain: .near, derivationPath: walletDerivationPath(for: wallet, chain: .near),
-            storedAddress: wallet.nearAddress, validate: { AddressValidation.isValid($0, kind: "near") },
-            derivedPostProcess: { $0.lowercased() },
-            storedNormalizer: { AddressValidation.normalized($0, kind: "near") }
+            storedAddress: wallet.nearAddress, validationKind: "near",
+            derivedPostProcess: .lowercase, normalizeStored: true
         )
     }
 
     func resolvedPolkadotAddress(for wallet: ImportedWallet) -> String? {
         resolveDerivedOrStoredAddress(
             for: wallet, chain: .polkadot, derivationPath: wallet.seedDerivationPaths.polkadot,
-            storedAddress: wallet.polkadotAddress, validate: { AddressValidation.isValid($0, kind: "polkadot") },
-            derivedPostProcess: { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            storedAddress: wallet.polkadotAddress, validationKind: "polkadot",
+            derivedPostProcess: .trim
         )
     }
 
     func resolvedStellarAddress(for wallet: ImportedWallet) -> String? {
         resolveDerivedOrStoredAddress(
             for: wallet, chain: .stellar, derivationPath: wallet.seedDerivationPaths.stellar,
-            storedAddress: wallet.stellarAddress, validate: { AddressValidation.isValid($0, kind: "stellar") },
-            derivedPostProcess: { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            storedAddress: wallet.stellarAddress, validationKind: "stellar",
+            derivedPostProcess: .trim
         )
     }
 
@@ -129,7 +124,7 @@ extension AppState {
     func resolvedXRPAddress(for wallet: ImportedWallet) -> String? {
         resolveDerivedOrStoredAddress(
             for: wallet, chain: .xrp, derivationPath: walletDerivationPath(for: wallet, chain: .xrp),
-            storedAddress: wallet.xrpAddress, validate: { AddressValidation.isValid($0, kind: "xrp") }
+            storedAddress: wallet.xrpAddress, validationKind: "xrp"
         )
     }
 
@@ -141,21 +136,21 @@ extension AppState {
     func resolvedLitecoinAddress(for wallet: ImportedWallet) -> String? {
         resolveDerivedOrStoredAddress(
             for: wallet, chain: .litecoin, derivationPath: walletDerivationPath(for: wallet, chain: .litecoin),
-            storedAddress: wallet.litecoinAddress, validate: { AddressValidation.isValid($0, kind: "litecoin") }
+            storedAddress: wallet.litecoinAddress, validationKind: "litecoin"
         )
     }
 
     func resolvedBitcoinCashAddress(for wallet: ImportedWallet) -> String? {
         resolveDerivedOrStoredAddress(
             for: wallet, chain: .bitcoinCash, derivationPath: walletDerivationPath(for: wallet, chain: .bitcoinCash),
-            storedAddress: wallet.bitcoinCashAddress, validate: { AddressValidation.isValid($0, kind: "bitcoinCash") }
+            storedAddress: wallet.bitcoinCashAddress, validationKind: "bitcoinCash"
         )
     }
 
     func resolvedBitcoinSVAddress(for wallet: ImportedWallet) -> String? {
         resolveDerivedOrStoredAddress(
             for: wallet, chain: .bitcoinSV, derivationPath: walletDerivationPath(for: wallet, chain: .bitcoinSV),
-            storedAddress: wallet.bitcoinSvAddress, validate: { AddressValidation.isValid($0, kind: "bitcoinSV") }
+            storedAddress: wallet.bitcoinSvAddress, validationKind: "bitcoinSV"
         )
     }
 
@@ -209,21 +204,22 @@ extension AppState {
         network: WalletDerivationNetwork = .mainnet,
         derivationPath: String,
         storedAddress: String?,
-        validate: (String) -> Bool,
-        derivedPostProcess: (String) -> String = { $0 },
-        storedNormalizer: ((String) -> String?)? = nil
+        validationKind: String,
+        validationNetworkMode: String? = nil,
+        derivedPostProcess: DerivedAddressPostProcess = .none,
+        normalizeStored: Bool = false
     ) -> String? {
-        if let seedPhrase = storedSeedPhrase(for: wallet.id),
-           let rawDerived = try? WalletDerivationLayer.deriveAddress(
-               seedPhrase: seedPhrase, chain: chain, network: network, derivationPath: derivationPath
-           ) {
-            let processed = derivedPostProcess(rawDerived)
-            if validate(processed) { return processed }
-        }
-        guard let stored = storedAddress else { return nil }
-        if let storedNormalizer, let normalized = storedNormalizer(stored) { return normalized }
-        let trimmed = stored.trimmingCharacters(in: .whitespacesAndNewlines)
-        return validate(trimmed) ? trimmed : nil
+        let derived: String? = {
+            guard let seedPhrase = storedSeedPhrase(for: wallet.id) else { return nil }
+            return try? WalletDerivationLayer.deriveAddress(
+                seedPhrase: seedPhrase, chain: chain, network: network, derivationPath: derivationPath
+            )
+        }()
+        return corePlanResolveDerivedOrStoredAddress(
+            derived: derived, stored: storedAddress, validationKind: validationKind,
+            validationNetworkMode: validationNetworkMode, derivedPostProcess: derivedPostProcess,
+            normalizeStored: normalizeStored
+        )
     }
 }
 enum AddressValidation {

@@ -1,19 +1,6 @@
 import Foundation
 private func encodeHistoryRecords(_ snapshots: [CorePersistedTransactionRecord]) -> String? {
-    let inputs = snapshots.compactMap { snap -> HistoryRecordEncodeInput? in
-        guard let payloadJSON = try? encodePersistedTransactionRecordJson(value: snap) else { return nil }
-        // createdAt is seconds since Swift reference date (2001-01-01) — convert to epoch.
-        let createdAtUnix = Date(timeIntervalSinceReferenceDate: snap.createdAt).timeIntervalSince1970
-        return HistoryRecordEncodeInput(
-            id: snap.id.lowercased(),
-            walletId: snap.walletId?.lowercased(),
-            chainName: snap.chainName,
-            txHash: snap.transactionHash?.lowercased(),
-            createdAt: createdAtUnix,
-            payloadJson: payloadJSON
-        )
-    }
-    return try? WalletRustAppCoreBridge.encodeHistoryRecordsJSON(inputs)
+    try? WalletRustAppCoreBridge.encodeHistoryRecordsFromPersisted(snapshots)
 }
 extension AppState {
     func rebuildTokenPreferenceDerivedState() { batchCacheUpdates {
@@ -53,15 +40,15 @@ extension AppState {
         let rustReceiveEnabledWalletIDs = Set(transferAvailabilityPlan.receiveEnabledWalletIDs)
         for wallet in wallets {
             let walletID = wallet.id
-            let sendCoins = transferAvailabilityByWalletID[walletID]
+            let sendCoins: [Coin] = transferAvailabilityByWalletID[walletID]
                 .map { availability in
-                    availability.sendHoldingIndices.compactMap { i in let index = Int(i); return wallet.holdings.indices.contains(index) ? wallet.holdings[index] : nil }}
+                    availability.sendHoldingIndices.compactMap { i -> Coin? in let index = Int(i); return wallet.holdings.indices.contains(index) ? wallet.holdings[index] : nil }}
                 ?? []
             sendCoinsByWalletID[walletID] = sendCoins
             if rustSendEnabledWalletIDs.contains(walletID) { sendWallets.append(wallet) }
-            let receiveCoins = transferAvailabilityByWalletID[walletID]
+            let receiveCoins: [Coin] = transferAvailabilityByWalletID[walletID]
                 .map { availability in
-                    availability.receiveHoldingIndices.compactMap { i in let index = Int(i); return wallet.holdings.indices.contains(index) ? wallet.holdings[index] : nil }}
+                    availability.receiveHoldingIndices.compactMap { i -> Coin? in let index = Int(i); return wallet.holdings.indices.contains(index) ? wallet.holdings[index] : nil }}
                 ?? []
             receiveCoinsByWalletID[walletID] = receiveCoins
             let receiveChains = transferAvailabilityByWalletID[walletID]?.receiveChains

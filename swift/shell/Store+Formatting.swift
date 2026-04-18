@@ -131,35 +131,24 @@ extension AppState {
     func runtimeChainIdentity(for chainName: String) -> String { displayChainTitle(for: chainName) }
     func assetIdentityKey(for coin: Coin) -> String { "\(runtimeChainIdentity(for: coin.chainName))|\(coin.symbol)" }
     func isPricedChain(_ chainName: String) -> Bool {
-        switch chainName {
-        case "Bitcoin": return bitcoinNetworkMode == .mainnet
-        case "Ethereum": return ethereumNetworkMode == .mainnet
-        default: return true
-        }}
+        WalletRustAppCoreBridge.planPricedChain(
+            chainName: chainName, bitcoinNetworkModeRaw: bitcoinNetworkMode.rawValue, ethereumNetworkModeRaw: ethereumNetworkMode.rawValue
+        )
+    }
     func isPricedAsset(_ coin: Coin) -> Bool { isPricedChain(coin.chainName) }
-    private func normalizedHistoryInputSignature(walletByID: [String: ImportedWallet]) -> Int {
-        var hasher = Hasher()
-        hasher.combine(transactions.count)
-        for transaction in transactions {
-            hasher.combine(transaction.id)
-            hasher.combine(transaction.walletID)
-            hasher.combine(transaction.kind.rawValue)
-            hasher.combine(transaction.status.rawValue)
-            hasher.combine(transaction.chainName)
-            hasher.combine(transaction.symbol)
-            hasher.combine(transaction.transactionHash ?? "")
-            hasher.combine(transaction.createdAt.timeIntervalSinceReferenceDate.bitPattern)
-        }
-        for walletID in walletByID.keys.sorted() {
-            guard let wallet = walletByID[walletID] else { continue }
-            hasher.combine(walletID)
-            hasher.combine(wallet.selectedChain)
-        }
-        return hasher.finalize()
+    private func walletChainInputs(from walletByID: [String: ImportedWallet]) -> [WalletChainInput] {
+        walletByID.map { WalletChainInput(walletId: $0.key, selectedChain: $0.value.selectedChain) }
     }
     func rebuildNormalizedHistoryIndex() {
         let walletByID = cachedWalletByID.isEmpty ? Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) }) : cachedWalletByID
-        let inputSignature = normalizedHistoryInputSignature(walletByID: walletByID)
+        let signatureInputs = transactions.map { transaction in
+            NormalizedHistorySignatureTransaction(
+                id: transaction.id.uuidString, walletId: transaction.walletID, kind: transaction.kind.rawValue, status: transaction.status.rawValue, chainName: transaction.chainName, symbol: transaction.symbol, transactionHash: transaction.transactionHash, createdAtUnix: transaction.createdAt.timeIntervalSince1970
+            )
+        }
+        let inputSignature = Int(WalletRustAppCoreBridge.planNormalizedHistorySignature(
+            transactions: signatureInputs, wallets: walletChainInputs(from: walletByID)
+        ))
         guard lastNormalizedHistorySignature != inputSignature else { return }
         let startedAt = CFAbsoluteTimeGetCurrent()
         let normalizedEntries = rebuildNormalizedHistoryIndexUsingRust(walletByID: walletByID)
@@ -171,21 +160,20 @@ extension AppState {
     }
     func rebuildTransactionDerivedState() {
         cachedTransactionByID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
-        var earliestTransactionDateByWalletID: [String: Date] = [:]
-        for transaction in transactions {
-            guard let walletID = transaction.walletID else { continue }
-            if let currentEarliest = earliestTransactionDateByWalletID[walletID] {
-                if transaction.createdAt < currentEarliest { earliestTransactionDateByWalletID[walletID] = transaction.createdAt }
-            } else { earliestTransactionDateByWalletID[walletID] = transaction.createdAt }}
-        cachedFirstActivityDateByWalletID = earliestTransactionDateByWalletID
+        let earliestInputs = transactions.map { TransactionEarliestInput(walletId: $0.walletID, createdAtUnix: $0.createdAt.timeIntervalSince1970) }
+        let earliestPairs = WalletRustAppCoreBridge.planEarliestTransactionDates(earliestInputs)
+        cachedFirstActivityDateByWalletID = Dictionary(uniqueKeysWithValues: earliestPairs.map { ($0.walletId, Date(timeIntervalSince1970: $0.earliestCreatedAtUnix)) })
         rebuildNormalizedHistoryIndex()
     }
     func pruneTransactionsForActiveWallets() {
         let walletByID = cachedWalletByID.isEmpty ? Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) }) : cachedWalletByID
-        let filtered = transactions.filter { transaction in
-            guard let walletID = transaction.walletID, let wallet = walletByID[walletID] else { return false }
-            return wallet.selectedChain == transaction.chainName
-        }
+        let activityInputs = transactions.map { TransactionActivityInput(id: $0.id.uuidString, walletId: $0.walletID, chainName: $0.chainName) }
+        let keptIDStrings = Set(
+            WalletRustAppCoreBridge.planActiveWalletTransactionIDs(
+                transactions: activityInputs, wallets: walletChainInputs(from: walletByID)
+            )
+        )
+        let filtered = transactions.filter { keptIDStrings.contains($0.id.uuidString) }
         guard filtered.count != transactions.count else { return }
         setTransactions(filtered.sorted { $0.createdAt > $1.createdAt })}
     private func formattedTransactionDetailAssetAmount(_ amount: Double, symbol: String, chainName: String) -> String {

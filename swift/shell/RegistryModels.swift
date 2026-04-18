@@ -367,56 +367,24 @@ extension Coin {
         return (descriptor.assetIdentifier, descriptor.mark, descriptor.color)
     }
     static func iconIdentifier(symbol: String, chainName: String, contractAddress: String? = nil, tokenStandard: String = "Native") -> String {
-        let normalizedSymbol = symbol.lowercased()
-        let trimmedContract = contractAddress?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let normalizedChain = canonicalChainComponent(chainName: chainName, symbol: symbol)
-        if !trimmedContract.isEmpty { return "token:\(normalizedChain):\(normalizedSymbol):\(trimmedContract.lowercased())" }
-        let isNativeToken = tokenStandard.caseInsensitiveCompare("Native") == .orderedSame || tokenStandard.isEmpty
-        let namespace = isNativeToken ? "native" : "asset"
-        return "\(namespace):\(normalizedChain):\(normalizedSymbol)"
+        WalletRustAppCoreBridge.planIconIdentifier(symbol: symbol, chainName: chainName, contractAddress: contractAddress, tokenStandard: tokenStandard, localizedChainID: localizedChainIDHint(for: chainName))
     }
     static func normalizedIconIdentifier(_ identifier: String) -> String {
-        let trimmedIdentifier = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
-        let components = trimmedIdentifier.split(separator: ":", omittingEmptySubsequences: false).map(String.init)
-        guard components.count >= 3 else { return trimmedIdentifier }
-        let namespace = components[0]
-        let chainComponent = components[1]
-        let symbolComponent = components[2]
-        let canonicalChain = canonicalChainComponent(chainName: chainComponent, symbol: symbolComponent)
-        var normalizedComponents = components
-        normalizedComponents[1] = canonicalChain
-        normalizedComponents[2] = symbolComponent.lowercased()
-        if normalizedComponents.count >= 4 { normalizedComponents[3] = normalizedComponents[3].lowercased() }
-        switch namespace {
-        case "native", "asset", "token": normalizedComponents[0] = namespace
-            return normalizedComponents.joined(separator: ":")
-        default: return trimmedIdentifier
-        }}
-    private static func canonicalChainComponent(chainName: String, symbol: String) -> String {
-        let normalizedChainName = chainName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let normalizedSymbol = symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        let knownAliases: [String: String] = [
-            "bitcoin": "bitcoin", "bitcoin cash": "bitcoin-cash", "bitcoin sv": "bitcoin-sv", "litecoin": "litecoin", "dogecoin": "dogecoin", "ethereum": "ethereum", "ethereum classic": "ethereum-classic", "arbitrum": "arbitrum", "optimism": "optimism", "bnb chain": "bnb", "avalanche": "avalanche", "hyperliquid": "hyperliquid", "tron": "tron", "solana": "solana", "stellar": "stellar", "cardano": "cardano", "xrp ledger": "xrp", "monero": "monero", "sui": "sui", "aptos": "aptos", "ton": "ton", "internet computer": "internet-computer", "near": "near", "polkadot": "polkadot"
-        ]
-        if let knownAlias = knownAliases[normalizedChainName] { return knownAlias }
-        if let localizedMatch = ChainRegistryEntry.all.first(where: { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalizedChainName }) {
-            return localizedMatch.id
-        }
-        let nativeSymbolAliases: [String: String] = [
-            "BTC": "bitcoin", "BCH": "bitcoin-cash", "BSV": "bitcoin-sv", "LTC": "litecoin", "DOGE": "dogecoin", "ETH": "ethereum", "ETC": "ethereum-classic", "ARB": "arbitrum", "OP": "optimism", "BNB": "bnb", "AVAX": "avalanche", "HYPE": "hyperliquid", "TRX": "tron", "SOL": "solana", "XLM": "stellar", "ADA": "cardano", "XRP": "xrp", "XMR": "monero", "SUI": "sui", "APT": "aptos", "TON": "ton", "ICP": "internet-computer", "NEAR": "near", "DOT": "polkadot"
-        ]
-        if let nativeSymbolAlias = nativeSymbolAliases[normalizedSymbol] { return nativeSymbolAlias }
-        return normalizedChainName.replacingOccurrences(of: " ", with: "-")
+        let trimmed = identifier.trimmingCharacters(in: .whitespacesAndNewlines)
+        let components = trimmed.split(separator: ":", omittingEmptySubsequences: false)
+        let chainComponent = components.count >= 2 ? String(components[1]) : ""
+        return WalletRustAppCoreBridge.planNormalizedIconIdentifier(identifier, localizedChainID: localizedChainIDHint(for: chainComponent))
+    }
+    private static func localizedChainIDHint(for chainName: String) -> String? {
+        let normalized = chainName.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        guard !normalized.isEmpty else { return nil }
+        return ChainRegistryEntry.all.first(where: { $0.name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized })?.id
     }
     static func displayMark(for symbol: String) -> String {
-        if let nativeDescriptor = nativeChainIconDescriptor(symbol: symbol) { return nativeDescriptor.mark }
-        switch symbol {
-        case "MATIC": return "P"
-        case "ARB": return "AR"
-        case "TRX", "USDT": return "T"
-        default: if let tokenEntry = TokenVisualRegistryEntry.entry(symbol: symbol) { return tokenEntry.mark }
-            return String(symbol.prefix(2)).uppercased()
-        }}
+        let nativeMark = nativeChainIconDescriptor(symbol: symbol)?.mark
+        let tokenMark = TokenVisualRegistryEntry.entry(symbol: symbol)?.mark
+        return WalletRustAppCoreBridge.planDisplayMark(symbol: symbol, nativeMark: nativeMark, tokenMark: tokenMark)
+    }
     static func displayColor(for symbol: String) -> Color {
         if let nativeDescriptor = nativeChainIconDescriptor(symbol: symbol) { return nativeDescriptor.color }
         switch symbol {

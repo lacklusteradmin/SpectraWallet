@@ -261,14 +261,14 @@ final class WalletDerivationLayerTests: XCTestCase {
     }
     func testBitcoinAPIPresetsIncludeTestnet4NativeSegWit() {
         let hasPath = WalletDerivationPresetCatalog.pathPresets(for: .bitcoin).contains { $0.derivationPath == "m/84'/0'/0'/0/0" }
-        let hasNetwork = WalletDerivationPresetCatalog.networkPresets(for: .bitcoin).contains { $0.network == .testnet4 }
+        let hasNetwork = WalletDerivationPresetCatalog.networkPresets(for: .bitcoin).contains { $0.network == WalletDerivationNetwork.testnet4.rawValue }
         XCTAssertTrue(hasPath)
         XCTAssertTrue(hasNetwork)
         XCTAssertEqual(WalletDerivationPresetCatalog.curve(for: .bitcoin), .secp256k1)
     }
     func testSolanaAPIPresetsIncludeLegacyCurveAndPath() {
         let hasPath = WalletDerivationPresetCatalog.pathPresets(for: .solana).contains { $0.derivationPath == "m/44'/501'/0'" }
-        let hasMainnet = WalletDerivationPresetCatalog.networkPresets(for: .solana).contains { $0.network == .mainnet }
+        let hasMainnet = WalletDerivationPresetCatalog.networkPresets(for: .solana).contains { $0.network == WalletDerivationNetwork.mainnet.rawValue }
         XCTAssertTrue(hasPath)
         XCTAssertTrue(hasMainnet)
         XCTAssertEqual(WalletDerivationPresetCatalog.curve(for: .solana), .ed25519)

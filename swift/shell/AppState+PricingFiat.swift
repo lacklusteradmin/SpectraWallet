@@ -76,16 +76,15 @@ extension AppState {
         resetLargeMovementAlertBaseline()
     }
     func hasWalletForChain(_ chainName: String) -> Bool {
-        wallets.contains { wallet in
-            guard wallet.selectedChain == chainName else { return false }
-            if chainName == "Bitcoin" {
-                if let seedPhrase = storedSeedPhrase(for: wallet.id), !seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return true }
-                if let address = wallet.bitcoinAddress, AddressValidation.isValid(address, kind: "bitcoin", networkMode: wallet.bitcoinNetworkMode.rawValue) { return true }
-                if let xpub = wallet.bitcoinXpub, (xpub.hasPrefix("xpub") || xpub.hasPrefix("ypub") || xpub.hasPrefix("zpub")) { return true }
-                return false
-            }
-            return resolvedAddress(for: wallet, chainName: chainName) != nil
-        }}
+        let eligibilityInputs: [WalletChainEligibilityInput] = wallets.map { wallet in
+            let hasSeedPhrase: Bool = (storedSeedPhrase(for: wallet.id)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
+            let bitcoinAddressIsValid: Bool = wallet.bitcoinAddress.map { AddressValidation.isValid($0, kind: "bitcoin", networkMode: wallet.bitcoinNetworkMode.rawValue) } ?? false
+            return WalletChainEligibilityInput(
+                walletId: wallet.id, selectedChain: wallet.selectedChain, hasSeedPhrase: hasSeedPhrase, bitcoinAddress: wallet.bitcoinAddress, bitcoinAddressIsValid: bitcoinAddressIsValid, bitcoinXpub: wallet.bitcoinXpub, resolvedAddressForChain: resolvedAddress(for: wallet, chainName: chainName)
+            )
+        }
+        return WalletRustAppCoreBridge.planHasWalletForChain(chainName: chainName, wallets: eligibilityInputs)
+    }
     func refreshChainBalances(includeHistoryRefreshes: Bool = true, historyRefreshInterval: TimeInterval = 120, forceChainRefresh: Bool = true) async {
         _ = forceChainRefresh  // Rust always fetches fresh data
         guard !isRefreshingChainBalances else { return }

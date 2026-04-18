@@ -72,25 +72,32 @@ extension AppState {
     }
     func receiveAddress() -> String {
         guard let wallet = wallet(for: receiveWalletID), let receiveCoin = selectedReceiveCoin(for: receiveWalletID) else { return "Select a wallet and chain" }
+        let isEvm = isEVMChain(receiveCoin.chainName)
         let chainAddress: String?
-        switch (receiveCoin.symbol, receiveCoin.chainName) {
-        case ("BTC", _): chainAddress = wallet.bitcoinAddress
-        case ("BCH", "Bitcoin Cash"): chainAddress = resolvedBitcoinCashAddress(for: wallet)
-        case ("BSV", "Bitcoin SV"): chainAddress = resolvedBitcoinSVAddress(for: wallet)
-        case ("LTC", "Litecoin"): chainAddress = resolvedLitecoinAddress(for: wallet)
-        case ("DOGE", "Dogecoin"): chainAddress = nil
-        default:
-            if isEVMChain(receiveCoin.chainName) { chainAddress = resolvedEVMAddress(for: wallet, chainName: receiveCoin.chainName) }
-            else {
-                let simpleResolvers: [String: (ImportedWallet) -> String?] = [
-                    "Tron": resolvedTronAddress(for:), "Solana": resolvedSolanaAddress(for:), "Cardano": resolvedCardanoAddress(for:), "XRP Ledger": resolvedXRPAddress(for:), "Stellar": resolvedStellarAddress(for:), "Monero": resolvedMoneroAddress(for:), "Sui": resolvedSuiAddress(for:), "Aptos": resolvedAptosAddress(for:), "TON": resolvedTONAddress(for:), "Internet Computer": resolvedICPAddress(for:), "NEAR": resolvedNearAddress(for:), "Polkadot": resolvedPolkadotAddress(for:),
-                ]
-                chainAddress = simpleResolvers[receiveCoin.chainName]?(wallet)
-            }
+        switch corePlanReceiveAddressResolver(symbol: receiveCoin.symbol, chainName: receiveCoin.chainName, isEvmChain: isEvm) {
+        case .bitcoinLegacy:  chainAddress = wallet.bitcoinAddress
+        case .bitcoinCash:    chainAddress = resolvedBitcoinCashAddress(for: wallet)
+        case .bitcoinSv:      chainAddress = resolvedBitcoinSVAddress(for: wallet)
+        case .litecoin:       chainAddress = resolvedLitecoinAddress(for: wallet)
+        case .dogecoinNone:   chainAddress = nil
+        case .evm:            chainAddress = resolvedEVMAddress(for: wallet, chainName: receiveCoin.chainName)
+        case .tron:           chainAddress = resolvedTronAddress(for: wallet)
+        case .solana:         chainAddress = resolvedSolanaAddress(for: wallet)
+        case .cardano:        chainAddress = resolvedCardanoAddress(for: wallet)
+        case .xrp:            chainAddress = resolvedXRPAddress(for: wallet)
+        case .stellar:        chainAddress = resolvedStellarAddress(for: wallet)
+        case .monero:         chainAddress = resolvedMoneroAddress(for: wallet)
+        case .sui:            chainAddress = resolvedSuiAddress(for: wallet)
+        case .aptos:          chainAddress = resolvedAptosAddress(for: wallet)
+        case .ton:            chainAddress = resolvedTONAddress(for: wallet)
+        case .icp:            chainAddress = resolvedICPAddress(for: wallet)
+        case .near:           chainAddress = resolvedNearAddress(for: wallet)
+        case .polkadot:       chainAddress = resolvedPolkadotAddress(for: wallet)
+        case .none:           chainAddress = nil
         }
         let hasWatchAddress = wallet.dogecoinAddress?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
         return receiveAddressMessage(input: ReceiveAddressMessageInput(
-            chainName: receiveCoin.chainName, symbol: receiveCoin.symbol, isEvmChain: isEVMChain(receiveCoin.chainName), resolvedAddress: receiveResolvedAddress, chainAddress: chainAddress, hasSeed: storedSeedPhrase(for: wallet.id) != nil, hasWatchAddress: hasWatchAddress, isResolving: isResolvingReceiveAddress
+            chainName: receiveCoin.chainName, symbol: receiveCoin.symbol, isEvmChain: isEvm, resolvedAddress: receiveResolvedAddress, chainAddress: chainAddress, hasSeed: storedSeedPhrase(for: wallet.id) != nil, hasWatchAddress: hasWatchAddress, isResolving: isResolvingReceiveAddress
         ))
     }
     private func refreshPendingTransactionsForChain(_ chainName: String) async {

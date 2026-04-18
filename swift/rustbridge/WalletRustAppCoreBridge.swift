@@ -81,6 +81,42 @@ enum WalletRustAppCoreBridge {
         corePlanDashboardSupportedTokenEntries(entries: entries)
     }
 
+    static func planPricedChain(chainName: String, bitcoinNetworkModeRaw: String, ethereumNetworkModeRaw: String) -> Bool {
+        corePlanPricedChain(chainName: chainName, bitcoinNetworkModeRaw: bitcoinNetworkModeRaw, ethereumNetworkModeRaw: ethereumNetworkModeRaw)
+    }
+
+    static func planActiveWalletTransactionIDs(transactions: [TransactionActivityInput], wallets: [WalletChainInput]) -> [String] {
+        corePlanActiveWalletTransactionIds(transactions: transactions, wallets: wallets)
+    }
+
+    static func planNormalizedHistorySignature(transactions: [NormalizedHistorySignatureTransaction], wallets: [WalletChainInput]) -> Int64 {
+        corePlanNormalizedHistorySignature(transactions: transactions, wallets: wallets)
+    }
+
+    static func planEarliestTransactionDates(_ transactions: [TransactionEarliestInput]) -> [WalletEarliestTransactionDate] {
+        corePlanEarliestTransactionDates(transactions: transactions)
+    }
+
+    static func planHasWalletForChain(chainName: String, wallets: [WalletChainEligibilityInput]) -> Bool {
+        corePlanHasWalletForChain(chainName: chainName, wallets: wallets)
+    }
+
+    static func planCanonicalChainComponent(chainName: String, symbol: String, localizedChainID: String?) -> String {
+        corePlanCanonicalChainComponent(chainName: chainName, symbol: symbol, localizedChainId: localizedChainID)
+    }
+
+    static func planIconIdentifier(symbol: String, chainName: String, contractAddress: String?, tokenStandard: String, localizedChainID: String?) -> String {
+        corePlanIconIdentifier(symbol: symbol, chainName: chainName, contractAddress: contractAddress, tokenStandard: tokenStandard, localizedChainId: localizedChainID)
+    }
+
+    static func planNormalizedIconIdentifier(_ identifier: String, localizedChainID: String?) -> String {
+        corePlanNormalizedIconIdentifier(identifier: identifier, localizedChainId: localizedChainID)
+    }
+
+    static func planDisplayMark(symbol: String, nativeMark: String?, tokenMark: String?) -> String {
+        corePlanDisplayMark(symbol: symbol, nativeMark: nativeMark, tokenMark: tokenMark)
+    }
+
     static func planSendPreviewRouting(_ request: SendPreviewRoutingRequest) -> SendPreviewRoutingPlan {
         corePlanSendPreviewRouting(request: request)
     }
@@ -97,43 +133,18 @@ enum WalletRustAppCoreBridge {
         try coreEncodeHistoryRecordsJson(records: records)
     }
 
-    // ─── Derivation bridge (unchanged — calls derivation FFI, not core) ────────
-
-    static func chainPresets() throws -> [WalletDerivationChainPreset] {
-        try appCoreChainPresets().map { preset in
-            WalletDerivationChainPreset(
-                chain: SeedDerivationChain(rawValue: preset.chain)!,
-                curve: WalletDerivationCurve(rawValue: preset.curve)!,
-                networks: preset.networks.map { n in
-                    WalletDerivationNetworkPreset(
-                        network: WalletDerivationNetwork(rawValue: n.network)!,
-                        title: n.title, detail: n.detail, isDefault: n.isDefault
-                    )
-                },
-                derivationPaths: preset.derivationPaths.map { p in
-                    WalletDerivationPathPreset(
-                        title: p.title, detail: p.detail,
-                        derivationPath: p.derivationPath, isDefault: p.isDefault
-                    )
-                }
-            )
-        }
+    static func encodeHistoryRecordsFromPersisted(_ snapshots: [CorePersistedTransactionRecord]) throws -> String {
+        try coreEncodeHistoryRecordsFromPersisted(snapshots: snapshots)
     }
 
-    static func requestCompilationPresets() throws -> [WalletDerivationRequestCompilationPreset] {
-        try appCoreRequestCompilationPresets().map { preset in
-            WalletDerivationRequestCompilationPreset(
-                chain: SeedDerivationChain(rawValue: preset.chain)!,
-                derivationAlgorithm: WalletDerivationRequestDerivationAlgorithmPreset(rawValue: preset.derivationAlgorithm)!,
-                addressAlgorithm: WalletDerivationRequestAddressAlgorithmPreset(rawValue: preset.addressAlgorithm)!,
-                publicKeyFormat: WalletDerivationRequestPublicKeyFormatPreset(rawValue: preset.publicKeyFormat)!,
-                scriptPolicy: WalletDerivationRequestScriptPolicyPreset(rawValue: preset.scriptPolicy)!,
-                fixedScriptType: preset.fixedScriptType.flatMap { WalletDerivationRequestScriptTypePreset(rawValue: $0) },
-                bitcoinPurposeScriptMap: preset.bitcoinPurposeScriptMap.map { dict in
-                    dict.compactMapValues { WalletDerivationRequestScriptTypePreset(rawValue: $0) }
-                }
-            )
-        }
+    // ─── Derivation bridge (unchanged — calls derivation FFI, not core) ────────
+
+    static func chainPresets() throws -> [AppCoreChainPreset] {
+        try appCoreChainPresets()
+    }
+
+    static func requestCompilationPresets() throws -> [AppCoreRequestCompilationPreset] {
+        try appCoreRequestCompilationPresets()
     }
 
     static func derivationPaths(for preset: SeedDerivationPreset?) throws -> SeedDerivationPaths {

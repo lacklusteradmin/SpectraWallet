@@ -12777,6 +12777,116 @@ nonisolated public func FfiConverterTypeCorePersistedTransactionRecord_lower(_ v
 }
 
 
+nonisolated public struct CoreResetPlan {
+    public var resetWalletsAndSecrets: Bool
+    public var resetHistoryAndCache: Bool
+    public var resetAlertsAndContacts: Bool
+    public var resetSettingsAndEndpoints: Bool
+    public var resetDashboardCustomization: Bool
+    public var resetProviderState: Bool
+    public var clearNetworkAndTransportCaches: Bool
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    nonisolated public init(resetWalletsAndSecrets: Bool, resetHistoryAndCache: Bool, resetAlertsAndContacts: Bool, resetSettingsAndEndpoints: Bool, resetDashboardCustomization: Bool, resetProviderState: Bool, clearNetworkAndTransportCaches: Bool) {
+        self.resetWalletsAndSecrets = resetWalletsAndSecrets
+        self.resetHistoryAndCache = resetHistoryAndCache
+        self.resetAlertsAndContacts = resetAlertsAndContacts
+        self.resetSettingsAndEndpoints = resetSettingsAndEndpoints
+        self.resetDashboardCustomization = resetDashboardCustomization
+        self.resetProviderState = resetProviderState
+        self.clearNetworkAndTransportCaches = clearNetworkAndTransportCaches
+    }
+}
+
+#if compiler(>=6)
+nonisolated extension CoreResetPlan: Sendable {}
+#endif
+
+
+nonisolated extension CoreResetPlan: Equatable, Hashable {
+    public static func ==(lhs: CoreResetPlan, rhs: CoreResetPlan) -> Bool {
+        if lhs.resetWalletsAndSecrets != rhs.resetWalletsAndSecrets {
+            return false
+        }
+        if lhs.resetHistoryAndCache != rhs.resetHistoryAndCache {
+            return false
+        }
+        if lhs.resetAlertsAndContacts != rhs.resetAlertsAndContacts {
+            return false
+        }
+        if lhs.resetSettingsAndEndpoints != rhs.resetSettingsAndEndpoints {
+            return false
+        }
+        if lhs.resetDashboardCustomization != rhs.resetDashboardCustomization {
+            return false
+        }
+        if lhs.resetProviderState != rhs.resetProviderState {
+            return false
+        }
+        if lhs.clearNetworkAndTransportCaches != rhs.clearNetworkAndTransportCaches {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(resetWalletsAndSecrets)
+        hasher.combine(resetHistoryAndCache)
+        hasher.combine(resetAlertsAndContacts)
+        hasher.combine(resetSettingsAndEndpoints)
+        hasher.combine(resetDashboardCustomization)
+        hasher.combine(resetProviderState)
+        hasher.combine(clearNetworkAndTransportCaches)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public struct FfiConverterTypeCoreResetPlan: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreResetPlan {
+        return
+            try CoreResetPlan(
+                resetWalletsAndSecrets: FfiConverterBool.read(from: &buf), 
+                resetHistoryAndCache: FfiConverterBool.read(from: &buf), 
+                resetAlertsAndContacts: FfiConverterBool.read(from: &buf), 
+                resetSettingsAndEndpoints: FfiConverterBool.read(from: &buf), 
+                resetDashboardCustomization: FfiConverterBool.read(from: &buf), 
+                resetProviderState: FfiConverterBool.read(from: &buf), 
+                clearNetworkAndTransportCaches: FfiConverterBool.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: CoreResetPlan, into buf: inout [UInt8]) {
+        FfiConverterBool.write(value.resetWalletsAndSecrets, into: &buf)
+        FfiConverterBool.write(value.resetHistoryAndCache, into: &buf)
+        FfiConverterBool.write(value.resetAlertsAndContacts, into: &buf)
+        FfiConverterBool.write(value.resetSettingsAndEndpoints, into: &buf)
+        FfiConverterBool.write(value.resetDashboardCustomization, into: &buf)
+        FfiConverterBool.write(value.resetProviderState, into: &buf)
+        FfiConverterBool.write(value.clearNetworkAndTransportCaches, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeCoreResetPlan_lift(_ buf: RustBuffer) throws -> CoreResetPlan {
+    return try FfiConverterTypeCoreResetPlan.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeCoreResetPlan_lower(_ value: CoreResetPlan) -> RustBuffer {
+    return FfiConverterTypeCoreResetPlan.lower(value)
+}
+
+
 nonisolated public struct CoreSeedDerivationPaths {
     public var isCustomEnabled: Bool
     public var bitcoin: String
@@ -20261,6 +20371,124 @@ nonisolated public func FfiConverterTypeNormalizedHistoryItem_lower(_ value: Nor
 }
 
 
+nonisolated public struct NormalizedHistorySignatureTransaction {
+    public var id: String
+    public var walletId: String?
+    public var kind: String
+    public var status: String
+    public var chainName: String
+    public var symbol: String
+    public var transactionHash: String?
+    public var createdAtUnix: Double
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    nonisolated public init(id: String, walletId: String?, kind: String, status: String, chainName: String, symbol: String, transactionHash: String?, createdAtUnix: Double) {
+        self.id = id
+        self.walletId = walletId
+        self.kind = kind
+        self.status = status
+        self.chainName = chainName
+        self.symbol = symbol
+        self.transactionHash = transactionHash
+        self.createdAtUnix = createdAtUnix
+    }
+}
+
+#if compiler(>=6)
+nonisolated extension NormalizedHistorySignatureTransaction: Sendable {}
+#endif
+
+
+nonisolated extension NormalizedHistorySignatureTransaction: Equatable, Hashable {
+    public static func ==(lhs: NormalizedHistorySignatureTransaction, rhs: NormalizedHistorySignatureTransaction) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.walletId != rhs.walletId {
+            return false
+        }
+        if lhs.kind != rhs.kind {
+            return false
+        }
+        if lhs.status != rhs.status {
+            return false
+        }
+        if lhs.chainName != rhs.chainName {
+            return false
+        }
+        if lhs.symbol != rhs.symbol {
+            return false
+        }
+        if lhs.transactionHash != rhs.transactionHash {
+            return false
+        }
+        if lhs.createdAtUnix != rhs.createdAtUnix {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(walletId)
+        hasher.combine(kind)
+        hasher.combine(status)
+        hasher.combine(chainName)
+        hasher.combine(symbol)
+        hasher.combine(transactionHash)
+        hasher.combine(createdAtUnix)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public struct FfiConverterTypeNormalizedHistorySignatureTransaction: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NormalizedHistorySignatureTransaction {
+        return
+            try NormalizedHistorySignatureTransaction(
+                id: FfiConverterString.read(from: &buf), 
+                walletId: FfiConverterOptionString.read(from: &buf), 
+                kind: FfiConverterString.read(from: &buf), 
+                status: FfiConverterString.read(from: &buf), 
+                chainName: FfiConverterString.read(from: &buf), 
+                symbol: FfiConverterString.read(from: &buf), 
+                transactionHash: FfiConverterOptionString.read(from: &buf), 
+                createdAtUnix: FfiConverterDouble.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: NormalizedHistorySignatureTransaction, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterOptionString.write(value.walletId, into: &buf)
+        FfiConverterString.write(value.kind, into: &buf)
+        FfiConverterString.write(value.status, into: &buf)
+        FfiConverterString.write(value.chainName, into: &buf)
+        FfiConverterString.write(value.symbol, into: &buf)
+        FfiConverterOptionString.write(value.transactionHash, into: &buf)
+        FfiConverterDouble.write(value.createdAtUnix, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeNormalizedHistorySignatureTransaction_lift(_ buf: RustBuffer) throws -> NormalizedHistorySignatureTransaction {
+    return try FfiConverterTypeNormalizedHistorySignatureTransaction.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeNormalizedHistorySignatureTransaction_lower(_ value: NormalizedHistorySignatureTransaction) -> RustBuffer {
+    return FfiConverterTypeNormalizedHistorySignatureTransaction.lower(value)
+}
+
+
 nonisolated public struct NormalizedRefreshTargetsRequest {
     public var chainName: String
     public var wallets: [NormalizedRefreshWalletInput]
@@ -26155,6 +26383,154 @@ nonisolated public func FfiConverterTypeTokenPreferenceOverride_lower(_ value: T
 }
 
 
+nonisolated public struct TransactionActivityInput {
+    public var id: String
+    public var walletId: String?
+    public var chainName: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    nonisolated public init(id: String, walletId: String?, chainName: String) {
+        self.id = id
+        self.walletId = walletId
+        self.chainName = chainName
+    }
+}
+
+#if compiler(>=6)
+nonisolated extension TransactionActivityInput: Sendable {}
+#endif
+
+
+nonisolated extension TransactionActivityInput: Equatable, Hashable {
+    public static func ==(lhs: TransactionActivityInput, rhs: TransactionActivityInput) -> Bool {
+        if lhs.id != rhs.id {
+            return false
+        }
+        if lhs.walletId != rhs.walletId {
+            return false
+        }
+        if lhs.chainName != rhs.chainName {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+        hasher.combine(walletId)
+        hasher.combine(chainName)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public struct FfiConverterTypeTransactionActivityInput: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TransactionActivityInput {
+        return
+            try TransactionActivityInput(
+                id: FfiConverterString.read(from: &buf), 
+                walletId: FfiConverterOptionString.read(from: &buf), 
+                chainName: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: TransactionActivityInput, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.id, into: &buf)
+        FfiConverterOptionString.write(value.walletId, into: &buf)
+        FfiConverterString.write(value.chainName, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeTransactionActivityInput_lift(_ buf: RustBuffer) throws -> TransactionActivityInput {
+    return try FfiConverterTypeTransactionActivityInput.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeTransactionActivityInput_lower(_ value: TransactionActivityInput) -> RustBuffer {
+    return FfiConverterTypeTransactionActivityInput.lower(value)
+}
+
+
+nonisolated public struct TransactionEarliestInput {
+    public var walletId: String?
+    public var createdAtUnix: Double
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    nonisolated public init(walletId: String?, createdAtUnix: Double) {
+        self.walletId = walletId
+        self.createdAtUnix = createdAtUnix
+    }
+}
+
+#if compiler(>=6)
+nonisolated extension TransactionEarliestInput: Sendable {}
+#endif
+
+
+nonisolated extension TransactionEarliestInput: Equatable, Hashable {
+    public static func ==(lhs: TransactionEarliestInput, rhs: TransactionEarliestInput) -> Bool {
+        if lhs.walletId != rhs.walletId {
+            return false
+        }
+        if lhs.createdAtUnix != rhs.createdAtUnix {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(walletId)
+        hasher.combine(createdAtUnix)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public struct FfiConverterTypeTransactionEarliestInput: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TransactionEarliestInput {
+        return
+            try TransactionEarliestInput(
+                walletId: FfiConverterOptionString.read(from: &buf), 
+                createdAtUnix: FfiConverterDouble.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: TransactionEarliestInput, into buf: inout [UInt8]) {
+        FfiConverterOptionString.write(value.walletId, into: &buf)
+        FfiConverterDouble.write(value.createdAtUnix, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeTransactionEarliestInput_lift(_ buf: RustBuffer) throws -> TransactionEarliestInput {
+    return try FfiConverterTypeTransactionEarliestInput.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeTransactionEarliestInput_lower(_ value: TransactionEarliestInput) -> RustBuffer {
+    return FfiConverterTypeTransactionEarliestInput.lower(value)
+}
+
+
 nonisolated public struct TransactionMergeRequest {
     public var existingTransactions: [CoreTransactionRecord]
     public var incomingTransactions: [CoreTransactionRecord]
@@ -28684,6 +29060,256 @@ nonisolated public func FfiConverterTypeWalletBalanceRefreshRequest_lower(_ valu
 }
 
 
+nonisolated public struct WalletChainEligibilityInput {
+    public var walletId: String
+    public var selectedChain: String
+    public var hasSeedPhrase: Bool
+    public var bitcoinAddress: String?
+    public var bitcoinAddressIsValid: Bool
+    public var bitcoinXpub: String?
+    public var resolvedAddressForChain: String?
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    nonisolated public init(walletId: String, selectedChain: String, hasSeedPhrase: Bool, bitcoinAddress: String?, bitcoinAddressIsValid: Bool, bitcoinXpub: String?, resolvedAddressForChain: String?) {
+        self.walletId = walletId
+        self.selectedChain = selectedChain
+        self.hasSeedPhrase = hasSeedPhrase
+        self.bitcoinAddress = bitcoinAddress
+        self.bitcoinAddressIsValid = bitcoinAddressIsValid
+        self.bitcoinXpub = bitcoinXpub
+        self.resolvedAddressForChain = resolvedAddressForChain
+    }
+}
+
+#if compiler(>=6)
+nonisolated extension WalletChainEligibilityInput: Sendable {}
+#endif
+
+
+nonisolated extension WalletChainEligibilityInput: Equatable, Hashable {
+    public static func ==(lhs: WalletChainEligibilityInput, rhs: WalletChainEligibilityInput) -> Bool {
+        if lhs.walletId != rhs.walletId {
+            return false
+        }
+        if lhs.selectedChain != rhs.selectedChain {
+            return false
+        }
+        if lhs.hasSeedPhrase != rhs.hasSeedPhrase {
+            return false
+        }
+        if lhs.bitcoinAddress != rhs.bitcoinAddress {
+            return false
+        }
+        if lhs.bitcoinAddressIsValid != rhs.bitcoinAddressIsValid {
+            return false
+        }
+        if lhs.bitcoinXpub != rhs.bitcoinXpub {
+            return false
+        }
+        if lhs.resolvedAddressForChain != rhs.resolvedAddressForChain {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(walletId)
+        hasher.combine(selectedChain)
+        hasher.combine(hasSeedPhrase)
+        hasher.combine(bitcoinAddress)
+        hasher.combine(bitcoinAddressIsValid)
+        hasher.combine(bitcoinXpub)
+        hasher.combine(resolvedAddressForChain)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public struct FfiConverterTypeWalletChainEligibilityInput: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletChainEligibilityInput {
+        return
+            try WalletChainEligibilityInput(
+                walletId: FfiConverterString.read(from: &buf), 
+                selectedChain: FfiConverterString.read(from: &buf), 
+                hasSeedPhrase: FfiConverterBool.read(from: &buf), 
+                bitcoinAddress: FfiConverterOptionString.read(from: &buf), 
+                bitcoinAddressIsValid: FfiConverterBool.read(from: &buf), 
+                bitcoinXpub: FfiConverterOptionString.read(from: &buf), 
+                resolvedAddressForChain: FfiConverterOptionString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: WalletChainEligibilityInput, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.walletId, into: &buf)
+        FfiConverterString.write(value.selectedChain, into: &buf)
+        FfiConverterBool.write(value.hasSeedPhrase, into: &buf)
+        FfiConverterOptionString.write(value.bitcoinAddress, into: &buf)
+        FfiConverterBool.write(value.bitcoinAddressIsValid, into: &buf)
+        FfiConverterOptionString.write(value.bitcoinXpub, into: &buf)
+        FfiConverterOptionString.write(value.resolvedAddressForChain, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeWalletChainEligibilityInput_lift(_ buf: RustBuffer) throws -> WalletChainEligibilityInput {
+    return try FfiConverterTypeWalletChainEligibilityInput.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeWalletChainEligibilityInput_lower(_ value: WalletChainEligibilityInput) -> RustBuffer {
+    return FfiConverterTypeWalletChainEligibilityInput.lower(value)
+}
+
+
+nonisolated public struct WalletChainInput {
+    public var walletId: String
+    public var selectedChain: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    nonisolated public init(walletId: String, selectedChain: String) {
+        self.walletId = walletId
+        self.selectedChain = selectedChain
+    }
+}
+
+#if compiler(>=6)
+nonisolated extension WalletChainInput: Sendable {}
+#endif
+
+
+nonisolated extension WalletChainInput: Equatable, Hashable {
+    public static func ==(lhs: WalletChainInput, rhs: WalletChainInput) -> Bool {
+        if lhs.walletId != rhs.walletId {
+            return false
+        }
+        if lhs.selectedChain != rhs.selectedChain {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(walletId)
+        hasher.combine(selectedChain)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public struct FfiConverterTypeWalletChainInput: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletChainInput {
+        return
+            try WalletChainInput(
+                walletId: FfiConverterString.read(from: &buf), 
+                selectedChain: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: WalletChainInput, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.walletId, into: &buf)
+        FfiConverterString.write(value.selectedChain, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeWalletChainInput_lift(_ buf: RustBuffer) throws -> WalletChainInput {
+    return try FfiConverterTypeWalletChainInput.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeWalletChainInput_lower(_ value: WalletChainInput) -> RustBuffer {
+    return FfiConverterTypeWalletChainInput.lower(value)
+}
+
+
+nonisolated public struct WalletEarliestTransactionDate {
+    public var walletId: String
+    public var earliestCreatedAtUnix: Double
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    nonisolated public init(walletId: String, earliestCreatedAtUnix: Double) {
+        self.walletId = walletId
+        self.earliestCreatedAtUnix = earliestCreatedAtUnix
+    }
+}
+
+#if compiler(>=6)
+nonisolated extension WalletEarliestTransactionDate: Sendable {}
+#endif
+
+
+nonisolated extension WalletEarliestTransactionDate: Equatable, Hashable {
+    public static func ==(lhs: WalletEarliestTransactionDate, rhs: WalletEarliestTransactionDate) -> Bool {
+        if lhs.walletId != rhs.walletId {
+            return false
+        }
+        if lhs.earliestCreatedAtUnix != rhs.earliestCreatedAtUnix {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(walletId)
+        hasher.combine(earliestCreatedAtUnix)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public struct FfiConverterTypeWalletEarliestTransactionDate: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletEarliestTransactionDate {
+        return
+            try WalletEarliestTransactionDate(
+                walletId: FfiConverterString.read(from: &buf), 
+                earliestCreatedAtUnix: FfiConverterDouble.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: WalletEarliestTransactionDate, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.walletId, into: &buf)
+        FfiConverterDouble.write(value.earliestCreatedAtUnix, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeWalletEarliestTransactionDate_lift(_ buf: RustBuffer) throws -> WalletEarliestTransactionDate {
+    return try FfiConverterTypeWalletEarliestTransactionDate.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeWalletEarliestTransactionDate_lower(_ value: WalletEarliestTransactionDate) -> RustBuffer {
+    return FfiConverterTypeWalletEarliestTransactionDate.lower(value)
+}
+
+
 nonisolated public struct WalletHoldingRef {
     public var walletId: String
     public var holdingIndex: UInt64
@@ -31001,6 +31627,83 @@ nonisolated extension CoreTransactionStatus: Equatable, Hashable {}
 
 
 
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+nonisolated public enum DerivedAddressPostProcess {
+    
+    case none
+    case lowercase
+    case trim
+}
+
+
+#if compiler(>=6)
+nonisolated extension DerivedAddressPostProcess: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public struct FfiConverterTypeDerivedAddressPostProcess: FfiConverterRustBuffer {
+    typealias SwiftType = DerivedAddressPostProcess
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DerivedAddressPostProcess {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .none
+        
+        case 2: return .lowercase
+        
+        case 3: return .trim
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: DerivedAddressPostProcess, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .none:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .lowercase:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .trim:
+            writeInt(&buf, Int32(3))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeDerivedAddressPostProcess_lift(_ buf: RustBuffer) throws -> DerivedAddressPostProcess {
+    return try FfiConverterTypeDerivedAddressPostProcess.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeDerivedAddressPostProcess_lower(_ value: DerivedAddressPostProcess) -> RustBuffer {
+    return FfiConverterTypeDerivedAddressPostProcess.lower(value)
+}
+
+
+nonisolated extension DerivedAddressPostProcess: Equatable, Hashable {}
+
+
+
+
+
+
 
 nonisolated public enum EvmSendError: Swift.Error {
 
@@ -31436,6 +32139,195 @@ nonisolated public func FfiConverterTypeJsonFieldValue_lower(_ value: JsonFieldV
 
 
 nonisolated extension JsonFieldValue: Equatable, Hashable {}
+
+
+
+
+
+
+// Note that we don't yet support `indirect` for enums.
+// See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
+
+nonisolated public enum ReceiveAddressResolverKind {
+    
+    case bitcoinLegacy
+    case bitcoinCash
+    case bitcoinSv
+    case litecoin
+    case dogecoinNone
+    case evm
+    case tron
+    case solana
+    case cardano
+    case xrp
+    case stellar
+    case monero
+    case sui
+    case aptos
+    case ton
+    case icp
+    case near
+    case polkadot
+    case none
+}
+
+
+#if compiler(>=6)
+nonisolated extension ReceiveAddressResolverKind: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public struct FfiConverterTypeReceiveAddressResolverKind: FfiConverterRustBuffer {
+    typealias SwiftType = ReceiveAddressResolverKind
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ReceiveAddressResolverKind {
+        let variant: Int32 = try readInt(&buf)
+        switch variant {
+        
+        case 1: return .bitcoinLegacy
+        
+        case 2: return .bitcoinCash
+        
+        case 3: return .bitcoinSv
+        
+        case 4: return .litecoin
+        
+        case 5: return .dogecoinNone
+        
+        case 6: return .evm
+        
+        case 7: return .tron
+        
+        case 8: return .solana
+        
+        case 9: return .cardano
+        
+        case 10: return .xrp
+        
+        case 11: return .stellar
+        
+        case 12: return .monero
+        
+        case 13: return .sui
+        
+        case 14: return .aptos
+        
+        case 15: return .ton
+        
+        case 16: return .icp
+        
+        case 17: return .near
+        
+        case 18: return .polkadot
+        
+        case 19: return .none
+        
+        default: throw UniffiInternalError.unexpectedEnumCase
+        }
+    }
+
+    public static func write(_ value: ReceiveAddressResolverKind, into buf: inout [UInt8]) {
+        switch value {
+        
+        
+        case .bitcoinLegacy:
+            writeInt(&buf, Int32(1))
+        
+        
+        case .bitcoinCash:
+            writeInt(&buf, Int32(2))
+        
+        
+        case .bitcoinSv:
+            writeInt(&buf, Int32(3))
+        
+        
+        case .litecoin:
+            writeInt(&buf, Int32(4))
+        
+        
+        case .dogecoinNone:
+            writeInt(&buf, Int32(5))
+        
+        
+        case .evm:
+            writeInt(&buf, Int32(6))
+        
+        
+        case .tron:
+            writeInt(&buf, Int32(7))
+        
+        
+        case .solana:
+            writeInt(&buf, Int32(8))
+        
+        
+        case .cardano:
+            writeInt(&buf, Int32(9))
+        
+        
+        case .xrp:
+            writeInt(&buf, Int32(10))
+        
+        
+        case .stellar:
+            writeInt(&buf, Int32(11))
+        
+        
+        case .monero:
+            writeInt(&buf, Int32(12))
+        
+        
+        case .sui:
+            writeInt(&buf, Int32(13))
+        
+        
+        case .aptos:
+            writeInt(&buf, Int32(14))
+        
+        
+        case .ton:
+            writeInt(&buf, Int32(15))
+        
+        
+        case .icp:
+            writeInt(&buf, Int32(16))
+        
+        
+        case .near:
+            writeInt(&buf, Int32(17))
+        
+        
+        case .polkadot:
+            writeInt(&buf, Int32(18))
+        
+        
+        case .none:
+            writeInt(&buf, Int32(19))
+        
+        }
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeReceiveAddressResolverKind_lift(_ buf: RustBuffer) throws -> ReceiveAddressResolverKind {
+    return try FfiConverterTypeReceiveAddressResolverKind.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeReceiveAddressResolverKind_lower(_ value: ReceiveAddressResolverKind) -> RustBuffer {
+    return FfiConverterTypeReceiveAddressResolverKind.lower(value)
+}
+
+
+nonisolated extension ReceiveAddressResolverKind: Equatable, Hashable {}
 
 
 
@@ -35293,6 +36185,31 @@ fileprivate struct FfiConverterSequenceTypeNormalizedHistoryItem: FfiConverterRu
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeNormalizedHistorySignatureTransaction: FfiConverterRustBuffer {
+    typealias SwiftType = [NormalizedHistorySignatureTransaction]
+
+    public static func write(_ value: [NormalizedHistorySignatureTransaction], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeNormalizedHistorySignatureTransaction.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [NormalizedHistorySignatureTransaction] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [NormalizedHistorySignatureTransaction]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeNormalizedHistorySignatureTransaction.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeNormalizedRefreshWalletInput: FfiConverterRustBuffer {
     typealias SwiftType = [NormalizedRefreshWalletInput]
 
@@ -35668,6 +36585,56 @@ fileprivate struct FfiConverterSequenceTypeTokenDescriptor: FfiConverterRustBuff
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterSequenceTypeTransactionActivityInput: FfiConverterRustBuffer {
+    typealias SwiftType = [TransactionActivityInput]
+
+    public static func write(_ value: [TransactionActivityInput], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeTransactionActivityInput.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [TransactionActivityInput] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [TransactionActivityInput]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeTransactionActivityInput.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeTransactionEarliestInput: FfiConverterRustBuffer {
+    typealias SwiftType = [TransactionEarliestInput]
+
+    public static func write(_ value: [TransactionEarliestInput], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeTransactionEarliestInput.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [TransactionEarliestInput] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [TransactionEarliestInput]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeTransactionEarliestInput.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterSequenceTypeTransferHoldingInput: FfiConverterRustBuffer {
     typealias SwiftType = [TransferHoldingInput]
 
@@ -35785,6 +36752,81 @@ fileprivate struct FfiConverterSequenceTypeWalletAddress: FfiConverterRustBuffer
         seq.reserveCapacity(Int(len))
         for _ in 0 ..< len {
             seq.append(try FfiConverterTypeWalletAddress.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeWalletChainEligibilityInput: FfiConverterRustBuffer {
+    typealias SwiftType = [WalletChainEligibilityInput]
+
+    public static func write(_ value: [WalletChainEligibilityInput], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeWalletChainEligibilityInput.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [WalletChainEligibilityInput] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [WalletChainEligibilityInput]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeWalletChainEligibilityInput.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeWalletChainInput: FfiConverterRustBuffer {
+    typealias SwiftType = [WalletChainInput]
+
+    public static func write(_ value: [WalletChainInput], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeWalletChainInput.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [WalletChainInput] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [WalletChainInput]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeWalletChainInput.read(from: &buf))
+        }
+        return seq
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+fileprivate struct FfiConverterSequenceTypeWalletEarliestTransactionDate: FfiConverterRustBuffer {
+    typealias SwiftType = [WalletEarliestTransactionDate]
+
+    public static func write(_ value: [WalletEarliestTransactionDate], into buf: inout [UInt8]) {
+        let len = Int32(value.count)
+        writeInt(&buf, len)
+        for item in value {
+            FfiConverterTypeWalletEarliestTransactionDate.write(item, into: &buf)
+        }
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [WalletEarliestTransactionDate] {
+        let len: Int32 = try readInt(&buf)
+        var seq = [WalletEarliestTransactionDate]()
+        seq.reserveCapacity(Int(len))
+        for _ in 0 ..< len {
+            seq.append(try FfiConverterTypeWalletEarliestTransactionDate.read(from: &buf))
         }
         return seq
     }
@@ -36713,6 +37755,14 @@ nonisolated fileprivate func uniffiFutureContinuationCallback(handle: UInt64, po
     } else {
         print("uniffiFutureContinuationCallback invalid handle")
     }
+}
+nonisolated public func activePendingRefreshIntervalForProfile(backgroundSyncProfile: String, balancedInterval: Double) -> Double  {
+    return try!  FfiConverterDouble.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_active_pending_refresh_interval_for_profile(
+        FfiConverterString.lower(backgroundSyncProfile),
+        FfiConverterDouble.lower(balancedInterval),$0
+    )
+})
 }
 /**
  * Convert a decimal amount to its smallest-unit string representation.
@@ -38235,6 +39285,13 @@ nonisolated public func coreDisplayNetworkNameForChain(chainName: String, bitcoi
     )
 })
 }
+nonisolated public func coreEncodeHistoryRecordsFromPersisted(snapshots: [CorePersistedTransactionRecord])throws  -> String  {
+    return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
+    uniffi_spectra_core_fn_func_core_encode_history_records_from_persisted(
+        FfiConverterSequenceTypeCorePersistedTransactionRecord.lower(snapshots),$0
+    )
+})
+}
 nonisolated public func coreEncodeHistoryRecordsJson(records: [HistoryRecordEncodeInput])throws  -> String  {
     return try  FfiConverterString.lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
     uniffi_spectra_core_fn_func_core_encode_history_records_json(
@@ -38400,10 +39457,27 @@ nonisolated public func coreParseDogecoinDerivationIndex(path: String?, expected
     )
 })
 }
+nonisolated public func corePlanActiveWalletTransactionIds(transactions: [TransactionActivityInput], wallets: [WalletChainInput]) -> [String]  {
+    return try!  FfiConverterSequenceString.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_plan_active_wallet_transaction_ids(
+        FfiConverterSequenceTypeTransactionActivityInput.lower(transactions),
+        FfiConverterSequenceTypeWalletChainInput.lower(wallets),$0
+    )
+})
+}
 nonisolated public func corePlanBalanceRefreshHealth(request: BalanceRefreshHealthRequest) -> BalanceRefreshHealthPlan  {
     return try!  FfiConverterTypeBalanceRefreshHealthPlan_lift(try! rustCall() {
     uniffi_spectra_core_fn_func_core_plan_balance_refresh_health(
         FfiConverterTypeBalanceRefreshHealthRequest_lower(request),$0
+    )
+})
+}
+nonisolated public func corePlanCanonicalChainComponent(chainName: String, symbol: String, localizedChainId: String?) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_plan_canonical_chain_component(
+        FfiConverterString.lower(chainName),
+        FfiConverterString.lower(symbol),
+        FfiConverterOptionString.lower(localizedChainId),$0
     )
 })
 }
@@ -38414,10 +39488,26 @@ nonisolated public func corePlanDashboardSupportedTokenEntries(entries: [CoreTok
     )
 })
 }
+nonisolated public func corePlanDisplayMark(symbol: String, nativeMark: String?, tokenMark: String?) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_plan_display_mark(
+        FfiConverterString.lower(symbol),
+        FfiConverterOptionString.lower(nativeMark),
+        FfiConverterOptionString.lower(tokenMark),$0
+    )
+})
+}
 nonisolated public func corePlanDogecoinRefreshTargets(request: DogecoinRefreshTargetsRequest) -> [DogecoinRefreshWalletTarget]  {
     return try!  FfiConverterSequenceTypeDogecoinRefreshWalletTarget.lift(try! rustCall() {
     uniffi_spectra_core_fn_func_core_plan_dogecoin_refresh_targets(
         FfiConverterTypeDogecoinRefreshTargetsRequest_lower(request),$0
+    )
+})
+}
+nonisolated public func corePlanEarliestTransactionDates(transactions: [TransactionEarliestInput]) -> [WalletEarliestTransactionDate]  {
+    return try!  FfiConverterSequenceTypeWalletEarliestTransactionDate.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_plan_earliest_transaction_dates(
+        FfiConverterSequenceTypeTransactionEarliestInput.lower(transactions),$0
     )
 })
 }
@@ -38428,6 +39518,41 @@ nonisolated public func corePlanEvmRefreshTargets(request: EvmRefreshTargetsRequ
     )
 })
 }
+nonisolated public func corePlanHasWalletForChain(chainName: String, wallets: [WalletChainEligibilityInput]) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_plan_has_wallet_for_chain(
+        FfiConverterString.lower(chainName),
+        FfiConverterSequenceTypeWalletChainEligibilityInput.lower(wallets),$0
+    )
+})
+}
+nonisolated public func corePlanIconIdentifier(symbol: String, chainName: String, contractAddress: String?, tokenStandard: String, localizedChainId: String?) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_plan_icon_identifier(
+        FfiConverterString.lower(symbol),
+        FfiConverterString.lower(chainName),
+        FfiConverterOptionString.lower(contractAddress),
+        FfiConverterString.lower(tokenStandard),
+        FfiConverterOptionString.lower(localizedChainId),$0
+    )
+})
+}
+nonisolated public func corePlanNormalizedHistorySignature(transactions: [NormalizedHistorySignatureTransaction], wallets: [WalletChainInput]) -> Int64  {
+    return try!  FfiConverterInt64.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_plan_normalized_history_signature(
+        FfiConverterSequenceTypeNormalizedHistorySignatureTransaction.lower(transactions),
+        FfiConverterSequenceTypeWalletChainInput.lower(wallets),$0
+    )
+})
+}
+nonisolated public func corePlanNormalizedIconIdentifier(identifier: String, localizedChainId: String?) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_plan_normalized_icon_identifier(
+        FfiConverterString.lower(identifier),
+        FfiConverterOptionString.lower(localizedChainId),$0
+    )
+})
+}
 nonisolated public func corePlanNormalizedRefreshTargets(request: NormalizedRefreshTargetsRequest) -> [NormalizedRefreshWalletTarget]  {
     return try!  FfiConverterSequenceTypeNormalizedRefreshWalletTarget.lift(try! rustCall() {
     uniffi_spectra_core_fn_func_core_plan_normalized_refresh_targets(
@@ -38435,10 +39560,47 @@ nonisolated public func corePlanNormalizedRefreshTargets(request: NormalizedRefr
     )
 })
 }
+nonisolated public func corePlanPricedChain(chainName: String, bitcoinNetworkModeRaw: String, ethereumNetworkModeRaw: String) -> Bool  {
+    return try!  FfiConverterBool.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_plan_priced_chain(
+        FfiConverterString.lower(chainName),
+        FfiConverterString.lower(bitcoinNetworkModeRaw),
+        FfiConverterString.lower(ethereumNetworkModeRaw),$0
+    )
+})
+}
+nonisolated public func corePlanReceiveAddressResolver(symbol: String, chainName: String, isEvmChain: Bool) -> ReceiveAddressResolverKind  {
+    return try!  FfiConverterTypeReceiveAddressResolverKind_lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_plan_receive_address_resolver(
+        FfiConverterString.lower(symbol),
+        FfiConverterString.lower(chainName),
+        FfiConverterBool.lower(isEvmChain),$0
+    )
+})
+}
 nonisolated public func corePlanReceiveSelection(request: ReceiveSelectionRequest) -> ReceiveSelectionPlan  {
     return try!  FfiConverterTypeReceiveSelectionPlan_lift(try! rustCall() {
     uniffi_spectra_core_fn_func_core_plan_receive_selection(
         FfiConverterTypeReceiveSelectionRequest_lower(request),$0
+    )
+})
+}
+nonisolated public func corePlanResetDispatch(scopes: [String]) -> CoreResetPlan  {
+    return try!  FfiConverterTypeCoreResetPlan_lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_plan_reset_dispatch(
+        FfiConverterSequenceString.lower(scopes),$0
+    )
+})
+}
+nonisolated public func corePlanResolveDerivedOrStoredAddress(derived: String?, stored: String?, validationKind: String, validationNetworkMode: String?, derivedPostProcess: DerivedAddressPostProcess, normalizeStored: Bool) -> String?  {
+    return try!  FfiConverterOptionString.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_plan_resolve_derived_or_stored_address(
+        FfiConverterOptionString.lower(derived),
+        FfiConverterOptionString.lower(stored),
+        FfiConverterString.lower(validationKind),
+        FfiConverterOptionString.lower(validationNetworkMode),
+        FfiConverterTypeDerivedAddressPostProcess_lower(derivedPostProcess),
+        FfiConverterBool.lower(normalizeStored),$0
     )
 })
 }
@@ -40282,6 +41444,13 @@ nonisolated public func planEvmTransactionRecords(request: EvmTransactionRecordR
     )
 })
 }
+nonisolated public func portfolioCompositionSignature(holdingKeys: [String]) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_portfolio_composition_signature(
+        FfiConverterSequenceString.lower(holdingKeys),$0
+    )
+})
+}
 nonisolated public func prepareEvmSendAssembly(input: EvmSendAssemblyInput)throws  -> EvmSendAssembly  {
     return try  FfiConverterTypeEvmSendAssembly_lift(try rustCallWithError(FfiConverterTypeEvmSendError_lift) {
     uniffi_spectra_core_fn_func_prepare_evm_send_assembly(
@@ -40550,6 +41719,9 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
     let scaffolding_contract_version = ffi_spectra_core_uniffi_contract_version()
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_active_pending_refresh_interval_for_profile() != 50196) {
+        return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_amount_to_raw_units_string() != 59996) {
         return InitializationResult.apiChecksumMismatch
@@ -41181,6 +42353,9 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_func_core_display_network_name_for_chain() != 22415) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_core_checksum_func_core_encode_history_records_from_persisted() != 47793) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_core_checksum_func_core_encode_history_records_json() != 54860) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -41244,22 +42419,58 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_func_core_parse_dogecoin_derivation_index() != 52136) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_core_checksum_func_core_plan_active_wallet_transaction_ids() != 59425) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_core_checksum_func_core_plan_balance_refresh_health() != 59148) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_plan_canonical_chain_component() != 63591) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_core_plan_dashboard_supported_token_entries() != 4924) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_core_checksum_func_core_plan_display_mark() != 39589) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_core_checksum_func_core_plan_dogecoin_refresh_targets() != 9431) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_plan_earliest_transaction_dates() != 37426) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_core_plan_evm_refresh_targets() != 65272) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_core_checksum_func_core_plan_has_wallet_for_chain() != 39519) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_plan_icon_identifier() != 21833) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_plan_normalized_history_signature() != 53482) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_plan_normalized_icon_identifier() != 21714) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_core_checksum_func_core_plan_normalized_refresh_targets() != 23377) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_core_checksum_func_core_plan_priced_chain() != 61654) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_plan_receive_address_resolver() != 1739) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_core_checksum_func_core_plan_receive_selection() != 43984) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_plan_reset_dispatch() != 16979) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_plan_resolve_derived_or_stored_address() != 61918) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_core_plan_self_send_confirmation() != 17084) {
@@ -41944,6 +43155,9 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_plan_evm_transaction_records() != 27431) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_portfolio_composition_signature() != 43514) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_prepare_evm_send_assembly() != 13997) {

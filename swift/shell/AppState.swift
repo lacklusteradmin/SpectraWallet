@@ -1017,7 +1017,7 @@ class AppState: ObservableObject {
         let normalizedContract = contractAddress.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedContract.isEmpty else { return localizedStoreString("Contract address is required.") }
         switch chain {
-        case .ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid: guard isValidEVMAddress(normalizedContract) else { return localizedStoreString("Enter a valid \(chain.rawValue) token contract address.") }
+        case .ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid: guard AddressValidation.isValid(normalizedContract, kind: "evm") else { return localizedStoreString("Enter a valid \(chain.rawValue) token contract address.") }
         case .solana: guard AddressValidation.isValid(normalizedContract, kind: "solana") else { return localizedStoreString("Enter a valid Solana token mint address.") }
         case .sui: let isLikelySuiIdentifier = normalizedContract.hasPrefix("0x")
                 && (normalizedContract.contains("::") || normalizedContract.count > 2)
