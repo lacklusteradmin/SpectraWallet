@@ -1,9 +1,9 @@
 import Foundation
-protocol PlatformSnapshotConvertible {
+nonisolated protocol PlatformSnapshotConvertible {
     associatedtype PlatformSnapshot: Codable
     func makePlatformSnapshot() -> PlatformSnapshot
 }
-struct PlatformSnapshotEnvelope: Codable {
+nonisolated struct PlatformSnapshotEnvelope: Codable {
     static let currentSchemaVersion = 1
     let schemaVersion: Int
     let generatedAt: Date
@@ -14,7 +14,7 @@ struct PlatformSnapshotEnvelope: Codable {
         self.app = app
     }
 }
-struct PlatformAppSnapshot: Codable {
+nonisolated struct PlatformAppSnapshot: Codable {
     let pricingProvider: String
     let fiatCurrency: String
     let walletCount: Int
@@ -26,7 +26,7 @@ struct PlatformAppSnapshot: Codable {
     let addressBook: [PlatformAddressBookEntrySnapshot]
     let livePrices: [String: Double]
 }
-struct PlatformWalletSnapshot: Codable, Identifiable {
+nonisolated struct PlatformWalletSnapshot: Codable, Identifiable {
     let id: String
     let name: String
     let selectedChainID: String
@@ -36,13 +36,13 @@ struct PlatformWalletSnapshot: Codable, Identifiable {
     let addresses: [PlatformWalletAddressSnapshot]
     let holdings: [PlatformAssetSnapshot]
 }
-struct PlatformWalletAddressSnapshot: Codable, Identifiable {
+nonisolated struct PlatformWalletAddressSnapshot: Codable, Identifiable {
     let id: String
     let chainID: String
     let chainName: String
     let address: String
 }
-struct PlatformAssetSnapshot: Codable, Identifiable {
+nonisolated struct PlatformAssetSnapshot: Codable, Identifiable {
     let id: String
     let name: String
     let symbol: String
@@ -56,7 +56,7 @@ struct PlatformAssetSnapshot: Codable, Identifiable {
     let priceUsd: Double
     let valueUSD: Double
 }
-struct PlatformTransactionSnapshot: Codable, Identifiable {
+nonisolated struct PlatformTransactionSnapshot: Codable, Identifiable {
     let id: UUID
     let walletID: String?
     let kind: String
@@ -73,7 +73,7 @@ struct PlatformTransactionSnapshot: Codable, Identifiable {
     let transactionHistorySource: String?
     let createdAt: Date
 }
-struct PlatformAddressBookEntrySnapshot: Codable, Identifiable {
+nonisolated struct PlatformAddressBookEntrySnapshot: Codable, Identifiable {
     let id: UUID
     let name: String
     let chainID: String
@@ -81,13 +81,13 @@ struct PlatformAddressBookEntrySnapshot: Codable, Identifiable {
     let address: String
     let note: String
 }
-private extension String {
+private nonisolated extension String {
     var platformTrimmedOrNil: String? {
         let trimmed = trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
 }
-private extension ImportedWallet {
+private nonisolated extension ImportedWallet {
     func makeAddressSnapshots() -> [PlatformWalletAddressSnapshot] {
         let candidates: [(String, String?)] = [
             ("Bitcoin", bitcoinAddress), ("Bitcoin Cash", bitcoinCashAddress), ("Bitcoin SV", bitcoinSvAddress), ("Litecoin", litecoinAddress), ("Dogecoin", dogecoinAddress), ("Ethereum", ethereumAddress), ("Tron", tronAddress), ("Solana", solanaAddress), ("Stellar", stellarAddress), ("XRP Ledger", xrpAddress), ("Monero", moneroAddress), ("Cardano", cardanoAddress), ("Sui", suiAddress), ("Aptos", aptosAddress), ("TON", tonAddress), ("Internet Computer", icpAddress), ("NEAR", nearAddress), ("Polkadot", polkadotAddress)
@@ -99,7 +99,7 @@ private extension ImportedWallet {
             )
         }}
 }
-extension Coin: PlatformSnapshotConvertible {
+nonisolated extension Coin: PlatformSnapshotConvertible {
     func makePlatformSnapshot() -> PlatformAssetSnapshot {
         let chainID = WalletChainID(chainName) ?? WalletChainID(rawValue: chainName)
         return PlatformAssetSnapshot(
@@ -107,7 +107,7 @@ extension Coin: PlatformSnapshotConvertible {
         )
     }
 }
-extension ImportedWallet: PlatformSnapshotConvertible {
+nonisolated extension ImportedWallet: PlatformSnapshotConvertible {
     func makePlatformSnapshot() -> PlatformWalletSnapshot {
         let chainID = WalletChainID(selectedChain) ?? WalletChainID(rawValue: selectedChain)
         return PlatformWalletSnapshot(
@@ -115,7 +115,7 @@ extension ImportedWallet: PlatformSnapshotConvertible {
         )
     }
 }
-extension TransactionRecord: PlatformSnapshotConvertible {
+nonisolated extension TransactionRecord: PlatformSnapshotConvertible {
     func makePlatformSnapshot() -> PlatformTransactionSnapshot {
         let chainID = WalletChainID(chainName) ?? WalletChainID(rawValue: chainName)
         return PlatformTransactionSnapshot(
@@ -123,7 +123,7 @@ extension TransactionRecord: PlatformSnapshotConvertible {
         )
     }
 }
-extension AddressBookEntry: PlatformSnapshotConvertible {
+nonisolated extension AddressBookEntry: PlatformSnapshotConvertible {
     func makePlatformSnapshot() -> PlatformAddressBookEntrySnapshot {
         let chainID = WalletChainID(chainName) ?? WalletChainID(rawValue: chainName)
         return PlatformAddressBookEntrySnapshot(

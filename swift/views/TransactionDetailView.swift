@@ -46,7 +46,7 @@ struct HistoryDetailView: View {
         ZStack {
             SpectraBackdrop()
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
+                LazyVStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 12) {
                             CoinBadge(assetIdentifier: displayedTransaction.assetIdentifier, fallbackText: displayedTransaction.symbol, color: displayedTransaction.badgeColor, size: 42)

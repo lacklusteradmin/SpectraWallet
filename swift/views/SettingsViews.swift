@@ -292,7 +292,7 @@ struct AboutView: View {
         ZStack {
             SpectraBackdrop()
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 22) {
+                LazyVStack(spacing: 22) {
                     aboutHero
                     aboutCard(title: copy.aboutEthosTitle, lines: copy.aboutEthosLines)
                     aboutNarrativeCard
@@ -392,9 +392,20 @@ struct ChainFeePrioritySettingsView: View {
                 }}}.navigationTitle(localizedSettingsString("Fee Priorities"))
     }
     private var chainFeePrioritySettings: [ChainFeePrioritySetting] {
-        func std(_ chain: String) -> ChainFeePrioritySetting { ChainFeePrioritySetting(chainName: chain, title: "Default Fee Priority", detail: "Stored as the default fee priority for \(chain) sends.") }
+        func std(_ chain: String) -> ChainFeePrioritySetting {
+            ChainFeePrioritySetting(chainName: chain, title: "Default Fee Priority", detail: "Stored as the default fee priority for \(chain) sends.")
+        }
         return [
-            ChainFeePrioritySetting(chainName: "Bitcoin", title: "Default Fee Priority", detail: "Used as the default for Bitcoin sends. You can still override before broadcasting."), std("Bitcoin Cash"), std("Bitcoin SV"), ChainFeePrioritySetting(chainName: "Litecoin", title: "Default Fee Priority", detail: "Used as the default for Litecoin sends. You can still override before broadcasting."), ChainFeePrioritySetting(chainName: "Dogecoin", title: "Dogecoin Default Fee", detail: "This is the default in Send. You can still override fee priority per transaction."), std("Ethereum"), std("Ethereum Classic"), std("Arbitrum"), std("Optimism"), std("BNB Chain"), std("Avalanche"), std("Hyperliquid"), std("Tron"), std("Solana"), ChainFeePrioritySetting(chainName: "XRP Ledger", title: "Default Fee Priority", detail: "Stored as the default fee priority for XRP sends."), std("Cardano"), std("Monero"), std("Sui"), std("Aptos"), std("TON"), std("NEAR"), std("Polkadot"), std("Stellar"), std("Internet Computer")
+            ChainFeePrioritySetting(chainName: "Bitcoin", title: "Default Fee Priority", detail: "Used as the default for Bitcoin sends. You can still override before broadcasting."),
+            std("Bitcoin Cash"),
+            std("Bitcoin SV"),
+            ChainFeePrioritySetting(chainName: "Litecoin", title: "Default Fee Priority", detail: "Used as the default for Litecoin sends. You can still override before broadcasting."),
+            ChainFeePrioritySetting(chainName: "Dogecoin", title: "Dogecoin Default Fee", detail: "This is the default in Send. You can still override fee priority per transaction."),
+            std("Ethereum"), std("Ethereum Classic"), std("Arbitrum"), std("Optimism"),
+            std("BNB Chain"), std("Avalanche"), std("Hyperliquid"), std("Tron"), std("Solana"),
+            ChainFeePrioritySetting(chainName: "XRP Ledger", title: "Default Fee Priority", detail: "Stored as the default fee priority for XRP sends."),
+            std("Cardano"), std("Monero"), std("Sui"), std("Aptos"), std("TON"),
+            std("NEAR"), std("Polkadot"), std("Stellar"), std("Internet Computer"),
         ]
     }
 }
@@ -1348,14 +1359,13 @@ private struct LazyTab<Content: View>: View {
 
 struct MainTabView: View {
     let store: AppState
+    @ObservedObject private var tabSelection: AppTabSelection
     init(store: AppState) {
         self.store = store
-    }
-    private var selectedMainTabBinding: Binding<MainAppTab> {
-        Binding(get: { store.selectedMainTab }, set: { store.selectedMainTab = $0 })
+        self.tabSelection = store.tabSelection
     }
     var body: some View {
-        TabView(selection: selectedMainTabBinding) {
+        TabView(selection: $tabSelection.value) {
             LazyTab { DashboardView(store: store) }.tabItem {
                     Label(localizedSettingsString("Home"), systemImage: "chart.pie.fill")
                 }.tag(MainAppTab.home)

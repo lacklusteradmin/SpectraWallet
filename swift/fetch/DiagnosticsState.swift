@@ -33,12 +33,14 @@ final class WalletDiagnosticsState: ObservableObject {
     func loadFromSQLite() async {
         async let opsLogsJSON = try? WalletServiceBridge.shared.loadState(key: Self.operationalLogsDefaultsKey)
         async let chainSyncJSON = try? WalletServiceBridge.shared.loadState(key: Self.chainSyncStateDefaultsKey)
-        let loadedLogs: [AppState.OperationalLogEvent]? = await {
-            guard let json = await opsLogsJSON, json != "{}", let data = json.data(using: .utf8) else { return nil }
+        let opsJSON = await opsLogsJSON
+        let chainJSON = await chainSyncJSON
+        let loadedLogs: [AppState.OperationalLogEvent]? = {
+            guard let json = opsJSON, json != "{}", let data = json.data(using: .utf8) else { return nil }
             return (try? Self.persistenceDecoder.decode([AppState.OperationalLogEvent].self, from: data))?.sorted { $0.timestamp > $1.timestamp }
         }()
-        let loadedChainSync: (degradedMessages: [WalletChainID: String], lastGoodSyncByID: [WalletChainID: Date])? = await {
-            guard let json = await chainSyncJSON, json != "{}", let data = json.data(using: .utf8),
+        let loadedChainSync: (degradedMessages: [WalletChainID: String], lastGoodSyncByID: [WalletChainID: Date])? = {
+            guard let json = chainJSON, json != "{}", let data = json.data(using: .utf8),
                   let payload = try? Self.persistenceDecoder.decode(AppState.PersistedChainSyncState.self, from: data),
                   payload.version == AppState.PersistedChainSyncState.currentVersion else { return nil }
             let degradedMessages = Dictionary(

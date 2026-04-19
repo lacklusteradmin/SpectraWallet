@@ -2,7 +2,7 @@ import SwiftUI
 private func localizedChainWikiString(_ key: String) -> String {
     AppLocalization.string(key)
 }
-struct ChainWikiEntry: Identifiable, Codable {
+struct ChainWikiEntry: Identifiable, Codable, Equatable {
     let id: String
     let name: String
     let symbol: String
@@ -30,7 +30,7 @@ struct ChainWikiLibraryView: View {
     private var availableTags: [String] { ChainWikiEntry.all.availableWikiTags }
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 ChainWikiIntroCard()
                 ChainWikiTagFilterBar(
                     tags: availableTags, selectedTag: selectedTag, onSelect: { tag in
@@ -45,7 +45,7 @@ struct ChainWikiLibraryView: View {
                     ForEach(filteredEntries) { chain in
                         NavigationLink {
                             ChainWikiDetailView(chain: chain)
-                        } label: { ChainWikiRowCard(chain: chain) }.buttonStyle(.plain)
+                        } label: { ChainWikiRowCard(chain: chain).equatable() }.buttonStyle(.plain)
                     }}}.padding(.horizontal, 20).padding(.vertical, 18)
         }.background(Color(uiColor: .systemGroupedBackground)).navigationTitle(localizedChainWikiString("Chain Wiki"))
     }
@@ -54,7 +54,7 @@ struct ChainWikiDetailView: View {
     let chain: ChainWikiEntry
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 18) {
+            LazyVStack(alignment: .leading, spacing: 18) {
                 ChainWikiHeroCard(chain: chain)
                 ChainWikiSectionCard(title: localizedChainWikiString("Primary Use")) {
                     Text(chain.primaryUse).font(.body).foregroundStyle(Color.primary.opacity(0.86))
@@ -183,8 +183,9 @@ private struct ChainWikiTagFilterBar: View {
                 }}.padding(.vertical, 2)
         }}
 }
-private struct ChainWikiRowCard: View {
+private struct ChainWikiRowCard: View, Equatable {
     let chain: ChainWikiEntry
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.chain == rhs.chain }
     var body: some View {
         HStack(spacing: 14) {
             ChainWikiChainLogoBadge(

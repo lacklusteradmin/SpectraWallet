@@ -6,11 +6,13 @@ private func localizedSendString(_ key: String) -> String {
 }
 struct SendView: View {
     @ObservedObject var store: AppState
+    @ObservedObject var sendPreviewStore: SendPreviewStore
     @State private var selectedAddressBookEntryID: String = ""
     @State private var isShowingQRScanner: Bool = false
     @State private var qrScannerErrorMessage: String?
     init(store: AppState) {
         self.store = store
+        self.sendPreviewStore = store.sendPreviewStore
     }
     private func localized(_ key: String) -> String { localizedSendString(key) }
     private var sendAdvancedModeBinding: Binding<Bool> {
@@ -157,6 +159,27 @@ struct SendView: View {
         if coin.chainName == "Bitcoin Cash" { return store.bitcoinCashSendPreview }
         return store.bitcoinSendPreview
     }
+    private func utxoAdvancedModeCaption(for chainName: String) -> String? {
+        switch chainName {
+        case "Bitcoin":
+            return localized("For Bitcoin sends, advanced mode records RBF/CPFP intent and applies the max-input cap for coin selection.")
+        case "Bitcoin Cash":
+            return localized("For Bitcoin Cash sends, advanced mode records RBF intent and applies the max-input cap for coin selection.")
+        case "Dogecoin":
+            return localized("For Dogecoin sends, advanced mode records RBF/CPFP intent and applies the max-input cap for coin selection.")
+        default:
+            return nil
+        }
+    }
+    private func evmFeeSymbol(for chainName: String) -> String {
+        switch chainName {
+        case "BNB Chain": return "BNB"
+        case "Ethereum Classic": return "ETC"
+        case "Avalanche": return "AVAX"
+        case "Hyperliquid": return "HYPE"
+        default: return "ETH"
+        }
+    }
     private func formattedPreviewAssetAmount(_ amount: Double, for coin: Coin) -> String { store.formattedAssetAmount(amount, symbol: coin.symbol, chainName: coin.chainName) }
     @ViewBuilder
     private func sendPreviewDetailsSection(for selectedCoin: Coin) -> some View {
@@ -188,7 +211,13 @@ struct SendView: View {
                     } else {
                         Toggle(localized("RBF Intent"), isOn: sendEnableRBFBinding)
                         Toggle(localized("CPFP Intent"), isOn: sendEnableCPFPBinding)
-                        if selectedCoin.chainName == "Bitcoin" { Text(localized("For Bitcoin sends, advanced mode records RBF/CPFP intent and applies the max-input cap for coin selection.")).font(.caption).foregroundStyle(.secondary) } else if selectedCoin.chainName == "Bitcoin Cash" { Text(localized("For Bitcoin Cash sends, advanced mode records RBF intent and applies the max-input cap for coin selection.")).font(.caption).foregroundStyle(.secondary) } else if selectedCoin.chainName == "Dogecoin" { Text(localized("For Dogecoin sends, advanced mode records RBF/CPFP intent and applies the max-input cap for coin selection.")).font(.caption).foregroundStyle(.secondary) }}}}}
+                        if let caption = utxoAdvancedModeCaption(for: selectedCoin.chainName) {
+                            Text(caption).font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            }
+        }
         if let selectedCoin, selectedCoin.chainName != "Bitcoin", selectedCoin.chainName != "Bitcoin Cash", selectedCoin.chainName != "Bitcoin SV", selectedCoin.chainName != "Litecoin", selectedCoin.chainName != "Dogecoin" {
             Section(localized("Fee Priority")) {
                 Picker(localized("Fee Priority"), selection: chainFeePriorityBinding(for: selectedCoin.chainName)) {
@@ -251,7 +280,7 @@ struct SendView: View {
                     Text("Gas Limit: \(ethereumSendPreview.gasLimit)")
                     Text("Max Fee: \(ethereumSendPreview.maxFeePerGasGwei, specifier: "%.2f") gwei")
                     Text("Priority Fee: \(ethereumSendPreview.maxPriorityFeePerGasGwei, specifier: "%.2f") gwei")
-                    let feeSymbol = selectedCoin.chainName == "BNB Chain" ? "BNB" : (selectedCoin.chainName == "Ethereum Classic" ? "ETC" : (selectedCoin.chainName == "Avalanche" ? "AVAX" : (selectedCoin.chainName == "Hyperliquid" ? "HYPE" : "ETH")))
+                    let feeSymbol = evmFeeSymbol(for: selectedCoin.chainName)
                     if let fiatFee = store.formattedFiatAmount(fromNative: ethereumSendPreview.estimatedNetworkFeeEth, symbol: feeSymbol) { Text("Estimated Network Fee: \(ethereumSendPreview.estimatedNetworkFeeEth, specifier: "%.6f") \(feeSymbol) (~\(fiatFee))").font(.subheadline.weight(.semibold)) } else { Text("Estimated Network Fee: \(ethereumSendPreview.estimatedNetworkFeeEth, specifier: "%.6f") \(feeSymbol)").font(.subheadline.weight(.semibold)) }
                 } else { Text(localized("Enter an amount to load a live nonce and fee preview. Add a valid destination address before sending.")).font(.caption).foregroundStyle(.secondary) }
                 Text(localized("Spectra signs and broadcasts supported \(selectedCoin.chainName) transfers. This preview is the live nonce and fee estimate for the transaction you are about to send.")).font(.caption).foregroundStyle(.secondary)
@@ -318,7 +347,7 @@ struct SendView: View {
         ZStack {
             SpectraBackdrop()
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
+                LazyVStack(alignment: .leading, spacing: 18) {
                     SendPrimarySectionsView(
                         store: store, selectedAddressBookEntryID: $selectedAddressBookEntryID, isShowingQRScanner: $isShowingQRScanner, qrScannerErrorMessage: $qrScannerErrorMessage
                     )

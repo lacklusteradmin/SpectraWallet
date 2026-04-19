@@ -2,7 +2,7 @@ import SwiftUI
 private func localizedHistoryString(_ key: String) -> String {
     AppLocalization.string(key)
 }
-private struct HistoryRowPresentation: Identifiable {
+private struct HistoryRowPresentation: Identifiable, Equatable {
     let transaction: TransactionRecord
     let amountText: String?
     let amountColor: Color?
@@ -11,6 +11,28 @@ private struct HistoryRowPresentation: Identifiable {
     let fullTimestampText: String
     let metadataText: String?
     var id: UUID { transaction.id }
+}
+
+private struct HistoryTransactionRowView: View, Equatable {
+    let row: HistoryRowPresentation
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.row == rhs.row }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 12) {
+                CoinBadge(assetIdentifier: row.transaction.assetIdentifier, fallbackText: row.transaction.symbol, color: row.transaction.badgeColor, size: 40)
+                VStack(alignment: .leading, spacing: 3) {
+                    if let amountText = row.amountText { Text(amountText).font(.headline.weight(.semibold)).foregroundStyle(row.amountColor ?? Color.primary).spectraNumericTextLayout() }
+                    Text(row.subtitleText).font(.caption).foregroundStyle(Color.primary.opacity(0.72))
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 6) {
+                    Text(row.statusText).font(.caption2.bold()).foregroundStyle(Color.primary).padding(.horizontal, 8).padding(.vertical, 5).background(row.transaction.statusColor.opacity(0.85), in: Capsule())
+                    Text(row.fullTimestampText).font(.caption2).foregroundStyle(Color.primary.opacity(0.6)).multilineTextAlignment(.trailing)
+                }
+                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Color.primary.opacity(0.35))
+            }
+            if let metadataText = row.metadataText { Text(metadataText).font(.caption2).foregroundStyle(Color.primary.opacity(0.62)).lineLimit(1) }}.padding(16).frame(maxWidth: .infinity, alignment: .leading).glassEffect(.regular.tint(.white.opacity(0.028)), in: .rect(cornerRadius: 22))
+    }
 }
 private struct HistoryPresentationSection: Identifiable {
     let title: String
@@ -54,7 +76,7 @@ struct HistoryView: View {
                                             VStack(alignment: .leading, spacing: 10) {
                                                 NavigationLink {
                                                     HistoryDetailView(store: store, transaction: row.transaction)
-                                                } label: { transactionRow(row) }.buttonStyle(.plain).swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                                } label: { HistoryTransactionRowView(row: row).equatable() }.buttonStyle(.plain).swipeActions(edge: .trailing, allowsFullSwipe: false) {
                                                     if row.transaction.kind == .send, row.transaction.status == .pending || row.transaction.status == .failed {
                                                         if ["Bitcoin", "Bitcoin Cash", "Bitcoin SV", "Litecoin", "Dogecoin"].contains(row.transaction.chainName) {
                                                             Button {
@@ -259,24 +281,6 @@ struct HistoryView: View {
     private var selectedWalletName: String {
         guard let selectedWalletID, let wallet = store.wallet(for: selectedWalletID) else { return localizedHistoryString("All Wallets") }
         return wallet.name
-    }
-    @ViewBuilder
-    private func transactionRow(_ row: HistoryRowPresentation) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
-                CoinBadge(assetIdentifier: row.transaction.assetIdentifier, fallbackText: row.transaction.symbol, color: row.transaction.badgeColor, size: 40)
-                VStack(alignment: .leading, spacing: 3) {
-                    if let amountText = row.amountText { Text(amountText).font(.headline.weight(.semibold)).foregroundStyle(row.amountColor ?? Color.primary).spectraNumericTextLayout() }
-                    Text(row.subtitleText).font(.caption).foregroundStyle(Color.primary.opacity(0.72))
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 6) {
-                    Text(row.statusText).font(.caption2.bold()).foregroundStyle(Color.primary).padding(.horizontal, 8).padding(.vertical, 5).background(row.transaction.statusColor.opacity(0.85), in: Capsule())
-                    Text(row.fullTimestampText).font(.caption2).foregroundStyle(Color.primary.opacity(0.6)).multilineTextAlignment(.trailing)
-                }
-                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Color.primary.opacity(0.35))
-            }
-            if let metadataText = row.metadataText { Text(metadataText).font(.caption2).foregroundStyle(Color.primary.opacity(0.62)).lineLimit(1) }}.padding(16).frame(maxWidth: .infinity, alignment: .leading).glassEffect(.regular.tint(.white.opacity(0.028)), in: .rect(cornerRadius: 22))
     }
     @ViewBuilder
     private func filterCapsuleLabel(title: String, value: String, systemImage: String) -> some View {

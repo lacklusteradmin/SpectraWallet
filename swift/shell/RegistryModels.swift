@@ -223,7 +223,7 @@ extension CoreTokenPreferenceCategory: RawRepresentable, CaseIterable, Codable, 
 }
 
 typealias TokenPreferenceEntry = CoreTokenPreferenceEntry
-extension CoreTokenPreferenceEntry: Identifiable, Codable {
+nonisolated extension CoreTokenPreferenceEntry: Identifiable, Codable {
     // Legacy UUID-style id initializer & convenience matching Swift-era struct.
     init(
         id: UUID = UUID(), chain: TokenTrackingChain, name: String, symbol: String, tokenStandard: String, contractAddress: String, marketDataId: String, coinGeckoId: String, decimals: Int, displayDecimals: Int? = nil, category: TokenPreferenceCategory, isBuiltIn: Bool, isEnabled: Bool
@@ -346,7 +346,7 @@ extension Coin {
     static func nativeChainIconDescriptor(chainName: String) -> NativeChainIconDescriptor? {
         let normalizedChainName = chainName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedChainName.isEmpty else { return nil }
-        let canonicalChainName = canonicalChainComponent(chainName: normalizedChainName, symbol: "")
+        let canonicalChainName = WalletRustAppCoreBridge.planCanonicalChainComponent(chainName: normalizedChainName, symbol: "", localizedChainID: localizedChainIDHint(for: normalizedChainName))
         return nativeChainIconDescriptors.first { descriptor in
             descriptor.registryID.caseInsensitiveCompare(canonicalChainName) == .orderedSame
                 || descriptor.chainName.caseInsensitiveCompare(normalizedChainName) == .orderedSame

@@ -26,7 +26,7 @@ extension AppState {
 // refresh methods for non-EVM, non-UTXO-HD chains.
 // Rust normalizes and decodes; Swift maps the typed items to TransactionRecord.
 // ────────────────────────────────────────────────────────────────────────────
-extension NormalizedHistoryItem {
+nonisolated extension NormalizedHistoryItem {
     fileprivate var createdAtDate: Date { timestamp > 0 ? Date(timeIntervalSince1970: timestamp) : Date() }
 }
 extension AppState {
@@ -192,7 +192,7 @@ private func fetchBitcoinHDHistoryPage(xpub: String, limit: Int) async throws ->
             return (index, payloads)
         } catch { return (index, nil) }
     }
-    let mergedSnapshots = try WalletRustAppCoreBridge.mergeBitcoinHistorySnapshots(
+    let mergedSnapshots = WalletRustAppCoreBridge.mergeBitcoinHistorySnapshots(
         WalletRustMergeBitcoinHistorySnapshotsRequest(
             snapshots: fetchedSnapshots.sorted { $0.key < $1.key }.flatMap(\.value), ownedAddresses: allAddresses, limit: UInt64(limit)
         )

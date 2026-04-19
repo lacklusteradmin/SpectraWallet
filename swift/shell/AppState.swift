@@ -49,7 +49,7 @@ class AppState: ObservableObject {
     // Rust-owned backing store for side-effect-free scalar UI state. @Published
     // replaced by computed props that delegate here and emit objectWillChange.
     let shellState = AppShellState()
-    private var appSettingsPersistTask: Task<Void, Never>?
+    var appSettingsPersistTask: Task<Void, Never>?
     private var priceAlertsPersistTask: Task<Void, Never>?
     private var addressBookPersistTask: Task<Void, Never>?
     private var livePricesPersistTask: Task<Void, Never>?
@@ -205,7 +205,14 @@ class AppState: ObservableObject {
     var receiveHoldingKey: String { get { shellState.getReceiveHoldingKey() } set { notifyIfChanged(receiveHoldingKey, newValue) { shellState.setReceiveHoldingKey(value: newValue) } } }
     var receiveResolvedAddress: String { get { shellState.getReceiveResolvedAddress() } set { notifyIfChanged(receiveResolvedAddress, newValue) { shellState.setReceiveResolvedAddress(value: newValue) } } }
     var isResolvingReceiveAddress: Bool { get { shellState.getIsResolvingReceiveAddress() } set { notifyIfChanged(isResolvingReceiveAddress, newValue) { shellState.setIsResolvingReceiveAddress(value: newValue) } } }
-    @Published var selectedMainTab: MainAppTab = .home
+    // Dedicated observable for tab selection — isolates MainTabView from
+    // AppState.objectWillChange so swapping tabs doesn't re-render every
+    // view that holds `@ObservedObject var store: AppState`.
+    let tabSelection = AppTabSelection()
+    var selectedMainTab: MainAppTab {
+        get { tabSelection.value }
+        set { tabSelection.value = newValue }
+    }
     var isAppLocked: Bool { get { shellState.getIsAppLocked() } set { notifyIfChanged(isAppLocked, newValue) { shellState.setIsAppLocked(value: newValue) } } }
     var appLockError: String? { get { shellState.getAppLockError() } set { notifyIfChanged(appLockError, newValue) { shellState.setAppLockError(value: newValue) } } }
     var isPreparingEthereumReplacementContext: Bool { get { shellState.getIsPreparingEthereumReplacementContext() } set { notifyIfChanged(isPreparingEthereumReplacementContext, newValue) { shellState.setIsPreparingEthereumReplacementContext(value: newValue) } } }
@@ -251,24 +258,28 @@ class AppState: ObservableObject {
         get { shellState.getLastPendingTransactionRefreshAt().map { Date(timeIntervalSince1970: $0) } }
         set { objectWillChange.send(); shellState.setLastPendingTransactionRefreshAt(value: newValue?.timeIntervalSince1970) }
     }
-    @Published var ethereumSendPreview: EthereumSendPreview?
-    @Published var bitcoinSendPreview: BitcoinSendPreview?
-    @Published var bitcoinCashSendPreview: BitcoinSendPreview?
-    @Published var bitcoinSVSendPreview: BitcoinSendPreview?
-    @Published var litecoinSendPreview: BitcoinSendPreview?
-    @Published var dogecoinSendPreview: DogecoinSendPreview?
-    @Published var tronSendPreview: TronSendPreview?
-    @Published var solanaSendPreview: SolanaSendPreview?
-    @Published var xrpSendPreview: XrpSendPreview?
-    @Published var stellarSendPreview: StellarSendPreview?
-    @Published var moneroSendPreview: MoneroSendPreview?
-    @Published var cardanoSendPreview: CardanoSendPreview?
-    @Published var suiSendPreview: SuiSendPreview?
-    @Published var aptosSendPreview: AptosSendPreview?
-    @Published var tonSendPreview: TonSendPreview?
-    @Published var icpSendPreview: IcpSendPreview?
-    @Published var nearSendPreview: NearSendPreview?
-    @Published var polkadotSendPreview: PolkadotSendPreview?
+    // Send previews live in a dedicated sub-store so updates during the send flow
+    // do not invalidate every view that observes AppState. Views that need the
+    // preview values should observe `sendPreviewStore` directly.
+    let sendPreviewStore = SendPreviewStore()
+    var ethereumSendPreview: EthereumSendPreview? { get { sendPreviewStore.ethereumSendPreview } set { sendPreviewStore.ethereumSendPreview = newValue } }
+    var bitcoinSendPreview: BitcoinSendPreview? { get { sendPreviewStore.bitcoinSendPreview } set { sendPreviewStore.bitcoinSendPreview = newValue } }
+    var bitcoinCashSendPreview: BitcoinSendPreview? { get { sendPreviewStore.bitcoinCashSendPreview } set { sendPreviewStore.bitcoinCashSendPreview = newValue } }
+    var bitcoinSVSendPreview: BitcoinSendPreview? { get { sendPreviewStore.bitcoinSVSendPreview } set { sendPreviewStore.bitcoinSVSendPreview = newValue } }
+    var litecoinSendPreview: BitcoinSendPreview? { get { sendPreviewStore.litecoinSendPreview } set { sendPreviewStore.litecoinSendPreview = newValue } }
+    var dogecoinSendPreview: DogecoinSendPreview? { get { sendPreviewStore.dogecoinSendPreview } set { sendPreviewStore.dogecoinSendPreview = newValue } }
+    var tronSendPreview: TronSendPreview? { get { sendPreviewStore.tronSendPreview } set { sendPreviewStore.tronSendPreview = newValue } }
+    var solanaSendPreview: SolanaSendPreview? { get { sendPreviewStore.solanaSendPreview } set { sendPreviewStore.solanaSendPreview = newValue } }
+    var xrpSendPreview: XrpSendPreview? { get { sendPreviewStore.xrpSendPreview } set { sendPreviewStore.xrpSendPreview = newValue } }
+    var stellarSendPreview: StellarSendPreview? { get { sendPreviewStore.stellarSendPreview } set { sendPreviewStore.stellarSendPreview = newValue } }
+    var moneroSendPreview: MoneroSendPreview? { get { sendPreviewStore.moneroSendPreview } set { sendPreviewStore.moneroSendPreview = newValue } }
+    var cardanoSendPreview: CardanoSendPreview? { get { sendPreviewStore.cardanoSendPreview } set { sendPreviewStore.cardanoSendPreview = newValue } }
+    var suiSendPreview: SuiSendPreview? { get { sendPreviewStore.suiSendPreview } set { sendPreviewStore.suiSendPreview = newValue } }
+    var aptosSendPreview: AptosSendPreview? { get { sendPreviewStore.aptosSendPreview } set { sendPreviewStore.aptosSendPreview = newValue } }
+    var tonSendPreview: TonSendPreview? { get { sendPreviewStore.tonSendPreview } set { sendPreviewStore.tonSendPreview = newValue } }
+    var icpSendPreview: IcpSendPreview? { get { sendPreviewStore.icpSendPreview } set { sendPreviewStore.icpSendPreview = newValue } }
+    var nearSendPreview: NearSendPreview? { get { sendPreviewStore.nearSendPreview } set { sendPreviewStore.nearSendPreview = newValue } }
+    var polkadotSendPreview: PolkadotSendPreview? { get { sendPreviewStore.polkadotSendPreview } set { sendPreviewStore.polkadotSendPreview = newValue } }
     var isSendingBitcoin: Bool { get { shellState.getIsSendingBitcoin() } set { notifyIfChanged(isSendingBitcoin, newValue) { shellState.setIsSendingBitcoin(value: newValue) } } }
     var isSendingBitcoinCash: Bool { get { shellState.getIsSendingBitcoinCash() } set { notifyIfChanged(isSendingBitcoinCash, newValue) { shellState.setIsSendingBitcoinCash(value: newValue) } } }
     var isSendingBitcoinSV: Bool { get { shellState.getIsSendingBitcoinSv() } set { notifyIfChanged(isSendingBitcoinSV, newValue) { shellState.setIsSendingBitcoinSv(value: newValue) } } }
@@ -695,8 +706,6 @@ class AppState: ObservableObject {
     var importRefreshTask: Task<Void, Never>?
     var walletSideEffectsTask: Task<Void, Never>?
     var walletCollectionObservation: AnyCancellable?
-    var diagnosticsObservation: AnyCancellable?
-    var chainDiagnosticsStateObservation: AnyCancellable?
     var lastHistoryRefreshAtByChain: [String: Date] = [:]
     var appIsActive = true
     var maintenanceTask: Task<Void, Never>?
@@ -946,10 +955,6 @@ class AppState: ObservableObject {
                 self.applyWalletCollectionSideEffects()
             }
 
-        diagnosticsObservation = diagnostics.objectWillChange.sink { _ in
-        }
-        chainDiagnosticsStateObservation = chainDiagnosticsState.objectWillChange.sink { _ in
-        }
         restorePersistedRuntimeConfigurationAndState()
         Task { @MainActor in
             rebuildTransactionDerivedState()
@@ -1061,7 +1066,7 @@ class AppState: ObservableObject {
     // 6 identical EVM-chain tracked-token builders collapsed to a single helper.
     private func enabledEVMTrackedTokens(for chain: TokenTrackingChain) -> [ChainTokenRegistryEntry] {
         enabledTokenPreferences(for: chain).map { e in
-            ChainTokenRegistryEntry(chain: e.chain, name: e.name, symbol: e.symbol, tokenStandard: e.tokenStandard, contractAddress: normalizeEVMAddress(e.contractAddress), marketDataId: e.marketDataId, coinGeckoId: e.coinGeckoId, decimals: e.decimals, displayDecimals: e.displayDecimals, category: e.category, isBuiltIn: e.isBuiltIn, isEnabledByDefault: e.isEnabledByDefault)
+            ChainTokenRegistryEntry(chain: e.chain, name: e.name, symbol: e.symbol, tokenStandard: e.tokenStandard, contractAddress: normalizeEVMAddress(e.contractAddress), marketDataId: e.marketDataId, coinGeckoId: e.coinGeckoId, decimals: Int(e.decimals), displayDecimals: e.displayDecimals.map(Int.init), category: e.category, isBuiltIn: e.isBuiltIn, isEnabledByDefault: e.isEnabled)
         }
     }
     func enabledEthereumTrackedTokens()   -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .ethereum) }

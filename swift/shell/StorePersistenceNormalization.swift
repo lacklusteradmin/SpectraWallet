@@ -1,5 +1,5 @@
 import Foundation
-private func encodeHistoryRecords(_ snapshots: [CorePersistedTransactionRecord]) -> String? {
+private nonisolated func encodeHistoryRecords(_ snapshots: [CorePersistedTransactionRecord]) -> String? {
     try? WalletRustAppCoreBridge.encodeHistoryRecordsFromPersisted(snapshots)
 }
 extension AppState {
@@ -197,17 +197,29 @@ extension AppState {
     }
     func persistTransactionsFullSync() {
         let snapshots = transactions.map(\.persistedSnapshot)
-        if let json = encodeHistoryRecords(snapshots) { Task { await WalletServiceBridge.shared.replaceAllHistoryRecords(recordsJSON: json) } }
+        Task.detached(priority: .utility) {
+            guard let json = encodeHistoryRecords(snapshots) else { return }
+            await WalletServiceBridge.shared.replaceAllHistoryRecords(recordsJSON: json)
+        }
     }
     func persistTransactionsDelta(from oldRecords: [TransactionRecord], to newRecords: [TransactionRecord]) {
         let oldIDs = Set(oldRecords.map(\.id))
         let newIDs = Set(newRecords.map(\.id))
         let deletedIDs = oldIDs.subtracting(newIDs).map { $0.uuidString.lowercased() }
         let upsertSnapshots = newRecords.map(\.persistedSnapshot)
-        if !deletedIDs.isEmpty, let idsData = try? JSONEncoder().encode(deletedIDs), let idsJSON = String(data: idsData, encoding: .utf8) {
-            Task { await WalletServiceBridge.shared.deleteHistoryRecords(idsJSON: idsJSON) }
+        if !deletedIDs.isEmpty {
+            Task.detached(priority: .utility) {
+                guard let idsData = try? JSONEncoder().encode(deletedIDs),
+                      let idsJSON = String(data: idsData, encoding: .utf8) else { return }
+                await WalletServiceBridge.shared.deleteHistoryRecords(idsJSON: idsJSON)
+            }
         }
-        if !upsertSnapshots.isEmpty, let json = encodeHistoryRecords(upsertSnapshots) { Task { await WalletServiceBridge.shared.upsertHistoryRecords(recordsJSON: json) } }
+        if !upsertSnapshots.isEmpty {
+            Task.detached(priority: .utility) {
+                guard let json = encodeHistoryRecords(upsertSnapshots) else { return }
+                await WalletServiceBridge.shared.upsertHistoryRecords(recordsJSON: json)
+            }
+        }
     }
     func persistChainKeypoolState() {
         for (chainName, walletMap) in chainKeypoolByChain { persistKeypoolToRust(chainName: chainName, walletMap: walletMap) }}

@@ -8611,244 +8611,6 @@ nonisolated public func FfiConverterTypeAppCoreRequestCompilationPreset_lower(_ 
 }
 
 
-nonisolated public struct AppCoreSeedDerivationPaths {
-    public var isCustomEnabled: Bool
-    public var bitcoin: String
-    public var bitcoinCash: String
-    public var bitcoinSv: String
-    public var litecoin: String
-    public var dogecoin: String
-    public var ethereum: String
-    public var ethereumClassic: String
-    public var arbitrum: String
-    public var optimism: String
-    public var avalanche: String
-    public var hyperliquid: String
-    public var tron: String
-    public var solana: String
-    public var stellar: String
-    public var xrp: String
-    public var cardano: String
-    public var sui: String
-    public var aptos: String
-    public var ton: String
-    public var internetComputer: String
-    public var near: String
-    public var polkadot: String
-
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
-    nonisolated public init(isCustomEnabled: Bool, bitcoin: String, bitcoinCash: String, bitcoinSv: String, litecoin: String, dogecoin: String, ethereum: String, ethereumClassic: String, arbitrum: String, optimism: String, avalanche: String, hyperliquid: String, tron: String, solana: String, stellar: String, xrp: String, cardano: String, sui: String, aptos: String, ton: String, internetComputer: String, near: String, polkadot: String) {
-        self.isCustomEnabled = isCustomEnabled
-        self.bitcoin = bitcoin
-        self.bitcoinCash = bitcoinCash
-        self.bitcoinSv = bitcoinSv
-        self.litecoin = litecoin
-        self.dogecoin = dogecoin
-        self.ethereum = ethereum
-        self.ethereumClassic = ethereumClassic
-        self.arbitrum = arbitrum
-        self.optimism = optimism
-        self.avalanche = avalanche
-        self.hyperliquid = hyperliquid
-        self.tron = tron
-        self.solana = solana
-        self.stellar = stellar
-        self.xrp = xrp
-        self.cardano = cardano
-        self.sui = sui
-        self.aptos = aptos
-        self.ton = ton
-        self.internetComputer = internetComputer
-        self.near = near
-        self.polkadot = polkadot
-    }
-}
-
-#if compiler(>=6)
-nonisolated extension AppCoreSeedDerivationPaths: Sendable {}
-#endif
-
-
-nonisolated extension AppCoreSeedDerivationPaths: Equatable, Hashable {
-    public static func ==(lhs: AppCoreSeedDerivationPaths, rhs: AppCoreSeedDerivationPaths) -> Bool {
-        if lhs.isCustomEnabled != rhs.isCustomEnabled {
-            return false
-        }
-        if lhs.bitcoin != rhs.bitcoin {
-            return false
-        }
-        if lhs.bitcoinCash != rhs.bitcoinCash {
-            return false
-        }
-        if lhs.bitcoinSv != rhs.bitcoinSv {
-            return false
-        }
-        if lhs.litecoin != rhs.litecoin {
-            return false
-        }
-        if lhs.dogecoin != rhs.dogecoin {
-            return false
-        }
-        if lhs.ethereum != rhs.ethereum {
-            return false
-        }
-        if lhs.ethereumClassic != rhs.ethereumClassic {
-            return false
-        }
-        if lhs.arbitrum != rhs.arbitrum {
-            return false
-        }
-        if lhs.optimism != rhs.optimism {
-            return false
-        }
-        if lhs.avalanche != rhs.avalanche {
-            return false
-        }
-        if lhs.hyperliquid != rhs.hyperliquid {
-            return false
-        }
-        if lhs.tron != rhs.tron {
-            return false
-        }
-        if lhs.solana != rhs.solana {
-            return false
-        }
-        if lhs.stellar != rhs.stellar {
-            return false
-        }
-        if lhs.xrp != rhs.xrp {
-            return false
-        }
-        if lhs.cardano != rhs.cardano {
-            return false
-        }
-        if lhs.sui != rhs.sui {
-            return false
-        }
-        if lhs.aptos != rhs.aptos {
-            return false
-        }
-        if lhs.ton != rhs.ton {
-            return false
-        }
-        if lhs.internetComputer != rhs.internetComputer {
-            return false
-        }
-        if lhs.near != rhs.near {
-            return false
-        }
-        if lhs.polkadot != rhs.polkadot {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(isCustomEnabled)
-        hasher.combine(bitcoin)
-        hasher.combine(bitcoinCash)
-        hasher.combine(bitcoinSv)
-        hasher.combine(litecoin)
-        hasher.combine(dogecoin)
-        hasher.combine(ethereum)
-        hasher.combine(ethereumClassic)
-        hasher.combine(arbitrum)
-        hasher.combine(optimism)
-        hasher.combine(avalanche)
-        hasher.combine(hyperliquid)
-        hasher.combine(tron)
-        hasher.combine(solana)
-        hasher.combine(stellar)
-        hasher.combine(xrp)
-        hasher.combine(cardano)
-        hasher.combine(sui)
-        hasher.combine(aptos)
-        hasher.combine(ton)
-        hasher.combine(internetComputer)
-        hasher.combine(near)
-        hasher.combine(polkadot)
-    }
-}
-
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public struct FfiConverterTypeAppCoreSeedDerivationPaths: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreSeedDerivationPaths {
-        return
-            try AppCoreSeedDerivationPaths(
-                isCustomEnabled: FfiConverterBool.read(from: &buf), 
-                bitcoin: FfiConverterString.read(from: &buf), 
-                bitcoinCash: FfiConverterString.read(from: &buf), 
-                bitcoinSv: FfiConverterString.read(from: &buf), 
-                litecoin: FfiConverterString.read(from: &buf), 
-                dogecoin: FfiConverterString.read(from: &buf), 
-                ethereum: FfiConverterString.read(from: &buf), 
-                ethereumClassic: FfiConverterString.read(from: &buf), 
-                arbitrum: FfiConverterString.read(from: &buf), 
-                optimism: FfiConverterString.read(from: &buf), 
-                avalanche: FfiConverterString.read(from: &buf), 
-                hyperliquid: FfiConverterString.read(from: &buf), 
-                tron: FfiConverterString.read(from: &buf), 
-                solana: FfiConverterString.read(from: &buf), 
-                stellar: FfiConverterString.read(from: &buf), 
-                xrp: FfiConverterString.read(from: &buf), 
-                cardano: FfiConverterString.read(from: &buf), 
-                sui: FfiConverterString.read(from: &buf), 
-                aptos: FfiConverterString.read(from: &buf), 
-                ton: FfiConverterString.read(from: &buf), 
-                internetComputer: FfiConverterString.read(from: &buf), 
-                near: FfiConverterString.read(from: &buf), 
-                polkadot: FfiConverterString.read(from: &buf)
-        )
-    }
-
-    public static func write(_ value: AppCoreSeedDerivationPaths, into buf: inout [UInt8]) {
-        FfiConverterBool.write(value.isCustomEnabled, into: &buf)
-        FfiConverterString.write(value.bitcoin, into: &buf)
-        FfiConverterString.write(value.bitcoinCash, into: &buf)
-        FfiConverterString.write(value.bitcoinSv, into: &buf)
-        FfiConverterString.write(value.litecoin, into: &buf)
-        FfiConverterString.write(value.dogecoin, into: &buf)
-        FfiConverterString.write(value.ethereum, into: &buf)
-        FfiConverterString.write(value.ethereumClassic, into: &buf)
-        FfiConverterString.write(value.arbitrum, into: &buf)
-        FfiConverterString.write(value.optimism, into: &buf)
-        FfiConverterString.write(value.avalanche, into: &buf)
-        FfiConverterString.write(value.hyperliquid, into: &buf)
-        FfiConverterString.write(value.tron, into: &buf)
-        FfiConverterString.write(value.solana, into: &buf)
-        FfiConverterString.write(value.stellar, into: &buf)
-        FfiConverterString.write(value.xrp, into: &buf)
-        FfiConverterString.write(value.cardano, into: &buf)
-        FfiConverterString.write(value.sui, into: &buf)
-        FfiConverterString.write(value.aptos, into: &buf)
-        FfiConverterString.write(value.ton, into: &buf)
-        FfiConverterString.write(value.internetComputer, into: &buf)
-        FfiConverterString.write(value.near, into: &buf)
-        FfiConverterString.write(value.polkadot, into: &buf)
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public func FfiConverterTypeAppCoreSeedDerivationPaths_lift(_ buf: RustBuffer) throws -> AppCoreSeedDerivationPaths {
-    return try FfiConverterTypeAppCoreSeedDerivationPaths.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public func FfiConverterTypeAppCoreSeedDerivationPaths_lower(_ value: AppCoreSeedDerivationPaths) -> RustBuffer {
-    return FfiConverterTypeAppCoreSeedDerivationPaths.lower(value)
-}
-
-
 nonisolated public struct AppSettings {
     public var preferredLocale: String
     public var fiatCurrencyCode: String
@@ -24420,6 +24182,92 @@ nonisolated public func FfiConverterTypeSimpleAddressHistoryEntry_lower(_ value:
 }
 
 
+nonisolated public struct SimpleChainRiskProbeConfig {
+    public var balanceField: String
+    public var divisor: Double
+    public var displayChainName: String
+    public var balanceLabel: String
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    nonisolated public init(balanceField: String, divisor: Double, displayChainName: String, balanceLabel: String) {
+        self.balanceField = balanceField
+        self.divisor = divisor
+        self.displayChainName = displayChainName
+        self.balanceLabel = balanceLabel
+    }
+}
+
+#if compiler(>=6)
+nonisolated extension SimpleChainRiskProbeConfig: Sendable {}
+#endif
+
+
+nonisolated extension SimpleChainRiskProbeConfig: Equatable, Hashable {
+    public static func ==(lhs: SimpleChainRiskProbeConfig, rhs: SimpleChainRiskProbeConfig) -> Bool {
+        if lhs.balanceField != rhs.balanceField {
+            return false
+        }
+        if lhs.divisor != rhs.divisor {
+            return false
+        }
+        if lhs.displayChainName != rhs.displayChainName {
+            return false
+        }
+        if lhs.balanceLabel != rhs.balanceLabel {
+            return false
+        }
+        return true
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(balanceField)
+        hasher.combine(divisor)
+        hasher.combine(displayChainName)
+        hasher.combine(balanceLabel)
+    }
+}
+
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public struct FfiConverterTypeSimpleChainRiskProbeConfig: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SimpleChainRiskProbeConfig {
+        return
+            try SimpleChainRiskProbeConfig(
+                balanceField: FfiConverterString.read(from: &buf), 
+                divisor: FfiConverterDouble.read(from: &buf), 
+                displayChainName: FfiConverterString.read(from: &buf), 
+                balanceLabel: FfiConverterString.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: SimpleChainRiskProbeConfig, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.balanceField, into: &buf)
+        FfiConverterDouble.write(value.divisor, into: &buf)
+        FfiConverterString.write(value.displayChainName, into: &buf)
+        FfiConverterString.write(value.balanceLabel, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeSimpleChainRiskProbeConfig_lift(_ buf: RustBuffer) throws -> SimpleChainRiskProbeConfig {
+    return try FfiConverterTypeSimpleChainRiskProbeConfig.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+nonisolated public func FfiConverterTypeSimpleChainRiskProbeConfig_lower(_ value: SimpleChainRiskProbeConfig) -> RustBuffer {
+    return FfiConverterTypeSimpleChainRiskProbeConfig.lower(value)
+}
+
+
 nonisolated public struct SimpleSendPreview {
     public var feeDisplay: Double
     public var feeRaw: String
@@ -34307,6 +34155,30 @@ fileprivate struct FfiConverterOptionTypeSendPreviewDetailsCore: FfiConverterRus
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
+fileprivate struct FfiConverterOptionTypeSimpleChainRiskProbeConfig: FfiConverterRustBuffer {
+    typealias SwiftType = SimpleChainRiskProbeConfig?
+
+    public static func write(_ value: SwiftType, into buf: inout [UInt8]) {
+        guard let value = value else {
+            writeInt(&buf, Int8(0))
+            return
+        }
+        writeInt(&buf, Int8(1))
+        FfiConverterTypeSimpleChainRiskProbeConfig.write(value, into: &buf)
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SwiftType {
+        switch try readInt(&buf) as Int8 {
+        case 0: return nil
+        case 1: return try FfiConverterTypeSimpleChainRiskProbeConfig.read(from: &buf)
+        default: throw UniffiInternalError.unexpectedOptionalTag
+        }
+    }
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
 fileprivate struct FfiConverterOptionTypeSolanaHistoryDiagnostics: FfiConverterRustBuffer {
     typealias SwiftType = SolanaHistoryDiagnostics?
 
@@ -37854,8 +37726,8 @@ nonisolated public func appCoreChainPresetsJson()throws  -> String  {
     )
 })
 }
-nonisolated public func appCoreDerivationPathsForPreset(accountIndex: UInt32)throws  -> AppCoreSeedDerivationPaths  {
-    return try  FfiConverterTypeAppCoreSeedDerivationPaths_lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
+nonisolated public func appCoreDerivationPathsForPreset(accountIndex: UInt32)throws  -> CoreSeedDerivationPaths  {
+    return try  FfiConverterTypeCoreSeedDerivationPaths_lift(try rustCallWithError(FfiConverterTypeSpectraBridgeError_lift) {
     uniffi_spectra_core_fn_func_app_core_derivation_paths_for_preset(
         FfiConverterUInt32.lower(accountIndex),$0
     )
@@ -39358,6 +39230,13 @@ nonisolated public func coreEvmReplacementFeeBump(existingMaxFeeGwei: String?, e
     )
 })
 }
+nonisolated public func coreFiatCurrencyDisplayName(code: String) -> String  {
+    return try!  FfiConverterString.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_fiat_currency_display_name(
+        FfiConverterString.lower(code),$0
+    )
+})
+}
 nonisolated public func coreHistoryRefreshPlans(request: HistoryRefreshPlanRequest) -> [String]  {
     return try!  FfiConverterSequenceString.lift(try! rustCall() {
     uniffi_spectra_core_fn_func_core_history_refresh_plans(
@@ -39713,6 +39592,14 @@ nonisolated public func coreShouldRunBackgroundMaintenance(request: BackgroundMa
     return try!  FfiConverterBool.lift(try! rustCall() {
     uniffi_spectra_core_fn_func_core_should_run_background_maintenance(
         FfiConverterTypeBackgroundMaintenanceRequest_lower(request),$0
+    )
+})
+}
+nonisolated public func coreSimpleChainRiskProbeConfig(chainName: String, symbol: String) -> SimpleChainRiskProbeConfig?  {
+    return try!  FfiConverterOptionTypeSimpleChainRiskProbeConfig.lift(try! rustCall() {
+    uniffi_spectra_core_fn_func_core_simple_chain_risk_probe_config(
+        FfiConverterString.lower(chainName),
+        FfiConverterString.lower(symbol),$0
     )
 })
 }
@@ -41762,7 +41649,7 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_func_app_core_chain_presets_json() != 30664) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_func_app_core_derivation_paths_for_preset() != 49200) {
+    if (uniffi_spectra_core_checksum_func_app_core_derivation_paths_for_preset() != 27458) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_app_core_derivation_paths_for_preset_json() != 2452) {
@@ -42380,6 +42267,9 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_func_core_evm_replacement_fee_bump() != 58628) {
         return InitializationResult.apiChecksumMismatch
     }
+    if (uniffi_spectra_core_checksum_func_core_fiat_currency_display_name() != 29526) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_spectra_core_checksum_func_core_history_refresh_plans() != 34758) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -42519,6 +42409,9 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_core_should_run_background_maintenance() != 61045) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_spectra_core_checksum_func_core_simple_chain_risk_probe_config() != 59112) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_core_static_resource_json() != 1996) {

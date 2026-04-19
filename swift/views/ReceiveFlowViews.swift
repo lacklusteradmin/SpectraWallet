@@ -38,7 +38,7 @@ struct ReceiveView: View {
         ZStack {
             SpectraBackdrop()
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
+                LazyVStack(alignment: .leading, spacing: 18) {
                     receiveDetailCard(title: "Wallet") {
                         Picker("Wallet", selection: store.receiveWalletIDBinding) {
                             ForEach(presentation.receiveWallets) { wallet in Text(wallet.name).tag(wallet.id) }}.onChange(of: store.receiveWalletID) { _, _ in

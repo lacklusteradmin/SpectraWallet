@@ -7,7 +7,42 @@
 // Nothing here owns runtime state — just value-type schemas, enums, and the
 // typealiases that went with them.
 
+import Combine
 import Foundation
+
+struct ChainOperationalEvent: Identifiable, Sendable {
+    enum Level: String, Codable, Sendable { case info, warning, error }
+    let id: UUID
+    let timestamp: Date
+    let chainName: String
+    let level: Level
+    let message: String
+    let transactionHash: String?
+}
+
+nonisolated extension ChainOperationalEvent: Codable {
+    private enum CodingKeys: String, CodingKey { case id, timestamp, chainName, level, message, transactionHash }
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try c.decode(UUID.self, forKey: .id),
+            timestamp: try c.decode(Date.self, forKey: .timestamp),
+            chainName: try c.decode(String.self, forKey: .chainName),
+            level: try c.decode(Level.self, forKey: .level),
+            message: try c.decode(String.self, forKey: .message),
+            transactionHash: try c.decodeIfPresent(String.self, forKey: .transactionHash)
+        )
+    }
+    func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id)
+        try c.encode(timestamp, forKey: .timestamp)
+        try c.encode(chainName, forKey: .chainName)
+        try c.encode(level, forKey: .level)
+        try c.encode(message, forKey: .message)
+        try c.encodeIfPresent(transactionHash, forKey: .transactionHash)
+    }
+}
 
 enum MainAppTab: Hashable {
     case home
@@ -15,6 +50,14 @@ enum MainAppTab: Hashable {
     case staking
     case donate
     case settings
+}
+
+/// Isolated observable for the main-tab selection. Keeping this off of
+/// `AppState`'s `@Published` surface means switching tabs does not invalidate
+/// every view that observes the store.
+@MainActor
+final class AppTabSelection: ObservableObject {
+    @Published var value: MainAppTab = .home
 }
 
 extension AppState {
@@ -87,16 +130,6 @@ extension AppState {
             case .aggressive: return localizedStoreString("Aggressive")
             }
         }
-    }
-
-    struct ChainOperationalEvent: Codable, Identifiable {
-        enum Level: String, Codable { case info, warning, error }
-        let id: UUID
-        let timestamp: Date
-        let chainName: String
-        let level: Level
-        let message: String
-        let transactionHash: String?
     }
 
     struct OperationalLogEvent: Codable, Identifiable {

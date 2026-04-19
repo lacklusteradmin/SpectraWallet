@@ -60,14 +60,14 @@ extension CoreCoin: Identifiable {
         default: return .gray
         }
     }
-    var valueUSD: Double { amount * priceUsd }
+    nonisolated var valueUSD: Double { amount * priceUsd }
     static func makeCustom(name: String, symbol: String, marketDataId: String, coinGeckoId: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double, priceUsd: Double, mark: String, color: Color) -> Coin {
         let coin = CoreCoin(id: UUID().uuidString, name: name, symbol: symbol, marketDataId: marketDataId, coinGeckoId: coinGeckoId, chainName: chainName, tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUsd, mark: mark)
         Self.colorOverrides["\(chainName)|\(symbol)"] = color
         return coin
     }
     var hasVisibleBalance: Bool { amount > 0 }
-    var holdingKey: String { "\(chainName)|\(symbol)" }
+    nonisolated var holdingKey: String { "\(chainName)|\(symbol)" }
     var accentMarks: [String] {
         switch symbol {
         case "BTC": return ["L1", "S", "P"]
@@ -94,7 +94,7 @@ extension CoreCoin: Identifiable {
 typealias ImportedWallet = CoreImportedWallet
 extension CoreImportedWallet: Identifiable { }
 extension CoreImportedWallet {
-    var totalBalance: Double { holdings.reduce(0) { $0 + $1.valueUSD } }
+    nonisolated var totalBalance: Double { holdings.reduce(0) { $0 + $1.valueUSD } }
     var walletSummary: WalletSummary {
         let chain = selectedChain
         let networkMode: String? = {
@@ -119,7 +119,7 @@ extension CoreImportedWallet {
     }
 }
 typealias SeedDerivationPreset = CoreSeedDerivationPreset
-extension CoreSeedDerivationPreset: RawRepresentable, CaseIterable, Codable, Identifiable {
+nonisolated extension CoreSeedDerivationPreset: RawRepresentable, CaseIterable, Codable, Identifiable {
     public typealias RawValue = String
     public init?(rawValue: String) {
         switch rawValue {
@@ -430,7 +430,7 @@ struct AddressBookEntry: Identifiable {
         return String(format: CommonLocalizationContent.current.addressBookSubtitleFormat, chainName, note)
     }
 }
-struct TransactionRecord: Identifiable {
+nonisolated struct TransactionRecord: Identifiable, Equatable, Sendable {
     let id: UUID
     let walletID: String?
     let kind: TransactionKind
@@ -505,14 +505,14 @@ struct TransactionRecord: Identifiable {
         self.transactionHistorySource = transactionHistorySource
         self.createdAt = createdAt
     }
-    var assetIdentifier: String? {
+    @MainActor var assetIdentifier: String? {
         let normalizedSymbol = symbol.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if let nativeDescriptor = Coin.nativeChainIconDescriptor(symbol: symbol, chainName: chainName) { return nativeDescriptor.assetIdentifier }
         guard let chainSlug = transactionIconChainSlug else { return nil }
         guard !normalizedSymbol.isEmpty else { return nil }
         return "token:\(chainSlug):\(normalizedSymbol)"
     }
-    private var transactionIconChainSlug: String? {
+    nonisolated private var transactionIconChainSlug: String? {
         switch chainName {
         case "Ethereum": return "ethereum"
         case "Arbitrum": return "arbitrum"

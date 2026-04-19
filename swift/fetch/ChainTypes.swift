@@ -49,7 +49,7 @@ extension RustStringEnum {
 
 // MARK: - Bitcoin
 typealias BitcoinNetworkMode = CoreBitcoinNetworkMode
-extension CoreBitcoinNetworkMode: RustStringEnum {
+nonisolated extension CoreBitcoinNetworkMode: RustStringEnum {
     static var rawMap: [(CoreBitcoinNetworkMode, String)] {
         [(.mainnet, "mainnet"), (.testnet, "testnet"), (.testnet4, "testnet4"), (.signet, "signet")]
     }
@@ -64,7 +64,7 @@ extension CoreBitcoinNetworkMode: RustStringEnum {
 }
 // MARK: - Dogecoin
 typealias DogecoinNetworkMode = CoreDogecoinNetworkMode
-extension CoreDogecoinNetworkMode: RustStringEnum {
+nonisolated extension CoreDogecoinNetworkMode: RustStringEnum {
     static var rawMap: [(CoreDogecoinNetworkMode, String)] { [(.mainnet, "mainnet"), (.testnet, "testnet")] }
     public var displayName: String { self == .mainnet ? "Mainnet" : "Testnet" }
 }
@@ -308,18 +308,18 @@ enum TONBalanceService {
 // MARK: - Transactions & price alerts (Rust-owned enums)
 
 typealias TransactionKind = CoreTransactionKind
-extension CoreTransactionKind: RustStringEnum {
+nonisolated extension CoreTransactionKind: RustStringEnum {
     static var rawMap: [(CoreTransactionKind, String)] { [(.send, "send"), (.receive, "receive")] }
 }
 
 typealias TransactionStatus = CoreTransactionStatus
-extension CoreTransactionStatus: RustStringEnum {
+nonisolated extension CoreTransactionStatus: RustStringEnum {
     static var rawMap: [(CoreTransactionStatus, String)] {
         [(.pending, "pending"), (.confirmed, "confirmed"), (.failed, "failed")]
     }
 }
 
 typealias PriceAlertCondition = CorePriceAlertCondition
-extension CorePriceAlertCondition: RustStringEnum {
+nonisolated extension CorePriceAlertCondition: RustStringEnum {
     static var rawMap: [(CorePriceAlertCondition, String)] { [(.above, "Above"), (.below, "Below")] }
 }

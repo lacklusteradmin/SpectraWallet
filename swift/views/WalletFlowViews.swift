@@ -73,29 +73,32 @@ struct QRCodeScannerView: UIViewControllerRepresentable {
             onScan(payload)
         }}
 }
-struct WalletCardView: View {
-    @ObservedObject var store: AppState
-    struct Presentation {
-        let wallet: ImportedWallet
+struct WalletCardView: View, Equatable {
+    struct Presentation: Equatable {
+        let walletName: String
+        let chainTitleText: String
         let totalValueText: String
         let assetCountText: String
         let isWatchOnly: Bool
-        let walletBadge: (assetIdentifier: String?, mark: String, color: Color)
+        let badgeAssetIdentifier: String?
+        let badgeMark: String
+        let badgeColor: Color
     }
     let presentation: Presentation
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.presentation == rhs.presentation }
     private var watchOnlyBadge: some View {
         Image(systemName: "eye").font(.caption.weight(.semibold)).foregroundStyle(.orange).padding(.horizontal, 7).padding(.vertical, 5).background(Color.orange.opacity(0.15), in: Capsule())
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 14) {
-                CoinBadge(assetIdentifier: presentation.walletBadge.assetIdentifier, fallbackText: presentation.walletBadge.mark, color: presentation.walletBadge.color, size: 40)
+                CoinBadge(assetIdentifier: presentation.badgeAssetIdentifier, fallbackText: presentation.badgeMark, color: presentation.badgeColor, size: 40)
                 VStack(alignment: .leading, spacing: 4) {
                     HStack(spacing: 6) {
                         if presentation.isWatchOnly { watchOnlyBadge }
-                        Text(presentation.wallet.name).font(.headline).foregroundStyle(Color.primary)
+                        Text(presentation.walletName).font(.headline).foregroundStyle(Color.primary)
                     }
-                    Text(store.displayChainTitle(for: presentation.wallet)).font(.caption2).foregroundStyle(Color.primary.opacity(0.6)).lineLimit(2)
+                    Text(presentation.chainTitleText).font(.caption2).foregroundStyle(Color.primary.opacity(0.6)).lineLimit(2)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
@@ -266,7 +269,7 @@ struct WalletDetailView: View {
     }
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 14) {
                     CoinBadge(
                         assetIdentifier: detailPresentation.walletBadge.assetIdentifier, fallbackText: detailPresentation.walletBadge.mark, color: detailPresentation.walletBadge.color, size: 46
@@ -527,32 +530,5 @@ struct SeedPathSlotEditor: View {
         guard var resolvedSegments = coreParseDerivationPath(rawPath: path) ?? coreParseDerivationPath(rawPath: defaultPath), resolvedSegments.indices.contains(index), let numericValue = UInt32(value.filter(\.isNumber)) else { return }
         resolvedSegments[index].value = numericValue
         path = coreDerivationPathString(segments: resolvedSegments)
-    }
-}
-struct AssetRowView: View {
-    let store: AppState
-    struct Presentation {
-        let coin: Coin
-        let amountText: String
-        let valueText: String
-        let priceText: String
-    }
-    let presentation: Presentation
-    var body: some View {
-        HStack(spacing: 14) {
-            CoinBadge(
-                assetIdentifier: presentation.coin.iconIdentifier, fallbackText: presentation.coin.mark, color: presentation.coin.color, size: 46
-            )
-            VStack(alignment: .leading, spacing: 4) {
-                Text(presentation.coin.name).font(.headline).foregroundStyle(Color.primary)
-                Text(presentation.amountText).font(.caption).foregroundStyle(Color.primary.opacity(0.7)).spectraNumericTextLayout()
-                Text(walletFlowLocalizedFormat("wallet.detail.onChainLowercase", store.displayChainTitle(for: presentation.coin.chainName))).font(.caption2).foregroundStyle(Color.primary.opacity(0.6))
-                Text(presentation.coin.tokenStandard).font(.caption2).foregroundStyle(Color.primary.opacity(0.55))
-                if let contractAddress = presentation.coin.contractAddress { Text(contractAddress).font(.caption2.monospaced()).foregroundStyle(Color.primary.opacity(0.5)).lineLimit(1) }}
-            Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
-                Text(presentation.valueText).font(.headline).foregroundStyle(Color.primary).spectraNumericTextLayout()
-                Text(presentation.priceText).font(.caption).foregroundStyle(Color.primary.opacity(0.68)).spectraNumericTextLayout()
-            }}.padding(16).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.025)), in: .rect(cornerRadius: 24))
     }
 }

@@ -194,19 +194,5 @@ enum FiatCurrency: String, CaseIterable, Identifiable {
     case sgd = "SGD"
     case aed = "AED"
     var id: String { rawValue }
-    var displayName: String {
-        switch self {
-        case .usd: return "US Dollar (USD)"
-        case .eur: return "Euro (EUR)"
-        case .gbp: return "British Pound (GBP)"
-        case .jpy: return "Japanese Yen (JPY)"
-        case .cny: return "Chinese Yuan (CNY)"
-        case .inr: return "Indian Rupee (INR)"
-        case .cad: return "Canadian Dollar (CAD)"
-        case .aud: return "Australian Dollar (AUD)"
-        case .chf: return "Swiss Franc (CHF)"
-        case .brl: return "Brazilian Real (BRL)"
-        case .sgd: return "Singapore Dollar (SGD)"
-        case .aed: return "UAE Dirham (AED)"
-        }}
+    var displayName: String { coreFiatCurrencyDisplayName(code: rawValue) }
 }

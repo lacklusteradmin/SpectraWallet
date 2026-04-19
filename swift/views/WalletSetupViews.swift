@@ -510,7 +510,7 @@ struct SetupView: View {
         ZStack {
             SpectraBackdrop()
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
+                LazyVStack(alignment: .leading, spacing: 16) {
                     setupCard(glassOpacity: 0.033) {
                         VStack(alignment: .leading, spacing: 10) {
                             HStack(alignment: .top, spacing: 12) {
@@ -754,7 +754,7 @@ private struct AllChainsSelectionView: View {
             ZStack {
                 SpectraBackdrop()
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 18) {
+                    LazyVStack(alignment: .leading, spacing: 18) {
                         VStack(alignment: .leading, spacing: 14) {
                             HStack(spacing: 10) {
                                 Image(systemName: "magnifyingglass").foregroundStyle(Color.primary.opacity(0.6))

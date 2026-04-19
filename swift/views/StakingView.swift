@@ -8,7 +8,7 @@ struct StakingView: View {
             ZStack {
                 SpectraBackdrop()
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 18) {
+                    LazyVStack(alignment: .leading, spacing: 18) {
                         VStack(alignment: .leading, spacing: 10) {
                             SpectraLogo(size: 54)
                             VStack(alignment: .leading, spacing: 3) {

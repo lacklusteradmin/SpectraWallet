@@ -107,17 +107,19 @@ struct DashboardView: View {
         )
     }
     private var actionButtons: some View {
-        HStack(spacing: 12) {
+        let canSend = store.canBeginSend
+        let canReceive = store.canBeginReceive
+        return HStack(spacing: 12) {
             Button {
                 store.beginSend()
             } label: {
                 Label(localizedDashboardString("Send"), systemImage: "arrow.up.right").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 14)
-            }.buttonStyle(.glass).disabled(!store.canBeginSend).opacity(store.canBeginSend ? 1.0 : 0.5)
+            }.buttonStyle(.glass).disabled(!canSend).opacity(canSend ? 1.0 : 0.5)
             Button {
                 store.beginReceive()
             } label: {
                 Label(localizedDashboardString("Receive"), systemImage: "arrow.down.left").font(.headline).frame(maxWidth: .infinity).padding(.vertical, 14)
-            }.buttonStyle(.glassProminent).disabled(!store.canBeginReceive).opacity(store.canBeginReceive ? 1.0 : 0.5)
+            }.buttonStyle(.glassProminent).disabled(!canReceive).opacity(canReceive ? 1.0 : 0.5)
         }}
     private var dashboardCardSection: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -144,13 +146,14 @@ struct DashboardView: View {
                 let safePageIndex = min(max(walletPageIndex, 0), max(wallets.count - 1, 0))
                 TabView(selection: Binding(get: { safePageIndex }, set: { walletPageIndex = $0 })) {
                     ForEach(Array(wallets.enumerated()), id: \.element.id) { index, wallet in
+                        let badge = Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, "W", .mint)
                         WalletCardView(
-                            store: store, presentation: WalletCardView.Presentation(
-                                wallet: wallet, totalValueText: store.hideBalances
+                            presentation: WalletCardView.Presentation(
+                                walletName: wallet.name, chainTitleText: store.displayChainTitle(for: wallet), totalValueText: store.hideBalances
                                     ? "••••••"
-                                    : store.formattedFiatAmountOrZero(fromUSD: store.currentTotalIfAvailable(for: wallet)), assetCountText: localizedFormat("%lld assets", wallet.holdings.filter { $0.amount > 0 }.count), isWatchOnly: store.isWatchOnlyWallet(wallet), walletBadge: Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, "W", .mint)
+                                    : store.formattedFiatAmountOrZero(fromUSD: store.currentTotalIfAvailable(for: wallet)), assetCountText: localizedFormat("%lld assets", wallet.holdings.filter { $0.amount > 0 }.count), isWatchOnly: store.isWatchOnlyWallet(wallet), badgeAssetIdentifier: badge.0, badgeMark: badge.1, badgeColor: badge.2
                             )
-                        ).contentShape(Rectangle()).onTapGesture {
+                        ).equatable().contentShape(Rectangle()).onTapGesture {
                             selectedWalletID = wallet.id
                         }.tag(index)
                     }}.tabViewStyle(.page(indexDisplayMode: .never)).frame(height: 108)
@@ -181,7 +184,7 @@ struct DashboardView: View {
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(16).glassEffect(.regular.tint(.white.opacity(0.02)), in: .rect(cornerRadius: 20))
             } else {
                 ForEach(visibleAssetPresentations) { presentation in
-                    DashboardAssetRowView(presentation: presentation).contentShape(Rectangle()).onTapGesture {
+                    DashboardAssetRowView(presentation: presentation).equatable().contentShape(Rectangle()).onTapGesture {
                             selectedAssetGroup = presentation.assetGroup
                         }}}}.sheet(isPresented: $isShowingPinnedAssetsSheet) {
             PinnedAssetsView(store: store)
@@ -299,7 +302,7 @@ struct AssetGroupDetailView: View {
     private var supportedTokenEntries: [TokenPreferenceEntry] { store.cachedDashboardSupportedTokenEntriesBySymbol[assetGroup.symbol.uppercased()] ?? [] }
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 14) {
+            LazyVStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 12) {
                         CoinBadge(
@@ -353,7 +356,7 @@ struct AssetContractsDetailView: View {
     private var supportedTokenEntries: [TokenPreferenceEntry] { store.cachedDashboardSupportedTokenEntriesBySymbol[assetGroup.symbol.uppercased()] ?? [] }
     var body: some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 14) {
+            LazyVStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 12) {
                         CoinBadge(
@@ -401,7 +404,7 @@ struct PinnedAssetsView: View {
                         Toggle(isOn: binding(for: option.symbol)) {
                             DashboardPinnedAssetRowView(
                                 option: option, subtitleText: localizedFormat("dashboard.pinnedAsset.symbolSubtitle", option.symbol, option.subtitle)
-                            )
+                            ).equatable()
                         }}} header: {
                     Text(localizedDashboardString("Pinned Assets"))
                 } footer: {
@@ -428,7 +431,7 @@ struct PortfolioWalletSelectionView: View {
             Section {
                 ForEach(store.wallets) { wallet in
                     Toggle(isOn: binding(for: wallet.id)) {
-                        PortfolioWalletToggleRowView(store: store, wallet: wallet)
+                        PortfolioWalletToggleRowView(walletName: wallet.name, chainTitleText: store.displayChainTitle(for: wallet)).equatable()
                     }}} header: {
                 Text(localizedDashboardString("Included In Portfolio Total"))
             } footer: {
@@ -463,7 +466,7 @@ private func localizedFormat(_ key: String, _ arguments: CVarArg...) -> String {
     let format = AppLocalization.string(key)
     return String(format: format, locale: AppLocalization.locale, arguments: arguments)
 }
-struct DashboardAssetRowPresentation: Identifiable {
+struct DashboardAssetRowPresentation: Identifiable, Equatable {
     let assetGroup: DashboardAssetGroup
     let amountText: String
     let totalValueText: String
@@ -479,8 +482,9 @@ func dashboardDetailRow(label: String, value: String) -> some View {
         Text(value).multilineTextAlignment(.trailing)
     }.font(.caption)
 }
-struct DashboardAssetRowView: View {
+struct DashboardAssetRowView: View, Equatable {
     let presentation: DashboardAssetRowPresentation
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.presentation == rhs.presentation }
     var body: some View {
         HStack(spacing: 14) {
             CoinBadge(
@@ -503,9 +507,10 @@ struct DashboardAssetRowView: View {
         }.padding(16).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.025)), in: .rect(cornerRadius: 24))
     }
 }
-struct DashboardPinnedAssetRowView: View {
+struct DashboardPinnedAssetRowView: View, Equatable {
     let option: DashboardPinOption
     let subtitleText: String
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.option == rhs.option && lhs.subtitleText == rhs.subtitleText }
     var body: some View {
         HStack(spacing: 12) {
             CoinBadge(assetIdentifier: option.assetIdentifier, fallbackText: option.mark, color: option.color, size: 34)
@@ -514,13 +519,14 @@ struct DashboardPinnedAssetRowView: View {
                 Text(subtitleText).font(.caption).foregroundStyle(.secondary)
             }}}
 }
-struct PortfolioWalletToggleRowView: View {
-    let store: AppState
-    let wallet: ImportedWallet
+struct PortfolioWalletToggleRowView: View, Equatable {
+    let walletName: String
+    let chainTitleText: String
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.walletName == rhs.walletName && lhs.chainTitleText == rhs.chainTitleText }
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(wallet.name)
-            Text(store.displayChainTitle(for: wallet)).font(.caption).foregroundStyle(.secondary)
+            Text(walletName)
+            Text(chainTitleText).font(.caption).foregroundStyle(.secondary)
         }}
 }
 struct DashboardNoticeCardView: View {

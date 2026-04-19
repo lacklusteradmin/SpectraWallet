@@ -686,7 +686,6 @@ extension AppState {
                     ))
                 } catch { sendError = error.localizedDescription; return }
             }
-            let amountSat = UInt64(amount * 1e8)
             let feeSat = UInt64((getPreview()?.estimatedNetworkFeeBtc ?? feeFallback) * 1e8)
             let result = try await WalletServiceBridge.shared.executeSend(SendExecutionRequest(
                 chainId: chainId, chainName: chainName, derivationPath: walletDerivationPath(for: wallet, chain: chain),

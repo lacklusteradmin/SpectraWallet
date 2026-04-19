@@ -65,8 +65,8 @@ enum WalletRustEndpointCatalogBridge {
         }
     }
     nonisolated static func liveChainNames() -> [String] { appCoreLiveChainNames() }
-    nonisolated static func appChainDescriptors() throws -> [AppChainDescriptor] {
-        try appCoreAppChainDescriptors().compactMap {
+    nonisolated static func appChainDescriptors() -> [AppChainDescriptor] {
+        appCoreAppChainDescriptors().compactMap {
             guard let chainID = AppChainID(rawValue: $0.id) else { return nil }
             return AppChainDescriptor(id: chainID, chainName: $0.chainName, shortLabel: $0.shortLabel, nativeSymbol: $0.nativeSymbol, searchKeywords: $0.searchKeywords, supportsDiagnostics: $0.supportsDiagnostics, supportsEndpointCatalog: $0.supportsEndpointCatalog, isEVM: $0.isEvm)
         }
@@ -136,7 +136,7 @@ struct AppEndpointRecord: Hashable, Decodable {
         )
     }
 }
-enum AppEndpointDirectory {
+nonisolated enum AppEndpointDirectory {
     static func endpoint(_ id: String) -> String {
         do {
             return try WalletRustEndpointCatalogBridge.endpoint(id)
@@ -226,6 +226,6 @@ enum AppEndpointDirectory {
         do { return try WalletRustEndpointCatalogBridge.chainBackends() }
         catch { preconditionFailure("Rust chain backend catalog failed to load: \(error.localizedDescription)") }}
     private static func loadAppChains() -> [AppChainDescriptor] {
-        do { return try WalletRustEndpointCatalogBridge.appChainDescriptors() }
-        catch { preconditionFailure("Rust app-chain catalog failed to load: \(error.localizedDescription)") }}
+        WalletRustEndpointCatalogBridge.appChainDescriptors()
+    }
 }

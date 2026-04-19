@@ -4,11 +4,12 @@ extension AppState {
         guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
     }
-    func persistCodableToSQLite<T: Encodable>(_ value: T, key: String) {
-        guard let data = try? JSONEncoder().encode(value), let json = String(data: data, encoding: .utf8) else { return }
-        Task {
+    func persistCodableToSQLite<T: Encodable & Sendable>(_ value: T, key: String) {
+        Task.detached(priority: .utility) {
+            guard let data = try? JSONEncoder().encode(value), let json = String(data: data, encoding: .utf8) else { return }
             try? await WalletServiceBridge.shared.saveState(key: key, stateJSON: json)
-        }}
+        }
+    }
     func loadCodableFromSQLite<T: Decodable>(_ type: T.Type, key: String) async -> T? {
         guard let json = try? await WalletServiceBridge.shared.loadState(key: key), json != "{}", let data = json.data(using: .utf8) else { return nil }
         return try? JSONDecoder().decode(type, from: data)
@@ -219,7 +220,7 @@ extension AppState {
             largeMovementAlertUsdThreshold: largeMovementAlertUSDThreshold,
             pinnedDashboardAssetSymbols: cachedPinnedDashboardAssetSymbols
         )
-        WalletServiceBridge.shared.saveAppSettingsTyped(settings: settings)
+        Task { await WalletServiceBridge.shared.saveAppSettingsTyped(settings: settings) }
     }
     func loadPersistedTokenPreferences() -> [TokenPreferenceEntry] {
         guard let decoded = loadCodableFromUserDefaults(

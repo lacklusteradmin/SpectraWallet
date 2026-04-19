@@ -938,9 +938,6 @@ extension AppState {
                 let utxoCount = RustBalanceDecoder.uint64Field("utxo_count", from: btcJSON) ?? 0
                 let m = coreChainRiskProbeMessages(chainName: "Bitcoin", balanceLabel: "balance", balanceNonPositive: btcBalance <= 0, hasHistory: utxoCount > 0)
                 warning = m.warning; infoMessage = m.info
-            case "Litecoin": (warning, infoMessage) = await fetchChainRiskWarning(chainId: SpectraChainID.litecoin, address: destinationForProbe, balanceField: "balance_sat", divisor: 1e8, chainName: "Litecoin", balanceLabel: "balance")
-            case "Dogecoin": guard coin.symbol == "DOGE" else { warning = nil; infoMessage = nil; break }
-                (warning, infoMessage) = await fetchChainRiskWarning(chainId: SpectraChainID.dogecoin, address: destinationForProbe, balanceField: "balance_koin", divisor: 1e8, chainName: "Dogecoin", balanceLabel: "balance")
             case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid": guard let chainId = SpectraChainID.id(for: coin.chainName) else {
                     warning = nil
                     infoMessage = nil
@@ -957,7 +954,7 @@ extension AppState {
                     warning = m.warning; infoMessage = m.info
                 } else if let token = supportedEVMToken(for: coin) {
                     let tokenBalances = try await WalletServiceBridge.shared.fetchEVMTokenBalancesBatch(chainId: chainId, address: normalizedAddress, tokens: [(contract: token.contractAddress, symbol: token.symbol, decimals: token.decimals)])
-                    let tokenBalance = tokenBalances.first?.balance ?? .zero
+                    let tokenBalance = Decimal(string: tokenBalances.first?.balanceDisplay ?? "0") ?? .zero
                     warning = (tokenBalance <= .zero && !hasHistory) ? "Warning: this address has zero \(coin.symbol) balance and no transaction history on \(coin.chainName). Double-check recipient details." : nil
                     infoMessage = (tokenBalance <= .zero && hasHistory) ? "Note: this address has transaction history but currently zero \(coin.symbol) balance on \(coin.chainName)." : nil
                 } else { warning = nil; infoMessage = nil }
@@ -975,11 +972,9 @@ extension AppState {
                     warning = (balance <= 0 && !hasHistory) ? "Warning: this Tron address has zero \(coin.symbol) balance and no transaction history. Double-check recipient details." : nil
                     infoMessage = (balance <= 0 && hasHistory) ? "Note: this Tron address has transaction history but currently zero \(label)." : nil
                 } else { warning = nil; infoMessage = nil }
-            case "Solana": (warning, infoMessage) = await fetchChainRiskWarning(chainId: SpectraChainID.solana, address: destinationForProbe, balanceField: "lamports", divisor: 1e9, chainName: "Solana", balanceLabel: "SOL balance")
-            case "XRP Ledger": (warning, infoMessage) = await fetchChainRiskWarning(chainId: SpectraChainID.xrp, address: destinationForProbe, balanceField: "drops", divisor: 1e6, chainName: "XRP", balanceLabel: "XRP balance")
-            case "Monero": (warning, infoMessage) = await fetchChainRiskWarning(chainId: SpectraChainID.monero, address: destinationForProbe, balanceField: "piconeros", divisor: 1e12, chainName: "Monero", balanceLabel: "XMR balance")
-            case "Sui": (warning, infoMessage) = await fetchChainRiskWarning(chainId: SpectraChainID.sui, address: destinationForProbe, balanceField: "mist", divisor: 1e9, chainName: "Sui", balanceLabel: "SUI balance")
-            case "Aptos": (warning, infoMessage) = await fetchChainRiskWarning(chainId: SpectraChainID.aptos, address: destinationForProbe, balanceField: "octas", divisor: 1e8, chainName: "Aptos", balanceLabel: "APT balance")
+            case "Litecoin", "Dogecoin", "Solana", "XRP Ledger", "Monero", "Sui", "Aptos": if let cfg = coreSimpleChainRiskProbeConfig(chainName: coin.chainName, symbol: coin.symbol), let chainId = SpectraChainID.id(for: coin.chainName) {
+                    (warning, infoMessage) = await fetchChainRiskWarning(chainId: chainId, address: destinationForProbe, balanceField: cfg.balanceField, divisor: cfg.divisor, chainName: cfg.displayChainName, balanceLabel: cfg.balanceLabel)
+                } else { warning = nil; infoMessage = nil }
             case "NEAR": let nearJson = (try? await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.near, address: destinationForProbe)) ?? "{}"
                 let nearBalance = RustBalanceDecoder.yoctoNearToDouble(from: nearJson) ?? 0
                 let nearHistJson = (try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.near, address: destinationForProbe)) ?? "[]"

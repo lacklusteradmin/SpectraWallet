@@ -8,7 +8,7 @@ struct AddWalletEntryView: View {
         ZStack {
             SpectraBackdrop()
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 14) {
+                LazyVStack(spacing: 14) {
                     actionCard(
                         title: localizedAddWalletString("Create New Wallet"), subtitle: localizedAddWalletString("Generate a new seed phrase and set up your wallet."), icon: "plus.circle.fill", tint: Color.green
                     ) {

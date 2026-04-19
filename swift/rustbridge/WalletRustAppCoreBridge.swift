@@ -9,7 +9,7 @@ enum WalletRustAppCoreBridgeError: LocalizedError {
     }
 }
 
-enum WalletRustAppCoreBridge {
+nonisolated enum WalletRustAppCoreBridge {
 
     // ─── Typed bridge functions (pass-through to UniFFI exports) ─────────────
 

@@ -78,6 +78,13 @@ enum TokenIconPreferenceStore {
 }
 enum TokenIconImageStore {
     static let maximumUploadBytes = 3 * 1024 * 1024
+#if canImport(UIKit)
+    private static let imageCache: NSCache<NSString, UIImage> = {
+        let cache = NSCache<NSString, UIImage>()
+        cache.countLimit = 128
+        return cache
+    }()
+#endif
     enum IconError: LocalizedError {
         case imageTooLarge
         case unreadableImage
@@ -94,8 +101,11 @@ enum TokenIconImageStore {
     }
 #if canImport(UIKit)
     static func image(for identifier: String) -> UIImage? {
-        guard let url = customImageURL(for: identifier), FileManager.default.fileExists(atPath: url.path) else { return nil }
-        return UIImage(contentsOfFile: url.path)
+        let key = identifier as NSString
+        if let cached = imageCache.object(forKey: key) { return cached }
+        guard let url = customImageURL(for: identifier), FileManager.default.fileExists(atPath: url.path), let image = UIImage(contentsOfFile: url.path) else { return nil }
+        imageCache.setObject(image, forKey: key)
+        return image
     }
     static func saveImageData(_ data: Data, for identifier: String) throws {
         guard data.count <= maximumUploadBytes else { throw IconError.imageTooLarge }
@@ -106,6 +116,7 @@ enum TokenIconImageStore {
             let directoryURL = try customIconDirectoryURL()
             try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
             try pngData.write(to: url, options: .atomic)
+            imageCache.removeObject(forKey: identifier as NSString)
         } catch {
             throw IconError.failedToWrite
         }}
@@ -125,10 +136,16 @@ enum TokenIconImageStore {
     static func removeImage(for identifier: String) {
         guard let url = customImageURL(for: identifier), FileManager.default.fileExists(atPath: url.path) else { return }
         try? FileManager.default.removeItem(at: url)
+#if canImport(UIKit)
+        imageCache.removeObject(forKey: identifier as NSString)
+#endif
     }
     static func removeAllImages() {
         guard let directoryURL = try? customIconDirectoryURL(), FileManager.default.fileExists(atPath: directoryURL.path) else { return }
         try? FileManager.default.removeItem(at: directoryURL)
+#if canImport(UIKit)
+        imageCache.removeAllObjects()
+#endif
     }
     private static func customImageURL(for identifier: String) -> URL? { try? customIconDirectoryURL().appendingPathComponent(fileName(for: identifier)) }
     private static func customIconDirectoryURL() throws -> URL {

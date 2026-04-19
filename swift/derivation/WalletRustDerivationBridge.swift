@@ -24,7 +24,7 @@ enum WalletRustDerivationBridge {
         )
     }
     nonisolated static func derive(_ requestModel: WalletRustDerivationRequestModel) throws -> WalletRustDerivationResponseModel {
-        let response = try derivationDerive(request: UniFFIDerivationRequest(
+        let response = try derivationDerive(request: UniFfiDerivationRequest(
             chain: requestModel.chain.rawValue, network: requestModel.network.rawValue, curve: requestModel.curve.rawValue, requestedOutputs: requestModel.requestedOutputs.rawValue, derivationAlgorithm: requestModel.derivationAlgorithm.rawValue, addressAlgorithm: requestModel.addressAlgorithm.rawValue, publicKeyFormat: requestModel.publicKeyFormat.rawValue, scriptType: requestModel.scriptType.rawValue, seedPhrase: requestModel.seedPhrase, derivationPath: requestModel.derivationPath, passphrase: requestModel.passphrase, hmacKey: requestModel.hmacKey, mnemonicWordlist: requestModel.mnemonicWordlist, iterationCount: requestModel.iterationCount, saltPrefix: nil
         ))
         return WalletRustDerivationResponseModel(address: response.address, publicKeyHex: response.publicKeyHex, privateKeyHex: response.privateKeyHex)
@@ -37,14 +37,14 @@ enum WalletRustDerivationBridge {
                 from: requestCompilationPreset, derivationPath: WalletDerivationPresetCatalog.defaultPath(for: chain)
             ), privateKeyHex: privateKeyHex
         )
-        let response = try derivationDeriveFromPrivateKey(request: UniFFIPrivateKeyDerivationRequest(
+        let response = try derivationDeriveFromPrivateKey(request: UniFfiPrivateKeyDerivationRequest(
             chain: requestModel.chain.rawValue, network: requestModel.network.rawValue, curve: requestModel.curve.rawValue, addressAlgorithm: requestModel.addressAlgorithm.rawValue, publicKeyFormat: requestModel.publicKeyFormat.rawValue, scriptType: requestModel.scriptType.rawValue, privateKeyHex: requestModel.privateKeyHex
         ))
         return WalletRustDerivationResponseModel(address: response.address, publicKeyHex: response.publicKeyHex, privateKeyHex: response.privateKeyHex)
     }
     nonisolated static func buildSigningMaterial(_ requestModel: WalletRustDerivationRequestModel) throws -> WalletRustSigningMaterialModel {
         guard let derivationPath = requestModel.derivationPath else { throw WalletRustDerivationBridgeError.requestCompilationFailed("Signing material requires a derivation path.") }
-        let response = try derivationBuildMaterial(request: UniFFIMaterialRequest(
+        let response = try derivationBuildMaterial(request: UniFfiMaterialRequest(
             chain: requestModel.chain.rawValue, network: requestModel.network.rawValue, curve: requestModel.curve.rawValue, derivationAlgorithm: requestModel.derivationAlgorithm.rawValue, addressAlgorithm: requestModel.addressAlgorithm.rawValue, publicKeyFormat: requestModel.publicKeyFormat.rawValue, scriptType: requestModel.scriptType.rawValue, seedPhrase: requestModel.seedPhrase, derivationPath: derivationPath, passphrase: requestModel.passphrase, hmacKey: requestModel.hmacKey, mnemonicWordlist: requestModel.mnemonicWordlist, iterationCount: requestModel.iterationCount, saltPrefix: nil
         ))
         return WalletRustSigningMaterialModel(address: response.address, privateKeyHex: response.privateKeyHex, derivationPath: response.derivationPath, account: response.account, branch: response.branch, index: response.index)
@@ -52,7 +52,7 @@ enum WalletRustDerivationBridge {
     nonisolated static func buildSigningMaterialFromPrivateKey(chain: SeedDerivationChain, network: WalletDerivationNetwork = .mainnet, privateKeyHex: String, derivationPath: String) throws -> WalletRustSigningMaterialModel {
         guard let ffiChain = WalletRustFFIChain(chain: chain) else { throw WalletRustDerivationBridgeError.rustCoreUnsupportedChain(chain.rawValue) }
         let requestCompilationPreset = WalletDerivationPresetCatalog.requestCompilationPreset(for: chain)
-        let response = try derivationBuildMaterialFromPrivateKey(request: UniFFIPrivateKeyMaterialRequest(
+        let response = try derivationBuildMaterialFromPrivateKey(request: UniFfiPrivateKeyMaterialRequest(
             chain: ffiChain.rawValue, network: WalletRustFFINetwork(network: network).rawValue, curve: WalletRustFFICurve(curve: WalletDerivationPresetCatalog.curve(for: chain)).rawValue, addressAlgorithm: ffiAddressAlgorithm(from: requestCompilationPreset.addressAlgorithm).rawValue, publicKeyFormat: ffiPublicKeyFormat(from: requestCompilationPreset.publicKeyFormat).rawValue, scriptType: try compileScriptType(from: requestCompilationPreset, derivationPath: derivationPath).rawValue, privateKeyHex: privateKeyHex, derivationPath: derivationPath
         ))
         return WalletRustSigningMaterialModel(address: response.address, privateKeyHex: response.privateKeyHex, derivationPath: response.derivationPath, account: response.account, branch: response.branch, index: response.index)
