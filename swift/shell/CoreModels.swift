@@ -221,10 +221,16 @@ struct SeedDerivationResolution: Equatable {
 }
 extension SeedDerivationChain {
     func resolve(path rawPath: String) -> SeedDerivationResolution {
+        guard let ffiChain = WalletRustFFIChain(chain: self) else {
+            fatalError("Rust derivation path resolution failed for \(rawValue): unsupported chain")
+        }
         do {
-            let resolution = try WalletRustAppCoreBridge.resolve(chain: self, path: rawPath)
+            let raw = try appCoreResolveDerivationPath(chain: ffiChain.rawValue, derivationPath: rawPath)
             return SeedDerivationResolution(
-                chain: resolution.chain, normalizedPath: resolution.normalizedPath, accountIndex: resolution.accountIndex, flavor: resolution.flavor
+                chain: SeedDerivationChain(rawValue: raw.chain) ?? self,
+                normalizedPath: raw.normalizedPath,
+                accountIndex: raw.accountIndex,
+                flavor: SeedDerivationFlavor(rawValue: raw.flavor) ?? .standard
             )
         } catch {
             fatalError("Rust derivation path resolution failed for \(rawValue): \(error.localizedDescription)")
@@ -295,7 +301,7 @@ extension CoreSeedDerivationPaths {
     }
     static func migrated(from preset: SeedDerivationPreset?) -> CoreSeedDerivationPaths {
         do {
-            return try WalletRustAppCoreBridge.derivationPaths(for: preset)
+            return try appCoreDerivationPathsForPreset(accountIndex: preset?.accountIndex ?? 0)
         } catch {
             return fallbackPaths(for: preset)
         }
@@ -307,7 +313,7 @@ extension CoreSeedDerivationPaths {
     }
     private static func loadRustDefaultPreset() -> CoreSeedDerivationPaths {
         do {
-            return try WalletRustAppCoreBridge.derivationPaths(for: nil)
+            return try appCoreDerivationPathsForPreset(accountIndex: 0)
         } catch {
             return fallbackPaths(for: nil)
         }

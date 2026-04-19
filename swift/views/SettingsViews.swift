@@ -1339,24 +1339,6 @@ struct TokenIconSettingsView: View {
                 }.disabled(tokenIconPreferencesStorage.isEmpty)
             }}}
 }
-/// Defers evaluation of a tab's content until the tab is first selected.
-/// After that initial render the view stays alive (SwiftUI's TabView keeps
-/// it in memory), but the expensive first-build is skipped until the user
-/// actually taps the tab.
-private struct LazyTab<Content: View>: View {
-    @State private var hasAppeared = false
-    let build: () -> Content
-    var body: some View {
-        Group {
-            if hasAppeared {
-                build()
-            } else {
-                Color.clear
-            }
-        }.onAppear { hasAppeared = true }
-    }
-}
-
 struct MainTabView: View {
     let store: AppState
     @ObservedObject private var tabSelection: AppTabSelection
@@ -1366,19 +1348,19 @@ struct MainTabView: View {
     }
     var body: some View {
         TabView(selection: $tabSelection.value) {
-            LazyTab { DashboardView(store: store) }.tabItem {
+            DashboardView(store: store).tabItem {
                     Label(localizedSettingsString("Home"), systemImage: "chart.pie.fill")
                 }.tag(MainAppTab.home)
-            LazyTab { HistoryView(store: store) }.tabItem {
+            HistoryView(store: store).tabItem {
                     Label(localizedSettingsString("History"), systemImage: "clock.arrow.circlepath")
                 }.tag(MainAppTab.history)
-            LazyTab { StakingView() }.tabItem {
+            StakingView().tabItem {
                     Label(localizedSettingsString("Staking"), systemImage: "link.circle.fill")
                 }.tag(MainAppTab.staking)
-            LazyTab { DonationsView() }.tabItem {
+            DonationsView().tabItem {
                     Label(localizedSettingsString("Donate"), systemImage: "heart.fill")
                 }.tag(MainAppTab.donate)
-            LazyTab { SettingsView(store: store) }.tabItem {
+            SettingsView(store: store).tabItem {
                     Label(localizedSettingsString("Settings"), systemImage: "gearshape.fill")
                 }.tag(MainAppTab.settings)
         }}

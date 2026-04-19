@@ -34,12 +34,12 @@ extension AppState {
         }
         let selectedCoin = holdingIndex.flatMap { holdingIndex in
             walletIndex.map { wallets[$0].holdings[holdingIndex] }}
-        let preflight: WalletRustSendSubmitPreflightPlan
+        let preflight: SendSubmitPreflightPlan
         do {
-            preflight = try WalletRustAppCoreBridge.planSendSubmitPreflight(
-                WalletRustSendSubmitPreflightRequest(
+            preflight = try corePlanSendSubmitPreflight(
+                request: SendSubmitPreflightRequest(
                     walletFound: walletIndex != nil, assetFound: holdingIndex != nil, destinationAddress: destinationInput, amountInput: sendAmount, availableBalance: selectedCoin?.amount ?? 0, asset: selectedCoin.map {
-                        WalletRustSendAssetRoutingInput(
+                        SendAssetRoutingInput(
                             chainName: $0.chainName, symbol: $0.symbol, isEvmChain: isEVMChain($0.chainName), supportsSolanaSendCoin: isSupportedSolanaSendCoin($0), supportsNearTokenSend: isSupportedNearTokenSend($0)
                         )
                     }
@@ -299,14 +299,12 @@ extension AppState {
                 sendError = sendError ?? "Unable to estimate Tron network fee."
                 return
             }
-            do {
-                try coreValidateSendBalance(request: SendBalanceValidationRequest(
-                    amount: amount, networkFee: preview.estimatedNetworkFeeTrx, holdingBalance: holding.amount,
-                    isNativeAsset: holding.symbol == "TRX", symbol: holding.symbol,
-                    nativeSymbol: "TRX", nativeBalance: wallet.holdings.first(where: { $0.chainName == "Tron" && $0.symbol == "TRX" })?.amount,
-                    feeDecimals: 6, chainLabel: "Tron"
-                ))
-            } catch { sendError = error.localizedDescription; return }
+            if let err = validateSendBalance(
+                amount: amount, networkFee: preview.estimatedNetworkFeeTrx, holdingBalance: holding.amount,
+                isNativeAsset: holding.symbol == "TRX", symbol: holding.symbol,
+                nativeSymbol: "TRX", nativeBalance: wallet.holdings.first(where: { $0.chainName == "Tron" && $0.symbol == "TRX" })?.amount,
+                feeDecimals: 6, chainLabel: "Tron"
+            ) { sendError = err; return }
             isSendingTron = true
             defer { isSendingTron = false }
             do {
@@ -350,14 +348,12 @@ extension AppState {
                 sendError = sendError ?? "Unable to estimate Solana network fee."
                 return
             }
-            do {
-                try coreValidateSendBalance(request: SendBalanceValidationRequest(
-                    amount: amount, networkFee: preview.estimatedNetworkFeeSol, holdingBalance: holding.amount,
-                    isNativeAsset: holding.symbol == "SOL", symbol: holding.symbol,
-                    nativeSymbol: "SOL", nativeBalance: wallet.holdings.first(where: { $0.chainName == "Solana" && $0.symbol == "SOL" })?.amount,
-                    feeDecimals: 6, chainLabel: "Solana"
-                ))
-            } catch { sendError = error.localizedDescription; return }
+            if let err = validateSendBalance(
+                amount: amount, networkFee: preview.estimatedNetworkFeeSol, holdingBalance: holding.amount,
+                isNativeAsset: holding.symbol == "SOL", symbol: holding.symbol,
+                nativeSymbol: "SOL", nativeBalance: wallet.holdings.first(where: { $0.chainName == "Solana" && $0.symbol == "SOL" })?.amount,
+                feeDecimals: 6, chainLabel: "Solana"
+            ) { sendError = err; return }
             isSendingSolana = true
             defer { isSendingSolana = false }
             do {
@@ -541,14 +537,12 @@ extension AppState {
                 sendError = sendError ?? "Unable to estimate \(holding.chainName) network fee."
                 return
             }
-            do {
-                try coreValidateSendBalance(request: SendBalanceValidationRequest(
-                    amount: amount, networkFee: preview.estimatedNetworkFeeEth, holdingBalance: preflight.isNativeEvmAsset ? nativeBalance : holding.amount,
-                    isNativeAsset: preflight.isNativeEvmAsset, symbol: preflight.isNativeEvmAsset ? nativeSymbol : holding.symbol,
-                    nativeSymbol: nativeSymbol, nativeBalance: nativeBalance,
-                    feeDecimals: 6, chainLabel: nil
-                ))
-            } catch { sendError = error.localizedDescription; return }
+            if let err = validateSendBalance(
+                amount: amount, networkFee: preview.estimatedNetworkFeeEth, holdingBalance: preflight.isNativeEvmAsset ? nativeBalance : holding.amount,
+                isNativeAsset: preflight.isNativeEvmAsset, symbol: preflight.isNativeEvmAsset ? nativeSymbol : holding.symbol,
+                nativeSymbol: nativeSymbol, nativeBalance: nativeBalance,
+                feeDecimals: 6, chainLabel: nil
+            ) { sendError = err; return }
             isSendingEthereum = true
             activeEthereumSendWalletIDs.insert(wallet.id)
             defer {
@@ -637,13 +631,11 @@ extension AppState {
         }
         if getPreviewFee() == nil { await refreshPreview() }
         guard let fee = getPreviewFee() else { sendError = sendError ?? "Unable to estimate \(chainName) network fee."; return }
-        do {
-            try coreValidateSendBalance(request: SendBalanceValidationRequest(
-                amount: amount, networkFee: fee, holdingBalance: holding.amount,
-                isNativeAsset: true, symbol: symbol, nativeSymbol: nil, nativeBalance: nil,
-                feeDecimals: feeDecimals, chainLabel: nil
-            ))
-        } catch { sendError = error.localizedDescription; return }
+        if let err = validateSendBalance(
+            amount: amount, networkFee: fee, holdingBalance: holding.amount,
+            isNativeAsset: true, symbol: symbol, nativeSymbol: nil, nativeBalance: nil,
+            feeDecimals: Int(feeDecimals), chainLabel: nil
+        ) { sendError = err; return }
         if checkSelfSend, requiresSelfSendConfirmation(wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount) { return }
         self[keyPath: isSendingPath] = true
         defer { self[keyPath: isSendingPath] = false }
@@ -678,13 +670,11 @@ extension AppState {
             guard let sourceAddress = resolveAddress(wallet) else { sendError = "Unable to resolve this wallet's \(symbol) address from the seed phrase."; return }
             if getPreview() == nil { await refreshPreview() }
             if let preview = getPreview() {
-                do {
-                    try coreValidateSendBalance(request: SendBalanceValidationRequest(
-                        amount: amount, networkFee: preview.estimatedNetworkFeeBtc, holdingBalance: holding.amount,
-                        isNativeAsset: true, symbol: symbol, nativeSymbol: nil, nativeBalance: nil,
-                        feeDecimals: 8, chainLabel: nil
-                    ))
-                } catch { sendError = error.localizedDescription; return }
+                if let err = validateSendBalance(
+                    amount: amount, networkFee: preview.estimatedNetworkFeeBtc, holdingBalance: holding.amount,
+                    isNativeAsset: true, symbol: symbol, nativeSymbol: nil, nativeBalance: nil,
+                    feeDecimals: 8, chainLabel: nil
+                ) { sendError = err; return }
             }
             let feeSat = UInt64((getPreview()?.estimatedNetworkFeeBtc ?? feeFallback) * 1e8)
             let result = try await WalletServiceBridge.shared.executeSend(SendExecutionRequest(

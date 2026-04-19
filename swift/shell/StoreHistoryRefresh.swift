@@ -69,8 +69,8 @@ extension AppState {
         targetWalletIDs: Set<String>? = nil
     ) async {
         let walletSnapshot = wallets
-        let targets = WalletRustAppCoreBridge.planNormalizedRefreshTargets(
-            NormalizedRefreshTargetsRequest(
+        let targets = corePlanNormalizedRefreshTargets(
+            request: NormalizedRefreshTargetsRequest(
                 chainName: chainName,
                 wallets: walletSnapshot.enumerated().map { index, wallet in
                     NormalizedRefreshWalletInput(
@@ -183,7 +183,7 @@ private func fetchBitcoinHDHistoryPage(xpub: String, limit: Int) async throws ->
         do {
             let json = try await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.bitcoin, address: address)
             let payloads = historyDecodeBitcoinRawSnapshots(json: json).map { s in
-                WalletRustBitcoinHistorySnapshotPayload(
+                CoreBitcoinHistorySnapshot(
                     txid: s.txid, amountBtc: s.amountBtc, kind: s.kind, status: s.status,
                     counterpartyAddress: s.counterpartyAddress,
                     blockHeight: s.blockHeight, createdAtUnix: s.createdAtUnix
@@ -192,8 +192,8 @@ private func fetchBitcoinHDHistoryPage(xpub: String, limit: Int) async throws ->
             return (index, payloads)
         } catch { return (index, nil) }
     }
-    let mergedSnapshots = WalletRustAppCoreBridge.mergeBitcoinHistorySnapshots(
-        WalletRustMergeBitcoinHistorySnapshotsRequest(
+    let mergedSnapshots = coreMergeBitcoinHistorySnapshots(
+        request: MergeBitcoinHistorySnapshotsRequest(
             snapshots: fetchedSnapshots.sorted { $0.key < $1.key }.flatMap(\.value), ownedAddresses: allAddresses, limit: UInt64(limit)
         )
     )
@@ -315,18 +315,18 @@ func refreshDogecoinTransactions(limit: Int? = nil, loadMore: Bool = false, targ
 private func plannedDogecoinHistoryWallets(
     walletSnapshot: [ImportedWallet], targetWalletIDs: Set<String>?
 ) -> [(ImportedWallet, [String])]? {
-    let request = WalletRustDogecoinRefreshTargetsRequest(
+    let request = DogecoinRefreshTargetsRequest(
         wallets: walletSnapshot.enumerated().map { index, wallet in
-            WalletRustDogecoinRefreshWalletInput(
+            DogecoinRefreshWalletInput(
                 index: UInt64(index), walletId: wallet.id, selectedChain: wallet.selectedChain, addresses: knownUTXOAddresses(for: wallet, chainName: "Dogecoin")
             )
         }, allowedWalletIds: targetWalletIDs.map(Array.init)
     )
-    let targets = WalletRustAppCoreBridge.planDogecoinRefreshTargets(request)
+    let targets = corePlanDogecoinRefreshTargets(request: request)
     guard !targets.isEmpty else { return nil }
     let walletByID = Dictionary(uniqueKeysWithValues: walletSnapshot.map { ($0.id, $0) })
     return targets.compactMap { target in
-        guard let wallet = walletByID[target.walletID] else { return nil }
+        guard let wallet = walletByID[target.walletId] else { return nil }
         return (wallet, target.addresses)
     }
 }
@@ -432,8 +432,8 @@ extension AppState {
             setHistoryPage(chainId: evmChainId, walletId: wallet.id, page: page)
         }
         let nativeAsset = historyEvmNativeAsset(chainName: chainName) ?? EvmNativeAsset(assetName: "Ether", symbol: "ETH")
-        let plannedRecords = WalletRustAppCoreBridge.planEVMTransactionRecords(
-            EvmTransactionRecordRequest(
+        let plannedRecords = planEvmTransactionRecords(
+            request: EvmTransactionRecordRequest(
                 decodedPage: decodedPage,
                 normalizedAddress: normalizedAddress,
                 chainName: chainName,
@@ -462,26 +462,26 @@ extension AppState {
     upsertEVMTransactions(syncedTransactions, chainName: chainName)
     if encounteredErrors { markChainDegraded(chainName, detail: "\(chainName) history loaded with partial provider failures.") } else { markChainHealthy(chainName) }
 }
-private func plannedEVMRefresh(chainName: String, walletSnapshot: [ImportedWallet], groupByNormalizedAddress: Bool, targetWalletIDs: Set<String>?) -> WalletRustEVMRefreshPlan? {
-    let request = WalletRustEVMRefreshTargetsRequest(
+private func plannedEVMRefresh(chainName: String, walletSnapshot: [ImportedWallet], groupByNormalizedAddress: Bool, targetWalletIDs: Set<String>?) -> EvmRefreshPlan? {
+    let request = EvmRefreshTargetsRequest(
         chainName: chainName,
         wallets: walletSnapshot.enumerated().map { index, wallet in
-            WalletRustEVMRefreshWalletInput(index: UInt64(index), walletId: wallet.id, selectedChain: wallet.selectedChain, address: resolvedEVMAddress(for: wallet, chainName: chainName))
+            EvmRefreshWalletInput(index: UInt64(index), walletId: wallet.id, selectedChain: wallet.selectedChain, address: resolvedEVMAddress(for: wallet, chainName: chainName))
         },
         allowedWalletIds: targetWalletIDs.map(Array.init),
         groupByNormalizedAddress: groupByNormalizedAddress
     )
-    return WalletRustAppCoreBridge.planEVMRefreshTargets(request)
+    return corePlanEvmRefreshTargets(request: request)
 }
 private func plannedEVMHistoryWallets(chainName: String, walletSnapshot: [ImportedWallet], targetWalletIDs: Set<String>?) -> [(ImportedWallet, String)]? {
     guard let plan = plannedEVMRefresh(chainName: chainName, walletSnapshot: walletSnapshot, groupByNormalizedAddress: false, targetWalletIDs: targetWalletIDs) else { return nil }
-    return plan.walletTargets.compactMap { t in walletSnapshot.first(where: { $0.id == t.walletID }).map { ($0, t.address) } }
+    return plan.walletTargets.compactMap { t in walletSnapshot.first(where: { $0.id == t.walletId }).map { ($0, t.address) } }
 }
 private func plannedEVMHistoryGroups(chainName: String, walletSnapshot: [ImportedWallet], loadMore: Bool, targetWalletIDs: Set<String>?) -> [([ImportedWallet], String, String)]? {
     guard let plan = plannedEVMRefresh(chainName: chainName, walletSnapshot: walletSnapshot, groupByNormalizedAddress: !loadMore, targetWalletIDs: targetWalletIDs) else { return nil }
     let walletByID = Dictionary(uniqueKeysWithValues: walletSnapshot.map { ($0.id, $0) })
     return plan.groupedTargets.compactMap { t in
-        let wallets = t.walletIDs.compactMap { walletByID[$0] }
+        let wallets = t.walletIds.compactMap { walletByID[$0] }
         return wallets.isEmpty ? nil : (wallets, t.address, t.normalizedAddress)
     }
 }

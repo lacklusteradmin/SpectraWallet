@@ -1,6 +1,20 @@
 import Foundation
 private nonisolated func encodeHistoryRecords(_ snapshots: [CorePersistedTransactionRecord]) -> String? {
-    try? WalletRustAppCoreBridge.encodeHistoryRecordsFromPersisted(snapshots)
+    do {
+        let records: [HistoryRecordEncodeInput] = try snapshots.map { snap in
+            HistoryRecordEncodeInput(
+                id: snap.id.lowercased(),
+                walletId: snap.walletId?.lowercased(),
+                chainName: snap.chainName,
+                txHash: snap.transactionHash?.lowercased(),
+                createdAt: Date(timeIntervalSinceReferenceDate: snap.createdAt).timeIntervalSince1970,
+                payloadJson: try encodePersistedTransactionRecordJson(value: snap)
+            )
+        }
+        return try coreEncodeHistoryRecordsJson(records: records)
+    } catch {
+        return nil
+    }
 }
 extension AppState {
     func rebuildTokenPreferenceDerivedState() { batchCacheUpdates {
@@ -34,10 +48,10 @@ extension AppState {
         var receiveWallets: [ImportedWallet] = []
         let transferAvailabilityPlan = rustTransferAvailabilityPlan(for: wallets)
         let transferAvailabilityByWalletID = Dictionary(
-            uniqueKeysWithValues: transferAvailabilityPlan.wallets.map { ($0.walletID, $0) }
+            uniqueKeysWithValues: transferAvailabilityPlan.wallets.map { ($0.walletId, $0) }
         )
-        let rustSendEnabledWalletIDs = Set(transferAvailabilityPlan.sendEnabledWalletIDs)
-        let rustReceiveEnabledWalletIDs = Set(transferAvailabilityPlan.receiveEnabledWalletIDs)
+        let rustSendEnabledWalletIDs = Set(transferAvailabilityPlan.sendEnabledWalletIds)
+        let rustReceiveEnabledWalletIDs = Set(transferAvailabilityPlan.receiveEnabledWalletIds)
         for wallet in wallets {
             let walletID = wallet.id
             let sendCoins: [Coin] = transferAvailabilityByWalletID[walletID]
@@ -55,11 +69,11 @@ extension AppState {
                 ?? []
             receiveChainsByWalletID[walletID] = receiveChains
             if rustReceiveEnabledWalletIDs.contains(walletID) { receiveWallets.append(wallet) }}
-        cachedSigningMaterialWalletIDs = Set(derivedStatePlan.signingMaterialWalletIDs)
-        cachedPrivateKeyBackedWalletIDs = Set(derivedStatePlan.privateKeyBackedWalletIDs)
+        cachedSigningMaterialWalletIDs = Set(derivedStatePlan.signingMaterialWalletIds)
+        cachedPrivateKeyBackedWalletIDs = Set(derivedStatePlan.privateKeyBackedWalletIds)
         cachedPortfolio = derivedStatePlan.groupedPortfolio.compactMap { group in
             guard let representative = resolveHolding(
-                WalletRustWalletHoldingRef(walletId: group.walletID, holdingIndex: group.holdingIndex), in: wallets
+                WalletHoldingRef(walletId: group.walletId, holdingIndex: group.holdingIndex), in: wallets
             ) else {
                 return nil
             }
@@ -95,7 +109,7 @@ extension AppState {
     func upsertLitecoinTransactions(_ newTransactions: [TransactionRecord]) { upsertStandardUTXOTransactions(newTransactions, chainName: "Litecoin") }
     func upsertStandardUTXOTransactions(_ newTransactions: [TransactionRecord], chainName: String) {
         guard let mergedTransactions = mergeTransactionsUsingRust(
-            existingTransactions: transactions, incomingTransactions: newTransactions, strategy: .standardUTXO, chainName: chainName
+            existingTransactions: transactions, incomingTransactions: newTransactions, strategy: .standardUtxo, chainName: chainName
         ) else {
             assertionFailure("Rust transaction merge failed for standardUTXO chain \(chainName)")
             return
@@ -182,11 +196,11 @@ extension AppState {
         nearHistoryDiagnosticsByWallet[walletID] = nil
         polkadotHistoryDiagnosticsByWallet[walletID] = nil
     }
-    private func mergeTransactionsUsingRust(existingTransactions: [TransactionRecord], incomingTransactions: [TransactionRecord], strategy: WalletRustTransactionMergeStrategy, chainName: String, includeSymbolInIdentity: Bool = false, preserveCreatedAtSentinelUnix: Double? = nil) -> [TransactionRecord]? {
-        let request = WalletRustTransactionMergeRequest(
+    private func mergeTransactionsUsingRust(existingTransactions: [TransactionRecord], incomingTransactions: [TransactionRecord], strategy: TransactionMergeStrategy, chainName: String, includeSymbolInIdentity: Bool = false, preserveCreatedAtSentinelUnix: Double? = nil) -> [TransactionRecord]? {
+        let request = TransactionMergeRequest(
             existingTransactions: existingTransactions.map(\.rustBridgeRecord), incomingTransactions: incomingTransactions.map(\.rustBridgeRecord), strategy: strategy, chainName: chainName, includeSymbolInIdentity: includeSymbolInIdentity, preserveCreatedAtSentinelUnix: preserveCreatedAtSentinelUnix
         )
-        let mergedRecords = WalletRustAppCoreBridge.mergeTransactions(request)
+        let mergedRecords = coreMergeTransactions(request: request)
         var resolvedTransactions: [TransactionRecord] = []
         resolvedTransactions.reserveCapacity(mergedRecords.count)
         for record in mergedRecords {
@@ -280,13 +294,13 @@ extension AppState {
     }
 }
 private extension TransactionRecord {
-    var rustBridgeRecord: WalletRustTransactionRecord {
-        WalletRustTransactionRecord(
+    var rustBridgeRecord: CoreTransactionRecord {
+        CoreTransactionRecord(
             id: id.uuidString, walletId: walletID, kind: kind.rawValue, status: status.rawValue, walletName: walletName, assetName: assetName, symbol: symbol, chainName: chainName, amount: amount, address: address, transactionHash: transactionHash, ethereumNonce: ethereumNonce.map { Int64($0) }, receiptBlockNumber: receiptBlockNumber.map { Int64($0) }, receiptGasUsed: receiptGasUsed, receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei, receiptNetworkFeeEth: receiptNetworkFeeEth, feePriorityRaw: feePriorityRaw, feeRateDescription: feeRateDescription, confirmationCount: confirmationCount.map { Int64($0) }, dogecoinConfirmedNetworkFeeDoge: dogecoinConfirmedNetworkFeeDoge, dogecoinConfirmations: dogecoinConfirmations.map { Int64($0) }, dogecoinFeePriorityRaw: dogecoinFeePriorityRaw, dogecoinEstimatedFeeRateDogePerKb: dogecoinEstimatedFeeRateDogePerKb, usedChangeOutput: usedChangeOutput, dogecoinUsedChangeOutput: dogecoinUsedChangeOutput, sourceDerivationPath: sourceDerivationPath, changeDerivationPath: changeDerivationPath, sourceAddress: sourceAddress, changeAddress: changeAddress, dogecoinRawTransactionHex: dogecoinRawTransactionHex, signedTransactionPayload: signedTransactionPayload, signedTransactionPayloadFormat: signedTransactionPayloadFormat, failureReason: failureReason, transactionHistorySource: transactionHistorySource, createdAtUnix: createdAt.timeIntervalSince1970
         )
     }
 }
-private extension WalletRustTransactionRecord {
+private extension CoreTransactionRecord {
     var transactionRecord: TransactionRecord? {
         guard let resolvedID = UUID(uuidString: id) else { return nil }
         let resolvedKind = TransactionKind(rawValue: kind) ?? .receive
@@ -297,42 +311,42 @@ private extension WalletRustTransactionRecord {
     }
 }
 private extension AppState {
-    func rustStoreDerivedStatePlan(for wallets: [ImportedWallet]) -> WalletRustStoreDerivedStatePlan {
-        let request = WalletRustStoreDerivedStateRequest(
+    func rustStoreDerivedStatePlan(for wallets: [ImportedWallet]) -> StoreDerivedStatePlan {
+        let request = StoreDerivedStateRequest(
             wallets: wallets.map { wallet in
                 let signingMaterial = signingMaterialAvailability(for: wallet.id)
-                return WalletRustStoreDerivedWalletInput(
+                return StoreDerivedWalletInput(
                     walletId: wallet.id, includeInPortfolioTotal: wallet.includeInPortfolioTotal, hasSigningMaterial: signingMaterial.hasSigningMaterial, isPrivateKeyBacked: signingMaterial.isPrivateKeyBacked, holdings: wallet.holdings.enumerated().map { index, holding in
-                        WalletRustStoreDerivedHoldingInput(
+                        StoreDerivedHoldingInput(
                             holdingIndex: UInt64(index), assetIdentityKey: assetIdentityKey(for: holding), symbolUpper: holding.symbol.uppercased(), amount: String(holding.amount), isPricedAsset: isPricedAsset(holding)
                         )
                     }
                 )
             }
         )
-        return WalletRustAppCoreBridge.planStoreDerivedState(request)
+        return corePlanStoreDerivedState(request: request)
     }
-    func resolveHolding(_ reference: WalletRustWalletHoldingRef, in wallets: [ImportedWallet]) -> Coin? {
+    func resolveHolding(_ reference: WalletHoldingRef, in wallets: [ImportedWallet]) -> Coin? {
         let idx = Int(reference.holdingIndex)
-        guard let wallet = cachedWalletByIDString[reference.walletID]
-            ?? wallets.first(where: { $0.id == reference.walletID }), wallet.holdings.indices.contains(idx) else {
+        guard let wallet = cachedWalletByIDString[reference.walletId]
+            ?? wallets.first(where: { $0.id == reference.walletId }), wallet.holdings.indices.contains(idx) else {
             return nil
         }
         return wallet.holdings[idx]
     }
-    func rustTransferAvailabilityPlan(for wallets: [ImportedWallet]) -> WalletRustTransferAvailabilityPlan {
-        let request = WalletRustTransferAvailabilityRequest(
+    func rustTransferAvailabilityPlan(for wallets: [ImportedWallet]) -> TransferAvailabilityPlan {
+        let request = TransferAvailabilityRequest(
             wallets: wallets.map { wallet in
                 let hasSigningMaterial = signingMaterialAvailability(for: wallet.id).hasSigningMaterial
-                return WalletRustTransferWalletInput(
+                return TransferWalletInput(
                     walletId: wallet.id, hasSigningMaterial: hasSigningMaterial, holdings: wallet.holdings.enumerated().map { index, holding in
-                        WalletRustTransferHoldingInput(
+                        TransferHoldingInput(
                             index: UInt64(index), chainName: holding.chainName, symbol: holding.symbol, supportsSend: AppEndpointDirectory.supportsSend(for: holding.chainName), supportsReceiveAddress: AppEndpointDirectory.supportsReceiveAddress(for: holding.chainName), isLiveChain: AppEndpointDirectory.liveChainNames.contains(holding.chainName), supportsEvmToken: supportedEVMToken(for: holding) != nil, supportsSolanaSendCoin: isSupportedSolanaSendCoin(holding)
                         )
                     }
                 )
             }
         )
-        return WalletRustAppCoreBridge.planTransferAvailability(request)
+        return corePlanTransferAvailability(request: request)
     }
 }

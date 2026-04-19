@@ -86,7 +86,7 @@ enum WalletDerivationPresetCatalog {
 
     private static func load() -> [WalletDerivationChainPreset] {
         do {
-            return try WalletRustAppCoreBridge.chainPresets()
+            return try appCoreChainPresets()
         } catch {
             fatalError("Rust derivation preset catalog failed to load: \(error.localizedDescription)")
         }
@@ -94,7 +94,7 @@ enum WalletDerivationPresetCatalog {
 
     private static func loadRequestCompilation() -> [WalletDerivationRequestCompilationPreset] {
         do {
-            return try WalletRustAppCoreBridge.requestCompilationPresets()
+            return try appCoreRequestCompilationPresets()
         } catch {
             fatalError("Rust derivation request compilation catalog failed to load: \(error.localizedDescription)")
         }

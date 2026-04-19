@@ -378,28 +378,28 @@ extension AppState {
                 plannedWalletIDs = (0..<watchOnlyWalletCount).map { _ in UUID() }
             } else {
                 plannedWalletIDs = selectedChainNames.map { _ in UUID() }}
-            let importPlanRequest = WalletRustImportPlanRequest(
-                walletName: trimmedWalletName, defaultWalletNameStartIndex: UInt64(defaultWalletNameStartIndex), primarySelectedChainName: primarySelectedChainName, selectedChainNames: selectedChainNames, plannedWalletIds: plannedWalletIDs.map(\.uuidString), isWatchOnlyImport: isWatchOnlyImport, isPrivateKeyImport: isPrivateKeyImport, hasWalletPassword: trimmedWalletPassword != nil, resolvedAddresses: WalletRustImportAddresses(
+            let importPlanRequest = WalletImportRequest(
+                walletName: trimmedWalletName, defaultWalletNameStartIndex: UInt64(defaultWalletNameStartIndex), primarySelectedChainName: primarySelectedChainName, selectedChainNames: selectedChainNames, plannedWalletIds: plannedWalletIDs.map(\.uuidString), isWatchOnlyImport: isWatchOnlyImport, isPrivateKeyImport: isPrivateKeyImport, hasWalletPassword: trimmedWalletPassword != nil, resolvedAddresses: WalletImportAddresses(
                     bitcoinAddress: resolvedBitcoinAddress ?? derivedBitcoinAddress, bitcoinXpub: resolvedBitcoinXPub, bitcoinCashAddress: resolvedBitcoinCashAddress ?? bitcoinCashAddress, bitcoinSvAddress: resolvedBitcoinSVAddress ?? bitcoinSvAddress, litecoinAddress: resolvedLitecoinAddress ?? litecoinAddress, dogecoinAddress: dogecoinAddress, ethereumAddress: ethereumAddress, ethereumClassicAddress: ethereumClassicAddress, tronAddress: resolvedTronAddress ?? tronAddress, solanaAddress: resolvedSolanaAddress ?? solanaAddress, xrpAddress: resolvedXRPAddress ?? xrpAddress, stellarAddress: resolvedStellarAddress ?? stellarAddress, moneroAddress: resolvedMoneroAddress ?? moneroAddress, cardanoAddress: resolvedCardanoAddress ?? cardanoAddress, suiAddress: resolvedSuiAddress ?? suiAddress, aptosAddress: resolvedAptosAddress ?? aptosAddress, tonAddress: resolvedTONAddress ?? tonAddress, icpAddress: resolvedICPAddress ?? icpAddress, nearAddress: resolvedNearAddress ?? nearAddress, polkadotAddress: resolvedPolkadotAddress ?? polkadotAddress
-                ), watchOnlyEntries: WalletRustWatchOnlyEntries(
+                ), watchOnlyEntries: WalletImportWatchOnlyEntries(
                     bitcoinAddresses: bitcoinAddressEntries, bitcoinXpub: resolvedBitcoinXPub, bitcoinCashAddresses: bitcoinCashAddressEntries, bitcoinSvAddresses: bitcoinSvAddressEntries, litecoinAddresses: litecoinAddressEntries, dogecoinAddresses: dogecoinAddressEntries, ethereumAddresses: ethereumAddressEntries.map { normalizeEVMAddress($0) }, tronAddresses: tronAddressEntries, solanaAddresses: solanaAddressEntries, xrpAddresses: xrpAddressEntries, stellarAddresses: stellarAddressEntries, cardanoAddresses: cardanoAddressEntries, suiAddresses: suiAddressEntries.map { $0.lowercased() }, aptosAddresses: aptosAddressEntries.map { normalizedAddress($0, for: "Aptos") }, tonAddresses: tonAddressEntries.map { normalizedAddress($0, for: "TON") }, icpAddresses: icpAddressEntries.map { normalizedAddress($0, for: "Internet Computer") }, nearAddresses: nearAddressEntries.map { $0.lowercased() }, polkadotAddresses: polkadotAddressEntries
                 )
             )
-            let importPlan: WalletRustImportPlan
+            let importPlan: WalletImportPlan
             do {
-                importPlan = try WalletRustAppCoreBridge.planWalletImport(importPlanRequest)
+                importPlan = try corePlanWalletImport(request: importPlanRequest)
             } catch {
                 importError = error.localizedDescription
                 return
             }
             let createdWallets: [ImportedWallet] = importPlan.wallets.compactMap { plannedWallet in
-                guard let walletID = UUID(uuidString: plannedWallet.walletID) else { return nil }
+                guard let walletID = UUID(uuidString: plannedWallet.walletId) else { return nil }
                 return walletForPlannedImport(
                     id: walletID, plan: plannedWallet, seedDerivationPreset: selectedDerivationPreset, seedDerivationPaths: selectedDerivationPaths, holdings: coins
                 )
             }
             for instruction in importPlan.secretInstructions {
-                let walletID = instruction.walletID
+                let walletID = instruction.walletId
                 let account = resolvedSeedPhraseAccount(for: walletID)
                 let passwordAccount = resolvedSeedPhrasePasswordAccount(for: walletID)
                 let privateKeyAccount = resolvedPrivateKeyAccount(for: walletID)
@@ -499,7 +499,7 @@ extension AppState {
             id: id.uuidString, name: name, bitcoinNetworkMode: chainName == "Bitcoin" ? bitcoinNetworkMode : .mainnet, dogecoinNetworkMode: chainName == "Dogecoin" ? dogecoinNetworkMode : .mainnet, bitcoinAddress: chainName == "Bitcoin" ? bitcoinAddress : nil, bitcoinXpub: chainName == "Bitcoin" ? bitcoinXpub : nil, bitcoinCashAddress: chainName == "Bitcoin Cash" ? bitcoinCashAddress : nil, bitcoinSvAddress: chainName == "Bitcoin SV" ? bitcoinSvAddress : nil, litecoinAddress: chainName == "Litecoin" ? litecoinAddress : nil, dogecoinAddress: chainName == "Dogecoin" ? dogecoinAddress : nil, ethereumAddress: (chainName == "Ethereum" || chainName == "Ethereum Classic" || chainName == "Arbitrum" || chainName == "Optimism" || chainName == "BNB Chain" || chainName == "Avalanche" || chainName == "Hyperliquid") ? ethereumAddress : nil, tronAddress: chainName == "Tron" ? tronAddress : nil, solanaAddress: chainName == "Solana" ? solanaAddress : nil, stellarAddress: chainName == "Stellar" ? stellarAddress : nil, xrpAddress: chainName == "XRP Ledger" ? xrpAddress : nil, moneroAddress: chainName == "Monero" ? moneroAddress : nil, cardanoAddress: chainName == "Cardano" ? cardanoAddress : nil, suiAddress: chainName == "Sui" ? suiAddress : nil, aptosAddress: chainName == "Aptos" ? aptosAddress : nil, tonAddress: chainName == "TON" ? tonAddress : nil, icpAddress: chainName == "Internet Computer" ? icpAddress : nil, nearAddress: chainName == "NEAR" ? nearAddress : nil, polkadotAddress: chainName == "Polkadot" ? polkadotAddress : nil, seedDerivationPreset: seedDerivationPreset, seedDerivationPaths: seedDerivationPaths, selectedChain: chainName, holdings: holdings.filter { $0.chainName == chainName }, includeInPortfolioTotal: true
         )
     }
-    func walletForPlannedImport(id: UUID, plan: WalletRustPlannedWallet, seedDerivationPreset: SeedDerivationPreset, seedDerivationPaths: SeedDerivationPaths, holdings: [Coin]) -> ImportedWallet {
+    func walletForPlannedImport(id: UUID, plan: PlannedWallet, seedDerivationPreset: SeedDerivationPreset, seedDerivationPaths: SeedDerivationPaths, holdings: [Coin]) -> ImportedWallet {
         walletForSingleChain(
             id: id, name: plan.name, chainName: plan.chainName, bitcoinAddress: plan.addresses.bitcoinAddress, bitcoinXpub: plan.addresses.bitcoinXpub, bitcoinCashAddress: plan.addresses.bitcoinCashAddress, bitcoinSvAddress: plan.addresses.bitcoinSvAddress, litecoinAddress: plan.addresses.litecoinAddress, dogecoinAddress: plan.addresses.dogecoinAddress, ethereumAddress: plan.chainName == "Ethereum Classic"
                 ? (plan.addresses.ethereumClassicAddress ?? plan.addresses.ethereumAddress)

@@ -131,7 +131,7 @@ extension AppState {
     func runtimeChainIdentity(for chainName: String) -> String { displayChainTitle(for: chainName) }
     func assetIdentityKey(for coin: Coin) -> String { "\(runtimeChainIdentity(for: coin.chainName))|\(coin.symbol)" }
     func isPricedChain(_ chainName: String) -> Bool {
-        WalletRustAppCoreBridge.planPricedChain(
+        corePlanPricedChain(
             chainName: chainName, bitcoinNetworkModeRaw: bitcoinNetworkMode.rawValue, ethereumNetworkModeRaw: ethereumNetworkMode.rawValue
         )
     }
@@ -146,7 +146,7 @@ extension AppState {
                 id: transaction.id.uuidString, walletId: transaction.walletID, kind: transaction.kind.rawValue, status: transaction.status.rawValue, chainName: transaction.chainName, symbol: transaction.symbol, transactionHash: transaction.transactionHash, createdAtUnix: transaction.createdAt.timeIntervalSince1970
             )
         }
-        let inputSignature = Int(WalletRustAppCoreBridge.planNormalizedHistorySignature(
+        let inputSignature = Int(corePlanNormalizedHistorySignature(
             transactions: signatureInputs, wallets: walletChainInputs(from: walletByID)
         ))
         guard lastNormalizedHistorySignature != inputSignature else { return }
@@ -161,7 +161,7 @@ extension AppState {
     func rebuildTransactionDerivedState() {
         cachedTransactionByID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
         let earliestInputs = transactions.map { TransactionEarliestInput(walletId: $0.walletID, createdAtUnix: $0.createdAt.timeIntervalSince1970) }
-        let earliestPairs = WalletRustAppCoreBridge.planEarliestTransactionDates(earliestInputs)
+        let earliestPairs = corePlanEarliestTransactionDates(transactions: earliestInputs)
         cachedFirstActivityDateByWalletID = Dictionary(uniqueKeysWithValues: earliestPairs.map { ($0.walletId, Date(timeIntervalSince1970: $0.earliestCreatedAtUnix)) })
         rebuildNormalizedHistoryIndex()
     }
@@ -169,7 +169,7 @@ extension AppState {
         let walletByID = cachedWalletByID.isEmpty ? Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) }) : cachedWalletByID
         let activityInputs = transactions.map { TransactionActivityInput(id: $0.id.uuidString, walletId: $0.walletID, chainName: $0.chainName) }
         let keptIDStrings = Set(
-            WalletRustAppCoreBridge.planActiveWalletTransactionIDs(
+            corePlanActiveWalletTransactionIds(
                 transactions: activityInputs, wallets: walletChainInputs(from: walletByID)
             )
         )
@@ -218,18 +218,18 @@ extension AppState {
         formattingNativeAssetDisplaySettingsKey(chainName: chainName)
     }
     private func rebuildNormalizedHistoryIndexUsingRust(walletByID: [String: ImportedWallet]) -> [NormalizedHistoryEntry] {
-        let request = WalletRustNormalizeHistoryRequest(
+        let request = NormalizeHistoryRequest(
             wallets: walletByID.map {
-                WalletRustHistoryWallet(
+                HistoryWallet(
                     walletId: $0.key.lowercased(), selectedChain: $0.value.selectedChain
                 )
             }, transactions: transactions.map {
-                WalletRustHistoryTransaction(
+                HistoryTransaction(
                     id: $0.id.uuidString.lowercased(), walletId: $0.walletID?.lowercased(), kind: $0.kind.rawValue, status: $0.status.rawValue, walletName: $0.walletName, assetName: $0.assetName, symbol: $0.symbol, chainName: $0.chainName, address: $0.address, transactionHash: $0.transactionHash, transactionHistorySource: $0.transactionHistorySource, createdAtUnix: $0.createdAt.timeIntervalSince1970
                 )
             }, unknownLabel: localizedStoreString("Unknown")
         )
-        let entries = WalletRustAppCoreBridge.normalizeHistory(request)
+        let entries = coreNormalizeHistory(request: request)
         return entries.compactMap { entry in
             guard let transactionID = UUID(uuidString: entry.transactionId), let kind = TransactionKind(rawValue: entry.kind), let status = TransactionStatus(rawValue: entry.status) else { return nil }
             return NormalizedHistoryEntry(

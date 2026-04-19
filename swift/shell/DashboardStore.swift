@@ -145,7 +145,7 @@ extension AppState {
         )
         cachedDashboardSupportedTokenEntriesBySymbol = Dictionary(
             uniqueKeysWithValues: trackedEntriesBySymbol.map { symbol, entries in
-                (symbol, WalletRustAppCoreBridge.planDashboardSupportedTokenEntries(entries))
+                (symbol, corePlanDashboardSupportedTokenEntries(entries: entries))
             }
         )
         let positiveCoins = includedHoldings.filter { $0.amount > 0 }

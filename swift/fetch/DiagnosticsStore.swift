@@ -180,6 +180,27 @@ enum ChainSelfTests {
         selfTestsRunAll()
     }
 }
+extension ChainSelfTestOutcome {
+    var displayMessage: String {
+        switch self {
+        case .validAddressAccepted: return AppLocalization.string("Valid address accepted.")
+        case .validAddressRejected: return AppLocalization.string("Valid address was rejected.")
+        case .invalidAddressRejected: return AppLocalization.string("Invalid address rejected.")
+        case .invalidAddressUnexpectedlyAccepted: return AppLocalization.string("Invalid address was unexpectedly accepted.")
+        case .derivationFailed: return AppLocalization.string("Seed derivation failed.")
+        case .derivedAddressValid: return AppLocalization.string("Derived address is valid.")
+        case .derivedAddressInvalid: return AppLocalization.string("Derived address is invalid.")
+        case .normalizationSuccess: return AppLocalization.string("Address normalization succeeded.")
+        case .normalizationFailure: return AppLocalization.string("Address normalization failed.")
+        case .checksumMutationRejected: return AppLocalization.string("Checksum mutation rejected.")
+        case .checksumMutationAccepted: return AppLocalization.string("Checksum mutation was unexpectedly accepted.")
+        case .custom(let text): return text
+        }
+    }
+}
+extension ChainSelfTestResult {
+    var displayMessage: String { outcome.displayMessage }
+}
 enum ChainEndpointReliability {
     private static func defaultsKey(for namespace: String) -> String { "chain.endpoint.reliability.\(namespace).v1" }
     static func orderedEndpoints(namespace: String, candidates: [String]) -> [String] {

@@ -177,7 +177,29 @@ extension AppState {
         if let urlError = error as? URLError, urlError.code == .cancelled { return true }
         return false
     }
-    func mapEthereumSendError(_ error: Error) -> String { localizedStoreString(coreMapEthereumSendError(message: error.localizedDescription)) }
+    func mapEthereumSendError(_ error: Error) -> String {
+        let message = error.localizedDescription
+        let lower = message.lowercased()
+        if lower.contains("nonce too low") {
+            return localizedStoreString("Nonce too low. A newer transaction from this wallet is already known. Refresh and retry.")
+        }
+        if lower.contains("replacement transaction underpriced") {
+            return localizedStoreString("Replacement transaction underpriced. Increase fees and retry.")
+        }
+        if lower.contains("already known") {
+            return localizedStoreString("This transaction is already in the mempool.")
+        }
+        if lower.contains("insufficient funds") {
+            return localizedStoreString("Insufficient ETH to cover value plus network fee.")
+        }
+        if lower.contains("max fee per gas less than block base fee") {
+            return localizedStoreString("Max fee is below current base fee. Increase Max Fee and retry.")
+        }
+        if lower.contains("intrinsic gas too low") {
+            return localizedStoreString("Gas limit is too low for this transaction.")
+        }
+        return message
+    }
     func evmChainContext(for chainName: String) -> EVMChainContext? {
         switch coreEvmChainContextTag(chainName: chainName, ethereumNetworkMode: ethereumNetworkMode.rawValue) {
         case "ethereum": return .ethereum
@@ -256,11 +278,24 @@ extension AppState {
                 tokenCode = rustField("code", from: codeJSON)
             } catch { tokenCode = nil }
         }
-        return coreEvmPreflightContractReasons(input: EvmPreflightContractInput(
-            chainName: holding.chainName, symbol: holding.symbol,
-            recipientCode: recipientCode, tokenSymbol: token?.symbol,
-            tokenCode: tokenCode, tokenProbed: tokenProbed
-        )).map { localizedStoreString($0) }
+        var reasons: [String] = []
+        if let code = recipientCode {
+            if coreEvmHasContractCode(code: code) {
+                reasons.append(localizedStoreFormat("Recipient is a smart contract on %@. Confirm it can receive %@ safely.", holding.chainName, holding.symbol))
+            }
+        } else {
+            reasons.append(localizedStoreFormat("Could not verify recipient contract state on %@. Review destination carefully.", holding.chainName))
+        }
+        if tokenProbed, let tokenSym = token?.symbol {
+            if let code = tokenCode {
+                if !coreEvmHasContractCode(code: code) {
+                    reasons.append(localizedStoreFormat("Token contract %@ appears missing on %@. This may be a wrong-network token selection.", tokenSym, holding.chainName))
+                }
+            } else {
+                reasons.append(localizedStoreFormat("Could not verify %@ contract bytecode on %@.", tokenSym, holding.chainName))
+            }
+        }
+        return reasons
     }
     func evaluateHighRiskSendReasons(wallet: ImportedWallet, holding: Coin, amount: Double, destinationAddress: String, destinationInput: String, usedENSResolution: Bool = false) -> [String] {
         let txAddrs = Set(transactions.compactMap { $0.chainName == holding.chainName ? $0.address : nil })
@@ -296,9 +331,48 @@ extension AppState {
     func confirmHighRiskSendAndSubmit() async { bypassHighRiskSendConfirmation = true; isShowingHighRiskSendConfirmation = false; await submitSend() }
     func addressBookAddressValidationMessage(for address: String, chainName: String) -> String {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
-        return localizedStoreString(coreAddressBookValidationMessage(
-            chainName: chainName, isEmpty: trimmed.isEmpty, isValid: !trimmed.isEmpty && isValidAddress(trimmed, for: chainName)
-        ))
+        let isEmpty = trimmed.isEmpty
+        let isValid = !isEmpty && isValidAddress(trimmed, for: chainName)
+        if isEmpty {
+            switch chainName {
+            case "Bitcoin": return localizedStoreString("Enter a Bitcoin address valid for the selected Bitcoin network mode.")
+            case "Dogecoin": return localizedStoreString("Dogecoin addresses usually start with D, A, or 9.")
+            case "Ethereum": return localizedStoreString("Ethereum addresses must start with 0x and include 40 hex characters.")
+            case "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid":
+                return localizedStoreFormat("%@ addresses use EVM format (0x + 40 hex characters).", chainName)
+            case "Tron": return localizedStoreString("Tron addresses usually start with T and are Base58 encoded.")
+            case "Solana": return localizedStoreString("Solana addresses are Base58 encoded and typically 32-44 characters.")
+            case "Cardano": return localizedStoreString("Cardano addresses typically start with addr1 and use bech32 format.")
+            case "XRP Ledger": return localizedStoreString("XRP Ledger addresses start with r and are Base58 encoded.")
+            case "Stellar": return localizedStoreString("Stellar addresses start with G and are StrKey encoded.")
+            case "Monero": return localizedStoreString("Monero addresses are Base58 encoded and usually start with 4 or 8.")
+            case "Sui", "Aptos": return localizedStoreFormat("%@ addresses are hex and typically start with 0x.", chainName)
+            case "TON": return localizedStoreString("TON addresses are usually user-friendly strings like UQ... or raw 0:<hex> addresses.")
+            case "NEAR": return localizedStoreString("NEAR addresses can be named accounts or 64-character implicit account IDs.")
+            case "Polkadot": return localizedStoreString("Polkadot addresses use SS58 encoding and usually start with 1.")
+            default: return localizedStoreString("Enter an address for the selected chain.")
+            }
+        }
+        if isValid {
+            return localizedStoreFormat("Valid %@ address.", chainName)
+        }
+        switch chainName {
+        case "Bitcoin": return localizedStoreString("Enter a valid Bitcoin address for the selected Bitcoin network mode.")
+        case "Dogecoin": return localizedStoreString("Enter a valid Dogecoin address beginning with D, A, or 9.")
+        case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid":
+            return localizedStoreFormat("Enter a valid %@ address (0x + 40 hex characters).", chainName)
+        case "Tron": return localizedStoreString("Enter a valid Tron address (starts with T).")
+        case "Solana": return localizedStoreString("Enter a valid Solana address (Base58 format).")
+        case "Cardano": return localizedStoreString("Enter a valid Cardano address (starts with addr1).")
+        case "XRP Ledger": return localizedStoreString("Enter a valid XRP address (starts with r).")
+        case "Stellar": return localizedStoreString("Enter a valid Stellar address (starts with G).")
+        case "Monero": return localizedStoreString("Enter a valid Monero address (starts with 4 or 8).")
+        case "Sui", "Aptos": return localizedStoreFormat("Enter a valid %@ address (starts with 0x).", chainName)
+        case "TON": return localizedStoreString("Enter a valid TON address.")
+        case "NEAR": return localizedStoreString("Enter a valid NEAR account ID or implicit address.")
+        case "Polkadot": return localizedStoreString("Enter a valid Polkadot SS58 address.")
+        default: return localizedStoreFormat("Enter a valid %@ address.", chainName)
+        }
     }
     func isDuplicateAddressBookAddress(_ address: String, chainName: String, excluding entryID: UUID? = nil) -> Bool {
         let normalized = normalizedAddress(address, for: chainName)
@@ -351,34 +425,19 @@ extension AppState {
         guard !isRunningEthereumSelfTests else { return }
         isRunningEthereumSelfTests = true; defer { isRunningEthereumSelfTests = false }
         var results = ChainSelfTests.run("Ethereum")
+        let rpcURL = configuredEthereumRPCEndpointURL()?.absoluteString ?? "https://ethereum.publicnode.com"
         let rpcLabel = configuredEthereumRPCEndpointURL()?.absoluteString ?? "default RPC pool"
-        do {
-            guard let rpcURL = configuredEthereumRPCEndpointURL() ?? URL(string: "https://ethereum.publicnode.com") else { throw URLError(.badURL) }
-            struct RPCResp: Decodable { let result: String? }
-            let chainIDBody = #"{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}"#
-            let blockBody = #"{"jsonrpc":"2.0","id":2,"method":"eth_blockNumber","params":[]}"#
-            let chainIDText = try await httpPostJson(url: rpcURL.absoluteString, bodyJson: chainIDBody, headers: [:])
-            let blockText = try await httpPostJson(url: rpcURL.absoluteString, bodyJson: blockBody, headers: [:])
-            let chainIDResp = try JSONDecoder().decode(RPCResp.self, from: Data(chainIDText.body.utf8))
-            let blockResp = try JSONDecoder().decode(RPCResp.self, from: Data(blockText.body.utf8))
-            let chainID = Int(chainIDResp.result?.dropFirst(2) ?? "", radix: 16) ?? 0
-            let latestBlock = Int(blockResp.result?.dropFirst(2) ?? "", radix: 16) ?? 0
-            let chainPass = chainID == 1
-            results.append(ChainSelfTestResult(name: "ETH RPC Chain ID", passed: chainPass, message: chainPass ? "RPC reports Ethereum mainnet (chain id 1)." : "RPC returned chain id \(chainID). Configure an Ethereum mainnet endpoint."))
-            results.append(ChainSelfTestResult(name: "ETH RPC Latest Block", passed: latestBlock > 0, message: latestBlock > 0 ? "RPC latest block height: \(latestBlock) via \(rpcLabel)." : "RPC returned an invalid latest block value."))
-        } catch {
-            results.append(ChainSelfTestResult(name: "ETH RPC Health", passed: false, message: "RPC health check failed for \(rpcLabel): \(error.localizedDescription)"))
-        }
+        results.append(contentsOf: await selfTestsRunEthereumRpc(rpcUrl: rpcURL, rpcLabel: rpcLabel))
         if let firstEthereumWallet = wallets.first(where: { $0.selectedChain == "Ethereum" }), let ethereumAddress = resolvedEthereumAddress(for: firstEthereumWallet) {
             do { _ = try await fetchEthereumPortfolio(for: ethereumAddress)
-                results.append(ChainSelfTestResult(name: "ETH Portfolio Probe", passed: true, message: "Successfully fetched ETH/ERC-20 portfolio for \(firstEthereumWallet.name)."))
-            } catch { results.append(ChainSelfTestResult(name: "ETH Portfolio Probe", passed: false, message: "Portfolio probe failed for \(firstEthereumWallet.name): \(error.localizedDescription)")) }
-        } else { results.append(ChainSelfTestResult(name: "ETH Portfolio Probe", passed: true, message: "Skipped: no imported wallet with Ethereum enabled.")) }
+                results.append(ChainSelfTestResult(name: "ETH Portfolio Probe", passed: true, chainLabel: "Ethereum", outcome: .custom(text: "Successfully fetched ETH/ERC-20 portfolio for \(firstEthereumWallet.name).")))
+            } catch { results.append(ChainSelfTestResult(name: "ETH Portfolio Probe", passed: false, chainLabel: "Ethereum", outcome: .custom(text: "Portfolio probe failed for \(firstEthereumWallet.name): \(error.localizedDescription)"))) }
+        } else { results.append(ChainSelfTestResult(name: "ETH Portfolio Probe", passed: true, chainLabel: "Ethereum", outcome: .custom(text: "Skipped: no imported wallet with Ethereum enabled."))) }
         let diagnosticsOK: Bool = {
             guard let json = ethereumDiagnosticsJSON() else { return false }
             return RustBalanceDecoder.hasField("history", in: json) && RustBalanceDecoder.hasField("endpoints", in: json)
         }()
-        results.append(ChainSelfTestResult(name: "ETH Diagnostics JSON Shape", passed: diagnosticsOK, message: diagnosticsOK ? "Diagnostics JSON contains expected top-level keys." : "Diagnostics JSON missing expected keys (history/endpoints)."))
+        results.append(ChainSelfTestResult(name: "ETH Diagnostics JSON Shape", passed: diagnosticsOK, chainLabel: "Ethereum", outcome: .custom(text: diagnosticsOK ? "Diagnostics JSON contains expected top-level keys." : "Diagnostics JSON missing expected keys (history/endpoints).")))
         ethereumSelfTestResults = results
         ethereumSelfTestsLastRunAt = Date()
         let failedCount = results.filter { !$0.passed }.count
@@ -610,14 +669,28 @@ extension AppState {
     func derivationResolution(for wallet: ImportedWallet, chain: SeedDerivationChain) -> SeedDerivationResolution { chain.resolve(path: wallet.seedDerivationPaths.path(for: chain)) }
     func bitcoinNetworkMode(for wallet: ImportedWallet) -> BitcoinNetworkMode { wallet.bitcoinNetworkMode }
     func dogecoinNetworkMode(for wallet: ImportedWallet) -> DogecoinNetworkMode { wallet.dogecoinNetworkMode }
-    func displayNetworkName(for chainName: String) -> String { coreDisplayNetworkNameForChain(chainName: chainName, bitcoinDisplay: bitcoinNetworkMode.displayName, ethereumDisplay: ethereumNetworkMode.displayName, dogecoinDisplay: dogecoinNetworkMode.displayName) }
-    func displayChainTitle(for chainName: String) -> String { coreDisplayChainTitle(chainName: chainName, networkName: displayNetworkName(for: chainName)) }
+    func displayNetworkName(for chainName: String) -> String {
+        switch chainName {
+        case "Bitcoin": return bitcoinNetworkMode.displayName
+        case "Ethereum": return ethereumNetworkMode.displayName
+        case "Dogecoin": return dogecoinNetworkMode.displayName
+        default: return chainName
+        }
+    }
+    func displayChainTitle(for chainName: String) -> String {
+        let network = displayNetworkName(for: chainName)
+        return (network == chainName || network == "Mainnet") ? chainName : "\(chainName) \(network)"
+    }
     func displayNetworkName(for wallet: ImportedWallet) -> String {
         if wallet.selectedChain == "Bitcoin" { return bitcoinNetworkMode(for: wallet).displayName }
         if wallet.selectedChain == "Dogecoin" { return dogecoinNetworkMode(for: wallet).displayName }
         return displayNetworkName(for: wallet.selectedChain)
     }
-    func displayChainTitle(for wallet: ImportedWallet) -> String { coreDisplayChainTitle(chainName: wallet.selectedChain, networkName: displayNetworkName(for: wallet)) }
+    func displayChainTitle(for wallet: ImportedWallet) -> String {
+        let chain = wallet.selectedChain
+        let network = displayNetworkName(for: wallet)
+        return (network == chain || network == "Mainnet") ? chain : "\(chain) \(network)"
+    }
     func displayNetworkName(for transaction: TransactionRecord) -> String {
         if (transaction.chainName == "Bitcoin" || transaction.chainName == "Dogecoin"), let walletID = transaction.walletID, let wallet = cachedWalletByID[walletID] { return displayNetworkName(for: wallet) }
         return displayNetworkName(for: transaction.chainName)
@@ -936,7 +1009,7 @@ extension AppState {
             case "Bitcoin": let btcJSON = try await WalletServiceBridge.shared.fetchBalanceJSON(chainId: SpectraChainID.bitcoin, address: destinationForProbe)
                 let btcBalance = RustBalanceDecoder.uint64Field("confirmed_sats", from: btcJSON) ?? 0
                 let utxoCount = RustBalanceDecoder.uint64Field("utxo_count", from: btcJSON) ?? 0
-                let m = coreChainRiskProbeMessages(chainName: "Bitcoin", balanceLabel: "balance", balanceNonPositive: btcBalance <= 0, hasHistory: utxoCount > 0)
+                let m = chainRiskProbeMessages(chainName: "Bitcoin", balanceLabel: "balance", balanceNonPositive: btcBalance <= 0, hasHistory: utxoCount > 0)
                 warning = m.warning; infoMessage = m.info
             case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid": guard let chainId = SpectraChainID.id(for: coin.chainName) else {
                     warning = nil
@@ -950,7 +1023,7 @@ extension AppState {
                 let nonce = RustBalanceDecoder.int64Field("nonce", from: previewJSON) ?? 0
                 let hasHistory = nonce > 0
                 if coin.symbol == "ETH" || coin.symbol == "BNB" || coin.symbol == "AVAX" || coin.symbol == "ARB" || coin.symbol == "OP" {
-                    let m = coreChainRiskProbeMessages(chainName: coin.chainName, balanceLabel: "\(coin.symbol) balance", balanceNonPositive: (RustBalanceDecoder.f64Field("balance_eth", from: previewJSON) ?? 0) <= 0, hasHistory: hasHistory)
+                    let m = chainRiskProbeMessages(chainName: coin.chainName, balanceLabel: "\(coin.symbol) balance", balanceNonPositive: (RustBalanceDecoder.f64Field("balance_eth", from: previewJSON) ?? 0) <= 0, hasHistory: hasHistory)
                     warning = m.warning; infoMessage = m.info
                 } else if let token = supportedEVMToken(for: coin) {
                     let tokenBalances = try await WalletServiceBridge.shared.fetchEVMTokenBalancesBatch(chainId: chainId, address: normalizedAddress, tokens: [(contract: token.contractAddress, symbol: token.symbol, decimals: token.decimals)])
@@ -979,7 +1052,7 @@ extension AppState {
                 let nearBalance = RustBalanceDecoder.yoctoNearToDouble(from: nearJson) ?? 0
                 let nearHistJson = (try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: SpectraChainID.near, address: destinationForProbe)) ?? "[]"
                 let nearHasHistory = RustBalanceDecoder.jsonArrayIsNonEmpty(nearHistJson)
-                let m = coreChainRiskProbeMessages(chainName: "NEAR", balanceLabel: "NEAR balance", balanceNonPositive: nearBalance <= 0, hasHistory: nearHasHistory)
+                let m = chainRiskProbeMessages(chainName: "NEAR", balanceLabel: "NEAR balance", balanceNonPositive: nearBalance <= 0, hasHistory: nearHasHistory)
                 warning = m.warning; infoMessage = m.info
             default: warning = nil
                 infoMessage = nil
@@ -996,7 +1069,17 @@ extension AppState {
             sendDestinationRiskWarning = nil
             sendDestinationInfoMessage = nil
         }}
-    func userFacingTronSendError(_ error: Error, symbol: String) -> String { coreUserFacingTronSendError(message: error.localizedDescription) }
+    func userFacingTronSendError(_ error: Error, symbol: String) -> String {
+        let message = error.localizedDescription
+        let lower = message.lowercased()
+        if lower.contains("timed out") {
+            return localizedStoreString("Tron network request timed out. Please try again.")
+        }
+        if lower.contains("not connected") || lower.contains("offline") {
+            return localizedStoreString("No network connection. Check your internet and retry.")
+        }
+        return message
+    }
     func recordTronSendDiagnosticError(_ message: String) {
         let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -1008,7 +1091,51 @@ extension AppState {
         let balance = Double(RustBalanceDecoder.uint64Field(balanceField, from: json) ?? 0) / divisor
         let histJSON = (try? await WalletServiceBridge.shared.fetchHistoryJSON(chainId: chainId, address: address)) ?? "[]"
         let hasHistory = RustBalanceDecoder.jsonArrayIsNonEmpty(histJSON)
-        let m = coreChainRiskProbeMessages(chainName: chainName, balanceLabel: balanceLabel, balanceNonPositive: balance <= 0, hasHistory: hasHistory)
+        let m = chainRiskProbeMessages(chainName: chainName, balanceLabel: balanceLabel, balanceNonPositive: balance <= 0, hasHistory: hasHistory)
         return (m.warning, m.info)
+    }
+    /// Validate that the wallet has sufficient balance for amount + fee.
+    /// Returns nil on success, or a user-facing error message on failure.
+    func validateSendBalance(
+        amount: Double, networkFee: Double, holdingBalance: Double,
+        isNativeAsset: Bool, symbol: String,
+        nativeSymbol: String?, nativeBalance: Double?,
+        feeDecimals: Int, chainLabel: String?
+    ) -> String? {
+        if isNativeAsset {
+            let total = amount + networkFee
+            if total > holdingBalance {
+                return localizedStoreFormat(
+                    "Insufficient %@ for amount plus network fee (needs ~%.\(feeDecimals)f %@).",
+                    symbol, total, symbol
+                )
+            }
+        } else {
+            if amount > holdingBalance {
+                return localizedStoreFormat("Insufficient %@ balance for this transfer.", symbol)
+            }
+            if let nativeSym = nativeSymbol, let nativeBal = nativeBalance, networkFee > nativeBal {
+                if let chain = chainLabel {
+                    return localizedStoreFormat(
+                        "Insufficient %@ to cover %@ network fee (~%.\(feeDecimals)f %@).",
+                        nativeSym, chain, networkFee, nativeSym
+                    )
+                }
+                return localizedStoreFormat(
+                    "Insufficient %@ to cover the network fee (~%.\(feeDecimals)f %@).",
+                    nativeSym, networkFee, nativeSym
+                )
+            }
+        }
+        return nil
+    }
+    func chainRiskProbeMessages(chainName: String, balanceLabel: String, balanceNonPositive: Bool, hasHistory: Bool) -> (warning: String?, info: String?) {
+        let warning: String? = (balanceNonPositive && !hasHistory)
+            ? localizedStoreFormat("Warning: this %@ address has zero balance and no transaction history. Double-check recipient details.", chainName)
+            : nil
+        let info: String? = (balanceNonPositive && hasHistory)
+            ? localizedStoreFormat("Note: this %@ address has transaction history but currently zero %@.", chainName, balanceLabel)
+            : nil
+        return (warning, info)
     }
 }

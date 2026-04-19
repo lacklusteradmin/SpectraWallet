@@ -131,8 +131,8 @@ func resetImportForm() {
         }
         for addresses in chainOwnedAddressMapByChain.values {
             for value in addresses.values where value.walletID == walletID { appendAddress(value.address) }}
-        let request = WalletRustOwnedAddressAggregationRequest(candidateAddresses: candidateAddresses)
-        return WalletRustAppCoreBridge.aggregateOwnedAddresses(request)
+        let request = OwnedAddressAggregationRequest(candidateAddresses: candidateAddresses)
+        return coreAggregateOwnedAddresses(request: request)
     }
     func canRevealSeedPhrase(for walletID: String) -> Bool { storedSeedPhrase(for: walletID) != nil }
     func verifySeedPhrasePassword(_ password: String, for walletID: String) -> Bool {
@@ -177,17 +177,17 @@ func resetImportForm() {
         if availableChains.contains(receiveChainName) { return receiveChainName }
         return availableChains.first ?? ""
     }
-    private func rustReceiveSelectionPlan(for walletID: String, coins: [Coin]? = nil, chains: [String]? = nil) -> WalletRustReceiveSelectionPlan? {
+    private func rustReceiveSelectionPlan(for walletID: String, coins: [Coin]? = nil, chains: [String]? = nil) -> ReceiveSelectionPlan? {
         let receiveCoins = coins ?? availableReceiveCoins(for: walletID)
         let availableChains = chains ?? availableReceiveChains(for: walletID)
-        let request = WalletRustReceiveSelectionRequest(
+        let request = ReceiveSelectionRequest(
             receiveChainName: receiveChainName, availableReceiveChains: availableChains, availableReceiveHoldings: receiveCoins.enumerated().map { offset, coin in
-                WalletRustReceiveSelectionHoldingInput(
+                ReceiveSelectionHoldingInput(
                     holdingIndex: UInt64(offset), chainName: coin.chainName, hasContractAddress: coin.contractAddress != nil
                 )
             }
         )
-        return WalletRustAppCoreBridge.planReceiveSelection(request)
+        return corePlanReceiveSelection(request: request)
     }
     var sendEnabledWallets: [ImportedWallet] { cachedSendEnabledWallets }
     var receiveEnabledWallets: [ImportedWallet] { cachedReceiveEnabledWallets }

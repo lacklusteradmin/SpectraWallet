@@ -24,7 +24,12 @@ struct AddWalletEntryView: View {
                     ) {
                         store.beginWatchAddressesImport()
                     }}.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
-            }}.navigationTitle(localizedAddWalletString("Add Wallet")).navigationBarTitleDisplayMode(.inline)
+            }}.navigationTitle(localizedAddWalletString("Add Wallet")).navigationBarTitleDisplayMode(.inline).navigationDestination(isPresented: Binding(
+            get: { store.isShowingWalletImporter && store.editingWalletID == nil }, set: { isPresented in
+                if !isPresented { store.isShowingWalletImporter = false }}
+        )) {
+            SetupView(store: store, draft: store.importDraft)
+        }
     }
     private func actionCard(
         title: String, subtitle: String, icon: String, tint: Color, action: @escaping () -> Void

@@ -1,14 +1,3 @@
-// Core-state pattern (for `wallets`, `transactions`, `addressBook`):
-// These `@Published` arrays are *mirrors* of canonical storage that lives in
-// Rust (`core/src/app_state/store.rs`, exposed via `storeWallets*` /
-// `storeTransactions*` / `storeAddressBook*` UniFFI functions). SwiftUI
-// observes the mirrors directly (`appState.$wallets` etc.), but every mutation
-// MUST go through the helpers in `AppState+CoreStateStore.swift`
-// (`setWallets`, `appendWallet`, `upsertWallet`, `removeWallet(id:)`,
-// `setTransactions`, `prependTransaction`, `removeTransactions(forWalletID:)`,
-// `setAddressBook`, `prependAddressBookEntry`, `removeAddressBookEntry(byID:)`)
-// so Rust stays in sync. Do NOT assign `self.wallets = …` etc. outside those
-// helpers — search for `self.wallets = ` should show only the helper file.
 import Foundation
 import SwiftUI
 import Combine
@@ -46,9 +35,6 @@ class AppState: ObservableObject {
     // moved to Shell/AppStateTypes.swift via `extension AppState`.
     let logger = Logger(subsystem: "com.spectra.wallet", category: "dogecoin")
     let balanceTelemetryLogger = Logger(subsystem: "com.spectra.wallet", category: "balance.telemetry")
-    // Rust-owned backing store for side-effect-free scalar UI state. @Published
-    // replaced by computed props that delegate here and emit objectWillChange.
-    let shellState = AppShellState()
     var appSettingsPersistTask: Task<Void, Never>?
     private var priceAlertsPersistTask: Task<Void, Never>?
     private var addressBookPersistTask: Task<Void, Never>?
@@ -83,11 +69,11 @@ class AppState: ObservableObject {
     @Published var wallets: [ImportedWallet] = [] {
         didSet { walletsRevision &+= 1 }}
     @Published private(set) var walletsRevision: UInt64 = 0
-    // Rust-owned derived caches. These used to be stored `cached*` dicts/arrays/sets
-    // on AppState. Storage now lives in `core/src/app_state/caches.rs` behind UniFFI;
-    // Swift exposes computed-var facades with identical names/types so call sites
-    // (whole-assignment, subscript read, `[k] = v`, `[k] = nil`, `.remove(k)`,
-    // `.insert(k)`) keep compiling. Setters bump `cachesRevision` so SwiftUI refreshes.
+    // Derived caches. Recomputed by `applyWalletCollectionSideEffects`,
+    // `rebuildWalletDerivedState`, `rebuildDashboardDerivedState`, and
+    // `rebuildTokenPreferenceDerivedState`. Each `didSet` bumps
+    // `cachesRevision` so SwiftUI views observing it refresh; bulk rebuilds
+    // wrap their work in `batchCacheUpdates` to coalesce into a single bump.
     @Published private(set) var cachesRevision: UInt64 = 0
     private var cacheBatchDepth: Int = 0
     private func bumpCachesRevision() {
@@ -100,111 +86,48 @@ class AppState: ObservableObject {
         cacheBatchDepth -= 1
         if cacheBatchDepth == 0 { cachesRevision &+= 1 }
     }
-    // Skip objectWillChange when the value is unchanged — avoids redundant SwiftUI invalidation.
-    @inline(__always) private func notifyIfChanged<T: Equatable>(_ current: T, _ newValue: T, apply: () -> Void) {
-        guard newValue != current else { return }
-        objectWillChange.send()
-        apply()
-    }
-    var cachedWalletByID: [String: ImportedWallet] {
-        get { cachesGetWalletById() }
-        set { cachesReplaceWalletById(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedWalletByIDString: [String: ImportedWallet] {
-        get { cachesGetWalletByIdString() }
-        set { cachesReplaceWalletByIdString(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedIncludedPortfolioWallets: [ImportedWallet] {
-        get { cachesGetIncludedPortfolioWallets() }
-        set { cachesReplaceIncludedPortfolioWallets(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedIncludedPortfolioHoldings: [Coin] {
-        get { cachesGetIncludedPortfolioHoldings() }
-        set { cachesReplaceIncludedPortfolioHoldings(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedIncludedPortfolioHoldingsBySymbol: [String: [Coin]] {
-        get { cachesGetIncludedPortfolioHoldingsBySymbol() }
-        set { cachesReplaceIncludedPortfolioHoldingsBySymbol(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedUniqueWalletPriceRequestCoins: [Coin] {
-        get { cachesGetUniqueWalletPriceRequestCoins() }
-        set { cachesReplaceUniqueWalletPriceRequestCoins(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedPortfolio: [Coin] {
-        get { cachesGetPortfolio() }
-        set { cachesReplacePortfolio(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedAvailableSendCoinsByWalletID: [String: [Coin]] {
-        get { cachesGetAvailableSendCoinsByWalletId() }
-        set { cachesReplaceAvailableSendCoinsByWalletId(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedAvailableReceiveCoinsByWalletID: [String: [Coin]] {
-        get { cachesGetAvailableReceiveCoinsByWalletId() }
-        set { cachesReplaceAvailableReceiveCoinsByWalletId(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedAvailableReceiveChainsByWalletID: [String: [String]] {
-        get { cachesGetAvailableReceiveChainsByWalletId() }
-        set { cachesReplaceAvailableReceiveChainsByWalletId(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedSendEnabledWallets: [ImportedWallet] {
-        get { cachesGetSendEnabledWallets() }
-        set { cachesReplaceSendEnabledWallets(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedReceiveEnabledWallets: [ImportedWallet] {
-        get { cachesGetReceiveEnabledWallets() }
-        set { cachesReplaceReceiveEnabledWallets(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedRefreshableChainNames: Set<String> {
-        get { Set(cachesGetRefreshableChainNames()) }
-        set { cachesReplaceRefreshableChainNames(entries: Array(newValue)); bumpCachesRevision() }
-    }
-    var cachedSigningMaterialWalletIDs: Set<String> {
-        get { Set(cachesGetSigningMaterialWalletIds()) }
-        set { cachesReplaceSigningMaterialWalletIds(entries: Array(newValue)); bumpCachesRevision() }
-    }
-    var cachedPrivateKeyBackedWalletIDs: Set<String> {
-        get { Set(cachesGetPrivateKeyBackedWalletIds()) }
-        set { cachesReplacePrivateKeyBackedWalletIds(entries: Array(newValue)); bumpCachesRevision() }
-    }
-    var cachedPasswordProtectedWalletIDs: Set<String> {
-        get { Set(cachesGetPasswordProtectedWalletIds()) }
-        set { cachesReplacePasswordProtectedWalletIds(entries: Array(newValue)); bumpCachesRevision() }
-    }
-    var cachedSecretDescriptorsByWalletID: [String: WalletRustSecretMaterialDescriptor] {
-        get { cachesGetSecretDescriptorsByWalletId() }
-        set { cachesReplaceSecretDescriptorsByWalletId(entries: newValue); bumpCachesRevision() }
-    }
+    var cachedWalletByID: [String: ImportedWallet] = [:] { didSet { bumpCachesRevision() } }
+    var cachedWalletByIDString: [String: ImportedWallet] = [:] { didSet { bumpCachesRevision() } }
+    var cachedIncludedPortfolioWallets: [ImportedWallet] = [] { didSet { bumpCachesRevision() } }
+    var cachedIncludedPortfolioHoldings: [Coin] = [] { didSet { bumpCachesRevision() } }
+    var cachedIncludedPortfolioHoldingsBySymbol: [String: [Coin]] = [:] { didSet { bumpCachesRevision() } }
+    var cachedUniqueWalletPriceRequestCoins: [Coin] = [] { didSet { bumpCachesRevision() } }
+    var cachedPortfolio: [Coin] = [] { didSet { bumpCachesRevision() } }
+    var cachedAvailableSendCoinsByWalletID: [String: [Coin]] = [:] { didSet { bumpCachesRevision() } }
+    var cachedAvailableReceiveCoinsByWalletID: [String: [Coin]] = [:] { didSet { bumpCachesRevision() } }
+    var cachedAvailableReceiveChainsByWalletID: [String: [String]] = [:] { didSet { bumpCachesRevision() } }
+    var cachedSendEnabledWallets: [ImportedWallet] = [] { didSet { bumpCachesRevision() } }
+    var cachedReceiveEnabledWallets: [ImportedWallet] = [] { didSet { bumpCachesRevision() } }
+    var cachedRefreshableChainNames: Set<String> = [] { didSet { bumpCachesRevision() } }
+    var cachedSigningMaterialWalletIDs: Set<String> = [] { didSet { bumpCachesRevision() } }
+    var cachedPrivateKeyBackedWalletIDs: Set<String> = [] { didSet { bumpCachesRevision() } }
+    var cachedPasswordProtectedWalletIDs: Set<String> = [] { didSet { bumpCachesRevision() } }
+    var cachedSecretDescriptorsByWalletID: [String: CoreWalletRustSecretMaterialDescriptor] = [:] { didSet { bumpCachesRevision() } }
     let importDraft = WalletImportDraft()
-    var importError: String? { get { shellState.getImportError() } set { notifyIfChanged(importError, newValue) { shellState.setImportError(value: newValue) } } }
-    var isImportingWallet: Bool { get { shellState.getIsImportingWallet() } set { notifyIfChanged(isImportingWallet, newValue) { shellState.setIsImportingWallet(value: newValue) } } }
-    var isShowingWalletImporter: Bool { get { shellState.getIsShowingWalletImporter() } set { notifyIfChanged(isShowingWalletImporter, newValue) { shellState.setIsShowingWalletImporter(value: newValue) } } }
-    var isShowingSendSheet: Bool { get { shellState.getIsShowingSendSheet() } set { notifyIfChanged(isShowingSendSheet, newValue) { shellState.setIsShowingSendSheet(value: newValue) } } }
-    var isShowingReceiveSheet: Bool { get { shellState.getIsShowingReceiveSheet() } set { notifyIfChanged(isShowingReceiveSheet, newValue) { shellState.setIsShowingReceiveSheet(value: newValue) } } }
+    @Published var importError: String? = nil
+    @Published var isImportingWallet: Bool = false
+    @Published var isShowingWalletImporter: Bool = false
+    @Published var isShowingSendSheet: Bool = false
+    @Published var isShowingReceiveSheet: Bool = false
     @Published var walletPendingDeletion: ImportedWallet?
-    var editingWalletID: String? {
-        get { shellState.getEditingWalletId() }
-        set { notifyIfChanged(editingWalletID, newValue) { shellState.setEditingWalletId(value: newValue) } }
-    }
-    var sendWalletID: String { get { shellState.getSendWalletId() } set { notifyIfChanged(sendWalletID, newValue) { shellState.setSendWalletId(value: newValue) } } }
-    var sendHoldingKey: String { get { shellState.getSendHoldingKey() } set { notifyIfChanged(sendHoldingKey, newValue) { shellState.setSendHoldingKey(value: newValue) } } }
-    var sendAmount: String { get { shellState.getSendAmount() } set { notifyIfChanged(sendAmount, newValue) { shellState.setSendAmount(value: newValue) } } }
-    var sendAddress: String { get { shellState.getSendAddress() } set { notifyIfChanged(sendAddress, newValue) { shellState.setSendAddress(value: newValue) } } }
-    var sendError: String? { get { shellState.getSendError() } set { notifyIfChanged(sendError, newValue) { shellState.setSendError(value: newValue) } } }
-    var sendDestinationRiskWarning: String? { get { shellState.getSendDestinationRiskWarning() } set { notifyIfChanged(sendDestinationRiskWarning, newValue) { shellState.setSendDestinationRiskWarning(value: newValue) } } }
-    var sendDestinationInfoMessage: String? { get { shellState.getSendDestinationInfoMessage() } set { notifyIfChanged(sendDestinationInfoMessage, newValue) { shellState.setSendDestinationInfoMessage(value: newValue) } } }
-    var isCheckingSendDestinationBalance: Bool { get { shellState.getIsCheckingSendDestinationBalance() } set { notifyIfChanged(isCheckingSendDestinationBalance, newValue) { shellState.setIsCheckingSendDestinationBalance(value: newValue) } } }
-    var pendingHighRiskSendReasons: [String] {
-        get { shellState.getPendingHighRiskSendReasons() }
-        set { notifyIfChanged(pendingHighRiskSendReasons, newValue) { shellState.setPendingHighRiskSendReasons(value: newValue) } }
-    }
-    var isShowingHighRiskSendConfirmation: Bool { get { shellState.getIsShowingHighRiskSendConfirmation() } set { notifyIfChanged(isShowingHighRiskSendConfirmation, newValue) { shellState.setIsShowingHighRiskSendConfirmation(value: newValue) } } }
-    var sendVerificationNotice: String? { get { shellState.getSendVerificationNotice() } set { notifyIfChanged(sendVerificationNotice, newValue) { shellState.setSendVerificationNotice(value: newValue) } } }
-    var sendVerificationNoticeIsWarning: Bool { get { shellState.getSendVerificationNoticeIsWarning() } set { notifyIfChanged(sendVerificationNoticeIsWarning, newValue) { shellState.setSendVerificationNoticeIsWarning(value: newValue) } } }
-    var receiveWalletID: String { get { shellState.getReceiveWalletId() } set { notifyIfChanged(receiveWalletID, newValue) { shellState.setReceiveWalletId(value: newValue) } } }
-    var receiveChainName: String { get { shellState.getReceiveChainName() } set { notifyIfChanged(receiveChainName, newValue) { shellState.setReceiveChainName(value: newValue) } } }
-    var receiveHoldingKey: String { get { shellState.getReceiveHoldingKey() } set { notifyIfChanged(receiveHoldingKey, newValue) { shellState.setReceiveHoldingKey(value: newValue) } } }
-    var receiveResolvedAddress: String { get { shellState.getReceiveResolvedAddress() } set { notifyIfChanged(receiveResolvedAddress, newValue) { shellState.setReceiveResolvedAddress(value: newValue) } } }
-    var isResolvingReceiveAddress: Bool { get { shellState.getIsResolvingReceiveAddress() } set { notifyIfChanged(isResolvingReceiveAddress, newValue) { shellState.setIsResolvingReceiveAddress(value: newValue) } } }
+    @Published var editingWalletID: String? = nil
+    @Published var sendWalletID: String = ""
+    @Published var sendHoldingKey: String = ""
+    @Published var sendAmount: String = ""
+    @Published var sendAddress: String = ""
+    @Published var sendError: String? = nil
+    @Published var sendDestinationRiskWarning: String? = nil
+    @Published var sendDestinationInfoMessage: String? = nil
+    @Published var isCheckingSendDestinationBalance: Bool = false
+    @Published var pendingHighRiskSendReasons: [String] = []
+    @Published var isShowingHighRiskSendConfirmation: Bool = false
+    @Published var sendVerificationNotice: String? = nil
+    @Published var sendVerificationNoticeIsWarning: Bool = false
+    @Published var receiveWalletID: String = ""
+    @Published var receiveChainName: String = ""
+    @Published var receiveHoldingKey: String = ""
+    @Published var receiveResolvedAddress: String = ""
+    @Published var isResolvingReceiveAddress: Bool = false
     // Dedicated observable for tab selection — isolates MainTabView from
     // AppState.objectWillChange so swapping tabs doesn't re-render every
     // view that holds `@ObservedObject var store: AppState`.
@@ -213,33 +136,30 @@ class AppState: ObservableObject {
         get { tabSelection.value }
         set { tabSelection.value = newValue }
     }
-    var isAppLocked: Bool { get { shellState.getIsAppLocked() } set { notifyIfChanged(isAppLocked, newValue) { shellState.setIsAppLocked(value: newValue) } } }
-    var appLockError: String? { get { shellState.getAppLockError() } set { notifyIfChanged(appLockError, newValue) { shellState.setAppLockError(value: newValue) } } }
-    var isPreparingEthereumReplacementContext: Bool { get { shellState.getIsPreparingEthereumReplacementContext() } set { notifyIfChanged(isPreparingEthereumReplacementContext, newValue) { shellState.setIsPreparingEthereumReplacementContext(value: newValue) } } }
-    var isPreparingEthereumSend: Bool { get { shellState.getIsPreparingEthereumSend() } set { notifyIfChanged(isPreparingEthereumSend, newValue) { shellState.setIsPreparingEthereumSend(value: newValue) } } }
-    var isPreparingDogecoinSend: Bool { get { shellState.getIsPreparingDogecoinSend() } set { notifyIfChanged(isPreparingDogecoinSend, newValue) { shellState.setIsPreparingDogecoinSend(value: newValue) } } }
-    var isPreparingTronSend: Bool { get { shellState.getIsPreparingTronSend() } set { notifyIfChanged(isPreparingTronSend, newValue) { shellState.setIsPreparingTronSend(value: newValue) } } }
-    var isPreparingSolanaSend: Bool { get { shellState.getIsPreparingSolanaSend() } set { notifyIfChanged(isPreparingSolanaSend, newValue) { shellState.setIsPreparingSolanaSend(value: newValue) } } }
-    var isPreparingXRPSend: Bool { get { shellState.getIsPreparingXrpSend() } set { notifyIfChanged(isPreparingXRPSend, newValue) { shellState.setIsPreparingXrpSend(value: newValue) } } }
-    var isPreparingStellarSend: Bool { get { shellState.getIsPreparingStellarSend() } set { notifyIfChanged(isPreparingStellarSend, newValue) { shellState.setIsPreparingStellarSend(value: newValue) } } }
-    var isPreparingMoneroSend: Bool { get { shellState.getIsPreparingMoneroSend() } set { notifyIfChanged(isPreparingMoneroSend, newValue) { shellState.setIsPreparingMoneroSend(value: newValue) } } }
-    var isPreparingCardanoSend: Bool { get { shellState.getIsPreparingCardanoSend() } set { notifyIfChanged(isPreparingCardanoSend, newValue) { shellState.setIsPreparingCardanoSend(value: newValue) } } }
-    var isPreparingSuiSend: Bool { get { shellState.getIsPreparingSuiSend() } set { notifyIfChanged(isPreparingSuiSend, newValue) { shellState.setIsPreparingSuiSend(value: newValue) } } }
-    var isPreparingAptosSend: Bool { get { shellState.getIsPreparingAptosSend() } set { notifyIfChanged(isPreparingAptosSend, newValue) { shellState.setIsPreparingAptosSend(value: newValue) } } }
-    var isPreparingTONSend: Bool { get { shellState.getIsPreparingTonSend() } set { notifyIfChanged(isPreparingTONSend, newValue) { shellState.setIsPreparingTonSend(value: newValue) } } }
-    var isPreparingICPSend: Bool { get { shellState.getIsPreparingIcpSend() } set { notifyIfChanged(isPreparingICPSend, newValue) { shellState.setIsPreparingIcpSend(value: newValue) } } }
-    var isPreparingNearSend: Bool { get { shellState.getIsPreparingNearSend() } set { notifyIfChanged(isPreparingNearSend, newValue) { shellState.setIsPreparingNearSend(value: newValue) } } }
-    var isPreparingPolkadotSend: Bool { get { shellState.getIsPreparingPolkadotSend() } set { notifyIfChanged(isPreparingPolkadotSend, newValue) { shellState.setIsPreparingPolkadotSend(value: newValue) } } }
+    @Published var isAppLocked: Bool = false
+    @Published var appLockError: String? = nil
+    @Published var isPreparingEthereumReplacementContext: Bool = false
+    @Published var isPreparingEthereumSend: Bool = false
+    @Published var isPreparingDogecoinSend: Bool = false
+    @Published var isPreparingTronSend: Bool = false
+    @Published var isPreparingSolanaSend: Bool = false
+    @Published var isPreparingXRPSend: Bool = false
+    @Published var isPreparingStellarSend: Bool = false
+    @Published var isPreparingMoneroSend: Bool = false
+    @Published var isPreparingCardanoSend: Bool = false
+    @Published var isPreparingSuiSend: Bool = false
+    @Published var isPreparingAptosSend: Bool = false
+    @Published var isPreparingTONSend: Bool = false
+    @Published var isPreparingICPSend: Bool = false
+    @Published var isPreparingNearSend: Bool = false
+    @Published var isPreparingPolkadotSend: Bool = false
     var statusTrackingByTransactionID: [UUID: AppState.TransactionStatusTrackingState] = [:]
     var pendingSelfSendConfirmation: AppState.PendingSelfSendConfirmation?
     var activeEthereumSendWalletIDs: Set<String> = []
     var lastSendDestinationProbeKey: String?
     var lastSendDestinationProbeWarning: String?
     var lastSendDestinationProbeInfoMessage: String?
-    var cachedResolvedENSAddresses: [String: String] {
-        get { cachesGetResolvedEnsAddresses() }
-        set { cachesReplaceResolvedEnsAddresses(entries: newValue); bumpCachesRevision() }
-    }
+    var cachedResolvedENSAddresses: [String: String] = [:] { didSet { bumpCachesRevision() } }
     var bypassHighRiskSendConfirmation = false
     var isRefreshingLivePrices = false
     var isRefreshingChainBalances = false
@@ -254,10 +174,7 @@ class AppState: ObservableObject {
     var isConstrainedNetwork: Bool = false
     var isExpensiveNetwork: Bool = false
     @Published var lastSentTransaction: TransactionRecord?
-    var lastPendingTransactionRefreshAt: Date? {
-        get { shellState.getLastPendingTransactionRefreshAt().map { Date(timeIntervalSince1970: $0) } }
-        set { objectWillChange.send(); shellState.setLastPendingTransactionRefreshAt(value: newValue?.timeIntervalSince1970) }
-    }
+    @Published var lastPendingTransactionRefreshAt: Date? = nil
     // Send previews live in a dedicated sub-store so updates during the send flow
     // do not invalidate every view that observes AppState. Views that need the
     // preview values should observe `sendPreviewStore` directly.
@@ -280,29 +197,26 @@ class AppState: ObservableObject {
     var icpSendPreview: IcpSendPreview? { get { sendPreviewStore.icpSendPreview } set { sendPreviewStore.icpSendPreview = newValue } }
     var nearSendPreview: NearSendPreview? { get { sendPreviewStore.nearSendPreview } set { sendPreviewStore.nearSendPreview = newValue } }
     var polkadotSendPreview: PolkadotSendPreview? { get { sendPreviewStore.polkadotSendPreview } set { sendPreviewStore.polkadotSendPreview = newValue } }
-    var isSendingBitcoin: Bool { get { shellState.getIsSendingBitcoin() } set { notifyIfChanged(isSendingBitcoin, newValue) { shellState.setIsSendingBitcoin(value: newValue) } } }
-    var isSendingBitcoinCash: Bool { get { shellState.getIsSendingBitcoinCash() } set { notifyIfChanged(isSendingBitcoinCash, newValue) { shellState.setIsSendingBitcoinCash(value: newValue) } } }
-    var isSendingBitcoinSV: Bool { get { shellState.getIsSendingBitcoinSv() } set { notifyIfChanged(isSendingBitcoinSV, newValue) { shellState.setIsSendingBitcoinSv(value: newValue) } } }
-    var isSendingLitecoin: Bool { get { shellState.getIsSendingLitecoin() } set { notifyIfChanged(isSendingLitecoin, newValue) { shellState.setIsSendingLitecoin(value: newValue) } } }
-    var isSendingDogecoin: Bool { get { shellState.getIsSendingDogecoin() } set { notifyIfChanged(isSendingDogecoin, newValue) { shellState.setIsSendingDogecoin(value: newValue) } } }
-    var isSendingEthereum: Bool { get { shellState.getIsSendingEthereum() } set { notifyIfChanged(isSendingEthereum, newValue) { shellState.setIsSendingEthereum(value: newValue) } } }
-    var isSendingTron: Bool { get { shellState.getIsSendingTron() } set { notifyIfChanged(isSendingTron, newValue) { shellState.setIsSendingTron(value: newValue) } } }
-    var isSendingSolana: Bool { get { shellState.getIsSendingSolana() } set { notifyIfChanged(isSendingSolana, newValue) { shellState.setIsSendingSolana(value: newValue) } } }
-    var isSendingXRP: Bool { get { shellState.getIsSendingXrp() } set { notifyIfChanged(isSendingXRP, newValue) { shellState.setIsSendingXrp(value: newValue) } } }
-    var isSendingStellar: Bool { get { shellState.getIsSendingStellar() } set { notifyIfChanged(isSendingStellar, newValue) { shellState.setIsSendingStellar(value: newValue) } } }
-    var isSendingMonero: Bool { get { shellState.getIsSendingMonero() } set { notifyIfChanged(isSendingMonero, newValue) { shellState.setIsSendingMonero(value: newValue) } } }
-    var isSendingCardano: Bool { get { shellState.getIsSendingCardano() } set { notifyIfChanged(isSendingCardano, newValue) { shellState.setIsSendingCardano(value: newValue) } } }
-    var isSendingSui: Bool { get { shellState.getIsSendingSui() } set { notifyIfChanged(isSendingSui, newValue) { shellState.setIsSendingSui(value: newValue) } } }
-    var isSendingAptos: Bool { get { shellState.getIsSendingAptos() } set { notifyIfChanged(isSendingAptos, newValue) { shellState.setIsSendingAptos(value: newValue) } } }
-    var isSendingTON: Bool { get { shellState.getIsSendingTon() } set { notifyIfChanged(isSendingTON, newValue) { shellState.setIsSendingTon(value: newValue) } } }
-    var isSendingICP: Bool { get { shellState.getIsSendingIcp() } set { notifyIfChanged(isSendingICP, newValue) { shellState.setIsSendingIcp(value: newValue) } } }
-    var isSendingNear: Bool { get { shellState.getIsSendingNear() } set { notifyIfChanged(isSendingNear, newValue) { shellState.setIsSendingNear(value: newValue) } } }
-    var isSendingPolkadot: Bool { get { shellState.getIsSendingPolkadot() } set { notifyIfChanged(isSendingPolkadot, newValue) { shellState.setIsSendingPolkadot(value: newValue) } } }
-    var tronLastSendErrorDetails: String? { get { shellState.getTronLastSendErrorDetails() } set { notifyIfChanged(tronLastSendErrorDetails, newValue) { shellState.setTronLastSendErrorDetails(value: newValue) } } }
-    var tronLastSendErrorAt: Date? {
-        get { shellState.getTronLastSendErrorAt().map { Date(timeIntervalSince1970: $0) } }
-        set { objectWillChange.send(); shellState.setTronLastSendErrorAt(value: newValue?.timeIntervalSince1970) }
-    }
+    @Published var isSendingBitcoin: Bool = false
+    @Published var isSendingBitcoinCash: Bool = false
+    @Published var isSendingBitcoinSV: Bool = false
+    @Published var isSendingLitecoin: Bool = false
+    @Published var isSendingDogecoin: Bool = false
+    @Published var isSendingEthereum: Bool = false
+    @Published var isSendingTron: Bool = false
+    @Published var isSendingSolana: Bool = false
+    @Published var isSendingXRP: Bool = false
+    @Published var isSendingStellar: Bool = false
+    @Published var isSendingMonero: Bool = false
+    @Published var isSendingCardano: Bool = false
+    @Published var isSendingSui: Bool = false
+    @Published var isSendingAptos: Bool = false
+    @Published var isSendingTON: Bool = false
+    @Published var isSendingICP: Bool = false
+    @Published var isSendingNear: Bool = false
+    @Published var isSendingPolkadot: Bool = false
+    @Published var tronLastSendErrorDetails: String? = nil
+    @Published var tronLastSendErrorAt: Date? = nil
     let chainDiagnosticsState = WalletChainDiagnosticsState()
     private(set) var recentPerformanceSamples: [PerformanceSample] = []
     var isOnboarded: Bool { !wallets.isEmpty }
@@ -316,61 +230,64 @@ class AppState: ObservableObject {
                 )
             }
             .sorted { $0.walletName.localizedCaseInsensitiveCompare($1.walletName) == .orderedAscending }}
-    var pricingProvider: PricingProvider {
-        get { PricingProvider(rawValue: shellState.getPricingProvider()) ?? .coinGecko }
-        set { notifyIfChanged(pricingProvider, newValue) { shellState.setPricingProvider(value: newValue.rawValue) }; persistAppSettings() }
+    @Published var pricingProvider: PricingProvider = .coinGecko {
+        didSet {
+            guard pricingProvider != oldValue else { return }
+            persistAppSettings()
+        }
     }
-    var selectedFiatCurrency: FiatCurrency {
-        get { FiatCurrency(rawValue: shellState.getSelectedFiatCurrency()) ?? .usd }
-        set {
-            guard newValue != selectedFiatCurrency else { return }
-            objectWillChange.send()
-            shellState.setSelectedFiatCurrency(value: newValue.rawValue)
+    @Published var selectedFiatCurrency: FiatCurrency = .usd {
+        didSet {
+            guard selectedFiatCurrency != oldValue else { return }
             persistAppSettings()
             Task { @MainActor in await refreshFiatExchangeRatesIfNeeded(force: true) }
         }
     }
-    var fiatRateProvider: FiatRateProvider {
-        get { FiatRateProvider(rawValue: shellState.getFiatRateProvider()) ?? .openER }
-        set {
-            guard newValue != fiatRateProvider else { return }
-            objectWillChange.send()
-            shellState.setFiatRateProvider(value: newValue.rawValue)
+    @Published var fiatRateProvider: FiatRateProvider = .openER {
+        didSet {
+            guard fiatRateProvider != oldValue else { return }
             persistAppSettings()
             Task { @MainActor in await refreshFiatExchangeRatesIfNeeded(force: true) }
         }
     }
-    var coinGeckoAPIKey: String {
-        get { shellState.getCoinGeckoApiKey() }
-        set { notifyIfChanged(coinGeckoAPIKey, newValue) { shellState.setCoinGeckoApiKey(value: newValue) }; SecureStore.save(newValue, for: Self.coinGeckoAPIKeyAccount) }
+    @Published var coinGeckoAPIKey: String = "" {
+        didSet {
+            guard coinGeckoAPIKey != oldValue else { return }
+            SecureStore.save(coinGeckoAPIKey, for: Self.coinGeckoAPIKeyAccount)
+        }
     }
-    var ethereumRPCEndpoint: String {
-        get { shellState.getEthereumRpcEndpoint() }
-        set { notifyIfChanged(ethereumRPCEndpoint, newValue) { shellState.setEthereumRpcEndpoint(value: newValue) }; persistAppSettings() }
+    @Published var ethereumRPCEndpoint: String = "" {
+        didSet {
+            guard ethereumRPCEndpoint != oldValue else { return }
+            persistAppSettings()
+        }
     }
-    var ethereumNetworkMode: EthereumNetworkMode {
-        get { EthereumNetworkMode(rawValue: shellState.getEthereumNetworkMode()) ?? .mainnet }
-        set {
-            guard newValue != ethereumNetworkMode else { return }
-            objectWillChange.send()
-            shellState.setEthereumNetworkMode(value: newValue.rawValue)
+    @Published var ethereumNetworkMode: EthereumNetworkMode = .mainnet {
+        didSet {
+            guard ethereumNetworkMode != oldValue else { return }
             persistAppSettings()
             WalletServiceBridge.shared.resetHistoryForChain(chainId: 1)
         }
     }
-    var etherscanAPIKey: String {
-        get { shellState.getEtherscanApiKey() }
-        set { notifyIfChanged(etherscanAPIKey, newValue) { shellState.setEtherscanApiKey(value: newValue) }; persistAppSettings() }
+    @Published var etherscanAPIKey: String = "" {
+        didSet {
+            guard etherscanAPIKey != oldValue else { return }
+            persistAppSettings()
+        }
     }
-    var moneroBackendBaseURL: String {
-        get { shellState.getMoneroBackendBaseUrl() }
-        set { notifyIfChanged(moneroBackendBaseURL, newValue) { shellState.setMoneroBackendBaseUrl(value: newValue) }; persistAppSettings() }
+    @Published var moneroBackendBaseURL: String = "" {
+        didSet {
+            guard moneroBackendBaseURL != oldValue else { return }
+            persistAppSettings()
+        }
     }
-    var moneroBackendAPIKey: String {
-        get { shellState.getMoneroBackendApiKey() }
-        set { notifyIfChanged(moneroBackendAPIKey, newValue) { shellState.setMoneroBackendApiKey(value: newValue) }; persistAppSettings() }
+    @Published var moneroBackendAPIKey: String = "" {
+        didSet {
+            guard moneroBackendAPIKey != oldValue else { return }
+            persistAppSettings()
+        }
     }
-    var isUserInitiatedRefreshInProgress: Bool { get { shellState.getIsUserInitiatedRefreshInProgress() } set { notifyIfChanged(isUserInitiatedRefreshInProgress, newValue) { shellState.setIsUserInitiatedRefreshInProgress(value: newValue) } } }
+    @Published var isUserInitiatedRefreshInProgress: Bool = false
     @Published var priceAlerts: [PriceAlertRule] = [] {
         didSet {
             priceAlertsPersistTask?.cancel()
@@ -401,113 +318,54 @@ class AppState: ObservableObject {
                 self.rebuildDashboardDerivedState()
             }
         }}
-    var livePrices: [String: Double] {
-        get { shellState.getLivePrices() }
-        set {
-            let oldValue = shellState.getLivePrices()
-            guard newValue != oldValue else { return }
-            objectWillChange.send()
-            shellState.setLivePrices(value: newValue)
+    @Published var livePrices: [String: Double] = [:] {
+        didSet {
+            guard livePrices != oldValue else { return }
             livePricesPersistTask?.cancel()
             livePricesPersistTask = Task { @MainActor [weak self] in
                 try? await Task.sleep(nanoseconds: 200_000_000) // 200ms debounce
                 guard !Task.isCancelled, let self else { return }
                 self.persistLivePrices()
             }
-            if shouldRebuildDashboardForLivePriceChange(from: oldValue, to: newValue) { rebuildDashboardDerivedState() }
+            if shouldRebuildDashboardForLivePriceChange(from: oldValue, to: livePrices) { rebuildDashboardDerivedState() }
         }
     }
-    var fiatRatesFromUSD: [String: Double] {
-        get { shellState.getFiatRatesFromUsd() }
-        set {
-            guard newValue != shellState.getFiatRatesFromUsd() else { return }
-            objectWillChange.send(); shellState.setFiatRatesFromUsd(value: newValue)
-        }
-    }
-    var fiatRatesRefreshError: String? {
-        get { shellState.getFiatRatesRefreshError() }
-        set { notifyIfChanged(fiatRatesRefreshError, newValue) { shellState.setFiatRatesRefreshError(value: newValue) } }
-    }
-    var quoteRefreshError: String? {
-        get { shellState.getQuoteRefreshError() }
-        set { notifyIfChanged(quoteRefreshError, newValue) { shellState.setQuoteRefreshError(value: newValue) } }
-    }
-    var cachedPinnedDashboardAssetSymbols: [String] {
-        get { cachesGetPinnedDashboardAssetSymbols() }
-        set { cachesReplacePinnedDashboardAssetSymbols(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedDashboardPinOptionBySymbol: [String: DashboardPinOption] {
-        get { cachesGetDashboardPinOptionBySymbol() }
-        set { cachesReplaceDashboardPinOptionBySymbol(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedAvailableDashboardPinOptions: [DashboardPinOption] {
-        get { cachesGetAvailableDashboardPinOptions() }
-        set { cachesReplaceAvailableDashboardPinOptions(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedDashboardAssetGroups: [DashboardAssetGroup] {
-        get { cachesGetDashboardAssetGroups() }
-        set { cachesReplaceDashboardAssetGroups(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedDashboardRelevantPriceKeys: Set<String> {
-        get { Set(cachesGetDashboardRelevantPriceKeys()) }
-        set { cachesReplaceDashboardRelevantPriceKeys(entries: Array(newValue)); bumpCachesRevision() }
-    }
-    var cachedDashboardSupportedTokenEntriesBySymbol: [String: [TokenPreferenceEntry]] {
-        get { cachesGetDashboardSupportedTokenEntriesBySymbol() }
-        set { cachesReplaceDashboardSupportedTokenEntriesBySymbol(entries: newValue); bumpCachesRevision() }
-    }
+    @Published var fiatRatesFromUSD: [String: Double] = [:]
+    @Published var fiatRatesRefreshError: String? = nil
+    @Published var quoteRefreshError: String? = nil
+    var cachedPinnedDashboardAssetSymbols: [String] = [] { didSet { bumpCachesRevision() } }
+    var cachedDashboardPinOptionBySymbol: [String: DashboardPinOption] = [:] { didSet { bumpCachesRevision() } }
+    var cachedAvailableDashboardPinOptions: [DashboardPinOption] = [] { didSet { bumpCachesRevision() } }
+    var cachedDashboardAssetGroups: [DashboardAssetGroup] = [] { didSet { bumpCachesRevision() } }
+    var cachedDashboardRelevantPriceKeys: Set<String> = [] { didSet { bumpCachesRevision() } }
+    var cachedDashboardSupportedTokenEntriesBySymbol: [String: [TokenPreferenceEntry]] = [:] { didSet { bumpCachesRevision() } }
+    private var _cachedResolvedTokenPreferences: [TokenPreferenceEntry] = [] { didSet { bumpCachesRevision() } }
     var cachedResolvedTokenPreferences: [TokenPreferenceEntry] {
         get {
-            let v = cachesGetResolvedTokenPreferences()
-            return v.isEmpty ? ChainTokenRegistryEntry.builtIn.map(\.tokenPreferenceEntry) : v
+            _cachedResolvedTokenPreferences.isEmpty
+                ? ChainTokenRegistryEntry.builtIn.map(\.tokenPreferenceEntry)
+                : _cachedResolvedTokenPreferences
         }
-        set { cachesReplaceResolvedTokenPreferences(entries: newValue); bumpCachesRevision() }
+        set { _cachedResolvedTokenPreferences = newValue }
     }
-    var cachedTokenPreferencesByChain: [TokenTrackingChain: [TokenPreferenceEntry]] {
-        get {
-            var result: [TokenTrackingChain: [TokenPreferenceEntry]] = [:]
-            for (raw, entries) in cachesGetTokenPreferencesByChain() {
-                if let chain = TokenTrackingChain(rawValue: raw) { result[chain] = entries }
-            }
-            return result
-        }
-        set {
-            let rawMap = Dictionary(uniqueKeysWithValues: newValue.map { ($0.key.rawValue, $0.value) })
-            cachesReplaceTokenPreferencesByChain(entries: rawMap); bumpCachesRevision()
-        }
-    }
-    var cachedResolvedTokenPreferencesBySymbol: [String: [TokenPreferenceEntry]] {
-        get { cachesGetResolvedTokenPreferencesBySymbol() }
-        set { cachesReplaceResolvedTokenPreferencesBySymbol(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedEnabledTrackedTokenPreferences: [TokenPreferenceEntry] {
-        get { cachesGetEnabledTrackedTokenPreferences() }
-        set { cachesReplaceEnabledTrackedTokenPreferences(entries: newValue); bumpCachesRevision() }
-    }
-    var cachedTokenPreferenceByChainAndSymbol: [String: TokenPreferenceEntry] {
-        get { cachesGetTokenPreferenceByChainAndSymbol() }
-        set { cachesReplaceTokenPreferenceByChainAndSymbol(entries: newValue); bumpCachesRevision() }
-    }
+    var cachedTokenPreferencesByChain: [TokenTrackingChain: [TokenPreferenceEntry]] = [:] { didSet { bumpCachesRevision() } }
+    var cachedResolvedTokenPreferencesBySymbol: [String: [TokenPreferenceEntry]] = [:] { didSet { bumpCachesRevision() } }
+    var cachedEnabledTrackedTokenPreferences: [TokenPreferenceEntry] = [] { didSet { bumpCachesRevision() } }
+    var cachedTokenPreferenceByChainAndSymbol: [String: TokenPreferenceEntry] = [:] { didSet { bumpCachesRevision() } }
     var cachedCurrencyFormatters: [String: NumberFormatter] = [:]
     var cachedDecimalFormatters: [String: NumberFormatter] = [:]
-    var useCustomEthereumFees: Bool { get { shellState.getUseCustomEthereumFees() } set { notifyIfChanged(useCustomEthereumFees, newValue) { shellState.setUseCustomEthereumFees(value: newValue) } } }
-    var customEthereumMaxFeeGwei: String { get { shellState.getCustomEthereumMaxFeeGwei() } set { notifyIfChanged(customEthereumMaxFeeGwei, newValue) { shellState.setCustomEthereumMaxFeeGwei(value: newValue) } } }
-    var customEthereumPriorityFeeGwei: String { get { shellState.getCustomEthereumPriorityFeeGwei() } set { notifyIfChanged(customEthereumPriorityFeeGwei, newValue) { shellState.setCustomEthereumPriorityFeeGwei(value: newValue) } } }
-    var sendAdvancedMode: Bool { get { shellState.getSendAdvancedMode() } set { notifyIfChanged(sendAdvancedMode, newValue) { shellState.setSendAdvancedMode(value: newValue) } } }
-    var sendUTXOMaxInputCount: Int { get { Int(shellState.getSendUtxoMaxInputCount()) } set { notifyIfChanged(sendUTXOMaxInputCount, newValue) { shellState.setSendUtxoMaxInputCount(value: Int64(newValue)) } } }
-    var sendEnableRBF: Bool { get { shellState.getSendEnableRbf() } set { notifyIfChanged(sendEnableRBF, newValue) { shellState.setSendEnableRbf(value: newValue) } } }
-    var sendEnableCPFP: Bool { get { shellState.getSendEnableCpfp() } set { notifyIfChanged(sendEnableCPFP, newValue) { shellState.setSendEnableCpfp(value: newValue) } } }
-    var sendLitecoinChangeStrategy: LitecoinChangeStrategy {
-        get { LitecoinChangeStrategy(rawValue: shellState.getSendLitecoinChangeStrategy()) ?? .derivedChange }
-        set { notifyIfChanged(sendLitecoinChangeStrategy, newValue) { shellState.setSendLitecoinChangeStrategy(value: newValue.rawValue) } }
-    }
-    var ethereumManualNonceEnabled: Bool { get { shellState.getEthereumManualNonceEnabled() } set { notifyIfChanged(ethereumManualNonceEnabled, newValue) { shellState.setEthereumManualNonceEnabled(value: newValue) } } }
-    var ethereumManualNonce: String { get { shellState.getEthereumManualNonce() } set { notifyIfChanged(ethereumManualNonce, newValue) { shellState.setEthereumManualNonce(value: newValue) } } }
-    var bitcoinNetworkMode: BitcoinNetworkMode {
-        get { BitcoinNetworkMode(rawValue: shellState.getBitcoinNetworkMode()) ?? .mainnet }
-        set {
-            objectWillChange.send()
-            shellState.setBitcoinNetworkMode(value: newValue.rawValue)
+    @Published var useCustomEthereumFees: Bool = false
+    @Published var customEthereumMaxFeeGwei: String = ""
+    @Published var customEthereumPriorityFeeGwei: String = ""
+    @Published var sendAdvancedMode: Bool = false
+    @Published var sendUTXOMaxInputCount: Int = 0
+    @Published var sendEnableRBF: Bool = true
+    @Published var sendEnableCPFP: Bool = false
+    @Published var sendLitecoinChangeStrategy: LitecoinChangeStrategy = .derivedChange
+    @Published var ethereumManualNonceEnabled: Bool = false
+    @Published var ethereumManualNonce: String = ""
+    @Published var bitcoinNetworkMode: BitcoinNetworkMode = .mainnet {
+        didSet {
             persistAppSettings()
             WalletServiceBridge.shared.resetHistoryForChain(chainId: 0)
             Task {
@@ -518,11 +376,8 @@ class AppState: ObservableObject {
             chainOwnedAddressMapByChain.removeValue(forKey: "Bitcoin")
         }
     }
-    var dogecoinNetworkMode: DogecoinNetworkMode {
-        get { DogecoinNetworkMode(rawValue: shellState.getDogecoinNetworkMode()) ?? .mainnet }
-        set {
-            objectWillChange.send()
-            shellState.setDogecoinNetworkMode(value: newValue.rawValue)
+    @Published var dogecoinNetworkMode: DogecoinNetworkMode = .mainnet {
+        didSet {
             persistAppSettings()
             Task {
                 await WalletServiceBridge.shared.deleteKeypoolForChain(chainName: "Dogecoin")
@@ -532,124 +387,133 @@ class AppState: ObservableObject {
             chainOwnedAddressMapByChain["Dogecoin"] = [:]
         }
     }
-    var bitcoinEsploraEndpoints: String {
-        get { shellState.getBitcoinEsploraEndpoints() }
-        set {
-            objectWillChange.send()
-            shellState.setBitcoinEsploraEndpoints(value: newValue)
+    @Published var bitcoinEsploraEndpoints: String = "" {
+        didSet {
             persistAppSettings()
             WalletServiceBridge.shared.resetHistoryForChain(chainId: 0)
         }
     }
-    var bitcoinStopGap: Int {
-        get { Int(shellState.getBitcoinStopGap()) }
-        set {
-            objectWillChange.send()
-            let clamped = max(1, min(newValue, 200))
-            shellState.setBitcoinStopGap(value: Int64(clamped))
+    @Published var bitcoinStopGap: Int = 10 {
+        didSet {
+            let clamped = max(1, min(bitcoinStopGap, 200))
+            if clamped != bitcoinStopGap {
+                bitcoinStopGap = clamped
+                return
+            }
             persistAppSettings()
         }
     }
-    var bitcoinFeePriority: BitcoinFeePriority {
-        get { BitcoinFeePriority(rawValue: shellState.getBitcoinFeePriority()) ?? .normal }
-        set { notifyIfChanged(bitcoinFeePriority, newValue) { shellState.setBitcoinFeePriority(value: newValue.rawValue) }; persistAppSettings() }
+    @Published var bitcoinFeePriority: BitcoinFeePriority = .normal {
+        didSet {
+            guard bitcoinFeePriority != oldValue else { return }
+            persistAppSettings()
+        }
     }
-    var dogecoinFeePriority: DogecoinFeePriority {
-        get { DogecoinFeePriority(rawValue: shellState.getDogecoinFeePriority()) ?? .normal }
-        set { notifyIfChanged(dogecoinFeePriority, newValue) { shellState.setDogecoinFeePriority(value: newValue.rawValue) }; persistAppSettings() }
+    @Published var dogecoinFeePriority: DogecoinFeePriority = .normal {
+        didSet {
+            guard dogecoinFeePriority != oldValue else { return }
+            persistAppSettings()
+        }
     }
-    var hideBalances: Bool {
-        get { shellState.getHideBalances() }
-        set { notifyIfChanged(hideBalances, newValue) { shellState.setHideBalances(value: newValue) }; persistAppSettings() }
+    @Published var hideBalances: Bool = false {
+        didSet {
+            guard hideBalances != oldValue else { return }
+            persistAppSettings()
+        }
     }
-    var assetDisplayDecimalsByChain: [String: Int] {
-        get { shellState.getAssetDisplayDecimalsByChain().mapValues { Int($0) } }
-        set {
-            objectWillChange.send()
-            let normalized = newValue.mapValues { min(max($0, 0), 30) }
-            shellState.setAssetDisplayDecimalsByChain(value: normalized.mapValues { Int64($0) })
+    @Published var assetDisplayDecimalsByChain: [String: Int] = [:] {
+        didSet {
+            let normalized = assetDisplayDecimalsByChain.mapValues { min(max($0, 0), 30) }
+            if normalized != assetDisplayDecimalsByChain {
+                assetDisplayDecimalsByChain = normalized
+                return
+            }
             persistAssetDisplayDecimalsByChain()
             cachedDecimalFormatters = [:]
         }
     }
-    var useFaceID: Bool {
-        get { shellState.getUseFaceId() }
-        set {
-            guard newValue != useFaceID else { return }
-            objectWillChange.send()
-            shellState.setUseFaceId(value: newValue)
+    @Published var useFaceID: Bool = true {
+        didSet {
+            guard useFaceID != oldValue else { return }
             persistAppSettings()
-            if !newValue {
+            if !useFaceID {
                 isAppLocked = false
                 appLockError = nil
             }
         }
     }
-    var useAutoLock: Bool {
-        get { shellState.getUseAutoLock() }
-        set { notifyIfChanged(useAutoLock, newValue) { shellState.setUseAutoLock(value: newValue) }; persistAppSettings() }
-    }
-    var useStrictRPCOnly: Bool {
-        get { shellState.getUseStrictRpcOnly() }
-        set { notifyIfChanged(useStrictRPCOnly, newValue) { shellState.setUseStrictRpcOnly(value: newValue) }; persistAppSettings() }
-    }
-    var requireBiometricForSendActions: Bool {
-        get { shellState.getRequireBiometricForSendActions() }
-        set { notifyIfChanged(requireBiometricForSendActions, newValue) { shellState.setRequireBiometricForSendActions(value: newValue) }; persistAppSettings() }
-    }
-    var usePriceAlerts: Bool {
-        get { shellState.getUsePriceAlerts() }
-        set { notifyIfChanged(usePriceAlerts, newValue) { shellState.setUsePriceAlerts(value: newValue) }; persistAppSettings() }
-    }
-    var useTransactionStatusNotifications: Bool {
-        get { shellState.getUseTransactionStatusNotifications() }
-        set {
-            guard newValue != useTransactionStatusNotifications else { return }
-            objectWillChange.send()
-            shellState.setUseTransactionStatusNotifications(value: newValue)
-            persistAppSettings()
-            if newValue { requestNotificationPermissionIfNeeded() }
-        }
-    }
-    var useLargeMovementNotifications: Bool {
-        get { shellState.getUseLargeMovementNotifications() }
-        set {
-            guard newValue != useLargeMovementNotifications else { return }
-            objectWillChange.send()
-            shellState.setUseLargeMovementNotifications(value: newValue)
-            persistAppSettings()
-            if newValue { requestNotificationPermissionIfNeeded() }
-        }
-    }
-    var automaticRefreshFrequencyMinutes: Int {
-        get { Int(shellState.getAutomaticRefreshFrequencyMinutes()) }
-        set {
-            let clamped = min(max(newValue, 5), 60)
-            guard clamped != automaticRefreshFrequencyMinutes else { return }
-            objectWillChange.send()
-            shellState.setAutomaticRefreshFrequencyMinutes(value: Int64(clamped))
+    @Published var useAutoLock: Bool = false {
+        didSet {
+            guard useAutoLock != oldValue else { return }
             persistAppSettings()
         }
     }
-    var backgroundSyncProfile: BackgroundSyncProfile {
-        get { BackgroundSyncProfile(rawValue: shellState.getBackgroundSyncProfile()) ?? .balanced }
-        set { notifyIfChanged(backgroundSyncProfile, newValue) { shellState.setBackgroundSyncProfile(value: newValue.rawValue) }; persistAppSettings() }
-    }
-    var largeMovementAlertPercentThreshold: Double {
-        get { shellState.getLargeMovementAlertPercentThreshold() }
-        set {
-            objectWillChange.send()
-            let clamped = min(max(newValue, 1), 90)
-            shellState.setLargeMovementAlertPercentThreshold(value: clamped)
+    @Published var useStrictRPCOnly: Bool = false {
+        didSet {
+            guard useStrictRPCOnly != oldValue else { return }
             persistAppSettings()
         }
     }
-    var largeMovementAlertUSDThreshold: Double {
-        get { shellState.getLargeMovementAlertUsdThreshold() }
-        set {
-            objectWillChange.send()
-            let clamped = min(max(newValue, 1), 100_000)
-            shellState.setLargeMovementAlertUsdThreshold(value: clamped)
+    @Published var requireBiometricForSendActions: Bool = true {
+        didSet {
+            guard requireBiometricForSendActions != oldValue else { return }
+            persistAppSettings()
+        }
+    }
+    @Published var usePriceAlerts: Bool = true {
+        didSet {
+            guard usePriceAlerts != oldValue else { return }
+            persistAppSettings()
+        }
+    }
+    @Published var useTransactionStatusNotifications: Bool = true {
+        didSet {
+            guard useTransactionStatusNotifications != oldValue else { return }
+            persistAppSettings()
+            if useTransactionStatusNotifications { requestNotificationPermissionIfNeeded() }
+        }
+    }
+    @Published var useLargeMovementNotifications: Bool = true {
+        didSet {
+            guard useLargeMovementNotifications != oldValue else { return }
+            persistAppSettings()
+            if useLargeMovementNotifications { requestNotificationPermissionIfNeeded() }
+        }
+    }
+    @Published var automaticRefreshFrequencyMinutes: Int = 5 {
+        didSet {
+            let clamped = min(max(automaticRefreshFrequencyMinutes, 5), 60)
+            if clamped != automaticRefreshFrequencyMinutes {
+                automaticRefreshFrequencyMinutes = clamped
+                return
+            }
+            guard automaticRefreshFrequencyMinutes != oldValue else { return }
+            persistAppSettings()
+        }
+    }
+    @Published var backgroundSyncProfile: BackgroundSyncProfile = .balanced {
+        didSet {
+            guard backgroundSyncProfile != oldValue else { return }
+            persistAppSettings()
+        }
+    }
+    @Published var largeMovementAlertPercentThreshold: Double = 10.0 {
+        didSet {
+            let clamped = min(max(largeMovementAlertPercentThreshold, 1), 90)
+            if clamped != largeMovementAlertPercentThreshold {
+                largeMovementAlertPercentThreshold = clamped
+                return
+            }
+            persistAppSettings()
+        }
+    }
+    @Published var largeMovementAlertUSDThreshold: Double = 50.0 {
+        didSet {
+            let clamped = min(max(largeMovementAlertUSDThreshold, 1), 100_000)
+            if clamped != largeMovementAlertUSDThreshold {
+                largeMovementAlertUSDThreshold = clamped
+                return
+            }
             persistAppSettings()
         }
     }
@@ -666,41 +530,28 @@ class AppState: ObservableObject {
     var pendingEthereumSendPreviewRefresh: Bool = false
     var pendingDogecoinSendPreviewRefresh: Bool = false
     @Published var discoveredUTXOAddressesByChain: [String: [String: [String]]] = [:]
-    var isLoadingMoreOnChainHistory: Bool { get { shellState.getIsLoadingMoreOnChainHistory() } set { notifyIfChanged(isLoadingMoreOnChainHistory, newValue) { shellState.setIsLoadingMoreOnChainHistory(value: newValue) } } }
+    @Published var isLoadingMoreOnChainHistory: Bool = false
     let diagnostics = WalletDiagnosticsState()
     @Published var chainOperationalEventsByChain: [String: [ChainOperationalEvent]] = [:] {
         didSet {
             persistChainOperationalEvents()
         }}
-    var selectedFeePriorityOptionRawByChain: [String: String] {
-        get { shellState.getSelectedFeePriorityOptionRawByChain() }
-        set { objectWillChange.send(); shellState.setSelectedFeePriorityOptionRawByChain(value: newValue); persistSelectedFeePriorityOptions() }
+    @Published var selectedFeePriorityOptionRawByChain: [String: String] = [:] {
+        didSet {
+            guard selectedFeePriorityOptionRawByChain != oldValue else { return }
+            persistSelectedFeePriorityOptions()
+        }
     }
-    var isRunningBitcoinRescan: Bool { get { shellState.getIsRunningBitcoinRescan() } set { notifyIfChanged(isRunningBitcoinRescan, newValue) { shellState.setIsRunningBitcoinRescan(value: newValue) } } }
-    var bitcoinRescanLastRunAt: Date? {
-        get { shellState.getBitcoinRescanLastRunAt().map { Date(timeIntervalSince1970: $0) } }
-        set { objectWillChange.send(); shellState.setBitcoinRescanLastRunAt(value: newValue?.timeIntervalSince1970) }
-    }
-    var isRunningBitcoinCashRescan: Bool { get { shellState.getIsRunningBitcoinCashRescan() } set { notifyIfChanged(isRunningBitcoinCashRescan, newValue) { shellState.setIsRunningBitcoinCashRescan(value: newValue) } } }
-    var bitcoinCashRescanLastRunAt: Date? {
-        get { shellState.getBitcoinCashRescanLastRunAt().map { Date(timeIntervalSince1970: $0) } }
-        set { objectWillChange.send(); shellState.setBitcoinCashRescanLastRunAt(value: newValue?.timeIntervalSince1970) }
-    }
-    var isRunningBitcoinSVRescan: Bool { get { shellState.getIsRunningBitcoinSvRescan() } set { notifyIfChanged(isRunningBitcoinSVRescan, newValue) { shellState.setIsRunningBitcoinSvRescan(value: newValue) } } }
-    var bitcoinSVRescanLastRunAt: Date? {
-        get { shellState.getBitcoinSvRescanLastRunAt().map { Date(timeIntervalSince1970: $0) } }
-        set { objectWillChange.send(); shellState.setBitcoinSvRescanLastRunAt(value: newValue?.timeIntervalSince1970) }
-    }
-    var isRunningLitecoinRescan: Bool { get { shellState.getIsRunningLitecoinRescan() } set { notifyIfChanged(isRunningLitecoinRescan, newValue) { shellState.setIsRunningLitecoinRescan(value: newValue) } } }
-    var litecoinRescanLastRunAt: Date? {
-        get { shellState.getLitecoinRescanLastRunAt().map { Date(timeIntervalSince1970: $0) } }
-        set { objectWillChange.send(); shellState.setLitecoinRescanLastRunAt(value: newValue?.timeIntervalSince1970) }
-    }
-    var isRunningDogecoinRescan: Bool { get { shellState.getIsRunningDogecoinRescan() } set { notifyIfChanged(isRunningDogecoinRescan, newValue) { shellState.setIsRunningDogecoinRescan(value: newValue) } } }
-    var dogecoinRescanLastRunAt: Date? {
-        get { shellState.getDogecoinRescanLastRunAt().map { Date(timeIntervalSince1970: $0) } }
-        set { objectWillChange.send(); shellState.setDogecoinRescanLastRunAt(value: newValue?.timeIntervalSince1970) }
-    }
+    @Published var isRunningBitcoinRescan: Bool = false
+    @Published var bitcoinRescanLastRunAt: Date? = nil
+    @Published var isRunningBitcoinCashRescan: Bool = false
+    @Published var bitcoinCashRescanLastRunAt: Date? = nil
+    @Published var isRunningBitcoinSVRescan: Bool = false
+    @Published var bitcoinSVRescanLastRunAt: Date? = nil
+    @Published var isRunningLitecoinRescan: Bool = false
+    @Published var litecoinRescanLastRunAt: Date? = nil
+    @Published var isRunningDogecoinRescan: Bool = false
+    @Published var dogecoinRescanLastRunAt: Date? = nil
     var suppressWalletSideEffects = false
     var userInitiatedRefreshTask: Task<Void, Never>?
     var importRefreshTask: Task<Void, Never>?
@@ -938,15 +789,8 @@ class AppState: ObservableObject {
         if recentPerformanceSamples.count > 120 { recentPerformanceSamples = Array(recentPerformanceSamples.prefix(120)) }
         balanceTelemetryLogger.info("perf \(operation, privacy: .public) \(durationMS, format: .fixed(precision: 2))ms \(metadata ?? "", privacy: .public)")
     }
-    // Rust→Swift event-bus bridge (Phase 1 of final Swift-deletion roadmap).
-    // The observer is retained here so its foreign-trait vtable lives as long
-    // as AppState. The handle owns the pump task; dropping it stops the pump.
-    var rustObserver: AppStateRustObserver?
-    var rustObserverHandle: AppStateObserverHandle?
-
     init() {
         clearPersistedSecureDataOnFreshInstallIfNeeded()
-        registerRustObserver()
         walletCollectionObservation = $wallets.dropFirst()
             .debounce(for: .milliseconds(30), scheduler: RunLoop.main)
             .sink { [weak self] _ in
@@ -967,7 +811,6 @@ class AppState: ObservableObject {
             _ = await (sqliteReload, fiatRefresh)
         }}
     deinit {
-        MainActor.assumeIsolated { rustObserverHandle?.unregister() }
         maintenanceTask?.cancel()
         userInitiatedRefreshTask?.cancel()
         importRefreshTask?.cancel()

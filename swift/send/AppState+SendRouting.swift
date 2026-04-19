@@ -53,15 +53,15 @@ extension AppState {
         case nil: break
         }}
     private func plannedPreviewKind(for coin: Coin) -> SendPreviewKind? {
-        let request = WalletRustSendPreviewRoutingRequest(
+        let request = SendPreviewRoutingRequest(
             asset: rustSendAssetRoutingInput(for: coin)
         )
-        let plan = WalletRustAppCoreBridge.planSendPreviewRouting(request)
+        let plan = corePlanSendPreviewRouting(request: request)
         guard let activePreviewKind = plan.activePreviewKind else { return nil }
         return SendPreviewKind(rawValue: activePreviewKind)
     }
-    private func rustSendAssetRoutingInput(for coin: Coin) -> WalletRustSendAssetRoutingInput {
-        WalletRustSendAssetRoutingInput(
+    private func rustSendAssetRoutingInput(for coin: Coin) -> SendAssetRoutingInput {
+        SendAssetRoutingInput(
             chainName: coin.chainName, symbol: coin.symbol, isEvmChain: isEVMChain(coin.chainName), supportsSolanaSendCoin: isSupportedSolanaSendCoin(coin), supportsNearTokenSend: isSupportedNearTokenSend(coin)
         )
     }

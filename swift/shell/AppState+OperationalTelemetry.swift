@@ -130,15 +130,15 @@ extension AppState {
         if holding.chainName == "Dogecoin" { appendChainOperationalEvent(.warning, chainName: "Dogecoin", message: "DOGE self-send confirmation required.") }
         return true
     }
-    private func rustSelfSendConfirmationPlan(walletID: String, chainName: String, symbol: String, destinationAddress: String, amount: Double, ownedAddresses: [String]) -> WalletRustSelfSendConfirmationPlan? {
-        let request = WalletRustSelfSendConfirmationRequest(
+    private func rustSelfSendConfirmationPlan(walletID: String, chainName: String, symbol: String, destinationAddress: String, amount: Double, ownedAddresses: [String]) -> SelfSendConfirmationPlan? {
+        let request = SelfSendConfirmationRequest(
             pendingConfirmation: pendingSelfSendConfirmation.map {
-                WalletRustPendingSelfSendConfirmationInput(
+                PendingSelfSendConfirmationInput(
                     walletId: $0.walletID, chainName: $0.chainName, symbol: $0.symbol, destinationAddressLowercased: $0.destinationAddressLowercased, amount: $0.amount, createdAtUnix: $0.createdAt.timeIntervalSince1970
                 )
             }, walletId: walletID, chainName: chainName, symbol: symbol, destinationAddress: destinationAddress, amount: amount, nowUnix: Date().timeIntervalSince1970, windowSeconds: Self.selfSendConfirmationWindowSeconds, ownedAddresses: ownedAddresses
         )
-        return WalletRustAppCoreBridge.planSelfSendConfirmation(request)
+        return corePlanSelfSendConfirmation(request: request)
     }
     func finalityConfirmations(for chainName: String) -> Int { Self.standardFinalityConfirmations }
     func updatedTransaction(_ transaction: TransactionRecord, status: TransactionStatus, receiptBlockNumber: Int? = nil, failureReason: String? = nil, dogecoinConfirmations: Int? = nil, dogecoinConfirmedNetworkFeeDoge: Double? = nil) -> TransactionRecord {

@@ -51,11 +51,6 @@ struct DashboardView: View {
                     } label: { Image(systemName: "plus") }}}.navigationDestination(isPresented: $isShowingAddWalletPage) {
                 AddWalletEntryView(store: store)
             }.navigationDestination(isPresented: Binding(
-                get: { store.isShowingWalletImporter && store.editingWalletID == nil }, set: { isPresented in
-                    if !isPresented { store.isShowingWalletImporter = false }}
-            )) {
-                SetupView(store: store, draft: store.importDraft)
-            }.navigationDestination(isPresented: Binding(
                 get: { selectedWallet != nil }, set: { isPresented in
                     if !isPresented { selectedWalletID = nil }}
             )) {
@@ -98,12 +93,15 @@ struct DashboardView: View {
             }}.padding(20).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.033)), in: .rect(cornerRadius: 30)).padding(.top, 12)
     }
     private var noticeToolbarLabel: some View {
-        ZStack(alignment: .topTrailing) {
-            Image(systemName: activeNotices.isEmpty ? "tray" : "exclamationmark.bubble").font(.system(size: 18, weight: .semibold)).frame(width: 24, height: 24)
-            if !activeNotices.isEmpty { Text("\(min(activeNotices.count, 9))").font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 5).padding(.vertical, 2).background(Capsule().fill(Color.red)).offset(x: 6, y: -5) }}.frame(width: 32, height: 28, alignment: .center).foregroundStyle(Color.primary).accessibilityLabel(
-            activeNotices.isEmpty
+        let notices = activeNotices
+        let count = notices.count
+        let isEmpty = notices.isEmpty
+        return ZStack(alignment: .topTrailing) {
+            Image(systemName: isEmpty ? "tray" : "exclamationmark.bubble").font(.system(size: 18, weight: .semibold)).frame(width: 24, height: 24)
+            if !isEmpty { Text("\(min(count, 9))").font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 5).padding(.vertical, 2).background(Capsule().fill(Color.red)).offset(x: 6, y: -5) }}.frame(width: 32, height: 28, alignment: .center).foregroundStyle(Color.primary).accessibilityLabel(
+            isEmpty
                 ? localizedDashboardString("No active notices")
-                : localizedDashboardFormat("%lld active notices", activeNotices.count)
+                : localizedDashboardFormat("%lld active notices", count)
         )
     }
     private var actionButtons: some View {
@@ -122,27 +120,30 @@ struct DashboardView: View {
             }.buttonStyle(.glassProminent).disabled(!canReceive).opacity(canReceive ? 1.0 : 0.5)
         }}
     private var dashboardCardSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        let wallets = store.wallets
+        let portfolio = visiblePortfolio
+        let countText = dashboardPage == .assets ? "\(portfolio.count)" : "\(wallets.count)"
+        return VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .center, spacing: 12) {
                 sectionHeading(dashboardCardTitle, symbol: dashboardCardSymbol)
-                Text(dashboardCardCountText).font(.headline.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.72))
+                Text(countText).font(.headline.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.72))
                 Spacer()
                 dashboardConfigMenu
             }.frame(maxWidth: .infinity, alignment: .leading)
             switch dashboardPage {
-            case .wallets: walletsSectionContent.transition(dashboardContentTransition)
-            case .assets: assetsSectionContent.transition(dashboardContentTransition)
+            case .wallets: walletsSectionContent(wallets: wallets).transition(dashboardContentTransition)
+            case .assets: assetsSectionContent(portfolio: portfolio).transition(dashboardContentTransition)
             }}.frame(maxWidth: .infinity, alignment: .leading).padding(20).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.028)), in: .rect(cornerRadius: 30)).contentShape(Rectangle()).animation(.easeOut(duration: 0.16), value: dashboardPage)
     }
-    private var walletsSectionContent: some View {
+    @ViewBuilder
+    private func walletsSectionContent(wallets: [ImportedWallet]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            if store.wallets.isEmpty {
+            if wallets.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(localizedDashboardString("No wallets yet")).font(.headline).foregroundStyle(Color.primary)
                     Text(localizedDashboardString("Tap the + button in the top right to add your first wallet.")).font(.subheadline).foregroundStyle(Color.primary.opacity(0.76))
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(16).glassEffect(.regular.tint(.white.opacity(0.025)), in: .rect(cornerRadius: 24))
             } else {
-                let wallets = store.wallets
                 let safePageIndex = min(max(walletPageIndex, 0), max(wallets.count - 1, 0))
                 TabView(selection: Binding(get: { safePageIndex }, set: { walletPageIndex = $0 })) {
                     ForEach(Array(wallets.enumerated()), id: \.element.id) { index, wallet in
@@ -175,36 +176,37 @@ struct DashboardView: View {
                 HStack(spacing: 6) {
                     ForEach(Array(wallets.indices), id: \.self) { index in Capsule().fill(index == safePageIndex ? Color.primary.opacity(0.85) : Color.primary.opacity(0.2)).frame(width: index == safePageIndex ? 18 : 6, height: 6) }}.frame(maxWidth: .infinity, alignment: .center)
             }}}
-    private var assetsSectionContent: some View {
+    @ViewBuilder
+    private func assetsSectionContent(portfolio: [DashboardAssetGroup]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
-            if visiblePortfolio.isEmpty {
+            if portfolio.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text(localizedDashboardString("No assets to display yet")).font(.headline).foregroundStyle(Color.primary)
                     Text(localizedDashboardString("Import a wallet or pull to refresh to load chain balances.")).font(.subheadline).foregroundStyle(Color.primary.opacity(0.76))
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(16).glassEffect(.regular.tint(.white.opacity(0.02)), in: .rect(cornerRadius: 20))
             } else {
-                ForEach(visibleAssetPresentations) { presentation in
+                ForEach(visibleAssetPresentations(portfolio: portfolio)) { presentation in
                     DashboardAssetRowView(presentation: presentation).equatable().contentShape(Rectangle()).onTapGesture {
                             selectedAssetGroup = presentation.assetGroup
                         }}}}.sheet(isPresented: $isShowingPinnedAssetsSheet) {
             PinnedAssetsView(store: store)
         }}
     private var visiblePortfolio: [DashboardAssetGroup] { store.cachedDashboardAssetGroups }
-    private var visibleAssetPresentations: [DashboardAssetRowPresentation] {
-        visiblePortfolio.map { assetGroup in
+    private func visibleAssetPresentations(portfolio: [DashboardAssetGroup]) -> [DashboardAssetRowPresentation] {
+        let hideBalances = store.hideBalances
+        return portfolio.map { assetGroup in
             DashboardAssetRowPresentation(
                 assetGroup: assetGroup, amountText: store.formattedAssetAmount(
                     assetGroup.totalAmount, symbol: assetGroup.symbol, chainName: assetGroup.representativeCoin.chainName
-                ), totalValueText: store.hideBalances
+                ), totalValueText: hideBalances
                     ? "••••••"
-                    : store.formattedFiatAmountOrZero(fromUSD: assetGroup.totalValueUSD), priceText: dashboardAssetPriceText(for: assetGroup), chainSummaryText: dashboardChainSummaryText(for: assetGroup)
+                    : store.formattedFiatAmountOrZero(fromUSD: assetGroup.totalValueUSD), priceText: dashboardAssetPriceText(for: assetGroup, hideBalances: hideBalances), chainSummaryText: dashboardChainSummaryText(for: assetGroup)
             )
         }}
     private var activeNotices: [AppNoticeItem] { store.appNoticeItems }
     private var dashboardContentTransition: AnyTransition { .opacity }
     private var dashboardCardTitle: String { dashboardPage == .assets ? localizedDashboardString("My Assets") : localizedDashboardString("My Wallets") }
     private var dashboardCardSymbol: String { dashboardPage == .assets ? "bitcoinsign.circle" : "wallet.pass" }
-    private var dashboardCardCountText: String { dashboardPage == .assets ? "\(visiblePortfolio.count)" : "\(store.wallets.count)" }
     private var dashboardConfigMenu: some View {
         Menu {
             Picker(localizedDashboardString("Dashboard Section"), selection: $dashboardPage) {
@@ -223,9 +225,10 @@ struct DashboardView: View {
     }
     @ViewBuilder
     private func sectionHeading(_ title: String, symbol: String) -> some View { Label(localizedDashboardString(title), systemImage: symbol).font(.headline).foregroundStyle(Color.primary) }
-    private func dashboardAssetPriceText(for assetGroup: DashboardAssetGroup) -> String {
-        guard let price = store.currentOrFallbackPriceIfAvailable(for: assetGroup.representativeCoin) else { return store.hideBalances ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: nil) }
-        return store.hideBalances ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: price)
+    private func dashboardAssetPriceText(for assetGroup: DashboardAssetGroup, hideBalances: Bool) -> String {
+        if hideBalances { return "••••••" }
+        guard let price = store.currentOrFallbackPriceIfAvailable(for: assetGroup.representativeCoin) else { return store.formattedFiatAmountOrZero(fromUSD: nil) }
+        return store.formattedFiatAmountOrZero(fromUSD: price)
     }
     private func dashboardChainSummaryText(for assetGroup: DashboardAssetGroup) -> String {
         if assetGroup.chainEntries.isEmpty { return localizedDashboardString("No chain balances yet") }
@@ -449,8 +452,9 @@ struct PortfolioWalletSelectionView: View {
 struct AppNoticesView: View {
     let store: AppState
     var body: some View {
-        List {
-            if store.appNoticeItems.isEmpty {
+        let notices = store.appNoticeItems
+        return List {
+            if notices.isEmpty {
                 Section {
                     VStack(alignment: .leading, spacing: 8) {
                         Text(localizedDashboardString("No active notices")).font(.headline)
@@ -459,7 +463,7 @@ struct AppNoticesView: View {
                 }
             } else {
                 Section(localizedDashboardString("Active Notices")) {
-                    ForEach(store.appNoticeItems) { notice in DashboardNoticeCardView(notice: notice) }}}}.navigationTitle(localizedDashboardString("Notices"))
+                    ForEach(notices) { notice in DashboardNoticeCardView(notice: notice) }}}}.navigationTitle(localizedDashboardString("Notices"))
     }
 }
 private func localizedFormat(_ key: String, _ arguments: CVarArg...) -> String {
