@@ -123,6 +123,19 @@ extension AppState {
             self.updateRefreshEngineEntries()
             self.persistWallets()
             self.pruneTransactionsForActiveWallets()
+            // Kick the refresh engine + maintenance loop — both are skipped
+            // at startup when `wallets` is empty and need to come alive once
+            // a wallet exists. Rust's `start()` and `startMaintenanceLoop`
+            // both early-exit if already running, so calling on every
+            // wallet mutation is safe. Conversely, when the user just
+            // deleted the last wallet, stop the Rust tokio interval so it
+            // isn't waking every N minutes to no-op.
+            if self.wallets.isEmpty {
+                try? await WalletServiceBridge.shared.stopBalanceRefresh()
+            } else {
+                await self.startBalanceRefreshIfNeeded()
+                self.startMaintenanceLoopIfNeeded()
+            }
             self.walletSideEffectsTask = nil
         }
     }

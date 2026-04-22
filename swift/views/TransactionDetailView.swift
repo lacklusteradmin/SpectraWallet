@@ -59,13 +59,13 @@ struct HistoryDetailView: View {
                                         format: CommonLocalizationContent.current.transactionSubtitleFormat, displayedTransaction.assetName,
                                         store.displayChainTitle(for: displayedTransaction), displayedTransaction.walletName
                                     )
-                                ).font(.subheadline).foregroundStyle(Color.primary.opacity(0.74))
+                                ).font(.subheadline).foregroundStyle(.secondary)
                             }
                             Spacer()
                             statusChip
                         }
                         if let amountText = store.formattedTransactionDetailAmount(displayedTransaction) {
-                            Text(amountText).font(.system(size: 30, weight: .black, design: .rounded)).foregroundStyle(Color.primary)
+                            Text(amountText).font(.title.weight(.bold)).foregroundStyle(Color.primary)
                                 .spectraNumericTextLayout(minimumScaleFactor: 0.5)
                         }
                     }.padding(20).spectraBubbleFill().spectraCardFill(cornerRadius: 28)
@@ -131,8 +131,7 @@ struct HistoryDetailView: View {
                             if store.isPreparingEthereumReplacementContext {
                                 HStack(spacing: 10) {
                                     ProgressView()
-                                    Text(AppLocalization.string("Preparing replacement/cancel context...")).font(.caption).foregroundStyle(
-                                        Color.primary.opacity(0.78))
+                                    Text(AppLocalization.string("Preparing replacement/cancel context...")).font(.caption).foregroundStyle(.secondary)
                                 }
                             } else {
                                 Button {
@@ -159,10 +158,10 @@ struct HistoryDetailView: View {
                                     AppLocalization.string(
                                         "This opens the Send composer with the same nonce and higher fee defaults so you can safely speed up or cancel the pending transaction."
                                     )
-                                ).font(.caption).foregroundStyle(Color.primary.opacity(0.72))
+                                ).font(.caption).foregroundStyle(.secondary)
                             }
                             if let ethereumReplacementMessage {
-                                Text(ethereumReplacementMessage).font(.caption).foregroundStyle(Color.primary.opacity(0.72))
+                                Text(ethereumReplacementMessage).font(.caption).foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -174,7 +173,7 @@ struct HistoryDetailView: View {
                     }
                     if let transactionHash = displayedTransaction.transactionHash {
                         spectraDetailCard(title: "Transaction Hash") {
-                            Text(transactionHash).font(.body.monospaced()).foregroundStyle(Color.primary.opacity(0.82)).textSelection(
+                            Text(transactionHash).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(
                                 .enabled
                             ).padding(14).frame(maxWidth: .infinity, alignment: .leading).background(
                                 .ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -191,7 +190,7 @@ struct HistoryDetailView: View {
                     }
                     if let rawTransactionHexText = displayedTransaction.rawTransactionHexText {
                         spectraDetailCard(title: "Raw Transaction Hex") {
-                            Text(rawTransactionHexText).font(.body.monospaced()).foregroundStyle(Color.primary.opacity(0.82)).textSelection(
+                            Text(rawTransactionHexText).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(
                                 .enabled
                             ).padding(14).frame(maxWidth: .infinity, alignment: .leading).background(
                                 .ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
@@ -217,9 +216,9 @@ struct HistoryDetailView: View {
     @ViewBuilder
     private func detailRow(label: String, value: String) -> some View {
         HStack(alignment: .top, spacing: 16) {
-            Text(AppLocalization.string(label)).font(.caption.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.58)).frame(
+            Text(AppLocalization.string(label)).font(.caption.weight(.semibold)).foregroundStyle(.secondary).frame(
                 width: 122, alignment: .leading)
-            Text(value).font(.body).foregroundStyle(Color.primary.opacity(0.84)).frame(maxWidth: .infinity, alignment: .leading)
+            Text(value).font(.body).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
         }.padding(.vertical, 2)
     }
     @ViewBuilder
@@ -235,7 +234,7 @@ struct HistoryDetailView: View {
                     )
                 }
             }
-            Text(value).font(.body.monospaced()).foregroundStyle(Color.primary.opacity(0.82)).textSelection(.enabled).padding(14).frame(
+            Text(value).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(.enabled).padding(14).frame(
                 maxWidth: .infinity, alignment: .leading
             ).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             Button {

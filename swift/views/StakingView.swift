@@ -3,36 +3,38 @@ struct StakingView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                SpectraBackdrop().ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: 18) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(AppLocalization.string("Staking (Coming Soon)")).font(.title2.bold()).foregroundStyle(Color.primary)
-                                Text(AppLocalization.string("Stake assets while preserving transparent, decentralized consensus."))
-                                    .foregroundStyle(Color.primary.opacity(0.76))
-                            }
-                        }.padding(20).frame(maxWidth: .infinity, alignment: .leading).spectraCardFill(cornerRadius: 28)
+                    VStack(alignment: .leading, spacing: 18) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(AppLocalization.string("Staking (Coming Soon)")).font(.title2.weight(.bold))
+                            Text(AppLocalization.string("Stake assets while preserving transparent, decentralized consensus."))
+                                .font(.subheadline).foregroundStyle(.secondary)
+                        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+                            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
                         VStack(alignment: .leading, spacing: 12) {
-                            Text(AppLocalization.string("Why staking matters")).font(.headline).foregroundStyle(Color.primary)
+                            Text(AppLocalization.string("Why staking matters")).font(.headline)
                             Text(
                                 AppLocalization.string(
                                     "Staking helps secure proof-of-stake networks by distributing validator power across many independent participants instead of relying on a centralized operator."
                                 )
-                            ).font(.subheadline).foregroundStyle(Color.primary.opacity(0.82))
+                            ).font(.subheadline).foregroundStyle(.secondary)
                             Text(
                                 AppLocalization.string(
                                     "When many holders stake through decentralized validators, consensus remains more censorship-resistant, geographically distributed, and resilient to single points of failure."
                                 )
-                            ).font(.subheadline).foregroundStyle(Color.primary.opacity(0.82))
+                            ).font(.subheadline).foregroundStyle(.secondary)
                             Text(
                                 AppLocalization.string(
                                     "Spectra will prioritize non-custodial staking workflows where you keep control of your keys and can choose how your stake supports network decentralization."
                                 )
-                            ).font(.subheadline).foregroundStyle(Color.primary.opacity(0.82))
-                        }.padding(20).frame(maxWidth: .infinity, alignment: .leading).spectraCardFill(cornerRadius: 28)
-                }.padding(20)
-            }
+                            ).font(.subheadline).foregroundStyle(.secondary)
+                        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+                            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+                    }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
+                }
             }.navigationTitle(AppLocalization.string("Staking")).navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(.hidden, for: .navigationBar)
         }
     }
 }

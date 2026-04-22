@@ -259,8 +259,7 @@ struct SetupView: View {
     private var walletPasswordStepSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             Text(AppLocalization.string("import_flow.wallet_password_optional")).font(.headline).foregroundStyle(Color.primary)
-            Text(AppLocalization.string("import_flow.wallet_password_explanation")).font(.subheadline).foregroundStyle(
-                Color.primary.opacity(0.76))
+            Text(AppLocalization.string("import_flow.wallet_password_explanation")).font(.subheadline).foregroundStyle(.secondary)
             SecureField(AppLocalization.string("import_flow.wallet_password_field"), text: $draft.walletPassword).textInputAutocapitalization(
                 .never
             ).autocorrectionDisabled().padding(14).spectraInputFieldStyle().foregroundStyle(Color.primary)
@@ -305,8 +304,8 @@ struct SetupView: View {
     @ViewBuilder
     private func seedPhraseLengthPicker(title: String, subtitle: String, showsRegenerateButton: Bool = false) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text(localizedWalletFlowString(title)).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.88))
-            Text(localizedWalletFlowString(subtitle)).font(.footnote).foregroundStyle(Color.primary.opacity(0.7))
+            Text(localizedWalletFlowString(title)).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            Text(localizedWalletFlowString(subtitle)).font(.footnote).foregroundStyle(.secondary)
             HStack(spacing: 12) {
                 Picker("Seed Phrase Length", selection: $draft.selectedSeedPhraseWordCount) {
                     ForEach([12, 15, 18, 21, 24], id: \.self) { wordCount in
@@ -340,7 +339,7 @@ struct SetupView: View {
     private func numberedSeedPhraseRow(index: Int, text: String? = nil, isInvalidWord: Bool = false) -> some View {
         let validEntryColor: Color = colorScheme == .light ? Color.black.opacity(0.82) : .white
         HStack(spacing: 10) {
-            Text("\(index + 1)").font(.caption.weight(.bold)).foregroundStyle(Color.primary.opacity(0.8)).frame(width: 24, height: 24)
+            Text("\(index + 1)").font(.caption.weight(.bold)).foregroundStyle(.secondary).frame(width: 24, height: 24)
                 .background(Color.white.opacity(0.08)).clipShape(Circle())
             if let text {
                 Text(text).font(.footnote.monospaced()).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.8)
@@ -356,17 +355,17 @@ struct SetupView: View {
     private func watchedAddressSection(
         title: String, text: Binding<String>, caption: String? = nil, validationMessage: String? = nil, validationColor: Color? = nil
     ) -> some View {
-        Text(localizedWalletFlowString(title)).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.88))
+        Text(localizedWalletFlowString(title)).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
         watchedAddressEditor(text: text)
-        if let caption { Text(caption).font(.caption).foregroundStyle(Color.primary.opacity(0.65)) }
-        if let validationMessage { Text(validationMessage).font(.caption).foregroundStyle(validationColor ?? Color.primary.opacity(0.72)) }
+        if let caption { Text(caption).font(.caption).foregroundStyle(.secondary) }
+        if let validationMessage { Text(validationMessage).font(.caption).foregroundStyle(validationColor ?? Color.secondary) }
     }
     private func watchedAddressValidationMessage(
         entries: [String], assetName: String, validator: (String) -> Bool
     ) -> (message: String, color: Color) {
         let localizedAssetName = assetName
         if entries.isEmpty {
-            return (walletFlowLocalizedFormat("Enter one %@ address per line.", localizedAssetName), Color.primary.opacity(0.72))
+            return (walletFlowLocalizedFormat("Enter one %@ address per line.", localizedAssetName), Color.secondary)
         }
         if !entries.allSatisfy(validator) {
             return (walletFlowLocalizedFormat("Every line must contain a valid %@ address.", localizedAssetName), .red.opacity(0.9))
@@ -398,10 +397,10 @@ struct SetupView: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(alignment: .top, spacing: 12) {
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(setupTitle).font(.system(size: 28, weight: .black, design: .rounded)).foregroundStyle(Color.primary)
+                        Text(setupTitle).font(.title2.weight(.semibold)).foregroundStyle(Color.primary)
                             .lineLimit(2).minimumScaleFactor(0.8).allowsTightening(true).layoutPriority(1).fixedSize(
                                 horizontal: false, vertical: true)
-                        Text(setupSubtitle).font(.footnote).foregroundStyle(Color.primary.opacity(0.76))
+                        Text(setupSubtitle).font(.footnote).foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
@@ -448,15 +447,14 @@ struct SetupView: View {
                             VStack(alignment: .leading, spacing: 4) {
                                 Text(AppLocalization.string("See All Chains")).font(.subheadline.weight(.semibold)).foregroundStyle(
                                     Color.primary)
-                                Text(AppLocalization.string("Browse the full chain list.")).font(.caption2).foregroundStyle(
-                                    Color.primary.opacity(0.68))
+                                Text(AppLocalization.string("Browse the full chain list.")).font(.caption2).foregroundStyle(.secondary)
                             }
                             Spacer()
-                            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Color.primary.opacity(0.72))
+                            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.secondary)
                         }.padding(.horizontal, 12).padding(.vertical, 10).spectraInputFieldStyle()
                     }.buttonStyle(.plain)
                 }
-                Text(chainSelectionSubtitle).font(.caption).foregroundStyle(Color.primary.opacity(0.72))
+                Text(chainSelectionSubtitle).font(.caption).foregroundStyle(.secondary)
                 chainSelectionFooterNote
             }.tint(.orange)
         }.sheet(isPresented: $isShowingAllChainsSheet) {
@@ -469,9 +467,9 @@ struct SetupView: View {
     @ViewBuilder
     private var chainSelectionFooterNote: some View {
         if isEditingWallet {
-            Text(copy.watchOnlyFixedMessage).font(.caption).foregroundStyle(Color.primary.opacity(0.6))
+            Text(copy.watchOnlyFixedMessage).font(.caption).foregroundStyle(.secondary)
         } else if isWatchAddressesImportMode {
-            Text(copy.publicAddressOnlyMessage).font(.caption).foregroundStyle(Color.primary.opacity(0.6))
+            Text(copy.publicAddressOnlyMessage).font(.caption).foregroundStyle(.secondary)
         } else if draft.wantsMonero {
             Text(copy.moneroWatchUnsupportedMessage).font(.caption).foregroundStyle(.orange.opacity(0.9))
         }
@@ -482,7 +480,7 @@ struct SetupView: View {
             setupCard {
                 VStack(alignment: .leading, spacing: 14) {
                     Text(copy.addressesToWatchTitle).font(.headline).foregroundStyle(Color.primary)
-                    Text(copy.addressesToWatchSubtitle).font(.subheadline).foregroundStyle(Color.primary.opacity(0.76))
+                    Text(copy.addressesToWatchSubtitle).font(.subheadline).foregroundStyle(.secondary)
                     watchAddressesInputsGroup
                     watchAddressesEmptyNote
                 }
@@ -601,8 +599,7 @@ struct SetupView: View {
                             : AppLocalization.string("import_flow.wallet_name_optional")
                     ).font(.headline).foregroundStyle(Color.primary)
                     if !isEditingWallet {
-                        Text(AppLocalization.string("import_flow.wallet_name_hint")).font(.subheadline).foregroundStyle(
-                            Color.primary.opacity(0.76))
+                        Text(AppLocalization.string("import_flow.wallet_name_hint")).font(.subheadline).foregroundStyle(.secondary)
                     }
                     HStack(spacing: 10) {
                         TextField(AppLocalization.string("import_flow.wallet_name_placeholder"), text: $draft.walletName)
@@ -610,7 +607,7 @@ struct SetupView: View {
                         if isEditingWallet && !draft.walletName.isEmpty {
                             Button { draft.walletName = "" } label: {
                                 Image(systemName: "xmark.circle.fill").font(.system(size: 18, weight: .semibold))
-                                    .foregroundStyle(Color.primary.opacity(0.5))
+                                    .foregroundStyle(.secondary)
                             }.buttonStyle(.plain).accessibilityLabel("Clear wallet name")
                         }
                     }.padding(14).spectraInputFieldStyle()
@@ -646,8 +643,7 @@ struct SetupView: View {
         if store.isImportingWallet {
             HStack(spacing: 10) {
                 ProgressView().tint(.white)
-                Text(AppLocalization.string("import_flow.initializing_wallet_connections")).font(.footnote).foregroundStyle(
-                    Color.primary.opacity(0.8))
+                Text(AppLocalization.string("import_flow.initializing_wallet_connections")).font(.footnote).foregroundStyle(.secondary)
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
     }
@@ -709,7 +705,7 @@ struct SetupView: View {
     @ViewBuilder
     private var derivationAdvancedContent: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(advancedDescriptionText).font(.subheadline).foregroundStyle(Color.primary.opacity(0.76))
+            Text(advancedDescriptionText).font(.subheadline).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 16) {
                 if hasBitcoinSelection { bitcoinNetworkAdvancedSection }
                 if hasEthereumSelection { ethereumNetworkAdvancedSection }
@@ -797,7 +793,7 @@ struct SetupView: View {
     ) -> some View {
         let fg = accentForeground ?? accentColor
         return VStack(alignment: .leading, spacing: 10) {
-            Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.88))
+            Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
                 ForEach(modeOptions, id: \.id) { mode in
                     let isSelected = currentModeID == mode.id
@@ -818,7 +814,7 @@ struct SetupView: View {
                     }.buttonStyle(.plain)
                 }
             }
-            Text(caption).font(.caption).foregroundStyle(Color.primary.opacity(0.65))
+            Text(caption).font(.caption).foregroundStyle(.secondary)
         }
     }
     @ViewBuilder
@@ -835,10 +831,10 @@ struct SetupView: View {
                     ).background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
                     VStack(alignment: .leading, spacing: 4) {
                         Text(AppLocalization.string("Advanced")).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-                        Text(advancedButtonSubtitle).font(.caption2).foregroundStyle(Color.primary.opacity(0.68))
+                        Text(advancedButtonSubtitle).font(.caption2).foregroundStyle(.secondary)
                     }
                     Spacer()
-                    Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(Color.primary.opacity(0.72))
+                    Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.secondary)
                 }.padding(.horizontal, 12).padding(.vertical, 10).spectraInputFieldStyle()
             }.buttonStyle(.plain)
         }
@@ -865,8 +861,7 @@ struct SetupView: View {
     private var importSecretModePicker: some View {
         if !isEditingWallet && !isCreateMode && !draft.isWatchOnlyMode {
             VStack(alignment: .leading, spacing: 10) {
-                Text(localizedWalletFlowString("Import Method")).font(.subheadline.weight(.semibold)).foregroundStyle(
-                    Color.primary.opacity(0.88))
+                Text(localizedWalletFlowString("Import Method")).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                 Picker("Import Method", selection: importSecretModeBinding) {
                     ForEach(WalletSecretImportMode.allCases) { mode in Text(mode.localizedTitle).tag(mode) }
                 }.pickerStyle(.segmented)
@@ -874,7 +869,7 @@ struct SetupView: View {
                     draft.secretImportMode == .seedPhrase
                         ? copy.seedImportMethodDescription
                         : copy.privateKeyImportMethodDescription
-                ).font(.caption).foregroundStyle(Color.primary.opacity(0.68))
+                ).font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -891,7 +886,7 @@ struct SetupView: View {
     @ViewBuilder
     private var newWalletSeedPhraseSection: some View {
         seedPhraseLengthPicker(title: copy.importSeedLengthTitle, subtitle: copy.importSeedLengthSubtitle)
-        Text(copy.seedPhraseEntryHelp).font(.footnote).foregroundStyle(Color.primary.opacity(0.7))
+        Text(copy.seedPhraseEntryHelp).font(.footnote).foregroundStyle(.secondary)
         LazyVGrid(columns: seedPhraseGridColumns, spacing: 12) {
             ForEach(0..<draft.selectedSeedPhraseWordCount, id: \.self) { index in seedPhraseField(at: index) }
         }
@@ -902,7 +897,7 @@ struct SetupView: View {
         seedPhraseLengthPicker(
             title: copy.createSeedLengthTitle, subtitle: copy.createSeedLengthSubtitle, showsRegenerateButton: true
         )
-        Text(copy.createSeedPhraseWarning).font(.footnote).foregroundStyle(Color.primary.opacity(0.72))
+        Text(copy.createSeedPhraseWarning).font(.footnote).foregroundStyle(.secondary)
         LazyVGrid(columns: seedPhraseGridColumns, spacing: 12) {
             ForEach(draft.seedPhraseWords.indices, id: \.self) { index in
                 numberedSeedPhraseRow(index: index, text: draft.seedPhraseWords[index])
@@ -917,8 +912,8 @@ struct SetupView: View {
     @ViewBuilder
     private var privateKeyImportFields: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(copy.privateKeyTitle).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.88))
-            Text(copy.privateKeyPrompt).font(.footnote).foregroundStyle(Color.primary.opacity(0.7))
+            Text(copy.privateKeyTitle).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            Text(copy.privateKeyPrompt).font(.footnote).foregroundStyle(.secondary)
             TextField(copy.privateKeyPlaceholder, text: $draft.privateKeyInput).textInputAutocapitalization(.never).autocorrectionDisabled()
                 .padding(14).spectraInputFieldStyle().foregroundStyle(Color.primary)
             if !draft.unsupportedPrivateKeyChainNames.isEmpty {
@@ -957,7 +952,7 @@ struct SetupView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(copy.backupVerificationTitle).font(.headline).foregroundStyle(Color.primary)
             if !draft.backupVerificationPromptLabel.isEmpty {
-                Text(draft.backupVerificationPromptLabel).font(.subheadline).foregroundStyle(Color.primary.opacity(0.76))
+                Text(draft.backupVerificationPromptLabel).font(.subheadline).foregroundStyle(.secondary)
             }
             if draft.backupVerificationWordIndices.isEmpty {
                 Button(copy.backupVerificationButtonTitle) {
@@ -967,9 +962,7 @@ struct SetupView: View {
                 ForEach(draft.backupVerificationWordIndices.indices, id: \.self) { offset in
                     let wordIndex = draft.backupVerificationWordIndices[offset]
                     HStack(spacing: 10) {
-                        Text(walletFlowLocalizedFormat("Word #%lld", wordIndex + 1)).font(.caption.weight(.bold)).foregroundStyle(
-                            Color.primary.opacity(0.82)
-                        ).frame(width: 88, alignment: .leading)
+                        Text(walletFlowLocalizedFormat("Word #%lld", wordIndex + 1)).font(.caption.weight(.bold)).foregroundStyle(.secondary).frame(width: 88, alignment: .leading)
                         TextField("Enter word \(wordIndex + 1)", text: backupVerificationBinding(for: offset)).textInputAutocapitalization(
                             .never
                         ).autocorrectionDisabled().foregroundStyle(Color.primary)
@@ -978,7 +971,7 @@ struct SetupView: View {
                 if draft.isBackupVerificationComplete {
                     Text(copy.backupVerifiedMessage).font(.footnote).foregroundStyle(.green.opacity(0.9))
                 } else {
-                    Text(copy.backupVerificationHint).font(.footnote).foregroundStyle(Color.primary.opacity(0.7))
+                    Text(copy.backupVerificationHint).font(.footnote).foregroundStyle(.secondary)
                 }
             }
         }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: 24)
@@ -1114,12 +1107,12 @@ private struct AdvancedOverrideTextField: View {
     var keyboard: UIKeyboardType = .default
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.88))
+            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             inputField.font(.subheadline.monospaced()).padding(.horizontal, 10).padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.06)))
                 .overlay(
                     RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
-            Text(detail).font(.caption2).foregroundStyle(Color.primary.opacity(0.6))
+            Text(detail).font(.caption2).foregroundStyle(.secondary)
         }
     }
     @ViewBuilder
@@ -1140,7 +1133,7 @@ private struct AdvancedOverridePicker: View {
     let options: [String]
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.88))
+            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             Menu {
                 Button(AppLocalization.string("(default)")) { selection = "" }
                 ForEach(options, id: \.self) { option in
@@ -1151,13 +1144,13 @@ private struct AdvancedOverridePicker: View {
                     Text(selection.isEmpty ? AppLocalization.string("(default)") : selection)
                         .font(.subheadline.monospaced()).foregroundStyle(Color.primary)
                     Spacer()
-                    Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundStyle(Color.primary.opacity(0.6))
+                    Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundStyle(.secondary)
                 }.padding(.horizontal, 10).padding(.vertical, 8)
                     .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.06)))
                     .overlay(
                         RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
             }.buttonStyle(.plain)
-            Text(detail).font(.caption2).foregroundStyle(Color.primary.opacity(0.6))
+            Text(detail).font(.caption2).foregroundStyle(.secondary)
         }
     }
 }
@@ -1207,13 +1200,12 @@ private struct AllChainsSelectionView: View {
                     LazyVStack(alignment: .leading, spacing: 18) {
                         VStack(alignment: .leading, spacing: 14) {
                             HStack(spacing: 10) {
-                                Image(systemName: "magnifyingglass").foregroundStyle(Color.primary.opacity(0.6))
+                                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                                 TextField(AppLocalization.string("import_flow.search_chains"), text: $chainSearchText)
                                     .textInputAutocapitalization(.never).autocorrectionDisabled()
                             }.padding(.horizontal, 14).padding(.vertical, 12).spectraInputFieldStyle()
                             if filteredDescriptors.isEmpty {
-                                Text(AppLocalization.string("import_flow.no_chains_match")).font(.caption).foregroundStyle(
-                                    Color.primary.opacity(0.7))
+                                Text(AppLocalization.string("import_flow.no_chains_match")).font(.caption).foregroundStyle(.secondary)
                             } else {
                                 VStack(alignment: .leading, spacing: 2) {
                                     ForEach(filteredDescriptors) { descriptor in row(for: descriptor) }

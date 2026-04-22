@@ -227,30 +227,35 @@ struct ChainToggleLabel: View {
         }
     }
 }
-/// Colorful layered-blur backdrop. Currently unused across screens — the app
-/// renders against the system background for performance — but kept here so
-/// the styling can be restored on a per-screen basis if desired.
+/// iOS 26 wallpaper-style backdrop. Rich gradient with soft chroma clouds
+/// so `.glassEffect` has something meaningful to refract. Matches Apple's
+/// own Liquid Glass hero surfaces (Weather, Wallet, Maps cards) — desaturated
+/// corner-anchored color blobs over a deep gradient rather than painterly
+/// rainbow splatters.
 struct SpectraBackdrop: View {
     @Environment(\.colorScheme) private var colorScheme
     var body: some View {
         ZStack {
-            LinearGradient(colors: backdropGradientColors, startPoint: .topLeading, endPoint: .bottomTrailing)
-            Circle().fill(Color.red.opacity(0.45)).frame(width: 280, height: 280).blur(radius: 70).offset(x: -120, y: -220)
-            Circle().fill(Color.orange.opacity(0.45)).frame(width: 240, height: 240).blur(radius: 65).offset(x: 100, y: -170)
-            Circle().fill(Color.green.opacity(0.35)).frame(width: 230, height: 230).blur(radius: 70).offset(x: -140, y: 40)
-            Circle().fill(Color.blue.opacity(0.4)).frame(width: 260, height: 260).blur(radius: 75).offset(x: 140, y: 120)
-            Circle().fill(Color.purple.opacity(0.36)).frame(width: 250, height: 250).blur(radius: 80).offset(x: 0, y: 260)
+            LinearGradient(colors: backdropGradientColors, startPoint: .top, endPoint: .bottom)
+            Circle().fill(chroma1).frame(width: 340, height: 340).blur(radius: 90).offset(x: -140, y: -260)
+            Circle().fill(chroma2).frame(width: 320, height: 320).blur(radius: 100).offset(x: 160, y: -160)
+            Circle().fill(chroma3).frame(width: 300, height: 300).blur(radius: 110).offset(x: -120, y: 220)
+            Circle().fill(chroma4).frame(width: 360, height: 360).blur(radius: 120).offset(x: 180, y: 320)
         }.ignoresSafeArea()
     }
+    private var chroma1: Color { colorScheme == .light ? Color.blue.opacity(0.18) : Color.indigo.opacity(0.38) }
+    private var chroma2: Color { colorScheme == .light ? Color.pink.opacity(0.14) : Color.purple.opacity(0.32) }
+    private var chroma3: Color { colorScheme == .light ? Color.mint.opacity(0.14) : Color.teal.opacity(0.28) }
+    private var chroma4: Color { colorScheme == .light ? Color.orange.opacity(0.12) : Color.pink.opacity(0.22) }
     private var backdropGradientColors: [Color] {
         if colorScheme == .light {
             return [
-                Color(red: 0.96, green: 0.97, blue: 0.99), Color(red: 0.95, green: 0.96, blue: 0.98),
-                Color(red: 0.93, green: 0.95, blue: 0.98),
+                Color(red: 0.98, green: 0.98, blue: 1.00), Color(red: 0.95, green: 0.96, blue: 0.99),
             ]
         }
         return [
-            Color(red: 0.08, green: 0.12, blue: 0.22), Color(red: 0.12, green: 0.08, blue: 0.18), Color(red: 0.04, green: 0.1, blue: 0.16),
+            Color(red: 0.05, green: 0.06, blue: 0.11), Color(red: 0.08, green: 0.06, blue: 0.14),
+            Color(red: 0.04, green: 0.05, blue: 0.09),
         ]
     }
 }
@@ -258,13 +263,13 @@ extension View {
     func spectraNumericTextLayout(minimumScaleFactor: CGFloat = 0.62) -> some View {
         lineLimit(1).minimumScaleFactor(minimumScaleFactor).allowsTightening(true)
     }
-    /// Flat card fill used in place of `.glassEffect(...)` on non-hero
-    /// cards. Uses a subtle primary-tinted overlay that adapts to light/dark
-    /// with zero Metal-shader cost (unlike Liquid Glass or Materials, which
-    /// are GPU-blur passes). Keep `.glassEffect` only for hero surfaces
-    /// (1-2 per screen at most).
+    /// iOS 26 Liquid Glass card fill. Routes all legacy `spectraCardFill`
+    /// usages through a proper `.glassEffect` so every card in the app
+    /// participates in the Liquid Glass design language — not a flat tinted
+    /// rectangle. The subtle white tint gives the glass a visible edge
+    /// without competing with the card's own content.
     func spectraCardFill(cornerRadius: CGFloat = 24) -> some View {
-        background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+        glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: cornerRadius))
     }
 }
 struct SpectraLogo: View {

@@ -1,17 +1,9 @@
 import SwiftUI
-private struct DashboardConfigButtonLabel: View {
-    var body: some View {
-        Image(systemName: "slider.horizontal.3").font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.78)).frame(
-            width: 30, height: 30
-        ).background(Circle().fill(.white.opacity(0.14)))
-    }
-}
 struct DashboardView: View {
     @Bindable var store: AppState
     @State private var dashboardPage: DashboardPage = .assets
     @State private var isShowingPinnedAssetsSheet = false
     @State private var selectedWalletID: String?
-    @State private var walletPageIndex: Int = 0
     @State private var selectedAssetGroup: DashboardAssetGroup?
     @State private var isShowingAddWalletPage: Bool = false
     private var deleteWalletMessage: String {
@@ -28,29 +20,36 @@ struct DashboardView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                SpectraBackdrop().ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
-                    LazyVStack(spacing: 22) {
+                    VStack(spacing: 18) {
                         portfolioHeader
                         actionButtons
-                        dashboardCardSection
-                    }.padding(.horizontal, 20).padding(.bottom, 24)
+                        assetsOrWalletsCard
+                    }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
                 }.refreshable {
                     await store.performUserInitiatedRefresh()
                 }.scrollBounceBehavior(.always)
-            }.navigationTitle(AppLocalization.string("Spectra")).navigationBarTitleDisplayMode(.inline).toolbar {
+            }
+            .navigationTitle(AppLocalization.string("Spectra")).navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
+            .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     NavigationLink {
                         AppNoticesView(store: store)
                     } label: {
                         noticeToolbarLabel
-                    }
+                    }.buttonStyle(.glass)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    dashboardSectionMenu.buttonStyle(.glass)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
                         isShowingAddWalletPage = true
                     } label: {
                         Image(systemName: "plus")
-                    }
+                    }.buttonStyle(.glass)
                 }
             }.navigationDestination(isPresented: $isShowingAddWalletPage) {
                 AddWalletEntryView(store: store)
@@ -79,9 +78,8 @@ struct DashboardView: View {
                     }
                 } message: {
                     Text(deleteWalletMessage)
-                }.onChange(of: store.walletsRevision) { _, _ in
-                    let walletCount = store.wallets.count
-                    if walletCount == 0 { walletPageIndex = 0 } else if walletPageIndex >= walletCount { walletPageIndex = walletCount - 1 }
+                }.sheet(isPresented: $isShowingPinnedAssetsSheet) {
+                    PinnedAssetsView(store: store)
                 }
         }
     }
@@ -108,104 +106,72 @@ struct DashboardView: View {
     private var actionButtons: some View {
         DashboardActionButtons(store: store)
     }
-    private var dashboardCardSection: some View {
-        let wallets = store.wallets
-        let portfolio = visiblePortfolio
-        let countText = dashboardPage == .assets ? "\(portfolio.count)" : "\(wallets.count)"
-        return VStack(alignment: .leading, spacing: 14) {
-            HStack(alignment: .center, spacing: 12) {
-                sectionHeading(dashboardCardTitle, symbol: dashboardCardSymbol)
-                Text(countText).font(.headline.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.72))
+    private var assetsOrWalletsCard: some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 8) {
+                Text(dashboardCardTitle).font(.headline)
                 Spacer()
-                dashboardConfigMenu
-            }.frame(maxWidth: .infinity, alignment: .leading)
-            switch dashboardPage {
-            case .wallets: walletsSectionContent(wallets: wallets).transition(dashboardContentTransition)
-            case .assets: assetsSectionContent(portfolio: portfolio).transition(dashboardContentTransition)
-            }
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(20).spectraBubbleFill()
-            .spectraCardFill(cornerRadius: 30)
-            .contentShape(Rectangle()).animation(.easeOut(duration: 0.16), value: dashboardPage)
+                Text(dashboardCardCountText).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
+            }.padding(.horizontal, 20).padding(.vertical, 16)
+            Divider().opacity(0.35)
+            VStack(spacing: 0) {
+                switch dashboardPage {
+                case .wallets: walletsCardRows(wallets: store.wallets)
+                case .assets: assetsCardRows(portfolio: visiblePortfolio)
+                }
+            }.padding(.vertical, 4)
+        }.frame(maxWidth: .infinity).glassEffect(.regular.tint(.white.opacity(0.03)).interactive(), in: .rect(cornerRadius: 28))
+    }
+    private var dashboardCardCountText: String {
+        let count = dashboardPage == .assets ? visiblePortfolio.count : store.wallets.count
+        return "\(count)"
     }
     @ViewBuilder
-    private func walletsSectionContent(wallets: [ImportedWallet]) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if wallets.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(AppLocalization.string("No wallets yet")).font(.headline).foregroundStyle(Color.primary)
-                    Text(AppLocalization.string("Tap the + button in the top right to add your first wallet.")).font(.subheadline)
-                        .foregroundStyle(Color.primary.opacity(0.76))
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(16).spectraCardFill(cornerRadius: 24)
-            } else {
-                let safePageIndex = min(max(walletPageIndex, 0), max(wallets.count - 1, 0))
-                TabView(selection: Binding(get: { safePageIndex }, set: { walletPageIndex = $0 })) {
-                    ForEach(Array(wallets.enumerated()), id: \.element.id) { index, wallet in
-                        let badge = Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, "W", .mint)
-                        Button {
-                            selectedWalletID = wallet.id
-                        } label: {
-                            WalletCardView(
-                                presentation: WalletCardView.Presentation(
-                                    walletName: wallet.name, chainTitleText: store.displayChainTitle(for: wallet),
-                                    totalValueText: store.preferences.hideBalances
-                                        ? "••••••"
-                                        : store.formattedFiatAmountOrZero(fromUSD: store.currentTotalIfAvailable(for: wallet)),
-                                    assetCountText: AppLocalization.format(
-                                        "%lld assets", wallet.holdings.filter { $0.amount > 0 }.count),
-                                    isWatchOnly: store.isWatchOnlyWallet(wallet), badgeAssetIdentifier: badge.0,
-                                    badgeMark: badge.1, badgeColor: badge.2
-                                )
-                            ).equatable()
-                        }.buttonStyle(.plain).tag(index)
-                    }
-                }.tabViewStyle(.page(indexDisplayMode: .never)).frame(height: 108)
-                HStack(spacing: 10) {
-                    Button {
-                        walletPageIndex = max(walletPageIndex - 1, 0)
-                    } label: {
-                        Image(systemName: "chevron.left").font(.footnote.weight(.semibold))
-                    }.buttonStyle(.glass).disabled(safePageIndex == 0)
-                    Spacer()
-                    Text(AppLocalization.format("Wallet %lld of %lld", safePageIndex + 1, wallets.count)).font(.caption).foregroundStyle(Color.primary.opacity(0.72))
-                    Spacer()
-                    Button {
-                        walletPageIndex = min(walletPageIndex + 1, wallets.count - 1)
-                    } label: {
-                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold))
-                    }.buttonStyle(.glass).disabled(safePageIndex >= wallets.count - 1)
-                }
-                HStack(spacing: 6) {
-                    let selectedWalletID = wallets.indices.contains(safePageIndex) ? wallets[safePageIndex].id : nil
-                    ForEach(wallets) { wallet in
-                        let isSelected = wallet.id == selectedWalletID
-                        Capsule().fill(isSelected ? Color.primary.opacity(0.85) : Color.primary.opacity(0.2)).frame(
-                            width: isSelected ? 18 : 6, height: 6)
-                    }
-                }.frame(maxWidth: .infinity, alignment: .center)
+    private func walletsCardRows(wallets: [ImportedWallet]) -> some View {
+        if wallets.isEmpty {
+            emptyCardState(title: AppLocalization.string("No wallets yet"),
+                           message: AppLocalization.string("Tap the + button in the top right to add your first wallet."))
+        } else {
+            ForEach(Array(wallets.enumerated()), id: \.element.id) { index, wallet in
+                let badge = Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, "W", .mint)
+                Button { selectedWalletID = wallet.id } label: {
+                    WalletCardView(
+                        presentation: WalletCardView.Presentation(
+                            walletName: wallet.name, chainTitleText: store.displayChainTitle(for: wallet),
+                            totalValueText: store.preferences.hideBalances
+                                ? "••••••"
+                                : store.formattedFiatAmountOrZero(fromUSD: store.currentTotalIfAvailable(for: wallet)),
+                            assetCountText: AppLocalization.format(
+                                "%lld assets", wallet.holdings.filter { $0.amount > 0 }.count),
+                            isWatchOnly: store.isWatchOnlyWallet(wallet), badgeAssetIdentifier: badge.0,
+                            badgeMark: badge.1, badgeColor: badge.2
+                        )
+                    ).equatable().padding(.horizontal, 20).padding(.vertical, 12)
+                }.buttonStyle(.plain)
+                if index < wallets.count - 1 { Divider().padding(.leading, 72).opacity(0.25) }
             }
         }
     }
     @ViewBuilder
-    private func assetsSectionContent(portfolio: [DashboardAssetGroup]) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
-            if portfolio.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(AppLocalization.string("No assets to display yet")).font(.headline).foregroundStyle(Color.primary)
-                    Text(AppLocalization.string("Import a wallet or pull to refresh to load chain balances.")).font(.subheadline)
-                        .foregroundStyle(Color.primary.opacity(0.76))
-                }.frame(maxWidth: .infinity, alignment: .leading).padding(16).spectraCardFill(cornerRadius: 20)
-            } else {
-                ForEach(visibleAssetPresentations(portfolio: portfolio)) { presentation in
-                    Button {
-                        selectedAssetGroup = presentation.assetGroup
-                    } label: {
-                        DashboardAssetRowView(presentation: presentation).equatable()
-                    }.buttonStyle(.plain)
-                }
+    private func assetsCardRows(portfolio: [DashboardAssetGroup]) -> some View {
+        if portfolio.isEmpty {
+            emptyCardState(title: AppLocalization.string("No assets to display yet"),
+                           message: AppLocalization.string("Import a wallet or pull to refresh to load chain balances."))
+        } else {
+            let presentations = visibleAssetPresentations(portfolio: portfolio)
+            ForEach(Array(presentations.enumerated()), id: \.element.id) { index, presentation in
+                Button { selectedAssetGroup = presentation.assetGroup } label: {
+                    DashboardAssetRowView(presentation: presentation).equatable().padding(.horizontal, 20).padding(.vertical, 12)
+                }.buttonStyle(.plain)
+                if index < presentations.count - 1 { Divider().padding(.leading, 72).opacity(0.25) }
             }
-        }.sheet(isPresented: $isShowingPinnedAssetsSheet) {
-            PinnedAssetsView(store: store)
         }
+    }
+    private func emptyCardState(title: String, message: String) -> some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.body)
+            Text(message).font(.footnote).foregroundStyle(.secondary)
+        }.padding(.horizontal, 20).padding(.vertical, 14).frame(maxWidth: .infinity, alignment: .leading)
     }
     private var visiblePortfolio: [DashboardAssetGroup] { store.cachedDashboardAssetGroups }
     private func visibleAssetPresentations(portfolio: [DashboardAssetGroup]) -> [DashboardAssetRowPresentation] {
@@ -225,12 +191,10 @@ struct DashboardView: View {
         }
     }
     private var activeNotices: [AppNoticeItem] { store.appNoticeItems }
-    private var dashboardContentTransition: AnyTransition { .opacity }
     private var dashboardCardTitle: String {
         dashboardPage == .assets ? AppLocalization.string("My Assets") : AppLocalization.string("My Wallets")
     }
-    private var dashboardCardSymbol: String { dashboardPage == .assets ? "bitcoinsign.circle" : "wallet.pass" }
-    private var dashboardConfigMenu: some View {
+    private var dashboardSectionMenu: some View {
         Menu {
             Picker(AppLocalization.string("Dashboard Section"), selection: $dashboardPage) {
                 Text(AppLocalization.string("Assets")).tag(DashboardPage.assets)
@@ -243,16 +207,12 @@ struct DashboardView: View {
                 }
             }
         } label: {
-            DashboardConfigButtonLabel()
-        }.buttonStyle(.plain).accessibilityLabel(
+            Image(systemName: "line.3.horizontal.decrease.circle")
+        }.accessibilityLabel(
             dashboardPage == .assets
                 ? "Configure asset view"
                 : "Configure wallet view"
         )
-    }
-    @ViewBuilder
-    private func sectionHeading(_ title: String, symbol: String) -> some View {
-        Label(AppLocalization.string(title), systemImage: symbol).font(.headline).foregroundStyle(Color.primary)
     }
     private func dashboardAssetPriceText(for assetGroup: DashboardAssetGroup, hideBalances: Bool) -> String {
         if hideBalances { return "••••••" }
@@ -374,12 +334,10 @@ struct AssetGroupDetailView: View {
                     HStack {
                         Text(AppLocalization.string("Chain Breakdown")).font(.headline).foregroundStyle(Color.primary)
                         Spacer()
-                        Text("\(assetGroup.chainEntries.count)").font(.subheadline.weight(.semibold)).foregroundStyle(
-                            Color.primary.opacity(0.68))
+                        Text("\(assetGroup.chainEntries.count)").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                     }
                     if assetGroup.chainEntries.isEmpty {
-                        Text(AppLocalization.string("No chain balances yet for this asset.")).font(.subheadline).foregroundStyle(
-                            Color.primary.opacity(0.72))
+                        Text(AppLocalization.string("No chain balances yet for this asset.")).font(.subheadline).foregroundStyle(.secondary)
                     } else {
                         ForEach(assetGroup.chainEntries) { entry in
                             VStack(alignment: .leading, spacing: 8) {
@@ -394,9 +352,7 @@ struct AssetGroupDetailView: View {
                                             store.formattedAssetAmount(
                                                 entry.coin.amount, symbol: entry.coin.symbol, chainName: entry.coin.chainName)
                                         ).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).spectraNumericTextLayout()
-                                        Text(store.formattedFiatAmountOrZero(fromUSD: entry.valueUSD)).font(.caption).foregroundStyle(
-                                            Color.primary.opacity(0.68)
-                                        ).spectraNumericTextLayout()
+                                        Text(store.formattedFiatAmountOrZero(fromUSD: entry.valueUSD)).font(.caption).foregroundStyle(.secondary).spectraNumericTextLayout()
                                     }
                                 }
                             }.padding(.vertical, 4)
@@ -404,7 +360,7 @@ struct AssetGroupDetailView: View {
                         Text(
                             AppLocalization.string(
                                 "This asset view merges balances across chains while preserving the per-chain token standard details here.")
-                        ).font(.caption).foregroundStyle(Color.primary.opacity(0.62))
+                        ).font(.caption).foregroundStyle(.secondary)
                     }
                 }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: 24)
             }.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
@@ -444,7 +400,7 @@ struct AssetContractsDetailView: View {
                     Text(AppLocalization.string("Contracts")).font(.headline).foregroundStyle(Color.primary)
                     if supportedTokenEntries.isEmpty {
                         Text(AppLocalization.string("No contract addresses are available for this asset.")).font(.subheadline)
-                            .foregroundStyle(Color.primary.opacity(0.72))
+                            .foregroundStyle(.secondary)
                     } else {
                         ForEach(supportedTokenEntries) { entry in
                             VStack(alignment: .leading, spacing: 8) {
@@ -455,7 +411,7 @@ struct AssetContractsDetailView: View {
                                     }
                                     Spacer()
                                 }
-                                Text(entry.contractAddress).font(.footnote.monospaced()).foregroundStyle(Color.primary.opacity(0.8))
+                                Text(entry.contractAddress).font(.footnote.monospaced()).foregroundStyle(.secondary)
                                     .textSelection(.enabled)
                             }.padding(.vertical, 4)
                         }
@@ -605,16 +561,16 @@ struct DashboardAssetRowView: View, Equatable {
                     }
                     Text(presentation.assetGroup.name).font(.headline).foregroundStyle(Color.primary).lineLimit(1).truncationMode(.tail)
                 }
-                Text(presentation.amountText).font(.caption).foregroundStyle(Color.primary.opacity(0.72)).spectraNumericTextLayout()
-                Text(presentation.chainSummaryText).font(.caption2).foregroundStyle(Color.primary.opacity(0.58))
+                Text(presentation.amountText).font(.caption).foregroundStyle(.secondary).spectraNumericTextLayout()
+                Text(presentation.chainSummaryText).font(.caption2).foregroundStyle(.secondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
                 Text(presentation.totalValueText).font(.headline).foregroundStyle(Color.primary).spectraNumericTextLayout()
-                Text(presentation.priceText).font(.caption).foregroundStyle(Color.primary.opacity(0.68)).spectraNumericTextLayout()
+                Text(presentation.priceText).font(.caption).foregroundStyle(.secondary).spectraNumericTextLayout()
             }
-            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.42))
-        }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: 24)
+            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+        }.contentShape(Rectangle())
     }
 }
 struct DashboardPinnedAssetRowView: View, Equatable {
@@ -676,27 +632,21 @@ private func dashboardComponentsLocalizedFormat(_ key: String, _ arguments: CVar
 private struct DashboardPortfolioHeader: View {
     @Bindable var store: AppState
     var body: some View {
-        HStack {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 10) {
-                    Text(AppLocalization.string("Portfolio")).font(.headline).foregroundStyle(Color.primary.opacity(0.82))
-                }
-                Text(store.preferences.hideBalances ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: store.totalBalanceIfAvailable)).font(
-                    .system(size: 42, weight: .black, design: .rounded)
-                ).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.45).allowsTightening(true)
+        HStack(alignment: .top) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text(AppLocalization.string("Portfolio")).font(.subheadline).foregroundStyle(.secondary)
+                Text(store.preferences.hideBalances ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: store.totalBalanceIfAvailable))
+                    .font(.largeTitle.weight(.bold)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.5).allowsTightening(true)
+                Text(AppLocalization.format("%lld in total", store.cachedIncludedPortfolioWallets.count)).font(.footnote).foregroundStyle(.secondary)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 8) {
-                NavigationLink {
-                    PortfolioWalletSelectionView(store: store)
-                } label: {
-                    Image(systemName: "chevron.right.circle.fill").font(.system(size: 24, weight: .semibold)).foregroundStyle(
-                        Color.primary.opacity(0.88))
-                }.buttonStyle(.plain)
-                Text(AppLocalization.format("%lld in total", store.cachedIncludedPortfolioWallets.count)).font(.caption2).foregroundStyle(
-                    Color.primary.opacity(0.72))
-            }
-        }.padding(20).spectraBubbleFill().spectraCardFill(cornerRadius: 30).padding(.top, 12)
+            NavigationLink {
+                PortfolioWalletSelectionView(store: store)
+            } label: {
+                Image(systemName: "chevron.right").font(.subheadline.weight(.semibold)).padding(10)
+            }.buttonStyle(.glass)
+        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
     }
 }
 
@@ -705,15 +655,17 @@ private struct DashboardActionButtons: View {
     var body: some View {
         let canSend = store.canBeginSend
         let canReceive = store.canBeginReceive
-        return HStack(spacing: 12) {
-            Button { store.beginSend() } label: {
-                Label(AppLocalization.string("Send"), systemImage: "arrow.up.right").font(.headline).frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-            }.buttonStyle(.glass).disabled(!canSend).opacity(canSend ? 1.0 : 0.5)
-            Button { store.beginReceive() } label: {
-                Label(AppLocalization.string("Receive"), systemImage: "arrow.down.left").font(.headline).frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-            }.buttonStyle(.glassProminent).disabled(!canReceive).opacity(canReceive ? 1.0 : 0.5)
+        return GlassEffectContainer(spacing: 12) {
+            HStack(spacing: 12) {
+                Button { store.beginSend() } label: {
+                    Label(AppLocalization.string("Send"), systemImage: "arrow.up.right")
+                        .font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 14)
+                }.buttonStyle(.glass).disabled(!canSend)
+                Button { store.beginReceive() } label: {
+                    Label(AppLocalization.string("Receive"), systemImage: "arrow.down.left")
+                        .font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 14)
+                }.buttonStyle(.glassProminent).disabled(!canReceive)
+            }
         }
     }
 }

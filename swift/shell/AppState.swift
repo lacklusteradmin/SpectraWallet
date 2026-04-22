@@ -77,6 +77,12 @@ final class AppState {
         }
     }
     @ObservationIgnored private var walletSideEffectsDebounceTask: Task<Void, Never>?
+    @ObservationIgnored var pendingBalanceUpdates: [PendingBalanceUpdate] = []
+    @ObservationIgnored var balanceFlushTask: Task<Void, Never>?
+    struct PendingBalanceUpdate {
+        let walletId: String
+        let summary: WalletSummary
+    }
     /// Debounced trigger for `applyWalletCollectionSideEffects`. Replaces the
     /// old `withObservationTracking`-based observation loop, which leaked
     /// `self` on cancel (its `withCheckedContinuation` never resumed when the
@@ -860,6 +866,13 @@ final class AppState {
         importRefreshTask?.cancel()
         walletSideEffectsTask?.cancel()
         walletSideEffectsDebounceTask?.cancel()
+        balanceFlushTask?.cancel()
+        transactionRebuildTask?.cancel()
+        tokenPreferenceRebuildTask?.cancel()
+        livePricesPersistTask?.cancel()
+        priceAlertsPersistTask?.cancel()
+        addressBookPersistTask?.cancel()
+        appSettingsPersistTask?.cancel()
         #if canImport(Network)
             networkPathMonitor.cancel()
         #endif

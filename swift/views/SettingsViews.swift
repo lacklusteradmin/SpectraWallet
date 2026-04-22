@@ -119,7 +119,9 @@ struct SettingsView: View {
                         Label(AppLocalization.string("Reset Wallet"), systemImage: "trash")
                     }
                 }
-            }.navigationTitle(AppLocalization.string("Settings")).navigationDestination(for: Route.self) { route in
+            }.navigationTitle(AppLocalization.string("Settings"))
+                .toolbarBackground(.hidden, for: .navigationBar)
+                .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .addressBook: AddressBookView(store: store)
                 case .trackedTokens: TokenRegistrySettingsView(store: store)

@@ -46,7 +46,7 @@ struct AddWalletEntryView: View {
     }
     private var setupModePicker: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text(AppLocalization.string("Setup Mode")).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.88))
+            Text(AppLocalization.string("Setup Mode")).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
             Picker(AppLocalization.string("Setup Mode"), selection: $setupMode) {
                 ForEach(SetupModeChoice.allCases) { mode in
                     Text(mode.localizedTitle).tag(mode)
@@ -56,7 +56,7 @@ struct AddWalletEntryView: View {
                 setupMode == .simple
                     ? AppLocalization.string("Recommended defaults and fewer required choices.")
                     : AppLocalization.string("Configure derivation paths, networks, and power-user overrides.")
-            ).font(.caption).foregroundStyle(Color.primary.opacity(0.68))
+            ).font(.caption).foregroundStyle(.secondary)
         }.padding(16).frame(maxWidth: .infinity, alignment: .leading).spectraCardFill(cornerRadius: 22)
     }
     private func actionCard(
@@ -67,10 +67,10 @@ struct AddWalletEntryView: View {
                 Image(systemName: icon).font(.system(size: 24, weight: .semibold)).foregroundStyle(tint).frame(width: 30, height: 30)
                 VStack(alignment: .leading, spacing: 6) {
                     Text(title).font(.headline).foregroundStyle(Color.primary).multilineTextAlignment(.leading)
-                    Text(subtitle).font(.subheadline).foregroundStyle(Color.primary.opacity(0.72)).multilineTextAlignment(.leading)
+                    Text(subtitle).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.leading)
                 }
                 Spacer(minLength: 8)
-                Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(Color.primary.opacity(0.38)).padding(
+                Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(.tertiary).padding(
                     .top, 4)
             }.padding(16).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
         }.buttonStyle(.plain).spectraBubbleFill().spectraCardFill(cornerRadius: 22)

@@ -10,26 +10,27 @@ struct DonationsView: View {
     var body: some View {
         NavigationStack {
             ZStack {
+                SpectraBackdrop().ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: 18) {
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack(spacing: 12) {
-                                VStack(alignment: .leading, spacing: 3) {
-                                    Text(copy.heroTitle).font(.title2.bold()).foregroundStyle(Color.primary)
-                                    Text(copy.heroSubtitle).foregroundStyle(Color.primary.opacity(0.76))
-                                }
-                            }
-                        }.padding(20).frame(maxWidth: .infinity, alignment: .leading).spectraCardFill(cornerRadius: 28)
-                        VStack(alignment: .leading, spacing: 12) {
-                            ForEach(copy.destinations, id: \.address) { destination in
+                    VStack(alignment: .leading, spacing: 18) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text(copy.heroTitle).font(.title2.weight(.bold))
+                            Text(copy.heroSubtitle).font(.subheadline).foregroundStyle(.secondary)
+                        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+                            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
+                        VStack(spacing: 0) {
+                            ForEach(Array(copy.destinations.enumerated()), id: \.element.address) { index, destination in
                                 donationRow(
                                     chainName: destination.chainName, title: destination.title, address: destination.address
                                 )
+                                if index < copy.destinations.count - 1 { Divider().padding(.leading, 58).opacity(0.25) }
                             }
-                        }
-                }.padding(20)
-            }
+                        }.padding(.vertical, 4).frame(maxWidth: .infinity)
+                            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+                    }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
+                }
             }.navigationTitle(copy.navigationTitle).navigationBarTitleDisplayMode(.inline)
+                .toolbarBackground(.hidden, for: .navigationBar)
                 .sheet(item: $selectedDonation) { donation in
                     DonationQRCodeView(donation: donation)
                 }
@@ -44,28 +45,24 @@ struct DonationsView: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
                 CoinBadge(assetIdentifier: badge.assetIdentifier, fallbackText: badge.mark, color: badge.color, size: 30)
-                Text(title).font(.headline).foregroundStyle(Color.primary)
+                Text(title).font(.headline)
                 Spacer()
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Button {
                         UIPasteboard.general.string = address
                         copiedAddress = address
                     } label: {
-                        Image(systemName: copiedAddress == address ? "checkmark" : "doc.on.doc").font(.caption.weight(.semibold))
-                            .foregroundStyle(Color.primary).frame(width: 28, height: 28).background(
-                                Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    }.buttonStyle(.plain)
+                        Image(systemName: copiedAddress == address ? "checkmark" : "doc.on.doc").font(.subheadline.weight(.semibold)).padding(8)
+                    }.buttonStyle(.glass)
                     Button {
                         selectedDonation = DonationDestination(
                             title: title, address: address, mark: badge.mark, assetIdentifier: badge.assetIdentifier, color: badge.color)
                     } label: {
-                        Image(systemName: "qrcode").font(.caption.weight(.semibold)).foregroundStyle(Color.primary).frame(
-                            width: 28, height: 28
-                        ).background(Color.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    }.buttonStyle(.plain)
+                        Image(systemName: "qrcode").font(.subheadline.weight(.semibold)).padding(8)
+                    }.buttonStyle(.glass)
                 }
             }
-            Text(address).font(.footnote.monospaced()).foregroundStyle(Color.primary.opacity(0.72)).textSelection(.enabled)
-        }.padding().frame(maxWidth: .infinity, alignment: .leading).spectraCardFill(cornerRadius: 22)
+            Text(address).font(.footnote.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
+        }.padding(.horizontal, 20).padding(.vertical, 14).frame(maxWidth: .infinity, alignment: .leading)
     }
 }

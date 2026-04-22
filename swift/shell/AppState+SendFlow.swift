@@ -671,12 +671,12 @@ extension AppState {
             maintenanceTask?.cancel(); maintenanceTask = nil
             // Stop the Rust balance-refresh engine so it isn't firing
             // network requests while the app is in the background.
-            Task { await restartBalanceRefreshForCurrentConfiguration() }
+            Task { [weak self] in await self?.restartBalanceRefreshForCurrentConfiguration() }
             return
         }
         startMaintenanceLoopIfNeeded()
         // Resume balance refresh with the current frequency preference.
-        Task { await restartBalanceRefreshForCurrentConfiguration() }
+        Task { [weak self] in await self?.restartBalanceRefreshForCurrentConfiguration() }
     }
     func unlockApp() async {
         guard preferences.useFaceID else { isAppLocked = false; appLockError = nil; return }
@@ -684,11 +684,38 @@ extension AppState {
     }
     func startMaintenanceLoopIfNeeded() {
         guard maintenanceTask == nil else { return }
+        // With no wallets there's nothing to maintain — no pending tx to
+        // poll, no price work, no chain history to sync. Don't even spin
+        // the loop until something's worth checking.
+        // `applyWalletCollectionSideEffects` re-invokes this once a wallet
+        // exists. The loop also self-exits below when wallets drop to 0.
+        guard !wallets.isEmpty else { return }
         maintenanceTask = Task { @MainActor [weak self] in
             guard let self else { return }
             while !Task.isCancelled {
+                // Self-exit when the user deletes all wallets. Lets the
+                // loop terminate naturally instead of sleeping forever
+                // doing nothing — matches the no-wallet startup gate.
+                if self.wallets.isEmpty {
+                    self.maintenanceTask = nil
+                    break
+                }
                 await self.runScheduledMaintenanceOnce()
-                let pollSeconds = self.appIsActive ? Self.activeMaintenancePollSeconds : Self.inactiveMaintenancePollSeconds
+                // Adaptive poll: 30s only while there's pending-tx work to
+                // watch; otherwise sleep a full price-refresh interval. The
+                // loop used to spin every 30s regardless, waking the CPU
+                // twice a minute just to ask Rust "anything to do?". For an
+                // idle user that wake is pure heat and battery.
+                let pollSeconds: UInt64
+                if self.appIsActive {
+                    if self.hasPendingTransactionMaintenanceWork {
+                        pollSeconds = Self.activeMaintenancePollSeconds
+                    } else {
+                        pollSeconds = max(Self.activeMaintenancePollSeconds, UInt64(self.activePriceRefreshIntervalForProfile()))
+                    }
+                } else {
+                    pollSeconds = Self.inactiveMaintenancePollSeconds
+                }
                 try? await Task.sleep(nanoseconds: pollSeconds * 1_000_000_000)
             }
         }

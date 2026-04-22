@@ -1,16 +1,9 @@
 import SwiftUI
 private struct SpectraInputFieldChrome: ViewModifier {
-    @Environment(\.colorScheme) private var colorScheme
     let cornerRadius: CGFloat
     let borderColor: Color?
-    private var resolvedBackground: Color { colorScheme == .light ? Color.black.opacity(0.045) : Color.white.opacity(0.08) }
-    private var resolvedBorderColor: Color {
-        borderColor ?? (colorScheme == .light ? Color.black.opacity(0.18) : Color.white.opacity(0.14))
-    }
     func body(content: Content) -> some View {
-        content.background(resolvedBackground).clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)).overlay(
-            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).strokeBorder(resolvedBorderColor, lineWidth: 1)
-        )
+        content.glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: cornerRadius))
     }
 }
 extension View {
@@ -30,9 +23,9 @@ extension Binding {
 @ViewBuilder
 func spectraDetailCard(title: String? = nil, @ViewBuilder content: () -> some View) -> some View {
     VStack(alignment: .leading, spacing: 12) {
-        if let title { Text(AppLocalization.string(title)).font(.headline.weight(.semibold)).foregroundStyle(Color.primary) }
+        if let title { Text(AppLocalization.string(title)).font(.headline) }
         VStack(alignment: .leading, spacing: 12) { content() }
-    }.padding(18).spectraBubbleFill().spectraCardFill(cornerRadius: 24)
+    }.padding(20).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
 }
 struct ContentView: View {
     @State private var store: AppState
@@ -53,21 +46,28 @@ struct ContentView: View {
     }
     var body: some View {
         ZStack {
-            MainTabView(store: store).blur(radius: store.isAppLocked ? 8 : 0).disabled(store.isAppLocked)
+            // Apply the blur modifier only when actually locked; a zero-radius
+            // `.blur` still forces an off-screen compositing pass each frame,
+            // which keeps the GPU busier than it needs to be when unlocked.
             if store.isAppLocked {
-                VStack(spacing: 14) {
-                    Image(systemName: "lock.fill").font(.system(size: 36, weight: .semibold)).foregroundStyle(.secondary)
-                    Text(AppLocalization.string("content.locked.title")).font(.headline)
+                MainTabView(store: store).blur(radius: 8).disabled(true)
+            } else {
+                MainTabView(store: store)
+            }
+            if store.isAppLocked {
+                VStack(spacing: 16) {
+                    Image(systemName: "lock.fill").font(.system(size: 40, weight: .semibold)).foregroundStyle(.secondary)
+                    Text(AppLocalization.string("content.locked.title")).font(.title3.weight(.semibold))
                     Text(AppLocalization.string("content.locked.subtitle")).font(.subheadline).foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
                     if let appLockError = store.appLockError { Text(appLockError).font(.caption).foregroundStyle(.red) }
                     Button {
-                        Task {
-                            await store.unlockApp()
-                        }
+                        Task { await store.unlockApp() }
                     } label: {
-                        Label(AppLocalization.string("content.locked.unlock"), systemImage: "faceid").frame(maxWidth: 220)
-                    }.buttonStyle(.borderedProminent)
-                }.padding(24).background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous)).padding(28)
+                        Label(AppLocalization.string("content.locked.unlock"), systemImage: "faceid")
+                            .font(.body.weight(.semibold)).frame(maxWidth: 220).padding(.vertical, 6)
+                    }.buttonStyle(.glassProminent).controlSize(.large)
+                }.padding(28).glassEffect(.regular.tint(.white.opacity(0.05)), in: .rect(cornerRadius: 32)).padding(28)
             }
         }.onAppear {
             store.setAppIsActive(scenePhase == .active)

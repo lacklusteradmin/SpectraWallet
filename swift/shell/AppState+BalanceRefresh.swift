@@ -4,30 +4,22 @@ import SwiftUI
 extension AppState {
     func refreshBalances() async { try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh() }
 
-    /// Pending balance updates accumulated during a refresh cycle. Flushed as a
-    /// single `wallets` mutation so SwiftUI only re-renders once per batch.
-    /// Rust applies the balance to its store before invoking the observer, so
-    /// the summary here is already authoritative — Swift just merges holdings.
-    private struct PendingBalanceUpdate {
-        let walletId: String
-        let summary: WalletSummary
-    }
-    private static var pendingBalanceUpdates: [PendingBalanceUpdate] = []
-    private static var balanceFlushTask: Task<Void, Never>?
-
     /// Called by the Rust balance refresh engine after each successful balance
     /// fetch. Accumulates updates and flushes them as a single wallets mutation
     /// after a short debounce so a burst of 50+ callbacks produces one SwiftUI
-    /// re-render.
+    /// re-render. `pendingBalanceUpdates` + `balanceFlushTask` are instance
+    /// properties on AppState (not static) so they're released when the
+    /// AppState is; the prior `static var` held WalletSummary values and a
+    /// scheduled Task process-wide, keeping memory around across AppState
+    /// lifecycles (previews, lock/unlock reinit).
     func applyRustBalance(walletId: String, summary: WalletSummary) {
-        Self.pendingBalanceUpdates.append(PendingBalanceUpdate(walletId: walletId, summary: summary))
-        Self.balanceFlushTask?.cancel()
-        Self.balanceFlushTask = Task { @MainActor [weak self] in
+        pendingBalanceUpdates.append(PendingBalanceUpdate(walletId: walletId, summary: summary))
+        balanceFlushTask?.cancel()
+        balanceFlushTask = Task { @MainActor [weak self] in
             try? await Task.sleep(nanoseconds: 50_000_000)  // 50ms debounce
-            guard !Task.isCancelled else { return }
-            guard let self else { return }
-            let batch = Self.pendingBalanceUpdates
-            Self.pendingBalanceUpdates = []
+            guard !Task.isCancelled, let self else { return }
+            let batch = self.pendingBalanceUpdates
+            self.pendingBalanceUpdates = []
             guard !batch.isEmpty else { return }
             self.flushBalanceBatch(batch)
         }
@@ -114,11 +106,29 @@ extension AppState {
         updateRefreshEngineEntries()
     }
     /// Stop-then-start the refresh engine using the current effective
-    /// interval. Called at startup, when the refresh-frequency preference
-    /// changes, and when the app transitions active/inactive.
+    /// interval. Called when the refresh-frequency preference changes or
+    /// when the app transitions active/inactive — contexts where we want
+    /// the interval value or the running state to actually change.
     func restartBalanceRefreshForCurrentConfiguration() async {
         try? await WalletServiceBridge.shared.stopBalanceRefresh()
         guard appIsActive else { return }
+        // No wallets = no entries to refresh. Keeping the tokio interval
+        // alive just to wake every N minutes and no-op is pure idle heat,
+        // so don't start it at all until the user imports a wallet.
+        // `applyWalletCollectionSideEffects` calls
+        // `startBalanceRefreshIfNeeded` when wallets change.
+        guard !wallets.isEmpty else { return }
+        let minutes = max(1, preferences.automaticRefreshFrequencyMinutes)
+        let intervalSecs = UInt64(minutes * 60)
+        try? await WalletServiceBridge.shared.startBalanceRefresh(intervalSecs: intervalSecs)
+    }
+
+    /// Idempotent start path used after wallet mutations. Skips work when
+    /// the app is inactive or there are no wallets, and relies on the
+    /// Rust engine's own "already running" guard to make repeat calls
+    /// cheap instead of stopping + restarting each time.
+    func startBalanceRefreshIfNeeded() async {
+        guard appIsActive, !wallets.isEmpty else { return }
         let minutes = max(1, preferences.automaticRefreshFrequencyMinutes)
         let intervalSecs = UInt64(minutes * 60)
         try? await WalletServiceBridge.shared.startBalanceRefresh(intervalSecs: intervalSecs)

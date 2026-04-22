@@ -118,16 +118,16 @@ struct WalletCardView: View, Equatable {
                         if presentation.isWatchOnly { watchOnlyBadge }
                         Text(presentation.walletName).font(.headline).foregroundStyle(Color.primary)
                     }
-                    Text(presentation.chainTitleText).font(.caption2).foregroundStyle(Color.primary.opacity(0.6)).lineLimit(2)
+                    Text(presentation.chainTitleText).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
                     Text(presentation.totalValueText).font(.headline).foregroundStyle(Color.primary).spectraNumericTextLayout()
-                    Text(presentation.assetCountText).font(.caption2).foregroundStyle(Color.primary.opacity(0.68))
+                    Text(presentation.assetCountText).font(.caption2).foregroundStyle(.secondary)
                 }
-                Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.42))
+                Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
             }
-        }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: 24)
+        }.contentShape(Rectangle())
     }
 }
 struct QRCodeRenderer {
@@ -174,10 +174,10 @@ struct DonationQRCodeView: View {
                         assetIdentifier: donation.assetIdentifier, fallbackText: donation.mark, color: donation.color, size: 54
                     )
                     Text(localizedWalletFlowString("Scan to Donate")).font(.title2.bold()).foregroundStyle(Color.primary)
-                    Text(donation.title).font(.headline).foregroundStyle(Color.primary.opacity(0.76))
+                    Text(donation.title).font(.headline).foregroundStyle(.secondary)
                     QRCodeImage(address: donation.address).frame(width: 220, height: 220).padding(18).background(
                         Color.white, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-                    Text(donation.address).font(.footnote.monospaced()).foregroundStyle(Color.primary.opacity(0.8)).multilineTextAlignment(
+                    Text(donation.address).font(.footnote.monospaced()).foregroundStyle(.secondary).multilineTextAlignment(
                         .center
                     ).textSelection(.enabled).padding(.horizontal, 24)
                     Spacer()
@@ -343,8 +343,7 @@ struct WalletDetailView: View {
                             Spacer(minLength: 0)
                             if isWatchOnly { watchOnlyBadge }
                         }
-                        Text(store.displayChainTitle(for: detailPresentation.wallet)).font(.subheadline).foregroundStyle(
-                            Color.primary.opacity(0.75))
+                        Text(store.displayChainTitle(for: detailPresentation.wallet)).font(.subheadline).foregroundStyle(.secondary)
                     }
                 }.frame(maxWidth: .infinity, alignment: .leading).padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: 24)
                 VStack(alignment: .leading, spacing: 12) {
@@ -362,11 +361,10 @@ struct WalletDetailView: View {
                         Text(localizedWalletFlowString("Holdings")).font(.headline).foregroundStyle(Color.primary)
                         Spacer()
                         Text("\(detailPresentation.visibleHoldingPresentations.count)").font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color.primary.opacity(0.68))
+                            .foregroundStyle(.secondary)
                     }
                     if detailPresentation.visibleHoldingPresentations.isEmpty {
-                        Text(localizedWalletFlowString("No assets loaded for this wallet yet.")).font(.subheadline).foregroundStyle(
-                            Color.primary.opacity(0.72))
+                        Text(localizedWalletFlowString("No assets loaded for this wallet yet.")).font(.subheadline).foregroundStyle(.secondary)
                     } else {
                         ForEach(detailPresentation.visibleHoldingPresentations) { holding in
                             holdingRow(holding)
@@ -388,7 +386,7 @@ struct WalletDetailView: View {
                                 ).font(.caption.weight(.semibold))
                             }.buttonStyle(.borderless).foregroundStyle(Color.primary)
                         }
-                        Text(walletAddress).font(.footnote.monospaced()).foregroundStyle(Color.primary.opacity(0.8)).textSelection(.enabled)
+                        Text(walletAddress).font(.footnote.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
                     }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: 24)
                 }
                 VStack(spacing: 10) {
@@ -489,7 +487,7 @@ struct WalletDetailView: View {
                         Text(
                             localizedWalletFlowString(
                                 "This wallet has an optional seed phrase password. Enter it after Face ID to reveal the recovery phrase.")
-                        ).font(.subheadline).foregroundStyle(Color.primary.opacity(0.76))
+                        ).font(.subheadline).foregroundStyle(.secondary)
                         SecureField(localizedWalletFlowString("Wallet Password"), text: $seedPhrasePasswordInput)
                             .textInputAutocapitalization(.never).autocorrectionDisabled().privacySensitive().padding(14)
                             .spectraInputFieldStyle().foregroundStyle(Color.primary)
@@ -525,7 +523,7 @@ struct WalletDetailView: View {
                             Text(
                                 localizedWalletFlowString(
                                     "Write this down and keep it offline. Anyone with this phrase can control your funds.")
-                            ).font(.subheadline).foregroundStyle(Color.primary.opacity(0.76))
+                            ).font(.subheadline).foregroundStyle(.secondary)
                             Text(revealedSeedPhrase).font(.body.monospaced()).foregroundStyle(Color.primary).privacySensitive().padding(12)
                                 .frame(maxWidth: .infinity, alignment: .leading).spectraInputFieldStyle(cornerRadius: 16)
                         }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: 24)
@@ -549,19 +547,19 @@ struct WalletDetailView: View {
             )
             VStack(alignment: .leading, spacing: 3) {
                 Text(holding.coin.name).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-                Text("\(holding.coin.symbol) • \(holding.coin.tokenStandard)").font(.caption).foregroundStyle(Color.primary.opacity(0.62))
+                Text("\(holding.coin.symbol) • \(holding.coin.tokenStandard)").font(.caption).foregroundStyle(.secondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 3) {
                 Text(holding.amountText).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).spectraNumericTextLayout()
-                Text(holding.valueText).font(.caption).foregroundStyle(Color.primary.opacity(0.68)).spectraNumericTextLayout()
+                Text(holding.valueText).font(.caption).foregroundStyle(.secondary).spectraNumericTextLayout()
             }
         }.padding(.vertical, 4)
     }
     @ViewBuilder
     private func detailRow(label: String, value: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(localizedWalletFlowString(label)).font(.caption).foregroundStyle(Color.primary.opacity(0.65))
+            Text(localizedWalletFlowString(label)).font(.caption).foregroundStyle(.secondary)
             Text(value).font(.subheadline).foregroundStyle(Color.primary).textSelection(.enabled)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -600,7 +598,7 @@ private struct WalletDetailRow: View {
     let value: String
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(localizedWalletFlowString(label)).font(.caption).foregroundStyle(Color.primary.opacity(0.65))
+            Text(localizedWalletFlowString(label)).font(.caption).foregroundStyle(.secondary)
             Text(value).font(.subheadline).foregroundStyle(Color.primary).textSelection(.enabled)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -624,15 +622,15 @@ struct SeedPathSlotEditor: View {
                 Spacer()
                 Button(localizedWalletFlowString("Reset")) {
                     path = defaultPath
-                }.font(.caption.weight(.semibold)).foregroundStyle(Color.primary.opacity(0.72))
+                }.font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
-                    Text("m").font(.caption.monospaced().weight(.semibold)).foregroundStyle(Color.primary.opacity(0.72))
+                    Text("m").font(.caption.monospaced().weight(.semibold)).foregroundStyle(.secondary)
                     ForEach(segments.indices, id: \.self) { index in
                         let segment = segments[index]
                         HStack(spacing: 4) {
-                            Text(verbatim: "/").font(.caption.monospaced()).foregroundStyle(Color.primary.opacity(0.52))
+                            Text(verbatim: "/").font(.caption.monospaced()).foregroundStyle(.secondary)
                             TextField(
                                 "0",
                                 text: Binding(
@@ -641,7 +639,7 @@ struct SeedPathSlotEditor: View {
                             ).keyboardType(.numberPad).font(.caption.monospaced()).foregroundStyle(Color.primary).padding(.horizontal, 10)
                                 .padding(.vertical, 8).spectraInputFieldStyle(cornerRadius: 12)
                             if segment.isHardened {
-                                Text(verbatim: "'").font(.caption.monospaced().weight(.bold)).foregroundStyle(Color.primary.opacity(0.72))
+                                Text(verbatim: "'").font(.caption.monospaced().weight(.bold)).foregroundStyle(.secondary)
                             }
                         }
                     }
@@ -649,8 +647,7 @@ struct SeedPathSlotEditor: View {
             }
             if !presetOptions.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(localizedWalletFlowString("Derivation Paths")).font(.caption.weight(.semibold)).foregroundStyle(
-                        Color.primary.opacity(0.72))
+                    Text(localizedWalletFlowString("Derivation Paths")).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                     VStack(spacing: 8) {
                         ForEach(presetOptions) { preset in
                             Button {
@@ -659,7 +656,7 @@ struct SeedPathSlotEditor: View {
                                 HStack(alignment: .firstTextBaseline, spacing: 12) {
                                     Text(preset.title).font(.caption.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
                                     Spacer(minLength: 0)
-                                    Text(preset.detail).font(.caption2.monospaced()).foregroundStyle(Color.primary.opacity(0.68)).lineLimit(
+                                    Text(preset.detail).font(.caption2.monospaced()).foregroundStyle(.secondary).lineLimit(
                                         1
                                     ).truncationMode(.middle)
                                 }.padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)

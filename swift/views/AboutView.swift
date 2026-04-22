@@ -14,6 +14,10 @@ struct AboutView: View {
             }
         }.navigationTitle(AppLocalization.string("About Spectra")).navigationBarTitleDisplayMode(.inline).onAppear {
             isAnimatingHero = true
+        }.onDisappear {
+            // Stop the infinite rotation so the GPU isn't animating an
+            // off-screen layer when the user navigates away from About.
+            isAnimatingHero = false
         }
     }
     private var aboutHero: some View {
@@ -32,8 +36,8 @@ struct AboutView: View {
                 SpectraLogo(size: 96)
             }
             VStack(spacing: 8) {
-                Text(copy.aboutTitle).font(.system(size: 34, weight: .black, design: .rounded)).foregroundStyle(Color.primary)
-                Text(copy.aboutSubtitle).font(.subheadline).multilineTextAlignment(.center).foregroundStyle(Color.primary.opacity(0.78))
+                Text(copy.aboutTitle).font(.largeTitle.weight(.bold)).foregroundStyle(Color.primary)
+                Text(copy.aboutSubtitle).font(.subheadline).multilineTextAlignment(.center).foregroundStyle(.secondary)
             }.frame(maxWidth: .infinity)
         }.padding(24).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.033)), in: .rect(cornerRadius: 30))
     }
@@ -41,7 +45,7 @@ struct AboutView: View {
         VStack(alignment: .leading, spacing: 12) {
             Text(copy.aboutNarrativeTitle).font(.headline).foregroundStyle(Color.primary)
             ForEach(copy.aboutNarrativeParagraphs, id: \.self) { paragraph in
-                Text(paragraph).font(.subheadline).foregroundStyle(Color.primary.opacity(0.8))
+                Text(paragraph).font(.subheadline).foregroundStyle(.secondary)
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading).spectraBubbleFill().glassEffect(
             .regular.tint(.white.opacity(0.028)), in: .rect(cornerRadius: 28))
@@ -52,7 +56,7 @@ struct AboutView: View {
             ForEach(lines, id: \.self) { line in
                 HStack(alignment: .top, spacing: 10) {
                     Circle().fill(Color.primary.opacity(0.5)).frame(width: 6, height: 6).padding(.top, 7)
-                    Text(line).font(.subheadline).foregroundStyle(Color.primary.opacity(0.82))
+                    Text(line).font(.subheadline).foregroundStyle(.secondary)
                 }
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading).spectraBubbleFill().glassEffect(
