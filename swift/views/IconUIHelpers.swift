@@ -17,7 +17,7 @@ struct CoinBadge: View {
         // helper) 3× per cell; locking to one `let` keeps a body eval at
         // one cache read.
         let identifier: String =
-            assetIdentifier.map(Coin.normalizedIconIdentifier) ?? "generic:\(fallbackText.lowercased())"
+            assetIdentifier.map { Coin.normalizedIconIdentifier($0) } ?? "generic:\(fallbackText.lowercased())"
         let assetName: String? = {
             if let nativeDescriptor = Coin.nativeChainIconDescriptor(forAssetIdentifier: identifier) {
                 return nativeDescriptor.assetName
