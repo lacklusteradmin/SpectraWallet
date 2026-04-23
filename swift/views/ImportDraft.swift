@@ -483,76 +483,76 @@ final class WalletImportDraft {
     private static let coinsByChain: [String: Coin] = [
         "Bitcoin": Coin.makeCustom(
             name: "Bitcoin", symbol: "BTC", marketDataId: "1", coinGeckoId: "bitcoin", chainName: "Bitcoin", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 64000, mark: "B"),
+            contractAddress: nil, amount: 0, priceUsd: 64000),
         "Bitcoin Cash": Coin.makeCustom(
             name: "Bitcoin Cash", symbol: "BCH", marketDataId: "1831", coinGeckoId: "bitcoin-cash", chainName: "Bitcoin Cash",
-            tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 420, mark: "BC"),
+            tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 420),
         "Bitcoin SV": Coin.makeCustom(
             name: "Bitcoin SV", symbol: "BSV", marketDataId: "3602", coinGeckoId: "bitcoin-cash-sv", chainName: "Bitcoin SV",
-            tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 70, mark: "BS"),
+            tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 70),
         "Litecoin": Coin.makeCustom(
             name: "Litecoin", symbol: "LTC", marketDataId: "2", coinGeckoId: "litecoin", chainName: "Litecoin", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 90, mark: "L"),
+            contractAddress: nil, amount: 0, priceUsd: 90),
         "Ethereum": Coin.makeCustom(
             name: "Ethereum", symbol: "ETH", marketDataId: "1027", coinGeckoId: "ethereum", chainName: "Ethereum", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 3500, mark: "E"),
+            contractAddress: nil, amount: 0, priceUsd: 3500),
         "Ethereum Classic": Coin.makeCustom(
             name: "Ethereum Classic", symbol: "ETC", marketDataId: "1321", coinGeckoId: "ethereum-classic", chainName: "Ethereum Classic",
-            tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 30, mark: "EC"),
+            tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 30),
         "Arbitrum": Coin.makeCustom(
             name: "Arbitrum", symbol: "ARB", marketDataId: "0", coinGeckoId: "arbitrum", chainName: "Arbitrum", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 1, mark: "AR"),
+            contractAddress: nil, amount: 0, priceUsd: 1),
         "Optimism": Coin.makeCustom(
             name: "Optimism", symbol: "OP", marketDataId: "0", coinGeckoId: "optimism", chainName: "Optimism", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 0, mark: "OP"),
+            contractAddress: nil, amount: 0, priceUsd: 0),
         "Solana": Coin.makeCustom(
             name: "Solana", symbol: "SOL", marketDataId: "5426", coinGeckoId: "solana", chainName: "Solana", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 150, mark: "S"),
+            contractAddress: nil, amount: 0, priceUsd: 150),
         "BNB Chain": Coin.makeCustom(
             name: "BNB", symbol: "BNB", marketDataId: "1839", coinGeckoId: "binancecoin", chainName: "BNB Chain", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 450, mark: "BN"),
+            contractAddress: nil, amount: 0, priceUsd: 450),
         "Avalanche": Coin.makeCustom(
             name: "Avalanche", symbol: "AVAX", marketDataId: "5805", coinGeckoId: "avalanche-2", chainName: "Avalanche",
-            tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 35, mark: "AV"),
+            tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 35),
         "Hyperliquid": Coin.makeCustom(
             name: "Hyperliquid", symbol: "HYPE", marketDataId: "0", coinGeckoId: "hyperliquid", chainName: "Hyperliquid",
-            tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 0, mark: "HY"),
+            tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 0),
         "Stellar": Coin.makeCustom(
             name: "Stellar", symbol: "XLM", marketDataId: "512", coinGeckoId: "stellar", chainName: "Stellar", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 0.12, mark: "XL"),
+            contractAddress: nil, amount: 0, priceUsd: 0.12),
         "Dogecoin": Coin.makeCustom(
             name: "Dogecoin", symbol: "DOGE", marketDataId: "74", coinGeckoId: "dogecoin", chainName: "Dogecoin", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 0.15, mark: "D"),
+            contractAddress: nil, amount: 0, priceUsd: 0.15),
         "Cardano": Coin.makeCustom(
             name: "Cardano", symbol: "ADA", marketDataId: "2010", coinGeckoId: "cardano", chainName: "Cardano", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 0.55, mark: "A"),
+            contractAddress: nil, amount: 0, priceUsd: 0.55),
         "Tron": Coin.makeCustom(
             name: "Tron", symbol: "TRX", marketDataId: "1958", coinGeckoId: "tron", chainName: "Tron", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 0.12, mark: "T"),
+            contractAddress: nil, amount: 0, priceUsd: 0.12),
         "XRP Ledger": Coin.makeCustom(
             name: "XRP", symbol: "XRP", marketDataId: "52", coinGeckoId: "ripple", chainName: "XRP Ledger", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 0.6, mark: "X"),
+            contractAddress: nil, amount: 0, priceUsd: 0.6),
         "Monero": Coin.makeCustom(
             name: "Monero", symbol: "XMR", marketDataId: "328", coinGeckoId: "monero", chainName: "Monero", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 120, mark: "M"),
+            contractAddress: nil, amount: 0, priceUsd: 120),
         "Sui": Coin.makeCustom(
             name: "Sui", symbol: "SUI", marketDataId: "20947", coinGeckoId: "sui", chainName: "Sui", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 1.2, mark: "SU"),
+            contractAddress: nil, amount: 0, priceUsd: 1.2),
         "Aptos": Coin.makeCustom(
             name: "Aptos", symbol: "APT", marketDataId: "21794", coinGeckoId: "aptos", chainName: "Aptos", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 8, mark: "AP"),
+            contractAddress: nil, amount: 0, priceUsd: 8),
         "TON": Coin.makeCustom(
             name: "Toncoin", symbol: "TON", marketDataId: "11419", coinGeckoId: "the-open-network", chainName: "TON",
-            tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 7, mark: "TN"),
+            tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 7),
         "Internet Computer": Coin.makeCustom(
             name: "Internet Computer", symbol: "ICP", marketDataId: "2416", coinGeckoId: "internet-computer",
-            chainName: "Internet Computer", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 12, mark: "IC"),
+            chainName: "Internet Computer", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 12),
         "NEAR": Coin.makeCustom(
             name: "NEAR Protocol", symbol: "NEAR", marketDataId: "6535", coinGeckoId: "near", chainName: "NEAR", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 6, mark: "N"),
+            contractAddress: nil, amount: 0, priceUsd: 6),
         "Polkadot": Coin.makeCustom(
             name: "Polkadot", symbol: "DOT", marketDataId: "6636", coinGeckoId: "polkadot", chainName: "Polkadot", tokenStandard: "Native",
-            contractAddress: nil, amount: 0, priceUsd: 7, mark: "P"),
+            contractAddress: nil, amount: 0, priceUsd: 7),
     ]
     private static func coin(for chainName: String) -> Coin? { coinsByChain[chainName] }
     func regenerateSeedPhrase() {

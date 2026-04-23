@@ -40,17 +40,22 @@ struct ChainWikiLibraryView: View {
                         selectedTag = selectedTag == tag ? nil : tag
                     }
                 )
-                LazyVStack(spacing: 14) {
-                    ForEach(filteredEntries) { chain in
+                VStack(spacing: 0) {
+                    ForEach(Array(filteredEntries.enumerated()), id: \.element.id) { index, chain in
                         NavigationLink {
                             ChainWikiDetailView(chain: chain)
                         } label: {
                             ChainWikiRowCard(chain: chain).equatable()
+                                .padding(.horizontal, 4).padding(.vertical, 12)
                         }.buttonStyle(.plain)
+                        if index < filteredEntries.count - 1 {
+                            Divider().padding(.leading, 56).opacity(0.25)
+                        }
                     }
-                }
-            }.padding(.horizontal, 20).padding(.vertical, 18)
-        }.background(Color(uiColor: .systemGroupedBackground)).navigationTitle(AppLocalization.string("Chain Wiki"))
+                }.frame(maxWidth: .infinity)
+            }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
+        }.navigationTitle(AppLocalization.string("Chain Wiki"))
+            .toolbarBackground(.hidden, for: .navigationBar)
     }
 }
 struct ChainWikiDetailView: View {
@@ -72,13 +77,11 @@ struct ChainWikiDetailView: View {
                 }
                 ChainWikiSectionCard(title: AppLocalization.string("Derivation In Spectra")) {
                     VStack(alignment: .leading, spacing: 14) {
-                        ChainWikiKeyValueRow(title: AppLocalization.string("SLIP44 Coin Type"), value: chain.slip44CoinType)
                         VStack(alignment: .leading, spacing: 8) {
                             Text(AppLocalization.string("Default Path")).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                             Text(chain.derivationPath).font(.body.monospaced()).foregroundStyle(Color.primary).textSelection(.enabled)
-                        }.frame(maxWidth: .infinity, alignment: .leading).padding(14).background(
-                            RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.primary.opacity(0.05))
-                        )
+                        }.frame(maxWidth: .infinity, alignment: .leading).padding(14)
+                            .spectraCardFill(cornerRadius: 18)
                         if let alternateDerivationPath = chain.alternateDerivationPath {
                             Text(alternateDerivationPath).font(.footnote).foregroundStyle(.secondary)
                         }
@@ -95,7 +98,7 @@ struct ChainWikiDetailView: View {
                                 Text("\(index + 1)").font(.caption.weight(.bold)).foregroundStyle(chain.accentColor).frame(
                                     width: 22, height: 22
                                 ).background(
-                                    Circle().fill(chain.accentColor.opacity(0.14))
+                                    Circle().fill(chain.accentColor.opacity(0.18))
                                 )
                                 Text(detail).font(.body).foregroundStyle(.secondary).frame(
                                     maxWidth: .infinity, alignment: .leading)
@@ -103,8 +106,9 @@ struct ChainWikiDetailView: View {
                         }
                     }
                 }
-            }.padding(.horizontal, 20).padding(.vertical, 18)
-        }.background(Color(uiColor: .systemGroupedBackground)).navigationTitle(chain.name)
+            }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
+        }.navigationTitle(chain.name)
+            .toolbarBackground(.hidden, for: .navigationBar)
     }
 }
 private extension ChainWikiEntry {
@@ -171,25 +175,11 @@ private struct ChainWikiIntroCard: View {
             Text(AppLocalization.string("Protocol Reference")).font(.title3.weight(.bold)).foregroundStyle(Color.primary)
             Text(
                 AppLocalization.string(
-                    "Browse Spectra's supported chains, default derivation paths, registered SLIP44 coin types, and protocol-level notes in a cleaner reference format."
+                    "Browse Spectra's supported chains, default derivation paths, and protocol-level notes in a cleaner reference format."
                 )
             ).font(.subheadline).foregroundStyle(.secondary)
-            HStack(spacing: 10) {
-                ChainWikiPill(text: "\(ChainWikiEntry.all.count) \(AppLocalization.string("Chains"))")
-                ChainWikiPill(text: AppLocalization.string("Derivation Paths"))
-                ChainWikiPill(text: AppLocalization.string("SLIP44"))
-            }
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(20).background(
-            RoundedRectangle(cornerRadius: 26, style: .continuous).fill(
-                LinearGradient(
-                    colors: [
-                        Color.orange.opacity(0.18), Color.yellow.opacity(0.08), Color.white.opacity(0.82),
-                    ], startPoint: .topLeading, endPoint: .bottomTrailing
-                )
-            )
-        ).overlay(
-            RoundedRectangle(cornerRadius: 26, style: .continuous).stroke(Color.white.opacity(0.55), lineWidth: 1)
-        )
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(20)
+            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
     }
 }
 private struct ChainWikiTagFilterBar: View {
@@ -217,24 +207,18 @@ private struct ChainWikiRowCard: View, Equatable {
     var body: some View {
         HStack(spacing: 14) {
             ChainWikiChainLogoBadge(
-                chain: chain, size: 50, cornerRadius: 25, titleFont: .headline.weight(.bold)
+                chain: chain, size: 44, cornerRadius: 22, titleFont: .headline.weight(.bold)
             )
-            VStack(alignment: .leading, spacing: 7) {
-                HStack(alignment: .firstTextBaseline) {
-                    Text(chain.name).font(.headline.weight(.semibold)).foregroundStyle(Color.primary)
-                    Spacer(minLength: 0)
-                }
+            VStack(alignment: .leading, spacing: 6) {
+                Text(chain.name).font(.headline.weight(.semibold)).foregroundStyle(Color.primary)
                 Text(chain.family).font(.subheadline).foregroundStyle(.secondary).lineLimit(2)
                 HStack(spacing: 8) {
                     ForEach(Array(chain.tags.prefix(3)), id: \.self) { tag in ChainWikiMiniTag(text: tag) }
                 }
             }
-            Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(.tertiary)
-        }.padding(16).background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(uiColor: .secondarySystemGroupedBackground))
-        ).overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.primary.opacity(0.06), lineWidth: 1)
-        )
+            Spacer(minLength: 8)
+            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+        }.contentShape(Rectangle())
     }
 }
 private struct ChainWikiHeroCard: View {
@@ -243,34 +227,26 @@ private struct ChainWikiHeroCard: View {
         VStack(alignment: .leading, spacing: 16) {
             HStack(alignment: .top, spacing: 14) {
                 ChainWikiChainLogoBadge(
-                    chain: chain, size: 82, cornerRadius: 24, titleFont: .title3.weight(.black), useFullSymbolFallback: true
+                    chain: chain, size: 72, cornerRadius: 20, titleFont: .title3.weight(.bold), useFullSymbolFallback: true
                 )
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: 6) {
                     Text(chain.name).font(.title2.weight(.bold)).foregroundStyle(Color.primary)
                     Text(chain.family).font(.subheadline).foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }
+            if !chain.tags.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 8) {
-                        ForEach(chain.tags, id: \.self) { tag in ChainWikiPill(text: tag, tint: chain.secondaryAccentColor) }
+                        ForEach(chain.tags, id: \.self) { tag in
+                            ChainWikiPill(text: tag, tint: chain.secondaryAccentColor)
+                        }
                     }
                 }
             }
-            HStack(spacing: 12) {
-                ChainWikiMetricCard(
-                    title: AppLocalization.string("SLIP44"),
-                    value: chain.slip44CoinType.components(separatedBy: " ").first ?? chain.slip44CoinType, tint: chain.accentColor
-                )
-                ChainWikiMetricCard(title: AppLocalization.string("State"), value: chain.stateModel, tint: chain.secondaryAccentColor)
-            }
-        }.padding(20).background(
-            RoundedRectangle(cornerRadius: 28, style: .continuous).fill(
-                LinearGradient(
-                    colors: [
-                        chain.accentColor.opacity(0.18), chain.secondaryAccentColor.opacity(0.1), Color.white.opacity(0.82),
-                    ], startPoint: .topLeading, endPoint: .bottomTrailing
-                )
-            )
-        ).overlay(
-            RoundedRectangle(cornerRadius: 28, style: .continuous).stroke(Color.white.opacity(0.58), lineWidth: 1)
-        )
+            ChainWikiMetricCard(title: AppLocalization.string("State"), value: chain.stateModel, tint: chain.secondaryAccentColor)
+        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(.regular.tint(chain.accentColor.opacity(0.12)), in: .rect(cornerRadius: 28))
     }
 }
 private struct ChainWikiChainLogoBadge: View {
@@ -297,23 +273,21 @@ private struct ChainWikiSectionCard<Content: View>: View {
     @ViewBuilder let content: Content
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            Text(title).font(.headline.weight(.semibold)).foregroundStyle(Color.primary)
+            Text(title).font(.headline).foregroundStyle(Color.primary)
             content
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(18).background(
-            RoundedRectangle(cornerRadius: 24, style: .continuous).fill(Color(uiColor: .secondarySystemGroupedBackground))
-        ).overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(Color.primary.opacity(0.06), lineWidth: 1)
-        )
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(20)
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
     }
 }
 private struct ChainWikiKeyValueRow: View {
     let title: String
     let value: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            Text(value).font(.body).foregroundStyle(.secondary)
-        }.frame(maxWidth: .infinity, alignment: .leading)
+        HStack(alignment: .firstTextBaseline) {
+            Text(title).font(.subheadline).foregroundStyle(.secondary)
+            Spacer(minLength: 12)
+            Text(value).font(.subheadline.weight(.medium)).foregroundStyle(Color.primary).multilineTextAlignment(.trailing)
+        }
     }
 }
 private struct ChainWikiMetricCard: View {
@@ -321,12 +295,11 @@ private struct ChainWikiMetricCard: View {
     let value: String
     let tint: Color
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
             Text(value).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(2)
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(14).background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous).fill(tint.opacity(0.12))
-        )
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(14)
+            .glassEffect(.regular.tint(tint.opacity(0.18)), in: .rect(cornerRadius: 18))
     }
 }
 private struct ChainWikiPill: View {

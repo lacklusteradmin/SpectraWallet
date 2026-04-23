@@ -21,7 +21,6 @@
   ],
   "reportProblemDescription": "Use this page to open the future support form or issue tracker. The link below is a placeholder for now.",
   "reportProblemActionTitle": "Open Report Form",
-  "reportProblemURL": "https://example.com/spectra/report-problem",
   "buyProvidersIntro": "These are official on-ramp providers that support paying with real cash or linked bank/card funding and sending crypto directly to a wallet address. Availability, fees, identity checks, supported networks, and state coverage vary by provider.",
   "buyWarning": "Spectra does not process purchases. Always double-check the wallet address, selected chain, and asset before paying, because crypto transfers are typically irreversible."
 }

@@ -38,11 +38,11 @@ extension CoreCoin: Identifiable {
     nonisolated var valueUSD: Double { amount * priceUsd }
     static func makeCustom(
         name: String, symbol: String, marketDataId: String, coinGeckoId: String, chainName: String, tokenStandard: String,
-        contractAddress: String?, amount: Double, priceUsd: Double, mark: String
+        contractAddress: String?, amount: Double, priceUsd: Double
     ) -> Coin {
         CoreCoin(
             id: UUID().uuidString, name: name, symbol: symbol, marketDataId: marketDataId, coinGeckoId: coinGeckoId, chainName: chainName,
-            tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUsd, mark: mark)
+            tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUsd)
     }
     var hasVisibleBalance: Bool { amount > 0 }
     nonisolated var holdingKey: String { "\(chainName)|\(symbol)" }
@@ -425,7 +425,6 @@ struct DonationDestination: Identifiable {
     let id = UUID()
     let title: String
     let address: String
-    let mark: String
     let assetIdentifier: String?
     let color: Color
 }

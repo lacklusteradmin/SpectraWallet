@@ -13,9 +13,6 @@ struct MainTabView: View {
             StakingView().tabItem {
                 Label(AppLocalization.string("Staking"), systemImage: "link.circle.fill")
             }.tag(MainAppTab.staking)
-            DonationsView().tabItem {
-                Label(AppLocalization.string("Donate"), systemImage: "heart.fill")
-            }.tag(MainAppTab.donate)
             SettingsView(store: store).tabItem {
                 Label(AppLocalization.string("Settings"), systemImage: "gearshape.fill")
             }.tag(MainAppTab.settings)

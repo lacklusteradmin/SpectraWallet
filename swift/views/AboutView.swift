@@ -39,7 +39,7 @@ struct AboutView: View {
                 Text(copy.aboutTitle).font(.largeTitle.weight(.bold)).foregroundStyle(Color.primary)
                 Text(copy.aboutSubtitle).font(.subheadline).multilineTextAlignment(.center).foregroundStyle(.secondary)
             }.frame(maxWidth: .infinity)
-        }.padding(24).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.033)), in: .rect(cornerRadius: 30))
+        }.padding(24).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.033)), in: .rect(cornerRadius: 28))
     }
     private var aboutNarrativeCard: some View {
         VStack(alignment: .leading, spacing: 12) {

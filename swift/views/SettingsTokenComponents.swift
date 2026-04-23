@@ -1,5 +1,4 @@
 import Foundation
-import PhotosUI
 import SwiftUI
 extension TokenTrackingChain {
     var settingsIconSlug: String {
@@ -117,95 +116,6 @@ struct TokenRegistryEntryCardView: View {
                 }
             }
         }.padding(.vertical, 4)
-    }
-}
-struct TokenIconSetting: Identifiable {
-    let title: String
-    let symbol: String
-    let assetIdentifier: String
-    let mark: String
-    let color: Color
-    var id: String { assetIdentifier }
-}
-struct TokenIconCustomizationRow: View {
-    let setting: TokenIconSetting
-    @Bindable private var preferences = TokenIconPreferences.shared
-    @State private var selectedPhotoItem: PhotosPickerItem?
-    @State private var isImportingPhoto = false
-    @State private var photoImportError: String?
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 12) {
-                CoinBadge(assetIdentifier: setting.assetIdentifier, fallbackText: setting.mark, color: setting.color, size: 34)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(setting.title)
-                    Text(setting.symbol).font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-            }
-            Picker(setting.title, selection: styleBinding) {
-                ForEach(TokenIconStyle.allCases) { style in Text(style.title).tag(style) }
-            }.pickerStyle(.segmented).labelsHidden()
-            if selectedStyle == .customPhoto || hasCustomPhoto {
-                HStack(spacing: 12) {
-                    PhotosPicker(selection: $selectedPhotoItem, matching: .images) {
-                        Label(
-                            hasCustomPhoto ? AppLocalization.string("Replace Photo") : AppLocalization.string("Choose Photo"),
-                            systemImage: "photo")
-                    }
-                    if hasCustomPhoto {
-                        Button(AppLocalization.string("Remove Photo"), role: .destructive) {
-                            TokenIconImageStore.removeImage(for: setting.assetIdentifier)
-                            TokenIconImageRevision.shared.bump()
-                            if selectedStyle == .customPhoto { selectedStyle = .artwork }
-                        }
-                    }
-                    if isImportingPhoto {
-                        Spacer()
-                        ProgressView().scaleEffect(0.8)
-                    }
-                }.font(.caption.weight(.semibold))
-                if !hasCustomPhoto {
-                    Text(AppLocalization.string("Select a photo from your library to use as this token icon.")).font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            if let photoImportError { Text(photoImportError).font(.caption).foregroundStyle(.red) }
-        }.padding(.vertical, 4).task(id: selectedPhotoItem) {
-            await importSelectedPhotoIfNeeded()
-        }
-    }
-    private var styleBinding: Binding<TokenIconStyle> {
-        Binding(
-            get: { selectedStyle }, set: { newValue in selectedStyle = newValue }
-        )
-    }
-    private var selectedStyle: TokenIconStyle {
-        get { preferences.style(for: setting.assetIdentifier) }
-        nonmutating set { preferences.setStyle(newValue, for: setting.assetIdentifier) }
-    }
-    private var hasCustomPhoto: Bool {
-        _ = TokenIconImageRevision.shared.tick
-        return TokenIconImageStore.hasCustomImage(for: setting.assetIdentifier)
-    }
-    @MainActor
-    private func importSelectedPhotoIfNeeded() async {
-        guard let selectedPhotoItem else { return }
-        isImportingPhoto = true
-        photoImportError = nil
-        do {
-            guard let imageData = try await selectedPhotoItem.loadTransferable(type: Data.self) else {
-                throw TokenIconImageStore.IconError.unreadableImage
-            }
-            try TokenIconImageStore.saveImageData(imageData, for: setting.assetIdentifier)
-            TokenIconImageRevision.shared.bump()
-            self.selectedStyle = .customPhoto
-        } catch {
-            photoImportError =
-                (error as? LocalizedError)?.errorDescription ?? AppLocalization.string("The selected photo could not be imported.")
-        }
-        isImportingPhoto = false
-        self.selectedPhotoItem = nil
     }
 }
 private struct SettingsTokenDetailRow: View {

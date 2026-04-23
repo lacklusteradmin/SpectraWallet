@@ -119,7 +119,7 @@ struct HistoryView: View {
             .navigationTitle(AppLocalization.string("History")).navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { historyFilterMenu.buttonStyle(.glass) }
+                ToolbarItem(placement: .topBarTrailing) { historyFilterMenu }
             }.onChange(of: selectedFilter) { _, _ in
                 resetPaging()
             }.onChange(of: selectedSortOrder) { _, _ in

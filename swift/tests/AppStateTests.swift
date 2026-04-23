@@ -9,7 +9,7 @@ import Foundation
             let store = AppState()
             let existingHolding = Coin.makeCustom(
                 name: "Ethereum", symbol: "ETH", marketDataId: "1027", coinGeckoId: "ethereum", chainName: "Ethereum",
-                tokenStandard: "Native", contractAddress: nil, amount: 2, priceUsd: 3000, mark: "E"
+                tokenStandard: "Native", contractAddress: nil, amount: 2, priceUsd: 3000
             )
             let wallet = ImportedWallet(
                 id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!, name: "Primary ETH", ethereumAddress: "0xabc123",
@@ -80,7 +80,7 @@ import Foundation
             store.bitcoinNetworkMode = .testnet4
             let coin = Coin.makeCustom(
                 name: "Bitcoin", symbol: "BTC", marketDataId: "1", coinGeckoId: "bitcoin", chainName: "Bitcoin", tokenStandard: "Native",
-                contractAddress: nil, amount: 1.25, priceUsd: 64000, mark: "B"
+                contractAddress: nil, amount: 1.25, priceUsd: 64000
             )
             XCTAssertEqual(store.assetIdentityKey(for: coin), "Bitcoin Testnet4|BTC")
             XCTAssertNil(store.currentPriceIfAvailable(for: coin))
@@ -119,7 +119,7 @@ import Foundation
                 holdings: [
                     Coin.makeCustom(
                         name: "Ethereum", symbol: "ETH", marketDataId: "1027", coinGeckoId: "ethereum", chainName: "Ethereum",
-                        tokenStandard: "Native", contractAddress: nil, amount: 2, priceUsd: 3000, mark: "E"
+                        tokenStandard: "Native", contractAddress: nil, amount: 2, priceUsd: 3000
                     )
                 ]
             )

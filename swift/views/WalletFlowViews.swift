@@ -163,35 +163,6 @@ final class PhotoLibraryImageSaver: NSObject {
         if let error { completion(.failure(error)) } else { completion(.success(())) }
     }
 }
-struct DonationQRCodeView: View {
-    let donation: DonationDestination
-    @Environment(\.dismiss) private var dismiss
-    var body: some View {
-        NavigationStack {
-            ZStack {
-                VStack(spacing: 24) {
-                    CoinBadge(
-                        assetIdentifier: donation.assetIdentifier, fallbackText: donation.mark, color: donation.color, size: 54
-                    )
-                    Text(localizedWalletFlowString("Scan to Donate")).font(.title2.bold()).foregroundStyle(Color.primary)
-                    Text(donation.title).font(.headline).foregroundStyle(.secondary)
-                    QRCodeImage(address: donation.address).frame(width: 220, height: 220).padding(18).background(
-                        Color.white, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-                    Text(donation.address).font(.footnote.monospaced()).foregroundStyle(.secondary).multilineTextAlignment(
-                        .center
-                    ).textSelection(.enabled).padding(.horizontal, 24)
-                    Spacer()
-                }.padding(20)
-            }.navigationTitle(localizedWalletFlowString("QR Code")).navigationBarTitleDisplayMode(.inline).toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(localizedWalletFlowString("Done")) {
-                        dismiss()
-                    }.buttonStyle(.glass)
-                }
-            }
-        }
-    }
-}
 struct QRCodeImage: View {
     let address: String
     var body: some View {
@@ -232,7 +203,7 @@ struct WalletDetailView: View {
         let nonZeroAssetCount: Int
         let walletAddress: String?
         let derivationPathsText: String?
-        let walletBadge: (assetIdentifier: String?, mark: String, color: Color)
+        let walletBadge: (assetIdentifier: String?, color: Color)
         let visibleHoldingPresentations: [HoldingPresentation]
         let walletTotalValueText: String
     }
@@ -279,7 +250,7 @@ struct WalletDetailView: View {
             ]
             .compactMap { $0 }
             .first, derivationPathsText: derivationPathsText(for: wallet),
-            walletBadge: Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, "W", .mint),
+            walletBadge: Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, .mint),
             visibleHoldingPresentations: holdingPresentations,
             walletTotalValueText: store.preferences.hideBalances
                 ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: store.currentTotalIfAvailable(for: wallet))
@@ -334,7 +305,7 @@ struct WalletDetailView: View {
             LazyVStack(alignment: .leading, spacing: 16) {
                 HStack(spacing: 14) {
                     CoinBadge(
-                        assetIdentifier: detailPresentation.walletBadge.assetIdentifier, fallbackText: detailPresentation.walletBadge.mark,
+                        assetIdentifier: detailPresentation.walletBadge.assetIdentifier, fallbackText: detailPresentation.wallet.selectedChain,
                         color: detailPresentation.walletBadge.color, size: 46
                     )
                     VStack(alignment: .leading, spacing: 10) {
@@ -543,7 +514,7 @@ struct WalletDetailView: View {
     private func holdingRow(_ holding: HoldingPresentation) -> some View {
         HStack(spacing: 12) {
             CoinBadge(
-                assetIdentifier: holding.coin.iconIdentifier, fallbackText: holding.coin.mark, color: holding.coin.color, size: 34
+                assetIdentifier: holding.coin.iconIdentifier, fallbackText: holding.coin.symbol, color: holding.coin.color, size: 34
             )
             VStack(alignment: .leading, spacing: 3) {
                 Text(holding.coin.name).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)

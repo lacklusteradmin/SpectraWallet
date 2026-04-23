@@ -48,7 +48,7 @@ struct SendPrimarySectionsView: View {
                 HStack(spacing: 12) {
                     if let selectedCoin = presentation.selectedCoin {
                         CoinBadge(
-                            assetIdentifier: selectedCoin.iconIdentifier, fallbackText: selectedCoin.mark, color: selectedCoin.color,
+                            assetIdentifier: selectedCoin.iconIdentifier, fallbackText: selectedCoin.symbol, color: selectedCoin.color,
                             size: 42
                         )
                     } else {

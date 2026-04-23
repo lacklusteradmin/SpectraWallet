@@ -5,7 +5,6 @@ struct DashboardView: View {
     @State private var isShowingPinnedAssetsSheet = false
     @State private var selectedWalletID: String?
     @State private var selectedAssetGroup: DashboardAssetGroup?
-    @State private var isShowingAddWalletPage: Bool = false
     private var deleteWalletMessage: String {
         guard let pendingWallet = store.walletPendingDeletion else { return "" }
         if store.isWatchOnlyWallet(pendingWallet) {
@@ -39,19 +38,19 @@ struct DashboardView: View {
                         AppNoticesView(store: store)
                     } label: {
                         noticeToolbarLabel
-                    }.buttonStyle(.glass)
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    dashboardSectionMenu.buttonStyle(.glass)
+                    dashboardSectionMenu
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        isShowingAddWalletPage = true
+                        store.isShowingAddWalletEntry = true
                     } label: {
                         Image(systemName: "plus")
-                    }.buttonStyle(.glass)
+                    }
                 }
-            }.navigationDestination(isPresented: $isShowingAddWalletPage) {
+            }.navigationDestination(isPresented: $store.isShowingAddWalletEntry) {
                 AddWalletEntryView(store: store)
             }.navigationDestination(item: $selectedWalletID) { walletID in
                 if let wallet = store.wallets.first(where: { $0.id == walletID }) {
@@ -133,7 +132,7 @@ struct DashboardView: View {
                            message: AppLocalization.string("Tap the + button in the top right to add your first wallet."))
         } else {
             ForEach(Array(wallets.enumerated()), id: \.element.id) { index, wallet in
-                let badge = Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, "W", .mint)
+                let badge = Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, .mint)
                 Button { selectedWalletID = wallet.id } label: {
                     WalletCardView(
                         presentation: WalletCardView.Presentation(
@@ -144,7 +143,7 @@ struct DashboardView: View {
                             assetCountText: AppLocalization.format(
                                 "%lld assets", wallet.holdings.filter { $0.amount > 0 }.count),
                             isWatchOnly: store.isWatchOnlyWallet(wallet), badgeAssetIdentifier: badge.0,
-                            badgeMark: badge.1, badgeColor: badge.2
+                            badgeMark: wallet.selectedChain, badgeColor: badge.1
                         )
                     ).equatable().padding(.horizontal, 20).padding(.vertical, 12)
                 }.buttonStyle(.plain)
@@ -282,7 +281,6 @@ extension CoreDashboardAssetGroup: Identifiable {
     var name: String { representativeCoin.name }
     var symbol: String { representativeCoin.symbol }
     var iconIdentifier: String { representativeCoin.iconIdentifier }
-    var mark: String { representativeCoin.mark }
     var color: Color { representativeCoin.color }
     var totalValueUSD: Double? { totalValueUsd }
     init(
@@ -312,7 +310,7 @@ struct AssetGroupDetailView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 12) {
                         CoinBadge(
-                            assetIdentifier: assetGroup.iconIdentifier, fallbackText: assetGroup.mark, color: assetGroup.color, size: 52
+                            assetIdentifier: assetGroup.iconIdentifier, fallbackText: assetGroup.symbol, color: assetGroup.color, size: 52
                         )
                         VStack(alignment: .leading, spacing: 3) {
                             Text(assetGroup.name).font(.headline)
@@ -387,7 +385,7 @@ struct AssetContractsDetailView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 12) {
                         CoinBadge(
-                            assetIdentifier: assetGroup.iconIdentifier, fallbackText: assetGroup.mark, color: assetGroup.color, size: 44
+                            assetIdentifier: assetGroup.iconIdentifier, fallbackText: assetGroup.symbol, color: assetGroup.color, size: 44
                         )
                         VStack(alignment: .leading, spacing: 3) {
                             Text(assetGroup.name).font(.headline)
@@ -549,7 +547,7 @@ struct DashboardAssetRowView: View, Equatable {
     var body: some View {
         HStack(spacing: 14) {
             CoinBadge(
-                assetIdentifier: presentation.assetGroup.iconIdentifier, fallbackText: presentation.assetGroup.mark,
+                assetIdentifier: presentation.assetGroup.iconIdentifier, fallbackText: presentation.assetGroup.symbol,
                 color: presentation.assetGroup.color, size: 40
             )
             VStack(alignment: .leading, spacing: 4) {
@@ -579,7 +577,7 @@ struct DashboardPinnedAssetRowView: View, Equatable {
     static func == (lhs: Self, rhs: Self) -> Bool { lhs.option == rhs.option && lhs.subtitleText == rhs.subtitleText }
     var body: some View {
         HStack(spacing: 12) {
-            CoinBadge(assetIdentifier: option.assetIdentifier, fallbackText: option.mark, color: option.color, size: 34)
+            CoinBadge(assetIdentifier: option.assetIdentifier, fallbackText: option.symbol, color: option.color, size: 34)
             VStack(alignment: .leading, spacing: 3) {
                 Text(option.name)
                 Text(subtitleText).font(.caption).foregroundStyle(.secondary)

@@ -7186,11 +7186,10 @@ nonisolated public struct CoreCoin {
     public var contractAddress: String?
     public var amount: Double
     public var priceUsd: Double
-    public var mark: String
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(id: String, name: String, symbol: String, marketDataId: String, coinGeckoId: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double, priceUsd: Double, mark: String) {
+    nonisolated public init(id: String, name: String, symbol: String, marketDataId: String, coinGeckoId: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double, priceUsd: Double) {
         self.id = id
         self.name = name
         self.symbol = symbol
@@ -7201,7 +7200,6 @@ nonisolated public struct CoreCoin {
         self.contractAddress = contractAddress
         self.amount = amount
         self.priceUsd = priceUsd
-        self.mark = mark
     }
 }
 
@@ -7242,9 +7240,6 @@ nonisolated extension CoreCoin: Equatable, Hashable {
         if lhs.priceUsd != rhs.priceUsd {
             return false
         }
-        if lhs.mark != rhs.mark {
-            return false
-        }
         return true
     }
 
@@ -7259,7 +7254,6 @@ nonisolated extension CoreCoin: Equatable, Hashable {
         hasher.combine(contractAddress)
         hasher.combine(amount)
         hasher.combine(priceUsd)
-        hasher.combine(mark)
     }
 }
 
@@ -7281,8 +7275,7 @@ nonisolated public struct FfiConverterTypeCoreCoin: FfiConverterRustBuffer {
                 tokenStandard: FfiConverterString.read(from: &buf), 
                 contractAddress: FfiConverterOptionString.read(from: &buf), 
                 amount: FfiConverterDouble.read(from: &buf), 
-                priceUsd: FfiConverterDouble.read(from: &buf), 
-                mark: FfiConverterString.read(from: &buf)
+                priceUsd: FfiConverterDouble.read(from: &buf)
         )
     }
 
@@ -7297,7 +7290,6 @@ nonisolated public struct FfiConverterTypeCoreCoin: FfiConverterRustBuffer {
         FfiConverterOptionString.write(value.contractAddress, into: &buf)
         FfiConverterDouble.write(value.amount, into: &buf)
         FfiConverterDouble.write(value.priceUsd, into: &buf)
-        FfiConverterString.write(value.mark, into: &buf)
     }
 }
 
@@ -7503,16 +7495,14 @@ nonisolated public struct CoreDashboardPinOption {
     public var name: String
     public var subtitle: String
     public var assetIdentifier: String?
-    public var mark: String
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(symbol: String, name: String, subtitle: String, assetIdentifier: String?, mark: String) {
+    nonisolated public init(symbol: String, name: String, subtitle: String, assetIdentifier: String?) {
         self.symbol = symbol
         self.name = name
         self.subtitle = subtitle
         self.assetIdentifier = assetIdentifier
-        self.mark = mark
     }
 }
 
@@ -7535,9 +7525,6 @@ nonisolated extension CoreDashboardPinOption: Equatable, Hashable {
         if lhs.assetIdentifier != rhs.assetIdentifier {
             return false
         }
-        if lhs.mark != rhs.mark {
-            return false
-        }
         return true
     }
 
@@ -7546,7 +7533,6 @@ nonisolated extension CoreDashboardPinOption: Equatable, Hashable {
         hasher.combine(name)
         hasher.combine(subtitle)
         hasher.combine(assetIdentifier)
-        hasher.combine(mark)
     }
 }
 
@@ -7562,8 +7548,7 @@ nonisolated public struct FfiConverterTypeCoreDashboardPinOption: FfiConverterRu
                 symbol: FfiConverterString.read(from: &buf), 
                 name: FfiConverterString.read(from: &buf), 
                 subtitle: FfiConverterString.read(from: &buf), 
-                assetIdentifier: FfiConverterOptionString.read(from: &buf), 
-                mark: FfiConverterString.read(from: &buf)
+                assetIdentifier: FfiConverterOptionString.read(from: &buf)
         )
     }
 
@@ -7572,7 +7557,6 @@ nonisolated public struct FfiConverterTypeCoreDashboardPinOption: FfiConverterRu
         FfiConverterString.write(value.name, into: &buf)
         FfiConverterString.write(value.subtitle, into: &buf)
         FfiConverterOptionString.write(value.assetIdentifier, into: &buf)
-        FfiConverterString.write(value.mark, into: &buf)
     }
 }
 
@@ -9654,7 +9638,7 @@ nonisolated public func FfiConverterTypeCoreTransactionRecord_lower(_ value: Cor
 
 /**
  * Power-user derivation overrides, keyed by the same string names as
- * `core/derivation_presets.toml`. Every field is optional; `None` means
+ * `core/data/derivation_presets.toml`. Every field is optional; `None` means
  * "use the chain preset default." Persisted per-wallet and propagated to
  * every derivation call (import-time preview + send-time signing) so the
  * imported address and the re-derived signing key stay in sync.
@@ -14740,11 +14724,10 @@ nonisolated public struct HoldingMergeAppendPayload {
     public var tokenStandard: String
     public var contractAddress: String?
     public var amount: Double
-    public var mark: String
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(name: String, symbol: String, marketDataId: String, coinGeckoId: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double, mark: String) {
+    nonisolated public init(name: String, symbol: String, marketDataId: String, coinGeckoId: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double) {
         self.name = name
         self.symbol = symbol
         self.marketDataId = marketDataId
@@ -14753,7 +14736,6 @@ nonisolated public struct HoldingMergeAppendPayload {
         self.tokenStandard = tokenStandard
         self.contractAddress = contractAddress
         self.amount = amount
-        self.mark = mark
     }
 }
 
@@ -14788,9 +14770,6 @@ nonisolated extension HoldingMergeAppendPayload: Equatable, Hashable {
         if lhs.amount != rhs.amount {
             return false
         }
-        if lhs.mark != rhs.mark {
-            return false
-        }
         return true
     }
 
@@ -14803,7 +14782,6 @@ nonisolated extension HoldingMergeAppendPayload: Equatable, Hashable {
         hasher.combine(tokenStandard)
         hasher.combine(contractAddress)
         hasher.combine(amount)
-        hasher.combine(mark)
     }
 }
 
@@ -14823,8 +14801,7 @@ nonisolated public struct FfiConverterTypeHoldingMergeAppendPayload: FfiConverte
                 chainName: FfiConverterString.read(from: &buf), 
                 tokenStandard: FfiConverterString.read(from: &buf), 
                 contractAddress: FfiConverterOptionString.read(from: &buf), 
-                amount: FfiConverterDouble.read(from: &buf), 
-                mark: FfiConverterString.read(from: &buf)
+                amount: FfiConverterDouble.read(from: &buf)
         )
     }
 
@@ -14837,7 +14814,6 @@ nonisolated public struct FfiConverterTypeHoldingMergeAppendPayload: FfiConverte
         FfiConverterString.write(value.tokenStandard, into: &buf)
         FfiConverterOptionString.write(value.contractAddress, into: &buf)
         FfiConverterDouble.write(value.amount, into: &buf)
-        FfiConverterString.write(value.mark, into: &buf)
     }
 }
 
@@ -23745,11 +23721,13 @@ nonisolated public struct TokenEntry {
     public var decimals: UInt32
     public var displayDecimals: UInt32?
     public var category: String
+    public var colorName: String
+    public var assetName: String
     public var enabled: Bool
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(chain: String, chainId: UInt32, name: String, symbol: String, tokenStandard: String, contract: String, marketId: String, coingeckoId: String, decimals: UInt32, displayDecimals: UInt32?, category: String, enabled: Bool) {
+    nonisolated public init(chain: String, chainId: UInt32, name: String, symbol: String, tokenStandard: String, contract: String, marketId: String, coingeckoId: String, decimals: UInt32, displayDecimals: UInt32?, category: String, colorName: String, assetName: String, enabled: Bool) {
         self.chain = chain
         self.chainId = chainId
         self.name = name
@@ -23761,6 +23739,8 @@ nonisolated public struct TokenEntry {
         self.decimals = decimals
         self.displayDecimals = displayDecimals
         self.category = category
+        self.colorName = colorName
+        self.assetName = assetName
         self.enabled = enabled
     }
 }
@@ -23805,6 +23785,12 @@ nonisolated extension TokenEntry: Equatable, Hashable {
         if lhs.category != rhs.category {
             return false
         }
+        if lhs.colorName != rhs.colorName {
+            return false
+        }
+        if lhs.assetName != rhs.assetName {
+            return false
+        }
         if lhs.enabled != rhs.enabled {
             return false
         }
@@ -23823,6 +23809,8 @@ nonisolated extension TokenEntry: Equatable, Hashable {
         hasher.combine(decimals)
         hasher.combine(displayDecimals)
         hasher.combine(category)
+        hasher.combine(colorName)
+        hasher.combine(assetName)
         hasher.combine(enabled)
     }
 }
@@ -23847,6 +23835,8 @@ nonisolated public struct FfiConverterTypeTokenEntry: FfiConverterRustBuffer {
                 decimals: FfiConverterUInt32.read(from: &buf), 
                 displayDecimals: FfiConverterOptionUInt32.read(from: &buf), 
                 category: FfiConverterString.read(from: &buf), 
+                colorName: FfiConverterString.read(from: &buf), 
+                assetName: FfiConverterString.read(from: &buf), 
                 enabled: FfiConverterBool.read(from: &buf)
         )
     }
@@ -23863,6 +23853,8 @@ nonisolated public struct FfiConverterTypeTokenEntry: FfiConverterRustBuffer {
         FfiConverterUInt32.write(value.decimals, into: &buf)
         FfiConverterOptionUInt32.write(value.displayDecimals, into: &buf)
         FfiConverterString.write(value.category, into: &buf)
+        FfiConverterString.write(value.colorName, into: &buf)
+        FfiConverterString.write(value.assetName, into: &buf)
         FfiConverterBool.write(value.enabled, into: &buf)
     }
 }

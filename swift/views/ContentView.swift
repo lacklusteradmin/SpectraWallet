@@ -67,7 +67,7 @@ struct ContentView: View {
                         Label(AppLocalization.string("content.locked.unlock"), systemImage: "faceid")
                             .font(.body.weight(.semibold)).frame(maxWidth: 220).padding(.vertical, 6)
                     }.buttonStyle(.glassProminent).controlSize(.large)
-                }.padding(28).glassEffect(.regular.tint(.white.opacity(0.05)), in: .rect(cornerRadius: 32)).padding(28)
+                }.padding(28).glassEffect(.regular.tint(.white.opacity(0.05)), in: .rect(cornerRadius: 28)).padding(28)
             }
         }.onAppear {
             store.setAppIsActive(scenePhase == .active)

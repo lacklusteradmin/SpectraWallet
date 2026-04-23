@@ -4,16 +4,14 @@ private struct SetupChainSelectionDescriptor: Identifiable {
     let id: String
     let titleKey: String
     let symbol: String
-    let mark: String
     let chainName: String
     let assetIdentifier: String?
     let color: Color
     var title: String { localizedWalletFlowString(titleKey) }
-    init(id: String, title: String, symbol: String, mark: String, chainName: String, color: Color) {
+    init(id: String, title: String, symbol: String, chainName: String, color: Color) {
         self.id = id
         self.titleKey = title
         self.symbol = symbol
-        self.mark = mark
         self.chainName = chainName
         self.assetIdentifier = Coin.iconIdentifier(symbol: symbol, chainName: chainName)
         self.color = color
@@ -21,37 +19,37 @@ private struct SetupChainSelectionDescriptor: Identifiable {
 }
 struct SetupView: View {
     private static let chainSelectionDescriptors: [SetupChainSelectionDescriptor] = [
-        SetupChainSelectionDescriptor(id: "bitcoin", title: "Bitcoin", symbol: "BTC", mark: "B", chainName: "Bitcoin", color: .orange),
+        SetupChainSelectionDescriptor(id: "bitcoin", title: "Bitcoin", symbol: "BTC", chainName: "Bitcoin", color: .orange),
         SetupChainSelectionDescriptor(
-            id: "bitcoin-cash", title: "Bitcoin Cash", symbol: "BCH", mark: "BC", chainName: "Bitcoin Cash", color: .orange),
+            id: "bitcoin-cash", title: "Bitcoin Cash", symbol: "BCH", chainName: "Bitcoin Cash", color: .orange),
         SetupChainSelectionDescriptor(
-            id: "bitcoin-sv", title: "Bitcoin SV", symbol: "BSV", mark: "BS", chainName: "Bitcoin SV", color: .orange),
-        SetupChainSelectionDescriptor(id: "litecoin", title: "Litecoin", symbol: "LTC", mark: "L", chainName: "Litecoin", color: .gray),
-        SetupChainSelectionDescriptor(id: "ethereum", title: "Ethereum", symbol: "ETH", mark: "E", chainName: "Ethereum", color: .blue),
+            id: "bitcoin-sv", title: "Bitcoin SV", symbol: "BSV", chainName: "Bitcoin SV", color: .orange),
+        SetupChainSelectionDescriptor(id: "litecoin", title: "Litecoin", symbol: "LTC", chainName: "Litecoin", color: .gray),
+        SetupChainSelectionDescriptor(id: "ethereum", title: "Ethereum", symbol: "ETH", chainName: "Ethereum", color: .blue),
         SetupChainSelectionDescriptor(
-            id: "ethereum-classic", title: "Ethereum Classic", symbol: "ETC", mark: "EC", chainName: "Ethereum Classic", color: .green),
-        SetupChainSelectionDescriptor(id: "solana", title: "Solana", symbol: "SOL", mark: "S", chainName: "Solana", color: .purple),
-        SetupChainSelectionDescriptor(id: "arbitrum", title: "Arbitrum", symbol: "ARB", mark: "AR", chainName: "Arbitrum", color: .cyan),
-        SetupChainSelectionDescriptor(id: "optimism", title: "Optimism", symbol: "OP", mark: "OP", chainName: "Optimism", color: .red),
+            id: "ethereum-classic", title: "Ethereum Classic", symbol: "ETC", chainName: "Ethereum Classic", color: .green),
+        SetupChainSelectionDescriptor(id: "solana", title: "Solana", symbol: "SOL", chainName: "Solana", color: .purple),
+        SetupChainSelectionDescriptor(id: "arbitrum", title: "Arbitrum", symbol: "ARB", chainName: "Arbitrum", color: .cyan),
+        SetupChainSelectionDescriptor(id: "optimism", title: "Optimism", symbol: "OP", chainName: "Optimism", color: .red),
         SetupChainSelectionDescriptor(
-            id: "bnb-chain", title: "BNB Chain", symbol: "BNB", mark: "BN", chainName: "BNB Chain", color: .yellow),
-        SetupChainSelectionDescriptor(id: "avalanche", title: "Avalanche", symbol: "AVAX", mark: "AV", chainName: "Avalanche", color: .red),
+            id: "bnb-chain", title: "BNB Chain", symbol: "BNB", chainName: "BNB Chain", color: .yellow),
+        SetupChainSelectionDescriptor(id: "avalanche", title: "Avalanche", symbol: "AVAX", chainName: "Avalanche", color: .red),
         SetupChainSelectionDescriptor(
-            id: "hyperliquid", title: "Hyperliquid", symbol: "HYPE", mark: "HY", chainName: "Hyperliquid", color: .mint),
-        SetupChainSelectionDescriptor(id: "dogecoin", title: "Dogecoin", symbol: "DOGE", mark: "D", chainName: "Dogecoin", color: .brown),
-        SetupChainSelectionDescriptor(id: "cardano", title: "Cardano", symbol: "ADA", mark: "A", chainName: "Cardano", color: .indigo),
-        SetupChainSelectionDescriptor(id: "tron", title: "Tron", symbol: "TRX", mark: "T", chainName: "Tron", color: .teal),
+            id: "hyperliquid", title: "Hyperliquid", symbol: "HYPE", chainName: "Hyperliquid", color: .mint),
+        SetupChainSelectionDescriptor(id: "dogecoin", title: "Dogecoin", symbol: "DOGE", chainName: "Dogecoin", color: .brown),
+        SetupChainSelectionDescriptor(id: "cardano", title: "Cardano", symbol: "ADA", chainName: "Cardano", color: .indigo),
+        SetupChainSelectionDescriptor(id: "tron", title: "Tron", symbol: "TRX", chainName: "Tron", color: .teal),
         SetupChainSelectionDescriptor(
-            id: "xrp-ledger", title: "XRP Ledger", symbol: "XRP", mark: "X", chainName: "XRP Ledger", color: .cyan),
-        SetupChainSelectionDescriptor(id: "monero", title: "Monero", symbol: "XMR", mark: "M", chainName: "Monero", color: .indigo),
-        SetupChainSelectionDescriptor(id: "sui", title: "Sui", symbol: "SUI", mark: "SU", chainName: "Sui", color: .mint),
-        SetupChainSelectionDescriptor(id: "aptos", title: "Aptos", symbol: "APT", mark: "AP", chainName: "Aptos", color: .cyan),
-        SetupChainSelectionDescriptor(id: "ton", title: "TON", symbol: "TON", mark: "TN", chainName: "TON", color: .blue),
+            id: "xrp-ledger", title: "XRP Ledger", symbol: "XRP", chainName: "XRP Ledger", color: .cyan),
+        SetupChainSelectionDescriptor(id: "monero", title: "Monero", symbol: "XMR", chainName: "Monero", color: .indigo),
+        SetupChainSelectionDescriptor(id: "sui", title: "Sui", symbol: "SUI", chainName: "Sui", color: .mint),
+        SetupChainSelectionDescriptor(id: "aptos", title: "Aptos", symbol: "APT", chainName: "Aptos", color: .cyan),
+        SetupChainSelectionDescriptor(id: "ton", title: "TON", symbol: "TON", chainName: "TON", color: .blue),
         SetupChainSelectionDescriptor(
-            id: "internet-computer", title: "Internet Computer", symbol: "ICP", mark: "IC", chainName: "Internet Computer", color: .indigo),
-        SetupChainSelectionDescriptor(id: "near", title: "NEAR", symbol: "NEAR", mark: "N", chainName: "NEAR", color: .indigo),
-        SetupChainSelectionDescriptor(id: "polkadot", title: "Polkadot", symbol: "DOT", mark: "P", chainName: "Polkadot", color: .pink),
-        SetupChainSelectionDescriptor(id: "stellar", title: "Stellar", symbol: "XLM", mark: "XL", chainName: "Stellar", color: .teal),
+            id: "internet-computer", title: "Internet Computer", symbol: "ICP", chainName: "Internet Computer", color: .indigo),
+        SetupChainSelectionDescriptor(id: "near", title: "NEAR", symbol: "NEAR", chainName: "NEAR", color: .indigo),
+        SetupChainSelectionDescriptor(id: "polkadot", title: "Polkadot", symbol: "DOT", chainName: "Polkadot", color: .pink),
+        SetupChainSelectionDescriptor(id: "stellar", title: "Stellar", symbol: "XLM", chainName: "Stellar", color: .teal),
     ]
     private static let popularChainSelectionIDs: Set<String> = [
         "bitcoin", "ethereum", "solana", "monero", "litecoin", "tron",
@@ -281,7 +279,7 @@ struct SetupView: View {
         } label: {
             HStack(spacing: 10) {
                 CoinBadge(
-                    assetIdentifier: descriptor.assetIdentifier, fallbackText: descriptor.mark, color: descriptor.color, size: 32
+                    assetIdentifier: descriptor.assetIdentifier, fallbackText: descriptor.symbol, color: descriptor.color, size: 32
                 )
                 VStack(alignment: .leading, spacing: 3) {
                     Text(descriptor.title).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
@@ -392,19 +390,35 @@ struct SetupView: View {
         }
     }
     @ViewBuilder
-    private var setupHeaderCard: some View {
-        setupCard(glassOpacity: 0.033) {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(alignment: .top, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(setupTitle).font(.title2.weight(.semibold)).foregroundStyle(Color.primary)
-                            .lineLimit(2).minimumScaleFactor(0.8).allowsTightening(true).layoutPriority(1).fixedSize(
-                                horizontal: false, vertical: true)
-                        Text(setupSubtitle).font(.footnote).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
+    private var setupHeader: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(stepIndicatorText).font(.footnote.weight(.semibold)).foregroundStyle(.orange).textCase(.uppercase)
+            Text(setupTitle).font(.largeTitle.weight(.bold)).foregroundStyle(Color.primary)
+                .lineLimit(3).minimumScaleFactor(0.7).allowsTightening(true).fixedSize(horizontal: false, vertical: true)
+            Text(setupSubtitle).font(.subheadline).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }.frame(maxWidth: .infinity, alignment: .leading)
+    }
+    private var stepIndicatorText: String {
+        let (current, total) = currentStepPosition
+        guard total > 0 else { return "" }
+        return "\(AppLocalization.string("import_flow.step_label")) \(current) \(AppLocalization.string("import_flow.step_of")) \(total)"
+    }
+    private var currentStepPosition: (current: Int, total: Int) {
+        // Flow-specific step counting. Watch-only = 2 steps, create = 4 (details/seed/password/verify), import = 3 (details/secret/password).
+        if isEditingWallet { return (1, 1) }
+        if usesWatchAddressesFlow {
+            switch setupPage { case .details: return (1, 2); case .watchAddresses: return (2, 2); default: return (1, 2) }
+        }
+        if isCreateMode {
+            switch setupPage {
+            case .details: return (1, 4); case .seedPhrase: return (2, 4); case .password: return (3, 4)
+            case .backupVerification: return (4, 4); case .advanced: return (1, 4); case .watchAddresses: return (1, 4)
             }
+        }
+        switch setupPage {
+        case .details: return (1, 3); case .seedPhrase: return (2, 3); case .password: return (3, 3)
+        case .advanced: return (1, 3); case .watchAddresses: return (1, 3); case .backupVerification: return (1, 3)
         }
     }
     @ViewBuilder
@@ -977,10 +991,10 @@ struct SetupView: View {
         }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: 24)
     }
     var body: some View {
-        ZStack {
-            ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 16) {
-                    setupHeaderCard
+        ScrollView(showsIndicators: false) {
+            VStack(alignment: .leading, spacing: 24) {
+                setupHeader
+                VStack(alignment: .leading, spacing: 16) {
                     initialPageSection
                     watchAddressesPageSection
                     walletNamePageSection
@@ -988,14 +1002,57 @@ struct SetupView: View {
                     passwordPageSection
                     advancedPageSection
                     importStatusSection
-                    primaryActionButton
-                    navigationBackButton
-                }.padding(.horizontal, 20).padding(.vertical, 24)
+                }
+            }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 24)
+        }.scrollBounceBehavior(.basedOnSize)
+            .navigationBarTitleDisplayMode(.inline)
+            .navigationBarBackButtonHidden(true)
+            .toolbar {
+                ToolbarItem(placement: .topBarLeading) { setupToolbarBackButton }
             }
-        }.onChange(of: draft.mode) { _, _ in
-            setupPage = .details
-        }.onChange(of: draft.selectedSeedPhraseWordCount) { _, newValue in
-            customSeedPhraseWordCountInput = String(newValue)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                setupBottomActionBar
+            }
+            .onChange(of: draft.mode) { _, _ in
+                setupPage = .details
+            }.onChange(of: draft.selectedSeedPhraseWordCount) { _, newValue in
+                customSeedPhraseWordCountInput = String(newValue)
+            }
+    }
+    @ViewBuilder
+    private var setupToolbarBackButton: some View {
+        Button {
+            performBackNavigation()
+        } label: {
+            Image(systemName: "chevron.backward").font(.body.weight(.semibold))
+        }.accessibilityLabel(AppLocalization.string("import_flow.back"))
+    }
+    private func performBackNavigation() {
+        if isShowingSeedPhrasePage || isShowingWatchAddressesPage {
+            withAnimation { setupPage = .details }
+        } else if isShowingDetailsPage && !isEditingWallet {
+            store.isShowingWalletImporter = false
+        } else if isShowingAdvancedPage || isShowingPasswordPage {
+            withAnimation { setupPage = .seedPhrase }
+        } else if isShowingBackupVerificationPage {
+            withAnimation { setupPage = .password }
+        } else {
+            dismiss()
+        }
+    }
+    @ViewBuilder
+    private var setupBottomActionBar: some View {
+        if !isShowingAdvancedPage {
+            VStack(spacing: 0) {
+                Divider().opacity(0.4)
+                Button(action: performPrimaryAction) {
+                    Text(primaryActionTitle)
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }.buttonStyle(.glassProminent).controlSize(.large).disabled(!isPrimaryActionEnabled)
+                    .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 16)
+            }.background(.ultraThinMaterial)
         }
     }
 }
@@ -1178,7 +1235,7 @@ private struct AllChainsSelectionView: View {
         } label: {
             HStack(spacing: 12) {
                 CoinBadge(
-                    assetIdentifier: descriptor.assetIdentifier, fallbackText: descriptor.mark, color: descriptor.color, size: 28
+                    assetIdentifier: descriptor.assetIdentifier, fallbackText: descriptor.symbol, color: descriptor.color, size: 28
                 )
                 VStack(alignment: .leading, spacing: 2) {
                     Text(descriptor.title).font(.subheadline.weight(.medium)).foregroundStyle(Color.primary)

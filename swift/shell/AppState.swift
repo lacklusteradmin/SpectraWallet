@@ -138,6 +138,7 @@ final class AppState {
     var importError: String? = nil
     var isImportingWallet: Bool = false
     var isShowingWalletImporter: Bool = false
+    var isShowingAddWalletEntry: Bool = false
     var isShowingSendSheet: Bool = false
     var isShowingReceiveSheet: Bool = false
     var walletPendingDeletion: ImportedWallet?

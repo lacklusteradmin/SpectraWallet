@@ -671,6 +671,11 @@ extension AppState {
         resetImportForm()
         editingWalletID = nil
         isShowingWalletImporter = false
+        // Also pop the Add Wallet entry page so the user lands back on
+        // Dashboard after a successful import — they started on Dashboard,
+        // pushed Add Wallet, pushed the Importer, and shouldn't be stranded
+        // on the intermediate Add Wallet page after finishing.
+        isShowingAddWalletEntry = false
     }
     struct PrivateKeyImportAddressResolution {
         var bitcoin: String? = nil; var bitcoinCash: String? = nil; var bitcoinSV: String? = nil

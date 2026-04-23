@@ -3,38 +3,38 @@ import SwiftUI
 extension AppState {
     static let pinnedDashboardAssetSymbolsDefaultsKey = "dashboardPinnedAssetSymbols"
     private var defaultPinnedDashboardAssetSymbols: [String] { ["BTC", "ETH", "USDT", "USDC"] }
-    private static let dashboardPinPrototypeSpecs: [(String, String, String, String, String, String, String?, Double, Double, String)] = [
-        ("Bitcoin", "BTC", "1", "bitcoin", "Bitcoin", "Native", nil, 0, 0, "B"),
-        ("Bitcoin Cash", "BCH", "1831", "bitcoin-cash", "Bitcoin Cash", "Native", nil, 0, 0, "BC"),
-        ("Bitcoin SV", "BSV", "3602", "bitcoin-cash-sv", "Bitcoin SV", "Native", nil, 0, 0, "BS"),
-        ("Litecoin", "LTC", "2", "litecoin", "Litecoin", "Native", nil, 0, 0, "L"),
-        ("Dogecoin", "DOGE", "74", "dogecoin", "Dogecoin", "Native", nil, 0, 0, "D"),
-        ("Ethereum", "ETH", "1027", "ethereum", "Ethereum", "Native", nil, 0, 0, "E"),
-        ("Ethereum Classic", "ETC", "1321", "ethereum-classic", "Ethereum Classic", "Native", nil, 0, 0, "EC"),
-        ("Arbitrum", "ARB", "0", "arbitrum", "Arbitrum", "Native", nil, 0, 0, "AR"),
-        ("Optimism", "OP", "0", "optimism", "Optimism", "Native", nil, 0, 0, "OP"),
-        ("BNB Chain", "BNB", "1839", "binancecoin", "BNB Chain", "Native", nil, 0, 0, "BN"),
-        ("Avalanche", "AVAX", "5805", "avalanche-2", "Avalanche", "Native", nil, 0, 0, "AV"),
-        ("Hyperliquid", "HYPE", "0", "", "Hyperliquid", "Native", nil, 0, 0, "HY"),
-        ("Solana", "SOL", "5426", "solana", "Solana", "Native", nil, 0, 0, "S"),
-        ("Cardano", "ADA", "2010", "cardano", "Cardano", "Native", nil, 0, 0, "A"),
-        ("Tron", "TRX", "1958", "tron", "Tron", "Native", nil, 0, 0, "T"),
-        ("XRP Ledger", "XRP", "52", "ripple", "XRP Ledger", "Native", nil, 0, 0, "X"),
-        ("Monero", "XMR", "328", "monero", "Monero", "Native", nil, 0, 0, "M"),
-        ("Sui", "SUI", "20947", "sui", "Sui", "Native", nil, 0, 0, "SU"),
-        ("Aptos", "APT", "21794", "aptos", "Aptos", "Native", nil, 0, 0, "AP"),
-        ("Internet Computer", "ICP", "2416", "internet-computer", "Internet Computer", "Native", nil, 0, 0, "IC"),
-        ("NEAR Protocol", "NEAR", "6535", "near", "NEAR", "Native", nil, 0, 0, "N"),
-        ("Polkadot", "DOT", "6636", "polkadot", "Polkadot", "Native", nil, 0, 0, "P"),
-        ("Stellar", "XLM", "512", "stellar", "Stellar", "Native", nil, 0, 0, "XL"),
-        ("Tether USD", "USDT", "825", "tether", "Ethereum", "ERC-20", "0xdAC17F958D2ee523a2206206994597C13D831ec7", 0, 1, "T"),
-        ("USD Coin", "USDC", "3408", "usd-coin", "Ethereum", "ERC-20", "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", 0, 1, "U"),
+    private static let dashboardPinPrototypeSpecs: [(String, String, String, String, String, String, String?, Double, Double)] = [
+        ("Bitcoin", "BTC", "1", "bitcoin", "Bitcoin", "Native", nil, 0, 0),
+        ("Bitcoin Cash", "BCH", "1831", "bitcoin-cash", "Bitcoin Cash", "Native", nil, 0, 0),
+        ("Bitcoin SV", "BSV", "3602", "bitcoin-cash-sv", "Bitcoin SV", "Native", nil, 0, 0),
+        ("Litecoin", "LTC", "2", "litecoin", "Litecoin", "Native", nil, 0, 0),
+        ("Dogecoin", "DOGE", "74", "dogecoin", "Dogecoin", "Native", nil, 0, 0),
+        ("Ethereum", "ETH", "1027", "ethereum", "Ethereum", "Native", nil, 0, 0),
+        ("Ethereum Classic", "ETC", "1321", "ethereum-classic", "Ethereum Classic", "Native", nil, 0, 0),
+        ("Arbitrum", "ARB", "0", "arbitrum", "Arbitrum", "Native", nil, 0, 0),
+        ("Optimism", "OP", "0", "optimism", "Optimism", "Native", nil, 0, 0),
+        ("BNB Chain", "BNB", "1839", "binancecoin", "BNB Chain", "Native", nil, 0, 0),
+        ("Avalanche", "AVAX", "5805", "avalanche-2", "Avalanche", "Native", nil, 0, 0),
+        ("Hyperliquid", "HYPE", "0", "", "Hyperliquid", "Native", nil, 0, 0),
+        ("Solana", "SOL", "5426", "solana", "Solana", "Native", nil, 0, 0),
+        ("Cardano", "ADA", "2010", "cardano", "Cardano", "Native", nil, 0, 0),
+        ("Tron", "TRX", "1958", "tron", "Tron", "Native", nil, 0, 0),
+        ("XRP Ledger", "XRP", "52", "ripple", "XRP Ledger", "Native", nil, 0, 0),
+        ("Monero", "XMR", "328", "monero", "Monero", "Native", nil, 0, 0),
+        ("Sui", "SUI", "20947", "sui", "Sui", "Native", nil, 0, 0),
+        ("Aptos", "APT", "21794", "aptos", "Aptos", "Native", nil, 0, 0),
+        ("Internet Computer", "ICP", "2416", "internet-computer", "Internet Computer", "Native", nil, 0, 0),
+        ("NEAR Protocol", "NEAR", "6535", "near", "NEAR", "Native", nil, 0, 0),
+        ("Polkadot", "DOT", "6636", "polkadot", "Polkadot", "Native", nil, 0, 0),
+        ("Stellar", "XLM", "512", "stellar", "Stellar", "Native", nil, 0, 0),
+        ("Tether USD", "USDT", "825", "tether", "Ethereum", "ERC-20", "0xdAC17F958D2ee523a2206206994597C13D831ec7", 0, 1),
+        ("USD Coin", "USDC", "3408", "usd-coin", "Ethereum", "ERC-20", "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48", 0, 1),
     ]
     private var dashboardPinPrototypes: [Coin] {
         Self.dashboardPinPrototypeSpecs.map { spec in
             Coin.makeCustom(
                 name: spec.0, symbol: spec.1, marketDataId: spec.2, coinGeckoId: spec.3, chainName: spec.4, tokenStandard: spec.5,
-                contractAddress: spec.6, amount: spec.7, priceUsd: spec.8, mark: spec.9)
+                contractAddress: spec.6, amount: spec.7, priceUsd: spec.8)
         }
     }
     var pinnedDashboardAssetSymbols: [String] {
@@ -81,17 +81,10 @@ extension AppState {
     }
     private func prototypeCoinForTrackedEntry(_ entry: TokenPreferenceEntry) -> Coin {
         let price: Double = CachedCoreHelpers.stablecoinFallbackPriceUsd(symbol: entry.symbol)
-        let contractAddress: String? = entry.contractAddress
-        let mark: String = Coin.displayMark(for: entry.symbol)
-        let name: String = entry.name
-        let symbol: String = entry.symbol
-        let marketDataIdValue: String = entry.marketDataId
-        let coinGeckoIdValue: String = entry.coinGeckoId
-        let chainName: String = entry.chain.rawValue
-        let tokenStandard: String = entry.tokenStandard
         return CoreCoin(
-            id: UUID().uuidString, name: name, symbol: symbol, marketDataId: marketDataIdValue, coinGeckoId: coinGeckoIdValue,
-            chainName: chainName, tokenStandard: tokenStandard, contractAddress: contractAddress, amount: 0, priceUsd: price, mark: mark)
+            id: UUID().uuidString, name: entry.name, symbol: entry.symbol, marketDataId: entry.marketDataId, coinGeckoId: entry.coinGeckoId,
+            chainName: entry.chain.rawValue, tokenStandard: entry.tokenStandard, contractAddress: entry.contractAddress,
+            amount: 0, priceUsd: price)
     }
     private func dashboardPinnedAssetPrototype(symbol: String) -> Coin? {
         let normalizedSymbol = symbol.uppercased()
@@ -106,8 +99,7 @@ extension AppState {
                 tokenStandard: existing.tokenStandard,
                 contractAddress: existing.contractAddress,
                 amount: 0 as Double,
-                priceUsd: existing.priceUsd,
-                mark: existing.mark
+                priceUsd: existing.priceUsd
             )
         }
         if let trackedEntry = cachedResolvedTokenPreferencesBySymbol[normalizedSymbol]?.first {
@@ -181,8 +173,7 @@ extension AppState {
                         tokenStandard: existing.tokenStandard,
                         contractAddress: existing.contractAddress,
                         amount: existing.amount + coin.amount,
-                        priceUsd: coin.priceUsd,
-                        mark: existing.mark
+                        priceUsd: coin.priceUsd
                     )
                 } else {
                     chainGrouped[chainKey] = coin
@@ -241,7 +232,7 @@ extension AppState {
             return DashboardPinOption(
                 symbol: normalizedSymbol, name: representativeCoin.name,
                 subtitle: chainNames.isEmpty ? representativeCoin.chainName : chainNames.joined(separator: ", "),
-                assetIdentifier: representativeCoin.iconIdentifier, mark: representativeCoin.mark
+                assetIdentifier: representativeCoin.iconIdentifier
             )
         }
         if let representativeEntry = trackedEntries.first {
@@ -251,13 +242,12 @@ extension AppState {
                 assetIdentifier: Coin.iconIdentifier(
                     symbol: representativeEntry.symbol, chainName: representativeEntry.chain.rawValue,
                     contractAddress: representativeEntry.contractAddress, tokenStandard: representativeEntry.tokenStandard
-                ), mark: Coin.displayMark(for: representativeEntry.symbol)
+                )
             )
         }
         if let prototype {
             return DashboardPinOption(
-                symbol: normalizedSymbol, name: prototype.name, subtitle: prototype.chainName, assetIdentifier: prototype.iconIdentifier,
-                mark: prototype.mark
+                symbol: normalizedSymbol, name: prototype.name, subtitle: prototype.chainName, assetIdentifier: prototype.iconIdentifier
             )
         }
         return nil

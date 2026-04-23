@@ -41,7 +41,7 @@ struct DecimalDisplaySettingsView: View {
                         let supportedDecimals = store.supportedAssetDecimals(symbol: example.symbol, chainName: example.chainName)
                         decimalStepperCard(
                             assetIdentifier: Coin.iconIdentifier(symbol: example.symbol, chainName: example.chainName),
-                            fallbackText: Coin.displayMark(for: example.symbol), tint: Coin.displayColor(for: example.symbol),
+                            fallbackText: example.symbol, tint: Coin.displayColor(for: example.symbol),
                             title: example.chainName, subtitle: example.symbol, currentDisplayDecimals: currentDisplayDecimals,
                             supportedDecimals: supportedDecimals, supportedLabel: AppLocalization.string("Asset supports"),
                             onDecrease: {

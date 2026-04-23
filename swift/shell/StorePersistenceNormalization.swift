@@ -101,7 +101,7 @@ extension AppState {
                 name: representative.name, symbol: representative.symbol, marketDataId: representative.marketDataId,
                 coinGeckoId: representative.coinGeckoId, chainName: representative.chainName, tokenStandard: representative.tokenStandard,
                 contractAddress: representative.contractAddress, amount: Double(group.totalAmount) ?? representative.amount,
-                priceUsd: representative.priceUsd, mark: representative.mark
+                priceUsd: representative.priceUsd
             )
         }
         cachedAvailableSendCoinsByWalletID = sendCoinsByWalletID

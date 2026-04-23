@@ -470,6 +470,8 @@
   "import_flow.seed_phrase_invalid_words_format": "以下单词不是有效的 BIP-39 英文单词：%@。",
   "import_flow.seed_phrase_progress_format": "已输入 %lld / %lld 个单词。",
   "import_flow.seed_phrase_valid_status": "该 BIP-39 助记词看起来有效。",
+  "import_flow.step_label": "步骤",
+  "import_flow.step_of": "/ 共",
   "import_flow.wallet_name": "钱包名称",
   "import_flow.wallet_name_hint": "留空即可让 Spectra 自动命名。",
   "import_flow.wallet_name_optional": "钱包名称（可选）",

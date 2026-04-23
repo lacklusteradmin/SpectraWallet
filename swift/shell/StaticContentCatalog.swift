@@ -116,7 +116,6 @@ struct SettingsContentCopy: Decodable {
     let aboutNarrativeParagraphs: [String]
     let reportProblemDescription: String
     let reportProblemActionTitle: String
-    let reportProblemURL: String
     let buyProvidersIntro: String
     let buyWarning: String
     static var current: SettingsContentCopy { StaticContentCatalog.loadRequiredResource("SettingsContent", as: SettingsContentCopy.self) }
@@ -270,26 +269,11 @@ enum CommonLocalization {
         String(format: CommonLocalizationContent.current.rpcErrorFormat, chainName, AppLocalization.string(message))
     }
 }
-struct TokenVisualRegistrySeed: Decodable {
-    let title: String
-    let symbol: String
-    let referenceChain: String
-    let mark: String
-    let colorName: String
-    let assetName: String
-}
-enum TokenVisualRegistryCatalog {
-    static func loadEntries() -> [TokenVisualRegistryEntry] {
-        let seeds = StaticContentCatalog.loadRequiredResource("TokenVisualRegistry", as: [TokenVisualRegistrySeed].self)
-        return seeds.compactMap { seed in
-            guard let referenceChain = TokenTrackingChain(rawValue: seed.referenceChain) else { return nil }
-            return TokenVisualRegistryEntry(
-                title: seed.title, symbol: seed.symbol, referenceChain: referenceChain, mark: seed.mark,
-                color: color(named: seed.colorName), assetName: seed.assetName
-            )
-        }
-    }
-    private static func color(named name: String) -> Color {
+/// Maps a human-readable color name string (stored in `core/tokens.toml`
+/// and `resources/ChainVisualRegistry.json`) to a SwiftUI `Color`. Kept at
+/// module scope so both the chain and token visual catalogs can share it.
+enum RegistryColorLookup {
+    static func color(named name: String) -> Color {
         switch name.lowercased() {
         case "green": return .green
         case "blue": return .blue
@@ -301,8 +285,32 @@ enum TokenVisualRegistryCatalog {
         case "teal": return .teal
         case "gray": return .gray
         case "red": return .red
+        case "purple": return .purple
+        case "mint": return .mint
         default: return .accentColor
         }
+    }
+}
+enum TokenVisualRegistryCatalog {
+    /// Token visuals now derive from the single source of truth — the Rust
+    /// `list_builtin_tokens` registry — rather than a separate JSON file.
+    /// Dedupes by symbol because the TOML has one row per (chain, symbol)
+    /// pair and visual metadata is symbol-level.
+    static func loadEntries() -> [TokenVisualRegistryEntry] {
+        var seen = Set<String>()
+        var entries: [TokenVisualRegistryEntry] = []
+        for token in listBuiltinTokens(chainId: UInt32.max) {
+            let normalizedSymbol = token.symbol.uppercased()
+            guard seen.insert(normalizedSymbol).inserted else { continue }
+            guard let referenceChain = tokenTrackingChainFor(token.chain) else { continue }
+            entries.append(
+                TokenVisualRegistryEntry(
+                    title: token.name, symbol: token.symbol, referenceChain: referenceChain,
+                    color: RegistryColorLookup.color(named: token.colorName), assetName: token.assetName
+                )
+            )
+        }
+        return entries
     }
 }
 struct BuyCryptoProviderSeed: Decodable {
@@ -315,6 +323,14 @@ enum BuyCryptoProviderCatalog {
     static func loadEntries() -> [BuyCryptoProviderSeed] {
         StaticContentCatalog.loadRequiredResource("BuyCryptoProviders", as: [BuyCryptoProviderSeed].self)
     }
+}
+/// App-wide links that do NOT vary by locale — same URL regardless of the
+/// user's language. Stored in `resources/AppLinks.json` at the root of the
+/// shared resources folder (not `core/embedded/`, since Rust has no reason
+/// to consume this — it's purely a Swift-side UI link).
+struct AppLinks: Decodable {
+    let reportProblem: String
+    static var current: AppLinks { StaticContentCatalog.loadRequiredResource("AppLinks", as: AppLinks.self) }
 }
 struct DonationDestinationSeed: Decodable {
     let chainName: String
@@ -345,13 +361,11 @@ struct EndpointsContentCopy: Decodable {
 }
 struct ChainVisualRegistrySeed: Decodable {
     let id: String
-    let mark: String
     let colorName: String
     let assetName: String
 }
 struct ChainVisualRegistryEntry {
     let id: String
-    let mark: String
     let color: Color
     let assetName: String
 }
@@ -363,27 +377,10 @@ enum ChainVisualRegistryCatalog {
                 (
                     $0.id,
                     ChainVisualRegistryEntry(
-                        id: $0.id, mark: $0.mark, color: color(named: $0.colorName), assetName: $0.assetName
+                        id: $0.id, color: RegistryColorLookup.color(named: $0.colorName), assetName: $0.assetName
                     )
                 )
             })
-    }
-    private static func color(named name: String) -> Color {
-        switch name.lowercased() {
-        case "green": return .green
-        case "blue": return .blue
-        case "orange": return .orange
-        case "pink": return .pink
-        case "indigo": return .indigo
-        case "yellow": return .yellow
-        case "cyan": return .cyan
-        case "teal": return .teal
-        case "gray": return .gray
-        case "red": return .red
-        case "purple": return .purple
-        case "mint": return .mint
-        default: return .accentColor
-        }
     }
 }
 private func tokenTrackingChainFor(_ value: String) -> TokenTrackingChain? {

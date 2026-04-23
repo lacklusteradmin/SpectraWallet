@@ -239,6 +239,7 @@ extension AppState {
         bypassHighRiskSendConfirmation = false
         statusTrackingByTransactionID = [:]
         isShowingWalletImporter = false
+        isShowingAddWalletEntry = false
         isShowingSendSheet = false
         isShowingReceiveSheet = false
         importError = nil
@@ -454,9 +455,6 @@ extension AppState {
         UserDefaults.standard.removeObject(forKey: Self.backgroundSyncProfileDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.largeMovementAlertPercentThresholdDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.largeMovementAlertUSDThresholdDefaultsKey)
-        TokenIconPreferences.shared.resetAll()
-        TokenIconImageStore.removeAllImages()
-        TokenIconImageRevision.shared.bump()
         tokenPreferences = ChainTokenRegistryEntry.builtIn.map(\.tokenPreferenceEntry)
         livePrices = [:]
         quoteRefreshError = nil

@@ -22,6 +22,4 @@
   "pricingIntro" : "如果你需要實時價格，請選擇一個價格提供商。Spectra 會從所選提供商批量請求價格，並在實時數據不可用時回退到內置參考價格。",
   "publicProviderNote" : "該提供商使用公開的批量報價接口。當前構建無需 API 密鑰。",
   "reportProblemActionTitle" : "打開反饋表單",
-  "reportProblemDescription" : "使用此頁面打開未來的支持表單或問題跟蹤器。下方鏈接目前仍是佔位地址。",
-  "reportProblemURL" : "https:\/\/example.com\/spectra\/report-problem"
-}
+  "reportProblemDescription" : "使用此頁面打開未來的支持表單或問題跟蹤器。下方鏈接目前仍是佔位地址。"}

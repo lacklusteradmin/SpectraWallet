@@ -3,20 +3,14 @@ import SwiftUI
 #if canImport(UIKit)
     import UIKit
 #endif
-@Observable
-@MainActor
-final class TokenIconImageRevision {
-    static let shared = TokenIconImageRevision()
-    private(set) var tick: Int = 0
-    func bump() { tick += 1 }
-    private init() {}
-}
+/// Chain/token badge. Renders the bundled chain artwork when one exists;
+/// otherwise falls back to a solid circle with the first letter of
+/// `fallbackText`. No custom photos, no multi-letter disambiguation.
 struct CoinBadge: View {
     let assetIdentifier: String?
     let fallbackText: String
     let color: Color
     var size: CGFloat = 40
-    @Bindable private var preferences = TokenIconPreferences.shared
     var body: some View {
         // Resolve once per body eval — this used to be a computed property
         // that recomputed (and re-hit the memoized icon-identifier Rust
@@ -24,202 +18,37 @@ struct CoinBadge: View {
         // one cache read.
         let identifier: String =
             assetIdentifier.map(Coin.normalizedIconIdentifier) ?? "generic:\(fallbackText.lowercased())"
-        let style = preferences.style(for: identifier)
         let assetName: String? = {
             if let nativeDescriptor = Coin.nativeChainIconDescriptor(forAssetIdentifier: identifier) {
                 return nativeDescriptor.assetName
             }
             return TokenVisualRegistryEntry.entry(matchingAssetIdentifier: identifier)?.assetName
         }()
-        return ZStack {
-            if style == .customPhoto, let customImage = customTokenImage(for: identifier) {
-                Image(uiImage: customImage).resizable().interpolation(.high).scaledToFit().frame(width: size, height: size)
-            } else if style == .artwork, let assetName, let bundleImage = BundleImageLoader.image(named: assetName) {
+        return Group {
+            if let assetName, let bundleImage = BundleImageLoader.image(named: assetName) {
                 Image(uiImage: bundleImage).resizable().interpolation(.high).scaledToFit().frame(width: size, height: size)
             } else {
-                RoundedRectangle(cornerRadius: size * 0.3, style: .continuous).fill(
-                    LinearGradient(
-                        colors: [color, color.opacity(0.7)], startPoint: .topLeading, endPoint: .bottomTrailing
-                    )
-                ).frame(width: size, height: size)
-                RoundedRectangle(cornerRadius: size * 0.3, style: .continuous).strokeBorder(Color.white.opacity(0.22), lineWidth: 1).frame(
-                    width: size, height: size)
-                Circle().fill(Color.white.opacity(0.18)).frame(width: size * 0.38, height: size * 0.38).offset(
-                    x: -size * 0.16, y: -size * 0.16)
-                Text(fallbackText).font(.system(size: size * 0.3, weight: .black, design: .rounded)).foregroundStyle(.white)
+                letterFallback
             }
         }.shadow(color: color.opacity(0.18), radius: 6, y: 3)
     }
-    private func customTokenImage(for identifier: String) -> UIImage? {
-        #if canImport(UIKit)
-            _ = TokenIconImageRevision.shared.tick
-            return TokenIconImageStore.image(for: identifier)
-        #else
-            return nil
-        #endif
-    }
-}
-enum TokenIconStyle: String, CaseIterable, Identifiable {
-    case artwork
-    case customPhoto
-    case classicBadge
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .artwork: return "Artwork"
-        case .customPhoto: return "Photo"
-        case .classicBadge: return "Classic"
+    private var letterFallback: some View {
+        let letter = fallbackText.first.map { String($0).uppercased() } ?? "?"
+        return Circle().fill(
+            LinearGradient(colors: [color, color.opacity(0.75)], startPoint: .topLeading, endPoint: .bottomTrailing)
+        ).frame(width: size, height: size).overlay {
+            Text(letter).font(.system(size: size * 0.5, weight: .semibold, design: .rounded)).foregroundStyle(.white)
         }
-    }
-}
-enum TokenIconPreferenceStore {
-    static let defaultsKey = "settings.tokenIconPreferences.v1"
-}
-@Observable
-@MainActor
-final class TokenIconPreferences {
-    static let shared = TokenIconPreferences()
-    private var cache: [String: TokenIconStyle]
-    private init() { self.cache = Self.load() }
-    var isEmpty: Bool { cache.isEmpty }
-    func style(for identifier: String) -> TokenIconStyle { cache[identifier] ?? .artwork }
-    func setStyle(_ style: TokenIconStyle, for identifier: String) {
-        if style == .artwork { cache.removeValue(forKey: identifier) } else { cache[identifier] = style }
-        persist()
-    }
-    func resetAll() {
-        cache = [:]
-        UserDefaults.standard.removeObject(forKey: TokenIconPreferenceStore.defaultsKey)
-    }
-    func reloadFromStorage() { cache = Self.load() }
-    private func persist() {
-        guard !cache.isEmpty else {
-            UserDefaults.standard.removeObject(forKey: TokenIconPreferenceStore.defaultsKey)
-            return
-        }
-        let raw = cache.mapValues(\.rawValue)
-        guard let data = try? JSONEncoder().encode(raw), let encoded = String(data: data, encoding: .utf8) else { return }
-        UserDefaults.standard.set(encoded, forKey: TokenIconPreferenceStore.defaultsKey)
-    }
-    private static func load() -> [String: TokenIconStyle] {
-        guard let storage = UserDefaults.standard.string(forKey: TokenIconPreferenceStore.defaultsKey),
-            let data = storage.data(using: .utf8),
-            let raw = try? JSONDecoder().decode([String: String].self, from: data)
-        else { return [:] }
-        return raw.reduce(into: [:]) { result, entry in
-            if let style = TokenIconStyle(rawValue: entry.value) { result[entry.key] = style }
-        }
-    }
-}
-enum TokenIconImageStore {
-    static let maximumUploadBytes = 3 * 1024 * 1024
-    #if canImport(UIKit)
-        private static let imageCache: NSCache<NSString, UIImage> = {
-            let cache = NSCache<NSString, UIImage>()
-            cache.countLimit = 32
-            // Cost-bound the cache too — users typically have few custom icons,
-            // but each one is a 256×256 RGBA UIImage (~256 KB decoded). 8 MB
-            // ceiling keeps this cache from becoming a Jetsam-kill source.
-            cache.totalCostLimit = 8 * 1024 * 1024
-            return cache
-        }()
-        private static func approximateByteCost(for image: UIImage) -> Int {
-            let scale = image.scale
-            return Int(image.size.width * scale * image.size.height * scale * 4)
-        }
-    #endif
-    enum IconError: LocalizedError {
-        case imageTooLarge
-        case unreadableImage
-        case failedToWrite
-        var errorDescription: String? {
-            switch self {
-            case .imageTooLarge: return "Selected images must be 3 MB or smaller."
-            case .unreadableImage: return "The selected photo could not be read as an image."
-            case .failedToWrite: return "The custom icon could not be saved."
-            }
-        }
-    }
-    static func hasCustomImage(for identifier: String) -> Bool {
-        guard let url = customImageURL(for: identifier) else { return false }
-        return FileManager.default.fileExists(atPath: url.path)
-    }
-    #if canImport(UIKit)
-        static func image(for identifier: String) -> UIImage? {
-            let key = identifier as NSString
-            if let cached = imageCache.object(forKey: key) { return cached }
-            guard let url = customImageURL(for: identifier), FileManager.default.fileExists(atPath: url.path),
-                let image = UIImage(contentsOfFile: url.path)
-            else { return nil }
-            imageCache.setObject(image, forKey: key, cost: approximateByteCost(for: image))
-            return image
-        }
-        static func saveImageData(_ data: Data, for identifier: String) throws {
-            guard data.count <= maximumUploadBytes else { throw IconError.imageTooLarge }
-            guard let sourceImage = UIImage(data: data) else { throw IconError.unreadableImage }
-            let normalizedImage = resizedImage(from: sourceImage, targetSize: CGSize(width: 256, height: 256))
-            guard let pngData = normalizedImage.pngData(), let url = customImageURL(for: identifier) else { throw IconError.failedToWrite }
-            do {
-                let directoryURL = try customIconDirectoryURL()
-                try FileManager.default.createDirectory(at: directoryURL, withIntermediateDirectories: true)
-                try pngData.write(to: url, options: .atomic)
-                imageCache.removeObject(forKey: identifier as NSString)
-            } catch {
-                throw IconError.failedToWrite
-            }
-        }
-        private static func resizedImage(from image: UIImage, targetSize: CGSize) -> UIImage {
-            let renderer = UIGraphicsImageRenderer(size: targetSize)
-            return renderer.image { _ in
-                UIColor.clear.setFill()
-                UIBezierPath(rect: CGRect(origin: .zero, size: targetSize)).fill()
-                let aspectRatio = min(targetSize.width / max(image.size.width, 1), targetSize.height / max(image.size.height, 1))
-                let drawnSize = CGSize(width: image.size.width * aspectRatio, height: image.size.height * aspectRatio)
-                let origin = CGPoint(
-                    x: (targetSize.width - drawnSize.width) / 2, y: (targetSize.height - drawnSize.height) / 2
-                )
-                image.draw(in: CGRect(origin: origin, size: drawnSize))
-            }
-        }
-    #endif
-    static func removeImage(for identifier: String) {
-        guard let url = customImageURL(for: identifier), FileManager.default.fileExists(atPath: url.path) else { return }
-        try? FileManager.default.removeItem(at: url)
-        #if canImport(UIKit)
-            imageCache.removeObject(forKey: identifier as NSString)
-        #endif
-    }
-    static func removeAllImages() {
-        guard let directoryURL = try? customIconDirectoryURL(), FileManager.default.fileExists(atPath: directoryURL.path) else { return }
-        try? FileManager.default.removeItem(at: directoryURL)
-        #if canImport(UIKit)
-            imageCache.removeAllObjects()
-        #endif
-    }
-    private static func customImageURL(for identifier: String) -> URL? {
-        try? customIconDirectoryURL().appendingPathComponent(fileName(for: identifier))
-    }
-    private static func customIconDirectoryURL() throws -> URL {
-        let applicationSupportDirectory = try FileManager.default.url(
-            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true
-        )
-        return applicationSupportDirectory.appendingPathComponent("Spectra", isDirectory: true).appendingPathComponent(
-            "TokenIcons", isDirectory: true)
-    }
-    private static func fileName(for identifier: String) -> String {
-        let sanitizedMark = identifier.unicodeScalars.map { CharacterSet.alphanumerics.contains($0) ? String($0) : "_" }.joined()
-        return "\(sanitizedMark).png"
     }
 }
 struct ChainToggleLabel: View {
     let title: String
     let symbol: String
-    let mark: String
     var assetIdentifier: String? = nil
     let color: Color
     var body: some View {
         HStack(spacing: 10) {
-            CoinBadge(assetIdentifier: assetIdentifier, fallbackText: mark, color: color, size: 28)
+            CoinBadge(assetIdentifier: assetIdentifier, fallbackText: symbol, color: color, size: 28)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title)
                 Text(symbol).font(.caption).foregroundStyle(.secondary)

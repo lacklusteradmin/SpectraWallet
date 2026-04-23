@@ -40,8 +40,8 @@ extension AppState {
     }
 
     /// Decode the `holdings` array from a WalletSummary JSON blob and apply
-    /// their amounts to `wallet`.  Visual properties (color, mark, priceUsd)
-    /// are preserved from the existing Coin if found; new holdings get defaults.
+    /// their amounts to `wallet`. Visual properties (color, priceUsd) are
+    /// preserved from the existing Coin if found; new holdings get defaults.
     /// Returns `nil` if the JSON could not be parsed.
     private func holdingsAppliedFromSummary(_ summary: WalletSummary, to wallet: ImportedWallet) -> ImportedWallet? {
         let existing = wallet.holdings.map {
@@ -67,7 +67,7 @@ extension AppState {
                     id: old.id, name: old.name, symbol: old.symbol, marketDataId: old.marketDataId,
                     coinGeckoId: old.coinGeckoId, chainName: old.chainName,
                     tokenStandard: old.tokenStandard, contractAddress: old.contractAddress,
-                    amount: amount, priceUsd: old.priceUsd, mark: old.mark)
+                    amount: amount, priceUsd: old.priceUsd)
             case .append(let coin):
                 merged.append(
                     CoreCoin(
@@ -75,7 +75,7 @@ extension AppState {
                         name: coin.name, symbol: coin.symbol, marketDataId: coin.marketDataId,
                         coinGeckoId: coin.coinGeckoId, chainName: coin.chainName,
                         tokenStandard: coin.tokenStandard, contractAddress: coin.contractAddress,
-                        amount: coin.amount, priceUsd: 0, mark: coin.mark))
+                        amount: coin.amount, priceUsd: 0))
             }
         }
         return walletByReplacingHoldings(wallet, with: merged)

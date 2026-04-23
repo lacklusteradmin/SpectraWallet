@@ -124,7 +124,7 @@ struct ReceiveView: View {
                 VStack(alignment: .leading, spacing: 12) {
                     HStack(spacing: 12) {
                         CoinBadge(
-                            assetIdentifier: receiveCoin.iconIdentifier, fallbackText: receiveCoin.mark, color: receiveCoin.color, size: 34
+                            assetIdentifier: receiveCoin.iconIdentifier, fallbackText: receiveCoin.symbol, color: receiveCoin.color, size: 34
                         )
                         VStack(alignment: .leading, spacing: 2) {
                             Text(receiveCoin.name).font(.headline)

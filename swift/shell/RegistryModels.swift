@@ -134,18 +134,16 @@ extension CoreTokenTrackingChain: RawRepresentable, CaseIterable, Codable, Ident
     )
 }
 private struct ChainRegistryVisualMetadata {
-    let mark: String
     let color: Color
     let assetName: String
     static let byID: [String: ChainRegistryVisualMetadata] = ChainVisualRegistryCatalog.loadEntries().mapValues {
-        ChainRegistryVisualMetadata(mark: $0.mark, color: $0.color, assetName: $0.assetName)
+        ChainRegistryVisualMetadata(color: $0.color, assetName: $0.assetName)
     }
 }
 struct ChainRegistryEntry: Identifiable {
     let id: String
     let name: String
     let symbol: String
-    let mark: String
     let color: Color
     let assetName: String
     let family: String
@@ -160,7 +158,7 @@ struct ChainRegistryEntry: Identifiable {
     var assetIdentifier: String { Coin.iconIdentifier(symbol: symbol, chainName: name) }
     var nativeIconDescriptor: NativeChainIconDescriptor {
         NativeChainIconDescriptor(
-            registryID: id, title: name, symbol: symbol, chainName: name, mark: mark, color: color, assetName: assetName
+            registryID: id, title: name, symbol: symbol, chainName: name, color: color, assetName: assetName
         )
     }
     private static var cachedAllByLocalization: [String: [ChainRegistryEntry]] = [:]
@@ -171,7 +169,7 @@ struct ChainRegistryEntry: Identifiable {
         let entries: [ChainRegistryEntry] = ChainWikiEntry.all.compactMap { wiki in
             guard let visual = ChainRegistryVisualMetadata.byID[wiki.id] else { return nil }
             return ChainRegistryEntry(
-                id: wiki.id, name: wiki.name, symbol: wiki.symbol, mark: visual.mark, color: visual.color, assetName: visual.assetName,
+                id: wiki.id, name: wiki.name, symbol: wiki.symbol, color: visual.color, assetName: visual.assetName,
                 family: wiki.family, consensus: wiki.consensus, stateModel: wiki.stateModel, primaryUse: wiki.primaryUse,
                 slip44CoinType: wiki.slip44CoinType, derivationPath: wiki.derivationPath,
                 alternateDerivationPath: wiki.alternateDerivationPath, totalCirculationModel: wiki.totalCirculationModel,
@@ -196,7 +194,6 @@ struct TokenVisualRegistryEntry: Identifiable {
     let title: String
     let symbol: String
     let referenceChain: TokenTrackingChain
-    let mark: String
     let color: Color
     let assetName: String
     var id: String { symbol }
@@ -378,7 +375,6 @@ struct NativeChainIconDescriptor: Identifiable {
     let title: String
     let symbol: String
     let chainName: String
-    let mark: String
     let color: Color
     let assetName: String
     var id: String { assetIdentifier }
@@ -432,9 +428,9 @@ extension Coin {
         cachedSymbolDescriptors[cacheKey] = descriptor
         return descriptor
     }
-    static func nativeChainBadge(chainName: String) -> (assetIdentifier: String?, mark: String, color: Color)? {
+    static func nativeChainBadge(chainName: String) -> (assetIdentifier: String?, color: Color)? {
         guard let descriptor = nativeChainIconDescriptor(chainName: chainName) else { return nil }
-        return (descriptor.assetIdentifier, descriptor.mark, descriptor.color)
+        return (descriptor.assetIdentifier, descriptor.color)
     }
     static func iconIdentifier(symbol: String, chainName: String, contractAddress: String? = nil, tokenStandard: String = "Native")
         -> String
@@ -451,17 +447,6 @@ extension Coin {
         let value = corePlanNormalizedIconIdentifier(identifier: identifier)
         cachedNormalizedIconIdentifiers[identifier] = value
         return value
-    }
-    static func displayMark(for symbol: String) -> String {
-        if let mark = nativeChainIconDescriptor(symbol: symbol)?.mark, !mark.isEmpty { return mark }
-        switch symbol {
-        case "MATIC": return "P"
-        case "ARB": return "AR"
-        case "TRX", "USDT": return "T"
-        default: break
-        }
-        if let mark = TokenVisualRegistryEntry.entry(symbol: symbol)?.mark, !mark.isEmpty { return mark }
-        return String(symbol.prefix(2)).uppercased()
     }
     static func displayColor(for symbol: String) -> Color {
         if let nativeDescriptor = nativeChainIconDescriptor(symbol: symbol) { return nativeDescriptor.color }
@@ -482,7 +467,7 @@ extension Coin {
         self = Coin.makeCustom(
             name: snapshot.name, symbol: snapshot.symbol, marketDataId: snapshot.marketDataId, coinGeckoId: snapshot.coinGeckoId,
             chainName: snapshot.chainName, tokenStandard: snapshot.tokenStandard, contractAddress: snapshot.contractAddress,
-            amount: snapshot.amount, priceUsd: snapshot.priceUsd, mark: Self.displayMark(for: snapshot.symbol)
+            amount: snapshot.amount, priceUsd: snapshot.priceUsd
         )
     }
     var persistedSnapshot: PersistedCoin {

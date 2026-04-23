@@ -6,8 +6,6 @@ struct SettingsView: View {
     private enum Route: Hashable {
         case addressBook
         case trackedTokens
-        case feePriorities
-        case iconStyles
         case decimalDisplay
         case refreshFrequency
         case priceAlerts
@@ -21,6 +19,7 @@ struct SettingsView: View {
         case about
         case chainWiki
         case advanced
+        case donate
     }
     var body: some View {
         @Bindable var preferences = store.preferences
@@ -33,14 +32,8 @@ struct SettingsView: View {
                     NavigationLink(value: Route.trackedTokens) {
                         Label(AppLocalization.string("Tracked Tokens"), systemImage: "bitcoinsign.bank.building")
                     }
-                    NavigationLink(value: Route.feePriorities) {
-                        Label(AppLocalization.string("Fee Priorities"), systemImage: "dial.medium")
-                    }
                 }
                 Section(AppLocalization.string("Display")) {
-                    NavigationLink(value: Route.iconStyles) {
-                        Label(AppLocalization.string("Icon Styles"), systemImage: "photo.on.rectangle")
-                    }
                     Toggle(isOn: $preferences.hideBalances) {
                         Label(AppLocalization.string("Hide balances"), systemImage: "eye.slash")
                     }
@@ -106,6 +99,9 @@ struct SettingsView: View {
                     NavigationLink(value: Route.chainWiki) {
                         Label(AppLocalization.string("Chain Wiki"), systemImage: "books.vertical")
                     }
+                    NavigationLink(value: Route.donate) {
+                        Label(AppLocalization.string("Donate"), systemImage: "heart")
+                    }
                 }
                 Section(AppLocalization.string("Advanced")) {
                     NavigationLink(value: Route.advanced) {
@@ -125,8 +121,6 @@ struct SettingsView: View {
                 switch route {
                 case .addressBook: AddressBookView(store: store)
                 case .trackedTokens: TokenRegistrySettingsView(store: store)
-                case .feePriorities: ChainFeePrioritySettingsView(store: store)
-                case .iconStyles: TokenIconSettingsView()
                 case .decimalDisplay: DecimalDisplaySettingsView(store: store)
                 case .refreshFrequency: BackgroundSyncSettingsView(store: store)
                 case .priceAlerts: PriceAlertsView(store: store)
@@ -139,6 +133,7 @@ struct SettingsView: View {
                 case .buyCryptoHelp: BuyCryptoHelpView()
                 case .about: AboutView()
                 case .chainWiki: ChainWikiLibraryView()
+                case .donate: DonationsView()
                 case .advanced: AdvancedSettingsView(store: store)
                 }
             }.sheet(isPresented: $isShowingResetWalletWarning) {
