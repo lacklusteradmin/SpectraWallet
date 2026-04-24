@@ -919,7 +919,7 @@ final class AppState {
     }
     @discardableResult
     func addCustomTokenPreference(
-        chain: TokenTrackingChain, symbol: String, name: String, contractAddress: String, marketDataId: String = "0",
+        chain: TokenTrackingChain, symbol: String, name: String, contractAddress: String,
         coinGeckoId: String = "", decimals: Int
     ) -> String? {
         let normalizedSymbol = symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
@@ -969,7 +969,7 @@ final class AppState {
         tokenPreferences.append(
             TokenPreferenceEntry(
                 chain: chain, name: normalizedName, symbol: normalizedSymbol, tokenStandard: chain.tokenStandard,
-                contractAddress: normalizedContract, marketDataId: marketDataId.trimmingCharacters(in: .whitespacesAndNewlines),
+                contractAddress: normalizedContract,
                 coinGeckoId: coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines), decimals: min(max(decimals, 0), 30),
                 category: .custom, isBuiltIn: false, isEnabled: true
             )
@@ -1006,7 +1006,7 @@ final class AppState {
         enabledTokenPreferences(for: chain).map { e in
             ChainTokenRegistryEntry(
                 chain: e.chain, name: e.name, symbol: e.symbol, tokenStandard: e.tokenStandard,
-                contractAddress: normalizeEVMAddress(e.contractAddress), marketDataId: e.marketDataId, coinGeckoId: e.coinGeckoId,
+                contractAddress: normalizeEVMAddress(e.contractAddress), coinGeckoId: e.coinGeckoId,
                 decimals: Int(e.decimals), displayDecimals: e.displayDecimals.map(Int.init), category: e.category, isBuiltIn: e.isBuiltIn,
                 isEnabledByDefault: e.isEnabled)
         }
@@ -1029,7 +1029,7 @@ final class AppState {
         let entries = includeDisabled ? tokenPreferences.filter { $0.chain == .solana } : enabledTokenPreferences(for: .solana)
         for entry in entries {
             result[entry.contractAddress] = SolanaBalanceService.KnownTokenMetadata(
-                symbol: entry.symbol, name: entry.name, decimals: Int(entry.decimals), marketDataId: entry.marketDataId,
+                symbol: entry.symbol, name: entry.name, decimals: Int(entry.decimals),
                 coinGeckoId: entry.coinGeckoId
             )
         }
@@ -1047,7 +1047,7 @@ final class AppState {
                     entry.contractAddress,
                     SuiBalanceService.KnownTokenMetadata(
                         symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals),
-                        marketDataId: entry.marketDataId, coinGeckoId: entry.coinGeckoId
+                        coinGeckoId: entry.coinGeckoId
                     )
                 )
             }
@@ -1060,7 +1060,7 @@ final class AppState {
                     normalizeAptosTokenIdentifier(entry.contractAddress),
                     AptosBalanceService.KnownTokenMetadata(
                         symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals),
-                        marketDataId: entry.marketDataId, coinGeckoId: entry.coinGeckoId
+                        coinGeckoId: entry.coinGeckoId
                     )
                 )
             }
@@ -1074,7 +1074,7 @@ final class AppState {
                     entry.contractAddress,
                     NearBalanceService.KnownTokenMetadata(
                         symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals),
-                        marketDataId: entry.marketDataId, coinGeckoId: entry.coinGeckoId
+                        coinGeckoId: entry.coinGeckoId
                     )
                 )
             }
@@ -1087,7 +1087,7 @@ final class AppState {
                     TONBalanceService.normalizeJettonMasterAddress(entry.contractAddress),
                     TONBalanceService.KnownTokenMetadata(
                         symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals),
-                        marketDataId: entry.marketDataId, coinGeckoId: entry.coinGeckoId
+                        coinGeckoId: entry.coinGeckoId
                     )
                 )
             }

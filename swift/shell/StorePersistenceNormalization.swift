@@ -98,7 +98,7 @@ extension AppState {
                 return nil
             }
             return Coin.makeCustom(
-                name: representative.name, symbol: representative.symbol, marketDataId: representative.marketDataId,
+                name: representative.name, symbol: representative.symbol,
                 coinGeckoId: representative.coinGeckoId, chainName: representative.chainName, tokenStandard: representative.tokenStandard,
                 contractAddress: representative.contractAddress, amount: Double(group.totalAmount) ?? representative.amount,
                 priceUsd: representative.priceUsd

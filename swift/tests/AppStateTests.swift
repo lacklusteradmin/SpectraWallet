@@ -8,7 +8,7 @@ import Foundation
         func testEditingWalletNamePreservesExistingHoldings() async {
             let store = AppState()
             let existingHolding = Coin.makeCustom(
-                name: "Ethereum", symbol: "ETH", marketDataId: "1027", coinGeckoId: "ethereum", chainName: "Ethereum",
+                name: "Ethereum", symbol: "ETH", coinGeckoId: "ethereum", chainName: "Ethereum",
                 tokenStandard: "Native", contractAddress: nil, amount: 2, priceUsd: 3000
             )
             let wallet = ImportedWallet(
@@ -79,7 +79,7 @@ import Foundation
             let store = AppState()
             store.bitcoinNetworkMode = .testnet4
             let coin = Coin.makeCustom(
-                name: "Bitcoin", symbol: "BTC", marketDataId: "1", coinGeckoId: "bitcoin", chainName: "Bitcoin", tokenStandard: "Native",
+                name: "Bitcoin", symbol: "BTC", coinGeckoId: "bitcoin", chainName: "Bitcoin", tokenStandard: "Native",
                 contractAddress: nil, amount: 1.25, priceUsd: 64000
             )
             XCTAssertEqual(store.assetIdentityKey(for: coin), "Bitcoin Testnet4|BTC")
@@ -118,7 +118,7 @@ import Foundation
                 selectedChain: "Ethereum",
                 holdings: [
                     Coin.makeCustom(
-                        name: "Ethereum", symbol: "ETH", marketDataId: "1027", coinGeckoId: "ethereum", chainName: "Ethereum",
+                        name: "Ethereum", symbol: "ETH", coinGeckoId: "ethereum", chainName: "Ethereum",
                         tokenStandard: "Native", contractAddress: nil, amount: 2, priceUsd: 3000
                     )
                 ]

@@ -49,7 +49,7 @@ extension AppState {
         }
         let incoming = summary.holdings.map {
             HoldingMergeIncomingInput(
-                name: $0.name, symbol: $0.symbol, marketDataId: $0.marketDataId, coinGeckoId: $0.coinGeckoId,
+                name: $0.name, symbol: $0.symbol, coinGeckoId: $0.coinGeckoId,
                 chainName: $0.chainName, tokenStandard: $0.tokenStandard, contractAddress: $0.contractAddress,
                 amount: $0.amount
             )
@@ -64,7 +64,7 @@ extension AppState {
                 guard merged.indices.contains(idx) else { continue }
                 let old = merged[idx]
                 merged[idx] = CoreCoin(
-                    id: old.id, name: old.name, symbol: old.symbol, marketDataId: old.marketDataId,
+                    id: old.id, name: old.name, symbol: old.symbol,
                     coinGeckoId: old.coinGeckoId, chainName: old.chainName,
                     tokenStandard: old.tokenStandard, contractAddress: old.contractAddress,
                     amount: amount, priceUsd: old.priceUsd)
@@ -72,7 +72,7 @@ extension AppState {
                 merged.append(
                     CoreCoin(
                         id: UUID().uuidString,
-                        name: coin.name, symbol: coin.symbol, marketDataId: coin.marketDataId,
+                        name: coin.name, symbol: coin.symbol,
                         coinGeckoId: coin.coinGeckoId, chainName: coin.chainName,
                         tokenStandard: coin.tokenStandard, contractAddress: coin.contractAddress,
                         amount: coin.amount, priceUsd: 0))

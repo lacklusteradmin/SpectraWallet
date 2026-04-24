@@ -262,18 +262,18 @@ nonisolated extension CoreTokenPreferenceEntry: Identifiable, Codable {
     // Legacy UUID-style id initializer & convenience matching Swift-era struct.
     init(
         id: UUID = UUID(), chain: TokenTrackingChain, name: String, symbol: String, tokenStandard: String, contractAddress: String,
-        marketDataId: String, coinGeckoId: String, decimals: Int, displayDecimals: Int? = nil, category: TokenPreferenceCategory,
+        coinGeckoId: String, decimals: Int, displayDecimals: Int? = nil, category: TokenPreferenceCategory,
         isBuiltIn: Bool, isEnabled: Bool
     ) {
         self.init(
             id: id.uuidString, chain: chain, name: name, symbol: symbol, tokenStandard: tokenStandard,
-            contractAddress: contractAddress, marketDataId: marketDataId, coinGeckoId: coinGeckoId,
+            contractAddress: contractAddress, coinGeckoId: coinGeckoId,
             decimals: Int32(decimals), displayDecimals: displayDecimals.map(Int32.init),
             category: category, isBuiltIn: isBuiltIn, isEnabled: isEnabled
         )
     }
     private enum CodingKeys: String, CodingKey {
-        case id, chain, name, symbol, tokenStandard, contractAddress, marketDataId, coinGeckoId, decimals, displayDecimals, category,
+        case id, chain, name, symbol, tokenStandard, contractAddress, coinGeckoId, decimals, displayDecimals, category,
             isBuiltIn, isEnabled
     }
     public init(from decoder: Decoder) throws {
@@ -286,7 +286,6 @@ nonisolated extension CoreTokenPreferenceEntry: Identifiable, Codable {
             symbol: try c.decode(String.self, forKey: .symbol),
             tokenStandard: try c.decode(String.self, forKey: .tokenStandard),
             contractAddress: try c.decode(String.self, forKey: .contractAddress),
-            marketDataId: try c.decode(String.self, forKey: .marketDataId),
             coinGeckoId: try c.decode(String.self, forKey: .coinGeckoId),
             decimals: try c.decode(Int32.self, forKey: .decimals),
             displayDecimals: try c.decodeIfPresent(Int32.self, forKey: .displayDecimals),
@@ -303,7 +302,6 @@ nonisolated extension CoreTokenPreferenceEntry: Identifiable, Codable {
         try c.encode(symbol, forKey: .symbol)
         try c.encode(tokenStandard, forKey: .tokenStandard)
         try c.encode(contractAddress, forKey: .contractAddress)
-        try c.encode(marketDataId, forKey: .marketDataId)
         try c.encode(coinGeckoId, forKey: .coinGeckoId)
         try c.encode(decimals, forKey: .decimals)
         try c.encodeIfPresent(displayDecimals, forKey: .displayDecimals)
@@ -318,7 +316,6 @@ struct ChainTokenRegistryEntry: Identifiable, Equatable {
     let symbol: String
     let tokenStandard: String
     let contractAddress: String
-    let marketDataId: String
     let coinGeckoId: String
     let decimals: Int
     let displayDecimals: Int?
@@ -331,7 +328,7 @@ struct ChainTokenRegistryEntry: Identifiable, Equatable {
         )
     }
     init(
-        chain: TokenTrackingChain, name: String, symbol: String, tokenStandard: String, contractAddress: String, marketDataId: String,
+        chain: TokenTrackingChain, name: String, symbol: String, tokenStandard: String, contractAddress: String,
         coinGeckoId: String, decimals: Int, displayDecimals: Int? = nil, category: TokenPreferenceCategory, isBuiltIn: Bool,
         isEnabledByDefault: Bool
     ) {
@@ -340,7 +337,6 @@ struct ChainTokenRegistryEntry: Identifiable, Equatable {
         self.symbol = symbol
         self.tokenStandard = tokenStandard
         self.contractAddress = contractAddress
-        self.marketDataId = marketDataId
         self.coinGeckoId = coinGeckoId
         self.decimals = decimals
         self.displayDecimals = displayDecimals
@@ -354,7 +350,6 @@ struct ChainTokenRegistryEntry: Identifiable, Equatable {
         symbol = tokenPreferenceEntry.symbol
         tokenStandard = tokenPreferenceEntry.tokenStandard
         contractAddress = tokenPreferenceEntry.contractAddress
-        marketDataId = tokenPreferenceEntry.marketDataId
         coinGeckoId = tokenPreferenceEntry.coinGeckoId
         decimals = Int(tokenPreferenceEntry.decimals)
         displayDecimals = tokenPreferenceEntry.displayDecimals.map(Int.init)
@@ -365,7 +360,7 @@ struct ChainTokenRegistryEntry: Identifiable, Equatable {
     var tokenPreferenceEntry: TokenPreferenceEntry {
         TokenPreferenceEntry(
             chain: chain, name: name, symbol: symbol, tokenStandard: tokenStandard, contractAddress: contractAddress,
-            marketDataId: marketDataId, coinGeckoId: coinGeckoId, decimals: decimals, displayDecimals: displayDecimals, category: category,
+            coinGeckoId: coinGeckoId, decimals: decimals, displayDecimals: displayDecimals, category: category,
             isBuiltIn: isBuiltIn, isEnabled: isEnabledByDefault
         )
     }
@@ -465,14 +460,14 @@ extension Coin {
     }
     @MainActor init(snapshot: PersistedCoin) {
         self = Coin.makeCustom(
-            name: snapshot.name, symbol: snapshot.symbol, marketDataId: snapshot.marketDataId, coinGeckoId: snapshot.coinGeckoId,
+            name: snapshot.name, symbol: snapshot.symbol, coinGeckoId: snapshot.coinGeckoId,
             chainName: snapshot.chainName, tokenStandard: snapshot.tokenStandard, contractAddress: snapshot.contractAddress,
             amount: snapshot.amount, priceUsd: snapshot.priceUsd
         )
     }
     var persistedSnapshot: PersistedCoin {
         PersistedCoin(
-            name: name, symbol: symbol, marketDataId: marketDataId, coinGeckoId: coinGeckoId, chainName: chainName,
+            name: name, symbol: symbol, coinGeckoId: coinGeckoId, chainName: chainName,
             tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUsd
         )
     }

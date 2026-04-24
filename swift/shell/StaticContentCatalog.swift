@@ -409,7 +409,7 @@ extension ChainTokenRegistryEntry {
             else { return nil }
             return ChainTokenRegistryEntry(
                 chain: chain, name: entry.name, symbol: entry.symbol, tokenStandard: entry.tokenStandard,
-                contractAddress: entry.contract, marketDataId: entry.marketId, coinGeckoId: entry.coingeckoId,
+                contractAddress: entry.contract, coinGeckoId: entry.coingeckoId,
                 decimals: Int(entry.decimals), displayDecimals: entry.displayDecimals.map(Int.init),
                 category: category, isBuiltIn: true, isEnabledByDefault: entry.enabled
             )

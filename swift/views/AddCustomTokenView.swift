@@ -35,7 +35,7 @@ struct AddCustomTokenView: View {
                 if let formMessage { Text(formMessage).font(.caption).foregroundStyle(.secondary) }
                 Button(AppLocalization.string("Add Token")) {
                     let message = store.addCustomTokenPreference(
-                        chain: selectedChain, symbol: symbolInput, name: nameInput, contractAddress: contractInput, marketDataId: "0",
+                        chain: selectedChain, symbol: symbolInput, name: nameInput, contractAddress: contractInput,
                         coinGeckoId: coinGeckoIdInput, decimals: decimalsInput
                     )
                     if let message {

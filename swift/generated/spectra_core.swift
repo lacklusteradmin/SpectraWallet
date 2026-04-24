@@ -5121,7 +5121,6 @@ nonisolated public func FfiConverterTypeAssetDecimalsResolution_lower(_ value: A
 nonisolated public struct AssetHolding {
     public var name: String
     public var symbol: String
-    public var marketDataId: String
     public var coinGeckoId: String
     public var chainName: String
     public var tokenStandard: String
@@ -5131,10 +5130,9 @@ nonisolated public struct AssetHolding {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(name: String, symbol: String, marketDataId: String, coinGeckoId: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double, priceUsd: Double) {
+    nonisolated public init(name: String, symbol: String, coinGeckoId: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double, priceUsd: Double) {
         self.name = name
         self.symbol = symbol
-        self.marketDataId = marketDataId
         self.coinGeckoId = coinGeckoId
         self.chainName = chainName
         self.tokenStandard = tokenStandard
@@ -5155,9 +5153,6 @@ nonisolated extension AssetHolding: Equatable, Hashable {
             return false
         }
         if lhs.symbol != rhs.symbol {
-            return false
-        }
-        if lhs.marketDataId != rhs.marketDataId {
             return false
         }
         if lhs.coinGeckoId != rhs.coinGeckoId {
@@ -5184,7 +5179,6 @@ nonisolated extension AssetHolding: Equatable, Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(name)
         hasher.combine(symbol)
-        hasher.combine(marketDataId)
         hasher.combine(coinGeckoId)
         hasher.combine(chainName)
         hasher.combine(tokenStandard)
@@ -5205,7 +5199,6 @@ nonisolated public struct FfiConverterTypeAssetHolding: FfiConverterRustBuffer {
             try AssetHolding(
                 name: FfiConverterString.read(from: &buf), 
                 symbol: FfiConverterString.read(from: &buf), 
-                marketDataId: FfiConverterString.read(from: &buf), 
                 coinGeckoId: FfiConverterString.read(from: &buf), 
                 chainName: FfiConverterString.read(from: &buf), 
                 tokenStandard: FfiConverterString.read(from: &buf), 
@@ -5218,7 +5211,6 @@ nonisolated public struct FfiConverterTypeAssetHolding: FfiConverterRustBuffer {
     public static func write(_ value: AssetHolding, into buf: inout [UInt8]) {
         FfiConverterString.write(value.name, into: &buf)
         FfiConverterString.write(value.symbol, into: &buf)
-        FfiConverterString.write(value.marketDataId, into: &buf)
         FfiConverterString.write(value.coinGeckoId, into: &buf)
         FfiConverterString.write(value.chainName, into: &buf)
         FfiConverterString.write(value.tokenStandard, into: &buf)
@@ -7198,7 +7190,6 @@ nonisolated public struct CoreCoin {
     public var id: String
     public var name: String
     public var symbol: String
-    public var marketDataId: String
     public var coinGeckoId: String
     public var chainName: String
     public var tokenStandard: String
@@ -7208,11 +7199,10 @@ nonisolated public struct CoreCoin {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(id: String, name: String, symbol: String, marketDataId: String, coinGeckoId: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double, priceUsd: Double) {
+    nonisolated public init(id: String, name: String, symbol: String, coinGeckoId: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double, priceUsd: Double) {
         self.id = id
         self.name = name
         self.symbol = symbol
-        self.marketDataId = marketDataId
         self.coinGeckoId = coinGeckoId
         self.chainName = chainName
         self.tokenStandard = tokenStandard
@@ -7236,9 +7226,6 @@ nonisolated extension CoreCoin: Equatable, Hashable {
             return false
         }
         if lhs.symbol != rhs.symbol {
-            return false
-        }
-        if lhs.marketDataId != rhs.marketDataId {
             return false
         }
         if lhs.coinGeckoId != rhs.coinGeckoId {
@@ -7266,7 +7253,6 @@ nonisolated extension CoreCoin: Equatable, Hashable {
         hasher.combine(id)
         hasher.combine(name)
         hasher.combine(symbol)
-        hasher.combine(marketDataId)
         hasher.combine(coinGeckoId)
         hasher.combine(chainName)
         hasher.combine(tokenStandard)
@@ -7288,7 +7274,6 @@ nonisolated public struct FfiConverterTypeCoreCoin: FfiConverterRustBuffer {
                 id: FfiConverterString.read(from: &buf), 
                 name: FfiConverterString.read(from: &buf), 
                 symbol: FfiConverterString.read(from: &buf), 
-                marketDataId: FfiConverterString.read(from: &buf), 
                 coinGeckoId: FfiConverterString.read(from: &buf), 
                 chainName: FfiConverterString.read(from: &buf), 
                 tokenStandard: FfiConverterString.read(from: &buf), 
@@ -7302,7 +7287,6 @@ nonisolated public struct FfiConverterTypeCoreCoin: FfiConverterRustBuffer {
         FfiConverterString.write(value.id, into: &buf)
         FfiConverterString.write(value.name, into: &buf)
         FfiConverterString.write(value.symbol, into: &buf)
-        FfiConverterString.write(value.marketDataId, into: &buf)
         FfiConverterString.write(value.coinGeckoId, into: &buf)
         FfiConverterString.write(value.chainName, into: &buf)
         FfiConverterString.write(value.tokenStandard, into: &buf)
@@ -9170,7 +9154,6 @@ nonisolated public struct CoreTokenPreferenceEntry {
     public var symbol: String
     public var tokenStandard: String
     public var contractAddress: String
-    public var marketDataId: String
     public var coinGeckoId: String
     public var decimals: Int32
     public var displayDecimals: Int32?
@@ -9180,14 +9163,13 @@ nonisolated public struct CoreTokenPreferenceEntry {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(id: String, chain: CoreTokenTrackingChain, name: String, symbol: String, tokenStandard: String, contractAddress: String, marketDataId: String, coinGeckoId: String, decimals: Int32, displayDecimals: Int32?, category: CoreTokenPreferenceCategory, isBuiltIn: Bool, isEnabled: Bool) {
+    nonisolated public init(id: String, chain: CoreTokenTrackingChain, name: String, symbol: String, tokenStandard: String, contractAddress: String, coinGeckoId: String, decimals: Int32, displayDecimals: Int32?, category: CoreTokenPreferenceCategory, isBuiltIn: Bool, isEnabled: Bool) {
         self.id = id
         self.chain = chain
         self.name = name
         self.symbol = symbol
         self.tokenStandard = tokenStandard
         self.contractAddress = contractAddress
-        self.marketDataId = marketDataId
         self.coinGeckoId = coinGeckoId
         self.decimals = decimals
         self.displayDecimals = displayDecimals
@@ -9222,9 +9204,6 @@ nonisolated extension CoreTokenPreferenceEntry: Equatable, Hashable {
         if lhs.contractAddress != rhs.contractAddress {
             return false
         }
-        if lhs.marketDataId != rhs.marketDataId {
-            return false
-        }
         if lhs.coinGeckoId != rhs.coinGeckoId {
             return false
         }
@@ -9253,7 +9232,6 @@ nonisolated extension CoreTokenPreferenceEntry: Equatable, Hashable {
         hasher.combine(symbol)
         hasher.combine(tokenStandard)
         hasher.combine(contractAddress)
-        hasher.combine(marketDataId)
         hasher.combine(coinGeckoId)
         hasher.combine(decimals)
         hasher.combine(displayDecimals)
@@ -9278,7 +9256,6 @@ nonisolated public struct FfiConverterTypeCoreTokenPreferenceEntry: FfiConverter
                 symbol: FfiConverterString.read(from: &buf), 
                 tokenStandard: FfiConverterString.read(from: &buf), 
                 contractAddress: FfiConverterString.read(from: &buf), 
-                marketDataId: FfiConverterString.read(from: &buf), 
                 coinGeckoId: FfiConverterString.read(from: &buf), 
                 decimals: FfiConverterInt32.read(from: &buf), 
                 displayDecimals: FfiConverterOptionInt32.read(from: &buf), 
@@ -9295,7 +9272,6 @@ nonisolated public struct FfiConverterTypeCoreTokenPreferenceEntry: FfiConverter
         FfiConverterString.write(value.symbol, into: &buf)
         FfiConverterString.write(value.tokenStandard, into: &buf)
         FfiConverterString.write(value.contractAddress, into: &buf)
-        FfiConverterString.write(value.marketDataId, into: &buf)
         FfiConverterString.write(value.coinGeckoId, into: &buf)
         FfiConverterInt32.write(value.decimals, into: &buf)
         FfiConverterOptionInt32.write(value.displayDecimals, into: &buf)
@@ -14737,7 +14713,6 @@ nonisolated public func FfiConverterTypeHistoryWallet_lower(_ value: HistoryWall
 nonisolated public struct HoldingMergeAppendPayload {
     public var name: String
     public var symbol: String
-    public var marketDataId: String
     public var coinGeckoId: String
     public var chainName: String
     public var tokenStandard: String
@@ -14746,10 +14721,9 @@ nonisolated public struct HoldingMergeAppendPayload {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(name: String, symbol: String, marketDataId: String, coinGeckoId: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double) {
+    nonisolated public init(name: String, symbol: String, coinGeckoId: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double) {
         self.name = name
         self.symbol = symbol
-        self.marketDataId = marketDataId
         self.coinGeckoId = coinGeckoId
         self.chainName = chainName
         self.tokenStandard = tokenStandard
@@ -14769,9 +14743,6 @@ nonisolated extension HoldingMergeAppendPayload: Equatable, Hashable {
             return false
         }
         if lhs.symbol != rhs.symbol {
-            return false
-        }
-        if lhs.marketDataId != rhs.marketDataId {
             return false
         }
         if lhs.coinGeckoId != rhs.coinGeckoId {
@@ -14795,7 +14766,6 @@ nonisolated extension HoldingMergeAppendPayload: Equatable, Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(name)
         hasher.combine(symbol)
-        hasher.combine(marketDataId)
         hasher.combine(coinGeckoId)
         hasher.combine(chainName)
         hasher.combine(tokenStandard)
@@ -14815,7 +14785,6 @@ nonisolated public struct FfiConverterTypeHoldingMergeAppendPayload: FfiConverte
             try HoldingMergeAppendPayload(
                 name: FfiConverterString.read(from: &buf), 
                 symbol: FfiConverterString.read(from: &buf), 
-                marketDataId: FfiConverterString.read(from: &buf), 
                 coinGeckoId: FfiConverterString.read(from: &buf), 
                 chainName: FfiConverterString.read(from: &buf), 
                 tokenStandard: FfiConverterString.read(from: &buf), 
@@ -14827,7 +14796,6 @@ nonisolated public struct FfiConverterTypeHoldingMergeAppendPayload: FfiConverte
     public static func write(_ value: HoldingMergeAppendPayload, into buf: inout [UInt8]) {
         FfiConverterString.write(value.name, into: &buf)
         FfiConverterString.write(value.symbol, into: &buf)
-        FfiConverterString.write(value.marketDataId, into: &buf)
         FfiConverterString.write(value.coinGeckoId, into: &buf)
         FfiConverterString.write(value.chainName, into: &buf)
         FfiConverterString.write(value.tokenStandard, into: &buf)
@@ -14933,7 +14901,6 @@ nonisolated public func FfiConverterTypeHoldingMergeExistingInput_lower(_ value:
 nonisolated public struct HoldingMergeIncomingInput {
     public var name: String
     public var symbol: String
-    public var marketDataId: String
     public var coinGeckoId: String
     public var chainName: String
     public var tokenStandard: String
@@ -14942,10 +14909,9 @@ nonisolated public struct HoldingMergeIncomingInput {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(name: String, symbol: String, marketDataId: String, coinGeckoId: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double) {
+    nonisolated public init(name: String, symbol: String, coinGeckoId: String, chainName: String, tokenStandard: String, contractAddress: String?, amount: Double) {
         self.name = name
         self.symbol = symbol
-        self.marketDataId = marketDataId
         self.coinGeckoId = coinGeckoId
         self.chainName = chainName
         self.tokenStandard = tokenStandard
@@ -14965,9 +14931,6 @@ nonisolated extension HoldingMergeIncomingInput: Equatable, Hashable {
             return false
         }
         if lhs.symbol != rhs.symbol {
-            return false
-        }
-        if lhs.marketDataId != rhs.marketDataId {
             return false
         }
         if lhs.coinGeckoId != rhs.coinGeckoId {
@@ -14991,7 +14954,6 @@ nonisolated extension HoldingMergeIncomingInput: Equatable, Hashable {
     public func hash(into hasher: inout Hasher) {
         hasher.combine(name)
         hasher.combine(symbol)
-        hasher.combine(marketDataId)
         hasher.combine(coinGeckoId)
         hasher.combine(chainName)
         hasher.combine(tokenStandard)
@@ -15011,7 +14973,6 @@ nonisolated public struct FfiConverterTypeHoldingMergeIncomingInput: FfiConverte
             try HoldingMergeIncomingInput(
                 name: FfiConverterString.read(from: &buf), 
                 symbol: FfiConverterString.read(from: &buf), 
-                marketDataId: FfiConverterString.read(from: &buf), 
                 coinGeckoId: FfiConverterString.read(from: &buf), 
                 chainName: FfiConverterString.read(from: &buf), 
                 tokenStandard: FfiConverterString.read(from: &buf), 
@@ -15023,7 +14984,6 @@ nonisolated public struct FfiConverterTypeHoldingMergeIncomingInput: FfiConverte
     public static func write(_ value: HoldingMergeIncomingInput, into buf: inout [UInt8]) {
         FfiConverterString.write(value.name, into: &buf)
         FfiConverterString.write(value.symbol, into: &buf)
-        FfiConverterString.write(value.marketDataId, into: &buf)
         FfiConverterString.write(value.coinGeckoId, into: &buf)
         FfiConverterString.write(value.chainName, into: &buf)
         FfiConverterString.write(value.tokenStandard, into: &buf)
@@ -23735,7 +23695,6 @@ nonisolated public struct TokenEntry {
     public var symbol: String
     public var tokenStandard: String
     public var contract: String
-    public var marketId: String
     public var coingeckoId: String
     public var decimals: UInt32
     public var displayDecimals: UInt32?
@@ -23746,14 +23705,13 @@ nonisolated public struct TokenEntry {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(chain: String, chainId: UInt32, name: String, symbol: String, tokenStandard: String, contract: String, marketId: String, coingeckoId: String, decimals: UInt32, displayDecimals: UInt32?, category: String, colorName: String, assetName: String, enabled: Bool) {
+    nonisolated public init(chain: String, chainId: UInt32, name: String, symbol: String, tokenStandard: String, contract: String, coingeckoId: String, decimals: UInt32, displayDecimals: UInt32?, category: String, colorName: String, assetName: String, enabled: Bool) {
         self.chain = chain
         self.chainId = chainId
         self.name = name
         self.symbol = symbol
         self.tokenStandard = tokenStandard
         self.contract = contract
-        self.marketId = marketId
         self.coingeckoId = coingeckoId
         self.decimals = decimals
         self.displayDecimals = displayDecimals
@@ -23789,9 +23747,6 @@ nonisolated extension TokenEntry: Equatable, Hashable {
         if lhs.contract != rhs.contract {
             return false
         }
-        if lhs.marketId != rhs.marketId {
-            return false
-        }
         if lhs.coingeckoId != rhs.coingeckoId {
             return false
         }
@@ -23823,7 +23778,6 @@ nonisolated extension TokenEntry: Equatable, Hashable {
         hasher.combine(symbol)
         hasher.combine(tokenStandard)
         hasher.combine(contract)
-        hasher.combine(marketId)
         hasher.combine(coingeckoId)
         hasher.combine(decimals)
         hasher.combine(displayDecimals)
@@ -23849,7 +23803,6 @@ nonisolated public struct FfiConverterTypeTokenEntry: FfiConverterRustBuffer {
                 symbol: FfiConverterString.read(from: &buf), 
                 tokenStandard: FfiConverterString.read(from: &buf), 
                 contract: FfiConverterString.read(from: &buf), 
-                marketId: FfiConverterString.read(from: &buf), 
                 coingeckoId: FfiConverterString.read(from: &buf), 
                 decimals: FfiConverterUInt32.read(from: &buf), 
                 displayDecimals: FfiConverterOptionUInt32.read(from: &buf), 
@@ -23867,7 +23820,6 @@ nonisolated public struct FfiConverterTypeTokenEntry: FfiConverterRustBuffer {
         FfiConverterString.write(value.symbol, into: &buf)
         FfiConverterString.write(value.tokenStandard, into: &buf)
         FfiConverterString.write(value.contract, into: &buf)
-        FfiConverterString.write(value.marketId, into: &buf)
         FfiConverterString.write(value.coingeckoId, into: &buf)
         FfiConverterUInt32.write(value.decimals, into: &buf)
         FfiConverterOptionUInt32.write(value.displayDecimals, into: &buf)

@@ -37,11 +37,11 @@ extension CoreCoin: Identifiable {
     var color: Color { Coin.displayColor(for: symbol) }
     nonisolated var valueUSD: Double { amount * priceUsd }
     static func makeCustom(
-        name: String, symbol: String, marketDataId: String, coinGeckoId: String, chainName: String, tokenStandard: String,
+        name: String, symbol: String, coinGeckoId: String, chainName: String, tokenStandard: String,
         contractAddress: String?, amount: Double, priceUsd: Double
     ) -> Coin {
         CoreCoin(
-            id: UUID().uuidString, name: name, symbol: symbol, marketDataId: marketDataId, coinGeckoId: coinGeckoId, chainName: chainName,
+            id: UUID().uuidString, name: name, symbol: symbol, coinGeckoId: coinGeckoId, chainName: chainName,
             tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUsd)
     }
     var hasVisibleBalance: Bool { amount > 0 }
@@ -106,7 +106,7 @@ extension CoreImportedWallet {
             networkMode: networkMode, xpub: bitcoinXpub, derivationPreset: seedDerivationPreset.rawValue, derivationPath: derivationPath,
             holdings: holdings.map { coin in
                 AssetHolding(
-                    name: coin.name, symbol: coin.symbol, marketDataId: coin.marketDataId, coinGeckoId: coin.coinGeckoId,
+                    name: coin.name, symbol: coin.symbol, coinGeckoId: coin.coinGeckoId,
                     chainName: coin.chainName, tokenStandard: coin.tokenStandard, contractAddress: coin.contractAddress,
                     amount: coin.amount, priceUsd: coin.priceUsd)
             }, addresses: []

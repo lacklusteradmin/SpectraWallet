@@ -204,7 +204,6 @@ enum SolanaBalanceService {
         let symbol: String
         let name: String
         let decimals: Int
-        let marketDataId: String
         let coinGeckoId: String
     }
     static let usdtMintAddress = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
@@ -217,27 +216,15 @@ enum SolanaBalanceService {
     static let jupMintAddress = "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"
     static let bonkMintAddress = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
     static let knownTokenMetadataByMint: [String: KnownTokenMetadata] = [
-        usdtMintAddress: KnownTokenMetadata(
-            symbol: "USDT", name: "Tether USD", decimals: 6, marketDataId: "825", coinGeckoId: "tether"
-        ),
-        usdcMintAddress: KnownTokenMetadata(
-            symbol: "USDC", name: "USD Coin", decimals: 6, marketDataId: "3408", coinGeckoId: "usd-coin"
-        ),
-        pyusdMintAddress: KnownTokenMetadata(
-            symbol: "PYUSD", name: "PayPal USD", decimals: 6, marketDataId: "27772", coinGeckoId: "paypal-usd"
-        ),
-        usdgMintAddress: KnownTokenMetadata(
-            symbol: "USDG", name: "Global Dollar", decimals: 6, marketDataId: "0", coinGeckoId: "global-dollar"
-        ), usd1MintAddress: KnownTokenMetadata(symbol: "USD1", name: "USD1", decimals: 6, marketDataId: "0", coinGeckoId: ""),
-        linkMintAddress: KnownTokenMetadata(
-            symbol: "LINK", name: "Chainlink", decimals: 8, marketDataId: "1975", coinGeckoId: "chainlink"
-        ),
-        wlfiMintAddress: KnownTokenMetadata(
-            symbol: "WLFI", name: "World Liberty Financial", decimals: 6, marketDataId: "0", coinGeckoId: ""
-        ),
-        jupMintAddress: KnownTokenMetadata(
-            symbol: "JUP", name: "Jupiter", decimals: 6, marketDataId: "29210", coinGeckoId: "jupiter-exchange-solana"
-        ), bonkMintAddress: KnownTokenMetadata(symbol: "BONK", name: "Bonk", decimals: 5, marketDataId: "23095", coinGeckoId: "bonk"),
+        usdtMintAddress: KnownTokenMetadata(symbol: "USDT", name: "Tether USD", decimals: 6, coinGeckoId: "tether"),
+        usdcMintAddress: KnownTokenMetadata(symbol: "USDC", name: "USD Coin", decimals: 6, coinGeckoId: "usd-coin"),
+        pyusdMintAddress: KnownTokenMetadata(symbol: "PYUSD", name: "PayPal USD", decimals: 6, coinGeckoId: "paypal-usd"),
+        usdgMintAddress: KnownTokenMetadata(symbol: "USDG", name: "Global Dollar", decimals: 6, coinGeckoId: "global-dollar"),
+        usd1MintAddress: KnownTokenMetadata(symbol: "USD1", name: "USD1", decimals: 6, coinGeckoId: ""),
+        linkMintAddress: KnownTokenMetadata(symbol: "LINK", name: "Chainlink", decimals: 8, coinGeckoId: "chainlink"),
+        wlfiMintAddress: KnownTokenMetadata(symbol: "WLFI", name: "World Liberty Financial", decimals: 6, coinGeckoId: ""),
+        jupMintAddress: KnownTokenMetadata(symbol: "JUP", name: "Jupiter", decimals: 6, coinGeckoId: "jupiter-exchange-solana"),
+        bonkMintAddress: KnownTokenMetadata(symbol: "BONK", name: "Bonk", decimals: 5, coinGeckoId: "bonk"),
     ]
     static func mintAddress(for symbol: String) -> String? {
         switch symbol.uppercased() {
@@ -264,7 +251,6 @@ enum NearBalanceService {
         let name: String
         let tokenStandard: String
         let decimals: Int
-        let marketDataId: String
         let coinGeckoId: String
     }
     static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "NEAR") }
@@ -287,7 +273,6 @@ enum AptosBalanceService {
         let name: String
         let tokenStandard: String
         let decimals: Int
-        let marketDataId: String
         let coinGeckoId: String
     }
     static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Aptos") }
@@ -303,7 +288,6 @@ enum SuiBalanceService {
         let name: String
         let tokenStandard: String
         let decimals: Int
-        let marketDataId: String
         let coinGeckoId: String
     }
     static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Sui") }
@@ -318,7 +302,6 @@ enum TONBalanceService {
         let name: String
         let tokenStandard: String
         let decimals: Int
-        let marketDataId: String
         let coinGeckoId: String
     }
     static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "TON") }

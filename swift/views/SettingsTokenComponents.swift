@@ -103,9 +103,6 @@ struct TokenRegistryEntryCardView: View {
             if !entry.coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 SettingsTokenDetailRow(title: AppLocalization.string("CoinGecko ID"), value: entry.coinGeckoId)
             }
-            if !entry.marketDataId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, entry.marketDataId != "0" {
-                SettingsTokenDetailRow(title: AppLocalization.string("Market Data ID"), value: entry.marketDataId)
-            }
             if !entry.isBuiltIn {
                 Stepper(
                     AppLocalization.format("Supports: %lld decimals", Int(entry.decimals)),

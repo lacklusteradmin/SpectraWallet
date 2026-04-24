@@ -50,7 +50,6 @@ nonisolated struct PlatformAssetSnapshot: Codable, Identifiable {
     let chainName: String
     let tokenStandard: String
     let contractAddress: String?
-    let marketDataId: String
     let coinGeckoId: String
     let amount: Double
     let priceUsd: Double
@@ -109,7 +108,7 @@ nonisolated extension Coin: PlatformSnapshotConvertible {
         let chainID = WalletChainID.resolved(chainName)
         return PlatformAssetSnapshot(
             id: holdingKey, name: name, symbol: symbol, chainID: chainID.rawValue, chainName: chainID.displayName,
-            tokenStandard: tokenStandard, contractAddress: contractAddress?.platformTrimmedOrNil, marketDataId: marketDataId,
+            tokenStandard: tokenStandard, contractAddress: contractAddress?.platformTrimmedOrNil,
             coinGeckoId: coinGeckoId, amount: amount, priceUsd: priceUsd, valueUSD: valueUSD
         )
     }

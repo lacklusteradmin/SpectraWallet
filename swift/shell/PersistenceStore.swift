@@ -317,7 +317,6 @@ extension AppState {
 struct PersistedCoin: Codable {
     let name: String
     let symbol: String
-    let marketDataId: String
     let coinGeckoId: String
     let chainName: String
     let tokenStandard: String
