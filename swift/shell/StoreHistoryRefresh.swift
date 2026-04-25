@@ -107,6 +107,36 @@ extension AppState {
                 chainName: "Hyperliquid", maxResults: AppState.HistoryPaging.endpointBatchSize, loadMore: true,
                 targetWalletIDs: eligibleWalletIDs)
         }
+        if hasWalletForChain("Polygon") {
+            await refreshEVMTokenTransactions(
+                chainName: "Polygon", maxResults: AppState.HistoryPaging.endpointBatchSize, loadMore: true,
+                targetWalletIDs: eligibleWalletIDs)
+        }
+        if hasWalletForChain("Base") {
+            await refreshEVMTokenTransactions(
+                chainName: "Base", maxResults: AppState.HistoryPaging.endpointBatchSize, loadMore: true,
+                targetWalletIDs: eligibleWalletIDs)
+        }
+        if hasWalletForChain("Linea") {
+            await refreshEVMTokenTransactions(
+                chainName: "Linea", maxResults: AppState.HistoryPaging.endpointBatchSize, loadMore: true,
+                targetWalletIDs: eligibleWalletIDs)
+        }
+        if hasWalletForChain("Scroll") {
+            await refreshEVMTokenTransactions(
+                chainName: "Scroll", maxResults: AppState.HistoryPaging.endpointBatchSize, loadMore: true,
+                targetWalletIDs: eligibleWalletIDs)
+        }
+        if hasWalletForChain("Blast") {
+            await refreshEVMTokenTransactions(
+                chainName: "Blast", maxResults: AppState.HistoryPaging.endpointBatchSize, loadMore: true,
+                targetWalletIDs: eligibleWalletIDs)
+        }
+        if hasWalletForChain("Mantle") {
+            await refreshEVMTokenTransactions(
+                chainName: "Mantle", maxResults: AppState.HistoryPaging.endpointBatchSize, loadMore: true,
+                targetWalletIDs: eligibleWalletIDs)
+        }
         if hasWalletForChain("Tron") { await refreshTronTransactions(loadMore: true, targetWalletIDs: eligibleWalletIDs) }
     }
 
@@ -504,6 +534,12 @@ extension AppState {
                     enabledArbitrumTrackedTokens()
                 } else if chain == .optimism { enabledOptimismTrackedTokens() } else if chain == .hyperliquid {
                     enabledHyperliquidTrackedTokens()
+                } else if chain == .polygon { enabledPolygonTrackedTokens() } else if chain == .base {
+                    enabledBaseTrackedTokens()
+                } else if chain == .linea { enabledLineaTrackedTokens() } else if chain == .scroll {
+                    enabledScrollTrackedTokens()
+                } else if chain == .blast { enabledBlastTrackedTokens() } else if chain == .mantle {
+                    enabledMantleTrackedTokens()
                 } else if chain == .bnb { enabledBNBTrackedTokens() } else { nil }
             var decodedPage = EvmHistoryPageDecoded(tokens: [], native: [])
             var tokenDiagnostics: EthereumTokenTransferHistoryDiagnostics?

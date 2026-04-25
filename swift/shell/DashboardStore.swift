@@ -16,6 +16,12 @@ extension AppState {
         ("BNB Chain", "BNB", "binancecoin", "BNB Chain", "Native", nil, 0, 0),
         ("Avalanche", "AVAX", "avalanche-2", "Avalanche", "Native", nil, 0, 0),
         ("Hyperliquid", "HYPE", "", "Hyperliquid", "Native", nil, 0, 0),
+        ("Polygon", "POL", "matic-network", "Polygon", "Native", nil, 0, 0),
+        ("Base", "ETH", "ethereum", "Base", "Native", nil, 0, 0),
+        ("Linea", "ETH", "ethereum", "Linea", "Native", nil, 0, 0),
+        ("Scroll", "ETH", "ethereum", "Scroll", "Native", nil, 0, 0),
+        ("Blast", "ETH", "ethereum", "Blast", "Native", nil, 0, 0),
+        ("Mantle", "MNT", "mantle", "Mantle", "Native", nil, 0, 0),
         ("Solana", "SOL", "solana", "Solana", "Native", nil, 0, 0),
         ("Cardano", "ADA", "cardano", "Cardano", "Native", nil, 0, 0),
         ("Tron", "TRX", "tron", "Tron", "Native", nil, 0, 0),
@@ -115,7 +121,8 @@ extension AppState {
         let includedHoldings = cachedIncludedPortfolioHoldings
         let holdingsBySymbol = cachedIncludedPortfolioHoldingsBySymbol
         let trackedEntriesBySymbol = cachedResolvedTokenPreferencesBySymbol
-        let prototypeBySymbol = Dictionary(uniqueKeysWithValues: dashboardPinPrototypes.map { ($0.symbol.uppercased(), $0) })
+        let prototypeBySymbol = Dictionary(
+            dashboardPinPrototypes.map { ($0.symbol.uppercased(), $0) }, uniquingKeysWith: { first, _ in first })
         let storedPinnedSymbols = pinnedDashboardAssetSymbols
         let availableSymbols = Array(
             Set(

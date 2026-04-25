@@ -453,5 +453,119 @@
       "Stellar uses StrKey-encoded public addresses that typically start with G, not hex or SS58-style formats.",
       "In-app send support signs Stellar payment operations and broadcasts them through public Horizon endpoints."
     ]
+  },
+  {
+    "id": "polygon",
+    "name": "Polygon",
+    "symbol": "POL",
+    "tags": ["EVM", "L1", "PoS"],
+    "family": "EVM-compatible proof-of-stake network",
+    "consensus": "Proof of Stake (Heimdall + Bor)",
+    "stateModel": "EVM account state",
+    "primaryUse": "Low-fee EVM transfers, ERC-20 settlement, and DeFi on Polygon PoS.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "POL replaced MATIC as the gas/staking token following the 2024 token migration; circulating supply is dynamic.",
+    "notableDetails": [
+      "Polygon PoS is fully EVM-compatible, so Spectra reuses the shared EVM client for balance, history, and send.",
+      "The native token is POL (formerly MATIC); Spectra uses POL as the displayed gas symbol.",
+      "Tracked ERC-20s on Polygon include native USDC, bridged USDT, and DAI."
+    ]
+  },
+  {
+    "id": "base",
+    "name": "Base",
+    "symbol": "ETH",
+    "tags": ["EVM", "L2", "Optimistic Rollup"],
+    "family": "Ethereum layer-2 (Optimism stack)",
+    "consensus": "Optimistic rollup posting to Ethereum",
+    "stateModel": "EVM account state",
+    "primaryUse": "Low-fee Ethereum-compatible transfers and ERC-20 settlement on Base.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Base is a Coinbase-incubated L2; the gas token is ETH bridged from Ethereum mainnet.",
+    "notableDetails": [
+      "Base is built on the OP Stack and inherits Ethereum's security via fraud-proof rollup posting.",
+      "Spectra reuses the shared EVM client; only the chain ID (8453) and endpoint set differ from Ethereum.",
+      "Native USDC on Base uses contract 0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913."
+    ]
+  },
+  {
+    "id": "linea",
+    "name": "Linea",
+    "symbol": "ETH",
+    "tags": ["EVM", "L2", "ZK Rollup"],
+    "family": "Ethereum layer-2 (zkEVM)",
+    "consensus": "zkEVM rollup posting to Ethereum",
+    "stateModel": "EVM account state",
+    "primaryUse": "ZK-secured EVM transfers and ERC-20 settlement on Linea.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Linea is a ConsenSys zkEVM L2; gas token is bridged ETH.",
+    "notableDetails": [
+      "Linea is a Type-2 zkEVM rollup, so Spectra reuses the shared EVM client unchanged.",
+      "Chain ID is 59144; the public RPC set covers ConsenSys-operated and third-party endpoints.",
+      "Native USDC on Linea uses contract 0x176211869cA2b568f2A7D4EE941E073a821EE1ff."
+    ]
+  },
+  {
+    "id": "scroll",
+    "name": "Scroll",
+    "symbol": "ETH",
+    "tags": ["EVM", "L2", "ZK Rollup"],
+    "family": "Ethereum layer-2 (zkEVM)",
+    "consensus": "zkEVM rollup posting to Ethereum",
+    "stateModel": "EVM account state",
+    "primaryUse": "ZK-secured EVM transfers and ERC-20 settlement on Scroll.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Scroll is a community-built zkEVM L2; gas token is bridged ETH.",
+    "notableDetails": [
+      "Scroll targets bytecode-level zkEVM equivalence, so Spectra reuses the shared EVM client.",
+      "Chain ID is 534352.",
+      "Native USDC on Scroll uses contract 0x06eFdBFf2a14a7c8E15944D1F4A48F9F95F663A4."
+    ]
+  },
+  {
+    "id": "blast",
+    "name": "Blast",
+    "symbol": "ETH",
+    "tags": ["EVM", "L2", "Optimistic Rollup"],
+    "family": "Ethereum layer-2 (yield-bearing)",
+    "consensus": "Optimistic rollup posting to Ethereum",
+    "stateModel": "EVM account state",
+    "primaryUse": "EVM transfers and yield-bearing ETH/USDB on Blast.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Blast is an L2 with native ETH/USDB yield distribution; circulating supply is dynamic.",
+    "notableDetails": [
+      "Blast is EVM-equivalent and rolls up to Ethereum; Spectra reuses the shared EVM client.",
+      "Chain ID is 81457.",
+      "Native USDB on Blast uses contract 0x4300000000000000000000000000000000000003."
+    ]
+  },
+  {
+    "id": "mantle",
+    "name": "Mantle",
+    "symbol": "MNT",
+    "tags": ["EVM", "L2", "Modular"],
+    "family": "Ethereum layer-2 (modular rollup)",
+    "consensus": "Modular rollup with EigenDA data availability",
+    "stateModel": "EVM account state",
+    "primaryUse": "Low-fee EVM transfers and ERC-20 settlement on Mantle.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Mantle uses MNT as its native gas/governance token (formerly BIT). Circulating supply is dynamic.",
+    "notableDetails": [
+      "Mantle is fully EVM-compatible; Spectra reuses the shared EVM client.",
+      "Chain ID is 5000.",
+      "Native USDC on Mantle uses contract 0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9."
+    ]
   }
 ]

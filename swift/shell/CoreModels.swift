@@ -179,6 +179,12 @@ enum SeedDerivationChain: String, CaseIterable, Codable, Identifiable {
     case optimism = "Optimism"
     case avalanche = "Avalanche"
     case hyperliquid = "Hyperliquid"
+    case polygon = "Polygon"
+    case base = "Base"
+    case linea = "Linea"
+    case scroll = "Scroll"
+    case blast = "Blast"
+    case mantle = "Mantle"
     case tron = "Tron"
     case solana = "Solana"
     case stellar = "Stellar"
@@ -239,15 +245,17 @@ extension CoreSeedDerivationPaths {
     static var defaults: CoreSeedDerivationPaths { loadRustDefaultPreset() }
     init(
         isCustomEnabled: Bool, bitcoin: String, bitcoinCash: String, bitcoinSV: String, litecoin: String, dogecoin: String,
-        ethereum: String, ethereumClassic: String, arbitrum: String, optimism: String, avalanche: String, hyperliquid: String, tron: String,
+        ethereum: String, ethereumClassic: String, arbitrum: String, optimism: String, avalanche: String, hyperliquid: String,
+        polygon: String, base: String, linea: String, scroll: String, blast: String, mantle: String, tron: String,
         solana: String, stellar: String, xrp: String, cardano: String, sui: String, aptos: String, ton: String, internetComputer: String,
         near: String, polkadot: String
     ) {
         self.init(
             isCustomEnabled: isCustomEnabled, bitcoin: bitcoin, bitcoinCash: bitcoinCash, bitcoinSv: bitcoinSV, litecoin: litecoin,
             dogecoin: dogecoin, ethereum: ethereum, ethereumClassic: ethereumClassic, arbitrum: arbitrum, optimism: optimism,
-            avalanche: avalanche, hyperliquid: hyperliquid, tron: tron, solana: solana, stellar: stellar, xrp: xrp, cardano: cardano,
-            sui: sui, aptos: aptos, ton: ton, internetComputer: internetComputer, near: near, polkadot: polkadot)
+            avalanche: avalanche, hyperliquid: hyperliquid, polygon: polygon, base: base, linea: linea, scroll: scroll, blast: blast,
+            mantle: mantle, tron: tron, solana: solana, stellar: stellar, xrp: xrp, cardano: cardano, sui: sui, aptos: aptos,
+            ton: ton, internetComputer: internetComputer, near: near, polkadot: polkadot)
     }
     func path(for chain: SeedDerivationChain) -> String {
         switch chain {
@@ -262,6 +270,12 @@ extension CoreSeedDerivationPaths {
         case .optimism: return optimism
         case .avalanche: return avalanche
         case .hyperliquid: return hyperliquid
+        case .polygon: return polygon
+        case .base: return base
+        case .linea: return linea
+        case .scroll: return scroll
+        case .blast: return blast
+        case .mantle: return mantle
         case .tron: return tron
         case .solana: return solana
         case .stellar: return stellar
@@ -288,6 +302,12 @@ extension CoreSeedDerivationPaths {
         case .optimism: optimism = path
         case .avalanche: avalanche = path
         case .hyperliquid: hyperliquid = path
+        case .polygon: polygon = path
+        case .base: base = path
+        case .linea: linea = path
+        case .scroll: scroll = path
+        case .blast: blast = path
+        case .mantle: mantle = path
         case .tron: tron = path
         case .solana: solana = path
         case .stellar: stellar = path
@@ -328,7 +348,10 @@ extension CoreSeedDerivationPaths {
             dogecoin: "m/44'/3'/\(accountIndex)'/0/0", ethereum: "m/44'/60'/\(accountIndex)'/0/0",
             ethereumClassic: "m/44'/61'/\(accountIndex)'/0/0", arbitrum: "m/44'/60'/\(accountIndex)'/0/0",
             optimism: "m/44'/60'/\(accountIndex)'/0/0", avalanche: "m/44'/60'/\(accountIndex)'/0/0",
-            hyperliquid: "m/44'/60'/\(accountIndex)'/0/0", tron: "m/44'/195'/\(accountIndex)'/0/0",
+            hyperliquid: "m/44'/60'/\(accountIndex)'/0/0", polygon: "m/44'/60'/\(accountIndex)'/0/0",
+            base: "m/44'/60'/\(accountIndex)'/0/0", linea: "m/44'/60'/\(accountIndex)'/0/0",
+            scroll: "m/44'/60'/\(accountIndex)'/0/0", blast: "m/44'/60'/\(accountIndex)'/0/0",
+            mantle: "m/44'/60'/\(accountIndex)'/0/0", tron: "m/44'/195'/\(accountIndex)'/0/0",
             solana: "m/44'/501'/\(accountIndex)'/0'", stellar: "m/44'/148'/\(accountIndex)'", xrp: "m/44'/144'/\(accountIndex)'/0/0",
             cardano: "m/1852'/1815'/\(accountIndex)'/0/0", sui: "m/44'/784'/\(accountIndex)'/0'/0'",
             aptos: "m/44'/637'/\(accountIndex)'/0'/0'", ton: "m/44'/607'/\(accountIndex)'/0/0",

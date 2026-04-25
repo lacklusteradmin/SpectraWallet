@@ -224,6 +224,12 @@ extension AppState {
         case "bnb": return .bnb
         case "avalanche": return .avalanche
         case "hyperliquid": return .hyperliquid
+        case "polygon": return .polygon
+        case "base": return .base
+        case "linea": return .linea
+        case "scroll": return .scroll
+        case "blast": return .blast
+        case "mantle": return .mantle
         default: return nil
         }
     }
@@ -246,6 +252,20 @@ extension AppState {
             chainTokens = enabledOptimismTrackedTokens()
         } else if chain == .avalanche {
             chainTokens = enabledAvalancheTrackedTokens()
+        } else if chain == .hyperliquid {
+            chainTokens = enabledHyperliquidTrackedTokens()
+        } else if chain == .polygon {
+            chainTokens = enabledPolygonTrackedTokens()
+        } else if chain == .base {
+            chainTokens = enabledBaseTrackedTokens()
+        } else if chain == .linea {
+            chainTokens = enabledLineaTrackedTokens()
+        } else if chain == .scroll {
+            chainTokens = enabledScrollTrackedTokens()
+        } else if chain == .blast {
+            chainTokens = enabledBlastTrackedTokens()
+        } else if chain == .mantle {
+            chainTokens = enabledMantleTrackedTokens()
         } else {
             chainTokens = []
         }
@@ -383,7 +403,8 @@ extension AppState {
             case "Bitcoin": return localizedStoreString("Enter a Bitcoin address valid for the selected Bitcoin network mode.")
             case "Dogecoin": return localizedStoreString("Dogecoin addresses usually start with D, A, or 9.")
             case "Ethereum": return localizedStoreString("Ethereum addresses must start with 0x and include 40 hex characters.")
-            case "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid":
+            case "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base",
+                "Linea", "Scroll", "Blast", "Mantle":
                 return localizedStoreFormat("%@ addresses use EVM format (0x + 40 hex characters).", chainName)
             case "Tron": return localizedStoreString("Tron addresses usually start with T and are Base58 encoded.")
             case "Solana": return localizedStoreString("Solana addresses are Base58 encoded and typically 32-44 characters.")
@@ -404,7 +425,8 @@ extension AppState {
         switch chainName {
         case "Bitcoin": return localizedStoreString("Enter a valid Bitcoin address for the selected Bitcoin network mode.")
         case "Dogecoin": return localizedStoreString("Enter a valid Dogecoin address beginning with D, A, or 9.")
-        case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid":
+        case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base",
+            "Linea", "Scroll", "Blast", "Mantle":
             return localizedStoreFormat("Enter a valid %@ address (0x + 40 hex characters).", chainName)
         case "Tron": return localizedStoreString("Enter a valid Tron address (starts with T).")
         case "Solana": return localizedStoreString("Enter a valid Solana address (Base58 format).")
@@ -1283,7 +1305,9 @@ extension AppState {
         var ensResolutionInfo: String?
         if !isValidAddress(trimmedDestination, for: coin.chainName) {
             if (coin.chainName == "Ethereum" || coin.chainName == "Arbitrum" || coin.chainName == "Optimism"
-                || coin.chainName == "BNB Chain" || coin.chainName == "Avalanche" || coin.chainName == "Hyperliquid"),
+                || coin.chainName == "BNB Chain" || coin.chainName == "Avalanche" || coin.chainName == "Hyperliquid"
+                || coin.chainName == "Polygon" || coin.chainName == "Base"
+                || coin.chainName == "Linea" || coin.chainName == "Scroll" || coin.chainName == "Blast" || coin.chainName == "Mantle"),
                 isENSNameCandidate(trimmedDestination)
             {
                 do {
@@ -1320,7 +1344,8 @@ extension AppState {
                 let m = chainRiskProbeMessages(
                     chainName: "Bitcoin", balanceLabel: "balance", balanceNonPositive: btcBalance <= 0, hasHistory: btcSummary.utxoCount > 0)
                 warning = m.warning; infoMessage = m.info
-            case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid":
+            case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base",
+            "Linea", "Scroll", "Blast", "Mantle":
                 guard let chainId = SpectraChainID.id(for: coin.chainName) else {
                     warning = nil
                     infoMessage = nil

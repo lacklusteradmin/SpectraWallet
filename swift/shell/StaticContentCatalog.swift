@@ -391,6 +391,12 @@ private func tokenTrackingChainFor(_ value: String) -> TokenTrackingChain? {
     case "bnb", "bnb chain": return .bnb
     case "avalanche": return .avalanche
     case "hyperliquid": return .hyperliquid
+    case "polygon": return .polygon
+    case "base": return .base
+    case "linea": return .linea
+    case "scroll": return .scroll
+    case "blast": return .blast
+    case "mantle": return .mantle
     case "solana": return .solana
     case "sui": return .sui
     case "aptos": return .aptos

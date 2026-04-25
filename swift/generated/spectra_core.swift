@@ -1458,8 +1458,7 @@ nonisolated public func FfiConverterTypeSecretStore_lower(_ value: SecretStore) 
 
 
 /**
- * The primary UniFFI-exported object. Swift holds one of these for the
- * lifetime of the app session.
+ * Swift holds one instance for the lifetime of the app session.
  */
 public protocol WalletServiceProtocol: AnyObject, Sendable {
     
@@ -1867,8 +1866,7 @@ public protocol WalletServiceProtocol: AnyObject, Sendable {
     
 }
 /**
- * The primary UniFFI-exported object. Swift holds one of these for the
- * lifetime of the app session.
+ * Swift holds one instance for the lifetime of the app session.
  */
 nonisolated open class WalletService: WalletServiceProtocol, @unchecked Sendable {
     fileprivate let pointer: UnsafeMutableRawPointer!
@@ -6004,11 +6002,15 @@ nonisolated public func FfiConverterTypeCardanoSendPreview_lower(_ value: Cardan
 }
 
 
+/**
+ * Endpoint configuration passed in from Swift at construction time and
+ * rebuilt via `update_endpoints_typed`.
+ */
 nonisolated public struct ChainEndpoints {
     public var chainId: UInt32
     public var endpoints: [String]
     /**
-     * Optional API key for services that require one (Blockfrost, Subscan, etc.)
+     * Optional API key for services that require one (Blockfrost, Subscan, etc.).
      */
     public var apiKey: String?
 
@@ -6016,7 +6018,7 @@ nonisolated public struct ChainEndpoints {
     // declare one manually.
     nonisolated public init(chainId: UInt32, endpoints: [String], 
         /**
-         * Optional API key for services that require one (Blockfrost, Subscan, etc.)
+         * Optional API key for services that require one (Blockfrost, Subscan, etc.).
          */apiKey: String?) {
         self.chainId = chainId
         self.endpoints = endpoints
@@ -8919,6 +8921,12 @@ nonisolated public struct CoreSeedDerivationPaths {
     public var optimism: String
     public var avalanche: String
     public var hyperliquid: String
+    public var polygon: String
+    public var base: String
+    public var linea: String
+    public var scroll: String
+    public var blast: String
+    public var mantle: String
     public var tron: String
     public var solana: String
     public var stellar: String
@@ -8933,7 +8941,7 @@ nonisolated public struct CoreSeedDerivationPaths {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(isCustomEnabled: Bool, bitcoin: String, bitcoinCash: String, bitcoinSv: String, litecoin: String, dogecoin: String, ethereum: String, ethereumClassic: String, arbitrum: String, optimism: String, avalanche: String, hyperliquid: String, tron: String, solana: String, stellar: String, xrp: String, cardano: String, sui: String, aptos: String, ton: String, internetComputer: String, near: String, polkadot: String) {
+    nonisolated public init(isCustomEnabled: Bool, bitcoin: String, bitcoinCash: String, bitcoinSv: String, litecoin: String, dogecoin: String, ethereum: String, ethereumClassic: String, arbitrum: String, optimism: String, avalanche: String, hyperliquid: String, polygon: String, base: String, linea: String, scroll: String, blast: String, mantle: String, tron: String, solana: String, stellar: String, xrp: String, cardano: String, sui: String, aptos: String, ton: String, internetComputer: String, near: String, polkadot: String) {
         self.isCustomEnabled = isCustomEnabled
         self.bitcoin = bitcoin
         self.bitcoinCash = bitcoinCash
@@ -8946,6 +8954,12 @@ nonisolated public struct CoreSeedDerivationPaths {
         self.optimism = optimism
         self.avalanche = avalanche
         self.hyperliquid = hyperliquid
+        self.polygon = polygon
+        self.base = base
+        self.linea = linea
+        self.scroll = scroll
+        self.blast = blast
+        self.mantle = mantle
         self.tron = tron
         self.solana = solana
         self.stellar = stellar
@@ -9003,6 +9017,24 @@ nonisolated extension CoreSeedDerivationPaths: Equatable, Hashable {
         if lhs.hyperliquid != rhs.hyperliquid {
             return false
         }
+        if lhs.polygon != rhs.polygon {
+            return false
+        }
+        if lhs.base != rhs.base {
+            return false
+        }
+        if lhs.linea != rhs.linea {
+            return false
+        }
+        if lhs.scroll != rhs.scroll {
+            return false
+        }
+        if lhs.blast != rhs.blast {
+            return false
+        }
+        if lhs.mantle != rhs.mantle {
+            return false
+        }
         if lhs.tron != rhs.tron {
             return false
         }
@@ -9052,6 +9084,12 @@ nonisolated extension CoreSeedDerivationPaths: Equatable, Hashable {
         hasher.combine(optimism)
         hasher.combine(avalanche)
         hasher.combine(hyperliquid)
+        hasher.combine(polygon)
+        hasher.combine(base)
+        hasher.combine(linea)
+        hasher.combine(scroll)
+        hasher.combine(blast)
+        hasher.combine(mantle)
         hasher.combine(tron)
         hasher.combine(solana)
         hasher.combine(stellar)
@@ -9087,6 +9125,12 @@ nonisolated public struct FfiConverterTypeCoreSeedDerivationPaths: FfiConverterR
                 optimism: FfiConverterString.read(from: &buf), 
                 avalanche: FfiConverterString.read(from: &buf), 
                 hyperliquid: FfiConverterString.read(from: &buf), 
+                polygon: FfiConverterString.read(from: &buf), 
+                base: FfiConverterString.read(from: &buf), 
+                linea: FfiConverterString.read(from: &buf), 
+                scroll: FfiConverterString.read(from: &buf), 
+                blast: FfiConverterString.read(from: &buf), 
+                mantle: FfiConverterString.read(from: &buf), 
                 tron: FfiConverterString.read(from: &buf), 
                 solana: FfiConverterString.read(from: &buf), 
                 stellar: FfiConverterString.read(from: &buf), 
@@ -9114,6 +9158,12 @@ nonisolated public struct FfiConverterTypeCoreSeedDerivationPaths: FfiConverterR
         FfiConverterString.write(value.optimism, into: &buf)
         FfiConverterString.write(value.avalanche, into: &buf)
         FfiConverterString.write(value.hyperliquid, into: &buf)
+        FfiConverterString.write(value.polygon, into: &buf)
+        FfiConverterString.write(value.base, into: &buf)
+        FfiConverterString.write(value.linea, into: &buf)
+        FfiConverterString.write(value.scroll, into: &buf)
+        FfiConverterString.write(value.blast, into: &buf)
+        FfiConverterString.write(value.mantle, into: &buf)
         FfiConverterString.write(value.tron, into: &buf)
         FfiConverterString.write(value.solana, into: &buf)
         FfiConverterString.write(value.stellar, into: &buf)
@@ -11313,8 +11363,8 @@ nonisolated public func FfiConverterTypeEthereumTokenTransferHistoryDiagnostics_
 
 
 /**
- * Light-weight EVM address probe output. Used by chain-risk warnings to
- * decide whether a destination looks "fresh" (zero balance + zero nonce).
+ * EVM-address probe output. Used by chain-risk warnings to decide whether a
+ * destination looks "fresh" (zero balance + zero nonce).
  */
 nonisolated public struct EvmAddressProbe {
     public var nonce: Int64
@@ -16320,8 +16370,8 @@ nonisolated public func FfiConverterTypeMoneroSendPreview_lower(_ value: MoneroS
 
 /**
  * Unified per-chain native balance projection used by `fetch_native_balance_summary`.
- * `smallest_unit` is a base-10 integer string (sats, lamports, wei, yocto-NEAR, ...);
- * `amount_display` is the chain's human-readable native amount (e.g. "0.005").
+ * `smallest_unit` is a base-10 integer string (sats, lamports, wei, yocto-NEAR, …);
+ * `amount_display` is the chain's human-readable native amount.
  */
 nonisolated public struct NativeBalanceSummary {
     public var smallestUnit: String
@@ -17626,7 +17676,7 @@ nonisolated public func FfiConverterTypePendingSelfSendConfirmationInput_lower(_
 
 
 /**
- * Typed app settings record for UniFFI — Rust handles JSON serialization to/from SQLite.
+ * Typed app-settings record for UniFFI — Rust handles JSON serialization to/from SQLite.
  */
 nonisolated public struct PersistedAppSettings {
     public var pricingProvider: String
@@ -23503,7 +23553,7 @@ nonisolated public func FfiConverterTypeTONSendPreview_lower(_ value: TonSendPre
 
 
 /**
- * Typed result for token balance queries — returned directly via UniFFI.
+ * Typed token-balance result returned via UniFFI.
  */
 nonisolated public struct TokenBalanceResult {
     public var contractAddress: String
@@ -23600,7 +23650,7 @@ nonisolated public func FfiConverterTypeTokenBalanceResult_lower(_ value: TokenB
 
 
 /**
- * Typed token descriptor for passing token arrays across UniFFI without JSON.
+ * Token descriptor passed across UniFFI without JSON-shuttle marshalling.
  */
 nonisolated public struct TokenDescriptor {
     public var contract: String
@@ -28927,7 +28977,7 @@ nonisolated extension AppCoreDerivationAlgorithm: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 /**
- * Endpoint-table slot for a given chain. Mirrors `chains::registry::EndpointSlot`
+ * Endpoint-table slot for a given chain. Mirrors `crate::registry::EndpointSlot`
  * so the Swift side can ask Rust for the right `chain_id + offset` instead of
  * reimplementing the offset arithmetic.
  */
@@ -29949,6 +29999,12 @@ nonisolated public enum CoreTokenTrackingChain {
     case bnb
     case avalanche
     case hyperliquid
+    case polygon
+    case base
+    case linea
+    case scroll
+    case blast
+    case mantle
     case solana
     case sui
     case aptos
@@ -29984,17 +30040,29 @@ nonisolated public struct FfiConverterTypeCoreTokenTrackingChain: FfiConverterRu
         
         case 6: return .hyperliquid
         
-        case 7: return .solana
+        case 7: return .polygon
         
-        case 8: return .sui
+        case 8: return .base
         
-        case 9: return .aptos
+        case 9: return .linea
         
-        case 10: return .ton
+        case 10: return .scroll
         
-        case 11: return .near
+        case 11: return .blast
         
-        case 12: return .tron
+        case 12: return .mantle
+        
+        case 13: return .solana
+        
+        case 14: return .sui
+        
+        case 15: return .aptos
+        
+        case 16: return .ton
+        
+        case 17: return .near
+        
+        case 18: return .tron
         
         default: throw UniffiInternalError.unexpectedEnumCase
         }
@@ -30028,28 +30096,52 @@ nonisolated public struct FfiConverterTypeCoreTokenTrackingChain: FfiConverterRu
             writeInt(&buf, Int32(6))
         
         
-        case .solana:
+        case .polygon:
             writeInt(&buf, Int32(7))
         
         
-        case .sui:
+        case .base:
             writeInt(&buf, Int32(8))
         
         
-        case .aptos:
+        case .linea:
             writeInt(&buf, Int32(9))
         
         
-        case .ton:
+        case .scroll:
             writeInt(&buf, Int32(10))
         
         
-        case .near:
+        case .blast:
             writeInt(&buf, Int32(11))
         
         
-        case .tron:
+        case .mantle:
             writeInt(&buf, Int32(12))
+        
+        
+        case .solana:
+            writeInt(&buf, Int32(13))
+        
+        
+        case .sui:
+            writeInt(&buf, Int32(14))
+        
+        
+        case .aptos:
+            writeInt(&buf, Int32(15))
+        
+        
+        case .ton:
+            writeInt(&buf, Int32(16))
+        
+        
+        case .near:
+            writeInt(&buf, Int32(17))
+        
+        
+        case .tron:
+            writeInt(&buf, Int32(18))
         
         }
     }
@@ -36886,7 +36978,7 @@ nonisolated public func aptosPackageIdentifier(value: String?) -> String  {
 }
 /**
  * Return the full BIP-39 English word list as a newline-delimited string
- * (2048 words, one per line, alphabetically sorted).
+ * (2048 words, alphabetically sorted).
  */
 nonisolated public func bip39EnglishWordlist() -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
@@ -38837,8 +38929,8 @@ nonisolated public func formattingTokenPreferenceLookupKey(chainName: String, sy
 /**
  * Generate a new random BIP-39 mnemonic with the requested word count.
  *
- * `word_count` must be 12, 15, 18, 21, or 24. Any other value falls
- * back silently to 12 words. Returns the space-joined mnemonic phrase.
+ * `word_count` must be 12, 15, 18, 21, or 24. Any other value falls back
+ * silently to 12 words. Returns the space-joined mnemonic phrase.
  */
 nonisolated public func generateMnemonic(wordCount: UInt32) -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
@@ -38964,9 +39056,8 @@ nonisolated public func isValidSendAddress(chainName: String, address: String, n
 })
 }
 /**
- * Return the built-in token catalog as a typed list.
- * Pass `chain_id = 4294967295` (u32::MAX) to get all chains.
- * This is a synchronous free function so Swift can call it from a `static let`.
+ * Return the built-in token catalog as a typed list. Pass `chain_id =
+ * u32::MAX` to get all chains. Synchronous so Swift can call from a `static let`.
  */
 nonisolated public func listBuiltinTokens(chainId: UInt32) -> [TokenEntry]  {
     return try!  FfiConverterSequenceTypeTokenEntry.lift(try! rustCall() {
@@ -39145,11 +39236,8 @@ nonisolated public func selfTestsRunEthereumRpc(rpcUrl: String, rpcLabel: String
         )
 }
 /**
- * Validate a BIP-39 mnemonic phrase.
- *
- * Returns `true` if `phrase` is a valid English BIP-39 mnemonic (correct
- * word count, all words in the word list, and correct checksum). Returns
- * `false` for any other input.
+ * Validate a BIP-39 mnemonic phrase. Returns `true` only for a valid
+ * English BIP-39 mnemonic with correct word count + checksum.
  */
 nonisolated public func validateMnemonic(phrase: String) -> Bool  {
     return try!  FfiConverterBool.lift(try! rustCall() {
@@ -39278,7 +39366,7 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_func_aptos_package_identifier() != 5855) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_func_bip39_english_wordlist() != 13972) {
+    if (uniffi_spectra_core_checksum_func_bip39_english_wordlist() != 24443) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_bitcoin_esplora_endpoints_validation_error() != 9917) {
@@ -40028,7 +40116,7 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_func_formatting_token_preference_lookup_key() != 47619) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_func_generate_mnemonic() != 44958) {
+    if (uniffi_spectra_core_checksum_func_generate_mnemonic() != 39150) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_history_aggregate_dogecoin() != 48199) {
@@ -40058,7 +40146,7 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_func_is_valid_send_address() != 52638) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_func_list_builtin_tokens() != 3886) {
+    if (uniffi_spectra_core_checksum_func_list_builtin_tokens() != 24268) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_monero_backend_base_url_validation_error() != 12158) {
@@ -40118,7 +40206,7 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_func_self_tests_run_ethereum_rpc() != 1252) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_func_validate_mnemonic() != 52322) {
+    if (uniffi_spectra_core_checksum_func_validate_mnemonic() != 61762) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_verification_notice_for_last_sent() != 53346) {

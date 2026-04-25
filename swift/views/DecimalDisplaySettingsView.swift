@@ -147,7 +147,11 @@ struct DecimalDisplaySettingsView: View {
         case .optimism, .avalanche, .tron: return .red
         case .bnb: return .yellow
         case .hyperliquid, .sui: return .mint
-        case .solana: return .purple
+        case .solana, .polygon: return .purple
+        case .base, .linea: return .blue
+        case .scroll: return .orange
+        case .blast: return .yellow
+        case .mantle: return .green
         case .near: return .indigo
         }
     }

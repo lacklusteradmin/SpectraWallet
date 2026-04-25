@@ -54,6 +54,12 @@ extension CoreTokenTrackingChain: RawRepresentable, CaseIterable, Codable, Ident
         case "BNB Chain": self = .bnb
         case "Avalanche": self = .avalanche
         case "Hyperliquid": self = .hyperliquid
+        case "Polygon": self = .polygon
+        case "Base": self = .base
+        case "Linea": self = .linea
+        case "Scroll": self = .scroll
+        case "Blast": self = .blast
+        case "Mantle": self = .mantle
         case "Solana": self = .solana
         case "Sui": self = .sui
         case "Aptos": self = .aptos
@@ -71,6 +77,12 @@ extension CoreTokenTrackingChain: RawRepresentable, CaseIterable, Codable, Ident
         case .bnb: return "BNB Chain"
         case .avalanche: return "Avalanche"
         case .hyperliquid: return "Hyperliquid"
+        case .polygon: return "Polygon"
+        case .base: return "Base"
+        case .linea: return "Linea"
+        case .scroll: return "Scroll"
+        case .blast: return "Blast"
+        case .mantle: return "Mantle"
         case .solana: return "Solana"
         case .sui: return "Sui"
         case .aptos: return "Aptos"
@@ -80,7 +92,8 @@ extension CoreTokenTrackingChain: RawRepresentable, CaseIterable, Codable, Ident
         }
     }
     public static var allCases: [CoreTokenTrackingChain] {
-        [.ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .solana, .sui, .aptos, .ton, .near, .tron]
+        [.ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .polygon, .base, .linea, .scroll, .blast, .mantle,
+         .solana, .sui, .aptos, .ton, .near, .tron]
     }
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -97,7 +110,7 @@ extension CoreTokenTrackingChain: RawRepresentable, CaseIterable, Codable, Ident
     public var id: String { rawValue }
     var tokenStandard: String {
         switch self {
-        case .ethereum, .arbitrum, .optimism, .hyperliquid: return "ERC-20"
+        case .ethereum, .arbitrum, .optimism, .hyperliquid, .polygon, .base, .linea, .scroll, .blast, .mantle: return "ERC-20"
         case .bnb: return "BEP-20"
         case .avalanche: return "ARC-20"
         case .solana: return "SPL"
@@ -380,7 +393,9 @@ extension Coin {
     // Per-key indexes to turn O(n) linear scans into O(1) dictionary lookups.
     // Hot path: `CoinBadge.body` calls these 2-3× per cell × N visible cells.
     private static let nativeChainIconDescriptorByAssetIdentifier: [String: NativeChainIconDescriptor] =
-        Dictionary(uniqueKeysWithValues: nativeChainIconDescriptors.map { ($0.assetIdentifier, $0) })
+        Dictionary(
+            nativeChainIconDescriptors.map { ($0.assetIdentifier, $0) },
+            uniquingKeysWith: { first, _ in first })
     // These caches survive the app lifetime — all inputs are pure data.
     nonisolated(unsafe) private static var cachedCanonicalChainComponents: [String: String] = [:]
     nonisolated(unsafe) private static var cachedIconIdentifiers: [String: String] = [:]

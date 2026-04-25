@@ -25,6 +25,11 @@ enum SpectraChainID: Sendable {
     nonisolated static let bitcoinSv:        UInt32 = 22
     nonisolated static let bsc:              UInt32 = 23
     nonisolated static let hyperliquid:      UInt32 = 24
+    nonisolated static let polygon:          UInt32 = 25
+    nonisolated static let linea:            UInt32 = 26
+    nonisolated static let scroll:           UInt32 = 27
+    nonisolated static let blast:            UInt32 = 28
+    nonisolated static let mantle:           UInt32 = 29
     nonisolated static func id(for chainName: String) -> UInt32? { coreChainIdForName(name: chainName) }
 }
 actor WalletServiceBridge {
@@ -262,12 +267,17 @@ private extension WalletServiceBridge {
         payloads += rpcPayloads(chainId: SpectraChainID.bitcoinSv,       chainName: "Bitcoin SV")
         payloads += evmPayloads(chainId: SpectraChainID.bsc,             chainName: "BNB Chain")
         payloads += evmPayloads(chainId: SpectraChainID.hyperliquid,     chainName: "Hyperliquid")
+        payloads += evmPayloads(chainId: SpectraChainID.polygon,         chainName: "Polygon")
+        payloads += evmPayloads(chainId: SpectraChainID.linea,           chainName: "Linea")
+        payloads += evmPayloads(chainId: SpectraChainID.scroll,          chainName: "Scroll")
+        payloads += evmPayloads(chainId: SpectraChainID.blast,           chainName: "Blast")
+        payloads += evmPayloads(chainId: SpectraChainID.mantle,          chainName: "Mantle")
         payloads += explorerPayloads(chainId: endpointSlotId(SpectraChainID.polkadot, .secondary), chainName: "Polkadot")
         payloads += explorerPayloads(chainId: endpointSlotId(SpectraChainID.icp, .secondary), chainName: "Internet Computer")
         let tonV3URLs = AppEndpointDirectory.endpoints(for: ["ton.api.v3"])
         if !tonV3URLs.isEmpty { payloads.append(ChainEndpoints(chainId: endpointSlotId(SpectraChainID.ton, .secondary), endpoints: tonV3URLs, apiKey: nil)) }
         let explorerChains: [(UInt32, String)] = [
-            (SpectraChainID.ethereum,        "Ethereum"), (SpectraChainID.tron,            "Tron"), (SpectraChainID.arbitrum,        "Arbitrum"), (SpectraChainID.optimism,        "Optimism"), (SpectraChainID.avalanche,       "Avalanche"), (SpectraChainID.near,            "NEAR"), (SpectraChainID.base,            "Base"), (SpectraChainID.ethereumClassic, "Ethereum Classic"), (SpectraChainID.bsc,             "BNB Chain"), ]
+            (SpectraChainID.ethereum,        "Ethereum"), (SpectraChainID.tron,            "Tron"), (SpectraChainID.arbitrum,        "Arbitrum"), (SpectraChainID.optimism,        "Optimism"), (SpectraChainID.avalanche,       "Avalanche"), (SpectraChainID.near,            "NEAR"), (SpectraChainID.base,            "Base"), (SpectraChainID.ethereumClassic, "Ethereum Classic"), (SpectraChainID.bsc,             "BNB Chain"), (SpectraChainID.polygon,         "Polygon"), (SpectraChainID.linea,           "Linea"), (SpectraChainID.scroll,          "Scroll"), (SpectraChainID.blast,           "Blast"), (SpectraChainID.mantle,          "Mantle"), ]
         for (primaryId, chainName) in explorerChains { payloads += explorerPayloads(chainId: endpointSlotId(primaryId, .explorer), chainName: chainName) }
         return payloads
     }

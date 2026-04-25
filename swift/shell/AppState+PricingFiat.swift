@@ -46,19 +46,28 @@ extension AppState {
     }
     func refreshFiatExchangeRatesIfNeeded(force: Bool = false) async {
         if !force, selectedFiatCurrency == .usd { return }
-        if !force, let lastFiatRatesRefreshAt, Date().timeIntervalSince(lastFiatRatesRefreshAt) < Self.fiatRatesRefreshInterval { return }
+        if !force, let lastFiatRatesRefreshAt,
+            Date().timeIntervalSince(lastFiatRatesRefreshAt) < Self.fiatRatesRefreshInterval
+        { return }
+        // After a failed attempt, hold off before retrying. Without this gate a
+        // degraded provider was hit on every maintenance tick + every foreground
+        // path because `lastFiatRatesRefreshAt` is only stamped on success.
+        if !force, let lastFiatRatesAttemptAt, fiatRatesRefreshError != nil,
+            Date().timeIntervalSince(lastFiatRatesAttemptAt) < Self.fiatRatesRetryBackoff
+        { return }
         await refreshFiatExchangeRates()
     }
     func refreshFiatExchangeRates() async {
-        NSLog("[spectra] refreshFiatExchangeRates enter isRefreshing=\(isRefreshingFiatRates) provider=\(fiatRateProvider.rawValue) selected=\(selectedFiatCurrency.rawValue)")
         guard !isRefreshingFiatRates else { return }
         isRefreshingFiatRates = true
-        defer { isRefreshingFiatRates = false }
+        defer {
+            isRefreshingFiatRates = false
+            lastFiatRatesAttemptAt = Date()
+        }
         do {
             let fetchedRates = try await WalletServiceBridge.shared.fetchFiatRatesViaRust(
                 provider: fiatRateProvider.rawValue, currencies: FiatCurrency.allCases.map(\.rawValue)
             )
-            NSLog("[spectra] refreshFiatExchangeRates fetched=\(fetchedRates.count)")
             let rates = priceMergeFiatRateUpdates(
                 fetched: fetchedRates, existing: fiatRatesFromUSD,
                 currencies: FiatCurrency.allCases.map(\.rawValue),

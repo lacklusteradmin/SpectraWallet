@@ -112,7 +112,8 @@ extension AppState {
         case "Bitcoin": await refreshPendingBitcoinTransactions()
         case "Bitcoin Cash": await refreshPendingBitcoinCashTransactions()
         case "Litecoin": await refreshPendingLitecoinTransactions()
-        case "Ethereum", "Arbitrum", "Optimism", "Ethereum Classic", "BNB Chain", "Avalanche", "Hyperliquid":
+        case "Ethereum", "Arbitrum", "Optimism", "Ethereum Classic", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base",
+            "Linea", "Scroll", "Blast", "Mantle":
             await refreshPendingEVMTransactions(chainName: chainName)
         case "Dogecoin": await refreshPendingDogecoinTransactions()
         case "Tron": await refreshPendingTronTransactions()
@@ -554,7 +555,8 @@ extension AppState {
                     "Internet Computer": icpAddressEntries, "NEAR": nearAddressEntries, "Polkadot": polkadotAddressEntries,
                 ]
                 let evmChains: Set<String> = [
-                    "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid",
+                    "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base",
+                    "Linea", "Scroll", "Blast", "Mantle",
                 ]
                 let watchOnlyWalletCount: Int = {
                     if primarySelectedChainName == "Bitcoin", let x = resolvedBitcoinXPub, !x.isEmpty { return 1 }
@@ -707,7 +709,8 @@ extension AppState {
         case "Bitcoin SV": return .only(bitcoinSV: derive(.bitcoinSV))
         case "Litecoin": return .only(litecoin: derive(.litecoin))
         case "Dogecoin": return .only(dogecoin: derive(.dogecoin))
-        case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid":
+        case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base",
+            "Linea", "Scroll", "Blast", "Mantle":
             return .only(evm: derive(.ethereum))
         case "Tron": return .only(tron: derive(.tron))
         case "Solana": return .only(solana: derive(.solana))

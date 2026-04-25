@@ -193,6 +193,7 @@ final class AppState {
     @ObservationIgnored var isRefreshingPendingTransactions = false
     @ObservationIgnored var lastLivePriceRefreshAt: Date?
     @ObservationIgnored var lastFiatRatesRefreshAt: Date?
+    @ObservationIgnored var lastFiatRatesAttemptAt: Date?
     @ObservationIgnored var lastFullRefreshAt: Date?
     @ObservationIgnored var lastChainBalanceRefreshAt: Date?
     @ObservationIgnored var lastBackgroundMaintenanceAt: Date?
@@ -645,6 +646,10 @@ final class AppState {
     static let activePendingRefreshInterval: TimeInterval = 60
     static let activePriceRefreshInterval: TimeInterval = 300
     static let fiatRatesRefreshInterval: TimeInterval = 6 * 60 * 60
+    /// Failure backoff so a degraded provider isn't hammered every maintenance
+    /// tick. Without this, a fetch that errors out leaves `lastFiatRatesRefreshAt`
+    /// nil, so the cooldown gate never trips and every caller re-fetches.
+    static let fiatRatesRetryBackoff: TimeInterval = 60
     static let backgroundMaintenanceInterval: TimeInterval = 15 * 60
     static let constrainedBackgroundMaintenanceInterval: TimeInterval = 30 * 60
     static let lowPowerBackgroundMaintenanceInterval: TimeInterval = 45 * 60
@@ -785,7 +790,8 @@ final class AppState {
             case .bitcoinSV: await self.refreshPendingBitcoinSVTransactions()
             case .litecoin: await self.refreshPendingLitecoinTransactions()
             case .dogecoin: await self.refreshPendingDogecoinTransactions()
-            case .ethereum, .ethereumClassic, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid:
+            case .ethereum, .ethereumClassic, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .polygon, .base,
+                .linea, .scroll, .blast, .mantle:
                 await self.refreshPendingEVMTransactions(chainName: chainName)
             case .tron: await self.refreshTronTransactions(loadMore: false)
             case .solana: await self.refreshSolanaTransactions(loadMore: false)
@@ -844,6 +850,12 @@ final class AppState {
         // while the init task is still awaiting SQLite / HTTP, the old
         // instance can release promptly instead of being pinned alive by a
         // strong capture on `self` through the awaited method calls.
+        Task { @MainActor in
+            // Pre-render bundle SVGs to UIImage so badges have synchronous
+            // cache hits the first time they appear. Detached so it doesn't
+            // block other init work.
+            await BundleImageLoader.warmRasterCache()
+        }
         Task { @MainActor [weak self] in
             guard let self else { return }
             self.rebuildTransactionDerivedState()
@@ -852,7 +864,7 @@ final class AppState {
             self.setupRustRefreshEngine()
             // Network I/O runs concurrently — neither depends on the other.
             async let sqliteReload: () = self.reloadPersistedStateFromSQLite()
-            async let fiatRefresh: () = self.refreshFiatExchangeRates()
+            async let fiatRefresh: () = self.refreshFiatExchangeRatesIfNeeded()
             _ = await (sqliteReload, fiatRefresh)
         }
     }
@@ -930,7 +942,7 @@ final class AppState {
         let normalizedContract = contractAddress.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedContract.isEmpty else { return localizedStoreString("Contract address is required.") }
         switch chain {
-        case .ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid:
+        case .ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .polygon, .base, .linea, .scroll, .blast, .mantle:
             guard AddressValidation.isValid(normalizedContract, kind: "evm") else {
                 return localizedStoreString("Enter a valid \(chain.rawValue) token contract address.")
             }
@@ -987,7 +999,8 @@ final class AppState {
     func normalizedTrackedTokenIdentifier(for chain: TokenTrackingChain, contractAddress: String) -> String {
         let trimmed = contractAddress.trimmingCharacters(in: .whitespacesAndNewlines)
         switch chain {
-        case .ethereum, .arbitrum, .bnb, .avalanche, .hyperliquid: return normalizeEVMAddress(trimmed)
+        case .ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .polygon, .base, .linea, .scroll, .blast, .mantle:
+            return normalizeEVMAddress(trimmed)
         case .aptos: return normalizeAptosTokenIdentifier(trimmed)
         case .sui: return normalizeSuiTokenIdentifier(trimmed)
         case .ton: return TONBalanceService.normalizeJettonMasterAddress(trimmed)
@@ -1017,6 +1030,12 @@ final class AppState {
     func enabledOptimismTrackedTokens() -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .optimism) }
     func enabledAvalancheTrackedTokens() -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .avalanche) }
     func enabledHyperliquidTrackedTokens() -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .hyperliquid) }
+    func enabledPolygonTrackedTokens() -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .polygon) }
+    func enabledBaseTrackedTokens() -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .base) }
+    func enabledLineaTrackedTokens() -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .linea) }
+    func enabledScrollTrackedTokens() -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .scroll) }
+    func enabledBlastTrackedTokens() -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .blast) }
+    func enabledMantleTrackedTokens() -> [ChainTokenRegistryEntry] { enabledEVMTrackedTokens(for: .mantle) }
     func enabledTronTrackedTokens() -> [TronBalanceService.TrackedTRC20Token] {
         enabledTokenPreferences(for: .tron).map { entry in
             TronBalanceService.TrackedTRC20Token(

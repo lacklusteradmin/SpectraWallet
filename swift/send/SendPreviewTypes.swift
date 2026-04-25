@@ -10,6 +10,12 @@ enum EVMChainContext: Equatable {
     case bnb
     case avalanche
     case hyperliquid
+    case polygon
+    case base
+    case linea
+    case scroll
+    case blast
+    case mantle
     var displayName: String {
         switch self {
         case .ethereum: return "Ethereum"
@@ -21,6 +27,12 @@ enum EVMChainContext: Equatable {
         case .bnb: return "BNB Chain"
         case .avalanche: return "Avalanche"
         case .hyperliquid: return "Hyperliquid"
+        case .polygon: return "Polygon"
+        case .base: return "Base"
+        case .linea: return "Linea"
+        case .scroll: return "Scroll"
+        case .blast: return "Blast"
+        case .mantle: return "Mantle"
         }
     }
     var tokenTrackingChain: TokenTrackingChain? {
@@ -32,6 +44,12 @@ enum EVMChainContext: Equatable {
         case .bnb: return .bnb
         case .avalanche: return .avalanche
         case .hyperliquid: return .hyperliquid
+        case .polygon: return .polygon
+        case .base: return .base
+        case .linea: return .linea
+        case .scroll: return .scroll
+        case .blast: return .blast
+        case .mantle: return .mantle
         }
     }
     var expectedChainID: Int {
@@ -45,17 +63,26 @@ enum EVMChainContext: Equatable {
         case .bnb: return 56
         case .avalanche: return 43114
         case .hyperliquid: return 999
+        case .polygon: return 137
+        case .base: return 8453
+        case .linea: return 59144
+        case .scroll: return 534352
+        case .blast: return 81457
+        case .mantle: return 5000
         }
     }
     var defaultDerivationPath: String {
         switch self {
-        case .ethereum, .ethereumSepolia, .ethereumHoodi, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid: return "m/44'/60'/0'/0/0"
+        case .ethereum, .ethereumSepolia, .ethereumHoodi, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .polygon, .base,
+            .linea, .scroll, .blast, .mantle:
+            return "m/44'/60'/0'/0/0"
         case .ethereumClassic: return "m/44'/61'/0'/0/0"
         }
     }
     func derivationPath(account: UInt32) -> String {
         switch self {
-        case .ethereum, .ethereumSepolia, .ethereumHoodi, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid:
+        case .ethereum, .ethereumSepolia, .ethereumHoodi, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .polygon, .base,
+            .linea, .scroll, .blast, .mantle:
             return "m/44'/60'/\(account)'/0/0"
         case .ethereumClassic: return "m/44'/61'/\(account)'/0/0"
         }

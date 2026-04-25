@@ -139,7 +139,8 @@ extension AppState {
         case "Bitcoin":
             if let xpub = wallet.bitcoinXpub, !xpub.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return xpub }
             return resolvedBitcoinAddress(for: wallet)
-        case "Ethereum", "Arbitrum", "Optimism", "Avalanche", "BNB Chain", "Hyperliquid", "Ethereum Classic", "Base":
+        case "Ethereum", "Arbitrum", "Optimism", "Avalanche", "BNB Chain", "Hyperliquid", "Polygon", "Base", "Ethereum Classic",
+            "Linea", "Scroll", "Blast", "Mantle":
             return resolvedEVMAddress(for: wallet, chainName: wallet.selectedChain)
         case "Solana": return resolvedSolanaAddress(for: wallet)
         case "Tron": return resolvedTronAddress(for: wallet)

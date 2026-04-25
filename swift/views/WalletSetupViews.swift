@@ -7,56 +7,71 @@ private struct SetupChainSelectionDescriptor: Identifiable {
     let chainName: String
     let assetIdentifier: String?
     let color: Color
+    let category: SetupChainCategory
     var title: String { localizedWalletFlowString(titleKey) }
-    init(id: String, title: String, symbol: String, chainName: String, color: Color) {
+    init(id: String, title: String, symbol: String, chainName: String, color: Color, category: SetupChainCategory) {
         self.id = id
         self.titleKey = title
         self.symbol = symbol
         self.chainName = chainName
         self.assetIdentifier = Coin.iconIdentifier(symbol: symbol, chainName: chainName)
         self.color = color
+        self.category = category
+    }
+}
+private enum SetupChainCategory: String, CaseIterable, Identifiable {
+    case bitcoinFamily
+    case evmL1
+    case evmL2
+    case other
+    var id: String { rawValue }
+    var sectionTitle: String {
+        switch self {
+        case .bitcoinFamily: return AppLocalization.string("Bitcoin Family")
+        case .evmL1: return AppLocalization.string("EVM Chains")
+        case .evmL2: return AppLocalization.string("EVM L2s")
+        case .other: return AppLocalization.string("Other Chains")
+        }
     }
 }
 struct SetupView: View {
     private static let chainSelectionDescriptors: [SetupChainSelectionDescriptor] = [
-        SetupChainSelectionDescriptor(id: "bitcoin", title: "Bitcoin", symbol: "BTC", chainName: "Bitcoin", color: .orange),
-        SetupChainSelectionDescriptor(
-            id: "bitcoin-cash", title: "Bitcoin Cash", symbol: "BCH", chainName: "Bitcoin Cash", color: .orange),
-        SetupChainSelectionDescriptor(
-            id: "bitcoin-sv", title: "Bitcoin SV", symbol: "BSV", chainName: "Bitcoin SV", color: .orange),
-        SetupChainSelectionDescriptor(id: "litecoin", title: "Litecoin", symbol: "LTC", chainName: "Litecoin", color: .gray),
-        SetupChainSelectionDescriptor(id: "ethereum", title: "Ethereum", symbol: "ETH", chainName: "Ethereum", color: .blue),
-        SetupChainSelectionDescriptor(
-            id: "ethereum-classic", title: "Ethereum Classic", symbol: "ETC", chainName: "Ethereum Classic", color: .green),
-        SetupChainSelectionDescriptor(id: "solana", title: "Solana", symbol: "SOL", chainName: "Solana", color: .purple),
-        SetupChainSelectionDescriptor(id: "arbitrum", title: "Arbitrum", symbol: "ARB", chainName: "Arbitrum", color: .cyan),
-        SetupChainSelectionDescriptor(id: "optimism", title: "Optimism", symbol: "OP", chainName: "Optimism", color: .red),
-        SetupChainSelectionDescriptor(
-            id: "bnb-chain", title: "BNB Chain", symbol: "BNB", chainName: "BNB Chain", color: .yellow),
-        SetupChainSelectionDescriptor(id: "avalanche", title: "Avalanche", symbol: "AVAX", chainName: "Avalanche", color: .red),
-        SetupChainSelectionDescriptor(
-            id: "hyperliquid", title: "Hyperliquid", symbol: "HYPE", chainName: "Hyperliquid", color: .mint),
-        SetupChainSelectionDescriptor(id: "dogecoin", title: "Dogecoin", symbol: "DOGE", chainName: "Dogecoin", color: .brown),
-        SetupChainSelectionDescriptor(id: "cardano", title: "Cardano", symbol: "ADA", chainName: "Cardano", color: .indigo),
-        SetupChainSelectionDescriptor(id: "tron", title: "Tron", symbol: "TRX", chainName: "Tron", color: .teal),
-        SetupChainSelectionDescriptor(
-            id: "xrp-ledger", title: "XRP Ledger", symbol: "XRP", chainName: "XRP Ledger", color: .cyan),
-        SetupChainSelectionDescriptor(id: "monero", title: "Monero", symbol: "XMR", chainName: "Monero", color: .indigo),
-        SetupChainSelectionDescriptor(id: "sui", title: "Sui", symbol: "SUI", chainName: "Sui", color: .mint),
-        SetupChainSelectionDescriptor(id: "aptos", title: "Aptos", symbol: "APT", chainName: "Aptos", color: .cyan),
-        SetupChainSelectionDescriptor(id: "ton", title: "TON", symbol: "TON", chainName: "TON", color: .blue),
-        SetupChainSelectionDescriptor(
-            id: "internet-computer", title: "Internet Computer", symbol: "ICP", chainName: "Internet Computer", color: .indigo),
-        SetupChainSelectionDescriptor(id: "near", title: "NEAR", symbol: "NEAR", chainName: "NEAR", color: .indigo),
-        SetupChainSelectionDescriptor(id: "polkadot", title: "Polkadot", symbol: "DOT", chainName: "Polkadot", color: .pink),
-        SetupChainSelectionDescriptor(id: "stellar", title: "Stellar", symbol: "XLM", chainName: "Stellar", color: .teal),
+        SetupChainSelectionDescriptor(id: "bitcoin", title: "Bitcoin", symbol: "BTC", chainName: "Bitcoin", color: .orange, category: .bitcoinFamily),
+        SetupChainSelectionDescriptor(id: "bitcoin-cash", title: "Bitcoin Cash", symbol: "BCH", chainName: "Bitcoin Cash", color: .orange, category: .bitcoinFamily),
+        SetupChainSelectionDescriptor(id: "bitcoin-sv", title: "Bitcoin SV", symbol: "BSV", chainName: "Bitcoin SV", color: .orange, category: .bitcoinFamily),
+        SetupChainSelectionDescriptor(id: "litecoin", title: "Litecoin", symbol: "LTC", chainName: "Litecoin", color: .gray, category: .bitcoinFamily),
+        SetupChainSelectionDescriptor(id: "dogecoin", title: "Dogecoin", symbol: "DOGE", chainName: "Dogecoin", color: .brown, category: .bitcoinFamily),
+        SetupChainSelectionDescriptor(id: "ethereum", title: "Ethereum", symbol: "ETH", chainName: "Ethereum", color: .blue, category: .evmL1),
+        SetupChainSelectionDescriptor(id: "ethereum-classic", title: "Ethereum Classic", symbol: "ETC", chainName: "Ethereum Classic", color: .green, category: .evmL1),
+        SetupChainSelectionDescriptor(id: "bnb-chain", title: "BNB Chain", symbol: "BNB", chainName: "BNB Chain", color: .yellow, category: .evmL1),
+        SetupChainSelectionDescriptor(id: "avalanche", title: "Avalanche", symbol: "AVAX", chainName: "Avalanche", color: .red, category: .evmL1),
+        SetupChainSelectionDescriptor(id: "hyperliquid", title: "Hyperliquid", symbol: "HYPE", chainName: "Hyperliquid", color: .mint, category: .evmL1),
+        SetupChainSelectionDescriptor(id: "polygon", title: "Polygon", symbol: "POL", chainName: "Polygon", color: .purple, category: .evmL1),
+        SetupChainSelectionDescriptor(id: "arbitrum", title: "Arbitrum", symbol: "ARB", chainName: "Arbitrum", color: .cyan, category: .evmL2),
+        SetupChainSelectionDescriptor(id: "optimism", title: "Optimism", symbol: "OP", chainName: "Optimism", color: .red, category: .evmL2),
+        SetupChainSelectionDescriptor(id: "base", title: "Base", symbol: "ETH", chainName: "Base", color: .blue, category: .evmL2),
+        SetupChainSelectionDescriptor(id: "linea", title: "Linea", symbol: "ETH", chainName: "Linea", color: .blue, category: .evmL2),
+        SetupChainSelectionDescriptor(id: "scroll", title: "Scroll", symbol: "ETH", chainName: "Scroll", color: .orange, category: .evmL2),
+        SetupChainSelectionDescriptor(id: "blast", title: "Blast", symbol: "ETH", chainName: "Blast", color: .yellow, category: .evmL2),
+        SetupChainSelectionDescriptor(id: "mantle", title: "Mantle", symbol: "MNT", chainName: "Mantle", color: .green, category: .evmL2),
+        SetupChainSelectionDescriptor(id: "solana", title: "Solana", symbol: "SOL", chainName: "Solana", color: .purple, category: .other),
+        SetupChainSelectionDescriptor(id: "tron", title: "Tron", symbol: "TRX", chainName: "Tron", color: .teal, category: .other),
+        SetupChainSelectionDescriptor(id: "xrp-ledger", title: "XRP Ledger", symbol: "XRP", chainName: "XRP Ledger", color: .cyan, category: .other),
+        SetupChainSelectionDescriptor(id: "cardano", title: "Cardano", symbol: "ADA", chainName: "Cardano", color: .indigo, category: .other),
+        SetupChainSelectionDescriptor(id: "monero", title: "Monero", symbol: "XMR", chainName: "Monero", color: .indigo, category: .other),
+        SetupChainSelectionDescriptor(id: "sui", title: "Sui", symbol: "SUI", chainName: "Sui", color: .mint, category: .other),
+        SetupChainSelectionDescriptor(id: "aptos", title: "Aptos", symbol: "APT", chainName: "Aptos", color: .cyan, category: .other),
+        SetupChainSelectionDescriptor(id: "ton", title: "TON", symbol: "TON", chainName: "TON", color: .blue, category: .other),
+        SetupChainSelectionDescriptor(id: "internet-computer", title: "Internet Computer", symbol: "ICP", chainName: "Internet Computer", color: .indigo, category: .other),
+        SetupChainSelectionDescriptor(id: "near", title: "NEAR", symbol: "NEAR", chainName: "NEAR", color: .indigo, category: .other),
+        SetupChainSelectionDescriptor(id: "polkadot", title: "Polkadot", symbol: "DOT", chainName: "Polkadot", color: .pink, category: .other),
+        SetupChainSelectionDescriptor(id: "stellar", title: "Stellar", symbol: "XLM", chainName: "Stellar", color: .teal, category: .other),
     ]
-    private static let popularChainSelectionIDs: Set<String> = [
-        "bitcoin", "ethereum", "solana", "monero", "litecoin", "tron",
+    private static let popularChainSelectionIDs: [String] = [
+        "bitcoin", "ethereum", "solana", "base", "arbitrum", "tron",
     ]
-    private static let nonPopularChainSelectionDescriptors = chainSelectionDescriptors.filter { !popularChainSelectionIDs.contains($0.id) }
-    private static let sortedChainSelectionDescriptors = chainSelectionDescriptors.sorted {
-        $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+    private static let nonPopularChainSelectionDescriptors = chainSelectionDescriptors.filter { d in
+        !popularChainSelectionIDs.contains(d.id)
     }
     private enum SetupPage {
         case details
@@ -77,10 +92,10 @@ struct SetupView: View {
     @State private var isShowingAllChainsSheet: Bool = false
     @FocusState private var focusedSeedPhraseIndex: Int?
     private let chainSelectionColumns = [
-        GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8),
     ]
     private let seedPhraseGridColumns = [
-        GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8),
     ]
     private let setupCardCornerRadius: CGFloat = 24
     init(store: AppState, draft: WalletImportDraft) {
@@ -219,7 +234,9 @@ struct SetupView: View {
         return store.canImportWallet && !store.isImportingWallet
     }
     private var popularChainSelectionDescriptors: [SetupChainSelectionDescriptor] {
-        Self.chainSelectionDescriptors.filter { Self.popularChainSelectionIDs.contains($0.id) }
+        Self.popularChainSelectionIDs.compactMap { id in
+            Self.chainSelectionDescriptors.first { $0.id == id }
+        }
     }
     private var selectedChainNameSet: Set<String> { Set(draft.selectedChainNames) }
     private var selectedChainCount: Int { draft.selectedChainNames.count }
@@ -229,10 +246,6 @@ struct SetupView: View {
         case 1: return AppLocalization.string("import_flow.one_chain_selected")
         default: return AppLocalization.format("import_flow.multiple_chains_selected_format", selectedChainCount)
         }
-    }
-    private var chainSelectionSubtitle: String {
-        if isCreateMode { return AppLocalization.string("import_flow.create_chain_selection_subtitle") }
-        return AppLocalization.string("import_flow.import_chain_selection_subtitle")
     }
     @ViewBuilder
     private func seedPhraseField(at index: Int) -> some View {
@@ -277,77 +290,137 @@ struct SetupView: View {
         Button {
             draft.toggleChainSelection(descriptor.chainName)
         } label: {
-            HStack(spacing: 10) {
-                CoinBadge(
-                    assetIdentifier: descriptor.assetIdentifier, fallbackText: descriptor.symbol, color: descriptor.color, size: 32
-                )
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(descriptor.title).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
-                    Text(descriptor.symbol.uppercased()).font(.caption2.weight(.semibold)).foregroundStyle(
-                        isSelected ? descriptor.color : Color.primary.opacity(0.6))
+            VStack(spacing: 6) {
+                ZStack(alignment: .topTrailing) {
+                    CoinBadge(
+                        assetIdentifier: descriptor.assetIdentifier, fallbackText: descriptor.symbol, color: descriptor.color, size: 36
+                    )
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill").font(.caption.weight(.bold)).foregroundStyle(descriptor.color).background(
+                            Circle().fill(Color.white.opacity(colorScheme == .light ? 1 : 0.85))
+                        ).offset(x: 4, y: -4)
+                    }
                 }
-                Spacer(minLength: 0)
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle").font(.title3.weight(.semibold)).foregroundStyle(
-                    isSelected ? descriptor.color : Color.primary.opacity(0.28))
-            }.frame(maxWidth: .infinity, minHeight: 58, alignment: .leading).padding(.horizontal, 12).padding(.vertical, 8).background(
-                RoundedRectangle(cornerRadius: 20, style: .continuous).fill(
-                    isSelected ? descriptor.color.opacity(0.12) : Color.white.opacity(colorScheme == .light ? 0.6 : 0.045))
+                Text(descriptor.title).font(.caption2.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.8)
+            }.frame(maxWidth: .infinity, minHeight: 72).padding(.vertical, 8).padding(.horizontal, 6).background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(
+                    isSelected ? descriptor.color.opacity(0.14) : Color.white.opacity(colorScheme == .light ? 0.55 : 0.04))
             ).overlay(
-                RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(
-                    isSelected ? descriptor.color.opacity(0.9) : Color.primary.opacity(colorScheme == .light ? 0.12 : 0.08),
-                    lineWidth: isSelected ? 1.6 : 1)
+                RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(
+                    isSelected ? descriptor.color.opacity(0.9) : Color.primary.opacity(colorScheme == .light ? 0.10 : 0.07),
+                    lineWidth: isSelected ? 1.5 : 1)
+            )
+        }.buttonStyle(.plain).contentShape(Rectangle())
+    }
+    @ViewBuilder
+    private func seedPhraseLengthPicker(title: String, subtitle: String, showsRegenerateButton: Bool = false) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(localizedWalletFlowString(title)).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
+                    Text(localizedWalletFlowString(subtitle)).font(.caption).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if showsRegenerateButton {
+                    Button {
+                        draft.regenerateSeedPhrase()
+                    } label: {
+                        Label(AppLocalization.string("Regenerate"), systemImage: "arrow.clockwise").font(.caption.weight(.semibold))
+                    }.buttonStyle(.glass).tint(.orange).disabled(![12, 15, 18, 21, 24].contains(draft.selectedSeedPhraseWordCount))
+                }
+            }
+            HStack(spacing: 6) {
+                ForEach([12, 15, 18, 21, 24], id: \.self) { wordCount in
+                    seedPhraseLengthChip(wordCount: wordCount)
+                }
+            }
+            seedPhraseCustomLengthField
+            if let seedPhraseLengthWarning = draft.seedPhraseLengthWarning {
+                Label(seedPhraseLengthWarning, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(
+                    .orange.opacity(0.92))
+            }
+        }
+    }
+    @ViewBuilder
+    private func seedPhraseLengthChip(wordCount: Int) -> some View {
+        let isSelected = draft.selectedSeedPhraseWordCount == wordCount
+        let entropyBits: Int = {
+            switch wordCount {
+            case 12: return 128
+            case 15: return 160
+            case 18: return 192
+            case 21: return 224
+            case 24: return 256
+            default: return 0
+            }
+        }()
+        Button {
+            draft.selectedSeedPhraseWordCount = wordCount
+            customSeedPhraseWordCountInput = String(wordCount)
+        } label: {
+            VStack(spacing: 2) {
+                Text("\(wordCount)").font(.title3.weight(.bold).monospacedDigit()).foregroundStyle(
+                    isSelected ? Color.white : Color.primary)
+                Text("\(entropyBits)b").font(.caption2.weight(.semibold)).foregroundStyle(
+                    isSelected ? Color.white.opacity(0.8) : .secondary)
+            }.frame(maxWidth: .infinity, minHeight: 56).background(
+                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(
+                    isSelected ? Color.orange : Color.white.opacity(colorScheme == .light ? 0.55 : 0.05))
+            ).overlay(
+                RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(
+                    isSelected ? Color.orange : Color.primary.opacity(colorScheme == .light ? 0.10 : 0.07),
+                    lineWidth: isSelected ? 0 : 1)
             )
         }.buttonStyle(.plain)
     }
     @ViewBuilder
-    private func seedPhraseLengthPicker(title: String, subtitle: String, showsRegenerateButton: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(localizedWalletFlowString(title)).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-            Text(localizedWalletFlowString(subtitle)).font(.footnote).foregroundStyle(.secondary)
-            HStack(spacing: 12) {
-                Picker("Seed Phrase Length", selection: $draft.selectedSeedPhraseWordCount) {
-                    ForEach([12, 15, 18, 21, 24], id: \.self) { wordCount in
-                        Text(walletFlowLocalizedFormat("%lld words", wordCount)).tag(wordCount)
-                    }
-                }.labelsHidden().pickerStyle(.menu).padding(.horizontal, 14).padding(.vertical, 12).frame(
-                    maxWidth: .infinity, alignment: .leading
-                ).spectraInputFieldStyle().tint(.white)
-                if showsRegenerateButton {
-                    Button(AppLocalization.string("Regenerate")) {
-                        draft.regenerateSeedPhrase()
-                    }.buttonStyle(.glass).disabled(![12, 15, 18, 21, 24].contains(draft.selectedSeedPhraseWordCount))
-                }
-            }
-            HStack(spacing: 10) {
+    private var seedPhraseCustomLengthField: some View {
+        let standardLengths = [12, 15, 18, 21, 24]
+        let isCustomSelected = !standardLengths.contains(draft.selectedSeedPhraseWordCount)
+        DisclosureGroup {
+            HStack(spacing: 8) {
                 TextField(localizedWalletFlowString("Custom word count"), text: $customSeedPhraseWordCountInput).keyboardType(.numberPad)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled().padding(.horizontal, 14).padding(.vertical, 12).frame(
+                    .textInputAutocapitalization(.never).autocorrectionDisabled().padding(.horizontal, 12).padding(.vertical, 10).frame(
                         maxWidth: .infinity, alignment: .leading
                     ).spectraInputFieldStyle()
                 Button(AppLocalization.string("Apply")) {
                     draft.applyCustomSeedPhraseWordCount(customSeedPhraseWordCountInput)
                     customSeedPhraseWordCountInput = String(draft.selectedSeedPhraseWordCount)
-                }.buttonStyle(.glass)
+                }.buttonStyle(.glass).tint(.orange)
+            }.padding(.top, 4)
+        } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "slider.horizontal.3").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                Text(AppLocalization.string("Custom length")).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                if isCustomSelected {
+                    Text("\(draft.selectedSeedPhraseWordCount)").font(.caption.weight(.bold)).foregroundStyle(.orange).padding(
+                        .horizontal, 8
+                    ).padding(.vertical, 2).background(Capsule(style: .continuous).fill(Color.orange.opacity(0.14)))
+                }
             }
-            if let seedPhraseLengthWarning = draft.seedPhraseLengthWarning {
-                Text(seedPhraseLengthWarning).font(.footnote).foregroundStyle(.orange.opacity(0.92))
-            }
-        }
+        }.tint(.secondary)
     }
     @ViewBuilder
     private func numberedSeedPhraseRow(index: Int, text: String? = nil, isInvalidWord: Bool = false) -> some View {
-        let validEntryColor: Color = colorScheme == .light ? Color.black.opacity(0.82) : .white
-        HStack(spacing: 10) {
-            Text("\(index + 1)").font(.caption.weight(.bold)).foregroundStyle(.secondary).frame(width: 24, height: 24)
-                .background(Color.white.opacity(0.08)).clipShape(Circle())
+        let validEntryColor: Color = colorScheme == .light ? Color.black.opacity(0.85) : .white
+        let isFocused = focusedSeedPhraseIndex == index
+        let borderColor: Color? =
+            isInvalidWord ? Color.red.opacity(0.85)
+            : (isFocused ? Color.orange.opacity(0.7) : nil)
+        HStack(spacing: 6) {
+            Text("\(index + 1)").font(.caption2.weight(.heavy)).foregroundStyle(.orange.opacity(0.95))
+                .frame(minWidth: 18, alignment: .trailing).monospacedDigit()
             if let text {
-                Text(text).font(.footnote.monospaced()).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.8)
+                Text(text).font(.footnote.weight(.medium)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.7)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             } else {
-                TextField("word \(index + 1)", text: seedPhraseBinding(for: index)).textInputAutocapitalization(.never)
-                    .autocorrectionDisabled().foregroundStyle(isInvalidWord ? .red.opacity(0.95) : validEntryColor).focused(
-                        $focusedSeedPhraseIndex, equals: index)
+                TextField("", text: seedPhraseBinding(for: index)).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .font(.footnote.weight(.medium)).foregroundStyle(isInvalidWord ? .red.opacity(0.95) : validEntryColor).focused(
+                        $focusedSeedPhraseIndex, equals: index
+                    ).frame(maxWidth: .infinity, alignment: .leading)
             }
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 12).padding(.vertical, 12).spectraInputFieldStyle(
-            borderColor: isInvalidWord ? Color.red.opacity(0.85) : nil)
+        }.frame(maxWidth: .infinity, minHeight: 38).padding(.horizontal, 10).padding(.vertical, 8).spectraInputFieldStyle(
+            borderColor: borderColor)
     }
     @ViewBuilder
     private func watchedAddressSection(
@@ -431,12 +504,14 @@ struct SetupView: View {
     }
     @ViewBuilder
     private var chainSelectionCard: some View {
+        let popularIDSet = Set(Self.popularChainSelectionIDs)
+        let extraSelectionCount = draft.selectedChainNames.filter { name in
+            !Self.chainSelectionDescriptors.contains(where: { $0.chainName == name && popularIDSet.contains($0.id) })
+        }.count
         setupCard {
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .center, spacing: 12) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(AppLocalization.string("Chains")).font(.headline).foregroundStyle(Color.primary)
-                    }
+                    Text(AppLocalization.string("Chains")).font(.headline).foregroundStyle(Color.primary)
                     Spacer()
                     Text(chainSelectionSummary).font(.caption.weight(.semibold)).foregroundStyle(
                         selectedChainCount == 0 ? Color.primary.opacity(0.68) : .orange
@@ -446,7 +521,7 @@ struct SetupView: View {
                                 ? Color.white.opacity(colorScheme == .light ? 0.55 : 0.08) : Color.orange.opacity(0.12))
                     )
                 }
-                LazyVGrid(columns: chainSelectionColumns, spacing: 10) {
+                LazyVGrid(columns: chainSelectionColumns, spacing: 8) {
                     ForEach(popularChainSelectionDescriptors) { descriptor in chainSelectionCard(descriptor) }
                 }
                 if !Self.nonPopularChainSelectionDescriptors.isEmpty {
@@ -458,23 +533,29 @@ struct SetupView: View {
                             Image(systemName: "square.grid.2x2").font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(
                                 width: 26, height: 26
                             ).background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(AppLocalization.string("See All Chains")).font(.subheadline.weight(.semibold)).foregroundStyle(
-                                    Color.primary)
-                                Text(AppLocalization.string("Browse the full chain list.")).font(.caption2).foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(AppLocalization.format("Browse all %lld chains", Self.chainSelectionDescriptors.count)).font(
+                                    .subheadline.weight(.semibold)
+                                ).foregroundStyle(Color.primary)
+                                Text(AppLocalization.string("Search by name or symbol.")).font(.caption2).foregroundStyle(.secondary)
                             }
                             Spacer()
+                            if extraSelectionCount > 0 {
+                                Text("+\(extraSelectionCount)").font(.caption.weight(.bold)).foregroundStyle(.white).padding(
+                                    .horizontal, 8
+                                ).padding(.vertical, 3).background(Capsule(style: .continuous).fill(.orange))
+                            }
                             Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.secondary)
                         }.padding(.horizontal, 12).padding(.vertical, 10).spectraInputFieldStyle()
                     }.buttonStyle(.plain)
                 }
-                Text(chainSelectionSubtitle).font(.caption).foregroundStyle(.secondary)
                 chainSelectionFooterNote
             }.tint(.orange)
         }.sheet(isPresented: $isShowingAllChainsSheet) {
             AllChainsSelectionView(
-                chainSearchText: $chainSearchText, descriptors: Self.sortedChainSelectionDescriptors,
-                selectedChainNames: selectedChainNameSet, toggleSelection: draft.toggleChainSelection
+                chainSearchText: $chainSearchText, descriptors: Self.chainSelectionDescriptors,
+                selectedChainNames: selectedChainNameSet, toggleSelection: draft.toggleChainSelection,
+                clearAllSelections: { for name in draft.selectedChainNames { draft.toggleChainSelection(name) } }
             )
         }
     }
@@ -482,8 +563,6 @@ struct SetupView: View {
     private var chainSelectionFooterNote: some View {
         if isEditingWallet {
             Text(copy.watchOnlyFixedMessage).font(.caption).foregroundStyle(.secondary)
-        } else if isWatchAddressesImportMode {
-            Text(copy.publicAddressOnlyMessage).font(.caption).foregroundStyle(.secondary)
         } else if draft.wantsMonero {
             Text(copy.moneroWatchUnsupportedMessage).font(.caption).foregroundStyle(.orange.opacity(0.9))
         }
@@ -879,11 +958,6 @@ struct SetupView: View {
                 Picker("Import Method", selection: importSecretModeBinding) {
                     ForEach(WalletSecretImportMode.allCases) { mode in Text(mode.localizedTitle).tag(mode) }
                 }.pickerStyle(.segmented)
-                Text(
-                    draft.secretImportMode == .seedPhrase
-                        ? copy.seedImportMethodDescription
-                        : copy.privateKeyImportMethodDescription
-                ).font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -901,7 +975,8 @@ struct SetupView: View {
     private var newWalletSeedPhraseSection: some View {
         seedPhraseLengthPicker(title: copy.importSeedLengthTitle, subtitle: copy.importSeedLengthSubtitle)
         Text(copy.seedPhraseEntryHelp).font(.footnote).foregroundStyle(.secondary)
-        LazyVGrid(columns: seedPhraseGridColumns, spacing: 12) {
+        seedPhraseEntryHeader
+        LazyVGrid(columns: seedPhraseGridColumns, spacing: 8) {
             ForEach(0..<draft.selectedSeedPhraseWordCount, id: \.self) { index in seedPhraseField(at: index) }
         }
         if !seedPhraseStatusText.isEmpty { Text(seedPhraseStatusText).font(.footnote).foregroundStyle(seedPhraseStatusColor) }
@@ -912,10 +987,59 @@ struct SetupView: View {
             title: copy.createSeedLengthTitle, subtitle: copy.createSeedLengthSubtitle, showsRegenerateButton: true
         )
         Text(copy.createSeedPhraseWarning).font(.footnote).foregroundStyle(.secondary)
-        LazyVGrid(columns: seedPhraseGridColumns, spacing: 12) {
+        seedPhraseDisplayHeader
+        LazyVGrid(columns: seedPhraseGridColumns, spacing: 8) {
             ForEach(draft.seedPhraseWords.indices, id: \.self) { index in
                 numberedSeedPhraseRow(index: index, text: draft.seedPhraseWords[index])
             }
+        }
+    }
+    @ViewBuilder
+    private var seedPhraseEntryHeader: some View {
+        let filled = draft.seedPhraseWords.count
+        let total = draft.selectedSeedPhraseWordCount
+        let isComplete = filled >= total && draft.invalidSeedWords.isEmpty && draft.seedPhraseValidationError == nil
+        HStack(spacing: 10) {
+            HStack(spacing: 6) {
+                Image(systemName: isComplete ? "checkmark.circle.fill" : "circle.dashed").font(.caption.weight(.semibold))
+                    .foregroundStyle(isComplete ? .green : .orange)
+                Text("\(filled) / \(total)").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(
+                    isComplete ? .green : .orange)
+            }.padding(.horizontal, 10).padding(.vertical, 6).background(
+                Capsule(style: .continuous).fill((isComplete ? Color.green : Color.orange).opacity(0.12))
+            )
+            Spacer()
+            Button {
+                if let pasted = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines), !pasted.isEmpty {
+                    draft.updateSeedPhraseEntry(at: 0, with: pasted)
+                    focusedSeedPhraseIndex = nil
+                }
+            } label: {
+                Label(AppLocalization.string("Paste"), systemImage: "doc.on.clipboard").font(.caption.weight(.semibold))
+            }.buttonStyle(.glass).tint(.orange)
+            if filled > 0 {
+                Button(role: .destructive) {
+                    for index in 0..<total { draft.updateSeedPhraseEntry(at: index, with: "") }
+                    focusedSeedPhraseIndex = 0
+                } label: {
+                    Image(systemName: "xmark.circle.fill").font(.body.weight(.semibold))
+                }.buttonStyle(.plain).foregroundStyle(.secondary)
+            }
+        }
+    }
+    @ViewBuilder
+    private var seedPhraseDisplayHeader: some View {
+        HStack(spacing: 10) {
+            Label(AppLocalization.string("Recovery Phrase"), systemImage: "key.fill").font(.caption.weight(.semibold)).foregroundStyle(
+                .orange
+            ).padding(.horizontal, 10).padding(.vertical, 6).background(
+                Capsule(style: .continuous).fill(Color.orange.opacity(0.12)))
+            Spacer()
+            Button {
+                UIPasteboard.general.string = draft.seedPhraseWords.joined(separator: " ")
+            } label: {
+                Label(AppLocalization.string("Copy"), systemImage: "doc.on.doc").font(.caption.weight(.semibold))
+            }.buttonStyle(.glass).tint(.orange).disabled(draft.seedPhraseWords.isEmpty)
         }
     }
     @ViewBuilder
@@ -926,21 +1050,75 @@ struct SetupView: View {
     @ViewBuilder
     private var privateKeyImportFields: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(copy.privateKeyTitle).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+            HStack(spacing: 10) {
+                Text(copy.privateKeyTitle).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                Spacer()
+                Button {
+                    if let pasted = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines), !pasted.isEmpty {
+                        draft.privateKeyInput = pasted
+                    }
+                } label: {
+                    Label(AppLocalization.string("Paste"), systemImage: "doc.on.clipboard").font(.caption.weight(.semibold))
+                }.buttonStyle(.glass).tint(.orange)
+            }
             Text(copy.privateKeyPrompt).font(.footnote).foregroundStyle(.secondary)
-            TextField(copy.privateKeyPlaceholder, text: $draft.privateKeyInput).textInputAutocapitalization(.never).autocorrectionDisabled()
-                .padding(14).spectraInputFieldStyle().foregroundStyle(Color.primary)
+            privateKeyEditor
+            privateKeyMetadataRow
             if !draft.unsupportedPrivateKeyChainNames.isEmpty {
                 Text(
                     walletFlowLocalizedFormat(
                         "Private key import is not available for: %@.", draft.unsupportedPrivateKeyChainNames.joined(separator: ", "))
                 ).font(.footnote).foregroundStyle(.orange.opacity(0.9))
-            } else if !draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                !CachedCoreHelpers.privateKeyHexIsLikely(rawValue: draft.privateKeyInput)
-            {
-                Text(AppLocalization.string("Enter a valid 32-byte hex private key.")).font(.footnote).foregroundStyle(.red.opacity(0.9))
+            } else if let validation = privateKeyValidationFeedback {
+                Label(validation.message, systemImage: validation.icon).font(.footnote.weight(.medium)).foregroundStyle(validation.color)
             }
         }
+    }
+    @ViewBuilder
+    private var privateKeyEditor: some View {
+        let trimmed = draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        let isLikelyValid = !trimmed.isEmpty && CachedCoreHelpers.privateKeyHexIsLikely(rawValue: draft.privateKeyInput)
+        let isInvalidShape = !trimmed.isEmpty && !isLikelyValid
+        let borderColor: Color? =
+            isInvalidShape
+            ? Color.red.opacity(0.85) : (isLikelyValid ? Color.green.opacity(0.55) : nil)
+        ZStack(alignment: .topLeading) {
+            TextEditor(text: $draft.privateKeyInput).textInputAutocapitalization(.never).autocorrectionDisabled().scrollContentBackground(
+                .hidden
+            ).font(.system(.footnote, design: .monospaced)).foregroundStyle(Color.primary).frame(minHeight: 96).padding(.horizontal, 10)
+                .padding(.vertical, 10).spectraInputFieldStyle(borderColor: borderColor)
+            if trimmed.isEmpty {
+                Text(copy.privateKeyPlaceholder).font(.system(.footnote, design: .monospaced)).foregroundStyle(.secondary).padding(
+                    .horizontal, 16
+                ).padding(.vertical, 18).allowsHitTesting(false)
+            }
+        }
+    }
+    @ViewBuilder
+    private var privateKeyMetadataRow: some View {
+        let hexCount = draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).count
+        HStack(spacing: 10) {
+            Text(AppLocalization.string("32-byte hex (64 chars)")).font(.caption2).foregroundStyle(.secondary)
+            Spacer()
+            Text("\(hexCount) / 64").font(.caption2.monospacedDigit()).foregroundStyle(
+                hexCount == 0 ? Color.secondary : (hexCount == 64 ? Color.green : Color.orange))
+            if hexCount > 0 {
+                Button(role: .destructive) { draft.privateKeyInput = "" } label: {
+                    Image(systemName: "xmark.circle.fill").font(.caption.weight(.semibold))
+                }.buttonStyle(.plain).foregroundStyle(.secondary)
+            }
+        }
+    }
+    private var privateKeyValidationFeedback: (message: String, icon: String, color: Color)? {
+        let trimmed = draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if !CachedCoreHelpers.privateKeyHexIsLikely(rawValue: draft.privateKeyInput) {
+            return (
+                AppLocalization.string("Enter a valid 32-byte hex private key."), "exclamationmark.triangle.fill",
+                .red.opacity(0.92)
+            )
+        }
+        return (AppLocalization.string("Looks like a valid private key."), "checkmark.seal.fill", .green.opacity(0.92))
     }
     @ViewBuilder
     private var walletSecretStepSection: some View {
@@ -1214,68 +1392,136 @@ private struct AdvancedOverridePicker: View {
 
 private struct AllChainsSelectionView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     @Binding var chainSearchText: String
     let descriptors: [SetupChainSelectionDescriptor]
     let selectedChainNames: Set<String>
     let toggleSelection: (String) -> Void
+    let clearAllSelections: () -> Void
+    private let gridColumns = [
+        GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8),
+    ]
+    private var trimmedQuery: String { chainSearchText.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var isSearching: Bool { !trimmedQuery.isEmpty }
     private var filteredDescriptors: [SetupChainSelectionDescriptor] {
-        let query = chainSearchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return descriptors }
-        return descriptors.filter { descriptor in
-            descriptor.title.localizedCaseInsensitiveContains(query)
-                || descriptor.symbol.localizedCaseInsensitiveContains(query)
+        guard isSearching else { return descriptors }
+        return descriptors.filter { d in
+            d.title.localizedCaseInsensitiveContains(trimmedQuery)
+                || d.symbol.localizedCaseInsensitiveContains(trimmedQuery)
+                || d.chainName.localizedCaseInsensitiveContains(trimmedQuery)
         }
     }
-    private var isSearching: Bool { !chainSearchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+    private var groupedDescriptors: [(SetupChainCategory, [SetupChainSelectionDescriptor])] {
+        SetupChainCategory.allCases.compactMap { category in
+            let entries = descriptors.filter { $0.category == category }
+            return entries.isEmpty ? nil : (category, entries)
+        }
+    }
     @ViewBuilder
-    private func row(for descriptor: SetupChainSelectionDescriptor) -> some View {
+    private func chip(_ descriptor: SetupChainSelectionDescriptor) -> some View {
         let isSelected = selectedChainNames.contains(descriptor.chainName)
         Button {
             toggleSelection(descriptor.chainName)
         } label: {
-            HStack(spacing: 12) {
-                CoinBadge(
-                    assetIdentifier: descriptor.assetIdentifier, fallbackText: descriptor.symbol, color: descriptor.color, size: 28
-                )
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(descriptor.title).font(.subheadline.weight(.medium)).foregroundStyle(Color.primary)
-                    Text(descriptor.symbol.uppercased()).font(.caption2.weight(.semibold)).foregroundStyle(
-                        isSelected ? descriptor.color : Color.primary.opacity(0.56))
+            VStack(spacing: 6) {
+                ZStack(alignment: .topTrailing) {
+                    CoinBadge(
+                        assetIdentifier: descriptor.assetIdentifier, fallbackText: descriptor.symbol, color: descriptor.color, size: 36
+                    )
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill").font(.caption.weight(.bold)).foregroundStyle(descriptor.color).background(
+                            Circle().fill(Color.white.opacity(colorScheme == .light ? 1 : 0.85))
+                        ).offset(x: 4, y: -4)
+                    }
                 }
-                Spacer()
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle").font(.body.weight(.semibold)).foregroundStyle(
-                    isSelected ? descriptor.color : Color.primary.opacity(0.24))
-            }.padding(.horizontal, 12).padding(.vertical, 8).background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(isSelected ? descriptor.color.opacity(0.1) : Color.clear)
+                Text(descriptor.title).font(.caption2.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.8)
+                Text(descriptor.symbol.uppercased()).font(.caption2.weight(.medium)).foregroundStyle(
+                    isSelected ? descriptor.color : Color.primary.opacity(0.55)
+                ).lineLimit(1)
+            }.frame(maxWidth: .infinity, minHeight: 88).padding(.vertical, 10).padding(.horizontal, 6).background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(
+                    isSelected ? descriptor.color.opacity(0.14) : Color.white.opacity(colorScheme == .light ? 0.55 : 0.04))
+            ).overlay(
+                RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(
+                    isSelected ? descriptor.color.opacity(0.9) : Color.primary.opacity(colorScheme == .light ? 0.10 : 0.07),
+                    lineWidth: isSelected ? 1.5 : 1)
             )
-        }.buttonStyle(.plain)
+        }.buttonStyle(.plain).contentShape(Rectangle())
+    }
+    @ViewBuilder
+    private var searchAndCounter: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 10) {
+                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+                TextField(AppLocalization.string("import_flow.search_chains"), text: $chainSearchText)
+                    .textInputAutocapitalization(.never).autocorrectionDisabled()
+                if isSearching {
+                    Button { chainSearchText = "" } label: {
+                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
+                    }.buttonStyle(.plain)
+                }
+            }.padding(.horizontal, 14).padding(.vertical, 12).spectraInputFieldStyle()
+            if !selectedChainNames.isEmpty {
+                HStack(spacing: 8) {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.orange).font(.caption)
+                    Text(AppLocalization.format("%lld selected", selectedChainNames.count)).font(.caption.weight(.semibold)).foregroundStyle(
+                        .orange)
+                    Spacer()
+                    Button(AppLocalization.string("Clear all"), role: .destructive) { clearAllSelections() }.font(
+                        .caption.weight(.semibold)
+                    ).buttonStyle(.plain).foregroundStyle(.red.opacity(0.85))
+                }.padding(.horizontal, 12).padding(.vertical, 8).background(
+                    Capsule(style: .continuous).fill(Color.orange.opacity(0.10))
+                )
+            }
+        }
+    }
+    @ViewBuilder
+    private func sectionHeader(_ title: String, count: Int) -> some View {
+        HStack(spacing: 8) {
+            Text(title).font(.subheadline.weight(.bold)).foregroundStyle(Color.primary)
+            Text("\(count)").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 7).padding(
+                .vertical, 2
+            ).background(Capsule(style: .continuous).fill(Color.primary.opacity(0.08)))
+            Spacer()
+        }.padding(.top, 6).padding(.bottom, 2)
+    }
+    @ViewBuilder
+    private var bodyContent: some View {
+        if isSearching {
+            if filteredDescriptors.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass").font(.title3).foregroundStyle(.secondary)
+                    Text(AppLocalization.string("import_flow.no_chains_match")).font(.subheadline).foregroundStyle(.secondary)
+                }.frame(maxWidth: .infinity).padding(.vertical, 32)
+            } else {
+                LazyVGrid(columns: gridColumns, spacing: 8) {
+                    ForEach(filteredDescriptors) { descriptor in chip(descriptor) }
+                }
+            }
+        } else {
+            VStack(alignment: .leading, spacing: 16) {
+                ForEach(groupedDescriptors, id: \.0) { category, items in
+                    VStack(alignment: .leading, spacing: 8) {
+                        sectionHeader(category.sectionTitle, count: items.count)
+                        LazyVGrid(columns: gridColumns, spacing: 8) {
+                            ForEach(items) { descriptor in chip(descriptor) }
+                        }
+                    }
+                }
+            }
+        }
     }
     var body: some View {
         NavigationStack {
-            ZStack {
-                ScrollView(showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: 18) {
-                        VStack(alignment: .leading, spacing: 14) {
-                            HStack(spacing: 10) {
-                                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                                TextField(AppLocalization.string("import_flow.search_chains"), text: $chainSearchText)
-                                    .textInputAutocapitalization(.never).autocorrectionDisabled()
-                            }.padding(.horizontal, 14).padding(.vertical, 12).spectraInputFieldStyle()
-                            if filteredDescriptors.isEmpty {
-                                Text(AppLocalization.string("import_flow.no_chains_match")).font(.caption).foregroundStyle(.secondary)
-                            } else {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    ForEach(filteredDescriptors) { descriptor in row(for: descriptor) }
-                                }
-                            }
-                        }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: 24)
-                    }.padding(.horizontal, 20).padding(.vertical, 20)
-                }
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: 16) {
+                    searchAndCounter
+                    bodyContent
+                }.padding(20)
             }.navigationTitle(AppLocalization.string("import_flow.all_chains_title")).navigationBarTitleDisplayMode(.inline).toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button(AppLocalization.string("import_flow.done")) {
-                        dismiss()
-                    }
+                    Button(AppLocalization.string("import_flow.done")) { dismiss() }.buttonStyle(.borderedProminent).tint(.orange)
                 }
             }
         }

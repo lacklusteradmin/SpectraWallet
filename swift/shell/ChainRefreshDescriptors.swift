@@ -94,7 +94,8 @@ extension AppState {
                 }, executeHistoryOnly: { store in await store.refreshDogecoinTransactions(loadMore: false) }
             ),
             .evm("Ethereum"), .evm("Arbitrum"), .evm("Optimism"), .evm("Ethereum Classic"),
-            .evm("BNB Chain"), .evm("Avalanche"), .evm("Hyperliquid"),
+            .evm("BNB Chain"), .evm("Avalanche"), .evm("Hyperliquid"), .evm("Polygon"), .evm("Base"),
+            .evm("Linea"), .evm("Scroll"), .evm("Blast"), .evm("Mantle"),
             WalletChainRefreshDescriptor(
                 chainID: WalletChainID("Tron")!,
                 executeRefresh: { store, refreshHistory in
@@ -262,6 +263,12 @@ extension AppState {
             case "BNB Chain": await refreshEVMTokenTransactions(chainName: "BNB Chain", maxResults: 20, loadMore: false)
             case "Avalanche": await refreshEVMTokenTransactions(chainName: "Avalanche", maxResults: 20, loadMore: false)
             case "Hyperliquid": await refreshEVMTokenTransactions(chainName: "Hyperliquid", maxResults: 20, loadMore: false)
+            case "Polygon": await refreshEVMTokenTransactions(chainName: "Polygon", maxResults: 20, loadMore: false)
+            case "Base": await refreshEVMTokenTransactions(chainName: "Base", maxResults: 20, loadMore: false)
+            case "Linea": await refreshEVMTokenTransactions(chainName: "Linea", maxResults: 20, loadMore: false)
+            case "Scroll": await refreshEVMTokenTransactions(chainName: "Scroll", maxResults: 20, loadMore: false)
+            case "Blast": await refreshEVMTokenTransactions(chainName: "Blast", maxResults: 20, loadMore: false)
+            case "Mantle": await refreshEVMTokenTransactions(chainName: "Mantle", maxResults: 20, loadMore: false)
             case "Tron": await refreshTronTransactions(loadMore: false)
             case "Solana": await refreshSolanaTransactions(loadMore: false)
             case "Cardano": await refreshCardanoTransactions(loadMore: false)

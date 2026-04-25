@@ -118,5 +118,35 @@
     "id": "xrp",
     "colorName": "cyan",
     "assetName": "xrp"
+  },
+  {
+    "id": "polygon",
+    "colorName": "purple",
+    "assetName": "polygon"
+  },
+  {
+    "id": "base",
+    "colorName": "blue",
+    "assetName": "base"
+  },
+  {
+    "id": "linea",
+    "colorName": "blue",
+    "assetName": "linea"
+  },
+  {
+    "id": "scroll",
+    "colorName": "orange",
+    "assetName": "scroll"
+  },
+  {
+    "id": "blast",
+    "colorName": "yellow",
+    "assetName": "blast"
+  },
+  {
+    "id": "mantle",
+    "colorName": "green",
+    "assetName": "mantle"
   }
 ]

@@ -9,6 +9,12 @@ extension TokenTrackingChain {
         case .bnb: return "bnb"
         case .avalanche: return "avalanche"
         case .hyperliquid: return "hyperliquid"
+        case .polygon: return "polygon"
+        case .base: return "base"
+        case .linea: return "linea"
+        case .scroll: return "scroll"
+        case .blast: return "blast"
+        case .mantle: return "mantle"
         case .solana: return "solana"
         case .sui: return "sui"
         case .aptos: return "aptos"
@@ -25,6 +31,12 @@ extension TokenTrackingChain {
         case .bnb: return .yellow
         case .avalanche: return .red
         case .hyperliquid: return .mint
+        case .polygon: return .purple
+        case .base: return .blue
+        case .linea: return .blue
+        case .scroll: return .orange
+        case .blast: return .yellow
+        case .mantle: return .green
         case .solana: return .purple
         case .sui: return .mint
         case .aptos: return .cyan

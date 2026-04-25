@@ -261,7 +261,9 @@ struct WalletDetailView: View {
         let chainMappings: [String: SeedDerivationChain] = [
             "Bitcoin": .bitcoin, "Bitcoin Cash": .bitcoinCash, "Bitcoin SV": .bitcoinSV, "Litecoin": .litecoin, "Dogecoin": .dogecoin,
             "Ethereum": .ethereum, "Ethereum Classic": .ethereumClassic, "Arbitrum": .arbitrum, "Optimism": .optimism,
-            "BNB Chain": .ethereum, "Avalanche": .avalanche, "Hyperliquid": .hyperliquid, "Tron": .tron, "Solana": .solana,
+            "BNB Chain": .ethereum, "Avalanche": .avalanche, "Hyperliquid": .hyperliquid, "Polygon": .polygon,
+            "Base": .base, "Linea": .linea, "Scroll": .scroll, "Blast": .blast, "Mantle": .mantle,
+            "Tron": .tron, "Solana": .solana,
             "Cardano": .cardano, "XRP Ledger": .xrp, "Sui": .sui, "Aptos": .aptos, "TON": .ton, "Internet Computer": .internetComputer,
             "NEAR": .near, "Polkadot": .polkadot, "Stellar": .stellar,
         ]

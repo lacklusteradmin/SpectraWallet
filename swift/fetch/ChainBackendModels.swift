@@ -22,6 +22,12 @@ enum AppChainID: String, CaseIterable, Identifiable, Decodable {
     case bnb
     case avalanche
     case hyperliquid
+    case polygon
+    case base
+    case linea
+    case scroll
+    case blast
+    case mantle
     case tron
     case solana
     case cardano

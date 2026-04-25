@@ -17,6 +17,12 @@ struct TokenRegistrySettingsView: View {
         case bnb
         case avalanche
         case hyperliquid
+        case polygon
+        case base
+        case linea
+        case scroll
+        case blast
+        case mantle
         case solana
         case sui
         case aptos
@@ -34,6 +40,12 @@ struct TokenRegistrySettingsView: View {
             case .bnb: return .bnb
             case .avalanche: return .avalanche
             case .hyperliquid: return .hyperliquid
+            case .polygon: return .polygon
+            case .base: return .base
+            case .linea: return .linea
+            case .scroll: return .scroll
+            case .blast: return .blast
+            case .mantle: return .mantle
             case .solana: return .solana
             case .sui: return .sui
             case .aptos: return .aptos

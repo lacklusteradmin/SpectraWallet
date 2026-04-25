@@ -485,6 +485,12 @@ private enum SeedDerivationPathsCodingKeys: String, CodingKey {
     case optimism
     case avalanche
     case hyperliquid
+    case polygon
+    case base
+    case linea
+    case scroll
+    case blast
+    case mantle
     case tron
     case solana
     case stellar
@@ -556,6 +562,12 @@ extension SeedDerivationPaths: Codable {
         optimism = try container.decodeIfPresent(String.self, forKey: .optimism) ?? SeedDerivationChain.optimism.defaultPath
         avalanche = try container.decodeIfPresent(String.self, forKey: .avalanche) ?? SeedDerivationChain.avalanche.defaultPath
         hyperliquid = try container.decodeIfPresent(String.self, forKey: .hyperliquid) ?? SeedDerivationChain.hyperliquid.defaultPath
+        polygon = try container.decodeIfPresent(String.self, forKey: .polygon) ?? SeedDerivationChain.polygon.defaultPath
+        base = try container.decodeIfPresent(String.self, forKey: .base) ?? SeedDerivationChain.base.defaultPath
+        linea = try container.decodeIfPresent(String.self, forKey: .linea) ?? SeedDerivationChain.linea.defaultPath
+        scroll = try container.decodeIfPresent(String.self, forKey: .scroll) ?? SeedDerivationChain.scroll.defaultPath
+        blast = try container.decodeIfPresent(String.self, forKey: .blast) ?? SeedDerivationChain.blast.defaultPath
+        mantle = try container.decodeIfPresent(String.self, forKey: .mantle) ?? SeedDerivationChain.mantle.defaultPath
         tron = try container.decodeIfPresent(String.self, forKey: .tron) ?? SeedDerivationChain.tron.defaultPath
         solana = try container.decodeIfPresent(String.self, forKey: .solana) ?? SeedDerivationChain.solana.defaultPath
         stellar = try container.decodeIfPresent(String.self, forKey: .stellar) ?? SeedDerivationChain.stellar.defaultPath
@@ -583,6 +595,12 @@ extension SeedDerivationPaths: Codable {
         try container.encode(optimism, forKey: .optimism)
         try container.encode(avalanche, forKey: .avalanche)
         try container.encode(hyperliquid, forKey: .hyperliquid)
+        try container.encode(polygon, forKey: .polygon)
+        try container.encode(base, forKey: .base)
+        try container.encode(linea, forKey: .linea)
+        try container.encode(scroll, forKey: .scroll)
+        try container.encode(blast, forKey: .blast)
+        try container.encode(mantle, forKey: .mantle)
         try container.encode(tron, forKey: .tron)
         try container.encode(solana, forKey: .solana)
         try container.encode(stellar, forKey: .stellar)
