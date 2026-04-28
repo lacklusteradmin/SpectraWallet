@@ -104,7 +104,12 @@ extension AppState {
             tronAddress: wallet.tronAddress, solanaAddress: wallet.solanaAddress, stellarAddress: wallet.stellarAddress,
             xrpAddress: wallet.xrpAddress, moneroAddress: wallet.moneroAddress, cardanoAddress: wallet.cardanoAddress,
             suiAddress: wallet.suiAddress, aptosAddress: wallet.aptosAddress, tonAddress: wallet.tonAddress, icpAddress: wallet.icpAddress,
-            nearAddress: wallet.nearAddress, polkadotAddress: wallet.polkadotAddress, seedDerivationPreset: wallet.seedDerivationPreset,
+            nearAddress: wallet.nearAddress, polkadotAddress: wallet.polkadotAddress,
+            zcashAddress: wallet.zcashAddress, bitcoinGoldAddress: wallet.bitcoinGoldAddress,
+            decredAddress: wallet.decredAddress, kaspaAddress: wallet.kaspaAddress,
+            dashAddress: wallet.dashAddress,
+            bittensorAddress: wallet.bittensorAddress,
+            seedDerivationPreset: wallet.seedDerivationPreset,
             seedDerivationPaths: wallet.seedDerivationPaths, derivationOverrides: wallet.derivationOverrides, selectedChain: wallet.selectedChain, holdings: wallet.holdings,
             includeInPortfolioTotal: isIncluded
         )

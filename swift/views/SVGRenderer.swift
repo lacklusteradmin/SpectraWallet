@@ -1,10 +1,11 @@
 // Renders SVG files from the flat `resources/icons/` bundle directory into
-// UIImage via a short-lived WKWebView snapshot. iOS does not provide a public
-// API to render SVG from arbitrary file URLs (UIImage(contentsOfFile:) is
-// raster-only, UIImage(named:) only consults the Asset Catalog), so we delegate
-// to Safari's WebKit engine for full SVG fidelity (clip-paths, gradients,
-// color(display-p3 ...), etc.). The result is a plain UIImage that lives in
-// the BundleImageLoader cache, so each SVG is rendered once per app launch.
+// UIImage via a shared, long-lived WKWebView snapshot. iOS does not provide
+// a public API to render SVG from arbitrary file URLs, so we delegate to
+// WebKit. Earlier versions spawned a new WKWebView per render — each
+// instance bootstraps its own WebContent process, and a boot-time warm-up
+// of the icon set produced ~12 concurrent processes that thrashed the CPU
+// and stalled main-thread UI. The current path keeps a single WebContent
+// process alive and serializes renders through it.
 
 import Foundation
 #if canImport(UIKit)
@@ -24,11 +25,19 @@ import Foundation
             }
         }
 
-        /// Renders the SVG at `url` into a UIImage of the requested point size,
-        /// at the device scale. Returns nil if WebKit can't load or snapshot.
-        static func render(svgURL: URL, size: CGSize) async -> UIImage? {
-            let scale = UIScreen.main.scale
-            let pixelSize = CGSize(width: size.width * scale, height: size.height * scale)
+        // One WebView, one WebContent process, reused for every SVG.
+        private static var sharedWebView: WKWebView?
+        private static let sharedObserver = LoadObserver()
+        // Serialize renders so two concurrent callers don't fight over the
+        // shared web view's navigation state. Each render awaits the previous
+        // one before starting.
+        private static var renderQueue: Task<UIImage?, Never> = Task { nil }
+
+        private static func ensureWebView(size: CGSize) -> WKWebView {
+            if let existing = sharedWebView {
+                existing.frame = CGRect(origin: .zero, size: size)
+                return existing
+            }
             let configuration = WKWebViewConfiguration()
             configuration.suppressesIncrementalRendering = true
             let webView = WKWebView(frame: CGRect(origin: .zero, size: size), configuration: configuration)
@@ -36,12 +45,32 @@ import Foundation
             webView.backgroundColor = .clear
             webView.scrollView.backgroundColor = .clear
             webView.scrollView.isScrollEnabled = false
+            webView.navigationDelegate = sharedObserver
+            sharedWebView = webView
+            return webView
+        }
 
-            let observer = LoadObserver()
-            webView.navigationDelegate = observer
-            // Wrap the SVG in a tiny HTML shell so it scales to the WebView
-            // viewport regardless of whether the source has explicit width/
-            // height attributes — viewBox is enough.
+        /// Renders the SVG at `url` into a UIImage of the requested point size,
+        /// at the device scale. Returns nil if WebKit can't load or snapshot.
+        ///
+        /// Concurrent callers are serialized so only one snapshot is in flight
+        /// at a time — the underlying shared WKWebView holds one navigation
+        /// state and can't multiplex requests.
+        static func render(svgURL: URL, size: CGSize) async -> UIImage? {
+            let previous = renderQueue
+            let task = Task<UIImage?, Never> { @MainActor in
+                _ = await previous.value
+                return await performRender(svgURL: svgURL, size: size)
+            }
+            renderQueue = task
+            return await task.value
+        }
+
+        private static func performRender(svgURL: URL, size: CGSize) async -> UIImage? {
+            let scale = UIScreen.main.scale
+            let pixelSize = CGSize(width: size.width * scale, height: size.height * scale)
+            let webView = ensureWebView(size: size)
+
             let html = """
                 <!doctype html><html><head><meta charset="utf-8">
                 <meta name="viewport" content="width=device-width,initial-scale=1.0">
@@ -50,15 +79,17 @@ import Foundation
                 """
             await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
                 var resumed = false
-                observer.onFinish = {
+                sharedObserver.onFinish = {
                     guard !resumed else { return }
                     resumed = true
                     continuation.resume()
                 }
                 webView.loadHTMLString(html, baseURL: svgURL.deletingLastPathComponent())
             }
-            // One frame for the layout/paint to commit.
-            try? await Task.sleep(nanoseconds: 50_000_000)
+            sharedObserver.onFinish = nil
+            // One frame for the layout/paint to commit. 16ms (~one display frame)
+            // is enough; the previous 50ms held the main actor unnecessarily.
+            try? await Task.sleep(nanoseconds: 16_000_000)
 
             let snapshotConfig = WKSnapshotConfiguration()
             snapshotConfig.rect = CGRect(origin: .zero, size: size)

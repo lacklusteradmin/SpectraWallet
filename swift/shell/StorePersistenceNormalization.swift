@@ -31,110 +31,134 @@ extension AppState {
     }
     func rebuildWalletDerivedState() { batchCacheUpdates { _rebuildWalletDerivedStateBody() } }
     private func _rebuildWalletDerivedStateBody() {
-        cachedWalletByID = Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) })
-        cachedWalletByIDString = Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) })
-        cachedRefreshableChainNames = Set(wallets.map(\.selectedChain))
-        cachedIncludedPortfolioWallets = wallets.filter(\.includeInPortfolioTotal)
         let derivedStatePlan = rustStoreDerivedStatePlan(for: wallets)
-        cachedIncludedPortfolioHoldings = derivedStatePlan.includedPortfolioHoldingRefs.compactMap { reference in
-            resolveHolding(reference, in: wallets)
-        }
-        cachedIncludedPortfolioHoldingsBySymbol = Dictionary(
-            grouping: cachedIncludedPortfolioHoldings, by: { $0.symbol.uppercased() }
-        )
-        cachedUniqueWalletPriceRequestCoins = derivedStatePlan.uniquePriceRequestHoldingRefs.compactMap { reference in
-            resolveHolding(reference, in: wallets)
-        }
-        var sendCoinsByWalletID: [String: [Coin]] = [:]
-        var receiveCoinsByWalletID: [String: [Coin]] = [:]
-        var receiveChainsByWalletID: [String: [String]] = [:]
-        var sendWallets: [ImportedWallet] = []
-        var receiveWallets: [ImportedWallet] = []
         let transferAvailabilityPlan = rustTransferAvailabilityPlan(for: wallets)
+        let walletByID = Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) })
+        let includedPortfolioWallets = wallets.filter(\.includeInPortfolioTotal)
+        let includedPortfolioHoldings = derivedStatePlan.includedPortfolioHoldingRefs.compactMap { ref in
+            resolveHolding(ref, in: wallets)
+        }
+        let uniquePriceRequestCoins = derivedStatePlan.uniquePriceRequestHoldingRefs.compactMap { ref in
+            resolveHolding(ref, in: wallets)
+        }
         let transferAvailabilityByWalletID = Dictionary(
             uniqueKeysWithValues: transferAvailabilityPlan.wallets.map { ($0.walletId, $0) }
         )
         let rustSendEnabledWalletIDs = Set(transferAvailabilityPlan.sendEnabledWalletIds)
         let rustReceiveEnabledWalletIDs = Set(transferAvailabilityPlan.receiveEnabledWalletIds)
+        var sendCoinsByWalletID: [String: [Coin]] = [:]
+        var receiveCoinsByWalletID: [String: [Coin]] = [:]
+        var receiveChainsByWalletID: [String: [String]] = [:]
+        var sendWallets: [ImportedWallet] = []
+        var receiveWallets: [ImportedWallet] = []
         for wallet in wallets {
             let walletID = wallet.id
-            let sendCoins: [Coin] =
-                transferAvailabilityByWalletID[walletID]
-                .map { availability in
-                    availability.sendHoldingIndices.compactMap { i -> Coin? in
-                        let index = Int(i); return wallet.holdings.indices.contains(index) ? wallet.holdings[index] : nil
-                    }
+            let availability = transferAvailabilityByWalletID[walletID]
+            sendCoinsByWalletID[walletID] = availability.map { a in
+                a.sendHoldingIndices.compactMap { i in
+                    let idx = Int(i); return wallet.holdings.indices.contains(idx) ? wallet.holdings[idx] : nil
                 }
-                ?? []
-            sendCoinsByWalletID[walletID] = sendCoins
+            } ?? []
+            receiveCoinsByWalletID[walletID] = availability.map { a in
+                a.receiveHoldingIndices.compactMap { i in
+                    let idx = Int(i); return wallet.holdings.indices.contains(idx) ? wallet.holdings[idx] : nil
+                }
+            } ?? []
+            receiveChainsByWalletID[walletID] = availability?.receiveChains ?? []
             if rustSendEnabledWalletIDs.contains(walletID) { sendWallets.append(wallet) }
-            let receiveCoins: [Coin] =
-                transferAvailabilityByWalletID[walletID]
-                .map { availability in
-                    availability.receiveHoldingIndices.compactMap { i -> Coin? in
-                        let index = Int(i); return wallet.holdings.indices.contains(index) ? wallet.holdings[index] : nil
-                    }
-                }
-                ?? []
-            receiveCoinsByWalletID[walletID] = receiveCoins
-            let receiveChains =
-                transferAvailabilityByWalletID[walletID]?.receiveChains
-                ?? []
-            receiveChainsByWalletID[walletID] = receiveChains
             if rustReceiveEnabledWalletIDs.contains(walletID) { receiveWallets.append(wallet) }
         }
-        cachedSigningMaterialWalletIDs = Set(derivedStatePlan.signingMaterialWalletIds)
-        cachedPrivateKeyBackedWalletIDs = Set(derivedStatePlan.privateKeyBackedWalletIds)
-        cachedPortfolio = derivedStatePlan.groupedPortfolio.compactMap { group in
-            guard
-                let representative = resolveHolding(
-                    WalletHoldingRef(walletId: group.walletId, holdingIndex: group.holdingIndex), in: wallets
-                )
-            else {
-                return nil
-            }
+        let portfolio = derivedStatePlan.groupedPortfolio.compactMap { group -> Coin? in
+            guard let rep = resolveHolding(
+                WalletHoldingRef(walletId: group.walletId, holdingIndex: group.holdingIndex), in: wallets
+            ) else { return nil }
             return Coin.makeCustom(
-                name: representative.name, symbol: representative.symbol,
-                coinGeckoId: representative.coinGeckoId, chainName: representative.chainName, tokenStandard: representative.tokenStandard,
-                contractAddress: representative.contractAddress, amount: Double(group.totalAmount) ?? representative.amount,
-                priceUsd: representative.priceUsd
+                name: rep.name, symbol: rep.symbol, coinGeckoId: rep.coinGeckoId, chainName: rep.chainName,
+                tokenStandard: rep.tokenStandard, contractAddress: rep.contractAddress,
+                amount: Double(group.totalAmount) ?? rep.amount, priceUsd: rep.priceUsd
             )
         }
-        cachedAvailableSendCoinsByWalletID = sendCoinsByWalletID
-        cachedAvailableReceiveCoinsByWalletID = receiveCoinsByWalletID
-        cachedAvailableReceiveChainsByWalletID = receiveChainsByWalletID
-        cachedSendEnabledWallets = sendWallets
-        cachedReceiveEnabledWallets = receiveWallets
+        // Preserve fields that aren't derived from `wallets` directly — these
+        // are populated by other code paths (e.g. password protection mapping
+        // and secret descriptor mirroring).
+        let preservedPasswordProtectedIDs = walletDerivedCache.passwordProtectedWalletIDs
+        let preservedSecretDescriptors = walletDerivedCache.secretDescriptorsByWalletID
+        walletDerivedCache = WalletDerivedCache(
+            walletByID: walletByID,
+            walletByIDString: walletByID,
+            includedPortfolioWallets: includedPortfolioWallets,
+            includedPortfolioHoldings: includedPortfolioHoldings,
+            includedPortfolioHoldingsBySymbol: Dictionary(
+                grouping: includedPortfolioHoldings, by: { $0.symbol.uppercased() }
+            ),
+            uniqueWalletPriceRequestCoins: uniquePriceRequestCoins,
+            portfolio: portfolio,
+            availableSendCoinsByWalletID: sendCoinsByWalletID,
+            availableReceiveCoinsByWalletID: receiveCoinsByWalletID,
+            availableReceiveChainsByWalletID: receiveChainsByWalletID,
+            sendEnabledWallets: sendWallets,
+            receiveEnabledWallets: receiveWallets,
+            refreshableChainNames: Set(wallets.map(\.selectedChain)),
+            signingMaterialWalletIDs: Set(derivedStatePlan.signingMaterialWalletIds),
+            privateKeyBackedWalletIDs: Set(derivedStatePlan.privateKeyBackedWalletIds),
+            passwordProtectedWalletIDs: preservedPasswordProtectedIDs,
+            secretDescriptorsByWalletID: preservedSecretDescriptors
+        )
     }
+    /// Run after `wallets` mutates. Decomposed into three named phases so a
+    /// reader chasing "why did X happen when wallets changed?" can grep the
+    /// matching phase by name instead of skimming a 30-line debounce closure.
+    ///   1. `rebuildWalletDerivedCaches` — observable derived state, sync, batched.
+    ///   2. `persistWalletStateOptimistically` — non-network writes (SQLite, Keychain).
+    ///   3. `reconcileBackgroundServices` — refresh engine + maintenance loop start/stop.
+    /// Phases 2 and 3 run together inside a 200ms debounce so a fast cascade
+    /// of edits costs one persist + one reconcile, not N.
     func applyWalletCollectionSideEffects() {
-        batchCacheUpdates {
-            rebuildWalletDerivedState()
-            rebuildDashboardDerivedState()
-        }
+        rebuildWalletDerivedCaches()
         walletSideEffectsTask?.cancel()
         walletSideEffectsTask = Task { [weak self] in
             guard let self else { return }
             try? await Task.sleep(nanoseconds: 200_000_000)
             guard !Task.isCancelled else { return }
-            self.updateRefreshEngineEntries()
-            self.persistWallets()
-            self.pruneTransactionsForActiveWallets()
-            // Kick the refresh engine + maintenance loop — both are skipped
-            // at startup when `wallets` is empty and need to come alive once
-            // a wallet exists. Rust's `start()` and `startMaintenanceLoop`
-            // both early-exit if already running, so calling on every
-            // wallet mutation is safe. Conversely, when the user just
-            // deleted the last wallet, stop the Rust tokio interval so it
-            // isn't waking every N minutes to no-op.
-            if self.wallets.isEmpty {
-                try? await WalletServiceBridge.shared.stopBalanceRefresh()
-            } else {
-                await self.startBalanceRefreshIfNeeded()
-                self.startMaintenanceLoopIfNeeded()
-            }
+            self.persistWalletStateOptimistically()
+            await self.reconcileBackgroundServices()
             self.walletSideEffectsTask = nil
         }
     }
+
+    /// Phase 1: rebuild the observable derived state in one batched pass so
+    /// SwiftUI sees a single revision bump.
+    private func rebuildWalletDerivedCaches() {
+        batchCacheUpdates {
+            rebuildWalletDerivedState()
+            rebuildDashboardDerivedState()
+        }
+    }
+
+    /// Phase 2: write the wallet collection to SQLite + Keychain and prune
+    /// transactions that no longer reference an active wallet. No network I/O;
+    /// safe to call inside the debounce.
+    private func persistWalletStateOptimistically() {
+        updateRefreshEngineEntries()
+        persistWallets()
+        pruneTransactionsForActiveWallets()
+    }
+
+    /// Phase 3: start or stop the Rust-side balance-refresh engine and
+    /// maintenance loop based on whether any wallets exist. Both Rust calls
+    /// early-exit if already running, so it's safe to invoke on every wallet
+    /// mutation; calling `stopBalanceRefresh` when the last wallet is removed
+    /// silences the tokio interval that would otherwise wake every N minutes
+    /// to no-op.
+    private func reconcileBackgroundServices() async {
+        if wallets.isEmpty {
+            try? await WalletServiceBridge.shared.stopBalanceRefresh()
+        } else {
+            await startBalanceRefreshIfNeeded()
+            startMaintenanceLoopIfNeeded()
+        }
+    }
+
     func appendTransaction(_ transaction: TransactionRecord) { prependTransaction(transaction) }
     func upsertBitcoinTransactions(_ newTransactions: [TransactionRecord]) {
         upsertStandardUTXOTransactions(newTransactions, chainName: "Bitcoin")

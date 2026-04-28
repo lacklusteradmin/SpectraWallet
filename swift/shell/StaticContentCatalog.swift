@@ -300,7 +300,7 @@ enum TokenVisualRegistryCatalog {
     static func loadEntries() -> [TokenVisualRegistryEntry] {
         var seen = Set<String>()
         var entries: [TokenVisualRegistryEntry] = []
-        for token in listBuiltinTokens(chainId: UInt32.max) {
+        for token in listAllBuiltinTokens() {
             let normalizedSymbol = token.symbol.uppercased()
             guard seen.insert(normalizedSymbol).inserted else { continue }
             guard let referenceChain = tokenTrackingChainFor(token.chain) else { continue }
@@ -411,7 +411,7 @@ private func tokenTrackingChainFor(_ value: String) -> TokenTrackingChain? {
 }
 extension ChainTokenRegistryEntry {
     static let builtIn: [ChainTokenRegistryEntry] = {
-        listBuiltinTokens(chainId: UInt32.max).compactMap { entry -> ChainTokenRegistryEntry? in
+        listAllBuiltinTokens().compactMap { entry -> ChainTokenRegistryEntry? in
             guard let chain = tokenTrackingChainFor(entry.chain),
                   let category = TokenPreferenceCategory(rawValue: entry.category)
             else { return nil }

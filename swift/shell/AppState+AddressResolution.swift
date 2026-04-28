@@ -1,9 +1,38 @@
 import Foundation
 
+// MARK: - Responsibility
+//
+// This file holds **address-resolution logic only**: given a wallet,
+// return a derived/stored address for a particular chain. No UI state
+// (no `isResolving…` flags, no `receive…` mutations, no presentation
+// helpers) lives here. UI state for the receive flow lives in
+// `AppState+ReceiveFlow.swift`; mixing the two was a known god-object
+// problem flagged in the readability audit.
+//
+// Convention for new methods in this file: pure read of wallet + AppState
+// derivation context; return an optional `String` address; no side
+// effects. If a method needs to flip a UI flag, it belongs in
+// `AppState+ReceiveFlow` and should *call* into one of these resolvers,
+// not own the resolution logic itself.
+
+/// Pure derivation classification — no `AppState` reads, no mutation.
+/// Lifted out as a free function so callers and tests don't need to
+/// instantiate `AppState`. Exemplar for the testability convention
+/// documented in `Store+Formatting.swift`.
+func classifySolanaDerivationPreference(
+    for wallet: ImportedWallet,
+    using resolution: SeedDerivationResolution
+) -> SolanaDerivationPreference {
+    resolution.flavor == .legacy ? .legacy : .standard
+}
+
 @MainActor
 extension AppState {
+    /// Thin shim: pulls the resolution off `self` and forwards to the
+    /// pure free function. Kept for call-site ergonomics.
     func solanaDerivationPreference(for wallet: ImportedWallet) -> SolanaDerivationPreference {
-        derivationResolution(for: wallet, chain: .solana).flavor == .legacy ? .legacy : .standard
+        let resolution = derivationResolution(for: wallet, chain: .solana)
+        return classifySolanaDerivationPreference(for: wallet, using: resolution)
     }
 
     func resolvedEthereumAddress(for wallet: ImportedWallet) -> String? { resolvedEVMAddress(for: wallet, chainName: "Ethereum") }
@@ -104,6 +133,50 @@ extension AppState {
         )
     }
 
+    func resolvedZcashAddress(for wallet: ImportedWallet) -> String? {
+        resolveDerivedOrStoredAddress(
+            for: wallet, chain: .zcash, derivationPath: wallet.seedDerivationPaths.zcash,
+            storedAddress: wallet.zcashAddress, validationKind: "zcash"
+        )
+    }
+
+    func resolvedBitcoinGoldAddress(for wallet: ImportedWallet) -> String? {
+        resolveDerivedOrStoredAddress(
+            for: wallet, chain: .bitcoinGold, derivationPath: wallet.seedDerivationPaths.bitcoinGold,
+            storedAddress: wallet.bitcoinGoldAddress, validationKind: "bitcoinGold"
+        )
+    }
+
+    func resolvedDecredAddress(for wallet: ImportedWallet) -> String? {
+        resolveDerivedOrStoredAddress(
+            for: wallet, chain: .decred, derivationPath: wallet.seedDerivationPaths.decred,
+            storedAddress: wallet.decredAddress, validationKind: "decred"
+        )
+    }
+
+    func resolvedKaspaAddress(for wallet: ImportedWallet) -> String? {
+        resolveDerivedOrStoredAddress(
+            for: wallet, chain: .kaspa, derivationPath: wallet.seedDerivationPaths.kaspa,
+            storedAddress: wallet.kaspaAddress, validationKind: "kaspa",
+            derivedPostProcess: .lowercase, normalizeStored: true
+        )
+    }
+
+    func resolvedDashAddress(for wallet: ImportedWallet) -> String? {
+        resolveDerivedOrStoredAddress(
+            for: wallet, chain: .dash, derivationPath: wallet.seedDerivationPaths.dash,
+            storedAddress: wallet.dashAddress, validationKind: "dash"
+        )
+    }
+
+    func resolvedBittensorAddress(for wallet: ImportedWallet) -> String? {
+        resolveDerivedOrStoredAddress(
+            for: wallet, chain: .bittensor, derivationPath: wallet.seedDerivationPaths.bittensor,
+            storedAddress: wallet.bittensorAddress, validationKind: "bittensor",
+            derivedPostProcess: .trim
+        )
+    }
+
     func resolvedStellarAddress(for wallet: ImportedWallet) -> String? {
         resolveDerivedOrStoredAddress(
             for: wallet, chain: .stellar, derivationPath: wallet.seedDerivationPaths.stellar,
@@ -179,6 +252,12 @@ extension AppState {
         case "Internet Computer": return resolvedICPAddress(for: wallet)
         case "NEAR": return resolvedNearAddress(for: wallet)
         case "Polkadot": return resolvedPolkadotAddress(for: wallet)
+        case "Zcash": return resolvedZcashAddress(for: wallet)
+        case "Bitcoin Gold": return resolvedBitcoinGoldAddress(for: wallet)
+        case "Decred": return resolvedDecredAddress(for: wallet)
+        case "Kaspa": return resolvedKaspaAddress(for: wallet)
+        case "Dash": return resolvedDashAddress(for: wallet)
+        case "Bittensor": return resolvedBittensorAddress(for: wallet)
         default:
             if isEVMChain(chainName) { return resolvedEVMAddress(for: wallet, chainName: chainName) }
             return nil
@@ -198,7 +277,12 @@ extension AppState {
             cardanoAddress: wallet.cardanoAddress, suiAddress: wallet.suiAddress,
             aptosAddress: wallet.aptosAddress, tonAddress: wallet.tonAddress,
             icpAddress: wallet.icpAddress, nearAddress: wallet.nearAddress,
-            polkadotAddress: wallet.polkadotAddress, seedDerivationPreset: wallet.seedDerivationPreset,
+            polkadotAddress: wallet.polkadotAddress, zcashAddress: wallet.zcashAddress,
+            bitcoinGoldAddress: wallet.bitcoinGoldAddress,
+            decredAddress: wallet.decredAddress, kaspaAddress: wallet.kaspaAddress,
+            dashAddress: wallet.dashAddress,
+            bittensorAddress: wallet.bittensorAddress,
+            seedDerivationPreset: wallet.seedDerivationPreset,
             seedDerivationPaths: wallet.seedDerivationPaths,
             derivationOverrides: wallet.derivationOverrides,
             selectedChain: wallet.selectedChain,

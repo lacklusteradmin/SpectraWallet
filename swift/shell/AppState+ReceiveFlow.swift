@@ -97,6 +97,12 @@ extension AppState {
         case .icp: chainAddress = resolvedICPAddress(for: wallet)
         case .near: chainAddress = resolvedNearAddress(for: wallet)
         case .polkadot: chainAddress = resolvedPolkadotAddress(for: wallet)
+        case .zcash: chainAddress = resolvedZcashAddress(for: wallet)
+        case .bitcoinGold: chainAddress = resolvedBitcoinGoldAddress(for: wallet)
+        case .decred: chainAddress = resolvedDecredAddress(for: wallet)
+        case .kaspa: chainAddress = resolvedKaspaAddress(for: wallet)
+        case .dash: chainAddress = resolvedDashAddress(for: wallet)
+        case .bittensor: chainAddress = resolvedBittensorAddress(for: wallet)
         case .none: chainAddress = nil
         }
         let hasWatchAddress = wallet.dogecoinAddress?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
@@ -153,6 +159,12 @@ extension AppState {
             ("Sui", { self.resolvedSuiAddress(for: $0) }), ("Aptos", { self.resolvedAptosAddress(for: $0) }),
             ("TON", { self.resolvedTONAddress(for: $0) }), ("Internet Computer", { self.resolvedICPAddress(for: $0) }),
             ("NEAR", { self.resolvedNearAddress(for: $0) }), ("Polkadot", { self.resolvedPolkadotAddress(for: $0) }),
+            ("Zcash", { self.resolvedZcashAddress(for: $0) }),
+            ("Bitcoin Gold", { self.resolvedBitcoinGoldAddress(for: $0) }),
+            ("Decred", { self.resolvedDecredAddress(for: $0) }),
+            ("Kaspa", { self.resolvedKaspaAddress(for: $0) }),
+            ("Dash", { self.resolvedDashAddress(for: $0) }),
+            ("Bittensor", { self.resolvedBittensorAddress(for: $0) }),
         ]
         for (chainName, resolver) in liveResolvers where receiveCoin.chainName == chainName {
             receiveResolvedAddress = activateLiveReceiveAddress(resolver(wallet), for: wallet, chainName: chainName)
@@ -240,6 +252,12 @@ extension AppState {
         let icpAddressEntries = entries(draft.icpAddressInput); let typedICPAddress = tr(draft.icpAddressInput)
         let nearAddressEntries = entries(draft.nearAddressInput); let typedNearAddress = tr(draft.nearAddressInput)
         let polkadotAddressEntries = entries(draft.polkadotAddressInput); let typedPolkadotAddress = tr(draft.polkadotAddressInput)
+        let zcashAddressEntries = entries(draft.zcashAddressInput); let typedZcashAddress = tr(draft.zcashAddressInput)
+        let bitcoinGoldAddressEntries = entries(draft.bitcoinGoldAddressInput); let typedBitcoinGoldAddress = tr(draft.bitcoinGoldAddressInput)
+        let decredAddressEntries = entries(draft.decredAddressInput); let typedDecredAddress = tr(draft.decredAddressInput)
+        let kaspaAddressEntries = entries(draft.kaspaAddressInput); let typedKaspaAddress = tr(draft.kaspaAddressInput)
+        let dashAddressEntries = entries(draft.dashAddressInput); let typedDashAddress = tr(draft.dashAddressInput)
+        let bittensorAddressEntries = entries(draft.bittensorAddressInput); let typedBittensorAddress = tr(draft.bittensorAddressInput)
         let wantsBitcoinImport = draft.wantsBitcoin
         let wantsBitcoinCashImport = draft.wantsBitcoinCash
         let wantsBitcoinSVImport = draft.wantsBitcoinSV
@@ -264,6 +282,22 @@ extension AppState {
         let wantsICPImport = draft.wantsICP
         let wantsNearImport = draft.wantsNear
         let wantsPolkadotImport = draft.wantsPolkadot
+        let wantsZcashImport = draft.wantsZcash
+        let wantsBitcoinGoldImport = draft.wantsBitcoinGold
+        let wantsDecredImport = draft.wantsDecred
+        let wantsKaspaImport = draft.wantsKaspa
+        let wantsDashImport = draft.wantsDash
+        let wantsXLayerImport = draft.wantsXLayer
+        let wantsBittensorImport = draft.wantsBittensor
+        let wantsSeiImport = draft.wantsSei
+        let wantsCeloImport = draft.wantsCelo
+        let wantsCronosImport = draft.wantsCronos
+        let wantsOpBNBImport = draft.wantsOpBNB
+        let wantsZkSyncEraImport = draft.wantsZkSyncEra
+        let wantsSonicImport = draft.wantsSonic
+        let wantsBerachainImport = draft.wantsBerachain
+        let wantsUnichainImport = draft.wantsUnichain
+        let wantsInkImport = draft.wantsInk
         let selectedDerivationPreset = importDraft.seedDerivationPreset
         let selectedDerivationPaths: SeedDerivationPaths = {
             var paths = importDraft.seedDerivationPaths
@@ -284,7 +318,12 @@ extension AppState {
                 || wantsEthereumImport || wantsEthereumClassicImport || wantsArbitrumImport || wantsOptimismImport || wantsBNBImport
                 || wantsAvalancheImport || wantsHyperliquidImport || wantsTronImport || wantsSolanaImport || wantsCardanoImport
                 || wantsXRPImport || wantsStellarImport || wantsMoneroImport || wantsSuiImport || wantsAptosImport || wantsTONImport
-                || wantsICPImport || wantsNearImport || wantsPolkadotImport) && !isWatchOnlyImport && !isPrivateKeyImport
+                || wantsICPImport || wantsNearImport || wantsPolkadotImport || wantsZcashImport
+                || wantsBitcoinGoldImport || wantsSeiImport || wantsCeloImport || wantsCronosImport
+                || wantsOpBNBImport || wantsZkSyncEraImport || wantsSonicImport || wantsBerachainImport
+                || wantsUnichainImport || wantsInkImport
+                || wantsDecredImport || wantsKaspaImport || wantsDashImport
+                || wantsXLayerImport || wantsBittensorImport) && !isWatchOnlyImport && !isPrivateKeyImport
         // Per-chain "resolved" optional: keep the typed value only when the chain
         // is selected for import AND the value is non-empty.
         func res(_ wants: Bool, _ v: String) -> String? { (wants && !v.isEmpty) ? v : nil }
@@ -305,6 +344,12 @@ extension AppState {
         let resolvedICPAddress = res(wantsICPImport, typedICPAddress)
         let resolvedNearAddress = res(wantsNearImport, typedNearAddress)
         let resolvedPolkadotAddress = res(wantsPolkadotImport, typedPolkadotAddress)
+        let resolvedZcashAddress = res(wantsZcashImport, typedZcashAddress)
+        let resolvedBitcoinGoldAddress = res(wantsBitcoinGoldImport, typedBitcoinGoldAddress)
+        let resolvedDecredAddress = res(wantsDecredImport, typedDecredAddress)
+        let resolvedKaspaAddress = res(wantsKaspaImport, typedKaspaAddress)
+        let resolvedDashAddress = res(wantsDashImport, typedDashAddress)
+        let resolvedBittensorAddress = res(wantsBittensorImport, typedBittensorAddress)
         if isPrivateKeyImport {
             guard CachedCoreHelpers.privateKeyHexIsLikely(rawValue: trimmedPrivateKey) else {
                 importError = "Enter a valid 32-byte hex key."
@@ -415,6 +460,12 @@ extension AppState {
             let icpAddress: String?
             let nearAddress: String?
             let polkadotAddress: String?
+            let zcashAddress: String?
+            let bitcoinGoldAddress: String?
+            let decredAddress: String?
+            let kaspaAddress: String?
+            let dashAddress: String?
+            let bittensorAddress: String?
             let derivedBitcoinAddress: String?
             let createdWalletIDs = selectedChainNames.map { _ in UUID() }
             let bitcoinWalletID = zip(selectedChainNames, createdWalletIDs).first(where: { $0.0 == "Bitcoin" })?.1
@@ -433,6 +484,22 @@ extension AppState {
                     (wantsAptosImport, "Aptos", p.aptos), (wantsTONImport, "TON", p.ton),
                     (wantsICPImport, "Internet Computer", p.internetComputer), (wantsNearImport, "NEAR", p.near),
                     (wantsPolkadotImport, "Polkadot", p.polkadot),
+                    (wantsZcashImport, "Zcash", p.zcash),
+                    (wantsBitcoinGoldImport, "Bitcoin Gold", p.bitcoinGold),
+                    (wantsSeiImport, "Sei", p.sei),
+                    (wantsCeloImport, "Celo", p.celo),
+                    (wantsCronosImport, "Cronos", p.cronos),
+                    (wantsOpBNBImport, "opBNB", p.opBnb),
+                    (wantsZkSyncEraImport, "zkSync Era", p.zksyncEra),
+                    (wantsSonicImport, "Sonic", p.sonic),
+                    (wantsBerachainImport, "Berachain", p.berachain),
+                    (wantsUnichainImport, "Unichain", p.unichain),
+                    (wantsInkImport, "Ink", p.ink),
+                    (wantsDecredImport, "Decred", p.decred),
+                    (wantsKaspaImport, "Kaspa", p.kaspa),
+                    (wantsDashImport, "Dash", p.dash),
+                    (wantsXLayerImport, "X Layer", p.xLayer),
+                    (wantsBittensorImport, "Bittensor", p.bittensor),
                 ]
                 let chainPaths: [String: String] = Dictionary(
                     uniqueKeysWithValues: chainPathCandidates.compactMap { $0.0 ? ($0.1, $0.2) : nil })
@@ -474,6 +541,12 @@ extension AppState {
                     xrpAddress = derived["XRP Ledger"]; stellarAddress = derived["Stellar"]
                     suiAddress = derived["Sui"]; aptosAddress = derived["Aptos"]; tonAddress = derived["TON"]
                     icpAddress = derived["Internet Computer"]; nearAddress = derived["NEAR"]; polkadotAddress = derived["Polkadot"]
+                    zcashAddress = derived["Zcash"]
+                    bitcoinGoldAddress = derived["Bitcoin Gold"]
+                    decredAddress = derived["Decred"]
+                    kaspaAddress = derived["Kaspa"]
+                    dashAddress = derived["Dash"]
+                    bittensorAddress = derived["Bittensor"]
                     moneroAddress = resolvedMoneroAddress
                 } catch {
                     let resolvedMessage =
@@ -544,6 +617,22 @@ extension AppState {
                 polkadotAddress =
                     derivedPrivateKeyAddress.polkadot
                     ?? (AddressValidation.isValid(typedPolkadotAddress, kind: "polkadot") ? typedPolkadotAddress : nil)
+                zcashAddress = AddressValidation.isValid(typedZcashAddress, kind: "zcash") ? typedZcashAddress : nil
+                bitcoinGoldAddress =
+                    AddressValidation.isValid(typedBitcoinGoldAddress, kind: "bitcoinGold")
+                        ? typedBitcoinGoldAddress : nil
+                decredAddress =
+                    AddressValidation.isValid(typedDecredAddress, kind: "decred")
+                        ? typedDecredAddress : nil
+                kaspaAddress =
+                    AddressValidation.isValid(typedKaspaAddress, kind: "kaspa")
+                        ? typedKaspaAddress.lowercased() : nil
+                dashAddress =
+                    AddressValidation.isValid(typedDashAddress, kind: "dash")
+                        ? typedDashAddress : nil
+                bittensorAddress =
+                    AddressValidation.isValid(typedBittensorAddress, kind: "bittensor")
+                        ? typedBittensorAddress : nil
             }
             let plannedWalletIDs: [UUID]
             if isWatchOnlyImport {
@@ -553,10 +642,18 @@ extension AppState {
                     "Solana": solanaAddressEntries, "XRP Ledger": xrpAddressEntries, "Stellar": stellarAddressEntries,
                     "Cardano": cardanoAddressEntries, "Sui": suiAddressEntries, "Aptos": aptosAddressEntries, "TON": tonAddressEntries,
                     "Internet Computer": icpAddressEntries, "NEAR": nearAddressEntries, "Polkadot": polkadotAddressEntries,
+                    "Zcash": zcashAddressEntries,
+                    "Bitcoin Gold": bitcoinGoldAddressEntries,
+                    "Decred": decredAddressEntries,
+                    "Kaspa": kaspaAddressEntries,
+                    "Dash": dashAddressEntries,
+                    "Bittensor": bittensorAddressEntries,
                 ]
                 let evmChains: Set<String> = [
                     "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base",
                     "Linea", "Scroll", "Blast", "Mantle",
+                    "Sei", "Celo", "Cronos", "opBNB", "zkSync Era", "Sonic", "Berachain", "Unichain", "Ink",
+                    "X Layer",
                 ]
                 let watchOnlyWalletCount: Int = {
                     if primarySelectedChainName == "Bitcoin", let x = resolvedBitcoinXPub, !x.isEmpty { return 1 }
@@ -587,7 +684,13 @@ extension AppState {
                     moneroAddress: resolvedMoneroAddress ?? moneroAddress, cardanoAddress: resolvedCardanoAddress ?? cardanoAddress,
                     suiAddress: resolvedSuiAddress ?? suiAddress, aptosAddress: resolvedAptosAddress ?? aptosAddress,
                     tonAddress: resolvedTONAddress ?? tonAddress, icpAddress: resolvedICPAddress ?? icpAddress,
-                    nearAddress: resolvedNearAddress ?? nearAddress, polkadotAddress: resolvedPolkadotAddress ?? polkadotAddress
+                    nearAddress: resolvedNearAddress ?? nearAddress, polkadotAddress: resolvedPolkadotAddress ?? polkadotAddress,
+                    zcashAddress: resolvedZcashAddress ?? zcashAddress,
+                    bitcoinGoldAddress: resolvedBitcoinGoldAddress ?? bitcoinGoldAddress,
+                    decredAddress: resolvedDecredAddress ?? decredAddress,
+                    kaspaAddress: resolvedKaspaAddress ?? kaspaAddress,
+                    dashAddress: resolvedDashAddress ?? dashAddress,
+                    bittensorAddress: resolvedBittensorAddress ?? bittensorAddress
                 ),
                 watchOnlyEntries: WalletImportWatchOnlyEntries(
                     bitcoinAddresses: bitcoinAddressEntries, bitcoinXpub: resolvedBitcoinXPub,
@@ -599,7 +702,13 @@ extension AppState {
                     aptosAddresses: aptosAddressEntries.map { normalizedAddress($0, for: "Aptos") },
                     tonAddresses: tonAddressEntries.map { normalizedAddress($0, for: "TON") },
                     icpAddresses: icpAddressEntries.map { normalizedAddress($0, for: "Internet Computer") },
-                    nearAddresses: nearAddressEntries.map { $0.lowercased() }, polkadotAddresses: polkadotAddressEntries
+                    nearAddresses: nearAddressEntries.map { $0.lowercased() }, polkadotAddresses: polkadotAddressEntries,
+                    zcashAddresses: zcashAddressEntries,
+                    bitcoinGoldAddresses: bitcoinGoldAddressEntries,
+                    decredAddresses: decredAddressEntries,
+                    kaspaAddresses: kaspaAddressEntries.map { $0.lowercased() },
+                    dashAddresses: dashAddressEntries,
+                    bittensorAddresses: bittensorAddressEntries
                 )
             )
             let importPlan: WalletImportPlan
@@ -661,7 +770,12 @@ extension AppState {
             stellarAddress: wallet.stellarAddress, xrpAddress: wallet.xrpAddress, moneroAddress: wallet.moneroAddress,
             cardanoAddress: wallet.cardanoAddress, suiAddress: wallet.suiAddress, aptosAddress: wallet.aptosAddress,
             tonAddress: wallet.tonAddress, icpAddress: wallet.icpAddress, nearAddress: wallet.nearAddress,
-            polkadotAddress: wallet.polkadotAddress, seedDerivationPreset: wallet.seedDerivationPreset,
+            polkadotAddress: wallet.polkadotAddress, zcashAddress: wallet.zcashAddress,
+            bitcoinGoldAddress: wallet.bitcoinGoldAddress,
+            decredAddress: wallet.decredAddress, kaspaAddress: wallet.kaspaAddress,
+            dashAddress: wallet.dashAddress,
+            bittensorAddress: wallet.bittensorAddress,
+            seedDerivationPreset: wallet.seedDerivationPreset,
             seedDerivationPaths: wallet.seedDerivationPaths, derivationOverrides: wallet.derivationOverrides, selectedChain: wallet.selectedChain, holdings: wallet.holdings,
             includeInPortfolioTotal: wallet.includeInPortfolioTotal
         )
@@ -773,7 +887,10 @@ extension AppState {
         bitcoinSvAddress: String?, litecoinAddress: String?, dogecoinAddress: String?, ethereumAddress: String?, tronAddress: String?,
         solanaAddress: String?, xrpAddress: String?, stellarAddress: String?, moneroAddress: String?, cardanoAddress: String?,
         suiAddress: String?, aptosAddress: String?, tonAddress: String?, icpAddress: String?, nearAddress: String?,
-        polkadotAddress: String?, seedDerivationPreset: SeedDerivationPreset, seedDerivationPaths: SeedDerivationPaths,
+        polkadotAddress: String?, zcashAddress: String?, bitcoinGoldAddress: String?,
+        decredAddress: String?, kaspaAddress: String?, dashAddress: String?,
+        bittensorAddress: String?,
+        seedDerivationPreset: SeedDerivationPreset, seedDerivationPaths: SeedDerivationPaths,
         derivationOverrides: CoreWalletDerivationOverrides = CoreWalletDerivationOverrides(
             passphrase: nil, mnemonicWordlist: nil, iterationCount: nil, saltPrefix: nil, hmacKey: nil,
             curve: nil, derivationAlgorithm: nil, addressAlgorithm: nil, publicKeyFormat: nil, scriptType: nil
@@ -789,14 +906,26 @@ extension AppState {
             litecoinAddress: chainName == "Litecoin" ? litecoinAddress : nil,
             dogecoinAddress: chainName == "Dogecoin" ? dogecoinAddress : nil,
             ethereumAddress: (chainName == "Ethereum" || chainName == "Ethereum Classic" || chainName == "Arbitrum"
-                || chainName == "Optimism" || chainName == "BNB Chain" || chainName == "Avalanche" || chainName == "Hyperliquid")
+                || chainName == "Optimism" || chainName == "BNB Chain" || chainName == "Avalanche" || chainName == "Hyperliquid"
+                || chainName == "Polygon" || chainName == "Base" || chainName == "Linea" || chainName == "Scroll"
+                || chainName == "Blast" || chainName == "Mantle"
+                || chainName == "Sei" || chainName == "Celo" || chainName == "Cronos" || chainName == "opBNB"
+                || chainName == "zkSync Era" || chainName == "Sonic" || chainName == "Berachain"
+                || chainName == "Unichain" || chainName == "Ink" || chainName == "X Layer")
                 ? ethereumAddress : nil, tronAddress: chainName == "Tron" ? tronAddress : nil,
             solanaAddress: chainName == "Solana" ? solanaAddress : nil, stellarAddress: chainName == "Stellar" ? stellarAddress : nil,
             xrpAddress: chainName == "XRP Ledger" ? xrpAddress : nil, moneroAddress: chainName == "Monero" ? moneroAddress : nil,
             cardanoAddress: chainName == "Cardano" ? cardanoAddress : nil, suiAddress: chainName == "Sui" ? suiAddress : nil,
             aptosAddress: chainName == "Aptos" ? aptosAddress : nil, tonAddress: chainName == "TON" ? tonAddress : nil,
             icpAddress: chainName == "Internet Computer" ? icpAddress : nil, nearAddress: chainName == "NEAR" ? nearAddress : nil,
-            polkadotAddress: chainName == "Polkadot" ? polkadotAddress : nil, seedDerivationPreset: seedDerivationPreset,
+            polkadotAddress: chainName == "Polkadot" ? polkadotAddress : nil,
+            zcashAddress: chainName == "Zcash" ? zcashAddress : nil,
+            bitcoinGoldAddress: chainName == "Bitcoin Gold" ? bitcoinGoldAddress : nil,
+            decredAddress: chainName == "Decred" ? decredAddress : nil,
+            kaspaAddress: chainName == "Kaspa" ? kaspaAddress : nil,
+            dashAddress: chainName == "Dash" ? dashAddress : nil,
+            bittensorAddress: chainName == "Bittensor" ? bittensorAddress : nil,
+            seedDerivationPreset: seedDerivationPreset,
             seedDerivationPaths: seedDerivationPaths, derivationOverrides: derivationOverrides,
             selectedChain: chainName, holdings: holdings.filter { $0.chainName == chainName },
             includeInPortfolioTotal: true
@@ -822,6 +951,12 @@ extension AppState {
             moneroAddress: plan.addresses.moneroAddress, cardanoAddress: plan.addresses.cardanoAddress,
             suiAddress: plan.addresses.suiAddress, aptosAddress: plan.addresses.aptosAddress, tonAddress: plan.addresses.tonAddress,
             icpAddress: plan.addresses.icpAddress, nearAddress: plan.addresses.nearAddress, polkadotAddress: plan.addresses.polkadotAddress,
+            zcashAddress: plan.addresses.zcashAddress,
+            bitcoinGoldAddress: plan.addresses.bitcoinGoldAddress,
+            decredAddress: plan.addresses.decredAddress,
+            kaspaAddress: plan.addresses.kaspaAddress,
+            dashAddress: plan.addresses.dashAddress,
+            bittensorAddress: plan.addresses.bittensorAddress,
             seedDerivationPreset: seedDerivationPreset, seedDerivationPaths: seedDerivationPaths,
             derivationOverrides: derivationOverrides, holdings: holdings
         )
@@ -835,7 +970,13 @@ extension AppState {
             tronAddress: wallet.tronAddress, solanaAddress: wallet.solanaAddress, stellarAddress: wallet.stellarAddress,
             xrpAddress: wallet.xrpAddress, moneroAddress: wallet.moneroAddress, cardanoAddress: wallet.cardanoAddress,
             suiAddress: wallet.suiAddress, aptosAddress: wallet.aptosAddress, tonAddress: wallet.tonAddress, icpAddress: wallet.icpAddress,
-            nearAddress: wallet.nearAddress, polkadotAddress: wallet.polkadotAddress, seedDerivationPreset: wallet.seedDerivationPreset,
+            nearAddress: wallet.nearAddress, polkadotAddress: wallet.polkadotAddress,
+            zcashAddress: wallet.zcashAddress,
+            bitcoinGoldAddress: wallet.bitcoinGoldAddress,
+            decredAddress: wallet.decredAddress, kaspaAddress: wallet.kaspaAddress,
+            dashAddress: wallet.dashAddress,
+            bittensorAddress: wallet.bittensorAddress,
+            seedDerivationPreset: wallet.seedDerivationPreset,
             seedDerivationPaths: wallet.seedDerivationPaths, derivationOverrides: wallet.derivationOverrides, selectedChain: wallet.selectedChain, holdings: holdings,
             includeInPortfolioTotal: wallet.includeInPortfolioTotal
         )

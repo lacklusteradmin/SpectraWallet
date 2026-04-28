@@ -196,7 +196,12 @@ extension AppState {
             tronAddress: wallet.tronAddress, solanaAddress: wallet.solanaAddress, stellarAddress: wallet.stellarAddress,
             xrpAddress: wallet.xrpAddress, moneroAddress: wallet.moneroAddress, cardanoAddress: wallet.cardanoAddress,
             suiAddress: wallet.suiAddress, aptosAddress: wallet.aptosAddress, tonAddress: wallet.tonAddress, icpAddress: wallet.icpAddress,
-            nearAddress: wallet.nearAddress, polkadotAddress: wallet.polkadotAddress, seedDerivationPreset: wallet.seedDerivationPreset,
+            nearAddress: wallet.nearAddress, polkadotAddress: wallet.polkadotAddress,
+            zcashAddress: wallet.zcashAddress, bitcoinGoldAddress: wallet.bitcoinGoldAddress,
+            decredAddress: wallet.decredAddress, kaspaAddress: wallet.kaspaAddress,
+            dashAddress: wallet.dashAddress,
+            bittensorAddress: wallet.bittensorAddress,
+            seedDerivationPreset: wallet.seedDerivationPreset,
             seedDerivationPaths: wallet.seedDerivationPaths,
             derivationOverrides: wallet.derivationOverrides,
             selectedChain: wallet.selectedChain, holdings: supportedHoldings,
@@ -228,12 +233,7 @@ extension AppState {
     /// Debounced — coalesces rapid-fire settings changes (e.g. slider drags,
     /// multiple toggles in quick succession) into a single SQLite write.
     func persistAppSettings() {
-        appSettingsPersistTask?.cancel()
-        appSettingsPersistTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms debounce
-            guard !Task.isCancelled, let self else { return }
-            self.persistAppSettingsNow()
-        }
+        appSettingsPersist.fire { [weak self] in self?.persistAppSettingsNow() }
     }
     private func persistAppSettingsNow() {
         let settings = PersistedAppSettings(
@@ -332,6 +332,12 @@ struct PersistedWallet: Codable {
     let icpAddress: String?
     let nearAddress: String?
     let polkadotAddress: String?
+    let zcashAddress: String?
+    let bitcoinGoldAddress: String?
+    let decredAddress: String?
+    let kaspaAddress: String?
+    let dashAddress: String?
+    let bittensorAddress: String?
     let seedDerivationPreset: SeedDerivationPreset
     let seedDerivationPaths: SeedDerivationPaths
     let derivationOverrides: CoreWalletDerivationOverrides
@@ -362,6 +368,12 @@ struct PersistedWallet: Codable {
         case icpAddress
         case nearAddress
         case polkadotAddress
+        case zcashAddress
+        case bitcoinGoldAddress
+        case decredAddress
+        case kaspaAddress
+        case dashAddress
+        case bittensorAddress
         case seedDerivationPreset
         case seedDerivationPaths
         case derivationOverrides
@@ -375,6 +387,12 @@ struct PersistedWallet: Codable {
         dogecoinAddress: String?, ethereumAddress: String?, tronAddress: String?, solanaAddress: String?, stellarAddress: String?,
         xrpAddress: String?, moneroAddress: String?, cardanoAddress: String?, suiAddress: String?, aptosAddress: String?,
         tonAddress: String?, icpAddress: String?, nearAddress: String?, polkadotAddress: String?,
+        zcashAddress: String? = nil,
+        bitcoinGoldAddress: String? = nil,
+        decredAddress: String? = nil,
+        kaspaAddress: String? = nil,
+        dashAddress: String? = nil,
+        bittensorAddress: String? = nil,
         seedDerivationPreset: SeedDerivationPreset, seedDerivationPaths: SeedDerivationPaths,
         derivationOverrides: CoreWalletDerivationOverrides = CoreWalletDerivationOverrides(
             passphrase: nil, mnemonicWordlist: nil, iterationCount: nil, saltPrefix: nil, hmacKey: nil,
@@ -406,6 +424,12 @@ struct PersistedWallet: Codable {
         self.icpAddress = icpAddress
         self.nearAddress = nearAddress
         self.polkadotAddress = polkadotAddress
+        self.zcashAddress = zcashAddress
+        self.bitcoinGoldAddress = bitcoinGoldAddress
+        self.decredAddress = decredAddress
+        self.kaspaAddress = kaspaAddress
+        self.dashAddress = dashAddress
+        self.bittensorAddress = bittensorAddress
         self.seedDerivationPreset = seedDerivationPreset
         self.seedDerivationPaths = seedDerivationPaths
         self.derivationOverrides = derivationOverrides
@@ -438,6 +462,12 @@ struct PersistedWallet: Codable {
         icpAddress = try container.decodeIfPresent(String.self, forKey: .icpAddress)
         nearAddress = try container.decodeIfPresent(String.self, forKey: .nearAddress)
         polkadotAddress = try container.decodeIfPresent(String.self, forKey: .polkadotAddress)
+        zcashAddress = try container.decodeIfPresent(String.self, forKey: .zcashAddress)
+        bitcoinGoldAddress = try container.decodeIfPresent(String.self, forKey: .bitcoinGoldAddress)
+        decredAddress = try container.decodeIfPresent(String.self, forKey: .decredAddress)
+        kaspaAddress = try container.decodeIfPresent(String.self, forKey: .kaspaAddress)
+        dashAddress = try container.decodeIfPresent(String.self, forKey: .dashAddress)
+        bittensorAddress = try container.decodeIfPresent(String.self, forKey: .bittensorAddress)
         seedDerivationPreset = try container.decode(SeedDerivationPreset.self, forKey: .seedDerivationPreset)
         seedDerivationPaths = try container.decode(SeedDerivationPaths.self, forKey: .seedDerivationPaths)
         derivationOverrides =
@@ -486,6 +516,22 @@ private enum SeedDerivationPathsCodingKeys: String, CodingKey {
     case internetComputer
     case near
     case polkadot
+    case zcash
+    case bitcoinGold
+    case sei
+    case celo
+    case cronos
+    case opBnb
+    case zksyncEra
+    case sonic
+    case berachain
+    case unichain
+    case ink
+    case decred
+    case kaspa
+    case dash
+    case xLayer
+    case bittensor
 }
 private enum WalletDerivationOverridesCodingKeys: String, CodingKey {
     case passphrase
@@ -564,6 +610,22 @@ extension SeedDerivationPaths: Codable {
             try container.decodeIfPresent(String.self, forKey: .internetComputer) ?? SeedDerivationChain.internetComputer.defaultPath
         near = try container.decodeIfPresent(String.self, forKey: .near) ?? SeedDerivationChain.near.defaultPath
         polkadot = try container.decodeIfPresent(String.self, forKey: .polkadot) ?? SeedDerivationChain.polkadot.defaultPath
+        zcash = try container.decodeIfPresent(String.self, forKey: .zcash) ?? SeedDerivationChain.zcash.defaultPath
+        bitcoinGold = try container.decodeIfPresent(String.self, forKey: .bitcoinGold) ?? SeedDerivationChain.bitcoinGold.defaultPath
+        sei = try container.decodeIfPresent(String.self, forKey: .sei) ?? SeedDerivationChain.sei.defaultPath
+        celo = try container.decodeIfPresent(String.self, forKey: .celo) ?? SeedDerivationChain.celo.defaultPath
+        cronos = try container.decodeIfPresent(String.self, forKey: .cronos) ?? SeedDerivationChain.cronos.defaultPath
+        opBnb = try container.decodeIfPresent(String.self, forKey: .opBnb) ?? SeedDerivationChain.opBNB.defaultPath
+        zksyncEra = try container.decodeIfPresent(String.self, forKey: .zksyncEra) ?? SeedDerivationChain.zkSyncEra.defaultPath
+        sonic = try container.decodeIfPresent(String.self, forKey: .sonic) ?? SeedDerivationChain.sonic.defaultPath
+        berachain = try container.decodeIfPresent(String.self, forKey: .berachain) ?? SeedDerivationChain.berachain.defaultPath
+        unichain = try container.decodeIfPresent(String.self, forKey: .unichain) ?? SeedDerivationChain.unichain.defaultPath
+        ink = try container.decodeIfPresent(String.self, forKey: .ink) ?? SeedDerivationChain.ink.defaultPath
+        decred = try container.decodeIfPresent(String.self, forKey: .decred) ?? SeedDerivationChain.decred.defaultPath
+        kaspa = try container.decodeIfPresent(String.self, forKey: .kaspa) ?? SeedDerivationChain.kaspa.defaultPath
+        dash = try container.decodeIfPresent(String.self, forKey: .dash) ?? SeedDerivationChain.dash.defaultPath
+        xLayer = try container.decodeIfPresent(String.self, forKey: .xLayer) ?? SeedDerivationChain.xLayer.defaultPath
+        bittensor = try container.decodeIfPresent(String.self, forKey: .bittensor) ?? SeedDerivationChain.bittensor.defaultPath
     }
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: SeedDerivationPathsCodingKeys.self)
@@ -596,5 +658,21 @@ extension SeedDerivationPaths: Codable {
         try container.encode(internetComputer, forKey: .internetComputer)
         try container.encode(near, forKey: .near)
         try container.encode(polkadot, forKey: .polkadot)
+        try container.encode(zcash, forKey: .zcash)
+        try container.encode(bitcoinGold, forKey: .bitcoinGold)
+        try container.encode(sei, forKey: .sei)
+        try container.encode(celo, forKey: .celo)
+        try container.encode(cronos, forKey: .cronos)
+        try container.encode(opBnb, forKey: .opBnb)
+        try container.encode(zksyncEra, forKey: .zksyncEra)
+        try container.encode(sonic, forKey: .sonic)
+        try container.encode(berachain, forKey: .berachain)
+        try container.encode(unichain, forKey: .unichain)
+        try container.encode(ink, forKey: .ink)
+        try container.encode(decred, forKey: .decred)
+        try container.encode(kaspa, forKey: .kaspa)
+        try container.encode(dash, forKey: .dash)
+        try container.encode(xLayer, forKey: .xLayer)
+        try container.encode(bittensor, forKey: .bittensor)
     }
 }

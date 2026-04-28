@@ -32,7 +32,15 @@ enum SpectraChainID: Sendable {
     nonisolated static let mantle:           UInt32 = 29
     nonisolated static func id(for chainName: String) -> UInt32? { coreChainIdForName(name: chainName) }
 }
-actor WalletServiceBridge {
+/// Test seam: tests that don't want to talk to a real Rust service can
+/// inject a stub conforming to `WalletServiceBridgeProtocol`. Existing
+/// production call sites continue to use `WalletServiceBridge.shared`.
+/// Adoption is incremental — protocol-typed parameters in new code
+/// accept either implementation; legacy `WalletServiceBridge.shared.foo()`
+/// call sites can migrate when their tests need it.
+protocol WalletServiceBridgeProtocol: Sendable {}
+
+actor WalletServiceBridge: WalletServiceBridgeProtocol {
     static let shared = WalletServiceBridge()
     private var _service: WalletService?
     nonisolated(unsafe) private static var _syncService: WalletService?

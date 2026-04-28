@@ -114,9 +114,9 @@ extension CoreTokenTrackingChain: RawRepresentable, CaseIterable, Codable, Ident
         case .bnb: return "BEP-20"
         case .avalanche: return "ARC-20"
         case .solana: return "SPL"
-        case .sui: return "Coin Standard"
-        case .aptos: return "Fungible Asset"
-        case .ton: return "Jetton"
+        case .sui: return "Sui Coin"
+        case .aptos: return "AIP-21"
+        case .ton: return "TEP-74"
         case .near: return "NEP-141"
         case .tron: return "TRC-20"
         }

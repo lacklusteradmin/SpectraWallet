@@ -1,7 +1,26 @@
 import Foundation
 import SwiftUI
+
+/// Minimal view model for `DiagnosticsExportsBrowserView`. Demonstrates the
+/// pattern for the broader migration: views take a small, purpose-built
+/// model instead of the whole `AppState`. The view's data dependency is
+/// declared in the type — `loadExports`, `deleteExport` — and Xcode previews
+/// can supply stubs without instantiating the full app.
+@MainActor
+struct DiagnosticsExportsBrowserModel {
+    var loadExports: () -> [URL]
+    var deleteExport: (URL) throws -> Void
+
+    static func live(store: AppState) -> Self {
+        DiagnosticsExportsBrowserModel(
+            loadExports: { store.diagnosticsBundleExportURLs() },
+            deleteExport: { try store.deleteDiagnosticsBundleExport(at: $0) }
+        )
+    }
+}
+
 struct DiagnosticsExportsBrowserView: View {
-    let store: AppState
+    let model: DiagnosticsExportsBrowserModel
     @Environment(\.dismiss) private var dismiss
     @State private var exportURLs: [URL] = []
     var body: some View {
@@ -29,11 +48,10 @@ struct DiagnosticsExportsBrowserView: View {
             }.onAppear(perform: reloadExports)
         }
     }
-    private func reloadExports() { exportURLs = store.diagnosticsBundleExportURLs() }
+    private func reloadExports() { exportURLs = model.loadExports() }
     private func deleteExports(at offsets: IndexSet) {
         for index in offsets {
-            let url = exportURLs[index]
-            try? store.deleteDiagnosticsBundleExport(at: url)
+            try? model.deleteExport(exportURLs[index])
         }
         reloadExports()
     }

@@ -1,5 +1,50 @@
 import Foundation
 
+// MARK: - File naming convention
+//
+// Files in `swift/shell/` follow a consistent prefix/role pattern so a
+// reader can scan the directory listing as a table of contents:
+//
+//   * `AppState.swift`               — core class declaration
+//   * `AppState+<Domain>.swift`      — methods on AppState scoped to one
+//                                      domain (e.g. `+ImportLifecycle`,
+//                                      `+ReceiveFlow`, `+SendFlow`)
+//   * `Store+<Topic>.swift`          — extensions + free functions related
+//                                      to a topic (formatting, persistence,
+//                                      notifications) that aren't tied to
+//                                      one flow
+//   * Plain typename file            — value types or services that aren't
+//                                      AppState extensions (e.g.
+//                                      `DebouncedAction`, `ManagedTaskRegistry`,
+//                                      `WalletDerivedCache`)
+//
+// `Store+Formatting.swift` mixes formatting, fiat conversion, and a
+// free-function localization helper because they all participate in
+// "how do we render numbers/text"; that's the topic, not three. If a
+// future contributor finds an `AppState`/`Store` file genuinely
+// outgrowing one topic, split it into siblings (`Store+Formatting+Fiat.swift`)
+// rather than dumping into another existing file by author convenience.
+
+// MARK: - Testability convention
+//
+// AppState owns mutable app-wide state and isn't trivially testable
+// (constructing one in a test pulls in SQLite, Keychain stubs, the Rust
+// service, etc.). The convention for testable logic is:
+//
+//   * Pure transformations live in `core/` (Rust) or as **free functions**
+//     in this Swift layer (e.g. `localizedStoreString`, `localizedStoreFormat`,
+//     `formatFiatAmount`). Tests import them directly.
+//   * `AppState` methods are thin adapters: they pull state off `self` and
+//     hand it to the pure function. The adapter is for ergonomics at the
+//     call site, not for behavior — the behavior must be testable without
+//     it.
+//
+// When you find an `AppState` method whose body is pure logic plus a
+// few `self.x` reads, lift the logic into a free function and let the
+// instance method become a one-line shim. Tests stop needing `AppState`
+// at all. This file is the model — `formatFiatAmount` is a free function;
+// the `AppState` extensions wrap it with the user's currency choice.
+
 func localizedStoreString(_ key: String) -> String {
     AppLocalization.string(key)
 }

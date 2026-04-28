@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-private struct SetupChainSelectionDescriptor: Identifiable {
+struct SetupChainSelectionDescriptor: Identifiable {
     let id: String
     let titleKey: String
     let symbol: String
@@ -19,7 +19,7 @@ private struct SetupChainSelectionDescriptor: Identifiable {
         self.category = category
     }
 }
-private enum SetupChainCategory: String, CaseIterable, Identifiable {
+enum SetupChainCategory: String, CaseIterable, Identifiable {
     case bitcoinFamily
     case evmL1
     case evmL2
@@ -34,6 +34,17 @@ private enum SetupChainCategory: String, CaseIterable, Identifiable {
         }
     }
 }
+/// SetupView currently takes both a `store: AppState` (read-only access to
+/// app-wide state for chain/security info) and an `@Bindable` draft
+/// (read/write for the in-progress import). The `store.x` vs `draft.x`
+/// split is the read-only-vs-mutable boundary — never write to `store`
+/// from inside this view, and never read draft-only state from `store`.
+///
+/// New views should follow `DiagnosticsExportsBrowserView`'s pattern (a
+/// purpose-built `*Model` value type with closure callbacks for the few
+/// store reads/writes the view needs) so the view's data dependency is
+/// declared in the type instead of hidden in field accesses. SetupView
+/// hasn't been migrated yet because its dependency surface is large.
 struct SetupView: View {
     private static let chainSelectionDescriptors: [SetupChainSelectionDescriptor] = [
         SetupChainSelectionDescriptor(id: "bitcoin", title: "Bitcoin", symbol: "BTC", chainName: "Bitcoin", color: .orange, category: .bitcoinFamily),
@@ -66,6 +77,22 @@ struct SetupView: View {
         SetupChainSelectionDescriptor(id: "near", title: "NEAR", symbol: "NEAR", chainName: "NEAR", color: .indigo, category: .other),
         SetupChainSelectionDescriptor(id: "polkadot", title: "Polkadot", symbol: "DOT", chainName: "Polkadot", color: .pink, category: .other),
         SetupChainSelectionDescriptor(id: "stellar", title: "Stellar", symbol: "XLM", chainName: "Stellar", color: .teal, category: .other),
+        SetupChainSelectionDescriptor(id: "bitcoin-gold", title: "Bitcoin Gold", symbol: "BTG", chainName: "Bitcoin Gold", color: .yellow, category: .bitcoinFamily),
+        SetupChainSelectionDescriptor(id: "decred", title: "Decred", symbol: "DCR", chainName: "Decred", color: .teal, category: .bitcoinFamily),
+        SetupChainSelectionDescriptor(id: "dash", title: "Dash", symbol: "DASH", chainName: "Dash", color: .blue, category: .bitcoinFamily),
+        SetupChainSelectionDescriptor(id: "zcash", title: "Zcash", symbol: "ZEC", chainName: "Zcash", color: .yellow, category: .other),
+        SetupChainSelectionDescriptor(id: "kaspa", title: "Kaspa", symbol: "KAS", chainName: "Kaspa", color: .mint, category: .other),
+        SetupChainSelectionDescriptor(id: "bittensor", title: "Bittensor", symbol: "TAO", chainName: "Bittensor", color: .indigo, category: .other),
+        SetupChainSelectionDescriptor(id: "sei", title: "Sei", symbol: "SEI", chainName: "Sei", color: .red, category: .evmL1),
+        SetupChainSelectionDescriptor(id: "celo", title: "Celo", symbol: "CELO", chainName: "Celo", color: .yellow, category: .evmL1),
+        SetupChainSelectionDescriptor(id: "cronos", title: "Cronos", symbol: "CRO", chainName: "Cronos", color: .blue, category: .evmL1),
+        SetupChainSelectionDescriptor(id: "sonic", title: "Sonic", symbol: "S", chainName: "Sonic", color: .orange, category: .evmL1),
+        SetupChainSelectionDescriptor(id: "berachain", title: "Berachain", symbol: "BERA", chainName: "Berachain", color: .brown, category: .evmL1),
+        SetupChainSelectionDescriptor(id: "opbnb", title: "opBNB", symbol: "BNB", chainName: "opBNB", color: .yellow, category: .evmL2),
+        SetupChainSelectionDescriptor(id: "zksync-era", title: "zkSync Era", symbol: "ETH", chainName: "zkSync Era", color: .indigo, category: .evmL2),
+        SetupChainSelectionDescriptor(id: "unichain", title: "Unichain", symbol: "ETH", chainName: "Unichain", color: .pink, category: .evmL2),
+        SetupChainSelectionDescriptor(id: "ink", title: "Ink", symbol: "ETH", chainName: "Ink", color: .purple, category: .evmL2),
+        SetupChainSelectionDescriptor(id: "x-layer", title: "X Layer", symbol: "OKB", chainName: "X Layer", color: .gray, category: .evmL2),
     ]
     private static let popularChainSelectionIDs: [String] = [
         "bitcoin", "ethereum", "solana", "base", "arbitrum", "tron",
@@ -73,13 +100,18 @@ struct SetupView: View {
     private static let nonPopularChainSelectionDescriptors = chainSelectionDescriptors.filter { d in
         !popularChainSelectionIDs.contains(d.id)
     }
-    private enum SetupPage {
-        case details
-        case watchAddresses
-        case seedPhrase
-        case password
-        case advanced
-        case backupVerification
+    /// Type alias kept for site-local readability — the underlying type
+    /// lives in `SetupFlow.swift` so `SetupFlow` can reference it.
+    private typealias SetupPage = WalletSetupPage
+
+    /// Linear flow for the current mode. Drives the step counter, primary
+    /// action routing, and back routing — replacing three separate switch
+    /// statements that historically had to stay in sync.
+    private var setupFlow: SetupFlow {
+        if isEditingWallet { return .editWallet }
+        if usesWatchAddressesFlow { return .watchOnly }
+        if isCreateMode { return .createNewWallet }
+        return .seedPhraseImport
     }
     private let store: AppState
     @Bindable var draft: WalletImportDraft
@@ -91,8 +123,10 @@ struct SetupView: View {
     @State private var chainSearchText: String = ""
     @State private var isShowingAllChainsSheet: Bool = false
     @FocusState private var focusedSeedPhraseIndex: Int?
+    // Two-column grid with generous spacing — the details page is now
+    // dominated by chain selection, so each cell gets more room to breathe.
     private let chainSelectionColumns = [
-        GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8),
+        GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12),
     ]
     private let seedPhraseGridColumns = [
         GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8),
@@ -119,8 +153,10 @@ struct SetupView: View {
     private var isShowingPasswordPage: Bool { setupPage == .password }
     private var isShowingBackupVerificationPage: Bool { setupPage == .backupVerification }
     private var isShowingAdvancedPage: Bool { setupPage == .advanced }
+    private var isShowingWalletNamePage: Bool { setupPage == .walletName }
     private var isSimpleSetupSelected: Bool { draft.setupModeChoice == .simple }
     private var setupTitle: String {
+        if isShowingWalletNamePage { return AppLocalization.string("import_flow.name_your_wallet") }
         if isShowingBackupVerificationPage { return copy.backupVerificationTitle }
         if isShowingAdvancedPage { return copy.advancedTitle }
         if isShowingPasswordPage { return AppLocalization.string("import_flow.wallet_password_title") }
@@ -130,10 +166,15 @@ struct SetupView: View {
             return isPrivateKeyImportMode ? copy.enterPrivateKeyTitle : copy.enterSeedPhraseTitle
         }
         if isEditingWallet { return copy.editWalletTitle }
+        // Details page is now chains-only: name the page after its purpose.
+        if isShowingDetailsPage && !isEditingWallet {
+            return AppLocalization.string("import_flow.choose_chains")
+        }
         if isCreateMode { return copy.createWalletTitle }
         return isWatchAddressesImportMode ? copy.watchAddressesTitle : copy.importWalletTitle
     }
     private var setupSubtitle: String {
+        if isShowingWalletNamePage { return AppLocalization.string("import_flow.wallet_name_hint") }
         if isShowingBackupVerificationPage { return copy.backupVerificationSubtitle }
         if isShowingAdvancedPage { return copy.advancedSubtitle }
         if isShowingPasswordPage { return AppLocalization.string("import_flow.wallet_password_subtitle") }
@@ -143,6 +184,10 @@ struct SetupView: View {
             return isCreateMode ? copy.saveRecoveryPhraseSubtitle : copy.enterRecoveryPhraseSubtitle
         }
         if isEditingWallet { return copy.editWalletSubtitle }
+        // Chain-selection-only details page subtitle.
+        if isShowingDetailsPage && !isEditingWallet {
+            return AppLocalization.string("import_flow.choose_chains_subtitle")
+        }
         if isCreateMode { return copy.chooseNameAndChainsSubtitle }
         if isWatchAddressesImportMode { return copy.chooseNameAndChainSubtitle }
         return copy.chooseNameAndChainsSubtitle
@@ -220,6 +265,10 @@ struct SetupView: View {
         if isShowingAdvancedPage { return "" }
         if isShowingSeedPhrasePage { return AppLocalization.string("import_flow.next") }
         if isShowingPasswordPage && isCreateMode { return AppLocalization.string("import_flow.continue_to_backup_verification") }
+        // Password / watchAddresses / backupVerification advance to the new
+        // wallet-name step instead of submitting; the wallet-name step
+        // performs the final submit.
+        if !isShowingWalletNamePage && advancesToWalletName { return AppLocalization.string("import_flow.next") }
         if isEditingWallet { return AppLocalization.string("import_flow.save_wallet") }
         if isCreateMode { return AppLocalization.string("import_flow.create_wallet") }
         return isWatchAddressesImportMode
@@ -230,8 +279,21 @@ struct SetupView: View {
         if isShowingAdvancedPage { return false }
         if isShowingSeedPhrasePage { return canContinueFromSecretStep }
         if isShowingPasswordPage && isCreateMode { return canContinueToBackupVerification }
-        if isShowingPasswordPage { return canSubmitFromPasswordStep }
+        if isShowingPasswordPage { return canSubmitFromPasswordStep || advancesToWalletName }
+        if isShowingWatchAddressesPage { return canAdvanceFromWatchAddressesPage }
         return store.canImportWallet && !store.isImportingWallet
+    }
+    /// True when the current page should advance to the new `.walletName`
+    /// step (the new last-step) rather than submitting directly.
+    private var advancesToWalletName: Bool {
+        if isEditingWallet { return false }
+        if isShowingPasswordPage && !isCreateMode { return canSubmitFromPasswordStep }
+        if isShowingBackupVerificationPage { return true }
+        if isShowingWatchAddressesPage { return canAdvanceFromWatchAddressesPage }
+        return false
+    }
+    private var canAdvanceFromWatchAddressesPage: Bool {
+        store.canImportWallet && !store.isImportingWallet
     }
     private var popularChainSelectionDescriptors: [SetupChainSelectionDescriptor] {
         Self.popularChainSelectionIDs.compactMap { id in
@@ -290,26 +352,44 @@ struct SetupView: View {
         Button {
             draft.toggleChainSelection(descriptor.chainName)
         } label: {
-            VStack(spacing: 6) {
+            // Two-column layout per cell: large badge + selection ring on the
+            // left, title + symbol stacked vertically on the right. Gives
+            // chain identity room to breathe now that chain selection owns
+            // the details page.
+            HStack(spacing: 14) {
                 ZStack(alignment: .topTrailing) {
                     CoinBadge(
-                        assetIdentifier: descriptor.assetIdentifier, fallbackText: descriptor.symbol, color: descriptor.color, size: 36
+                        assetIdentifier: descriptor.assetIdentifier, fallbackText: descriptor.symbol,
+                        color: descriptor.color, size: 52
                     )
                     if isSelected {
-                        Image(systemName: "checkmark.circle.fill").font(.caption.weight(.bold)).foregroundStyle(descriptor.color).background(
-                            Circle().fill(Color.white.opacity(colorScheme == .light ? 1 : 0.85))
-                        ).offset(x: 4, y: -4)
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.subheadline.weight(.bold))
+                            .foregroundStyle(descriptor.color)
+                            .background(Circle().fill(Color.white.opacity(colorScheme == .light ? 1 : 0.88)))
+                            .offset(x: 6, y: -6)
                     }
                 }
-                Text(descriptor.title).font(.caption2.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.8)
-            }.frame(maxWidth: .infinity, minHeight: 72).padding(.vertical, 8).padding(.horizontal, 6).background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(
-                    isSelected ? descriptor.color.opacity(0.14) : Color.white.opacity(colorScheme == .light ? 0.55 : 0.04))
-            ).overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(
-                    isSelected ? descriptor.color.opacity(0.9) : Color.primary.opacity(colorScheme == .light ? 0.10 : 0.07),
-                    lineWidth: isSelected ? 1.5 : 1)
-            )
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(descriptor.title)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(Color.primary)
+                        .lineLimit(1).minimumScaleFactor(0.8)
+                    Text(descriptor.symbol)
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.secondary)
+                }
+                Spacer(minLength: 0)
+            }.frame(maxWidth: .infinity, minHeight: 86, alignment: .leading)
+                .padding(.vertical, 14).padding(.horizontal, 14)
+                .background(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous).fill(
+                        isSelected ? descriptor.color.opacity(0.14) : Color.white.opacity(colorScheme == .light ? 0.55 : 0.04))
+                ).overlay(
+                    RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(
+                        isSelected ? descriptor.color.opacity(0.9) : Color.primary.opacity(colorScheme == .light ? 0.10 : 0.07),
+                        lineWidth: isSelected ? 1.8 : 1)
+                )
         }.buttonStyle(.plain).contentShape(Rectangle())
     }
     @ViewBuilder
@@ -478,80 +558,94 @@ struct SetupView: View {
         return "\(AppLocalization.string("import_flow.step_label")) \(current) \(AppLocalization.string("import_flow.step_of")) \(total)"
     }
     private var currentStepPosition: (current: Int, total: Int) {
-        // Flow-specific step counting. Watch-only = 2 steps, create = 4 (details/seed/password/verify), import = 3 (details/secret/password).
-        if isEditingWallet { return (1, 1) }
-        if usesWatchAddressesFlow {
-            switch setupPage { case .details: return (1, 2); case .watchAddresses: return (2, 2); default: return (1, 2) }
-        }
-        if isCreateMode {
-            switch setupPage {
-            case .details: return (1, 4); case .seedPhrase: return (2, 4); case .password: return (3, 4)
-            case .backupVerification: return (4, 4); case .advanced: return (1, 4); case .watchAddresses: return (1, 4)
-            }
-        }
-        switch setupPage {
-        case .details: return (1, 3); case .seedPhrase: return (2, 3); case .password: return (3, 3)
-        case .advanced: return (1, 3); case .watchAddresses: return (1, 3); case .backupVerification: return (1, 3)
-        }
+        // Derived directly from `setupFlow`. Side routes (e.g. `.advanced`)
+        // return `nil` from the flow and surface as the first step — the
+        // counter is hidden on those pages anyway.
+        setupFlow.stepPosition(for: setupPage) ?? (1, max(1, setupFlow.pages.count))
     }
+    /// Single rendering entry point for the page body. Replaces six
+    /// separate `*PageSection` properties stacked in a VStack, each with
+    /// their own internal "if isShowing<X>" gate that could drift out of
+    /// sync with the page enum. A switch over `setupPage` makes the page
+    /// → content map structural — adding a page is one new case rather
+    /// than "remember to add the section *and* gate it correctly inside."
     @ViewBuilder
-    private var initialPageSection: some View {
-        if isShowingBackupVerificationPage {
+    private var pageContent: some View {
+        switch setupPage {
+        case .details:
+            if !isEditingWallet { chainSelectionCard }
+        case .watchAddresses:
+            if !isEditingWallet, draft.isWatchOnlyMode { watchAddressesPageContent }
+        case .seedPhrase:
+            if !draft.isWatchOnlyMode { seedPhrasePageContent }
+        case .password:
+            passwordPageContent
+        case .backupVerification:
             backupVerificationStepSection
-        } else if !isEditingWallet && isShowingDetailsPage {
-            chainSelectionCard
+        case .walletName:
+            walletNamePageContent
+        case .advanced:
+            advancedPageContent
         }
     }
+    /// Page-dominant chain selection. The chains step now owns the details
+    /// page on its own (wallet name moved to the last step), so this card
+    /// stretches its grid full-width and uses larger cells. The inline
+    /// "Chains" header is replaced by a status capsule on the right; the
+    /// page-level title above already names the step.
     @ViewBuilder
     private var chainSelectionCard: some View {
         let popularIDSet = Set(Self.popularChainSelectionIDs)
         let extraSelectionCount = draft.selectedChainNames.filter { name in
             !Self.chainSelectionDescriptors.contains(where: { $0.chainName == name && popularIDSet.contains($0.id) })
         }.count
-        setupCard {
-            VStack(alignment: .leading, spacing: 14) {
-                HStack(alignment: .center, spacing: 12) {
-                    Text(AppLocalization.string("Chains")).font(.headline).foregroundStyle(Color.primary)
-                    Spacer()
-                    Text(chainSelectionSummary).font(.caption.weight(.semibold)).foregroundStyle(
-                        selectedChainCount == 0 ? Color.primary.opacity(0.68) : .orange
-                    ).padding(.horizontal, 10).padding(.vertical, 6).background(
-                        Capsule(style: .continuous).fill(
-                            selectedChainCount == 0
-                                ? Color.white.opacity(colorScheme == .light ? 0.55 : 0.08) : Color.orange.opacity(0.12))
-                    )
-                }
-                LazyVGrid(columns: chainSelectionColumns, spacing: 8) {
-                    ForEach(popularChainSelectionDescriptors) { descriptor in chainSelectionCard(descriptor) }
-                }
-                if !Self.nonPopularChainSelectionDescriptors.isEmpty {
-                    Button {
-                        chainSearchText = ""
-                        isShowingAllChainsSheet = true
-                    } label: {
-                        HStack(spacing: 12) {
-                            Image(systemName: "square.grid.2x2").font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(
-                                width: 26, height: 26
-                            ).background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(AppLocalization.format("Browse all %lld chains", Self.chainSelectionDescriptors.count)).font(
-                                    .subheadline.weight(.semibold)
-                                ).foregroundStyle(Color.primary)
-                                Text(AppLocalization.string("Search by name or symbol.")).font(.caption2).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if extraSelectionCount > 0 {
-                                Text("+\(extraSelectionCount)").font(.caption.weight(.bold)).foregroundStyle(.white).padding(
-                                    .horizontal, 8
-                                ).padding(.vertical, 3).background(Capsule(style: .continuous).fill(.orange))
-                            }
-                            Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                        }.padding(.horizontal, 12).padding(.vertical, 10).spectraInputFieldStyle()
-                    }.buttonStyle(.plain)
-                }
-                chainSelectionFooterNote
-            }.tint(.orange)
-        }.sheet(isPresented: $isShowingAllChainsSheet) {
+        VStack(alignment: .leading, spacing: 18) {
+            HStack(alignment: .center, spacing: 12) {
+                Text(AppLocalization.string("Popular chains"))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(chainSelectionSummary).font(.caption.weight(.semibold)).foregroundStyle(
+                    selectedChainCount == 0 ? Color.primary.opacity(0.68) : .orange
+                ).padding(.horizontal, 12).padding(.vertical, 7).background(
+                    Capsule(style: .continuous).fill(
+                        selectedChainCount == 0
+                            ? Color.white.opacity(colorScheme == .light ? 0.55 : 0.08) : Color.orange.opacity(0.12))
+                )
+            }
+            LazyVGrid(columns: chainSelectionColumns, spacing: 12) {
+                ForEach(popularChainSelectionDescriptors) { descriptor in chainSelectionCard(descriptor) }
+            }
+            if !Self.nonPopularChainSelectionDescriptors.isEmpty {
+                Button {
+                    chainSearchText = ""
+                    isShowingAllChainsSheet = true
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "square.grid.2x2")
+                            .font(.title3.weight(.semibold))
+                            .foregroundStyle(.orange)
+                            .frame(width: 36, height: 36)
+                            .background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(AppLocalization.format("Browse all %lld chains", Self.chainSelectionDescriptors.count))
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(Color.primary)
+                            Text(AppLocalization.string("Search by name or symbol.")).font(.caption).foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        if extraSelectionCount > 0 {
+                            Text("+\(extraSelectionCount)").font(.caption.weight(.bold)).foregroundStyle(.white).padding(
+                                .horizontal, 10
+                            ).padding(.vertical, 4).background(Capsule(style: .continuous).fill(.orange))
+                        }
+                        Image(systemName: "chevron.right").font(.subheadline.weight(.bold)).foregroundStyle(.secondary)
+                    }.padding(.horizontal, 14).padding(.vertical, 12).spectraInputFieldStyle()
+                }.buttonStyle(.plain)
+            }
+            chainSelectionFooterNote
+        }.tint(.orange)
+        .sheet(isPresented: $isShowingAllChainsSheet) {
             AllChainsSelectionView(
                 chainSearchText: $chainSearchText, descriptors: Self.chainSelectionDescriptors,
                 selectedChainNames: selectedChainNameSet, toggleSelection: draft.toggleChainSelection,
@@ -567,16 +661,17 @@ struct SetupView: View {
             Text(copy.moneroWatchUnsupportedMessage).font(.caption).foregroundStyle(.orange.opacity(0.9))
         }
     }
+    /// Page-level rendering contract: callers (the `pageContent` switch)
+    /// have already verified the page is active. These `*PageContent`
+    /// properties don't re-check `isShowing<X>` — they just render.
     @ViewBuilder
-    private var watchAddressesPageSection: some View {
-        if isShowingWatchAddressesPage, !isEditingWallet, draft.isWatchOnlyMode {
-            setupCard {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(copy.addressesToWatchTitle).font(.headline).foregroundStyle(Color.primary)
-                    Text(copy.addressesToWatchSubtitle).font(.subheadline).foregroundStyle(.secondary)
-                    watchAddressesInputsGroup
-                    watchAddressesEmptyNote
-                }
+    private var watchAddressesPageContent: some View {
+        setupCard {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(copy.addressesToWatchTitle).font(.headline).foregroundStyle(Color.primary)
+                Text(copy.addressesToWatchSubtitle).font(.subheadline).foregroundStyle(.secondary)
+                watchAddressesInputsGroup
+                watchAddressesEmptyNote
             }
         }
     }
@@ -682,51 +777,43 @@ struct SetupView: View {
         }
     }
     @ViewBuilder
-    private var walletNamePageSection: some View {
-        if isShowingDetailsPage || isEditingWallet {
-            setupCard {
-                VStack(alignment: .leading, spacing: 14) {
-                    Text(
-                        isEditingWallet
-                            ? AppLocalization.string("import_flow.wallet_name")
-                            : AppLocalization.string("import_flow.wallet_name_optional")
-                    ).font(.headline).foregroundStyle(Color.primary)
-                    if !isEditingWallet {
-                        Text(AppLocalization.string("import_flow.wallet_name_hint")).font(.subheadline).foregroundStyle(.secondary)
-                    }
-                    HStack(spacing: 10) {
-                        TextField(AppLocalization.string("import_flow.wallet_name_placeholder"), text: $draft.walletName)
-                            .textInputAutocapitalization(.words).autocorrectionDisabled().foregroundStyle(Color.primary)
-                        if isEditingWallet && !draft.walletName.isEmpty {
-                            Button { draft.walletName = "" } label: {
-                                Image(systemName: "xmark.circle.fill").font(.system(size: 18, weight: .semibold))
-                                    .foregroundStyle(.secondary)
-                            }.buttonStyle(.plain).accessibilityLabel("Clear wallet name")
-                        }
-                    }.padding(14).spectraInputFieldStyle()
+    private var walletNamePageContent: some View {
+        setupCard {
+            VStack(alignment: .leading, spacing: 14) {
+                Text(
+                    isEditingWallet
+                        ? AppLocalization.string("import_flow.wallet_name")
+                        : AppLocalization.string("import_flow.wallet_name_optional")
+                ).font(.headline).foregroundStyle(Color.primary)
+                if !isEditingWallet {
+                    Text(AppLocalization.string("import_flow.wallet_name_hint")).font(.subheadline).foregroundStyle(.secondary)
                 }
+                HStack(spacing: 10) {
+                    TextField(AppLocalization.string("import_flow.wallet_name_placeholder"), text: $draft.walletName)
+                        .textInputAutocapitalization(.words).autocorrectionDisabled().foregroundStyle(Color.primary)
+                    if !draft.walletName.isEmpty {
+                        Button { draft.walletName = "" } label: {
+                            Image(systemName: "xmark.circle.fill").font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }.buttonStyle(.plain).accessibilityLabel("Clear wallet name")
+                    }
+                }.padding(14).spectraInputFieldStyle()
             }
         }
     }
     @ViewBuilder
-    private var seedPhrasePageSection: some View {
-        if isShowingSeedPhrasePage && !draft.isWatchOnlyMode {
-            setupCard {
-                VStack(alignment: .leading, spacing: 14) { walletSecretStepSection }
-            }
+    private var seedPhrasePageContent: some View {
+        setupCard {
+            VStack(alignment: .leading, spacing: 14) { walletSecretStepSection }
         }
     }
     @ViewBuilder
-    private var passwordPageSection: some View {
-        if isShowingPasswordPage {
-            setupCard { walletPasswordStepSection }
-        }
+    private var passwordPageContent: some View {
+        setupCard { walletPasswordStepSection }
     }
     @ViewBuilder
-    private var advancedPageSection: some View {
-        if isShowingAdvancedPage {
-            setupCard { derivationAdvancedContent }
-        }
+    private var advancedPageContent: some View {
+        setupCard { derivationAdvancedContent }
     }
     @ViewBuilder
     private var importStatusSection: some View {
@@ -752,48 +839,20 @@ struct SetupView: View {
         }
     }
     private func performPrimaryAction() {
-        if isShowingDetailsPage && usesWatchAddressesFlow {
-            withAnimation { setupPage = .watchAddresses }
-            return
-        }
-        if isShowingDetailsPage && usesSeedPhraseFlow {
-            withAnimation { setupPage = .seedPhrase }
-            return
-        }
-        if isShowingSeedPhrasePage {
-            withAnimation { setupPage = .password }
-            return
-        }
+        // Special transition: entering backup verification needs a side
+        // effect (challenge prep). Handle it before generic flow advance.
         if isShowingPasswordPage && isCreateMode {
             draft.prepareBackupVerificationChallenge()
             withAnimation { setupPage = .backupVerification }
             return
         }
-        Task { await store.importWallet() }
-    }
-    @ViewBuilder
-    private var navigationBackButton: some View {
-        if isShowingSeedPhrasePage || isShowingWatchAddressesPage {
-            navigationBackButtonStyled(titleKey: "import_flow.back", target: .details)
-        } else if isShowingDetailsPage && !isEditingWallet {
-            // Details is now the first in-SetupView page; going "back" returns
-            // to the Add-Wallet entry screen where the simple/advanced + flow
-            // selection lives.
-            Button(AppLocalization.string("import_flow.back")) {
-                store.isShowingWalletImporter = false
-            }.buttonStyle(.glass)
-        } else if isShowingAdvancedPage {
-            navigationBackButtonStyled(titleKey: "import_flow.back", target: .seedPhrase)
-        } else if isShowingPasswordPage {
-            navigationBackButtonStyled(titleKey: "import_flow.back", target: .seedPhrase)
-        } else if isShowingBackupVerificationPage {
-            navigationBackButtonStyled(titleKey: "import_flow.back_to_wallet_password", target: .password)
+        // Generic linear advance. `nil` from `next` means we're on the
+        // last page — submit instead of routing.
+        if let nextPage = setupFlow.next(after: setupPage) {
+            withAnimation { setupPage = nextPage }
+            return
         }
-    }
-    private func navigationBackButtonStyled(titleKey: String, target: SetupPage) -> some View {
-        Button(AppLocalization.string(titleKey)) {
-            withAnimation { setupPage = target }
-        }.buttonStyle(.glass)
+        Task { await store.importWallet() }
     }
     @ViewBuilder
     private var derivationAdvancedContent: some View {
@@ -1173,12 +1232,7 @@ struct SetupView: View {
             VStack(alignment: .leading, spacing: 24) {
                 setupHeader
                 VStack(alignment: .leading, spacing: 16) {
-                    initialPageSection
-                    watchAddressesPageSection
-                    walletNamePageSection
-                    seedPhrasePageSection
-                    passwordPageSection
-                    advancedPageSection
+                    pageContent
                     importStatusSection
                 }
             }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 24)
@@ -1206,14 +1260,20 @@ struct SetupView: View {
         }.accessibilityLabel(AppLocalization.string("import_flow.back"))
     }
     private func performBackNavigation() {
-        if isShowingSeedPhrasePage || isShowingWatchAddressesPage {
-            withAnimation { setupPage = .details }
-        } else if isShowingDetailsPage && !isEditingWallet {
-            store.isShowingWalletImporter = false
-        } else if isShowingAdvancedPage || isShowingPasswordPage {
+        // `.advanced` is a side route — it returns to the seed-phrase page
+        // it branched from, regardless of flow.
+        if isShowingAdvancedPage {
             withAnimation { setupPage = .seedPhrase }
-        } else if isShowingBackupVerificationPage {
-            withAnimation { setupPage = .password }
+            return
+        }
+        // Generic linear back-step. `nil` from `previous` means we're on
+        // the first page — escape the importer entirely.
+        if let prev = setupFlow.previous(before: setupPage) {
+            withAnimation { setupPage = prev }
+            return
+        }
+        if !isEditingWallet {
+            store.isShowingWalletImporter = false
         } else {
             dismiss()
         }
@@ -1390,140 +1450,3 @@ private struct AdvancedOverridePicker: View {
     }
 }
 
-private struct AllChainsSelectionView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var colorScheme
-    @Binding var chainSearchText: String
-    let descriptors: [SetupChainSelectionDescriptor]
-    let selectedChainNames: Set<String>
-    let toggleSelection: (String) -> Void
-    let clearAllSelections: () -> Void
-    private let gridColumns = [
-        GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8),
-    ]
-    private var trimmedQuery: String { chainSearchText.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var isSearching: Bool { !trimmedQuery.isEmpty }
-    private var filteredDescriptors: [SetupChainSelectionDescriptor] {
-        guard isSearching else { return descriptors }
-        return descriptors.filter { d in
-            d.title.localizedCaseInsensitiveContains(trimmedQuery)
-                || d.symbol.localizedCaseInsensitiveContains(trimmedQuery)
-                || d.chainName.localizedCaseInsensitiveContains(trimmedQuery)
-        }
-    }
-    private var groupedDescriptors: [(SetupChainCategory, [SetupChainSelectionDescriptor])] {
-        SetupChainCategory.allCases.compactMap { category in
-            let entries = descriptors.filter { $0.category == category }
-            return entries.isEmpty ? nil : (category, entries)
-        }
-    }
-    @ViewBuilder
-    private func chip(_ descriptor: SetupChainSelectionDescriptor) -> some View {
-        let isSelected = selectedChainNames.contains(descriptor.chainName)
-        Button {
-            toggleSelection(descriptor.chainName)
-        } label: {
-            VStack(spacing: 6) {
-                ZStack(alignment: .topTrailing) {
-                    CoinBadge(
-                        assetIdentifier: descriptor.assetIdentifier, fallbackText: descriptor.symbol, color: descriptor.color, size: 36
-                    )
-                    if isSelected {
-                        Image(systemName: "checkmark.circle.fill").font(.caption.weight(.bold)).foregroundStyle(descriptor.color).background(
-                            Circle().fill(Color.white.opacity(colorScheme == .light ? 1 : 0.85))
-                        ).offset(x: 4, y: -4)
-                    }
-                }
-                Text(descriptor.title).font(.caption2.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.8)
-                Text(descriptor.symbol.uppercased()).font(.caption2.weight(.medium)).foregroundStyle(
-                    isSelected ? descriptor.color : Color.primary.opacity(0.55)
-                ).lineLimit(1)
-            }.frame(maxWidth: .infinity, minHeight: 88).padding(.vertical, 10).padding(.horizontal, 6).background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous).fill(
-                    isSelected ? descriptor.color.opacity(0.14) : Color.white.opacity(colorScheme == .light ? 0.55 : 0.04))
-            ).overlay(
-                RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(
-                    isSelected ? descriptor.color.opacity(0.9) : Color.primary.opacity(colorScheme == .light ? 0.10 : 0.07),
-                    lineWidth: isSelected ? 1.5 : 1)
-            )
-        }.buttonStyle(.plain).contentShape(Rectangle())
-    }
-    @ViewBuilder
-    private var searchAndCounter: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField(AppLocalization.string("import_flow.search_chains"), text: $chainSearchText)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled()
-                if isSearching {
-                    Button { chainSearchText = "" } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                    }.buttonStyle(.plain)
-                }
-            }.padding(.horizontal, 14).padding(.vertical, 12).spectraInputFieldStyle()
-            if !selectedChainNames.isEmpty {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.orange).font(.caption)
-                    Text(AppLocalization.format("%lld selected", selectedChainNames.count)).font(.caption.weight(.semibold)).foregroundStyle(
-                        .orange)
-                    Spacer()
-                    Button(AppLocalization.string("Clear all"), role: .destructive) { clearAllSelections() }.font(
-                        .caption.weight(.semibold)
-                    ).buttonStyle(.plain).foregroundStyle(.red.opacity(0.85))
-                }.padding(.horizontal, 12).padding(.vertical, 8).background(
-                    Capsule(style: .continuous).fill(Color.orange.opacity(0.10))
-                )
-            }
-        }
-    }
-    @ViewBuilder
-    private func sectionHeader(_ title: String, count: Int) -> some View {
-        HStack(spacing: 8) {
-            Text(title).font(.subheadline.weight(.bold)).foregroundStyle(Color.primary)
-            Text("\(count)").font(.caption2.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 7).padding(
-                .vertical, 2
-            ).background(Capsule(style: .continuous).fill(Color.primary.opacity(0.08)))
-            Spacer()
-        }.padding(.top, 6).padding(.bottom, 2)
-    }
-    @ViewBuilder
-    private var bodyContent: some View {
-        if isSearching {
-            if filteredDescriptors.isEmpty {
-                VStack(spacing: 8) {
-                    Image(systemName: "magnifyingglass").font(.title3).foregroundStyle(.secondary)
-                    Text(AppLocalization.string("import_flow.no_chains_match")).font(.subheadline).foregroundStyle(.secondary)
-                }.frame(maxWidth: .infinity).padding(.vertical, 32)
-            } else {
-                LazyVGrid(columns: gridColumns, spacing: 8) {
-                    ForEach(filteredDescriptors) { descriptor in chip(descriptor) }
-                }
-            }
-        } else {
-            VStack(alignment: .leading, spacing: 16) {
-                ForEach(groupedDescriptors, id: \.0) { category, items in
-                    VStack(alignment: .leading, spacing: 8) {
-                        sectionHeader(category.sectionTitle, count: items.count)
-                        LazyVGrid(columns: gridColumns, spacing: 8) {
-                            ForEach(items) { descriptor in chip(descriptor) }
-                        }
-                    }
-                }
-            }
-        }
-    }
-    var body: some View {
-        NavigationStack {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
-                    searchAndCounter
-                    bodyContent
-                }.padding(20)
-            }.navigationTitle(AppLocalization.string("import_flow.all_chains_title")).navigationBarTitleDisplayMode(.inline).toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(AppLocalization.string("import_flow.done")) { dismiss() }.buttonStyle(.borderedProminent).tint(.orange)
-                }
-            }
-        }
-    }
-}

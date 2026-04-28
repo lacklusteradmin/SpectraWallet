@@ -206,40 +206,26 @@ enum SolanaBalanceService {
         let decimals: Int
         let coinGeckoId: String
     }
-    static let usdtMintAddress = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
-    static let usdcMintAddress = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
-    static let pyusdMintAddress = "2b1kV6DkPAnxd5ixfnxCpjxmKwqjjaYmCZfHsFu24GXo"
-    static let usdgMintAddress = "2u1tszSeqZ3qBWF3uNGPFc8TzMk2tdiwknnRMWGWjGWH"
-    static let usd1MintAddress = "USD1ttGY1N17NEEHLmELoaybftRBUSErhqYiQzvEmuB"
-    static let linkMintAddress = "LinkhB3afbBKb2EQQu7s7umdZceV3wcvAUJhQAfQ23L"
-    static let wlfiMintAddress = "WLFinEv6ypjkczcS83FZqFpgFZYwQXutRbxGe7oC16g"
-    static let jupMintAddress = "JUPyiwrYJFskUPiHa7hkeR8VUtAeFoSYbKedZNsDvCN"
-    static let bonkMintAddress = "DezXAZ8z7PnrnRJjz3wXBoRgixCa6xjnB7YaB1pPB263"
-    static let knownTokenMetadataByMint: [String: KnownTokenMetadata] = [
-        usdtMintAddress: KnownTokenMetadata(symbol: "USDT", name: "Tether USD", decimals: 6, coinGeckoId: "tether"),
-        usdcMintAddress: KnownTokenMetadata(symbol: "USDC", name: "USD Coin", decimals: 6, coinGeckoId: "usd-coin"),
-        pyusdMintAddress: KnownTokenMetadata(symbol: "PYUSD", name: "PayPal USD", decimals: 6, coinGeckoId: "paypal-usd"),
-        usdgMintAddress: KnownTokenMetadata(symbol: "USDG", name: "Global Dollar", decimals: 6, coinGeckoId: "global-dollar"),
-        usd1MintAddress: KnownTokenMetadata(symbol: "USD1", name: "USD1", decimals: 6, coinGeckoId: ""),
-        linkMintAddress: KnownTokenMetadata(symbol: "LINK", name: "Chainlink", decimals: 8, coinGeckoId: "chainlink"),
-        wlfiMintAddress: KnownTokenMetadata(symbol: "WLFI", name: "World Liberty Financial", decimals: 6, coinGeckoId: ""),
-        jupMintAddress: KnownTokenMetadata(symbol: "JUP", name: "Jupiter", decimals: 6, coinGeckoId: "jupiter-exchange-solana"),
-        bonkMintAddress: KnownTokenMetadata(symbol: "BONK", name: "Bonk", decimals: 5, coinGeckoId: "bonk"),
-    ]
-    static func mintAddress(for symbol: String) -> String? {
-        switch symbol.uppercased() {
-        case "USDT": return usdtMintAddress
-        case "USDC": return usdcMintAddress
-        case "PYUSD": return pyusdMintAddress
-        case "USDG": return usdgMintAddress
-        case "USD1": return usd1MintAddress
-        case "LINK": return linkMintAddress
-        case "WLFI": return wlfiMintAddress
-        case "JUP": return jupMintAddress
-        case "BONK": return bonkMintAddress
-        default: return nil
+    /// All registry-known SPL tokens, derived from `tokens.toml` via the
+    /// Rust-built registry. Single source of truth for mint → metadata lookup
+    /// when no user-configured token preferences exist.
+    static let knownTokenMetadataByMint: [String: KnownTokenMetadata] = {
+        var result: [String: KnownTokenMetadata] = [:]
+        for entry in ChainTokenRegistryEntry.builtIn where entry.chain == .solana && !entry.contractAddress.isEmpty {
+            result[entry.contractAddress] = KnownTokenMetadata(
+                symbol: entry.symbol, name: entry.name, decimals: entry.decimals, coinGeckoId: entry.coinGeckoId
+            )
         }
-    }
+        return result
+    }()
+    private static let mintAddressBySymbol: [String: String] = {
+        var result: [String: String] = [:]
+        for entry in ChainTokenRegistryEntry.builtIn where entry.chain == .solana && !entry.contractAddress.isEmpty {
+            result[entry.symbol.uppercased()] = entry.contractAddress
+        }
+        return result
+    }()
+    static func mintAddress(for symbol: String) -> String? { mintAddressBySymbol[symbol.uppercased()] }
     static func isValidAddress(_ address: String) -> Bool { AddressValidation.isValid(address, kind: "solana") }
 }
 

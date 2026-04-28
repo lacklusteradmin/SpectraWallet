@@ -6,6 +6,75 @@ import UIKit
     import Network
 #endif
 
+// MARK: - @Observable opt-in convention
+//
+// Swift's `@Observable` macro turns every stored property into
+// observation-tracked unless it's tagged `@ObservationIgnored`. The
+// default-on / opt-out shape means new properties accidentally become
+// observable unless the author remembers — and a SwiftUI view that
+// reads any tracked property re-renders on its mutation.
+//
+// AppState's rule: every new stored property MUST be one of
+//   1. observed by views (no annotation; the property genuinely drives UI)
+//   2. `@ObservationIgnored` with a one-line comment naming why it's
+//      excluded (caches, debounce handles, weak observers, persistence
+//      task storage — anything views shouldn't see)
+//
+// Reviewing a new stored property: if the author can't justify "yes
+// SwiftUI views observe this," it should be `@ObservationIgnored`. The
+// existing properties already follow this — see the dense `@ObservationIgnored`
+// block at the top for the catalog. New work that doesn't make a choice
+// is a bug surface (silent over-invalidation).
+
+// MARK: - Task capture convention
+//
+// `Task { … }` closures inside `AppState` and its extensions follow
+// this rule: **always capture `[weak self]` unless a comment on the
+// preceding line explains the strong capture.**
+//
+// Strong capture means the closure pins this `AppState` alive until the
+// task completes. That's correct when the work *should* finish even if
+// SwiftUI tears down the view tree (e.g. a fire-and-forget persist that
+// must not be cancelled). It's incorrect for routine "check something
+// later" work — those tasks should release `self` if the app is torn
+// down mid-await, and `[weak self]` makes that explicit.
+//
+// Examples of legitimate strong capture (must include the comment):
+//   Task { /* strong self: persist must complete past view teardown */
+//       await self.persistAppSettings()
+//   }
+//
+// Examples that should be `[weak self]`:
+//   Task { @MainActor [weak self] in
+//       try? await Task.sleep(nanoseconds: 100_000_000)
+//       guard let self else { return }
+//       self.doDeferredWork()
+//   }
+//
+// Code review: any new `Task` block without `[weak self]` should be
+// challenged — the author should either add `[weak self]` or land the
+// strong-capture comment.
+
+// MARK: - AppState architecture
+//
+// `AppState` is the app's central `@Observable` store. To keep this file
+// readable, large method clusters live in `AppState+<Domain>.swift` files
+// (ImportLifecycle, ReceiveFlow, SendFlow, PricingFiat, BalanceRefresh,
+// AddressResolution, OperationalTelemetry, DiagnosticsEndpoints,
+// CoreStateStore, RustObserver). Every extension is a method-only attachment
+// to the same `AppState` instance — there is no per-extension state.
+//
+// This is a known god-object split: the extensions hide the line count but
+// don't reduce coupling. The migration target is to lift each domain into a
+// small composed type (e.g. `WalletAddressResolver`, `LivePricesController`,
+// `ImportFlowCoordinator`) that AppState owns by composition. The first
+// step in that direction is `WalletDerivedCache` — see `walletDerivedCache`
+// below; it bundles 17 derived-state fields into a single value type so the
+// rebuild path reads as one assignment instead of 17 sequential mutations.
+//
+// Adding a new method? Place it in the matching `+<Domain>.swift` extension
+// and resist the temptation to grow this file. New domains warrant their own
+// extension file rather than landing in one of the existing ones.
 @MainActor
 @Observable
 final class AppState {
@@ -36,12 +105,15 @@ final class AppState {
     // moved to Shell/AppStateTypes.swift via `extension AppState`.
     let logger = Logger(subsystem: "com.spectra.wallet", category: "dogecoin")
     let balanceTelemetryLogger = Logger(subsystem: "com.spectra.wallet", category: "balance.telemetry")
-    @ObservationIgnored var appSettingsPersistTask: Task<Void, Never>?
-    @ObservationIgnored private var priceAlertsPersistTask: Task<Void, Never>?
-    @ObservationIgnored private var addressBookPersistTask: Task<Void, Never>?
-    @ObservationIgnored private var livePricesPersistTask: Task<Void, Never>?
-    @ObservationIgnored private var tokenPreferenceRebuildTask: Task<Void, Never>?
-    @ObservationIgnored private var transactionRebuildTask: Task<Void, Never>?
+    @ObservationIgnored let appSettingsPersist = DebouncedAction(intervalMilliseconds: 100)
+    // Each `DebouncedAction` captures its target's coalescing window at
+    // construction so the interval is visible next to the field declaration
+    // instead of being a magic number buried in an async closure.
+    @ObservationIgnored private let priceAlertsPersist = DebouncedAction(intervalMilliseconds: 100)
+    @ObservationIgnored private let addressBookPersist = DebouncedAction(intervalMilliseconds: 100)
+    @ObservationIgnored private let livePricesPersist = DebouncedAction(intervalMilliseconds: 200)
+    @ObservationIgnored private let tokenPreferenceRebuild = DebouncedAction(intervalMilliseconds: 30)
+    @ObservationIgnored private let transactionRebuild = DebouncedAction(intervalMilliseconds: 30)
     var transactions: [TransactionRecord] = [] {
         didSet {
             transactionRevision &+= 1
@@ -49,12 +121,7 @@ final class AppState {
             lastObservedTransactions = transactions
             if !suppressSideEffects {
                 persistTransactionsDelta(from: old, to: transactions)
-                transactionRebuildTask?.cancel()
-                transactionRebuildTask = Task { @MainActor [weak self] in
-                    try? await Task.sleep(nanoseconds: 30_000_000)  // 30ms debounce
-                    guard !Task.isCancelled, let self else { return }
-                    self.rebuildTransactionDerivedState()
-                }
+                transactionRebuild.fire { [weak self] in self?.rebuildTransactionDerivedState() }
             }
         }
     }
@@ -70,13 +137,26 @@ final class AppState {
     @ObservationIgnored var lastObservedTransactions: [TransactionRecord] = []
     // Nested value types (event records, persisted-store schemas, keypool / diagnostic
     // structs and associated typealiases) moved to Shell/AppStateTypes.swift.
+    /// Canonical wallet collection. Mutating it triggers a derived-cache
+    /// rebuild via `scheduleWalletCollectionSideEffects`.
+    ///
+    /// **Observation note for view code**: SwiftUI's `@Observable` tracks
+    /// access to this property as a whole — any mutation invalidates every
+    /// view that read `store.wallets` for any reason, even a single
+    /// wallet's balance update. Prefer reading from `cachedWalletByID[id]`
+    /// (or another `walletDerivedCache` projection) when you only need a
+    /// specific wallet — those projections are recomputed on rebuild but
+    /// observed views see only the relevant change once SwiftUI's
+    /// dictionary-key access tracking kicks in. New views that read from
+    /// `wallets` directly should justify it (e.g. they actually iterate
+    /// the entire collection).
     var wallets: [ImportedWallet] = [] {
         didSet {
             walletsRevision &+= 1
             scheduleWalletCollectionSideEffects()
         }
     }
-    @ObservationIgnored private var walletSideEffectsDebounceTask: Task<Void, Never>?
+    @ObservationIgnored private let walletSideEffectsDebounce = DebouncedAction(intervalMilliseconds: 30)
     @ObservationIgnored var pendingBalanceUpdates: [PendingBalanceUpdate] = []
     @ObservationIgnored var balanceFlushTask: Task<Void, Never>?
     struct PendingBalanceUpdate {
@@ -90,13 +170,9 @@ final class AppState {
     /// `wallets.didSet` is the native Apple pattern and lets `deinit` release
     /// cleanly.
     private func scheduleWalletCollectionSideEffects() {
-        walletSideEffectsDebounceTask?.cancel()
-        walletSideEffectsDebounceTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(nanoseconds: 30_000_000)
-            guard !Task.isCancelled, let self else { return }
-            if !self.suppressWalletSideEffects {
-                self.applyWalletCollectionSideEffects()
-            }
+        walletSideEffectsDebounce.fire { [weak self] in
+            guard let self, !self.suppressWalletSideEffects else { return }
+            self.applyWalletCollectionSideEffects()
         }
     }
     private(set) var walletsRevision: UInt64 = 0
@@ -117,23 +193,44 @@ final class AppState {
         cacheBatchDepth -= 1
         if cacheBatchDepth == 0 { cachesRevision &+= 1 }
     }
-    var cachedWalletByID: [String: ImportedWallet] = [:] { didSet { bumpCachesRevision() } }
-    var cachedWalletByIDString: [String: ImportedWallet] = [:] { didSet { bumpCachesRevision() } }
-    var cachedIncludedPortfolioWallets: [ImportedWallet] = [] { didSet { bumpCachesRevision() } }
-    var cachedIncludedPortfolioHoldings: [Coin] = [] { didSet { bumpCachesRevision() } }
-    var cachedIncludedPortfolioHoldingsBySymbol: [String: [Coin]] = [:] { didSet { bumpCachesRevision() } }
-    var cachedUniqueWalletPriceRequestCoins: [Coin] = [] { didSet { bumpCachesRevision() } }
-    var cachedPortfolio: [Coin] = [] { didSet { bumpCachesRevision() } }
-    var cachedAvailableSendCoinsByWalletID: [String: [Coin]] = [:] { didSet { bumpCachesRevision() } }
-    var cachedAvailableReceiveCoinsByWalletID: [String: [Coin]] = [:] { didSet { bumpCachesRevision() } }
-    var cachedAvailableReceiveChainsByWalletID: [String: [String]] = [:] { didSet { bumpCachesRevision() } }
-    var cachedSendEnabledWallets: [ImportedWallet] = [] { didSet { bumpCachesRevision() } }
-    var cachedReceiveEnabledWallets: [ImportedWallet] = [] { didSet { bumpCachesRevision() } }
-    var cachedRefreshableChainNames: Set<String> = [] { didSet { bumpCachesRevision() } }
-    var cachedSigningMaterialWalletIDs: Set<String> = [] { didSet { bumpCachesRevision() } }
-    var cachedPrivateKeyBackedWalletIDs: Set<String> = [] { didSet { bumpCachesRevision() } }
-    var cachedPasswordProtectedWalletIDs: Set<String> = [] { didSet { bumpCachesRevision() } }
-    var cachedSecretDescriptorsByWalletID: [String: CoreWalletRustSecretMaterialDescriptor] = [:] { didSet { bumpCachesRevision() } }
+    /// Bundled derived state of the wallet collection. Recomputed by
+    /// `_rebuildWalletDerivedStateBody` as a single value, so the rebuild
+    /// reads as one assignment instead of 17 sequential mutations. The
+    /// individual `cached*` properties below are thin computed accessors
+    /// preserved for call-site compatibility.
+    var walletDerivedCache: WalletDerivedCache = .empty { didSet { bumpCachesRevision() } }
+    var cachedWalletByID: [String: ImportedWallet] { walletDerivedCache.walletByID }
+    var cachedWalletByIDString: [String: ImportedWallet] { walletDerivedCache.walletByIDString }
+    var cachedIncludedPortfolioWallets: [ImportedWallet] { walletDerivedCache.includedPortfolioWallets }
+    var cachedIncludedPortfolioHoldings: [Coin] { walletDerivedCache.includedPortfolioHoldings }
+    var cachedIncludedPortfolioHoldingsBySymbol: [String: [Coin]] { walletDerivedCache.includedPortfolioHoldingsBySymbol }
+    var cachedUniqueWalletPriceRequestCoins: [Coin] { walletDerivedCache.uniqueWalletPriceRequestCoins }
+    var cachedPortfolio: [Coin] {
+        get { walletDerivedCache.portfolio }
+        set { walletDerivedCache.portfolio = newValue }
+    }
+    var cachedAvailableSendCoinsByWalletID: [String: [Coin]] { walletDerivedCache.availableSendCoinsByWalletID }
+    var cachedAvailableReceiveCoinsByWalletID: [String: [Coin]] { walletDerivedCache.availableReceiveCoinsByWalletID }
+    var cachedAvailableReceiveChainsByWalletID: [String: [String]] { walletDerivedCache.availableReceiveChainsByWalletID }
+    var cachedSendEnabledWallets: [ImportedWallet] { walletDerivedCache.sendEnabledWallets }
+    var cachedReceiveEnabledWallets: [ImportedWallet] { walletDerivedCache.receiveEnabledWallets }
+    var cachedRefreshableChainNames: Set<String> { walletDerivedCache.refreshableChainNames }
+    var cachedSigningMaterialWalletIDs: Set<String> {
+        get { walletDerivedCache.signingMaterialWalletIDs }
+        set { walletDerivedCache.signingMaterialWalletIDs = newValue }
+    }
+    var cachedPrivateKeyBackedWalletIDs: Set<String> {
+        get { walletDerivedCache.privateKeyBackedWalletIDs }
+        set { walletDerivedCache.privateKeyBackedWalletIDs = newValue }
+    }
+    var cachedPasswordProtectedWalletIDs: Set<String> {
+        get { walletDerivedCache.passwordProtectedWalletIDs }
+        set { walletDerivedCache.passwordProtectedWalletIDs = newValue }
+    }
+    var cachedSecretDescriptorsByWalletID: [String: CoreWalletRustSecretMaterialDescriptor] {
+        get { walletDerivedCache.secretDescriptorsByWalletID }
+        set { walletDerivedCache.secretDescriptorsByWalletID = newValue }
+    }
     let importDraft = WalletImportDraft()
     var importError: String? = nil
     var isImportingWallet: Bool = false
@@ -370,24 +467,10 @@ final class AppState {
     }
     var isUserInitiatedRefreshInProgress: Bool = false
     var priceAlerts: [PriceAlertRule] = [] {
-        didSet {
-            priceAlertsPersistTask?.cancel()
-            priceAlertsPersistTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms debounce
-                guard !Task.isCancelled, let self else { return }
-                self.persistPriceAlerts()
-            }
-        }
+        didSet { priceAlertsPersist.fire { [weak self] in self?.persistPriceAlerts() } }
     }
     var addressBook: [AddressBookEntry] = [] {
-        didSet {
-            addressBookPersistTask?.cancel()
-            addressBookPersistTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(nanoseconds: 100_000_000)  // 100ms debounce
-                guard !Task.isCancelled, let self else { return }
-                self.persistAddressBook()
-            }
-        }
+        didSet { addressBookPersist.fire { [weak self] in self?.persistAddressBook() } }
     }
     var tokenPreferences: [TokenPreferenceEntry] = [] {
         didSet {
@@ -395,10 +478,8 @@ final class AppState {
             // Token-decimals overrides feed into the Rust asset-decimals
             // resolver, so drop the memoized cache when the overrides change.
             cachedAssetDecimalsResolutions = [:]
-            tokenPreferenceRebuildTask?.cancel()
-            tokenPreferenceRebuildTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(nanoseconds: 30_000_000)  // 30ms debounce
-                guard !Task.isCancelled, let self else { return }
+            tokenPreferenceRebuild.fire { [weak self] in
+                guard let self else { return }
                 self.rebuildTokenPreferenceDerivedState()
                 self.rebuildWalletDerivedState()
                 self.rebuildDashboardDerivedState()
@@ -408,12 +489,7 @@ final class AppState {
     var livePrices: [String: Double] = [:] {
         didSet {
             guard livePrices != oldValue else { return }
-            livePricesPersistTask?.cancel()
-            livePricesPersistTask = Task { @MainActor [weak self] in
-                try? await Task.sleep(nanoseconds: 200_000_000)  // 200ms debounce
-                guard !Task.isCancelled, let self else { return }
-                self.persistLivePrices()
-            }
+            livePricesPersist.fire { [weak self] in self?.persistLivePrices() }
             if shouldRebuildDashboardForLivePriceChange(from: oldValue, to: livePrices) { rebuildDashboardDerivedState() }
         }
     }
@@ -581,6 +657,10 @@ final class AppState {
     var isRunningDogecoinRescan: Bool = false
     var dogecoinRescanLastRunAt: Date? = nil
     @ObservationIgnored var suppressWalletSideEffects = false
+    /// Long-lived background tasks owned by this AppState. Reader-facing:
+    /// "what runs in this AppState" is the contents of this registry,
+    /// not 15 scattered properties. `deinit` calls `cancelAll()` once.
+    @ObservationIgnored let backgroundTasks = ManagedTaskRegistry()
     @ObservationIgnored var userInitiatedRefreshTask: Task<Void, Never>?
     @ObservationIgnored var importRefreshTask: Task<Void, Never>?
     @ObservationIgnored var walletSideEffectsTask: Task<Void, Never>?
@@ -593,10 +673,27 @@ final class AppState {
         let networkPathMonitor = NWPathMonitor()
         let networkPathMonitorQueue = DispatchQueue(label: "spectra.network.monitor")
     #endif
+    // ── Persistence keys ──────────────────────────────────────────────
+    //
+    // Listed here as the single inventory of *what this app persists* —
+    // a reader can answer "what state survives a relaunch?" by reading
+    // this block. Keys are referenced via `Self.<name>`. New persisted
+    // values land here, not at the call site.
+    //
+    // Versioned keys end in `.vN` and bump when the codable shape changes
+    // incompatibly; the previous key is left here briefly for any
+    // migration-read code that still references it.
     static let pricingProviderDefaultsKey = "pricing.provider"
     static let selectedFiatCurrencyDefaultsKey = "pricing.selectedFiatCurrency"
     static let fiatRateProviderDefaultsKey = "pricing.fiatRateProvider"
     static let fiatRatesFromUSDDefaultsKey = "pricing.fiatRatesFromUSD.v1"
+    static let livePricesDefaultsKey = "pricing.livePrices.v1"
+    static let priceAlertsDefaultsKey = "priceAlerts.snapshot"
+    static let addressBookDefaultsKey = "addressBook.snapshot"
+
+    static let walletsAccount = "wallets.snapshot"
+    static let walletsCoreSnapshotAccount = "wallets.core.snapshot.v1"
+
     static let ethereumRPCEndpointDefaultsKey = "ethereum.rpc.endpoint"
     static let etherscanAPIKeyDefaultsKey = "ethereum.etherscan.apiKey"
     static let ethereumNetworkModeDefaultsKey = "ethereum.network.mode"
@@ -605,12 +702,9 @@ final class AppState {
     static let bitcoinEsploraEndpointsDefaultsKey = "bitcoin.esplora.endpoints"
     static let bitcoinStopGapDefaultsKey = "bitcoin.stopGap"
     static let bitcoinFeePriorityDefaultsKey = "bitcoin.feePriority"
-    static let walletsAccount = "wallets.snapshot"
-    static let walletsCoreSnapshotAccount = "wallets.core.snapshot.v1"
-    static let priceAlertsDefaultsKey = "priceAlerts.snapshot"
-    static let addressBookDefaultsKey = "addressBook.snapshot"
+    static let dogecoinFeePriorityDefaultsKey = "settings.dogecoinFeePriority"
+
     static let tokenPreferencesDefaultsKey = "settings.tokenPreferences.v1"
-    static let livePricesDefaultsKey = "pricing.livePrices.v1"
     static let hideBalancesDefaultsKey = "settings.hideBalances"
     static let assetDisplayDecimalsByChainDefaultsKey = "settings.assetDisplayDecimalsByChain.v1"
     static let useFaceIDDefaultsKey = "settings.useFaceID"
@@ -625,9 +719,9 @@ final class AppState {
     static let largeMovementAlertPercentThresholdDefaultsKey = "settings.largeMovementAlertPercentThreshold"
     static let largeMovementAlertUSDThresholdDefaultsKey = "settings.largeMovementAlertUSDThreshold"
     static let selectedFeePriorityOptionsByChainDefaultsKey = "settings.feePriorityOptionsByChain.v1"
+
     static let chainOperationalEventsDefaultsKey = "chain.operational.events.v1"
     static let operationalLogsDefaultsKey = "operational.logs.v1"
-    static let dogecoinFeePriorityDefaultsKey = "settings.dogecoinFeePriority"
     static let chainKeypoolDefaultsKey = "chain.keypool.snapshot.v1"
     static let chainOwnedAddressMapDefaultsKey = "chain.ownedAddressMap.snapshot.v1"
     static let chainSyncStateDefaultsKey = "chain.sync.state.v1"
@@ -850,37 +944,47 @@ final class AppState {
         // while the init task is still awaiting SQLite / HTTP, the old
         // instance can release promptly instead of being pinned alive by a
         // strong capture on `self` through the awaited method calls.
-        Task { @MainActor in
-            // Pre-render bundle SVGs to UIImage so badges have synchronous
-            // cache hits the first time they appear. Detached so it doesn't
-            // block other init work.
-            await BundleImageLoader.warmRasterCache()
-        }
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            self.rebuildTransactionDerivedState()
-            self.startMaintenanceLoopIfNeeded()
-            SpectraSecretStoreAdapter.registerWithBridge()
-            self.setupRustRefreshEngine()
-            // Network I/O runs concurrently — neither depends on the other.
-            async let sqliteReload: () = self.reloadPersistedStateFromSQLite()
-            async let fiatRefresh: () = self.refreshFiatExchangeRatesIfNeeded()
-            _ = await (sqliteReload, fiatRefresh)
-        }
+        Task { @MainActor [weak self] in await self?.warmUpAfterLaunch() }
+    }
+
+    /// Boot-time lifecycle phase: runs once after `init`, in order.
+    ///
+    /// Phase 1 (sync): observable derived-state rebuild + main-loop kicks
+    /// that views need before the first frame renders.
+    /// Phase 2 (concurrent async): non-UI-blocking I/O — SQLite reload
+    /// and fiat-rate refresh run in parallel since neither depends on
+    /// the other.
+    ///
+    /// Distinct from per-interaction handlers (`refreshLivePrices`,
+    /// `applyWalletCollectionSideEffects`) so a reader can answer
+    /// "called once per launch" vs "called per user tap" by file
+    /// position. New launch-only work belongs here; new per-interaction
+    /// work belongs on the relevant `+*` extension.
+    private func warmUpAfterLaunch() async {
+        rebuildTransactionDerivedState()
+        startMaintenanceLoopIfNeeded()
+        SpectraSecretStoreAdapter.registerWithBridge()
+        setupRustRefreshEngine()
+        async let sqliteReload: () = reloadPersistedStateFromSQLite()
+        async let fiatRefresh: () = refreshFiatExchangeRatesIfNeeded()
+        _ = await (sqliteReload, fiatRefresh)
     }
     deinit {
         maintenanceTask?.cancel()
         userInitiatedRefreshTask?.cancel()
         importRefreshTask?.cancel()
         walletSideEffectsTask?.cancel()
-        walletSideEffectsDebounceTask?.cancel()
         balanceFlushTask?.cancel()
-        transactionRebuildTask?.cancel()
-        tokenPreferenceRebuildTask?.cancel()
-        livePricesPersistTask?.cancel()
-        priceAlertsPersistTask?.cancel()
-        addressBookPersistTask?.cancel()
-        appSettingsPersistTask?.cancel()
+        appSettingsPersist.cancel()
+        // Debounced actions and registry-owned tasks each cancel via one
+        // call instead of N — see DebouncedAction / ManagedTaskRegistry.
+        walletSideEffectsDebounce.cancel()
+        transactionRebuild.cancel()
+        tokenPreferenceRebuild.cancel()
+        livePricesPersist.cancel()
+        priceAlertsPersist.cancel()
+        addressBookPersist.cancel()
+        backgroundTasks.cancelAll()
         #if canImport(Network)
             networkPathMonitor.cancel()
         #endif

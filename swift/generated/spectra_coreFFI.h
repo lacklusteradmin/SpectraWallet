@@ -2169,6 +2169,12 @@ int8_t uniffi_spectra_core_fn_func_is_ens_name_candidate(RustBuffer value, RustC
 int8_t uniffi_spectra_core_fn_func_is_valid_send_address(RustBuffer chain_name, RustBuffer address, RustBuffer network_mode, RustCallStatus *_Nonnull out_status
 );
 #endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_FUNC_LIST_ALL_BUILTIN_TOKENS
+#define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_FUNC_LIST_ALL_BUILTIN_TOKENS
+RustBuffer uniffi_spectra_core_fn_func_list_all_builtin_tokens(RustCallStatus *_Nonnull out_status
+    
+);
+#endif
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_FUNC_LIST_BUILTIN_TOKENS
 #define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_FN_FUNC_LIST_BUILTIN_TOKENS
 RustBuffer uniffi_spectra_core_fn_func_list_builtin_tokens(uint32_t chain_id, RustCallStatus *_Nonnull out_status
@@ -4198,6 +4204,12 @@ uint16_t uniffi_spectra_core_checksum_func_is_ens_name_candidate(void
 #ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_FUNC_IS_VALID_SEND_ADDRESS
 #define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_FUNC_IS_VALID_SEND_ADDRESS
 uint16_t uniffi_spectra_core_checksum_func_is_valid_send_address(void
+    
+);
+#endif
+#ifndef UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_FUNC_LIST_ALL_BUILTIN_TOKENS
+#define UNIFFI_FFIDEF_UNIFFI_SPECTRA_CORE_CHECKSUM_FUNC_LIST_ALL_BUILTIN_TOKENS
+uint16_t uniffi_spectra_core_checksum_func_list_all_builtin_tokens(void
     
 );
 #endif

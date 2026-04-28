@@ -32,6 +32,10 @@ struct SendPreviewDetails: Equatable {
             || maxSendable != nil
     }
 }
+/// `Coin` is the Rust-defined `CoreCoin`. Chain identity is the
+/// `(chainName, tokenStandard, contractAddress)` triple — use the
+/// existing `assetIdentityKey` / `Coin.normalizedIconIdentifier` helpers
+/// rather than parsing the strings ad-hoc.
 typealias Coin = CoreCoin
 extension CoreCoin: Identifiable {
     var color: Color { Coin.displayColor(for: symbol) }
@@ -196,6 +200,22 @@ enum SeedDerivationChain: String, CaseIterable, Codable, Identifiable {
     case internetComputer = "Internet Computer"
     case near = "NEAR"
     case polkadot = "Polkadot"
+    case zcash = "Zcash"
+    case bitcoinGold = "Bitcoin Gold"
+    case sei = "Sei"
+    case celo = "Celo"
+    case cronos = "Cronos"
+    case opBNB = "opBNB"
+    case zkSyncEra = "zkSync Era"
+    case sonic = "Sonic"
+    case berachain = "Berachain"
+    case unichain = "Unichain"
+    case ink = "Ink"
+    case decred = "Decred"
+    case kaspa = "Kaspa"
+    case dash = "Dash"
+    case xLayer = "X Layer"
+    case bittensor = "Bittensor"
     var id: String { rawValue }
     var defaultPath: String { WalletDerivationPresetCatalog.defaultPreset(for: self).derivationPath }
     var presetOptions: [SeedDerivationPathPreset] { WalletDerivationPresetCatalog.mainnetUIPresets(for: self) }
@@ -248,14 +268,20 @@ extension CoreSeedDerivationPaths {
         ethereum: String, ethereumClassic: String, arbitrum: String, optimism: String, avalanche: String, hyperliquid: String,
         polygon: String, base: String, linea: String, scroll: String, blast: String, mantle: String, tron: String,
         solana: String, stellar: String, xrp: String, cardano: String, sui: String, aptos: String, ton: String, internetComputer: String,
-        near: String, polkadot: String
+        near: String, polkadot: String, zcash: String, bitcoinGold: String,
+        sei: String, celo: String, cronos: String, opBnb: String, zksyncEra: String, sonic: String,
+        berachain: String, unichain: String, ink: String,
+        decred: String, kaspa: String, dash: String, xLayer: String, bittensor: String
     ) {
         self.init(
             isCustomEnabled: isCustomEnabled, bitcoin: bitcoin, bitcoinCash: bitcoinCash, bitcoinSv: bitcoinSV, litecoin: litecoin,
             dogecoin: dogecoin, ethereum: ethereum, ethereumClassic: ethereumClassic, arbitrum: arbitrum, optimism: optimism,
             avalanche: avalanche, hyperliquid: hyperliquid, polygon: polygon, base: base, linea: linea, scroll: scroll, blast: blast,
             mantle: mantle, tron: tron, solana: solana, stellar: stellar, xrp: xrp, cardano: cardano, sui: sui, aptos: aptos,
-            ton: ton, internetComputer: internetComputer, near: near, polkadot: polkadot)
+            ton: ton, internetComputer: internetComputer, near: near, polkadot: polkadot, zcash: zcash,
+            bitcoinGold: bitcoinGold, sei: sei, celo: celo, cronos: cronos, opBnb: opBnb, zksyncEra: zksyncEra, sonic: sonic,
+            berachain: berachain, unichain: unichain, ink: ink,
+            decred: decred, kaspa: kaspa, dash: dash, xLayer: xLayer, bittensor: bittensor)
     }
     func path(for chain: SeedDerivationChain) -> String {
         switch chain {
@@ -287,6 +313,22 @@ extension CoreSeedDerivationPaths {
         case .internetComputer: return internetComputer
         case .near: return near
         case .polkadot: return polkadot
+        case .zcash: return zcash
+        case .bitcoinGold: return bitcoinGold
+        case .sei: return sei
+        case .celo: return celo
+        case .cronos: return cronos
+        case .opBNB: return opBnb
+        case .zkSyncEra: return zksyncEra
+        case .sonic: return sonic
+        case .berachain: return berachain
+        case .unichain: return unichain
+        case .ink: return ink
+        case .decred: return decred
+        case .kaspa: return kaspa
+        case .dash: return dash
+        case .xLayer: return xLayer
+        case .bittensor: return bittensor
         }
     }
     mutating func setPath(_ path: String, for chain: SeedDerivationChain) {
@@ -319,6 +361,22 @@ extension CoreSeedDerivationPaths {
         case .internetComputer: internetComputer = path
         case .near: near = path
         case .polkadot: polkadot = path
+        case .zcash: zcash = path
+        case .bitcoinGold: bitcoinGold = path
+        case .sei: sei = path
+        case .celo: celo = path
+        case .cronos: cronos = path
+        case .opBNB: opBnb = path
+        case .zkSyncEra: zksyncEra = path
+        case .sonic: sonic = path
+        case .berachain: berachain = path
+        case .unichain: unichain = path
+        case .ink: ink = path
+        case .decred: decred = path
+        case .kaspa: kaspa = path
+        case .dash: dash = path
+        case .xLayer: xLayer = path
+        case .bittensor: bittensor = path
         }
     }
     static func migrated(from preset: SeedDerivationPreset?) -> CoreSeedDerivationPaths {
@@ -356,7 +414,22 @@ extension CoreSeedDerivationPaths {
             cardano: "m/1852'/1815'/\(accountIndex)'/0/0", sui: "m/44'/784'/\(accountIndex)'/0'/0'",
             aptos: "m/44'/637'/\(accountIndex)'/0'/0'", ton: "m/44'/607'/\(accountIndex)'/0/0",
             internetComputer: "m/44'/223'/\(accountIndex)'/0/0", near: "m/44'/397'/\(accountIndex)'",
-            polkadot: "m/44'/354'/\(accountIndex)'"
+            polkadot: "m/44'/354'/\(accountIndex)'", zcash: "m/44'/133'/\(accountIndex)'/0/0",
+            bitcoinGold: "m/44'/156'/\(accountIndex)'/0/0",
+            sei: "m/44'/60'/\(accountIndex)'/0/0",
+            celo: "m/44'/60'/\(accountIndex)'/0/0",
+            cronos: "m/44'/60'/\(accountIndex)'/0/0",
+            opBnb: "m/44'/60'/\(accountIndex)'/0/0",
+            zksyncEra: "m/44'/60'/\(accountIndex)'/0/0",
+            sonic: "m/44'/60'/\(accountIndex)'/0/0",
+            berachain: "m/44'/60'/\(accountIndex)'/0/0",
+            unichain: "m/44'/60'/\(accountIndex)'/0/0",
+            ink: "m/44'/60'/\(accountIndex)'/0/0",
+            decred: "m/44'/42'/\(accountIndex)'/0/0",
+            kaspa: "m/44'/111111'/\(accountIndex)'/0/0",
+            dash: "m/44'/5'/\(accountIndex)'/0/0",
+            xLayer: "m/44'/60'/\(accountIndex)'/0/0",
+            bittensor: "m/44'/1005'/\(accountIndex)'/0'/0'"
         )
     }
     func toDictionary() -> [String: String] {
@@ -593,6 +666,10 @@ extension ImportedWallet {
             xrpAddress: snapshot.xrpAddress, moneroAddress: snapshot.moneroAddress, cardanoAddress: snapshot.cardanoAddress,
             suiAddress: snapshot.suiAddress, aptosAddress: snapshot.aptosAddress, tonAddress: snapshot.tonAddress,
             icpAddress: snapshot.icpAddress, nearAddress: snapshot.nearAddress, polkadotAddress: snapshot.polkadotAddress,
+            zcashAddress: snapshot.zcashAddress, bitcoinGoldAddress: snapshot.bitcoinGoldAddress,
+            decredAddress: snapshot.decredAddress, kaspaAddress: snapshot.kaspaAddress,
+            dashAddress: snapshot.dashAddress,
+            bittensorAddress: snapshot.bittensorAddress,
             seedDerivationPreset: snapshot.seedDerivationPreset, seedDerivationPaths: snapshot.seedDerivationPaths,
             derivationOverrides: snapshot.derivationOverrides,
             selectedChain: snapshot.selectedChain, holdings: snapshot.holdings.map(Coin.init(snapshot:)),
@@ -607,7 +684,11 @@ extension ImportedWallet {
             ethereumAddress: ethereumAddress, tronAddress: tronAddress, solanaAddress: solanaAddress, stellarAddress: stellarAddress,
             xrpAddress: xrpAddress, moneroAddress: moneroAddress, cardanoAddress: cardanoAddress, suiAddress: suiAddress,
             aptosAddress: aptosAddress, tonAddress: tonAddress, icpAddress: icpAddress, nearAddress: nearAddress,
-            polkadotAddress: polkadotAddress, seedDerivationPreset: seedDerivationPreset, seedDerivationPaths: seedDerivationPaths,
+            polkadotAddress: polkadotAddress, zcashAddress: zcashAddress, bitcoinGoldAddress: bitcoinGoldAddress,
+            decredAddress: decredAddress, kaspaAddress: kaspaAddress,
+            dashAddress: dashAddress,
+            bittensorAddress: bittensorAddress,
+            seedDerivationPreset: seedDerivationPreset, seedDerivationPaths: seedDerivationPaths,
             derivationOverrides: derivationOverrides,
             selectedChain: selectedChain, holdings: holdings.map(\.persistedSnapshot), includeInPortfolioTotal: includeInPortfolioTotal
         )

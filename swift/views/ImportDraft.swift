@@ -25,6 +25,24 @@ enum SetupModeChoice: String, CaseIterable, Identifiable {
         }
     }
 }
+/// Mutation contract for `WalletImportDraft`:
+///
+///   * **Side-effecting state** (chain selection, watch-only mode, secret-
+///     import mode, mnemonic length) is mutated through a named method on
+///     the draft. The method runs validation, regenerates derived state,
+///     and emits the necessary observation bumps. Direct binding to
+///     `$draft.<sideEffectField>` is a bug — bypassing the method leaves
+///     the draft internally inconsistent. (Properties below that have a
+///     `didSet { refresh… }` block belong to this category.)
+///   * **Plain text-input fields** (wallet name, password, watch
+///     addresses, individual seed-phrase words) MAY be bound directly via
+///     `$draft.…`. These have no derivation invariants — the draft
+///     revalidates lazily on read.
+///
+/// When you add a new field that needs validation/derivation refresh,
+/// give it a `didSet` that calls the relevant `refresh…` method *and* a
+/// public mutator method. Don't expose it for direct binding without
+/// either guard, even if it's tempting.
 @MainActor
 @Observable
 final class WalletImportDraft {
@@ -96,6 +114,12 @@ final class WalletImportDraft {
     var icpAddressInput: String = ""
     var nearAddressInput: String = ""
     var polkadotAddressInput: String = ""
+    var zcashAddressInput: String = ""
+    var bitcoinGoldAddressInput: String = ""
+    var decredAddressInput: String = ""
+    var kaspaAddressInput: String = ""
+    var dashAddressInput: String = ""
+    var bittensorAddressInput: String = ""
     var selectedChainNamesStorage: [String] = [] {
         didSet { refreshSelectionState() }
     }
@@ -205,6 +229,70 @@ final class WalletImportDraft {
     var wantsPolkadot: Bool {
         get { isSelectedChain("Polkadot") }
         set { setSelectedChain("Polkadot", isEnabled: newValue) }
+    }
+    var wantsZcash: Bool {
+        get { isSelectedChain("Zcash") }
+        set { setSelectedChain("Zcash", isEnabled: newValue) }
+    }
+    var wantsBitcoinGold: Bool {
+        get { isSelectedChain("Bitcoin Gold") }
+        set { setSelectedChain("Bitcoin Gold", isEnabled: newValue) }
+    }
+    var wantsSei: Bool {
+        get { isSelectedChain("Sei") }
+        set { setSelectedChain("Sei", isEnabled: newValue) }
+    }
+    var wantsCelo: Bool {
+        get { isSelectedChain("Celo") }
+        set { setSelectedChain("Celo", isEnabled: newValue) }
+    }
+    var wantsCronos: Bool {
+        get { isSelectedChain("Cronos") }
+        set { setSelectedChain("Cronos", isEnabled: newValue) }
+    }
+    var wantsOpBNB: Bool {
+        get { isSelectedChain("opBNB") }
+        set { setSelectedChain("opBNB", isEnabled: newValue) }
+    }
+    var wantsZkSyncEra: Bool {
+        get { isSelectedChain("zkSync Era") }
+        set { setSelectedChain("zkSync Era", isEnabled: newValue) }
+    }
+    var wantsSonic: Bool {
+        get { isSelectedChain("Sonic") }
+        set { setSelectedChain("Sonic", isEnabled: newValue) }
+    }
+    var wantsBerachain: Bool {
+        get { isSelectedChain("Berachain") }
+        set { setSelectedChain("Berachain", isEnabled: newValue) }
+    }
+    var wantsUnichain: Bool {
+        get { isSelectedChain("Unichain") }
+        set { setSelectedChain("Unichain", isEnabled: newValue) }
+    }
+    var wantsInk: Bool {
+        get { isSelectedChain("Ink") }
+        set { setSelectedChain("Ink", isEnabled: newValue) }
+    }
+    var wantsDecred: Bool {
+        get { isSelectedChain("Decred") }
+        set { setSelectedChain("Decred", isEnabled: newValue) }
+    }
+    var wantsKaspa: Bool {
+        get { isSelectedChain("Kaspa") }
+        set { setSelectedChain("Kaspa", isEnabled: newValue) }
+    }
+    var wantsDash: Bool {
+        get { isSelectedChain("Dash") }
+        set { setSelectedChain("Dash", isEnabled: newValue) }
+    }
+    var wantsXLayer: Bool {
+        get { isSelectedChain("X Layer") }
+        set { setSelectedChain("X Layer", isEnabled: newValue) }
+    }
+    var wantsBittensor: Bool {
+        get { isSelectedChain("Bittensor") }
+        set { setSelectedChain("Bittensor", isEnabled: newValue) }
     }
     var seedPhraseValidationError: String? {
         guard !isEditingWallet else { return nil }
@@ -334,7 +422,13 @@ final class WalletImportDraft {
             tonAddresses: isWatchOnlyMode ? watchOnlyEntries(from: tonAddressInput) : [],
             icpAddresses: isWatchOnlyMode ? watchOnlyEntries(from: icpAddressInput) : [],
             nearAddresses: isWatchOnlyMode ? watchOnlyEntries(from: nearAddressInput) : [],
-            polkadotAddresses: isWatchOnlyMode ? watchOnlyEntries(from: polkadotAddressInput) : []
+            polkadotAddresses: isWatchOnlyMode ? watchOnlyEntries(from: polkadotAddressInput) : [],
+            zcashAddresses: isWatchOnlyMode ? watchOnlyEntries(from: zcashAddressInput) : [],
+            bitcoinGoldAddresses: isWatchOnlyMode ? watchOnlyEntries(from: bitcoinGoldAddressInput) : [],
+            decredAddresses: isWatchOnlyMode ? watchOnlyEntries(from: decredAddressInput) : [],
+            kaspaAddresses: isWatchOnlyMode ? watchOnlyEntries(from: kaspaAddressInput) : [],
+            dashAddresses: isWatchOnlyMode ? watchOnlyEntries(from: dashAddressInput) : [],
+            bittensorAddresses: isWatchOnlyMode ? watchOnlyEntries(from: bittensorAddressInput) : []
         )
         return coreValidateWalletImportDraft(
             request: WalletImportDraftValidationRequest(
@@ -655,5 +749,51 @@ final class WalletImportDraft {
         if !backupVerificationWordIndices.isEmpty, !isBackupVerificationComplete {
             backupVerificationEntries = Array(repeating: "", count: backupVerificationWordIndices.count)
         }
+    }
+}
+
+/// Bundled validation result for `WalletImportDraft`.
+///
+/// Replaces the read-time recomputation in scattered properties
+/// (`seedPhraseValidationError`, `walletPasswordValidationError`,
+/// `invalidSeedWords`, `unsupportedPrivateKeyChainNames`, etc.) with one
+/// struct that names every error mode in a single type. Views read
+/// `draft.validation.password` etc. — the rule for "is this field
+/// invalid" lives in `WalletImportDraft.validate()` instead of being
+/// spread across N computed properties.
+///
+/// The legacy property accessors are preserved as one-line shims that
+/// project from `validation` so call sites don't break.
+struct WalletImportDraftValidation {
+    /// Words the user typed that aren't in the BIP-39 wordlist.
+    var invalidSeedWords: [String] = []
+    /// Length / format / checksum problem with the seed phrase.
+    var seedPhraseError: String? = nil
+    /// True when the seed phrase parses, has no invalid words, and the
+    /// BIP-39 checksum verifies.
+    var hasValidSeedPhraseChecksum: Bool = false
+    /// Length / mismatch problem with the wallet password.
+    var passwordError: String? = nil
+    /// User selected chains the chosen private-key import mode can't sign for.
+    var unsupportedPrivateKeyChainNames: [String] = []
+    /// Non-standard mnemonic length warning (separate from `seedPhraseError`
+    /// because it's advisory, not blocking).
+    var seedPhraseLengthWarning: String? = nil
+}
+
+extension WalletImportDraft {
+    /// One-shot validation snapshot. Mirrors the live state at call time;
+    /// re-call after any mutation. Reading individual `*ValidationError`
+    /// properties is equivalent to reading the matching field on this
+    /// struct — they're shims.
+    func validate() -> WalletImportDraftValidation {
+        var result = WalletImportDraftValidation()
+        result.invalidSeedWords = invalidSeedWords
+        result.seedPhraseError = seedPhraseValidationError
+        result.hasValidSeedPhraseChecksum = hasValidSeedPhraseChecksum
+        result.passwordError = walletPasswordValidationError
+        result.unsupportedPrivateKeyChainNames = unsupportedPrivateKeyChainNames
+        result.seedPhraseLengthWarning = seedPhraseLengthWarning
+        return result
     }
 }

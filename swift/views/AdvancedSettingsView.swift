@@ -116,7 +116,7 @@ struct AdvancedSettingsView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
         }.navigationTitle(AppLocalization.string("Advanced")).sheet(isPresented: $isShowingDiagnosticsExportsBrowser) {
-            DiagnosticsExportsBrowserView(store: store)
+            DiagnosticsExportsBrowserView(model: .live(store: store))
         }.fileImporter(
             isPresented: $isShowingDiagnosticsImporter, allowedContentTypes: [UTType.json], allowsMultipleSelection: false
         ) { result in

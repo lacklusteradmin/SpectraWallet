@@ -152,8 +152,15 @@ enum BundleImageLoader {
             if let cached = imageCache.object(forKey: key) { return cached }
             if let svg = svgURL(forImageNamed: name) {
                 let size = CGSize(width: targetSize, height: targetSize)
+                // Disk-cache check first — once an SVG has been rendered in any
+                // prior session, we skip WebKit entirely on subsequent launches.
+                if let diskCached = readDiskCachedImage(name: name, size: size) {
+                    imageCache.setObject(diskCached, forKey: key, cost: approximateByteCost(for: diskCached))
+                    return diskCached
+                }
                 if let rendered = await SVGRenderer.render(svgURL: svg, size: size) {
                     imageCache.setObject(rendered, forKey: key, cost: approximateByteCost(for: rendered))
+                    writeDiskCachedImage(rendered, name: name, size: size)
                     return rendered
                 }
             }
@@ -162,6 +169,40 @@ enum BundleImageLoader {
                 return image
             }
             return nil
+        }
+
+        private static let diskCacheDir: URL? = {
+            guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
+            let dir = caches.appendingPathComponent("SpectraIconCache", isDirectory: true)
+            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            return dir
+        }()
+
+        private static func diskCacheURL(name: String, size: CGSize) -> URL? {
+            guard let base = diskCacheDir else { return nil }
+            let scale = UIScreen.main.scale
+            let safeName = name.replacingOccurrences(of: "/", with: "_")
+            return base.appendingPathComponent("\(safeName)@\(Int(size.width))x\(Int(scale)).png")
+        }
+
+        private static func readDiskCachedImage(name: String, size: CGSize) -> UIImage? {
+            guard let url = diskCacheURL(name: name, size: size),
+                FileManager.default.fileExists(atPath: url.path),
+                let data = try? Data(contentsOf: url),
+                let image = UIImage(data: data, scale: UIScreen.main.scale)
+            else {
+                return nil
+            }
+            return image
+        }
+
+        private static func writeDiskCachedImage(_ image: UIImage, name: String, size: CGSize) {
+            guard let url = diskCacheURL(name: name, size: size), let data = image.pngData() else { return }
+            // Hop off the main actor for the file write — small payload but
+            // avoids holding main while the disk syscall completes.
+            Task.detached(priority: .utility) {
+                try? data.write(to: url, options: .atomic)
+            }
         }
     #endif
 

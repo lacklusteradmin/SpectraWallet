@@ -567,5 +567,301 @@
       "Chain ID is 5000.",
       "Native USDC on Mantle uses contract 0x09Bc4E0D864854c6aFB6eB9A9cdF58aC190D0dF9."
     ]
+  },
+  {
+    "id": "zcash",
+    "name": "Zcash",
+    "symbol": "ZEC",
+    "tags": ["UTXO", "Privacy", "PoW"],
+    "family": "Zcash (Halo 2 + transparent UTXO)",
+    "consensus": "Proof-of-Work (Equihash 200,9)",
+    "stateModel": "UTXO (transparent) + zk-SNARK shielded notes (Sapling, Orchard)",
+    "primaryUse": "Optionally-shielded payments. Spectra uses transparent (t1) addresses only; shielded sends are not supported.",
+    "slip44CoinType": "133 (Zcash)",
+    "derivationPath": "m/44'/133'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Zcash mirrors Bitcoin's 21M cap with halvings; total ZEC supply is capped at 21,000,000.",
+    "notableDetails": [
+      "Spectra supports transparent (t1...) addresses only. Shielded (zs.../u1...) are not derived or sent.",
+      "Transactions are V5 (NU5) format with empty Sapling and Orchard bundles for transparent-only sends.",
+      "Balance and history come from Trezor Blockbook (zec1.trezor.io)."
+    ]
+  },
+  {
+    "id": "bitcoinGold",
+    "name": "Bitcoin Gold",
+    "symbol": "BTG",
+    "tags": ["UTXO", "PoW"],
+    "family": "Bitcoin fork (Equihash 144,5)",
+    "consensus": "Proof-of-Work (Equihash 144,5)",
+    "stateModel": "UTXO",
+    "primaryUse": "Bitcoin-style payments with GPU-friendly Equihash mining.",
+    "slip44CoinType": "156 (Bitcoin Gold)",
+    "derivationPath": "m/44'/156'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "21,000,000 BTG cap mirroring Bitcoin's halving schedule.",
+    "notableDetails": [
+      "P2PKH addresses use version byte 0x26 (G…); P2SH uses 0x17 (A…).",
+      "Sends use BIP-143 sighash with SIGHASH_FORKID and BTG fork id 79.",
+      "Balance and history come from Trezor Blockbook (btg1.trezor.io)."
+    ]
+  },
+  {
+    "id": "decred",
+    "name": "Decred",
+    "symbol": "DCR",
+    "tags": ["UTXO", "Hybrid", "PoW", "PoS"],
+    "family": "Decred (BLAKE-256, hybrid PoW + PoS)",
+    "consensus": "Hybrid PoW (BLAKE-256) + PoS ticket voting",
+    "stateModel": "UTXO with on-chain governance",
+    "primaryUse": "Self-funded protocol with stakeholder-governed on-chain decisions.",
+    "slip44CoinType": "42 (Decred)",
+    "derivationPath": "m/44'/42'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Capped near 21,000,000 DCR with declining block reward and PoS subsidy.",
+    "notableDetails": [
+      "Integration is Planned in this build — derivation, balance, history, and send are not yet wired.",
+      "Decred uses BLAKE-256 (NOT double-SHA256) for the address checksum, requiring a custom encoder.",
+      "Transaction format diverges from Bitcoin (witness + prefix split with versioned serialization)."
+    ]
+  },
+  {
+    "id": "kaspa",
+    "name": "Kaspa",
+    "symbol": "KAS",
+    "tags": ["BlockDAG", "PoW"],
+    "family": "Kaspa (GHOSTDAG protocol)",
+    "consensus": "Proof-of-Work (kHeavyHash) on a blockDAG",
+    "stateModel": "UTXO over GHOSTDAG topological ordering",
+    "primaryUse": "Sub-second confirmation payments via parallel-block PoW.",
+    "slip44CoinType": "111111 (Kaspa)",
+    "derivationPath": "m/44'/111111'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Capped at ~28,700,000,000 KAS with monthly chromatic emission decay.",
+    "notableDetails": [
+      "Integration is Planned in this build — derivation, balance, history, and send are not yet wired.",
+      "Addresses use a CashAddr-variant bech32 with HRP 'kaspa', distinct from BIP-173 bech32.",
+      "Transactions use Schnorr-secp256k1 signatures and a custom protobuf body."
+    ]
+  },
+  {
+    "id": "sei",
+    "name": "Sei",
+    "symbol": "SEI",
+    "tags": ["EVM", "L1", "PoS"],
+    "family": "Cosmos-SDK with EVM v2 module",
+    "consensus": "Tendermint BFT (Sei v2 with EVM execution)",
+    "stateModel": "EVM account state",
+    "primaryUse": "High-throughput EVM with parallel execution and Cosmos-native interop.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "10,000,000,000 SEI cap with staking and governance unlocks.",
+    "notableDetails": [
+      "Spectra reuses the shared EVM client.",
+      "EIP-155 chain id is 1329."
+    ]
+  },
+  {
+    "id": "celo",
+    "name": "Celo",
+    "symbol": "CELO",
+    "tags": ["EVM", "L2", "Mobile"],
+    "family": "Ethereum L2 (Celo migrated to OP Stack 2025)",
+    "consensus": "Optimistic rollup on Ethereum",
+    "stateModel": "EVM account state",
+    "primaryUse": "Mobile-first stablecoin payments and DeFi on a low-fee EVM L2.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "1,000,000,000 CELO cap with epoch rewards.",
+    "notableDetails": [
+      "EIP-155 chain id is 42220.",
+      "Native USDC + cUSD/cEUR/cREAL stablecoins live on Celo."
+    ]
+  },
+  {
+    "id": "cronos",
+    "name": "Cronos",
+    "symbol": "CRO",
+    "tags": ["EVM", "L1"],
+    "family": "Cronos EVM (Cosmos-SDK + Ethermint)",
+    "consensus": "Tendermint BFT",
+    "stateModel": "EVM account state",
+    "primaryUse": "Crypto.com's L1 EVM for stablecoin payments and DeFi.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "30,000,000,000 CRO cap (post-2022 burn).",
+    "notableDetails": [
+      "EIP-155 chain id is 25.",
+      "Cronos POS chain (chain id 388) is separate; Spectra targets Cronos EVM."
+    ]
+  },
+  {
+    "id": "opBNB",
+    "name": "opBNB",
+    "symbol": "BNB",
+    "tags": ["EVM", "L2", "Optimistic Rollup"],
+    "family": "BNB Chain L2 (OP Stack)",
+    "consensus": "Optimistic rollup on BNB Chain",
+    "stateModel": "EVM account state",
+    "primaryUse": "Cheap BNB-denominated rollup throughput for BSC users.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Pays gas in BNB; no separate token.",
+    "notableDetails": [
+      "EIP-155 chain id is 204.",
+      "Settles to BNB Smart Chain L1."
+    ]
+  },
+  {
+    "id": "zkSyncEra",
+    "name": "zkSync Era",
+    "symbol": "ETH",
+    "tags": ["EVM", "L2", "ZK Rollup"],
+    "family": "Ethereum L2 (zkSync Era validium/rollup)",
+    "consensus": "ZK rollup with EVM-equivalent execution",
+    "stateModel": "EVM account state",
+    "primaryUse": "Validity-proofed L2 with full EVM equivalence.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Pays gas in ETH; ZK token is governance.",
+    "notableDetails": [
+      "EIP-155 chain id is 324.",
+      "Native ETH transfers use standard EIP-1559 envelopes; some advanced features use EIP-712 transactions which are not supported in this build."
+    ]
+  },
+  {
+    "id": "sonic",
+    "name": "Sonic",
+    "symbol": "S",
+    "tags": ["EVM", "L1"],
+    "family": "Sonic Labs (Fantom successor)",
+    "consensus": "Lachesis aBFT",
+    "stateModel": "EVM account state",
+    "primaryUse": "High-TPS EVM L1, the rebranded Fantom network.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Migrated 1:1 from FTM at launch with continuing inflation.",
+    "notableDetails": [
+      "EIP-155 chain id is 146.",
+      "Successor to Fantom Opera; FTM holders can swap 1:1 for S."
+    ]
+  },
+  {
+    "id": "berachain",
+    "name": "Berachain",
+    "symbol": "BERA",
+    "tags": ["EVM", "L1", "Proof-of-Liquidity"],
+    "family": "Berachain (Cosmos-SDK + EVM)",
+    "consensus": "Proof-of-Liquidity (BeaconKit + Tendermint)",
+    "stateModel": "EVM account state with parallel liquidity rewards",
+    "primaryUse": "DeFi-native EVM L1 where validators earn from on-chain liquidity provision.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "500,000,000 BERA initial supply with PoL emissions.",
+    "notableDetails": [
+      "EIP-155 chain id is 80094.",
+      "BGT is the staking/governance asset; BERA is the gas token."
+    ]
+  },
+  {
+    "id": "unichain",
+    "name": "Unichain",
+    "symbol": "ETH",
+    "tags": ["EVM", "L2", "Optimistic Rollup"],
+    "family": "Ethereum L2 (OP Stack)",
+    "consensus": "Optimistic rollup on Ethereum",
+    "stateModel": "EVM account state",
+    "primaryUse": "Uniswap's dedicated L2 for DEX-native fast settlement.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Pays gas in ETH; no separate token.",
+    "notableDetails": [
+      "EIP-155 chain id is 130.",
+      "Built by Uniswap Labs on the OP Stack."
+    ]
+  },
+  {
+    "id": "ink",
+    "name": "Ink",
+    "symbol": "ETH",
+    "tags": ["EVM", "L2", "Optimistic Rollup"],
+    "family": "Ethereum L2 (OP Stack)",
+    "consensus": "Optimistic rollup on Ethereum",
+    "stateModel": "EVM account state",
+    "primaryUse": "Kraken's L2 for low-fee DeFi and exchange flows.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Pays gas in ETH; no separate token.",
+    "notableDetails": [
+      "EIP-155 chain id is 57073.",
+      "Built by Kraken on the OP Stack."
+    ]
+  },
+  {
+    "id": "dash",
+    "name": "Dash",
+    "symbol": "DASH",
+    "tags": ["UTXO", "PoW", "Masternodes"],
+    "family": "Bitcoin fork (X11 + masternode tier)",
+    "consensus": "Proof-of-Work (X11) with masternode quorum services",
+    "stateModel": "UTXO with InstantSend + ChainLocks",
+    "primaryUse": "Fast-finality payments via InstantSend; masternode-secured ChainLocks resist 51% reorgs.",
+    "slip44CoinType": "5 (Dash)",
+    "derivationPath": "m/44'/5'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Capped near 18,900,000 DASH with -7.14% annual emission decay.",
+    "notableDetails": [
+      "P2PKH addresses use version byte 0x4C ('X…'); P2SH uses 0x10 ('7…').",
+      "Wire format and SIGHASH_ALL signing are identical to Bitcoin V1 — no SegWit on mainnet.",
+      "Balance and history come from Trezor Blockbook (dash1.trezor.io)."
+    ]
+  },
+  {
+    "id": "xLayer",
+    "name": "X Layer",
+    "symbol": "OKB",
+    "tags": ["EVM", "L2", "ZK Rollup"],
+    "family": "Ethereum L2 (Polygon CDK zkEVM)",
+    "consensus": "ZK rollup with Polygon CDK validity proofs",
+    "stateModel": "EVM account state",
+    "primaryUse": "OKX-anchored zkEVM L2 for low-fee EVM transfers and DeFi denominated in OKB.",
+    "slip44CoinType": "60 (Ethereum)",
+    "derivationPath": "m/44'/60'/0'/0/0",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Pays gas in OKB; OKB is OKX's exchange/utility token with periodic burns.",
+    "notableDetails": [
+      "EIP-155 chain id is 196.",
+      "Built by OKX on Polygon CDK; settles ZK proofs to Ethereum L1.",
+      "Spectra reuses the shared EVM client — derivation, balance, history, and send all flow through the standard EVM pipeline."
+    ]
+  },
+  {
+    "id": "bittensor",
+    "name": "Bittensor",
+    "symbol": "TAO",
+    "tags": ["L1", "PoW", "AI", "Substrate"],
+    "family": "Substrate (subtensor; Polkadot-style runtime)",
+    "consensus": "Proof-of-Work + subnet validator scoring (Yuma consensus)",
+    "stateModel": "Substrate account/balances; subnets and neurons modeled as on-chain state",
+    "primaryUse": "Decentralized machine-learning marketplace where subnets stake TAO and earn emissions for serving AI inferences.",
+    "slip44CoinType": "1005 (Bittensor)",
+    "derivationPath": "m/44'/1005'/0'/0'/0' (substrate-bip39 ignores BIP-32 nodes; the canonical path is shown for display only)",
+    "alternateDerivationPath": null,
+    "totalCirculationModel": "Capped at 21,000,000 TAO with 4-year halvings, mirroring Bitcoin emission economics.",
+    "notableDetails": [
+      "Addresses use the substrate-generic SS58 prefix (42), so they begin with `5…` and look identical to generic Substrate addresses.",
+      "Wire format and extrinsic signing are Polkadot-compatible (SCALE codec, MultiSignature envelope, sr25519 keypair).",
+      "Spectra ships with hardcoded Bittensor runtime call indexes (Balances pallet 6, transfer_keep_alive call 3); a runtime upgrade requires re-verifying these.",
+      "Balance and history come from Taostats when an API key is configured; without one, history is empty and balance falls back to 0."
+    ]
   }
 ]
