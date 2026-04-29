@@ -262,7 +262,7 @@ enum WalletServiceBridgeError: LocalizedError {
         }}
 }
 private extension WalletServiceBridge {
-    static func buildEndpoints() -> [ChainEndpoints] {
+    nonisolated static func buildEndpoints() -> [ChainEndpoints] {
         var payloads: [ChainEndpoints] = []
         payloads += rpcPayloads(chainId: SpectraChainID.bitcoin,         chainName: "Bitcoin")
         payloads += evmPayloads(chainId: SpectraChainID.ethereum,        chainName: "Ethereum")
@@ -303,10 +303,10 @@ private extension WalletServiceBridge {
         for (primaryId, chainName) in explorerChains { payloads += explorerPayloads(chainId: endpointSlotId(primaryId, .explorer), chainName: chainName) }
         return payloads
     }
-    static func endpointSlotId(_ chainId: UInt32, _ slot: AppCoreEndpointSlot) -> UInt32 {
+    nonisolated static func endpointSlotId(_ chainId: UInt32, _ slot: AppCoreEndpointSlot) -> UInt32 {
         coreEndpointId(chainId: chainId, slot: slot) ?? chainId
     }
-    static func rpcPayloads(chainId: UInt32, chainName: String) -> [ChainEndpoints] {
+    nonisolated static func rpcPayloads(chainId: UInt32, chainName: String) -> [ChainEndpoints] {
         let endpoints = (
             try? WalletRustEndpointCatalogBridge.endpointRecords(
                 for: chainName, roles: [.rpc, .balance, .backend], settingsVisibleOnly: false
@@ -315,12 +315,12 @@ private extension WalletServiceBridge {
         guard !endpoints.isEmpty else { return [] }
         return [ChainEndpoints(chainId: chainId, endpoints: endpoints, apiKey: nil)]
     }
-    static func evmPayloads(chainId: UInt32, chainName: String) -> [ChainEndpoints] {
+    nonisolated static func evmPayloads(chainId: UInt32, chainName: String) -> [ChainEndpoints] {
         let endpoints = (try? WalletRustEndpointCatalogBridge.evmRPCEndpoints(for: chainName)) ?? []
         guard !endpoints.isEmpty else { return [] }
         return [ChainEndpoints(chainId: chainId, endpoints: endpoints, apiKey: nil)]
     }
-    static func explorerPayloads(chainId: UInt32, chainName: String) -> [ChainEndpoints] {
+    nonisolated static func explorerPayloads(chainId: UInt32, chainName: String) -> [ChainEndpoints] {
         let endpoints = (try? WalletRustEndpointCatalogBridge.explorerSupplementalEndpoints(for: chainName)) ?? []
         guard !endpoints.isEmpty else { return [] }
         return [ChainEndpoints(chainId: chainId, endpoints: endpoints, apiKey: nil)]

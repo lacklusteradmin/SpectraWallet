@@ -216,6 +216,41 @@ enum SeedDerivationChain: String, CaseIterable, Codable, Identifiable {
     case dash = "Dash"
     case xLayer = "X Layer"
     case bittensor = "Bittensor"
+    // Testnets — each is a first-class chain with its own derivation row in
+    // core/data/derivation_presets.toml. The chain identity alone encodes
+    // mainnet vs testnet; there is no separate network parameter.
+    case bitcoinTestnet = "Bitcoin Testnet"
+    case bitcoinTestnet4 = "Bitcoin Testnet4"
+    case bitcoinSignet = "Bitcoin Signet"
+    case litecoinTestnet = "Litecoin Testnet"
+    case bitcoinCashTestnet = "Bitcoin Cash Testnet"
+    case bitcoinSVTestnet = "Bitcoin SV Testnet"
+    case dogecoinTestnet = "Dogecoin Testnet"
+    case zcashTestnet = "Zcash Testnet"
+    case decredTestnet = "Decred Testnet"
+    case kaspaTestnet = "Kaspa Testnet"
+    case dashTestnet = "Dash Testnet"
+    case ethereumSepolia = "Ethereum Sepolia"
+    case ethereumHoodi = "Ethereum Hoodi"
+    case arbitrumSepolia = "Arbitrum Sepolia"
+    case optimismSepolia = "Optimism Sepolia"
+    case baseSepolia = "Base Sepolia"
+    case bnbChainTestnet = "BNB Chain Testnet"
+    case avalancheFuji = "Avalanche Fuji"
+    case polygonAmoy = "Polygon Amoy"
+    case hyperliquidTestnet = "Hyperliquid Testnet"
+    case ethereumClassicMordor = "Ethereum Classic Mordor"
+    case tronNile = "Tron Nile"
+    case solanaDevnet = "Solana Devnet"
+    case xrpTestnet = "XRP Ledger Testnet"
+    case stellarTestnet = "Stellar Testnet"
+    case cardanoPreprod = "Cardano Preprod"
+    case suiTestnet = "Sui Testnet"
+    case aptosTestnet = "Aptos Testnet"
+    case tonTestnet = "TON Testnet"
+    case nearTestnet = "NEAR Testnet"
+    case polkadotWestend = "Polkadot Westend"
+    case moneroStagenet = "Monero Stagenet"
     var id: String { rawValue }
     var defaultPath: String { WalletDerivationPresetCatalog.defaultPreset(for: self).derivationPath }
     var presetOptions: [SeedDerivationPathPreset] { WalletDerivationPresetCatalog.mainnetUIPresets(for: self) }
@@ -329,6 +364,35 @@ extension CoreSeedDerivationPaths {
         case .dash: return dash
         case .xLayer: return xLayer
         case .bittensor: return bittensor
+        // Testnets share the persisted path slot of their mainnet
+        // counterpart since the derivation recipe is identical (the
+        // chain identity drives only the byte-encoding differences).
+        case .bitcoinTestnet, .bitcoinTestnet4, .bitcoinSignet: return bitcoin
+        case .litecoinTestnet: return litecoin
+        case .bitcoinCashTestnet: return bitcoinCash
+        case .bitcoinSVTestnet: return bitcoinSv
+        case .dogecoinTestnet: return dogecoin
+        case .zcashTestnet: return zcash
+        case .decredTestnet: return decred
+        case .kaspaTestnet: return kaspa
+        case .dashTestnet: return dash
+        case .ethereumSepolia, .ethereumHoodi, .baseSepolia, .bnbChainTestnet, .polygonAmoy: return ethereum
+        case .arbitrumSepolia: return arbitrum
+        case .optimismSepolia: return optimism
+        case .avalancheFuji: return avalanche
+        case .hyperliquidTestnet: return hyperliquid
+        case .ethereumClassicMordor: return ethereumClassic
+        case .tronNile: return tron
+        case .solanaDevnet: return solana
+        case .xrpTestnet: return xrp
+        case .stellarTestnet: return stellar
+        case .cardanoPreprod: return cardano
+        case .suiTestnet: return sui
+        case .aptosTestnet: return aptos
+        case .tonTestnet: return ton
+        case .nearTestnet: return near
+        case .polkadotWestend: return polkadot
+        case .moneroStagenet: return ""  // Monero has no BIP-32 path slot today
         }
     }
     mutating func setPath(_ path: String, for chain: SeedDerivationChain) {
@@ -377,6 +441,34 @@ extension CoreSeedDerivationPaths {
         case .dash: dash = path
         case .xLayer: xLayer = path
         case .bittensor: bittensor = path
+        // Testnets write through to the mainnet counterpart's stored slot
+        // (see `path(for:)` for rationale).
+        case .bitcoinTestnet, .bitcoinTestnet4, .bitcoinSignet: bitcoin = path
+        case .litecoinTestnet: litecoin = path
+        case .bitcoinCashTestnet: bitcoinCash = path
+        case .bitcoinSVTestnet: bitcoinSv = path
+        case .dogecoinTestnet: dogecoin = path
+        case .zcashTestnet: zcash = path
+        case .decredTestnet: decred = path
+        case .kaspaTestnet: kaspa = path
+        case .dashTestnet: dash = path
+        case .ethereumSepolia, .ethereumHoodi, .baseSepolia, .bnbChainTestnet, .polygonAmoy: ethereum = path
+        case .arbitrumSepolia: arbitrum = path
+        case .optimismSepolia: optimism = path
+        case .avalancheFuji: avalanche = path
+        case .hyperliquidTestnet: hyperliquid = path
+        case .ethereumClassicMordor: ethereumClassic = path
+        case .tronNile: tron = path
+        case .solanaDevnet: solana = path
+        case .xrpTestnet: xrp = path
+        case .stellarTestnet: stellar = path
+        case .cardanoPreprod: cardano = path
+        case .suiTestnet: sui = path
+        case .aptosTestnet: aptos = path
+        case .tonTestnet: ton = path
+        case .nearTestnet: near = path
+        case .polkadotWestend: polkadot = path
+        case .moneroStagenet: break  // Monero has no BIP-32 path slot today
         }
     }
     static func migrated(from preset: SeedDerivationPreset?) -> CoreSeedDerivationPaths {

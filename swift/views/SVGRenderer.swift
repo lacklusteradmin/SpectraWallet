@@ -67,7 +67,7 @@ import Foundation
         }
 
         private static func performRender(svgURL: URL, size: CGSize) async -> UIImage? {
-            let scale = UIScreen.main.scale
+            let scale = UITraitCollection.current.displayScale
             let pixelSize = CGSize(width: size.width * scale, height: size.height * scale)
             let webView = ensureWebView(size: size)
 

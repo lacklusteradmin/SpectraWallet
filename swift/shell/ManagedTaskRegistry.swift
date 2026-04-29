@@ -10,7 +10,7 @@ import Foundation
 ///
 /// The registry is non-isolated and uses an internal lock so callers can
 /// register from any actor and `cancelAll` from a non-isolated `deinit`.
-final class ManagedTaskRegistry: @unchecked Sendable {
+nonisolated final class ManagedTaskRegistry: @unchecked Sendable {
     private let lock = NSLock()
     private var tasks: [String: Task<Void, Never>] = [:]
 

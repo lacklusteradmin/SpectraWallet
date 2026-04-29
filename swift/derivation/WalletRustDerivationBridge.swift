@@ -12,7 +12,7 @@ enum WalletRustDerivationBridgeError: LocalizedError {
 enum WalletRustDerivationBridge {
     nonisolated static var isAvailable: Bool { true }
     nonisolated static func makeRequestModel(
-        chain: SeedDerivationChain, network: WalletDerivationNetwork, seedPhrase: String, derivationPath: String?, passphrase: String?,
+        chain: SeedDerivationChain, seedPhrase: String, derivationPath: String?, passphrase: String?,
         iterationCount: Int?, hmacKeyString: String?, requestedOutputs: WalletDerivationRequestedOutputs,
         overrides: CoreWalletDerivationOverrides? = nil
     ) throws -> WalletRustDerivationRequestModel {
@@ -22,7 +22,7 @@ enum WalletRustDerivationBridge {
         let resolvedDerivationPath =
             (trimmedPath?.isEmpty == false)
             ? trimmedPath
-            : WalletDerivationPresetCatalog.defaultPath(for: chain, network: network)
+            : WalletDerivationPresetCatalog.defaultPath(for: chain)
         let compiledScriptType = try compileScriptType(from: requestCompilationPreset, derivationPath: resolvedDerivationPath)
         // The typed Swift enums used for `WalletRustDerivationRequestModel`
         // cover only the common preset algorithms. Advanced-mode overrides
@@ -30,7 +30,7 @@ enum WalletRustDerivationBridge {
         // enums and are carried through to Rust as raw strings via
         // `advancedOverrides` below.
         return WalletRustDerivationRequestModel(
-            network: network, curve: presetCurve,
+            curve: presetCurve,
             requestedOutputs: requestedOutputs,
             derivationAlgorithm: requestCompilationPreset.derivationAlgorithm,
             addressAlgorithm: requestCompilationPreset.addressAlgorithm,
@@ -48,7 +48,6 @@ enum WalletRustDerivationBridge {
         let response = try derivationDerive(
             request: UniFfiDerivationRequest(
                 chain: nil,
-                network: requestModel.network.rustWireValue,
                 curve: overrideCurveWire(overrides) ?? requestModel.curve.rustWireValue,
                 requestedOutputs: requestModel.requestedOutputs.rustWireValue,
                 derivationAlgorithm: overrideDerivationAlgorithmWire(overrides) ?? requestModel.derivationAlgorithm.rustWireValue,
@@ -64,7 +63,7 @@ enum WalletRustDerivationBridge {
             address: response.address, publicKeyHex: response.publicKeyHex, privateKeyHex: response.privateKeyHex)
     }
     nonisolated static func deriveFromPrivateKey(
-        chain: SeedDerivationChain, network: WalletDerivationNetwork = .mainnet, privateKeyHex: String
+        chain: SeedDerivationChain, privateKeyHex: String
     ) throws -> WalletRustDerivationResponseModel {
         let requestCompilationPreset = WalletDerivationPresetCatalog.requestCompilationPreset(for: chain)
         let curve = WalletDerivationPresetCatalog.curve(for: chain)
@@ -72,7 +71,7 @@ enum WalletRustDerivationBridge {
             from: requestCompilationPreset, derivationPath: WalletDerivationPresetCatalog.defaultPath(for: chain))
         let response = try derivationDeriveFromPrivateKey(
             request: UniFfiPrivateKeyDerivationRequest(
-                chain: nil, network: network.rustWireValue, curve: curve.rustWireValue,
+                chain: nil, curve: curve.rustWireValue,
                 addressAlgorithm: requestCompilationPreset.addressAlgorithm.rustWireValue,
                 publicKeyFormat: requestCompilationPreset.publicKeyFormat.rustWireValue,
                 scriptType: scriptType.rustWireValue, privateKeyHex: privateKeyHex
@@ -87,7 +86,7 @@ enum WalletRustDerivationBridge {
         }
         let response = try derivationBuildMaterial(
             request: UniFfiMaterialRequest(
-                chain: nil, network: requestModel.network.rustWireValue, curve: requestModel.curve.rustWireValue,
+                chain: nil, curve: requestModel.curve.rustWireValue,
                 derivationAlgorithm: requestModel.derivationAlgorithm.rustWireValue,
                 addressAlgorithm: requestModel.addressAlgorithm.rustWireValue,
                 publicKeyFormat: requestModel.publicKeyFormat.rustWireValue,
@@ -101,14 +100,14 @@ enum WalletRustDerivationBridge {
             account: response.account, branch: response.branch, index: response.index)
     }
     nonisolated static func buildSigningMaterialFromPrivateKey(
-        chain: SeedDerivationChain, network: WalletDerivationNetwork = .mainnet, privateKeyHex: String, derivationPath: String
+        chain: SeedDerivationChain, privateKeyHex: String, derivationPath: String
     ) throws -> WalletRustSigningMaterialModel {
         let requestCompilationPreset = WalletDerivationPresetCatalog.requestCompilationPreset(for: chain)
         let curve = WalletDerivationPresetCatalog.curve(for: chain)
         let scriptType = try compileScriptType(from: requestCompilationPreset, derivationPath: derivationPath)
         let response = try derivationBuildMaterialFromPrivateKey(
             request: UniFfiPrivateKeyMaterialRequest(
-                chain: nil, network: network.rustWireValue, curve: curve.rustWireValue,
+                chain: nil, curve: curve.rustWireValue,
                 addressAlgorithm: requestCompilationPreset.addressAlgorithm.rustWireValue,
                 publicKeyFormat: requestCompilationPreset.publicKeyFormat.rustWireValue,
                 scriptType: scriptType.rustWireValue,
@@ -132,16 +131,6 @@ enum WalletRustDerivationBridge {
     }
 }
 
-extension WalletDerivationNetwork {
-    nonisolated var rustWireValue: UInt32 {
-        switch self {
-        case .mainnet: return 0
-        case .testnet: return 1
-        case .testnet4: return 2
-        case .signet: return 3
-        }
-    }
-}
 extension WalletDerivationCurve {
     nonisolated var rustWireValue: UInt32 {
         switch self {
@@ -198,7 +187,6 @@ extension AppCoreScriptType {
     }
 }
 struct WalletRustDerivationRequestModel: Sendable {
-    let network: WalletDerivationNetwork
     let curve: WalletDerivationCurve
     let requestedOutputs: WalletDerivationRequestedOutputs
     let derivationAlgorithm: AppCoreDerivationAlgorithm
@@ -218,7 +206,7 @@ struct WalletRustDerivationRequestModel: Sendable {
     /// reachable through this field.
     let advancedOverrides: CoreWalletDerivationOverrides?
     nonisolated init(
-        network: WalletDerivationNetwork, curve: WalletDerivationCurve,
+        curve: WalletDerivationCurve,
         requestedOutputs: WalletDerivationRequestedOutputs,
         derivationAlgorithm: AppCoreDerivationAlgorithm,
         addressAlgorithm: AppCoreAddressAlgorithm,
@@ -227,7 +215,6 @@ struct WalletRustDerivationRequestModel: Sendable {
         mnemonicWordlist: String?, iterationCount: UInt32,
         advancedOverrides: CoreWalletDerivationOverrides? = nil
     ) {
-        self.network = network
         self.curve = curve
         self.requestedOutputs = requestedOutputs
         self.derivationAlgorithm = derivationAlgorithm

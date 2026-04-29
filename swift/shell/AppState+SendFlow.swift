@@ -986,7 +986,7 @@ extension AppState {
             let derivationPath = utxoDiscoveryDerivationPath(for: wallet, chainName: chainName, branch: branch, index: index),
             let derivationChain = utxoDiscoveryDerivationChain(for: chainName),
             let address = try? deriveSeedPhraseAddress(
-                seedPhrase: seedPhrase, chain: derivationChain, network: derivationNetwork(for: derivationChain, wallet: wallet),
+                seedPhrase: seedPhrase, chain: derivationChain,
                 derivationPath: derivationPath
             ), isValidUTXOAddressForPolicy(address, chainName: chainName)
         else {

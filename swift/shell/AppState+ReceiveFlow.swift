@@ -518,7 +518,7 @@ extension AppState {
                         for (chainName, path) in chainPaths {
                             guard let chain = SeedDerivationChain(rawValue: chainName) else { continue }
                             if let address = try? WalletDerivationLayer.deriveAddress(
-                                seedPhrase: trimmedSeedPhrase, chain: chain, network: .mainnet,
+                                seedPhrase: trimmedSeedPhrase, chain: chain,
                                 derivationPath: path, overrides: overrides
                             ) {
                                 perChain[chainName] = address
@@ -841,31 +841,13 @@ extension AppState {
         }
     }
     static func deriveSeedPhraseAddress(
-        seedPhrase: String, chain: SeedDerivationChain, network: WalletDerivationNetwork, derivationPath: String
+        seedPhrase: String, chain: SeedDerivationChain, derivationPath: String
     ) throws -> String {
-        try WalletDerivationLayer.deriveAddress(seedPhrase: seedPhrase, chain: chain, network: network, derivationPath: derivationPath)
+        try WalletDerivationLayer.deriveAddress(seedPhrase: seedPhrase, chain: chain, derivationPath: derivationPath)
     }
-    func deriveSeedPhraseAddress(seedPhrase: String, chain: SeedDerivationChain, network: WalletDerivationNetwork, derivationPath: String)
+    func deriveSeedPhraseAddress(seedPhrase: String, chain: SeedDerivationChain, derivationPath: String)
         throws -> String
-    { try Self.deriveSeedPhraseAddress(seedPhrase: seedPhrase, chain: chain, network: network, derivationPath: derivationPath) }
-    func derivationNetwork(for chain: SeedDerivationChain, wallet: ImportedWallet? = nil) -> WalletDerivationNetwork {
-        switch chain {
-        case .bitcoin: return derivationNetwork(for: wallet.map(bitcoinNetworkMode(for:)) ?? bitcoinNetworkMode)
-        case .dogecoin: return derivationNetwork(for: wallet.map(dogecoinNetworkMode(for:)) ?? dogecoinNetworkMode)
-        default: return .mainnet
-        }
-    }
-    func derivationNetwork(for networkMode: BitcoinNetworkMode) -> WalletDerivationNetwork {
-        switch networkMode {
-        case .mainnet: .mainnet;
-        case .testnet: .testnet;
-        case .testnet4: .testnet4;
-        case .signet: .signet
-        }
-    }
-    func derivationNetwork(for networkMode: DogecoinNetworkMode) -> WalletDerivationNetwork {
-        networkMode == .testnet ? .testnet : .mainnet
-    }
+    { try Self.deriveSeedPhraseAddress(seedPhrase: seedPhrase, chain: chain, derivationPath: derivationPath) }
     func utxoDiscoveryDerivationChain(for chainName: String) -> SeedDerivationChain? {
         [
             "Bitcoin": SeedDerivationChain.bitcoin, "Bitcoin Cash": .bitcoinCash, "Bitcoin SV": .bitcoinSV, "Litecoin": .litecoin,

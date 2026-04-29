@@ -24,6 +24,7 @@ enum SetupChainCategory: String, CaseIterable, Identifiable {
     case evmL1
     case evmL2
     case other
+    case testnets
     var id: String { rawValue }
     var sectionTitle: String {
         switch self {
@@ -31,6 +32,7 @@ enum SetupChainCategory: String, CaseIterable, Identifiable {
         case .evmL1: return AppLocalization.string("EVM Chains")
         case .evmL2: return AppLocalization.string("EVM L2s")
         case .other: return AppLocalization.string("Other Chains")
+        case .testnets: return AppLocalization.string("Testnets")
         }
     }
 }
@@ -93,6 +95,40 @@ struct SetupView: View {
         SetupChainSelectionDescriptor(id: "unichain", title: "Unichain", symbol: "ETH", chainName: "Unichain", color: .pink, category: .evmL2),
         SetupChainSelectionDescriptor(id: "ink", title: "Ink", symbol: "ETH", chainName: "Ink", color: .purple, category: .evmL2),
         SetupChainSelectionDescriptor(id: "x-layer", title: "X Layer", symbol: "OKB", chainName: "X Layer", color: .gray, category: .evmL2),
+        // Testnets — each is a first-class chain (the chain identity carries
+        // the network flavor; there is no separate network parameter).
+        SetupChainSelectionDescriptor(id: "bitcoin-testnet", title: "Bitcoin Testnet", symbol: "tBTC", chainName: "Bitcoin Testnet", color: .orange, category: .testnets),
+        SetupChainSelectionDescriptor(id: "bitcoin-testnet4", title: "Bitcoin Testnet4", symbol: "tBTC", chainName: "Bitcoin Testnet4", color: .orange, category: .testnets),
+        SetupChainSelectionDescriptor(id: "bitcoin-signet", title: "Bitcoin Signet", symbol: "sBTC", chainName: "Bitcoin Signet", color: .orange, category: .testnets),
+        SetupChainSelectionDescriptor(id: "litecoin-testnet", title: "Litecoin Testnet", symbol: "tLTC", chainName: "Litecoin Testnet", color: .gray, category: .testnets),
+        SetupChainSelectionDescriptor(id: "bitcoin-cash-testnet", title: "Bitcoin Cash Testnet", symbol: "tBCH", chainName: "Bitcoin Cash Testnet", color: .orange, category: .testnets),
+        SetupChainSelectionDescriptor(id: "bitcoin-sv-testnet", title: "Bitcoin SV Testnet", symbol: "tBSV", chainName: "Bitcoin SV Testnet", color: .orange, category: .testnets),
+        SetupChainSelectionDescriptor(id: "dogecoin-testnet", title: "Dogecoin Testnet", symbol: "tDOGE", chainName: "Dogecoin Testnet", color: .brown, category: .testnets),
+        SetupChainSelectionDescriptor(id: "zcash-testnet", title: "Zcash Testnet", symbol: "tZEC", chainName: "Zcash Testnet", color: .yellow, category: .testnets),
+        SetupChainSelectionDescriptor(id: "decred-testnet", title: "Decred Testnet", symbol: "tDCR", chainName: "Decred Testnet", color: .teal, category: .testnets),
+        SetupChainSelectionDescriptor(id: "kaspa-testnet", title: "Kaspa Testnet", symbol: "tKAS", chainName: "Kaspa Testnet", color: .mint, category: .testnets),
+        SetupChainSelectionDescriptor(id: "dash-testnet", title: "Dash Testnet", symbol: "tDASH", chainName: "Dash Testnet", color: .blue, category: .testnets),
+        SetupChainSelectionDescriptor(id: "ethereum-sepolia", title: "Ethereum Sepolia", symbol: "SepoliaETH", chainName: "Ethereum Sepolia", color: .blue, category: .testnets),
+        SetupChainSelectionDescriptor(id: "ethereum-hoodi", title: "Ethereum Hoodi", symbol: "HoodiETH", chainName: "Ethereum Hoodi", color: .blue, category: .testnets),
+        SetupChainSelectionDescriptor(id: "arbitrum-sepolia", title: "Arbitrum Sepolia", symbol: "SepoliaARB", chainName: "Arbitrum Sepolia", color: .cyan, category: .testnets),
+        SetupChainSelectionDescriptor(id: "optimism-sepolia", title: "Optimism Sepolia", symbol: "SepoliaOP", chainName: "Optimism Sepolia", color: .red, category: .testnets),
+        SetupChainSelectionDescriptor(id: "base-sepolia", title: "Base Sepolia", symbol: "SepoliaETH", chainName: "Base Sepolia", color: .blue, category: .testnets),
+        SetupChainSelectionDescriptor(id: "bnb-testnet", title: "BNB Chain Testnet", symbol: "tBNB", chainName: "BNB Chain Testnet", color: .yellow, category: .testnets),
+        SetupChainSelectionDescriptor(id: "avalanche-fuji", title: "Avalanche Fuji", symbol: "FujiAVAX", chainName: "Avalanche Fuji", color: .red, category: .testnets),
+        SetupChainSelectionDescriptor(id: "polygon-amoy", title: "Polygon Amoy", symbol: "AmoyPOL", chainName: "Polygon Amoy", color: .purple, category: .testnets),
+        SetupChainSelectionDescriptor(id: "hyperliquid-testnet", title: "Hyperliquid Testnet", symbol: "tHYPE", chainName: "Hyperliquid Testnet", color: .mint, category: .testnets),
+        SetupChainSelectionDescriptor(id: "ethereum-classic-mordor", title: "Ethereum Classic Mordor", symbol: "MordorETC", chainName: "Ethereum Classic Mordor", color: .green, category: .testnets),
+        SetupChainSelectionDescriptor(id: "tron-nile", title: "Tron Nile", symbol: "NileTRX", chainName: "Tron Nile", color: .teal, category: .testnets),
+        SetupChainSelectionDescriptor(id: "solana-devnet", title: "Solana Devnet", symbol: "DevSOL", chainName: "Solana Devnet", color: .purple, category: .testnets),
+        SetupChainSelectionDescriptor(id: "xrp-testnet", title: "XRP Ledger Testnet", symbol: "tXRP", chainName: "XRP Ledger Testnet", color: .cyan, category: .testnets),
+        SetupChainSelectionDescriptor(id: "stellar-testnet", title: "Stellar Testnet", symbol: "tXLM", chainName: "Stellar Testnet", color: .teal, category: .testnets),
+        SetupChainSelectionDescriptor(id: "cardano-preprod", title: "Cardano Preprod", symbol: "tADA", chainName: "Cardano Preprod", color: .indigo, category: .testnets),
+        SetupChainSelectionDescriptor(id: "sui-testnet", title: "Sui Testnet", symbol: "tSUI", chainName: "Sui Testnet", color: .mint, category: .testnets),
+        SetupChainSelectionDescriptor(id: "aptos-testnet", title: "Aptos Testnet", symbol: "tAPT", chainName: "Aptos Testnet", color: .cyan, category: .testnets),
+        SetupChainSelectionDescriptor(id: "ton-testnet", title: "TON Testnet", symbol: "tTON", chainName: "TON Testnet", color: .blue, category: .testnets),
+        SetupChainSelectionDescriptor(id: "near-testnet", title: "NEAR Testnet", symbol: "tNEAR", chainName: "NEAR Testnet", color: .indigo, category: .testnets),
+        SetupChainSelectionDescriptor(id: "polkadot-westend", title: "Polkadot Westend", symbol: "WND", chainName: "Polkadot Westend", color: .pink, category: .testnets),
+        SetupChainSelectionDescriptor(id: "monero-stagenet", title: "Monero Stagenet", symbol: "sXMR", chainName: "Monero Stagenet", color: .indigo, category: .testnets),
     ]
     private static let popularChainSelectionIDs: [String] = [
         "bitcoin", "ethereum", "solana", "base", "arbitrum", "tron",
@@ -141,9 +177,6 @@ struct SetupView: View {
     private var isEditingWallet: Bool { draft.isEditingWallet }
     private var isCreateMode: Bool { draft.isCreateMode }
     private var isWatchAddressesImportMode: Bool { !isEditingWallet && !isCreateMode && draft.isWatchOnlyMode }
-    private var hasBitcoinSelection: Bool { draft.selectedChainNames.contains("Bitcoin") }
-    private var hasEthereumSelection: Bool { draft.selectedChainNames.contains("Ethereum") }
-    private var hasDogecoinSelection: Bool { draft.selectedChainNames.contains("Dogecoin") }
     private var usesSeedPhraseFlow: Bool { !isEditingWallet && !draft.isWatchOnlyMode }
     private var isPrivateKeyImportMode: Bool { draft.isPrivateKeyImportMode }
     private var usesWatchAddressesFlow: Bool { !isEditingWallet && draft.isWatchOnlyMode }
@@ -859,9 +892,6 @@ struct SetupView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text(advancedDescriptionText).font(.subheadline).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 16) {
-                if hasBitcoinSelection { bitcoinNetworkAdvancedSection }
-                if hasEthereumSelection { ethereumNetworkAdvancedSection }
-                if hasDogecoinSelection { dogecoinNetworkAdvancedSection }
                 ForEach(draft.selectableDerivationChains) { chain in
                     SeedPathSlotEditor(
                         title: chain.rawValue,
@@ -878,96 +908,7 @@ struct SetupView: View {
         PowerUserOverridesSection(draft: draft)
     }
     private var advancedDescriptionText: String {
-        if hasBitcoinSelection && hasEthereumSelection && hasDogecoinSelection {
-            return AppLocalization.string(
-                "Control the derivation path used for each selected chain and choose the Bitcoin, Ethereum, and Dogecoin networks when needed."
-            )
-        }
-        if hasBitcoinSelection && hasEthereumSelection {
-            return AppLocalization.string(
-                "Control the derivation path used for each selected chain and choose the Bitcoin and Ethereum networks when needed.")
-        }
-        if hasBitcoinSelection && hasDogecoinSelection {
-            return AppLocalization.string(
-                "Control the derivation path used for each selected chain and choose the Bitcoin and Dogecoin networks when needed.")
-        }
-        if hasEthereumSelection && hasDogecoinSelection {
-            return AppLocalization.string(
-                "Control the derivation path used for each selected chain and choose the Ethereum and Dogecoin networks when needed.")
-        }
-        if hasBitcoinSelection {
-            return AppLocalization.string(
-                "Control the derivation path used for each selected chain and choose the Bitcoin network when needed.")
-        }
-        if hasEthereumSelection {
-            return AppLocalization.string(
-                "Control the derivation path used for each selected chain and choose the Ethereum network when needed.")
-        }
-        if hasDogecoinSelection {
-            return AppLocalization.string(
-                "Control the derivation path used for each selected chain and choose the Dogecoin network when needed.")
-        }
-        return AppLocalization.string("Control the derivation path used for each selected chain.")
-    }
-    private var bitcoinNetworkAdvancedSection: some View {
-        networkModePicker(
-            title: AppLocalization.string("Bitcoin Network"), accentColor: .orange,
-            caption: AppLocalization.string(
-                "This controls Bitcoin wallet import, address validation, and endpoint usage for Bitcoin wallets."),
-            modeOptions: BitcoinNetworkMode.allCases.map { ($0.rawValue, $0.displayName) },
-            currentModeID: store.bitcoinNetworkMode.rawValue,
-            selectMode: { store.bitcoinNetworkMode = BitcoinNetworkMode(rawValue: $0) ?? .mainnet }
-        )
-    }
-    private var ethereumNetworkAdvancedSection: some View {
-        networkModePicker(
-            title: AppLocalization.string("Ethereum Network"), accentColor: .blue,
-            caption: AppLocalization.string(
-                "This controls Ethereum wallet import, balance refresh, history, and endpoint usage for Ethereum wallets."),
-            modeOptions: EthereumNetworkMode.allCases.map { ($0.rawValue, $0.displayName) },
-            currentModeID: store.ethereumNetworkMode.rawValue,
-            selectMode: { store.ethereumNetworkMode = EthereumNetworkMode(rawValue: $0) ?? .mainnet }
-        )
-    }
-    private var dogecoinNetworkAdvancedSection: some View {
-        networkModePicker(
-            title: AppLocalization.string("Dogecoin Network"), accentColor: .yellow, accentForeground: .yellow.opacity(0.9),
-            caption: AppLocalization.string(
-                "This controls Dogecoin wallet import, address validation, history, and endpoint usage for Dogecoin wallets."),
-            modeOptions: DogecoinNetworkMode.allCases.map { ($0.rawValue, $0.displayName) },
-            currentModeID: store.dogecoinNetworkMode.rawValue,
-            selectMode: { store.dogecoinNetworkMode = DogecoinNetworkMode(rawValue: $0) ?? .mainnet }
-        )
-    }
-    private func networkModePicker(
-        title: String, accentColor: Color, accentForeground: Color? = nil, caption: String,
-        modeOptions: [(id: String, displayName: String)], currentModeID: String, selectMode: @escaping (String) -> Void
-    ) -> some View {
-        let fg = accentForeground ?? accentColor
-        return VStack(alignment: .leading, spacing: 10) {
-            Text(title).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
-                ForEach(modeOptions, id: \.id) { mode in
-                    let isSelected = currentModeID == mode.id
-                    Button {
-                        selectMode(mode.id)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Text(mode.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(isSelected ? fg : Color.primary)
-                            Spacer(minLength: 0)
-                            if isSelected { Image(systemName: "checkmark.circle.fill").font(.caption.weight(.bold)).foregroundStyle(fg) }
-                        }.padding(.horizontal, 12).padding(.vertical, 11).frame(maxWidth: .infinity, alignment: .leading).background(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous).fill(
-                                isSelected ? accentColor.opacity(0.12) : Color.white.opacity(colorScheme == .light ? 0.78 : 0.05))
-                        ).overlay(
-                            RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(
-                                isSelected ? accentColor.opacity(0.7) : Color.primary.opacity(0.08), lineWidth: 1)
-                        )
-                    }.buttonStyle(.plain)
-                }
-            }
-            Text(caption).font(.caption).foregroundStyle(.secondary)
-        }
+        AppLocalization.string("Control the derivation path used for each selected chain. Pick a testnet from the chain list to use a testnet wallet.")
     }
     @ViewBuilder
     private var derivationAdvancedButton: some View {
@@ -992,22 +933,7 @@ struct SetupView: View {
         }
     }
     private var advancedButtonSubtitle: String {
-        if hasBitcoinSelection && hasEthereumSelection && hasDogecoinSelection {
-            return AppLocalization.string("Adjust derivation paths plus Bitcoin, Ethereum, and Dogecoin networks.")
-        }
-        if hasBitcoinSelection && hasEthereumSelection {
-            return AppLocalization.string("Adjust derivation paths plus Bitcoin and Ethereum networks.")
-        }
-        if hasBitcoinSelection && hasDogecoinSelection {
-            return AppLocalization.string("Adjust derivation paths plus Bitcoin and Dogecoin networks.")
-        }
-        if hasEthereumSelection && hasDogecoinSelection {
-            return AppLocalization.string("Adjust derivation paths plus Ethereum and Dogecoin networks.")
-        }
-        if hasBitcoinSelection { return AppLocalization.string("Adjust derivation paths and Bitcoin network.") }
-        if hasEthereumSelection { return AppLocalization.string("Adjust derivation paths and Ethereum network.") }
-        if hasDogecoinSelection { return AppLocalization.string("Adjust derivation paths and Dogecoin network.") }
-        return AppLocalization.string("Adjust derivation paths.")
+        AppLocalization.string("Adjust derivation paths.")
     }
     @ViewBuilder
     private var importSecretModePicker: some View {

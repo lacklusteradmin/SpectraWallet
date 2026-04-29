@@ -169,7 +169,7 @@ fileprivate protocol FfiConverter {
 // Types conforming to `Primitive` pass themselves directly over the FFI.
 fileprivate protocol FfiConverterPrimitive: FfiConverter where FfiType == SwiftType { }
 
-extension FfiConverterPrimitive {
+nonisolated extension FfiConverterPrimitive {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
@@ -189,7 +189,7 @@ extension FfiConverterPrimitive {
 // Used for complex types where it's hard to write a custom lift/lower.
 fileprivate protocol FfiConverterRustBuffer: FfiConverter where FfiType == RustBuffer {}
 
-extension FfiConverterRustBuffer {
+nonisolated extension FfiConverterRustBuffer {
 #if swift(>=5.8)
     @_documentation(visibility: private)
 #endif
@@ -248,10 +248,10 @@ fileprivate extension NSLock {
     }
 }
 
-fileprivate let CALL_SUCCESS: Int8 = 0
-fileprivate let CALL_ERROR: Int8 = 1
-fileprivate let CALL_UNEXPECTED_ERROR: Int8 = 2
-fileprivate let CALL_CANCELLED: Int8 = 3
+fileprivate nonisolated(unsafe) let CALL_SUCCESS: Int8 = 0
+fileprivate nonisolated(unsafe) let CALL_ERROR: Int8 = 1
+fileprivate nonisolated(unsafe) let CALL_UNEXPECTED_ERROR: Int8 = 2
+fileprivate nonisolated(unsafe) let CALL_CANCELLED: Int8 = 3
 
 fileprivate extension RustCallStatus {
     init() {
@@ -397,11 +397,11 @@ fileprivate final class UniffiHandleMap<T>: @unchecked Sendable {
 // Public interface members begin here.
 // Magic number for the Rust proxy to call using the same mechanism as every other method,
 // to free the callback once it's dropped by Rust.
-private let IDX_CALLBACK_FREE: Int32 = 0
+private nonisolated(unsafe) let IDX_CALLBACK_FREE: Int32 = 0
 // Callback return codes
-private let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
-private let UNIFFI_CALLBACK_ERROR: Int32 = 1
-private let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
+private nonisolated(unsafe) let UNIFFI_CALLBACK_SUCCESS: Int32 = 0
+private nonisolated(unsafe) let UNIFFI_CALLBACK_ERROR: Int32 = 1
+private nonisolated(unsafe) let UNIFFI_CALLBACK_UNEXPECTED_ERROR: Int32 = 2
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
@@ -651,7 +651,7 @@ public protocol BalanceObserver: AnyObject, Sendable {
  * state before invoking the callback, so Swift receives a typed
  * `WalletSummary` record directly — no JSON shuttle.
  */
-open class BalanceObserverImpl: BalanceObserver, @unchecked Sendable {
+nonisolated open class BalanceObserverImpl: BalanceObserver, @unchecked Sendable {
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
@@ -813,7 +813,7 @@ private func uniffiCallbackInitBalanceObserver() {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeBalanceObserver: FfiConverter {
+nonisolated public struct FfiConverterTypeBalanceObserver: FfiConverter {
     fileprivate static let handleMap = UniffiHandleMap<BalanceObserver>()
 
     typealias FfiType = UnsafeMutableRawPointer
@@ -924,7 +924,7 @@ public protocol BalanceRefreshEngineProtocol: AnyObject, Sendable {
  * 5. Call `set_entries` again whenever wallets are added/removed.
  * 6. `stop()` on background or logout.
  */
-open class BalanceRefreshEngine: BalanceRefreshEngineProtocol, @unchecked Sendable {
+nonisolated open class BalanceRefreshEngine: BalanceRefreshEngineProtocol, @unchecked Sendable {
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
@@ -1075,7 +1075,7 @@ nonisolated open func triggerImmediate()async   {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeBalanceRefreshEngine: FfiConverter {
+nonisolated public struct FfiConverterTypeBalanceRefreshEngine: FfiConverter {
 
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = BalanceRefreshEngine
@@ -1158,7 +1158,7 @@ public protocol SecretStore: AnyObject, Sendable {
 /**
  * Platform-backed secret store. Implemented in Swift/Kotlin, called from Rust.
  */
-open class SecretStoreImpl: SecretStore, @unchecked Sendable {
+nonisolated open class SecretStoreImpl: SecretStore, @unchecked Sendable {
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
@@ -1400,7 +1400,7 @@ private func uniffiCallbackInitSecretStore() {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSecretStore: FfiConverter {
+nonisolated public struct FfiConverterTypeSecretStore: FfiConverter {
     fileprivate static let handleMap = UniffiHandleMap<SecretStore>()
 
     typealias FfiType = UnsafeMutableRawPointer
@@ -1887,7 +1887,7 @@ public protocol WalletServiceProtocol: AnyObject, Sendable {
 /**
  * Swift holds one instance for the lifetime of the app session.
  */
-open class WalletService: WalletServiceProtocol, @unchecked Sendable {
+nonisolated open class WalletService: WalletServiceProtocol, @unchecked Sendable {
     fileprivate let pointer: UnsafeMutableRawPointer!
 
     /// Used to instantiate a [FFIObject] without an actual pointer, for fakes in tests, mostly.
@@ -3305,7 +3305,7 @@ nonisolated open func upsertWalletDirect(wallet: WalletSummary)async throws   {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletService: FfiConverter {
+nonisolated public struct FfiConverterTypeWalletService: FfiConverter {
 
     typealias FfiType = UnsafeMutableRawPointer
     typealias SwiftType = WalletService
@@ -3354,7 +3354,7 @@ nonisolated public func FfiConverterTypeWalletService_lower(_ value: WalletServi
 
 
 
-public struct ActiveMaintenancePlan {
+nonisolated public struct ActiveMaintenancePlan {
     public var refreshPendingTransactions: Bool
     public var refreshLivePrices: Bool
 
@@ -3367,11 +3367,11 @@ public struct ActiveMaintenancePlan {
 }
 
 #if compiler(>=6)
-extension ActiveMaintenancePlan: Sendable {}
+nonisolated extension ActiveMaintenancePlan: Sendable {}
 #endif
 
 
-extension ActiveMaintenancePlan: Equatable, Hashable {
+nonisolated extension ActiveMaintenancePlan: Equatable, Hashable {
     public static func ==(lhs: ActiveMaintenancePlan, rhs: ActiveMaintenancePlan) -> Bool {
         if lhs.refreshPendingTransactions != rhs.refreshPendingTransactions {
             return false
@@ -3393,7 +3393,7 @@ extension ActiveMaintenancePlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeActiveMaintenancePlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeActiveMaintenancePlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ActiveMaintenancePlan {
         return
             try ActiveMaintenancePlan(
@@ -3424,7 +3424,7 @@ nonisolated public func FfiConverterTypeActiveMaintenancePlan_lower(_ value: Act
 }
 
 
-public struct ActiveMaintenancePlanRequest {
+nonisolated public struct ActiveMaintenancePlanRequest {
     public var nowUnix: Double
     public var lastPendingTransactionRefreshAtUnix: Double?
     public var lastLivePriceRefreshAtUnix: Double?
@@ -3447,11 +3447,11 @@ public struct ActiveMaintenancePlanRequest {
 }
 
 #if compiler(>=6)
-extension ActiveMaintenancePlanRequest: Sendable {}
+nonisolated extension ActiveMaintenancePlanRequest: Sendable {}
 #endif
 
 
-extension ActiveMaintenancePlanRequest: Equatable, Hashable {
+nonisolated extension ActiveMaintenancePlanRequest: Equatable, Hashable {
     public static func ==(lhs: ActiveMaintenancePlanRequest, rhs: ActiveMaintenancePlanRequest) -> Bool {
         if lhs.nowUnix != rhs.nowUnix {
             return false
@@ -3493,7 +3493,7 @@ extension ActiveMaintenancePlanRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeActiveMaintenancePlanRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeActiveMaintenancePlanRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ActiveMaintenancePlanRequest {
         return
             try ActiveMaintenancePlanRequest(
@@ -3534,7 +3534,7 @@ nonisolated public func FfiConverterTypeActiveMaintenancePlanRequest_lower(_ val
 }
 
 
-public struct AddressValidationRequest {
+nonisolated public struct AddressValidationRequest {
     public var kind: String
     public var value: String
     public var networkMode: String?
@@ -3549,11 +3549,11 @@ public struct AddressValidationRequest {
 }
 
 #if compiler(>=6)
-extension AddressValidationRequest: Sendable {}
+nonisolated extension AddressValidationRequest: Sendable {}
 #endif
 
 
-extension AddressValidationRequest: Equatable, Hashable {
+nonisolated extension AddressValidationRequest: Equatable, Hashable {
     public static func ==(lhs: AddressValidationRequest, rhs: AddressValidationRequest) -> Bool {
         if lhs.kind != rhs.kind {
             return false
@@ -3579,7 +3579,7 @@ extension AddressValidationRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAddressValidationRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAddressValidationRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AddressValidationRequest {
         return
             try AddressValidationRequest(
@@ -3612,7 +3612,7 @@ nonisolated public func FfiConverterTypeAddressValidationRequest_lower(_ value: 
 }
 
 
-public struct AddressValidationResult {
+nonisolated public struct AddressValidationResult {
     public var isValid: Bool
     public var normalizedValue: String?
 
@@ -3625,11 +3625,11 @@ public struct AddressValidationResult {
 }
 
 #if compiler(>=6)
-extension AddressValidationResult: Sendable {}
+nonisolated extension AddressValidationResult: Sendable {}
 #endif
 
 
-extension AddressValidationResult: Equatable, Hashable {
+nonisolated extension AddressValidationResult: Equatable, Hashable {
     public static func ==(lhs: AddressValidationResult, rhs: AddressValidationResult) -> Bool {
         if lhs.isValid != rhs.isValid {
             return false
@@ -3651,7 +3651,7 @@ extension AddressValidationResult: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAddressValidationResult: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAddressValidationResult: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AddressValidationResult {
         return
             try AddressValidationResult(
@@ -3682,7 +3682,7 @@ nonisolated public func FfiConverterTypeAddressValidationResult_lower(_ value: A
 }
 
 
-public struct AppCoreAppChainDescriptor {
+nonisolated public struct AppCoreAppChainDescriptor {
     public var id: String
     public var chainName: String
     public var shortLabel: String
@@ -3707,11 +3707,11 @@ public struct AppCoreAppChainDescriptor {
 }
 
 #if compiler(>=6)
-extension AppCoreAppChainDescriptor: Sendable {}
+nonisolated extension AppCoreAppChainDescriptor: Sendable {}
 #endif
 
 
-extension AppCoreAppChainDescriptor: Equatable, Hashable {
+nonisolated extension AppCoreAppChainDescriptor: Equatable, Hashable {
     public static func ==(lhs: AppCoreAppChainDescriptor, rhs: AppCoreAppChainDescriptor) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -3757,7 +3757,7 @@ extension AppCoreAppChainDescriptor: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreAppChainDescriptor: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreAppChainDescriptor: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreAppChainDescriptor {
         return
             try AppCoreAppChainDescriptor(
@@ -3800,7 +3800,7 @@ nonisolated public func FfiConverterTypeAppCoreAppChainDescriptor_lower(_ value:
 }
 
 
-public struct AppCoreBroadcastProviderOption {
+nonisolated public struct AppCoreBroadcastProviderOption {
     public var id: String
     public var title: String
 
@@ -3813,11 +3813,11 @@ public struct AppCoreBroadcastProviderOption {
 }
 
 #if compiler(>=6)
-extension AppCoreBroadcastProviderOption: Sendable {}
+nonisolated extension AppCoreBroadcastProviderOption: Sendable {}
 #endif
 
 
-extension AppCoreBroadcastProviderOption: Equatable, Hashable {
+nonisolated extension AppCoreBroadcastProviderOption: Equatable, Hashable {
     public static func ==(lhs: AppCoreBroadcastProviderOption, rhs: AppCoreBroadcastProviderOption) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -3839,7 +3839,7 @@ extension AppCoreBroadcastProviderOption: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreBroadcastProviderOption: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreBroadcastProviderOption: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreBroadcastProviderOption {
         return
             try AppCoreBroadcastProviderOption(
@@ -3870,7 +3870,7 @@ nonisolated public func FfiConverterTypeAppCoreBroadcastProviderOption_lower(_ v
 }
 
 
-public struct AppCoreChainBackend {
+nonisolated public struct AppCoreChainBackend {
     public var chainName: String
     public var supportedSymbols: [String]
     public var integrationState: AppCoreChainIntegrationState
@@ -3893,11 +3893,11 @@ public struct AppCoreChainBackend {
 }
 
 #if compiler(>=6)
-extension AppCoreChainBackend: Sendable {}
+nonisolated extension AppCoreChainBackend: Sendable {}
 #endif
 
 
-extension AppCoreChainBackend: Equatable, Hashable {
+nonisolated extension AppCoreChainBackend: Equatable, Hashable {
     public static func ==(lhs: AppCoreChainBackend, rhs: AppCoreChainBackend) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -3939,7 +3939,7 @@ extension AppCoreChainBackend: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreChainBackend: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreChainBackend: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreChainBackend {
         return
             try AppCoreChainBackend(
@@ -3980,7 +3980,7 @@ nonisolated public func FfiConverterTypeAppCoreChainBackend_lower(_ value: AppCo
 }
 
 
-public struct AppCoreChainPreset {
+nonisolated public struct AppCoreChainPreset {
     public var chain: String
     public var curve: String
     public var networks: [AppCoreNetworkPreset]
@@ -3997,11 +3997,11 @@ public struct AppCoreChainPreset {
 }
 
 #if compiler(>=6)
-extension AppCoreChainPreset: Sendable {}
+nonisolated extension AppCoreChainPreset: Sendable {}
 #endif
 
 
-extension AppCoreChainPreset: Equatable, Hashable {
+nonisolated extension AppCoreChainPreset: Equatable, Hashable {
     public static func ==(lhs: AppCoreChainPreset, rhs: AppCoreChainPreset) -> Bool {
         if lhs.chain != rhs.chain {
             return false
@@ -4031,7 +4031,7 @@ extension AppCoreChainPreset: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreChainPreset: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreChainPreset: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreChainPreset {
         return
             try AppCoreChainPreset(
@@ -4066,7 +4066,7 @@ nonisolated public func FfiConverterTypeAppCoreChainPreset_lower(_ value: AppCor
 }
 
 
-public struct AppCoreDerivationPathResolution {
+nonisolated public struct AppCoreDerivationPathResolution {
     public var chain: String
     public var normalizedPath: String
     public var accountIndex: UInt32
@@ -4083,11 +4083,11 @@ public struct AppCoreDerivationPathResolution {
 }
 
 #if compiler(>=6)
-extension AppCoreDerivationPathResolution: Sendable {}
+nonisolated extension AppCoreDerivationPathResolution: Sendable {}
 #endif
 
 
-extension AppCoreDerivationPathResolution: Equatable, Hashable {
+nonisolated extension AppCoreDerivationPathResolution: Equatable, Hashable {
     public static func ==(lhs: AppCoreDerivationPathResolution, rhs: AppCoreDerivationPathResolution) -> Bool {
         if lhs.chain != rhs.chain {
             return false
@@ -4117,7 +4117,7 @@ extension AppCoreDerivationPathResolution: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreDerivationPathResolution: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreDerivationPathResolution: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreDerivationPathResolution {
         return
             try AppCoreDerivationPathResolution(
@@ -4152,7 +4152,7 @@ nonisolated public func FfiConverterTypeAppCoreDerivationPathResolution_lower(_ 
 }
 
 
-public struct AppCoreDiagnosticsCheck {
+nonisolated public struct AppCoreDiagnosticsCheck {
     public var endpoint: String
     public var probeUrl: String
 
@@ -4165,11 +4165,11 @@ public struct AppCoreDiagnosticsCheck {
 }
 
 #if compiler(>=6)
-extension AppCoreDiagnosticsCheck: Sendable {}
+nonisolated extension AppCoreDiagnosticsCheck: Sendable {}
 #endif
 
 
-extension AppCoreDiagnosticsCheck: Equatable, Hashable {
+nonisolated extension AppCoreDiagnosticsCheck: Equatable, Hashable {
     public static func ==(lhs: AppCoreDiagnosticsCheck, rhs: AppCoreDiagnosticsCheck) -> Bool {
         if lhs.endpoint != rhs.endpoint {
             return false
@@ -4191,7 +4191,7 @@ extension AppCoreDiagnosticsCheck: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreDiagnosticsCheck: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreDiagnosticsCheck: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreDiagnosticsCheck {
         return
             try AppCoreDiagnosticsCheck(
@@ -4222,7 +4222,7 @@ nonisolated public func FfiConverterTypeAppCoreDiagnosticsCheck_lower(_ value: A
 }
 
 
-public struct AppCoreEndpointRecord {
+nonisolated public struct AppCoreEndpointRecord {
     public var id: String
     public var chainName: String
     public var groupTitle: String
@@ -4249,11 +4249,11 @@ public struct AppCoreEndpointRecord {
 }
 
 #if compiler(>=6)
-extension AppCoreEndpointRecord: Sendable {}
+nonisolated extension AppCoreEndpointRecord: Sendable {}
 #endif
 
 
-extension AppCoreEndpointRecord: Equatable, Hashable {
+nonisolated extension AppCoreEndpointRecord: Equatable, Hashable {
     public static func ==(lhs: AppCoreEndpointRecord, rhs: AppCoreEndpointRecord) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -4303,7 +4303,7 @@ extension AppCoreEndpointRecord: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreEndpointRecord: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreEndpointRecord: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreEndpointRecord {
         return
             try AppCoreEndpointRecord(
@@ -4348,7 +4348,7 @@ nonisolated public func FfiConverterTypeAppCoreEndpointRecord_lower(_ value: App
 }
 
 
-public struct AppCoreExplorerEntry {
+nonisolated public struct AppCoreExplorerEntry {
     public var endpoint: String
     public var label: String
 
@@ -4361,11 +4361,11 @@ public struct AppCoreExplorerEntry {
 }
 
 #if compiler(>=6)
-extension AppCoreExplorerEntry: Sendable {}
+nonisolated extension AppCoreExplorerEntry: Sendable {}
 #endif
 
 
-extension AppCoreExplorerEntry: Equatable, Hashable {
+nonisolated extension AppCoreExplorerEntry: Equatable, Hashable {
     public static func ==(lhs: AppCoreExplorerEntry, rhs: AppCoreExplorerEntry) -> Bool {
         if lhs.endpoint != rhs.endpoint {
             return false
@@ -4387,7 +4387,7 @@ extension AppCoreExplorerEntry: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreExplorerEntry: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreExplorerEntry: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreExplorerEntry {
         return
             try AppCoreExplorerEntry(
@@ -4418,7 +4418,7 @@ nonisolated public func FfiConverterTypeAppCoreExplorerEntry_lower(_ value: AppC
 }
 
 
-public struct AppCoreGroupedSettingsEntry {
+nonisolated public struct AppCoreGroupedSettingsEntry {
     public var title: String
     public var endpoints: [String]
 
@@ -4431,11 +4431,11 @@ public struct AppCoreGroupedSettingsEntry {
 }
 
 #if compiler(>=6)
-extension AppCoreGroupedSettingsEntry: Sendable {}
+nonisolated extension AppCoreGroupedSettingsEntry: Sendable {}
 #endif
 
 
-extension AppCoreGroupedSettingsEntry: Equatable, Hashable {
+nonisolated extension AppCoreGroupedSettingsEntry: Equatable, Hashable {
     public static func ==(lhs: AppCoreGroupedSettingsEntry, rhs: AppCoreGroupedSettingsEntry) -> Bool {
         if lhs.title != rhs.title {
             return false
@@ -4457,7 +4457,7 @@ extension AppCoreGroupedSettingsEntry: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreGroupedSettingsEntry: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreGroupedSettingsEntry: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreGroupedSettingsEntry {
         return
             try AppCoreGroupedSettingsEntry(
@@ -4488,7 +4488,7 @@ nonisolated public func FfiConverterTypeAppCoreGroupedSettingsEntry_lower(_ valu
 }
 
 
-public struct AppCoreNetworkPreset {
+nonisolated public struct AppCoreNetworkPreset {
     public var network: String
     public var title: String
     public var detail: String
@@ -4505,11 +4505,11 @@ public struct AppCoreNetworkPreset {
 }
 
 #if compiler(>=6)
-extension AppCoreNetworkPreset: Sendable {}
+nonisolated extension AppCoreNetworkPreset: Sendable {}
 #endif
 
 
-extension AppCoreNetworkPreset: Equatable, Hashable {
+nonisolated extension AppCoreNetworkPreset: Equatable, Hashable {
     public static func ==(lhs: AppCoreNetworkPreset, rhs: AppCoreNetworkPreset) -> Bool {
         if lhs.network != rhs.network {
             return false
@@ -4539,7 +4539,7 @@ extension AppCoreNetworkPreset: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreNetworkPreset: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreNetworkPreset: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreNetworkPreset {
         return
             try AppCoreNetworkPreset(
@@ -4574,7 +4574,7 @@ nonisolated public func FfiConverterTypeAppCoreNetworkPreset_lower(_ value: AppC
 }
 
 
-public struct AppCorePathPreset {
+nonisolated public struct AppCorePathPreset {
     public var title: String
     public var detail: String
     public var derivationPath: String
@@ -4591,11 +4591,11 @@ public struct AppCorePathPreset {
 }
 
 #if compiler(>=6)
-extension AppCorePathPreset: Sendable {}
+nonisolated extension AppCorePathPreset: Sendable {}
 #endif
 
 
-extension AppCorePathPreset: Equatable, Hashable {
+nonisolated extension AppCorePathPreset: Equatable, Hashable {
     public static func ==(lhs: AppCorePathPreset, rhs: AppCorePathPreset) -> Bool {
         if lhs.title != rhs.title {
             return false
@@ -4625,7 +4625,7 @@ extension AppCorePathPreset: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCorePathPreset: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCorePathPreset: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCorePathPreset {
         return
             try AppCorePathPreset(
@@ -4660,7 +4660,7 @@ nonisolated public func FfiConverterTypeAppCorePathPreset_lower(_ value: AppCore
 }
 
 
-public struct AppCoreRequestCompilationPreset {
+nonisolated public struct AppCoreRequestCompilationPreset {
     public var chain: String
     public var derivationAlgorithm: AppCoreDerivationAlgorithm
     public var addressAlgorithm: AppCoreAddressAlgorithm
@@ -4683,11 +4683,11 @@ public struct AppCoreRequestCompilationPreset {
 }
 
 #if compiler(>=6)
-extension AppCoreRequestCompilationPreset: Sendable {}
+nonisolated extension AppCoreRequestCompilationPreset: Sendable {}
 #endif
 
 
-extension AppCoreRequestCompilationPreset: Equatable, Hashable {
+nonisolated extension AppCoreRequestCompilationPreset: Equatable, Hashable {
     public static func ==(lhs: AppCoreRequestCompilationPreset, rhs: AppCoreRequestCompilationPreset) -> Bool {
         if lhs.chain != rhs.chain {
             return false
@@ -4729,7 +4729,7 @@ extension AppCoreRequestCompilationPreset: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreRequestCompilationPreset: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreRequestCompilationPreset: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreRequestCompilationPreset {
         return
             try AppCoreRequestCompilationPreset(
@@ -4770,7 +4770,7 @@ nonisolated public func FfiConverterTypeAppCoreRequestCompilationPreset_lower(_ 
 }
 
 
-public struct AppSettings {
+nonisolated public struct AppSettings {
     public var preferredLocale: String
     public var fiatCurrencyCode: String
     public var diagnosticsEnabled: Bool
@@ -4785,11 +4785,11 @@ public struct AppSettings {
 }
 
 #if compiler(>=6)
-extension AppSettings: Sendable {}
+nonisolated extension AppSettings: Sendable {}
 #endif
 
 
-extension AppSettings: Equatable, Hashable {
+nonisolated extension AppSettings: Equatable, Hashable {
     public static func ==(lhs: AppSettings, rhs: AppSettings) -> Bool {
         if lhs.preferredLocale != rhs.preferredLocale {
             return false
@@ -4815,7 +4815,7 @@ extension AppSettings: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppSettings: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppSettings: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppSettings {
         return
             try AppSettings(
@@ -4848,7 +4848,7 @@ nonisolated public func FfiConverterTypeAppSettings_lower(_ value: AppSettings) 
 }
 
 
-public struct AptosHistoryDiagnostics {
+nonisolated public struct AptosHistoryDiagnostics {
     public var address: String
     public var sourceUsed: String
     public var transactionCount: Int32
@@ -4865,11 +4865,11 @@ public struct AptosHistoryDiagnostics {
 }
 
 #if compiler(>=6)
-extension AptosHistoryDiagnostics: Sendable {}
+nonisolated extension AptosHistoryDiagnostics: Sendable {}
 #endif
 
 
-extension AptosHistoryDiagnostics: Equatable, Hashable {
+nonisolated extension AptosHistoryDiagnostics: Equatable, Hashable {
     public static func ==(lhs: AptosHistoryDiagnostics, rhs: AptosHistoryDiagnostics) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -4899,7 +4899,7 @@ extension AptosHistoryDiagnostics: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAptosHistoryDiagnostics: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAptosHistoryDiagnostics: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AptosHistoryDiagnostics {
         return
             try AptosHistoryDiagnostics(
@@ -4934,7 +4934,7 @@ nonisolated public func FfiConverterTypeAptosHistoryDiagnostics_lower(_ value: A
 }
 
 
-public struct AptosSendPreview {
+nonisolated public struct AptosSendPreview {
     public var estimatedNetworkFeeApt: Double
     public var maxGasAmount: UInt64
     public var gasUnitPriceOctas: UInt64
@@ -4961,11 +4961,11 @@ public struct AptosSendPreview {
 }
 
 #if compiler(>=6)
-extension AptosSendPreview: Sendable {}
+nonisolated extension AptosSendPreview: Sendable {}
 #endif
 
 
-extension AptosSendPreview: Equatable, Hashable {
+nonisolated extension AptosSendPreview: Equatable, Hashable {
     public static func ==(lhs: AptosSendPreview, rhs: AptosSendPreview) -> Bool {
         if lhs.estimatedNetworkFeeApt != rhs.estimatedNetworkFeeApt {
             return false
@@ -5015,7 +5015,7 @@ extension AptosSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAptosSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAptosSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AptosSendPreview {
         return
             try AptosSendPreview(
@@ -5060,7 +5060,7 @@ nonisolated public func FfiConverterTypeAptosSendPreview_lower(_ value: AptosSen
 }
 
 
-public struct AssetDecimalsRequest {
+nonisolated public struct AssetDecimalsRequest {
     public var chainName: String
     public var symbol: String
     public var assetDisplayDecimals: UInt32
@@ -5077,11 +5077,11 @@ public struct AssetDecimalsRequest {
 }
 
 #if compiler(>=6)
-extension AssetDecimalsRequest: Sendable {}
+nonisolated extension AssetDecimalsRequest: Sendable {}
 #endif
 
 
-extension AssetDecimalsRequest: Equatable, Hashable {
+nonisolated extension AssetDecimalsRequest: Equatable, Hashable {
     public static func ==(lhs: AssetDecimalsRequest, rhs: AssetDecimalsRequest) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -5111,7 +5111,7 @@ extension AssetDecimalsRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAssetDecimalsRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAssetDecimalsRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AssetDecimalsRequest {
         return
             try AssetDecimalsRequest(
@@ -5146,7 +5146,7 @@ nonisolated public func FfiConverterTypeAssetDecimalsRequest_lower(_ value: Asse
 }
 
 
-public struct AssetDecimalsResolution {
+nonisolated public struct AssetDecimalsResolution {
     public var supported: UInt32
     public var display: UInt32
 
@@ -5159,11 +5159,11 @@ public struct AssetDecimalsResolution {
 }
 
 #if compiler(>=6)
-extension AssetDecimalsResolution: Sendable {}
+nonisolated extension AssetDecimalsResolution: Sendable {}
 #endif
 
 
-extension AssetDecimalsResolution: Equatable, Hashable {
+nonisolated extension AssetDecimalsResolution: Equatable, Hashable {
     public static func ==(lhs: AssetDecimalsResolution, rhs: AssetDecimalsResolution) -> Bool {
         if lhs.supported != rhs.supported {
             return false
@@ -5185,7 +5185,7 @@ extension AssetDecimalsResolution: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAssetDecimalsResolution: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAssetDecimalsResolution: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AssetDecimalsResolution {
         return
             try AssetDecimalsResolution(
@@ -5216,7 +5216,7 @@ nonisolated public func FfiConverterTypeAssetDecimalsResolution_lower(_ value: A
 }
 
 
-public struct AssetHolding {
+nonisolated public struct AssetHolding {
     public var name: String
     public var symbol: String
     public var coinGeckoId: String
@@ -5241,11 +5241,11 @@ public struct AssetHolding {
 }
 
 #if compiler(>=6)
-extension AssetHolding: Sendable {}
+nonisolated extension AssetHolding: Sendable {}
 #endif
 
 
-extension AssetHolding: Equatable, Hashable {
+nonisolated extension AssetHolding: Equatable, Hashable {
     public static func ==(lhs: AssetHolding, rhs: AssetHolding) -> Bool {
         if lhs.name != rhs.name {
             return false
@@ -5291,7 +5291,7 @@ extension AssetHolding: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAssetHolding: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAssetHolding: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AssetHolding {
         return
             try AssetHolding(
@@ -5334,7 +5334,7 @@ nonisolated public func FfiConverterTypeAssetHolding_lower(_ value: AssetHolding
 }
 
 
-public struct BackgroundMaintenanceRequest {
+nonisolated public struct BackgroundMaintenanceRequest {
     public var nowUnix: Double
     public var isNetworkReachable: Bool
     public var lastBackgroundMaintenanceAtUnix: Double?
@@ -5351,11 +5351,11 @@ public struct BackgroundMaintenanceRequest {
 }
 
 #if compiler(>=6)
-extension BackgroundMaintenanceRequest: Sendable {}
+nonisolated extension BackgroundMaintenanceRequest: Sendable {}
 #endif
 
 
-extension BackgroundMaintenanceRequest: Equatable, Hashable {
+nonisolated extension BackgroundMaintenanceRequest: Equatable, Hashable {
     public static func ==(lhs: BackgroundMaintenanceRequest, rhs: BackgroundMaintenanceRequest) -> Bool {
         if lhs.nowUnix != rhs.nowUnix {
             return false
@@ -5385,7 +5385,7 @@ extension BackgroundMaintenanceRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeBackgroundMaintenanceRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeBackgroundMaintenanceRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BackgroundMaintenanceRequest {
         return
             try BackgroundMaintenanceRequest(
@@ -5420,7 +5420,7 @@ nonisolated public func FfiConverterTypeBackgroundMaintenanceRequest_lower(_ val
 }
 
 
-public struct BalanceRefreshHealthPlan {
+nonisolated public struct BalanceRefreshHealthPlan {
     public var shouldMarkHealthy: Bool
     public var shouldNoteSuccessfulSync: Bool
     public var degradedDetail: String?
@@ -5435,11 +5435,11 @@ public struct BalanceRefreshHealthPlan {
 }
 
 #if compiler(>=6)
-extension BalanceRefreshHealthPlan: Sendable {}
+nonisolated extension BalanceRefreshHealthPlan: Sendable {}
 #endif
 
 
-extension BalanceRefreshHealthPlan: Equatable, Hashable {
+nonisolated extension BalanceRefreshHealthPlan: Equatable, Hashable {
     public static func ==(lhs: BalanceRefreshHealthPlan, rhs: BalanceRefreshHealthPlan) -> Bool {
         if lhs.shouldMarkHealthy != rhs.shouldMarkHealthy {
             return false
@@ -5465,7 +5465,7 @@ extension BalanceRefreshHealthPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeBalanceRefreshHealthPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeBalanceRefreshHealthPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BalanceRefreshHealthPlan {
         return
             try BalanceRefreshHealthPlan(
@@ -5498,7 +5498,7 @@ nonisolated public func FfiConverterTypeBalanceRefreshHealthPlan_lower(_ value: 
 }
 
 
-public struct BalanceRefreshHealthRequest {
+nonisolated public struct BalanceRefreshHealthRequest {
     public var chainName: String
     public var attemptedWalletCount: UInt64
     public var resolvedWalletCount: UInt64
@@ -5513,11 +5513,11 @@ public struct BalanceRefreshHealthRequest {
 }
 
 #if compiler(>=6)
-extension BalanceRefreshHealthRequest: Sendable {}
+nonisolated extension BalanceRefreshHealthRequest: Sendable {}
 #endif
 
 
-extension BalanceRefreshHealthRequest: Equatable, Hashable {
+nonisolated extension BalanceRefreshHealthRequest: Equatable, Hashable {
     public static func ==(lhs: BalanceRefreshHealthRequest, rhs: BalanceRefreshHealthRequest) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -5543,7 +5543,7 @@ extension BalanceRefreshHealthRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeBalanceRefreshHealthRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeBalanceRefreshHealthRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BalanceRefreshHealthRequest {
         return
             try BalanceRefreshHealthRequest(
@@ -5576,7 +5576,7 @@ nonisolated public func FfiConverterTypeBalanceRefreshHealthRequest_lower(_ valu
 }
 
 
-public struct BitcoinHdSendPreview {
+nonisolated public struct BitcoinHdSendPreview {
     public var estimatedFeeRateSatVb: UInt64
     public var estimatedNetworkFeeBtc: Double
     public var feeRateDescription: String
@@ -5597,11 +5597,11 @@ public struct BitcoinHdSendPreview {
 }
 
 #if compiler(>=6)
-extension BitcoinHdSendPreview: Sendable {}
+nonisolated extension BitcoinHdSendPreview: Sendable {}
 #endif
 
 
-extension BitcoinHdSendPreview: Equatable, Hashable {
+nonisolated extension BitcoinHdSendPreview: Equatable, Hashable {
     public static func ==(lhs: BitcoinHdSendPreview, rhs: BitcoinHdSendPreview) -> Bool {
         if lhs.estimatedFeeRateSatVb != rhs.estimatedFeeRateSatVb {
             return false
@@ -5639,7 +5639,7 @@ extension BitcoinHdSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeBitcoinHdSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeBitcoinHdSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BitcoinHdSendPreview {
         return
             try BitcoinHdSendPreview(
@@ -5678,7 +5678,7 @@ nonisolated public func FfiConverterTypeBitcoinHdSendPreview_lower(_ value: Bitc
 }
 
 
-public struct BitcoinHistoryDiagnostics {
+nonisolated public struct BitcoinHistoryDiagnostics {
     public var walletId: String
     public var identifier: String
     public var sourceUsed: String
@@ -5699,11 +5699,11 @@ public struct BitcoinHistoryDiagnostics {
 }
 
 #if compiler(>=6)
-extension BitcoinHistoryDiagnostics: Sendable {}
+nonisolated extension BitcoinHistoryDiagnostics: Sendable {}
 #endif
 
 
-extension BitcoinHistoryDiagnostics: Equatable, Hashable {
+nonisolated extension BitcoinHistoryDiagnostics: Equatable, Hashable {
     public static func ==(lhs: BitcoinHistoryDiagnostics, rhs: BitcoinHistoryDiagnostics) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -5741,7 +5741,7 @@ extension BitcoinHistoryDiagnostics: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeBitcoinHistoryDiagnostics: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeBitcoinHistoryDiagnostics: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BitcoinHistoryDiagnostics {
         return
             try BitcoinHistoryDiagnostics(
@@ -5780,7 +5780,7 @@ nonisolated public func FfiConverterTypeBitcoinHistoryDiagnostics_lower(_ value:
 }
 
 
-public struct BitcoinSendPreview {
+nonisolated public struct BitcoinSendPreview {
     public var estimatedFeeRateSatVb: UInt64
     public var estimatedNetworkFeeBtc: Double
     public var feeRateDescription: String?
@@ -5805,11 +5805,11 @@ public struct BitcoinSendPreview {
 }
 
 #if compiler(>=6)
-extension BitcoinSendPreview: Sendable {}
+nonisolated extension BitcoinSendPreview: Sendable {}
 #endif
 
 
-extension BitcoinSendPreview: Equatable, Hashable {
+nonisolated extension BitcoinSendPreview: Equatable, Hashable {
     public static func ==(lhs: BitcoinSendPreview, rhs: BitcoinSendPreview) -> Bool {
         if lhs.estimatedFeeRateSatVb != rhs.estimatedFeeRateSatVb {
             return false
@@ -5855,7 +5855,7 @@ extension BitcoinSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeBitcoinSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeBitcoinSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> BitcoinSendPreview {
         return
             try BitcoinSendPreview(
@@ -5898,7 +5898,7 @@ nonisolated public func FfiConverterTypeBitcoinSendPreview_lower(_ value: Bitcoi
 }
 
 
-public struct CardanoHistoryDiagnostics {
+nonisolated public struct CardanoHistoryDiagnostics {
     public var address: String
     public var sourceUsed: String
     public var transactionCount: Int32
@@ -5915,11 +5915,11 @@ public struct CardanoHistoryDiagnostics {
 }
 
 #if compiler(>=6)
-extension CardanoHistoryDiagnostics: Sendable {}
+nonisolated extension CardanoHistoryDiagnostics: Sendable {}
 #endif
 
 
-extension CardanoHistoryDiagnostics: Equatable, Hashable {
+nonisolated extension CardanoHistoryDiagnostics: Equatable, Hashable {
     public static func ==(lhs: CardanoHistoryDiagnostics, rhs: CardanoHistoryDiagnostics) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -5949,7 +5949,7 @@ extension CardanoHistoryDiagnostics: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCardanoHistoryDiagnostics: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCardanoHistoryDiagnostics: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CardanoHistoryDiagnostics {
         return
             try CardanoHistoryDiagnostics(
@@ -5984,7 +5984,7 @@ nonisolated public func FfiConverterTypeCardanoHistoryDiagnostics_lower(_ value:
 }
 
 
-public struct CardanoSendPreview {
+nonisolated public struct CardanoSendPreview {
     public var estimatedNetworkFeeAda: Double
     public var ttlSlot: UInt64
     public var spendableBalance: Double
@@ -6009,11 +6009,11 @@ public struct CardanoSendPreview {
 }
 
 #if compiler(>=6)
-extension CardanoSendPreview: Sendable {}
+nonisolated extension CardanoSendPreview: Sendable {}
 #endif
 
 
-extension CardanoSendPreview: Equatable, Hashable {
+nonisolated extension CardanoSendPreview: Equatable, Hashable {
     public static func ==(lhs: CardanoSendPreview, rhs: CardanoSendPreview) -> Bool {
         if lhs.estimatedNetworkFeeAda != rhs.estimatedNetworkFeeAda {
             return false
@@ -6059,7 +6059,7 @@ extension CardanoSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCardanoSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCardanoSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CardanoSendPreview {
         return
             try CardanoSendPreview(
@@ -6106,7 +6106,7 @@ nonisolated public func FfiConverterTypeCardanoSendPreview_lower(_ value: Cardan
  * Endpoint configuration passed in from Swift at construction time and
  * rebuilt via `update_endpoints_typed`.
  */
-public struct ChainEndpoints {
+nonisolated public struct ChainEndpoints {
     public var chainId: UInt32
     public var endpoints: [String]
     /**
@@ -6127,11 +6127,11 @@ public struct ChainEndpoints {
 }
 
 #if compiler(>=6)
-extension ChainEndpoints: Sendable {}
+nonisolated extension ChainEndpoints: Sendable {}
 #endif
 
 
-extension ChainEndpoints: Equatable, Hashable {
+nonisolated extension ChainEndpoints: Equatable, Hashable {
     public static func ==(lhs: ChainEndpoints, rhs: ChainEndpoints) -> Bool {
         if lhs.chainId != rhs.chainId {
             return false
@@ -6157,7 +6157,7 @@ extension ChainEndpoints: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeChainEndpoints: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeChainEndpoints: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChainEndpoints {
         return
             try ChainEndpoints(
@@ -6190,7 +6190,7 @@ nonisolated public func FfiConverterTypeChainEndpoints_lower(_ value: ChainEndpo
 }
 
 
-public struct ChainKeypoolBaselineInput {
+nonisolated public struct ChainKeypoolBaselineInput {
     public var supportsDeepUtxoDiscovery: Bool
     public var maxTransactionExternalIndex: Int32?
     public var maxTransactionChangeIndex: Int32?
@@ -6211,11 +6211,11 @@ public struct ChainKeypoolBaselineInput {
 }
 
 #if compiler(>=6)
-extension ChainKeypoolBaselineInput: Sendable {}
+nonisolated extension ChainKeypoolBaselineInput: Sendable {}
 #endif
 
 
-extension ChainKeypoolBaselineInput: Equatable, Hashable {
+nonisolated extension ChainKeypoolBaselineInput: Equatable, Hashable {
     public static func ==(lhs: ChainKeypoolBaselineInput, rhs: ChainKeypoolBaselineInput) -> Bool {
         if lhs.supportsDeepUtxoDiscovery != rhs.supportsDeepUtxoDiscovery {
             return false
@@ -6253,7 +6253,7 @@ extension ChainKeypoolBaselineInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeChainKeypoolBaselineInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeChainKeypoolBaselineInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChainKeypoolBaselineInput {
         return
             try ChainKeypoolBaselineInput(
@@ -6292,7 +6292,7 @@ nonisolated public func FfiConverterTypeChainKeypoolBaselineInput_lower(_ value:
 }
 
 
-public struct ChainKeypoolStateRecord {
+nonisolated public struct ChainKeypoolStateRecord {
     public var nextExternalIndex: Int32
     public var nextChangeIndex: Int32
     public var reservedReceiveIndex: Int32?
@@ -6307,11 +6307,11 @@ public struct ChainKeypoolStateRecord {
 }
 
 #if compiler(>=6)
-extension ChainKeypoolStateRecord: Sendable {}
+nonisolated extension ChainKeypoolStateRecord: Sendable {}
 #endif
 
 
-extension ChainKeypoolStateRecord: Equatable, Hashable {
+nonisolated extension ChainKeypoolStateRecord: Equatable, Hashable {
     public static func ==(lhs: ChainKeypoolStateRecord, rhs: ChainKeypoolStateRecord) -> Bool {
         if lhs.nextExternalIndex != rhs.nextExternalIndex {
             return false
@@ -6337,7 +6337,7 @@ extension ChainKeypoolStateRecord: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeChainKeypoolStateRecord: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeChainKeypoolStateRecord: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChainKeypoolStateRecord {
         return
             try ChainKeypoolStateRecord(
@@ -6370,7 +6370,7 @@ nonisolated public func FfiConverterTypeChainKeypoolStateRecord_lower(_ value: C
 }
 
 
-public struct ChainOperationalEventRecord {
+nonisolated public struct ChainOperationalEventRecord {
     public var id: String
     public var timestampUnix: Double
     public var chainName: String
@@ -6391,11 +6391,11 @@ public struct ChainOperationalEventRecord {
 }
 
 #if compiler(>=6)
-extension ChainOperationalEventRecord: Sendable {}
+nonisolated extension ChainOperationalEventRecord: Sendable {}
 #endif
 
 
-extension ChainOperationalEventRecord: Equatable, Hashable {
+nonisolated extension ChainOperationalEventRecord: Equatable, Hashable {
     public static func ==(lhs: ChainOperationalEventRecord, rhs: ChainOperationalEventRecord) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -6433,7 +6433,7 @@ extension ChainOperationalEventRecord: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeChainOperationalEventRecord: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeChainOperationalEventRecord: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChainOperationalEventRecord {
         return
             try ChainOperationalEventRecord(
@@ -6472,7 +6472,7 @@ nonisolated public func FfiConverterTypeChainOperationalEventRecord_lower(_ valu
 }
 
 
-public struct ChainRefreshPlan {
+nonisolated public struct ChainRefreshPlan {
     public var chainId: String
     public var chainName: String
     public var refreshHistory: Bool
@@ -6487,11 +6487,11 @@ public struct ChainRefreshPlan {
 }
 
 #if compiler(>=6)
-extension ChainRefreshPlan: Sendable {}
+nonisolated extension ChainRefreshPlan: Sendable {}
 #endif
 
 
-extension ChainRefreshPlan: Equatable, Hashable {
+nonisolated extension ChainRefreshPlan: Equatable, Hashable {
     public static func ==(lhs: ChainRefreshPlan, rhs: ChainRefreshPlan) -> Bool {
         if lhs.chainId != rhs.chainId {
             return false
@@ -6517,7 +6517,7 @@ extension ChainRefreshPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeChainRefreshPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeChainRefreshPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChainRefreshPlan {
         return
             try ChainRefreshPlan(
@@ -6550,7 +6550,7 @@ nonisolated public func FfiConverterTypeChainRefreshPlan_lower(_ value: ChainRef
 }
 
 
-public struct ChainRefreshPlanRequest {
+nonisolated public struct ChainRefreshPlanRequest {
     public var chainIds: [String]
     public var nowUnix: Double
     public var forceChainRefresh: Bool
@@ -6579,11 +6579,11 @@ public struct ChainRefreshPlanRequest {
 }
 
 #if compiler(>=6)
-extension ChainRefreshPlanRequest: Sendable {}
+nonisolated extension ChainRefreshPlanRequest: Sendable {}
 #endif
 
 
-extension ChainRefreshPlanRequest: Equatable, Hashable {
+nonisolated extension ChainRefreshPlanRequest: Equatable, Hashable {
     public static func ==(lhs: ChainRefreshPlanRequest, rhs: ChainRefreshPlanRequest) -> Bool {
         if lhs.chainIds != rhs.chainIds {
             return false
@@ -6637,7 +6637,7 @@ extension ChainRefreshPlanRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeChainRefreshPlanRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeChainRefreshPlanRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChainRefreshPlanRequest {
         return
             try ChainRefreshPlanRequest(
@@ -6684,7 +6684,7 @@ nonisolated public func FfiConverterTypeChainRefreshPlanRequest_lower(_ value: C
 }
 
 
-public struct ChainSelfTestResult {
+nonisolated public struct ChainSelfTestResult {
     public var name: String
     public var passed: Bool
     public var chainLabel: String
@@ -6701,11 +6701,11 @@ public struct ChainSelfTestResult {
 }
 
 #if compiler(>=6)
-extension ChainSelfTestResult: Sendable {}
+nonisolated extension ChainSelfTestResult: Sendable {}
 #endif
 
 
-extension ChainSelfTestResult: Equatable, Hashable {
+nonisolated extension ChainSelfTestResult: Equatable, Hashable {
     public static func ==(lhs: ChainSelfTestResult, rhs: ChainSelfTestResult) -> Bool {
         if lhs.name != rhs.name {
             return false
@@ -6735,7 +6735,7 @@ extension ChainSelfTestResult: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeChainSelfTestResult: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeChainSelfTestResult: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChainSelfTestResult {
         return
             try ChainSelfTestResult(
@@ -6770,7 +6770,7 @@ nonisolated public func FfiConverterTypeChainSelfTestResult_lower(_ value: Chain
 }
 
 
-public struct ChainSummary {
+nonisolated public struct ChainSummary {
     public var chainName: String
     public var curve: String
     public var defaultNetwork: String?
@@ -6793,11 +6793,11 @@ public struct ChainSummary {
 }
 
 #if compiler(>=6)
-extension ChainSummary: Sendable {}
+nonisolated extension ChainSummary: Sendable {}
 #endif
 
 
-extension ChainSummary: Equatable, Hashable {
+nonisolated extension ChainSummary: Equatable, Hashable {
     public static func ==(lhs: ChainSummary, rhs: ChainSummary) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -6839,7 +6839,7 @@ extension ChainSummary: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeChainSummary: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeChainSummary: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChainSummary {
         return
             try ChainSummary(
@@ -6880,7 +6880,7 @@ nonisolated public func FfiConverterTypeChainSummary_lower(_ value: ChainSummary
 }
 
 
-public struct CoreAppState {
+nonisolated public struct CoreAppState {
     public var schemaVersion: UInt32
     public var wallets: [WalletSummary]
     public var selectedWalletId: String?
@@ -6897,11 +6897,11 @@ public struct CoreAppState {
 }
 
 #if compiler(>=6)
-extension CoreAppState: Sendable {}
+nonisolated extension CoreAppState: Sendable {}
 #endif
 
 
-extension CoreAppState: Equatable, Hashable {
+nonisolated extension CoreAppState: Equatable, Hashable {
     public static func ==(lhs: CoreAppState, rhs: CoreAppState) -> Bool {
         if lhs.schemaVersion != rhs.schemaVersion {
             return false
@@ -6931,7 +6931,7 @@ extension CoreAppState: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreAppState: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreAppState: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreAppState {
         return
             try CoreAppState(
@@ -6966,7 +6966,7 @@ nonisolated public func FfiConverterTypeCoreAppState_lower(_ value: CoreAppState
 }
 
 
-public struct CoreBitcoinHistorySnapshot {
+nonisolated public struct CoreBitcoinHistorySnapshot {
     public var txid: String
     public var amountBtc: Double
     public var kind: String
@@ -6989,11 +6989,11 @@ public struct CoreBitcoinHistorySnapshot {
 }
 
 #if compiler(>=6)
-extension CoreBitcoinHistorySnapshot: Sendable {}
+nonisolated extension CoreBitcoinHistorySnapshot: Sendable {}
 #endif
 
 
-extension CoreBitcoinHistorySnapshot: Equatable, Hashable {
+nonisolated extension CoreBitcoinHistorySnapshot: Equatable, Hashable {
     public static func ==(lhs: CoreBitcoinHistorySnapshot, rhs: CoreBitcoinHistorySnapshot) -> Bool {
         if lhs.txid != rhs.txid {
             return false
@@ -7035,7 +7035,7 @@ extension CoreBitcoinHistorySnapshot: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreBitcoinHistorySnapshot: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreBitcoinHistorySnapshot: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreBitcoinHistorySnapshot {
         return
             try CoreBitcoinHistorySnapshot(
@@ -7076,7 +7076,7 @@ nonisolated public func FfiConverterTypeCoreBitcoinHistorySnapshot_lower(_ value
 }
 
 
-public struct CoreBootstrap {
+nonisolated public struct CoreBootstrap {
     public var capabilities: CoreCapabilities
     public var chains: [ChainSummary]
     public var localization: LocalizationSummary
@@ -7093,11 +7093,11 @@ public struct CoreBootstrap {
 }
 
 #if compiler(>=6)
-extension CoreBootstrap: Sendable {}
+nonisolated extension CoreBootstrap: Sendable {}
 #endif
 
 
-extension CoreBootstrap: Equatable, Hashable {
+nonisolated extension CoreBootstrap: Equatable, Hashable {
     public static func ==(lhs: CoreBootstrap, rhs: CoreBootstrap) -> Bool {
         if lhs.capabilities != rhs.capabilities {
             return false
@@ -7127,7 +7127,7 @@ extension CoreBootstrap: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreBootstrap: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreBootstrap: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreBootstrap {
         return
             try CoreBootstrap(
@@ -7162,7 +7162,7 @@ nonisolated public func FfiConverterTypeCoreBootstrap_lower(_ value: CoreBootstr
 }
 
 
-public struct CoreCapabilities {
+nonisolated public struct CoreCapabilities {
     public var schemaVersion: UInt32
     public var supportsDerivation: Bool
     public var supportsFetchContracts: Bool
@@ -7189,11 +7189,11 @@ public struct CoreCapabilities {
 }
 
 #if compiler(>=6)
-extension CoreCapabilities: Sendable {}
+nonisolated extension CoreCapabilities: Sendable {}
 #endif
 
 
-extension CoreCapabilities: Equatable, Hashable {
+nonisolated extension CoreCapabilities: Equatable, Hashable {
     public static func ==(lhs: CoreCapabilities, rhs: CoreCapabilities) -> Bool {
         if lhs.schemaVersion != rhs.schemaVersion {
             return false
@@ -7243,7 +7243,7 @@ extension CoreCapabilities: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreCapabilities: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreCapabilities: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreCapabilities {
         return
             try CoreCapabilities(
@@ -7288,7 +7288,7 @@ nonisolated public func FfiConverterTypeCoreCapabilities_lower(_ value: CoreCapa
 }
 
 
-public struct CoreCoin {
+nonisolated public struct CoreCoin {
     public var id: String
     public var name: String
     public var symbol: String
@@ -7315,11 +7315,11 @@ public struct CoreCoin {
 }
 
 #if compiler(>=6)
-extension CoreCoin: Sendable {}
+nonisolated extension CoreCoin: Sendable {}
 #endif
 
 
-extension CoreCoin: Equatable, Hashable {
+nonisolated extension CoreCoin: Equatable, Hashable {
     public static func ==(lhs: CoreCoin, rhs: CoreCoin) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -7369,7 +7369,7 @@ extension CoreCoin: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreCoin: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreCoin: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreCoin {
         return
             try CoreCoin(
@@ -7417,7 +7417,7 @@ nonisolated public func FfiConverterTypeCoreCoin_lower(_ value: CoreCoin) -> Rus
 /**
  * Swift `DashboardAssetChainEntry` — Color omitted (derived in Swift).
  */
-public struct CoreDashboardAssetChainEntry {
+nonisolated public struct CoreDashboardAssetChainEntry {
     public var coin: CoreCoin
     public var valueUsd: Double?
 
@@ -7430,11 +7430,11 @@ public struct CoreDashboardAssetChainEntry {
 }
 
 #if compiler(>=6)
-extension CoreDashboardAssetChainEntry: Sendable {}
+nonisolated extension CoreDashboardAssetChainEntry: Sendable {}
 #endif
 
 
-extension CoreDashboardAssetChainEntry: Equatable, Hashable {
+nonisolated extension CoreDashboardAssetChainEntry: Equatable, Hashable {
     public static func ==(lhs: CoreDashboardAssetChainEntry, rhs: CoreDashboardAssetChainEntry) -> Bool {
         if lhs.coin != rhs.coin {
             return false
@@ -7456,7 +7456,7 @@ extension CoreDashboardAssetChainEntry: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreDashboardAssetChainEntry: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreDashboardAssetChainEntry: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreDashboardAssetChainEntry {
         return
             try CoreDashboardAssetChainEntry(
@@ -7490,7 +7490,7 @@ nonisolated public func FfiConverterTypeCoreDashboardAssetChainEntry_lower(_ val
 /**
  * Swift `DashboardAssetGroup` — Color omitted (derived from representative coin in Swift).
  */
-public struct CoreDashboardAssetGroup {
+nonisolated public struct CoreDashboardAssetGroup {
     public var id: String
     public var representativeCoin: CoreCoin
     public var totalAmount: Double
@@ -7511,11 +7511,11 @@ public struct CoreDashboardAssetGroup {
 }
 
 #if compiler(>=6)
-extension CoreDashboardAssetGroup: Sendable {}
+nonisolated extension CoreDashboardAssetGroup: Sendable {}
 #endif
 
 
-extension CoreDashboardAssetGroup: Equatable, Hashable {
+nonisolated extension CoreDashboardAssetGroup: Equatable, Hashable {
     public static func ==(lhs: CoreDashboardAssetGroup, rhs: CoreDashboardAssetGroup) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -7553,7 +7553,7 @@ extension CoreDashboardAssetGroup: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreDashboardAssetGroup: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreDashboardAssetGroup: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreDashboardAssetGroup {
         return
             try CoreDashboardAssetGroup(
@@ -7595,7 +7595,7 @@ nonisolated public func FfiConverterTypeCoreDashboardAssetGroup_lower(_ value: C
 /**
  * Swift `DashboardPinOption` — Color omitted (derived from symbol in Swift).
  */
-public struct CoreDashboardPinOption {
+nonisolated public struct CoreDashboardPinOption {
     public var symbol: String
     public var name: String
     public var subtitle: String
@@ -7612,11 +7612,11 @@ public struct CoreDashboardPinOption {
 }
 
 #if compiler(>=6)
-extension CoreDashboardPinOption: Sendable {}
+nonisolated extension CoreDashboardPinOption: Sendable {}
 #endif
 
 
-extension CoreDashboardPinOption: Equatable, Hashable {
+nonisolated extension CoreDashboardPinOption: Equatable, Hashable {
     public static func ==(lhs: CoreDashboardPinOption, rhs: CoreDashboardPinOption) -> Bool {
         if lhs.symbol != rhs.symbol {
             return false
@@ -7646,7 +7646,7 @@ extension CoreDashboardPinOption: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreDashboardPinOption: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreDashboardPinOption: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreDashboardPinOption {
         return
             try CoreDashboardPinOption(
@@ -7681,7 +7681,7 @@ nonisolated public func FfiConverterTypeCoreDashboardPinOption_lower(_ value: Co
 }
 
 
-public struct CoreImportedWallet {
+nonisolated public struct CoreImportedWallet {
     public var id: String
     public var name: String
     public var bitcoinNetworkMode: CoreBitcoinNetworkMode
@@ -7760,11 +7760,11 @@ public struct CoreImportedWallet {
 }
 
 #if compiler(>=6)
-extension CoreImportedWallet: Sendable {}
+nonisolated extension CoreImportedWallet: Sendable {}
 #endif
 
 
-extension CoreImportedWallet: Equatable, Hashable {
+nonisolated extension CoreImportedWallet: Equatable, Hashable {
     public static func ==(lhs: CoreImportedWallet, rhs: CoreImportedWallet) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -7918,7 +7918,7 @@ extension CoreImportedWallet: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreImportedWallet: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreImportedWallet: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreImportedWallet {
         return
             try CoreImportedWallet(
@@ -8015,7 +8015,7 @@ nonisolated public func FfiConverterTypeCoreImportedWallet_lower(_ value: CoreIm
 }
 
 
-public struct CoreNormalizedHistoryEntry {
+nonisolated public struct CoreNormalizedHistoryEntry {
     public var id: String
     public var transactionId: String
     public var dedupeKey: String
@@ -8054,11 +8054,11 @@ public struct CoreNormalizedHistoryEntry {
 }
 
 #if compiler(>=6)
-extension CoreNormalizedHistoryEntry: Sendable {}
+nonisolated extension CoreNormalizedHistoryEntry: Sendable {}
 #endif
 
 
-extension CoreNormalizedHistoryEntry: Equatable, Hashable {
+nonisolated extension CoreNormalizedHistoryEntry: Equatable, Hashable {
     public static func ==(lhs: CoreNormalizedHistoryEntry, rhs: CoreNormalizedHistoryEntry) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -8132,7 +8132,7 @@ extension CoreNormalizedHistoryEntry: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreNormalizedHistoryEntry: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreNormalizedHistoryEntry: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreNormalizedHistoryEntry {
         return
             try CoreNormalizedHistoryEntry(
@@ -8192,7 +8192,7 @@ nonisolated public func FfiConverterTypeCoreNormalizedHistoryEntry_lower(_ value
 /**
  * Matches Swift `PersistedAddressBookEntry`.
  */
-public struct CorePersistedAddressBookEntry {
+nonisolated public struct CorePersistedAddressBookEntry {
     /**
      * UUID encoded as uppercase string (Swift default).
      */
@@ -8217,11 +8217,11 @@ public struct CorePersistedAddressBookEntry {
 }
 
 #if compiler(>=6)
-extension CorePersistedAddressBookEntry: Sendable {}
+nonisolated extension CorePersistedAddressBookEntry: Sendable {}
 #endif
 
 
-extension CorePersistedAddressBookEntry: Equatable, Hashable {
+nonisolated extension CorePersistedAddressBookEntry: Equatable, Hashable {
     public static func ==(lhs: CorePersistedAddressBookEntry, rhs: CorePersistedAddressBookEntry) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -8255,7 +8255,7 @@ extension CorePersistedAddressBookEntry: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCorePersistedAddressBookEntry: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCorePersistedAddressBookEntry: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CorePersistedAddressBookEntry {
         return
             try CorePersistedAddressBookEntry(
@@ -8295,7 +8295,7 @@ nonisolated public func FfiConverterTypeCorePersistedAddressBookEntry_lower(_ va
 /**
  * Matches Swift `PersistedAddressBookStore`. Current version constant: 1.
  */
-public struct CorePersistedAddressBookStore {
+nonisolated public struct CorePersistedAddressBookStore {
     public var version: Int32
     public var entries: [CorePersistedAddressBookEntry]
 
@@ -8308,11 +8308,11 @@ public struct CorePersistedAddressBookStore {
 }
 
 #if compiler(>=6)
-extension CorePersistedAddressBookStore: Sendable {}
+nonisolated extension CorePersistedAddressBookStore: Sendable {}
 #endif
 
 
-extension CorePersistedAddressBookStore: Equatable, Hashable {
+nonisolated extension CorePersistedAddressBookStore: Equatable, Hashable {
     public static func ==(lhs: CorePersistedAddressBookStore, rhs: CorePersistedAddressBookStore) -> Bool {
         if lhs.version != rhs.version {
             return false
@@ -8334,7 +8334,7 @@ extension CorePersistedAddressBookStore: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCorePersistedAddressBookStore: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCorePersistedAddressBookStore: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CorePersistedAddressBookStore {
         return
             try CorePersistedAddressBookStore(
@@ -8368,7 +8368,7 @@ nonisolated public func FfiConverterTypeCorePersistedAddressBookStore_lower(_ va
 /**
  * Matches Swift `PersistedPriceAlertRule`.
  */
-public struct CorePersistedPriceAlertRule {
+nonisolated public struct CorePersistedPriceAlertRule {
     /**
      * UUID encoded as uppercase string (Swift default).
      */
@@ -8407,11 +8407,11 @@ public struct CorePersistedPriceAlertRule {
 }
 
 #if compiler(>=6)
-extension CorePersistedPriceAlertRule: Sendable {}
+nonisolated extension CorePersistedPriceAlertRule: Sendable {}
 #endif
 
 
-extension CorePersistedPriceAlertRule: Equatable, Hashable {
+nonisolated extension CorePersistedPriceAlertRule: Equatable, Hashable {
     public static func ==(lhs: CorePersistedPriceAlertRule, rhs: CorePersistedPriceAlertRule) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -8461,7 +8461,7 @@ extension CorePersistedPriceAlertRule: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCorePersistedPriceAlertRule: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCorePersistedPriceAlertRule: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CorePersistedPriceAlertRule {
         return
             try CorePersistedPriceAlertRule(
@@ -8509,7 +8509,7 @@ nonisolated public func FfiConverterTypeCorePersistedPriceAlertRule_lower(_ valu
 /**
  * Matches Swift `PersistedPriceAlertStore`. Current version constant: 1.
  */
-public struct CorePersistedPriceAlertStore {
+nonisolated public struct CorePersistedPriceAlertStore {
     public var version: Int32
     public var alerts: [CorePersistedPriceAlertRule]
 
@@ -8522,11 +8522,11 @@ public struct CorePersistedPriceAlertStore {
 }
 
 #if compiler(>=6)
-extension CorePersistedPriceAlertStore: Sendable {}
+nonisolated extension CorePersistedPriceAlertStore: Sendable {}
 #endif
 
 
-extension CorePersistedPriceAlertStore: Equatable, Hashable {
+nonisolated extension CorePersistedPriceAlertStore: Equatable, Hashable {
     public static func ==(lhs: CorePersistedPriceAlertStore, rhs: CorePersistedPriceAlertStore) -> Bool {
         if lhs.version != rhs.version {
             return false
@@ -8548,7 +8548,7 @@ extension CorePersistedPriceAlertStore: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCorePersistedPriceAlertStore: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCorePersistedPriceAlertStore: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CorePersistedPriceAlertStore {
         return
             try CorePersistedPriceAlertStore(
@@ -8596,7 +8596,7 @@ nonisolated public func FfiConverterTypeCorePersistedPriceAlertStore_lower(_ val
  * `null`) when absent — Swift `decodeIfPresent` accepts both, and `serde`
  * with `skip_serializing_if` preserves the "omit when none" shape.
  */
-public struct CorePersistedTransactionRecord {
+nonisolated public struct CorePersistedTransactionRecord {
     public var id: String
     public var walletId: String?
     /**
@@ -8697,11 +8697,11 @@ public struct CorePersistedTransactionRecord {
 }
 
 #if compiler(>=6)
-extension CorePersistedTransactionRecord: Sendable {}
+nonisolated extension CorePersistedTransactionRecord: Sendable {}
 #endif
 
 
-extension CorePersistedTransactionRecord: Equatable, Hashable {
+nonisolated extension CorePersistedTransactionRecord: Equatable, Hashable {
     public static func ==(lhs: CorePersistedTransactionRecord, rhs: CorePersistedTransactionRecord) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -8855,7 +8855,7 @@ extension CorePersistedTransactionRecord: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCorePersistedTransactionRecord: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCorePersistedTransactionRecord: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CorePersistedTransactionRecord {
         return
             try CorePersistedTransactionRecord(
@@ -8952,7 +8952,7 @@ nonisolated public func FfiConverterTypeCorePersistedTransactionRecord_lower(_ v
 }
 
 
-public struct CoreResetPlan {
+nonisolated public struct CoreResetPlan {
     public var resetWalletsAndSecrets: Bool
     public var resetHistoryAndCache: Bool
     public var resetAlertsAndContacts: Bool
@@ -8975,11 +8975,11 @@ public struct CoreResetPlan {
 }
 
 #if compiler(>=6)
-extension CoreResetPlan: Sendable {}
+nonisolated extension CoreResetPlan: Sendable {}
 #endif
 
 
-extension CoreResetPlan: Equatable, Hashable {
+nonisolated extension CoreResetPlan: Equatable, Hashable {
     public static func ==(lhs: CoreResetPlan, rhs: CoreResetPlan) -> Bool {
         if lhs.resetWalletsAndSecrets != rhs.resetWalletsAndSecrets {
             return false
@@ -9021,7 +9021,7 @@ extension CoreResetPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreResetPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreResetPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreResetPlan {
         return
             try CoreResetPlan(
@@ -9062,7 +9062,7 @@ nonisolated public func FfiConverterTypeCoreResetPlan_lower(_ value: CoreResetPl
 }
 
 
-public struct CoreSeedDerivationPaths {
+nonisolated public struct CoreSeedDerivationPaths {
     public var isCustomEnabled: Bool
     public var bitcoin: String
     public var bitcoinCash: String
@@ -9161,11 +9161,11 @@ public struct CoreSeedDerivationPaths {
 }
 
 #if compiler(>=6)
-extension CoreSeedDerivationPaths: Sendable {}
+nonisolated extension CoreSeedDerivationPaths: Sendable {}
 #endif
 
 
-extension CoreSeedDerivationPaths: Equatable, Hashable {
+nonisolated extension CoreSeedDerivationPaths: Equatable, Hashable {
     public static func ==(lhs: CoreSeedDerivationPaths, rhs: CoreSeedDerivationPaths) -> Bool {
         if lhs.isCustomEnabled != rhs.isCustomEnabled {
             return false
@@ -9359,7 +9359,7 @@ extension CoreSeedDerivationPaths: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreSeedDerivationPaths: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreSeedDerivationPaths: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreSeedDerivationPaths {
         return
             try CoreSeedDerivationPaths(
@@ -9479,7 +9479,7 @@ nonisolated public func FfiConverterTypeCoreSeedDerivationPaths_lower(_ value: C
 /**
  * Swift `TokenPreferenceEntry`. UUID id is encoded as its standard string form.
  */
-public struct CoreTokenPreferenceEntry {
+nonisolated public struct CoreTokenPreferenceEntry {
     public var id: String
     public var chain: CoreTokenTrackingChain
     public var name: String
@@ -9512,11 +9512,11 @@ public struct CoreTokenPreferenceEntry {
 }
 
 #if compiler(>=6)
-extension CoreTokenPreferenceEntry: Sendable {}
+nonisolated extension CoreTokenPreferenceEntry: Sendable {}
 #endif
 
 
-extension CoreTokenPreferenceEntry: Equatable, Hashable {
+nonisolated extension CoreTokenPreferenceEntry: Equatable, Hashable {
     public static func ==(lhs: CoreTokenPreferenceEntry, rhs: CoreTokenPreferenceEntry) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -9578,7 +9578,7 @@ extension CoreTokenPreferenceEntry: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreTokenPreferenceEntry: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreTokenPreferenceEntry: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreTokenPreferenceEntry {
         return
             try CoreTokenPreferenceEntry(
@@ -9650,7 +9650,7 @@ nonisolated public func FfiConverterTypeCoreTokenPreferenceEntry_lower(_ value: 
  * (`TransactionRecord.rustBridgeRecord` / `.persistedSnapshot`), where the
  * time-base shift and type tightening can both be performed in one place.
  */
-public struct CoreTransactionRecord {
+nonisolated public struct CoreTransactionRecord {
     public var id: String
     public var walletId: String?
     public var kind: String
@@ -9729,11 +9729,11 @@ public struct CoreTransactionRecord {
 }
 
 #if compiler(>=6)
-extension CoreTransactionRecord: Sendable {}
+nonisolated extension CoreTransactionRecord: Sendable {}
 #endif
 
 
-extension CoreTransactionRecord: Equatable, Hashable {
+nonisolated extension CoreTransactionRecord: Equatable, Hashable {
     public static func ==(lhs: CoreTransactionRecord, rhs: CoreTransactionRecord) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -9887,7 +9887,7 @@ extension CoreTransactionRecord: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreTransactionRecord: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreTransactionRecord: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreTransactionRecord {
         return
             try CoreTransactionRecord(
@@ -9995,7 +9995,7 @@ nonisolated public func FfiConverterTypeCoreTransactionRecord_lower(_ value: Cor
  * against future runtime-side additions; invalid values surface as runtime
  * errors from the derivation pipeline.
  */
-public struct CoreWalletDerivationOverrides {
+nonisolated public struct CoreWalletDerivationOverrides {
     public var passphrase: String?
     public var mnemonicWordlist: String?
     public var iterationCount: UInt32?
@@ -10024,11 +10024,11 @@ public struct CoreWalletDerivationOverrides {
 }
 
 #if compiler(>=6)
-extension CoreWalletDerivationOverrides: Sendable {}
+nonisolated extension CoreWalletDerivationOverrides: Sendable {}
 #endif
 
 
-extension CoreWalletDerivationOverrides: Equatable, Hashable {
+nonisolated extension CoreWalletDerivationOverrides: Equatable, Hashable {
     public static func ==(lhs: CoreWalletDerivationOverrides, rhs: CoreWalletDerivationOverrides) -> Bool {
         if lhs.passphrase != rhs.passphrase {
             return false
@@ -10082,7 +10082,7 @@ extension CoreWalletDerivationOverrides: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreWalletDerivationOverrides: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreWalletDerivationOverrides: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreWalletDerivationOverrides {
         return
             try CoreWalletDerivationOverrides(
@@ -10132,7 +10132,7 @@ nonisolated public func FfiConverterTypeCoreWalletDerivationOverrides_lower(_ va
 /**
  * Swift `WalletRustSecretMaterialDescriptor`. JSON keys preserved for decode compat.
  */
-public struct CoreWalletRustSecretMaterialDescriptor {
+nonisolated public struct CoreWalletRustSecretMaterialDescriptor {
     public var walletId: String
     public var secretKind: String
     public var hasSeedPhrase: Bool
@@ -10159,11 +10159,11 @@ public struct CoreWalletRustSecretMaterialDescriptor {
 }
 
 #if compiler(>=6)
-extension CoreWalletRustSecretMaterialDescriptor: Sendable {}
+nonisolated extension CoreWalletRustSecretMaterialDescriptor: Sendable {}
 #endif
 
 
-extension CoreWalletRustSecretMaterialDescriptor: Equatable, Hashable {
+nonisolated extension CoreWalletRustSecretMaterialDescriptor: Equatable, Hashable {
     public static func ==(lhs: CoreWalletRustSecretMaterialDescriptor, rhs: CoreWalletRustSecretMaterialDescriptor) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -10213,7 +10213,7 @@ extension CoreWalletRustSecretMaterialDescriptor: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreWalletRustSecretMaterialDescriptor: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreWalletRustSecretMaterialDescriptor: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreWalletRustSecretMaterialDescriptor {
         return
             try CoreWalletRustSecretMaterialDescriptor(
@@ -10258,7 +10258,7 @@ nonisolated public func FfiConverterTypeCoreWalletRustSecretMaterialDescriptor_l
 }
 
 
-public struct DashboardRebuildDecisionRequest {
+nonisolated public struct DashboardRebuildDecisionRequest {
     public var oldPrices: [PriceAlertEvaluationPrice]
     public var newPrices: [PriceAlertEvaluationPrice]
     public var cachedRelevantPriceKeys: [String]
@@ -10277,11 +10277,11 @@ public struct DashboardRebuildDecisionRequest {
 }
 
 #if compiler(>=6)
-extension DashboardRebuildDecisionRequest: Sendable {}
+nonisolated extension DashboardRebuildDecisionRequest: Sendable {}
 #endif
 
 
-extension DashboardRebuildDecisionRequest: Equatable, Hashable {
+nonisolated extension DashboardRebuildDecisionRequest: Equatable, Hashable {
     public static func ==(lhs: DashboardRebuildDecisionRequest, rhs: DashboardRebuildDecisionRequest) -> Bool {
         if lhs.oldPrices != rhs.oldPrices {
             return false
@@ -10315,7 +10315,7 @@ extension DashboardRebuildDecisionRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeDashboardRebuildDecisionRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeDashboardRebuildDecisionRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DashboardRebuildDecisionRequest {
         return
             try DashboardRebuildDecisionRequest(
@@ -10352,7 +10352,7 @@ nonisolated public func FfiConverterTypeDashboardRebuildDecisionRequest_lower(_ 
 }
 
 
-public struct DerivationPathSegment {
+nonisolated public struct DerivationPathSegment {
     public var value: UInt32
     public var isHardened: Bool
 
@@ -10365,11 +10365,11 @@ public struct DerivationPathSegment {
 }
 
 #if compiler(>=6)
-extension DerivationPathSegment: Sendable {}
+nonisolated extension DerivationPathSegment: Sendable {}
 #endif
 
 
-extension DerivationPathSegment: Equatable, Hashable {
+nonisolated extension DerivationPathSegment: Equatable, Hashable {
     public static func ==(lhs: DerivationPathSegment, rhs: DerivationPathSegment) -> Bool {
         if lhs.value != rhs.value {
             return false
@@ -10391,7 +10391,7 @@ extension DerivationPathSegment: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeDerivationPathSegment: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeDerivationPathSegment: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DerivationPathSegment {
         return
             try DerivationPathSegment(
@@ -10422,7 +10422,7 @@ nonisolated public func FfiConverterTypeDerivationPathSegment_lower(_ value: Der
 }
 
 
-public struct DogecoinAggregateInput {
+nonisolated public struct DogecoinAggregateInput {
     public var ownAddresses: [String]
     public var entries: [NormalizedHistoryItem]
 
@@ -10435,11 +10435,11 @@ public struct DogecoinAggregateInput {
 }
 
 #if compiler(>=6)
-extension DogecoinAggregateInput: Sendable {}
+nonisolated extension DogecoinAggregateInput: Sendable {}
 #endif
 
 
-extension DogecoinAggregateInput: Equatable, Hashable {
+nonisolated extension DogecoinAggregateInput: Equatable, Hashable {
     public static func ==(lhs: DogecoinAggregateInput, rhs: DogecoinAggregateInput) -> Bool {
         if lhs.ownAddresses != rhs.ownAddresses {
             return false
@@ -10461,7 +10461,7 @@ extension DogecoinAggregateInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeDogecoinAggregateInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeDogecoinAggregateInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DogecoinAggregateInput {
         return
             try DogecoinAggregateInput(
@@ -10492,7 +10492,7 @@ nonisolated public func FfiConverterTypeDogecoinAggregateInput_lower(_ value: Do
 }
 
 
-public struct DogecoinAggregatedTx {
+nonisolated public struct DogecoinAggregatedTx {
     public var hash: String
     public var kind: String
     public var status: String
@@ -10521,11 +10521,11 @@ public struct DogecoinAggregatedTx {
 }
 
 #if compiler(>=6)
-extension DogecoinAggregatedTx: Sendable {}
+nonisolated extension DogecoinAggregatedTx: Sendable {}
 #endif
 
 
-extension DogecoinAggregatedTx: Equatable, Hashable {
+nonisolated extension DogecoinAggregatedTx: Equatable, Hashable {
     public static func ==(lhs: DogecoinAggregatedTx, rhs: DogecoinAggregatedTx) -> Bool {
         if lhs.hash != rhs.hash {
             return false
@@ -10567,7 +10567,7 @@ extension DogecoinAggregatedTx: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeDogecoinAggregatedTx: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeDogecoinAggregatedTx: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DogecoinAggregatedTx {
         return
             try DogecoinAggregatedTx(
@@ -10608,7 +10608,7 @@ nonisolated public func FfiConverterTypeDogecoinAggregatedTx_lower(_ value: Doge
 }
 
 
-public struct DogecoinRefreshTargetsRequest {
+nonisolated public struct DogecoinRefreshTargetsRequest {
     public var wallets: [DogecoinRefreshWalletInput]
     public var allowedWalletIds: [String]?
 
@@ -10621,11 +10621,11 @@ public struct DogecoinRefreshTargetsRequest {
 }
 
 #if compiler(>=6)
-extension DogecoinRefreshTargetsRequest: Sendable {}
+nonisolated extension DogecoinRefreshTargetsRequest: Sendable {}
 #endif
 
 
-extension DogecoinRefreshTargetsRequest: Equatable, Hashable {
+nonisolated extension DogecoinRefreshTargetsRequest: Equatable, Hashable {
     public static func ==(lhs: DogecoinRefreshTargetsRequest, rhs: DogecoinRefreshTargetsRequest) -> Bool {
         if lhs.wallets != rhs.wallets {
             return false
@@ -10647,7 +10647,7 @@ extension DogecoinRefreshTargetsRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeDogecoinRefreshTargetsRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeDogecoinRefreshTargetsRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DogecoinRefreshTargetsRequest {
         return
             try DogecoinRefreshTargetsRequest(
@@ -10678,7 +10678,7 @@ nonisolated public func FfiConverterTypeDogecoinRefreshTargetsRequest_lower(_ va
 }
 
 
-public struct DogecoinRefreshWalletInput {
+nonisolated public struct DogecoinRefreshWalletInput {
     public var index: UInt64
     public var walletId: String
     public var selectedChain: String
@@ -10695,11 +10695,11 @@ public struct DogecoinRefreshWalletInput {
 }
 
 #if compiler(>=6)
-extension DogecoinRefreshWalletInput: Sendable {}
+nonisolated extension DogecoinRefreshWalletInput: Sendable {}
 #endif
 
 
-extension DogecoinRefreshWalletInput: Equatable, Hashable {
+nonisolated extension DogecoinRefreshWalletInput: Equatable, Hashable {
     public static func ==(lhs: DogecoinRefreshWalletInput, rhs: DogecoinRefreshWalletInput) -> Bool {
         if lhs.index != rhs.index {
             return false
@@ -10729,7 +10729,7 @@ extension DogecoinRefreshWalletInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeDogecoinRefreshWalletInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeDogecoinRefreshWalletInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DogecoinRefreshWalletInput {
         return
             try DogecoinRefreshWalletInput(
@@ -10764,7 +10764,7 @@ nonisolated public func FfiConverterTypeDogecoinRefreshWalletInput_lower(_ value
 }
 
 
-public struct DogecoinRefreshWalletTarget {
+nonisolated public struct DogecoinRefreshWalletTarget {
     public var index: UInt64
     public var walletId: String
     public var addresses: [String]
@@ -10779,11 +10779,11 @@ public struct DogecoinRefreshWalletTarget {
 }
 
 #if compiler(>=6)
-extension DogecoinRefreshWalletTarget: Sendable {}
+nonisolated extension DogecoinRefreshWalletTarget: Sendable {}
 #endif
 
 
-extension DogecoinRefreshWalletTarget: Equatable, Hashable {
+nonisolated extension DogecoinRefreshWalletTarget: Equatable, Hashable {
     public static func ==(lhs: DogecoinRefreshWalletTarget, rhs: DogecoinRefreshWalletTarget) -> Bool {
         if lhs.index != rhs.index {
             return false
@@ -10809,7 +10809,7 @@ extension DogecoinRefreshWalletTarget: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeDogecoinRefreshWalletTarget: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeDogecoinRefreshWalletTarget: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DogecoinRefreshWalletTarget {
         return
             try DogecoinRefreshWalletTarget(
@@ -10842,7 +10842,7 @@ nonisolated public func FfiConverterTypeDogecoinRefreshWalletTarget_lower(_ valu
 }
 
 
-public struct DogecoinSendPreview {
+nonisolated public struct DogecoinSendPreview {
     public var spendableBalanceDoge: Double
     public var requestedAmountDoge: Double
     public var estimatedNetworkFeeDoge: Double
@@ -10875,11 +10875,11 @@ public struct DogecoinSendPreview {
 }
 
 #if compiler(>=6)
-extension DogecoinSendPreview: Sendable {}
+nonisolated extension DogecoinSendPreview: Sendable {}
 #endif
 
 
-extension DogecoinSendPreview: Equatable, Hashable {
+nonisolated extension DogecoinSendPreview: Equatable, Hashable {
     public static func ==(lhs: DogecoinSendPreview, rhs: DogecoinSendPreview) -> Bool {
         if lhs.spendableBalanceDoge != rhs.spendableBalanceDoge {
             return false
@@ -10941,7 +10941,7 @@ extension DogecoinSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeDogecoinSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeDogecoinSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DogecoinSendPreview {
         return
             try DogecoinSendPreview(
@@ -10992,7 +10992,7 @@ nonisolated public func FfiConverterTypeDogecoinSendPreview_lower(_ value: Dogec
 }
 
 
-public struct DogecoinSendPreviewDecoded {
+nonisolated public struct DogecoinSendPreviewDecoded {
     public var spendableBalanceDoge: Double
     public var requestedAmountDoge: Double
     public var estimatedNetworkFeeDoge: Double
@@ -11021,11 +11021,11 @@ public struct DogecoinSendPreviewDecoded {
 }
 
 #if compiler(>=6)
-extension DogecoinSendPreviewDecoded: Sendable {}
+nonisolated extension DogecoinSendPreviewDecoded: Sendable {}
 #endif
 
 
-extension DogecoinSendPreviewDecoded: Equatable, Hashable {
+nonisolated extension DogecoinSendPreviewDecoded: Equatable, Hashable {
     public static func ==(lhs: DogecoinSendPreviewDecoded, rhs: DogecoinSendPreviewDecoded) -> Bool {
         if lhs.spendableBalanceDoge != rhs.spendableBalanceDoge {
             return false
@@ -11079,7 +11079,7 @@ extension DogecoinSendPreviewDecoded: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeDogecoinSendPreviewDecoded: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeDogecoinSendPreviewDecoded: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DogecoinSendPreviewDecoded {
         return
             try DogecoinSendPreviewDecoded(
@@ -11130,7 +11130,7 @@ nonisolated public func FfiConverterTypeDogecoinSendPreviewDecoded_lower(_ value
  * Generic endpoint-health row (matches Swift `BitcoinEndpointHealthResult`
  * and the UTXO/non-EVM chains that reuse its shape).
  */
-public struct EndpointHealthRow {
+nonisolated public struct EndpointHealthRow {
     public var endpoint: String
     public var reachable: Bool
     public var statusCode: Int32?
@@ -11147,11 +11147,11 @@ public struct EndpointHealthRow {
 }
 
 #if compiler(>=6)
-extension EndpointHealthRow: Sendable {}
+nonisolated extension EndpointHealthRow: Sendable {}
 #endif
 
 
-extension EndpointHealthRow: Equatable, Hashable {
+nonisolated extension EndpointHealthRow: Equatable, Hashable {
     public static func ==(lhs: EndpointHealthRow, rhs: EndpointHealthRow) -> Bool {
         if lhs.endpoint != rhs.endpoint {
             return false
@@ -11181,7 +11181,7 @@ extension EndpointHealthRow: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEndpointHealthRow: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEndpointHealthRow: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EndpointHealthRow {
         return
             try EndpointHealthRow(
@@ -11219,7 +11219,7 @@ nonisolated public func FfiConverterTypeEndpointHealthRow_lower(_ value: Endpoin
 /**
  * Balance of an ERC-20 token held at a given address.
  */
-public struct Erc20Balance {
+nonisolated public struct Erc20Balance {
     /**
      * Token contract (checksummed lowercase hex, 0x-prefixed).
      */
@@ -11276,11 +11276,11 @@ public struct Erc20Balance {
 }
 
 #if compiler(>=6)
-extension Erc20Balance: Sendable {}
+nonisolated extension Erc20Balance: Sendable {}
 #endif
 
 
-extension Erc20Balance: Equatable, Hashable {
+nonisolated extension Erc20Balance: Equatable, Hashable {
     public static func ==(lhs: Erc20Balance, rhs: Erc20Balance) -> Bool {
         if lhs.contract != rhs.contract {
             return false
@@ -11318,7 +11318,7 @@ extension Erc20Balance: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeErc20Balance: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeErc20Balance: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> Erc20Balance {
         return
             try Erc20Balance(
@@ -11357,7 +11357,7 @@ nonisolated public func FfiConverterTypeErc20Balance_lower(_ value: Erc20Balance
 }
 
 
-public struct EthereumSendPreview {
+nonisolated public struct EthereumSendPreview {
     public var nonce: Int64
     public var gasLimit: Int64
     public var maxFeePerGasGwei: Double
@@ -11388,11 +11388,11 @@ public struct EthereumSendPreview {
 }
 
 #if compiler(>=6)
-extension EthereumSendPreview: Sendable {}
+nonisolated extension EthereumSendPreview: Sendable {}
 #endif
 
 
-extension EthereumSendPreview: Equatable, Hashable {
+nonisolated extension EthereumSendPreview: Equatable, Hashable {
     public static func ==(lhs: EthereumSendPreview, rhs: EthereumSendPreview) -> Bool {
         if lhs.nonce != rhs.nonce {
             return false
@@ -11450,7 +11450,7 @@ extension EthereumSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEthereumSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEthereumSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EthereumSendPreview {
         return
             try EthereumSendPreview(
@@ -11499,7 +11499,7 @@ nonisolated public func FfiConverterTypeEthereumSendPreview_lower(_ value: Ether
 }
 
 
-public struct EthereumTokenTransferHistoryDiagnostics {
+nonisolated public struct EthereumTokenTransferHistoryDiagnostics {
     public var address: String
     public var rpcTransferCount: Int32
     public var rpcError: String?
@@ -11536,11 +11536,11 @@ public struct EthereumTokenTransferHistoryDiagnostics {
 }
 
 #if compiler(>=6)
-extension EthereumTokenTransferHistoryDiagnostics: Sendable {}
+nonisolated extension EthereumTokenTransferHistoryDiagnostics: Sendable {}
 #endif
 
 
-extension EthereumTokenTransferHistoryDiagnostics: Equatable, Hashable {
+nonisolated extension EthereumTokenTransferHistoryDiagnostics: Equatable, Hashable {
     public static func ==(lhs: EthereumTokenTransferHistoryDiagnostics, rhs: EthereumTokenTransferHistoryDiagnostics) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -11610,7 +11610,7 @@ extension EthereumTokenTransferHistoryDiagnostics: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEthereumTokenTransferHistoryDiagnostics: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEthereumTokenTransferHistoryDiagnostics: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EthereumTokenTransferHistoryDiagnostics {
         return
             try EthereumTokenTransferHistoryDiagnostics(
@@ -11669,7 +11669,7 @@ nonisolated public func FfiConverterTypeEthereumTokenTransferHistoryDiagnostics_
  * EVM-address probe output. Used by chain-risk warnings to decide whether a
  * destination looks "fresh" (zero balance + zero nonce).
  */
-public struct EvmAddressProbe {
+nonisolated public struct EvmAddressProbe {
     public var nonce: Int64
     public var balanceEth: Double
 
@@ -11682,11 +11682,11 @@ public struct EvmAddressProbe {
 }
 
 #if compiler(>=6)
-extension EvmAddressProbe: Sendable {}
+nonisolated extension EvmAddressProbe: Sendable {}
 #endif
 
 
-extension EvmAddressProbe: Equatable, Hashable {
+nonisolated extension EvmAddressProbe: Equatable, Hashable {
     public static func ==(lhs: EvmAddressProbe, rhs: EvmAddressProbe) -> Bool {
         if lhs.nonce != rhs.nonce {
             return false
@@ -11708,7 +11708,7 @@ extension EvmAddressProbe: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmAddressProbe: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmAddressProbe: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmAddressProbe {
         return
             try EvmAddressProbe(
@@ -11739,7 +11739,7 @@ nonisolated public func FfiConverterTypeEvmAddressProbe_lower(_ value: EvmAddres
 }
 
 
-public struct EvmCustomFeeConfiguration {
+nonisolated public struct EvmCustomFeeConfiguration {
     public var maxFeePerGasGwei: Double
     public var maxPriorityFeePerGasGwei: Double
 
@@ -11752,11 +11752,11 @@ public struct EvmCustomFeeConfiguration {
 }
 
 #if compiler(>=6)
-extension EvmCustomFeeConfiguration: Sendable {}
+nonisolated extension EvmCustomFeeConfiguration: Sendable {}
 #endif
 
 
-extension EvmCustomFeeConfiguration: Equatable, Hashable {
+nonisolated extension EvmCustomFeeConfiguration: Equatable, Hashable {
     public static func ==(lhs: EvmCustomFeeConfiguration, rhs: EvmCustomFeeConfiguration) -> Bool {
         if lhs.maxFeePerGasGwei != rhs.maxFeePerGasGwei {
             return false
@@ -11778,7 +11778,7 @@ extension EvmCustomFeeConfiguration: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmCustomFeeConfiguration: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmCustomFeeConfiguration: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmCustomFeeConfiguration {
         return
             try EvmCustomFeeConfiguration(
@@ -11812,7 +11812,7 @@ nonisolated public func FfiConverterTypeEvmCustomFeeConfiguration_lower(_ value:
 /**
  * EVM endpoint-health row (adds a human-readable `label`).
  */
-public struct EvmEndpointHealthRow {
+nonisolated public struct EvmEndpointHealthRow {
     public var label: String
     public var endpoint: String
     public var reachable: Bool
@@ -11831,11 +11831,11 @@ public struct EvmEndpointHealthRow {
 }
 
 #if compiler(>=6)
-extension EvmEndpointHealthRow: Sendable {}
+nonisolated extension EvmEndpointHealthRow: Sendable {}
 #endif
 
 
-extension EvmEndpointHealthRow: Equatable, Hashable {
+nonisolated extension EvmEndpointHealthRow: Equatable, Hashable {
     public static func ==(lhs: EvmEndpointHealthRow, rhs: EvmEndpointHealthRow) -> Bool {
         if lhs.label != rhs.label {
             return false
@@ -11869,7 +11869,7 @@ extension EvmEndpointHealthRow: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmEndpointHealthRow: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmEndpointHealthRow: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmEndpointHealthRow {
         return
             try EvmEndpointHealthRow(
@@ -11906,7 +11906,7 @@ nonisolated public func FfiConverterTypeEvmEndpointHealthRow_lower(_ value: EvmE
 }
 
 
-public struct EvmGroupedTarget {
+nonisolated public struct EvmGroupedTarget {
     public var walletIds: [String]
     public var address: String
     public var normalizedAddress: String
@@ -11921,11 +11921,11 @@ public struct EvmGroupedTarget {
 }
 
 #if compiler(>=6)
-extension EvmGroupedTarget: Sendable {}
+nonisolated extension EvmGroupedTarget: Sendable {}
 #endif
 
 
-extension EvmGroupedTarget: Equatable, Hashable {
+nonisolated extension EvmGroupedTarget: Equatable, Hashable {
     public static func ==(lhs: EvmGroupedTarget, rhs: EvmGroupedTarget) -> Bool {
         if lhs.walletIds != rhs.walletIds {
             return false
@@ -11951,7 +11951,7 @@ extension EvmGroupedTarget: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmGroupedTarget: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmGroupedTarget: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmGroupedTarget {
         return
             try EvmGroupedTarget(
@@ -11988,7 +11988,7 @@ nonisolated public func FfiConverterTypeEvmGroupedTarget_lower(_ value: EvmGroup
  * EVM history entry keyed by wallet id (so Swift can pass the dictionary
  * values through without collapsing the wallet mapping).
  */
-public struct EvmHistoryEntry {
+nonisolated public struct EvmHistoryEntry {
     public var walletId: String
     public var diagnostics: EthereumTokenTransferHistoryDiagnostics
 
@@ -12001,11 +12001,11 @@ public struct EvmHistoryEntry {
 }
 
 #if compiler(>=6)
-extension EvmHistoryEntry: Sendable {}
+nonisolated extension EvmHistoryEntry: Sendable {}
 #endif
 
 
-extension EvmHistoryEntry: Equatable, Hashable {
+nonisolated extension EvmHistoryEntry: Equatable, Hashable {
     public static func ==(lhs: EvmHistoryEntry, rhs: EvmHistoryEntry) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -12027,7 +12027,7 @@ extension EvmHistoryEntry: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmHistoryEntry: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmHistoryEntry: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmHistoryEntry {
         return
             try EvmHistoryEntry(
@@ -12058,7 +12058,7 @@ nonisolated public func FfiConverterTypeEvmHistoryEntry_lower(_ value: EvmHistor
 }
 
 
-public struct EvmHistoryPageDecoded {
+nonisolated public struct EvmHistoryPageDecoded {
     public var tokens: [EvmTokenTransferItem]
     public var native: [EvmNativeTransferItem]
 
@@ -12071,11 +12071,11 @@ public struct EvmHistoryPageDecoded {
 }
 
 #if compiler(>=6)
-extension EvmHistoryPageDecoded: Sendable {}
+nonisolated extension EvmHistoryPageDecoded: Sendable {}
 #endif
 
 
-extension EvmHistoryPageDecoded: Equatable, Hashable {
+nonisolated extension EvmHistoryPageDecoded: Equatable, Hashable {
     public static func ==(lhs: EvmHistoryPageDecoded, rhs: EvmHistoryPageDecoded) -> Bool {
         if lhs.tokens != rhs.tokens {
             return false
@@ -12097,7 +12097,7 @@ extension EvmHistoryPageDecoded: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmHistoryPageDecoded: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmHistoryPageDecoded: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmHistoryPageDecoded {
         return
             try EvmHistoryPageDecoded(
@@ -12128,7 +12128,7 @@ nonisolated public func FfiConverterTypeEvmHistoryPageDecoded_lower(_ value: Evm
 }
 
 
-public struct EvmNativeAsset {
+nonisolated public struct EvmNativeAsset {
     public var assetName: String
     public var symbol: String
 
@@ -12141,11 +12141,11 @@ public struct EvmNativeAsset {
 }
 
 #if compiler(>=6)
-extension EvmNativeAsset: Sendable {}
+nonisolated extension EvmNativeAsset: Sendable {}
 #endif
 
 
-extension EvmNativeAsset: Equatable, Hashable {
+nonisolated extension EvmNativeAsset: Equatable, Hashable {
     public static func ==(lhs: EvmNativeAsset, rhs: EvmNativeAsset) -> Bool {
         if lhs.assetName != rhs.assetName {
             return false
@@ -12167,7 +12167,7 @@ extension EvmNativeAsset: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmNativeAsset: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmNativeAsset: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmNativeAsset {
         return
             try EvmNativeAsset(
@@ -12198,7 +12198,7 @@ nonisolated public func FfiConverterTypeEvmNativeAsset_lower(_ value: EvmNativeA
 }
 
 
-public struct EvmNativeTransferItem {
+nonisolated public struct EvmNativeTransferItem {
     public var fromAddress: String
     public var toAddress: String
     public var amountDecimal: String
@@ -12219,11 +12219,11 @@ public struct EvmNativeTransferItem {
 }
 
 #if compiler(>=6)
-extension EvmNativeTransferItem: Sendable {}
+nonisolated extension EvmNativeTransferItem: Sendable {}
 #endif
 
 
-extension EvmNativeTransferItem: Equatable, Hashable {
+nonisolated extension EvmNativeTransferItem: Equatable, Hashable {
     public static func ==(lhs: EvmNativeTransferItem, rhs: EvmNativeTransferItem) -> Bool {
         if lhs.fromAddress != rhs.fromAddress {
             return false
@@ -12261,7 +12261,7 @@ extension EvmNativeTransferItem: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmNativeTransferItem: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmNativeTransferItem: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmNativeTransferItem {
         return
             try EvmNativeTransferItem(
@@ -12300,7 +12300,7 @@ nonisolated public func FfiConverterTypeEvmNativeTransferItem_lower(_ value: Evm
 }
 
 
-public struct EvmPlannedTransactionRecord {
+nonisolated public struct EvmPlannedTransactionRecord {
     public var walletId: String
     public var walletName: String
     public var kind: String
@@ -12335,11 +12335,11 @@ public struct EvmPlannedTransactionRecord {
 }
 
 #if compiler(>=6)
-extension EvmPlannedTransactionRecord: Sendable {}
+nonisolated extension EvmPlannedTransactionRecord: Sendable {}
 #endif
 
 
-extension EvmPlannedTransactionRecord: Equatable, Hashable {
+nonisolated extension EvmPlannedTransactionRecord: Equatable, Hashable {
     public static func ==(lhs: EvmPlannedTransactionRecord, rhs: EvmPlannedTransactionRecord) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -12405,7 +12405,7 @@ extension EvmPlannedTransactionRecord: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmPlannedTransactionRecord: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmPlannedTransactionRecord: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmPlannedTransactionRecord {
         return
             try EvmPlannedTransactionRecord(
@@ -12458,7 +12458,7 @@ nonisolated public func FfiConverterTypeEvmPlannedTransactionRecord_lower(_ valu
 }
 
 
-public struct EvmReceiptClassification {
+nonisolated public struct EvmReceiptClassification {
     public var isConfirmed: Bool
     public var isFailed: Bool
     public var blockNumber: Int64?
@@ -12473,11 +12473,11 @@ public struct EvmReceiptClassification {
 }
 
 #if compiler(>=6)
-extension EvmReceiptClassification: Sendable {}
+nonisolated extension EvmReceiptClassification: Sendable {}
 #endif
 
 
-extension EvmReceiptClassification: Equatable, Hashable {
+nonisolated extension EvmReceiptClassification: Equatable, Hashable {
     public static func ==(lhs: EvmReceiptClassification, rhs: EvmReceiptClassification) -> Bool {
         if lhs.isConfirmed != rhs.isConfirmed {
             return false
@@ -12503,7 +12503,7 @@ extension EvmReceiptClassification: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmReceiptClassification: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmReceiptClassification: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmReceiptClassification {
         return
             try EvmReceiptClassification(
@@ -12536,7 +12536,7 @@ nonisolated public func FfiConverterTypeEvmReceiptClassification_lower(_ value: 
 }
 
 
-public struct EvmRecipientPreflightRequest {
+nonisolated public struct EvmRecipientPreflightRequest {
     public var chainName: String
     public var holdingSymbol: String
     public var tokenSymbol: String?
@@ -12555,11 +12555,11 @@ public struct EvmRecipientPreflightRequest {
 }
 
 #if compiler(>=6)
-extension EvmRecipientPreflightRequest: Sendable {}
+nonisolated extension EvmRecipientPreflightRequest: Sendable {}
 #endif
 
 
-extension EvmRecipientPreflightRequest: Equatable, Hashable {
+nonisolated extension EvmRecipientPreflightRequest: Equatable, Hashable {
     public static func ==(lhs: EvmRecipientPreflightRequest, rhs: EvmRecipientPreflightRequest) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -12593,7 +12593,7 @@ extension EvmRecipientPreflightRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmRecipientPreflightRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmRecipientPreflightRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmRecipientPreflightRequest {
         return
             try EvmRecipientPreflightRequest(
@@ -12630,7 +12630,7 @@ nonisolated public func FfiConverterTypeEvmRecipientPreflightRequest_lower(_ val
 }
 
 
-public struct EvmRecipientPreflightWarning {
+nonisolated public struct EvmRecipientPreflightWarning {
     public var code: String
     public var chainName: String?
     public var symbol: String?
@@ -12647,11 +12647,11 @@ public struct EvmRecipientPreflightWarning {
 }
 
 #if compiler(>=6)
-extension EvmRecipientPreflightWarning: Sendable {}
+nonisolated extension EvmRecipientPreflightWarning: Sendable {}
 #endif
 
 
-extension EvmRecipientPreflightWarning: Equatable, Hashable {
+nonisolated extension EvmRecipientPreflightWarning: Equatable, Hashable {
     public static func ==(lhs: EvmRecipientPreflightWarning, rhs: EvmRecipientPreflightWarning) -> Bool {
         if lhs.code != rhs.code {
             return false
@@ -12681,7 +12681,7 @@ extension EvmRecipientPreflightWarning: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmRecipientPreflightWarning: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmRecipientPreflightWarning: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmRecipientPreflightWarning {
         return
             try EvmRecipientPreflightWarning(
@@ -12716,7 +12716,7 @@ nonisolated public func FfiConverterTypeEvmRecipientPreflightWarning_lower(_ val
 }
 
 
-public struct EvmRefreshPlan {
+nonisolated public struct EvmRefreshPlan {
     public var walletTargets: [EvmRefreshWalletTarget]
     public var groupedTargets: [EvmGroupedTarget]
 
@@ -12729,11 +12729,11 @@ public struct EvmRefreshPlan {
 }
 
 #if compiler(>=6)
-extension EvmRefreshPlan: Sendable {}
+nonisolated extension EvmRefreshPlan: Sendable {}
 #endif
 
 
-extension EvmRefreshPlan: Equatable, Hashable {
+nonisolated extension EvmRefreshPlan: Equatable, Hashable {
     public static func ==(lhs: EvmRefreshPlan, rhs: EvmRefreshPlan) -> Bool {
         if lhs.walletTargets != rhs.walletTargets {
             return false
@@ -12755,7 +12755,7 @@ extension EvmRefreshPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmRefreshPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmRefreshPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmRefreshPlan {
         return
             try EvmRefreshPlan(
@@ -12786,7 +12786,7 @@ nonisolated public func FfiConverterTypeEvmRefreshPlan_lower(_ value: EvmRefresh
 }
 
 
-public struct EvmRefreshTargetsRequest {
+nonisolated public struct EvmRefreshTargetsRequest {
     public var chainName: String
     public var wallets: [EvmRefreshWalletInput]
     public var allowedWalletIds: [String]?
@@ -12803,11 +12803,11 @@ public struct EvmRefreshTargetsRequest {
 }
 
 #if compiler(>=6)
-extension EvmRefreshTargetsRequest: Sendable {}
+nonisolated extension EvmRefreshTargetsRequest: Sendable {}
 #endif
 
 
-extension EvmRefreshTargetsRequest: Equatable, Hashable {
+nonisolated extension EvmRefreshTargetsRequest: Equatable, Hashable {
     public static func ==(lhs: EvmRefreshTargetsRequest, rhs: EvmRefreshTargetsRequest) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -12837,7 +12837,7 @@ extension EvmRefreshTargetsRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmRefreshTargetsRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmRefreshTargetsRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmRefreshTargetsRequest {
         return
             try EvmRefreshTargetsRequest(
@@ -12872,7 +12872,7 @@ nonisolated public func FfiConverterTypeEvmRefreshTargetsRequest_lower(_ value: 
 }
 
 
-public struct EvmRefreshWalletInput {
+nonisolated public struct EvmRefreshWalletInput {
     public var index: UInt64
     public var walletId: String
     public var selectedChain: String
@@ -12889,11 +12889,11 @@ public struct EvmRefreshWalletInput {
 }
 
 #if compiler(>=6)
-extension EvmRefreshWalletInput: Sendable {}
+nonisolated extension EvmRefreshWalletInput: Sendable {}
 #endif
 
 
-extension EvmRefreshWalletInput: Equatable, Hashable {
+nonisolated extension EvmRefreshWalletInput: Equatable, Hashable {
     public static func ==(lhs: EvmRefreshWalletInput, rhs: EvmRefreshWalletInput) -> Bool {
         if lhs.index != rhs.index {
             return false
@@ -12923,7 +12923,7 @@ extension EvmRefreshWalletInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmRefreshWalletInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmRefreshWalletInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmRefreshWalletInput {
         return
             try EvmRefreshWalletInput(
@@ -12958,7 +12958,7 @@ nonisolated public func FfiConverterTypeEvmRefreshWalletInput_lower(_ value: Evm
 }
 
 
-public struct EvmRefreshWalletTarget {
+nonisolated public struct EvmRefreshWalletTarget {
     public var index: UInt64
     public var walletId: String
     public var address: String
@@ -12975,11 +12975,11 @@ public struct EvmRefreshWalletTarget {
 }
 
 #if compiler(>=6)
-extension EvmRefreshWalletTarget: Sendable {}
+nonisolated extension EvmRefreshWalletTarget: Sendable {}
 #endif
 
 
-extension EvmRefreshWalletTarget: Equatable, Hashable {
+nonisolated extension EvmRefreshWalletTarget: Equatable, Hashable {
     public static func ==(lhs: EvmRefreshWalletTarget, rhs: EvmRefreshWalletTarget) -> Bool {
         if lhs.index != rhs.index {
             return false
@@ -13009,7 +13009,7 @@ extension EvmRefreshWalletTarget: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmRefreshWalletTarget: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmRefreshWalletTarget: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmRefreshWalletTarget {
         return
             try EvmRefreshWalletTarget(
@@ -13044,7 +13044,7 @@ nonisolated public func FfiConverterTypeEvmRefreshWalletTarget_lower(_ value: Ev
 }
 
 
-public struct EvmReplacementFeeBump {
+nonisolated public struct EvmReplacementFeeBump {
     public var maxFeeGwei: String
     public var priorityFeeGwei: String
 
@@ -13057,11 +13057,11 @@ public struct EvmReplacementFeeBump {
 }
 
 #if compiler(>=6)
-extension EvmReplacementFeeBump: Sendable {}
+nonisolated extension EvmReplacementFeeBump: Sendable {}
 #endif
 
 
-extension EvmReplacementFeeBump: Equatable, Hashable {
+nonisolated extension EvmReplacementFeeBump: Equatable, Hashable {
     public static func ==(lhs: EvmReplacementFeeBump, rhs: EvmReplacementFeeBump) -> Bool {
         if lhs.maxFeeGwei != rhs.maxFeeGwei {
             return false
@@ -13083,7 +13083,7 @@ extension EvmReplacementFeeBump: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmReplacementFeeBump: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmReplacementFeeBump: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmReplacementFeeBump {
         return
             try EvmReplacementFeeBump(
@@ -13114,7 +13114,7 @@ nonisolated public func FfiConverterTypeEvmReplacementFeeBump_lower(_ value: Evm
 }
 
 
-public struct EvmSendAssembly {
+nonisolated public struct EvmSendAssembly {
     public var valueWei: String
     public var toAddress: String
     public var dataHex: String
@@ -13131,11 +13131,11 @@ public struct EvmSendAssembly {
 }
 
 #if compiler(>=6)
-extension EvmSendAssembly: Sendable {}
+nonisolated extension EvmSendAssembly: Sendable {}
 #endif
 
 
-extension EvmSendAssembly: Equatable, Hashable {
+nonisolated extension EvmSendAssembly: Equatable, Hashable {
     public static func ==(lhs: EvmSendAssembly, rhs: EvmSendAssembly) -> Bool {
         if lhs.valueWei != rhs.valueWei {
             return false
@@ -13165,7 +13165,7 @@ extension EvmSendAssembly: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmSendAssembly: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmSendAssembly: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmSendAssembly {
         return
             try EvmSendAssembly(
@@ -13200,7 +13200,7 @@ nonisolated public func FfiConverterTypeEvmSendAssembly_lower(_ value: EvmSendAs
 }
 
 
-public struct EvmSendAssemblyInput {
+nonisolated public struct EvmSendAssemblyInput {
     public var chainName: String
     public var symbol: String
     public var fromAddress: String
@@ -13221,11 +13221,11 @@ public struct EvmSendAssemblyInput {
 }
 
 #if compiler(>=6)
-extension EvmSendAssemblyInput: Sendable {}
+nonisolated extension EvmSendAssemblyInput: Sendable {}
 #endif
 
 
-extension EvmSendAssemblyInput: Equatable, Hashable {
+nonisolated extension EvmSendAssemblyInput: Equatable, Hashable {
     public static func ==(lhs: EvmSendAssemblyInput, rhs: EvmSendAssemblyInput) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -13263,7 +13263,7 @@ extension EvmSendAssemblyInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmSendAssemblyInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmSendAssemblyInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmSendAssemblyInput {
         return
             try EvmSendAssemblyInput(
@@ -13307,7 +13307,7 @@ nonisolated public func FfiConverterTypeEvmSendAssemblyInput_lower(_ value: EvmS
  * Rust side: `build_execute_send_payload` projects this into the comma-prefix
  * JSON fragment that `build_evm_*_send_payload` expects.
  */
-public struct EvmSendOverridesInput {
+nonisolated public struct EvmSendOverridesInput {
     public var nonce: Int64?
     public var customFees: EvmCustomFeeConfiguration?
 
@@ -13320,11 +13320,11 @@ public struct EvmSendOverridesInput {
 }
 
 #if compiler(>=6)
-extension EvmSendOverridesInput: Sendable {}
+nonisolated extension EvmSendOverridesInput: Sendable {}
 #endif
 
 
-extension EvmSendOverridesInput: Equatable, Hashable {
+nonisolated extension EvmSendOverridesInput: Equatable, Hashable {
     public static func ==(lhs: EvmSendOverridesInput, rhs: EvmSendOverridesInput) -> Bool {
         if lhs.nonce != rhs.nonce {
             return false
@@ -13346,7 +13346,7 @@ extension EvmSendOverridesInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmSendOverridesInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmSendOverridesInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmSendOverridesInput {
         return
             try EvmSendOverridesInput(
@@ -13377,7 +13377,7 @@ nonisolated public func FfiConverterTypeEvmSendOverridesInput_lower(_ value: Evm
 }
 
 
-public struct EvmSendResultDecoded {
+nonisolated public struct EvmSendResultDecoded {
     public var txid: String
     public var rawTxHex: String
     public var nonce: Int64
@@ -13394,11 +13394,11 @@ public struct EvmSendResultDecoded {
 }
 
 #if compiler(>=6)
-extension EvmSendResultDecoded: Sendable {}
+nonisolated extension EvmSendResultDecoded: Sendable {}
 #endif
 
 
-extension EvmSendResultDecoded: Equatable, Hashable {
+nonisolated extension EvmSendResultDecoded: Equatable, Hashable {
     public static func ==(lhs: EvmSendResultDecoded, rhs: EvmSendResultDecoded) -> Bool {
         if lhs.txid != rhs.txid {
             return false
@@ -13428,7 +13428,7 @@ extension EvmSendResultDecoded: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmSendResultDecoded: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmSendResultDecoded: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmSendResultDecoded {
         return
             try EvmSendResultDecoded(
@@ -13463,7 +13463,7 @@ nonisolated public func FfiConverterTypeEvmSendResultDecoded_lower(_ value: EvmS
 }
 
 
-public struct EvmSupportedToken {
+nonisolated public struct EvmSupportedToken {
     public var symbol: String
     public var contractAddress: String
     public var decimals: UInt32
@@ -13478,11 +13478,11 @@ public struct EvmSupportedToken {
 }
 
 #if compiler(>=6)
-extension EvmSupportedToken: Sendable {}
+nonisolated extension EvmSupportedToken: Sendable {}
 #endif
 
 
-extension EvmSupportedToken: Equatable, Hashable {
+nonisolated extension EvmSupportedToken: Equatable, Hashable {
     public static func ==(lhs: EvmSupportedToken, rhs: EvmSupportedToken) -> Bool {
         if lhs.symbol != rhs.symbol {
             return false
@@ -13508,7 +13508,7 @@ extension EvmSupportedToken: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmSupportedToken: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmSupportedToken: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmSupportedToken {
         return
             try EvmSupportedToken(
@@ -13541,7 +13541,7 @@ nonisolated public func FfiConverterTypeEvmSupportedToken_lower(_ value: EvmSupp
 }
 
 
-public struct EvmTokenTransferItem {
+nonisolated public struct EvmTokenTransferItem {
     public var contractAddress: String
     public var tokenName: String
     public var symbol: String
@@ -13580,11 +13580,11 @@ public struct EvmTokenTransferItem {
 }
 
 #if compiler(>=6)
-extension EvmTokenTransferItem: Sendable {}
+nonisolated extension EvmTokenTransferItem: Sendable {}
 #endif
 
 
-extension EvmTokenTransferItem: Equatable, Hashable {
+nonisolated extension EvmTokenTransferItem: Equatable, Hashable {
     public static func ==(lhs: EvmTokenTransferItem, rhs: EvmTokenTransferItem) -> Bool {
         if lhs.contractAddress != rhs.contractAddress {
             return false
@@ -13642,7 +13642,7 @@ extension EvmTokenTransferItem: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmTokenTransferItem: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmTokenTransferItem: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmTokenTransferItem {
         return
             try EvmTokenTransferItem(
@@ -13691,7 +13691,7 @@ nonisolated public func FfiConverterTypeEvmTokenTransferItem_lower(_ value: EvmT
 }
 
 
-public struct EvmTransactionRecordRequest {
+nonisolated public struct EvmTransactionRecordRequest {
     public var decodedPage: EvmHistoryPageDecoded
     public var normalizedAddress: String
     public var chainName: String
@@ -13716,11 +13716,11 @@ public struct EvmTransactionRecordRequest {
 }
 
 #if compiler(>=6)
-extension EvmTransactionRecordRequest: Sendable {}
+nonisolated extension EvmTransactionRecordRequest: Sendable {}
 #endif
 
 
-extension EvmTransactionRecordRequest: Equatable, Hashable {
+nonisolated extension EvmTransactionRecordRequest: Equatable, Hashable {
     public static func ==(lhs: EvmTransactionRecordRequest, rhs: EvmTransactionRecordRequest) -> Bool {
         if lhs.decodedPage != rhs.decodedPage {
             return false
@@ -13766,7 +13766,7 @@ extension EvmTransactionRecordRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmTransactionRecordRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmTransactionRecordRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmTransactionRecordRequest {
         return
             try EvmTransactionRecordRequest(
@@ -13809,7 +13809,7 @@ nonisolated public func FfiConverterTypeEvmTransactionRecordRequest_lower(_ valu
 }
 
 
-public struct EvmTransactionRecordWalletInput {
+nonisolated public struct EvmTransactionRecordWalletInput {
     public var walletId: String
     public var walletName: String
 
@@ -13822,11 +13822,11 @@ public struct EvmTransactionRecordWalletInput {
 }
 
 #if compiler(>=6)
-extension EvmTransactionRecordWalletInput: Sendable {}
+nonisolated extension EvmTransactionRecordWalletInput: Sendable {}
 #endif
 
 
-extension EvmTransactionRecordWalletInput: Equatable, Hashable {
+nonisolated extension EvmTransactionRecordWalletInput: Equatable, Hashable {
     public static func ==(lhs: EvmTransactionRecordWalletInput, rhs: EvmTransactionRecordWalletInput) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -13848,7 +13848,7 @@ extension EvmTransactionRecordWalletInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmTransactionRecordWalletInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmTransactionRecordWalletInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmTransactionRecordWalletInput {
         return
             try EvmTransactionRecordWalletInput(
@@ -13879,7 +13879,7 @@ nonisolated public func FfiConverterTypeEvmTransactionRecordWalletInput_lower(_ 
 }
 
 
-public struct FiatAmountRules {
+nonisolated public struct FiatAmountRules {
     public var decimals: UInt32
     public var minimumVisible: Double
 
@@ -13892,11 +13892,11 @@ public struct FiatAmountRules {
 }
 
 #if compiler(>=6)
-extension FiatAmountRules: Sendable {}
+nonisolated extension FiatAmountRules: Sendable {}
 #endif
 
 
-extension FiatAmountRules: Equatable, Hashable {
+nonisolated extension FiatAmountRules: Equatable, Hashable {
     public static func ==(lhs: FiatAmountRules, rhs: FiatAmountRules) -> Bool {
         if lhs.decimals != rhs.decimals {
             return false
@@ -13918,7 +13918,7 @@ extension FiatAmountRules: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeFiatAmountRules: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeFiatAmountRules: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FiatAmountRules {
         return
             try FiatAmountRules(
@@ -13949,7 +13949,7 @@ nonisolated public func FfiConverterTypeFiatAmountRules_lower(_ value: FiatAmoun
 }
 
 
-public struct GroupedPortfolioHolding {
+nonisolated public struct GroupedPortfolioHolding {
     public var assetIdentityKey: String
     public var walletId: String
     public var holdingIndex: UInt64
@@ -13966,11 +13966,11 @@ public struct GroupedPortfolioHolding {
 }
 
 #if compiler(>=6)
-extension GroupedPortfolioHolding: Sendable {}
+nonisolated extension GroupedPortfolioHolding: Sendable {}
 #endif
 
 
-extension GroupedPortfolioHolding: Equatable, Hashable {
+nonisolated extension GroupedPortfolioHolding: Equatable, Hashable {
     public static func ==(lhs: GroupedPortfolioHolding, rhs: GroupedPortfolioHolding) -> Bool {
         if lhs.assetIdentityKey != rhs.assetIdentityKey {
             return false
@@ -14000,7 +14000,7 @@ extension GroupedPortfolioHolding: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeGroupedPortfolioHolding: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeGroupedPortfolioHolding: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> GroupedPortfolioHolding {
         return
             try GroupedPortfolioHolding(
@@ -14038,7 +14038,7 @@ nonisolated public func FfiConverterTypeGroupedPortfolioHolding_lower(_ value: G
 /**
  * A chain_name + address pair used in the high-risk send evaluation.
  */
-public struct HighRiskChainAddress {
+nonisolated public struct HighRiskChainAddress {
     public var chainName: String
     public var address: String
 
@@ -14051,11 +14051,11 @@ public struct HighRiskChainAddress {
 }
 
 #if compiler(>=6)
-extension HighRiskChainAddress: Sendable {}
+nonisolated extension HighRiskChainAddress: Sendable {}
 #endif
 
 
-extension HighRiskChainAddress: Equatable, Hashable {
+nonisolated extension HighRiskChainAddress: Equatable, Hashable {
     public static func ==(lhs: HighRiskChainAddress, rhs: HighRiskChainAddress) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -14077,7 +14077,7 @@ extension HighRiskChainAddress: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHighRiskChainAddress: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHighRiskChainAddress: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HighRiskChainAddress {
         return
             try HighRiskChainAddress(
@@ -14112,7 +14112,7 @@ nonisolated public func FfiConverterTypeHighRiskChainAddress_lower(_ value: High
  * Typed input for high-risk send evaluation — replaces the JSON dict that
  * Swift previously assembled via `JSONSerialization`.
  */
-public struct HighRiskSendRequest {
+nonisolated public struct HighRiskSendRequest {
     public var chainName: String
     public var symbol: String
     public var amount: Double
@@ -14141,11 +14141,11 @@ public struct HighRiskSendRequest {
 }
 
 #if compiler(>=6)
-extension HighRiskSendRequest: Sendable {}
+nonisolated extension HighRiskSendRequest: Sendable {}
 #endif
 
 
-extension HighRiskSendRequest: Equatable, Hashable {
+nonisolated extension HighRiskSendRequest: Equatable, Hashable {
     public static func ==(lhs: HighRiskSendRequest, rhs: HighRiskSendRequest) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -14199,7 +14199,7 @@ extension HighRiskSendRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHighRiskSendRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHighRiskSendRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HighRiskSendRequest {
         return
             try HighRiskSendRequest(
@@ -14250,7 +14250,7 @@ nonisolated public func FfiConverterTypeHighRiskSendRequest_lower(_ value: HighR
  * A single high-risk warning with a code and optional metadata fields.
  * Swift maps these to localized user-facing strings.
  */
-public struct HighRiskSendWarning {
+nonisolated public struct HighRiskSendWarning {
     public var code: String
     public var chain: String?
     public var name: String?
@@ -14271,11 +14271,11 @@ public struct HighRiskSendWarning {
 }
 
 #if compiler(>=6)
-extension HighRiskSendWarning: Sendable {}
+nonisolated extension HighRiskSendWarning: Sendable {}
 #endif
 
 
-extension HighRiskSendWarning: Equatable, Hashable {
+nonisolated extension HighRiskSendWarning: Equatable, Hashable {
     public static func ==(lhs: HighRiskSendWarning, rhs: HighRiskSendWarning) -> Bool {
         if lhs.code != rhs.code {
             return false
@@ -14313,7 +14313,7 @@ extension HighRiskSendWarning: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHighRiskSendWarning: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHighRiskSendWarning: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HighRiskSendWarning {
         return
             try HighRiskSendWarning(
@@ -14358,7 +14358,7 @@ nonisolated public func FfiConverterTypeHighRiskSendWarning_lower(_ value: HighR
  * for the SQLite TEXT column and deserializes on read, so the JSON shape
  * never crosses the FFI as a String.
  */
-public struct HistoryRecord {
+nonisolated public struct HistoryRecord {
     public var id: String
     public var walletId: String?
     public var chainName: String
@@ -14379,11 +14379,11 @@ public struct HistoryRecord {
 }
 
 #if compiler(>=6)
-extension HistoryRecord: Sendable {}
+nonisolated extension HistoryRecord: Sendable {}
 #endif
 
 
-extension HistoryRecord: Equatable, Hashable {
+nonisolated extension HistoryRecord: Equatable, Hashable {
     public static func ==(lhs: HistoryRecord, rhs: HistoryRecord) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -14421,7 +14421,7 @@ extension HistoryRecord: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHistoryRecord: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHistoryRecord: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HistoryRecord {
         return
             try HistoryRecord(
@@ -14460,7 +14460,7 @@ nonisolated public func FfiConverterTypeHistoryRecord_lower(_ value: HistoryReco
 }
 
 
-public struct HistoryRefreshPlanRequest {
+nonisolated public struct HistoryRefreshPlanRequest {
     public var chainIds: [String]
     public var nowUnix: Double
     public var interval: Double
@@ -14477,11 +14477,11 @@ public struct HistoryRefreshPlanRequest {
 }
 
 #if compiler(>=6)
-extension HistoryRefreshPlanRequest: Sendable {}
+nonisolated extension HistoryRefreshPlanRequest: Sendable {}
 #endif
 
 
-extension HistoryRefreshPlanRequest: Equatable, Hashable {
+nonisolated extension HistoryRefreshPlanRequest: Equatable, Hashable {
     public static func ==(lhs: HistoryRefreshPlanRequest, rhs: HistoryRefreshPlanRequest) -> Bool {
         if lhs.chainIds != rhs.chainIds {
             return false
@@ -14511,7 +14511,7 @@ extension HistoryRefreshPlanRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHistoryRefreshPlanRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHistoryRefreshPlanRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HistoryRefreshPlanRequest {
         return
             try HistoryRefreshPlanRequest(
@@ -14546,7 +14546,7 @@ nonisolated public func FfiConverterTypeHistoryRefreshPlanRequest_lower(_ value:
 }
 
 
-public struct HistorySummary {
+nonisolated public struct HistorySummary {
     public var entryCount: UInt32
     public var confirmedTxids: [String]
 
@@ -14559,11 +14559,11 @@ public struct HistorySummary {
 }
 
 #if compiler(>=6)
-extension HistorySummary: Sendable {}
+nonisolated extension HistorySummary: Sendable {}
 #endif
 
 
-extension HistorySummary: Equatable, Hashable {
+nonisolated extension HistorySummary: Equatable, Hashable {
     public static func ==(lhs: HistorySummary, rhs: HistorySummary) -> Bool {
         if lhs.entryCount != rhs.entryCount {
             return false
@@ -14585,7 +14585,7 @@ extension HistorySummary: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHistorySummary: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHistorySummary: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HistorySummary {
         return
             try HistorySummary(
@@ -14616,7 +14616,7 @@ nonisolated public func FfiConverterTypeHistorySummary_lower(_ value: HistorySum
 }
 
 
-public struct HistoryTransaction {
+nonisolated public struct HistoryTransaction {
     public var id: String
     public var walletId: String?
     public var kind: String
@@ -14649,11 +14649,11 @@ public struct HistoryTransaction {
 }
 
 #if compiler(>=6)
-extension HistoryTransaction: Sendable {}
+nonisolated extension HistoryTransaction: Sendable {}
 #endif
 
 
-extension HistoryTransaction: Equatable, Hashable {
+nonisolated extension HistoryTransaction: Equatable, Hashable {
     public static func ==(lhs: HistoryTransaction, rhs: HistoryTransaction) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -14715,7 +14715,7 @@ extension HistoryTransaction: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHistoryTransaction: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHistoryTransaction: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HistoryTransaction {
         return
             try HistoryTransaction(
@@ -14766,7 +14766,7 @@ nonisolated public func FfiConverterTypeHistoryTransaction_lower(_ value: Histor
 }
 
 
-public struct HistoryWallet {
+nonisolated public struct HistoryWallet {
     public var walletId: String
     public var selectedChain: String
 
@@ -14779,11 +14779,11 @@ public struct HistoryWallet {
 }
 
 #if compiler(>=6)
-extension HistoryWallet: Sendable {}
+nonisolated extension HistoryWallet: Sendable {}
 #endif
 
 
-extension HistoryWallet: Equatable, Hashable {
+nonisolated extension HistoryWallet: Equatable, Hashable {
     public static func ==(lhs: HistoryWallet, rhs: HistoryWallet) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -14805,7 +14805,7 @@ extension HistoryWallet: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHistoryWallet: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHistoryWallet: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HistoryWallet {
         return
             try HistoryWallet(
@@ -14836,7 +14836,7 @@ nonisolated public func FfiConverterTypeHistoryWallet_lower(_ value: HistoryWall
 }
 
 
-public struct HoldingMergeAppendPayload {
+nonisolated public struct HoldingMergeAppendPayload {
     public var name: String
     public var symbol: String
     public var coinGeckoId: String
@@ -14859,11 +14859,11 @@ public struct HoldingMergeAppendPayload {
 }
 
 #if compiler(>=6)
-extension HoldingMergeAppendPayload: Sendable {}
+nonisolated extension HoldingMergeAppendPayload: Sendable {}
 #endif
 
 
-extension HoldingMergeAppendPayload: Equatable, Hashable {
+nonisolated extension HoldingMergeAppendPayload: Equatable, Hashable {
     public static func ==(lhs: HoldingMergeAppendPayload, rhs: HoldingMergeAppendPayload) -> Bool {
         if lhs.name != rhs.name {
             return false
@@ -14905,7 +14905,7 @@ extension HoldingMergeAppendPayload: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHoldingMergeAppendPayload: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHoldingMergeAppendPayload: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HoldingMergeAppendPayload {
         return
             try HoldingMergeAppendPayload(
@@ -14946,7 +14946,7 @@ nonisolated public func FfiConverterTypeHoldingMergeAppendPayload_lower(_ value:
 }
 
 
-public struct HoldingMergeExistingInput {
+nonisolated public struct HoldingMergeExistingInput {
     public var symbol: String
     public var chainName: String
     public var contractAddress: String?
@@ -14961,11 +14961,11 @@ public struct HoldingMergeExistingInput {
 }
 
 #if compiler(>=6)
-extension HoldingMergeExistingInput: Sendable {}
+nonisolated extension HoldingMergeExistingInput: Sendable {}
 #endif
 
 
-extension HoldingMergeExistingInput: Equatable, Hashable {
+nonisolated extension HoldingMergeExistingInput: Equatable, Hashable {
     public static func ==(lhs: HoldingMergeExistingInput, rhs: HoldingMergeExistingInput) -> Bool {
         if lhs.symbol != rhs.symbol {
             return false
@@ -14991,7 +14991,7 @@ extension HoldingMergeExistingInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHoldingMergeExistingInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHoldingMergeExistingInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HoldingMergeExistingInput {
         return
             try HoldingMergeExistingInput(
@@ -15024,7 +15024,7 @@ nonisolated public func FfiConverterTypeHoldingMergeExistingInput_lower(_ value:
 }
 
 
-public struct HoldingMergeIncomingInput {
+nonisolated public struct HoldingMergeIncomingInput {
     public var name: String
     public var symbol: String
     public var coinGeckoId: String
@@ -15047,11 +15047,11 @@ public struct HoldingMergeIncomingInput {
 }
 
 #if compiler(>=6)
-extension HoldingMergeIncomingInput: Sendable {}
+nonisolated extension HoldingMergeIncomingInput: Sendable {}
 #endif
 
 
-extension HoldingMergeIncomingInput: Equatable, Hashable {
+nonisolated extension HoldingMergeIncomingInput: Equatable, Hashable {
     public static func ==(lhs: HoldingMergeIncomingInput, rhs: HoldingMergeIncomingInput) -> Bool {
         if lhs.name != rhs.name {
             return false
@@ -15093,7 +15093,7 @@ extension HoldingMergeIncomingInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHoldingMergeIncomingInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHoldingMergeIncomingInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HoldingMergeIncomingInput {
         return
             try HoldingMergeIncomingInput(
@@ -15134,7 +15134,7 @@ nonisolated public func FfiConverterTypeHoldingMergeIncomingInput_lower(_ value:
 }
 
 
-public struct HttpHeader {
+nonisolated public struct HttpHeader {
     public var name: String
     public var value: String
 
@@ -15147,11 +15147,11 @@ public struct HttpHeader {
 }
 
 #if compiler(>=6)
-extension HttpHeader: Sendable {}
+nonisolated extension HttpHeader: Sendable {}
 #endif
 
 
-extension HttpHeader: Equatable, Hashable {
+nonisolated extension HttpHeader: Equatable, Hashable {
     public static func ==(lhs: HttpHeader, rhs: HttpHeader) -> Bool {
         if lhs.name != rhs.name {
             return false
@@ -15173,7 +15173,7 @@ extension HttpHeader: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHttpHeader: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHttpHeader: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HttpHeader {
         return
             try HttpHeader(
@@ -15204,7 +15204,7 @@ nonisolated public func FfiConverterTypeHttpHeader_lower(_ value: HttpHeader) ->
 }
 
 
-public struct HttpResponse {
+nonisolated public struct HttpResponse {
     public var statusCode: UInt16
     public var headers: [HttpHeader]
     public var body: Data
@@ -15219,11 +15219,11 @@ public struct HttpResponse {
 }
 
 #if compiler(>=6)
-extension HttpResponse: Sendable {}
+nonisolated extension HttpResponse: Sendable {}
 #endif
 
 
-extension HttpResponse: Equatable, Hashable {
+nonisolated extension HttpResponse: Equatable, Hashable {
     public static func ==(lhs: HttpResponse, rhs: HttpResponse) -> Bool {
         if lhs.statusCode != rhs.statusCode {
             return false
@@ -15249,7 +15249,7 @@ extension HttpResponse: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHttpResponse: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHttpResponse: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HttpResponse {
         return
             try HttpResponse(
@@ -15286,7 +15286,7 @@ nonisolated public func FfiConverterTypeHttpResponse_lower(_ value: HttpResponse
  * Text-oriented HTTP response used by the ergonomic wrappers below.
  * Headers are exposed as a simple string→string map for Swift use.
  */
-public struct HttpTextResponse {
+nonisolated public struct HttpTextResponse {
     public var status: UInt16
     public var body: String
     public var headers: [String: String]
@@ -15301,11 +15301,11 @@ public struct HttpTextResponse {
 }
 
 #if compiler(>=6)
-extension HttpTextResponse: Sendable {}
+nonisolated extension HttpTextResponse: Sendable {}
 #endif
 
 
-extension HttpTextResponse: Equatable, Hashable {
+nonisolated extension HttpTextResponse: Equatable, Hashable {
     public static func ==(lhs: HttpTextResponse, rhs: HttpTextResponse) -> Bool {
         if lhs.status != rhs.status {
             return false
@@ -15331,7 +15331,7 @@ extension HttpTextResponse: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHttpTextResponse: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHttpTextResponse: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HttpTextResponse {
         return
             try HttpTextResponse(
@@ -15364,7 +15364,7 @@ nonisolated public func FfiConverterTypeHttpTextResponse_lower(_ value: HttpText
 }
 
 
-public struct IcpHistoryDiagnostics {
+nonisolated public struct IcpHistoryDiagnostics {
     public var address: String
     public var sourceUsed: String
     public var transactionCount: Int32
@@ -15381,11 +15381,11 @@ public struct IcpHistoryDiagnostics {
 }
 
 #if compiler(>=6)
-extension IcpHistoryDiagnostics: Sendable {}
+nonisolated extension IcpHistoryDiagnostics: Sendable {}
 #endif
 
 
-extension IcpHistoryDiagnostics: Equatable, Hashable {
+nonisolated extension IcpHistoryDiagnostics: Equatable, Hashable {
     public static func ==(lhs: IcpHistoryDiagnostics, rhs: IcpHistoryDiagnostics) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -15415,7 +15415,7 @@ extension IcpHistoryDiagnostics: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeICPHistoryDiagnostics: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeICPHistoryDiagnostics: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> IcpHistoryDiagnostics {
         return
             try IcpHistoryDiagnostics(
@@ -15450,7 +15450,7 @@ nonisolated public func FfiConverterTypeICPHistoryDiagnostics_lower(_ value: Icp
 }
 
 
-public struct IcpSendPreview {
+nonisolated public struct IcpSendPreview {
     public var estimatedNetworkFeeIcp: Double
     public var feeE8s: UInt64
     public var spendableBalance: Double
@@ -15475,11 +15475,11 @@ public struct IcpSendPreview {
 }
 
 #if compiler(>=6)
-extension IcpSendPreview: Sendable {}
+nonisolated extension IcpSendPreview: Sendable {}
 #endif
 
 
-extension IcpSendPreview: Equatable, Hashable {
+nonisolated extension IcpSendPreview: Equatable, Hashable {
     public static func ==(lhs: IcpSendPreview, rhs: IcpSendPreview) -> Bool {
         if lhs.estimatedNetworkFeeIcp != rhs.estimatedNetworkFeeIcp {
             return false
@@ -15525,7 +15525,7 @@ extension IcpSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeICPSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeICPSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> IcpSendPreview {
         return
             try IcpSendPreview(
@@ -15568,7 +15568,7 @@ nonisolated public func FfiConverterTypeICPSendPreview_lower(_ value: IcpSendPre
 }
 
 
-public struct JsonField {
+nonisolated public struct JsonField {
     public var name: String
     public var value: JsonFieldValue
 
@@ -15581,11 +15581,11 @@ public struct JsonField {
 }
 
 #if compiler(>=6)
-extension JsonField: Sendable {}
+nonisolated extension JsonField: Sendable {}
 #endif
 
 
-extension JsonField: Equatable, Hashable {
+nonisolated extension JsonField: Equatable, Hashable {
     public static func ==(lhs: JsonField, rhs: JsonField) -> Bool {
         if lhs.name != rhs.name {
             return false
@@ -15607,7 +15607,7 @@ extension JsonField: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeJsonField: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeJsonField: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> JsonField {
         return
             try JsonField(
@@ -15643,7 +15643,7 @@ nonisolated public func FfiConverterTypeJsonField_lower(_ value: JsonField) -> R
  * `(reachable, detail)` tuple that Swift used to compute inline
  * while probing Near / Polkadot RPC endpoints.
  */
-public struct JsonRpcProbeOutcome {
+nonisolated public struct JsonRpcProbeOutcome {
     public var reachable: Bool
     public var detail: String
 
@@ -15656,11 +15656,11 @@ public struct JsonRpcProbeOutcome {
 }
 
 #if compiler(>=6)
-extension JsonRpcProbeOutcome: Sendable {}
+nonisolated extension JsonRpcProbeOutcome: Sendable {}
 #endif
 
 
-extension JsonRpcProbeOutcome: Equatable, Hashable {
+nonisolated extension JsonRpcProbeOutcome: Equatable, Hashable {
     public static func ==(lhs: JsonRpcProbeOutcome, rhs: JsonRpcProbeOutcome) -> Bool {
         if lhs.reachable != rhs.reachable {
             return false
@@ -15682,7 +15682,7 @@ extension JsonRpcProbeOutcome: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeJsonRpcProbeOutcome: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeJsonRpcProbeOutcome: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> JsonRpcProbeOutcome {
         return
             try JsonRpcProbeOutcome(
@@ -15720,7 +15720,7 @@ nonisolated public func FfiConverterTypeJsonRpcProbeOutcome_lower(_ value: JsonR
  * own any URLSession code for this call site. Returns the probe
  * outcome *plus* the observed HTTP status (for the diagnostics row).
  */
-public struct JsonRpcProbeResult {
+nonisolated public struct JsonRpcProbeResult {
     public var reachable: Bool
     public var statusCode: Int32?
     public var detail: String
@@ -15735,11 +15735,11 @@ public struct JsonRpcProbeResult {
 }
 
 #if compiler(>=6)
-extension JsonRpcProbeResult: Sendable {}
+nonisolated extension JsonRpcProbeResult: Sendable {}
 #endif
 
 
-extension JsonRpcProbeResult: Equatable, Hashable {
+nonisolated extension JsonRpcProbeResult: Equatable, Hashable {
     public static func ==(lhs: JsonRpcProbeResult, rhs: JsonRpcProbeResult) -> Bool {
         if lhs.reachable != rhs.reachable {
             return false
@@ -15765,7 +15765,7 @@ extension JsonRpcProbeResult: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeJsonRpcProbeResult: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeJsonRpcProbeResult: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> JsonRpcProbeResult {
         return
             try JsonRpcProbeResult(
@@ -15798,7 +15798,7 @@ nonisolated public func FfiConverterTypeJsonRpcProbeResult_lower(_ value: JsonRp
 }
 
 
-public struct KeypoolState {
+nonisolated public struct KeypoolState {
     public var nextExternalIndex: Int64
     public var nextChangeIndex: Int64
     public var reservedReceiveIndex: Int64?
@@ -15813,11 +15813,11 @@ public struct KeypoolState {
 }
 
 #if compiler(>=6)
-extension KeypoolState: Sendable {}
+nonisolated extension KeypoolState: Sendable {}
 #endif
 
 
-extension KeypoolState: Equatable, Hashable {
+nonisolated extension KeypoolState: Equatable, Hashable {
     public static func ==(lhs: KeypoolState, rhs: KeypoolState) -> Bool {
         if lhs.nextExternalIndex != rhs.nextExternalIndex {
             return false
@@ -15843,7 +15843,7 @@ extension KeypoolState: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeKeypoolState: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeKeypoolState: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> KeypoolState {
         return
             try KeypoolState(
@@ -15876,7 +15876,7 @@ nonisolated public func FfiConverterTypeKeypoolState_lower(_ value: KeypoolState
 }
 
 
-public struct LargeMovementEvaluation {
+nonisolated public struct LargeMovementEvaluation {
     public var shouldAlert: Bool
     public var absoluteDelta: Double
     public var ratio: Double
@@ -15893,11 +15893,11 @@ public struct LargeMovementEvaluation {
 }
 
 #if compiler(>=6)
-extension LargeMovementEvaluation: Sendable {}
+nonisolated extension LargeMovementEvaluation: Sendable {}
 #endif
 
 
-extension LargeMovementEvaluation: Equatable, Hashable {
+nonisolated extension LargeMovementEvaluation: Equatable, Hashable {
     public static func ==(lhs: LargeMovementEvaluation, rhs: LargeMovementEvaluation) -> Bool {
         if lhs.shouldAlert != rhs.shouldAlert {
             return false
@@ -15927,7 +15927,7 @@ extension LargeMovementEvaluation: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeLargeMovementEvaluation: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeLargeMovementEvaluation: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LargeMovementEvaluation {
         return
             try LargeMovementEvaluation(
@@ -15962,7 +15962,7 @@ nonisolated public func FfiConverterTypeLargeMovementEvaluation_lower(_ value: L
 }
 
 
-public struct LastSentTransactionSnapshot {
+nonisolated public struct LastSentTransactionSnapshot {
     /**
      * "send" or other kind strings.
      */
@@ -15999,11 +15999,11 @@ public struct LastSentTransactionSnapshot {
 }
 
 #if compiler(>=6)
-extension LastSentTransactionSnapshot: Sendable {}
+nonisolated extension LastSentTransactionSnapshot: Sendable {}
 #endif
 
 
-extension LastSentTransactionSnapshot: Equatable, Hashable {
+nonisolated extension LastSentTransactionSnapshot: Equatable, Hashable {
     public static func ==(lhs: LastSentTransactionSnapshot, rhs: LastSentTransactionSnapshot) -> Bool {
         if lhs.kind != rhs.kind {
             return false
@@ -16049,7 +16049,7 @@ extension LastSentTransactionSnapshot: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeLastSentTransactionSnapshot: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeLastSentTransactionSnapshot: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LastSentTransactionSnapshot {
         return
             try LastSentTransactionSnapshot(
@@ -16092,7 +16092,7 @@ nonisolated public func FfiConverterTypeLastSentTransactionSnapshot_lower(_ valu
 }
 
 
-public struct LocalizationSummary {
+nonisolated public struct LocalizationSummary {
     public var supportedLocales: [String]
     public var tables: [String]
 
@@ -16105,11 +16105,11 @@ public struct LocalizationSummary {
 }
 
 #if compiler(>=6)
-extension LocalizationSummary: Sendable {}
+nonisolated extension LocalizationSummary: Sendable {}
 #endif
 
 
-extension LocalizationSummary: Equatable, Hashable {
+nonisolated extension LocalizationSummary: Equatable, Hashable {
     public static func ==(lhs: LocalizationSummary, rhs: LocalizationSummary) -> Bool {
         if lhs.supportedLocales != rhs.supportedLocales {
             return false
@@ -16131,7 +16131,7 @@ extension LocalizationSummary: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeLocalizationSummary: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeLocalizationSummary: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LocalizationSummary {
         return
             try LocalizationSummary(
@@ -16162,7 +16162,7 @@ nonisolated public func FfiConverterTypeLocalizationSummary_lower(_ value: Local
 }
 
 
-public struct MergeBitcoinHistorySnapshotsRequest {
+nonisolated public struct MergeBitcoinHistorySnapshotsRequest {
     public var snapshots: [CoreBitcoinHistorySnapshot]
     public var ownedAddresses: [String]
     public var limit: UInt64
@@ -16177,11 +16177,11 @@ public struct MergeBitcoinHistorySnapshotsRequest {
 }
 
 #if compiler(>=6)
-extension MergeBitcoinHistorySnapshotsRequest: Sendable {}
+nonisolated extension MergeBitcoinHistorySnapshotsRequest: Sendable {}
 #endif
 
 
-extension MergeBitcoinHistorySnapshotsRequest: Equatable, Hashable {
+nonisolated extension MergeBitcoinHistorySnapshotsRequest: Equatable, Hashable {
     public static func ==(lhs: MergeBitcoinHistorySnapshotsRequest, rhs: MergeBitcoinHistorySnapshotsRequest) -> Bool {
         if lhs.snapshots != rhs.snapshots {
             return false
@@ -16207,7 +16207,7 @@ extension MergeBitcoinHistorySnapshotsRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeMergeBitcoinHistorySnapshotsRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeMergeBitcoinHistorySnapshotsRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MergeBitcoinHistorySnapshotsRequest {
         return
             try MergeBitcoinHistorySnapshotsRequest(
@@ -16240,7 +16240,7 @@ nonisolated public func FfiConverterTypeMergeBitcoinHistorySnapshotsRequest_lowe
 }
 
 
-public struct MoneroHistoryDiagnostics {
+nonisolated public struct MoneroHistoryDiagnostics {
     public var address: String
     public var sourceUsed: String
     public var transactionCount: Int32
@@ -16257,11 +16257,11 @@ public struct MoneroHistoryDiagnostics {
 }
 
 #if compiler(>=6)
-extension MoneroHistoryDiagnostics: Sendable {}
+nonisolated extension MoneroHistoryDiagnostics: Sendable {}
 #endif
 
 
-extension MoneroHistoryDiagnostics: Equatable, Hashable {
+nonisolated extension MoneroHistoryDiagnostics: Equatable, Hashable {
     public static func ==(lhs: MoneroHistoryDiagnostics, rhs: MoneroHistoryDiagnostics) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -16291,7 +16291,7 @@ extension MoneroHistoryDiagnostics: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeMoneroHistoryDiagnostics: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeMoneroHistoryDiagnostics: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoneroHistoryDiagnostics {
         return
             try MoneroHistoryDiagnostics(
@@ -16326,7 +16326,7 @@ nonisolated public func FfiConverterTypeMoneroHistoryDiagnostics_lower(_ value: 
 }
 
 
-public struct MoneroSendPreview {
+nonisolated public struct MoneroSendPreview {
     public var estimatedNetworkFeeXmr: Double
     public var priorityLabel: String
     public var spendableBalance: Double
@@ -16351,11 +16351,11 @@ public struct MoneroSendPreview {
 }
 
 #if compiler(>=6)
-extension MoneroSendPreview: Sendable {}
+nonisolated extension MoneroSendPreview: Sendable {}
 #endif
 
 
-extension MoneroSendPreview: Equatable, Hashable {
+nonisolated extension MoneroSendPreview: Equatable, Hashable {
     public static func ==(lhs: MoneroSendPreview, rhs: MoneroSendPreview) -> Bool {
         if lhs.estimatedNetworkFeeXmr != rhs.estimatedNetworkFeeXmr {
             return false
@@ -16401,7 +16401,7 @@ extension MoneroSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeMoneroSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeMoneroSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> MoneroSendPreview {
         return
             try MoneroSendPreview(
@@ -16449,7 +16449,7 @@ nonisolated public func FfiConverterTypeMoneroSendPreview_lower(_ value: MoneroS
  * `smallest_unit` is a base-10 integer string (sats, lamports, wei, yocto-NEAR, …);
  * `amount_display` is the chain's human-readable native amount.
  */
-public struct NativeBalanceSummary {
+nonisolated public struct NativeBalanceSummary {
     public var smallestUnit: String
     public var amountDisplay: String
     public var utxoCount: UInt32
@@ -16464,11 +16464,11 @@ public struct NativeBalanceSummary {
 }
 
 #if compiler(>=6)
-extension NativeBalanceSummary: Sendable {}
+nonisolated extension NativeBalanceSummary: Sendable {}
 #endif
 
 
-extension NativeBalanceSummary: Equatable, Hashable {
+nonisolated extension NativeBalanceSummary: Equatable, Hashable {
     public static func ==(lhs: NativeBalanceSummary, rhs: NativeBalanceSummary) -> Bool {
         if lhs.smallestUnit != rhs.smallestUnit {
             return false
@@ -16494,7 +16494,7 @@ extension NativeBalanceSummary: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeNativeBalanceSummary: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeNativeBalanceSummary: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NativeBalanceSummary {
         return
             try NativeBalanceSummary(
@@ -16527,7 +16527,7 @@ nonisolated public func FfiConverterTypeNativeBalanceSummary_lower(_ value: Nati
 }
 
 
-public struct NearBalance {
+nonisolated public struct NearBalance {
     /**
      * yoctoNEAR (1 NEAR = 10^24 yoctoNEAR).
      */
@@ -16546,11 +16546,11 @@ public struct NearBalance {
 }
 
 #if compiler(>=6)
-extension NearBalance: Sendable {}
+nonisolated extension NearBalance: Sendable {}
 #endif
 
 
-extension NearBalance: Equatable, Hashable {
+nonisolated extension NearBalance: Equatable, Hashable {
     public static func ==(lhs: NearBalance, rhs: NearBalance) -> Bool {
         if lhs.yoctoNear != rhs.yoctoNear {
             return false
@@ -16572,7 +16572,7 @@ extension NearBalance: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeNearBalance: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeNearBalance: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NearBalance {
         return
             try NearBalance(
@@ -16603,7 +16603,7 @@ nonisolated public func FfiConverterTypeNearBalance_lower(_ value: NearBalance) 
 }
 
 
-public struct NearHistoryDiagnostics {
+nonisolated public struct NearHistoryDiagnostics {
     public var address: String
     public var sourceUsed: String
     public var transactionCount: Int32
@@ -16620,11 +16620,11 @@ public struct NearHistoryDiagnostics {
 }
 
 #if compiler(>=6)
-extension NearHistoryDiagnostics: Sendable {}
+nonisolated extension NearHistoryDiagnostics: Sendable {}
 #endif
 
 
-extension NearHistoryDiagnostics: Equatable, Hashable {
+nonisolated extension NearHistoryDiagnostics: Equatable, Hashable {
     public static func ==(lhs: NearHistoryDiagnostics, rhs: NearHistoryDiagnostics) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -16654,7 +16654,7 @@ extension NearHistoryDiagnostics: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeNearHistoryDiagnostics: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeNearHistoryDiagnostics: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NearHistoryDiagnostics {
         return
             try NearHistoryDiagnostics(
@@ -16689,7 +16689,7 @@ nonisolated public func FfiConverterTypeNearHistoryDiagnostics_lower(_ value: Ne
 }
 
 
-public struct NearHistoryParsedSnapshot {
+nonisolated public struct NearHistoryParsedSnapshot {
     public var transactionHash: String
     /**
      * "send" or "receive"
@@ -16720,11 +16720,11 @@ public struct NearHistoryParsedSnapshot {
 }
 
 #if compiler(>=6)
-extension NearHistoryParsedSnapshot: Sendable {}
+nonisolated extension NearHistoryParsedSnapshot: Sendable {}
 #endif
 
 
-extension NearHistoryParsedSnapshot: Equatable, Hashable {
+nonisolated extension NearHistoryParsedSnapshot: Equatable, Hashable {
     public static func ==(lhs: NearHistoryParsedSnapshot, rhs: NearHistoryParsedSnapshot) -> Bool {
         if lhs.transactionHash != rhs.transactionHash {
             return false
@@ -16758,7 +16758,7 @@ extension NearHistoryParsedSnapshot: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeNearHistoryParsedSnapshot: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeNearHistoryParsedSnapshot: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NearHistoryParsedSnapshot {
         return
             try NearHistoryParsedSnapshot(
@@ -16795,7 +16795,7 @@ nonisolated public func FfiConverterTypeNearHistoryParsedSnapshot_lower(_ value:
 }
 
 
-public struct NearSendPreview {
+nonisolated public struct NearSendPreview {
     public var estimatedNetworkFeeNear: Double
     public var gasPriceYoctoNear: String
     public var spendableBalance: Double
@@ -16820,11 +16820,11 @@ public struct NearSendPreview {
 }
 
 #if compiler(>=6)
-extension NearSendPreview: Sendable {}
+nonisolated extension NearSendPreview: Sendable {}
 #endif
 
 
-extension NearSendPreview: Equatable, Hashable {
+nonisolated extension NearSendPreview: Equatable, Hashable {
     public static func ==(lhs: NearSendPreview, rhs: NearSendPreview) -> Bool {
         if lhs.estimatedNetworkFeeNear != rhs.estimatedNetworkFeeNear {
             return false
@@ -16870,7 +16870,7 @@ extension NearSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeNearSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeNearSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NearSendPreview {
         return
             try NearSendPreview(
@@ -16913,7 +16913,7 @@ nonisolated public func FfiConverterTypeNearSendPreview_lower(_ value: NearSendP
 }
 
 
-public struct NormalizeHistoryRequest {
+nonisolated public struct NormalizeHistoryRequest {
     public var wallets: [HistoryWallet]
     public var transactions: [HistoryTransaction]
     public var unknownLabel: String
@@ -16928,11 +16928,11 @@ public struct NormalizeHistoryRequest {
 }
 
 #if compiler(>=6)
-extension NormalizeHistoryRequest: Sendable {}
+nonisolated extension NormalizeHistoryRequest: Sendable {}
 #endif
 
 
-extension NormalizeHistoryRequest: Equatable, Hashable {
+nonisolated extension NormalizeHistoryRequest: Equatable, Hashable {
     public static func ==(lhs: NormalizeHistoryRequest, rhs: NormalizeHistoryRequest) -> Bool {
         if lhs.wallets != rhs.wallets {
             return false
@@ -16958,7 +16958,7 @@ extension NormalizeHistoryRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeNormalizeHistoryRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeNormalizeHistoryRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NormalizeHistoryRequest {
         return
             try NormalizeHistoryRequest(
@@ -16991,7 +16991,7 @@ nonisolated public func FfiConverterTypeNormalizeHistoryRequest_lower(_ value: N
 }
 
 
-public struct NormalizedHistoryItem {
+nonisolated public struct NormalizedHistoryItem {
     public var kind: String
     public var status: String
     public var assetName: String
@@ -17020,11 +17020,11 @@ public struct NormalizedHistoryItem {
 }
 
 #if compiler(>=6)
-extension NormalizedHistoryItem: Sendable {}
+nonisolated extension NormalizedHistoryItem: Sendable {}
 #endif
 
 
-extension NormalizedHistoryItem: Equatable, Hashable {
+nonisolated extension NormalizedHistoryItem: Equatable, Hashable {
     public static func ==(lhs: NormalizedHistoryItem, rhs: NormalizedHistoryItem) -> Bool {
         if lhs.kind != rhs.kind {
             return false
@@ -17078,7 +17078,7 @@ extension NormalizedHistoryItem: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeNormalizedHistoryItem: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeNormalizedHistoryItem: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NormalizedHistoryItem {
         return
             try NormalizedHistoryItem(
@@ -17125,7 +17125,7 @@ nonisolated public func FfiConverterTypeNormalizedHistoryItem_lower(_ value: Nor
 }
 
 
-public struct NormalizedHistorySignatureTransaction {
+nonisolated public struct NormalizedHistorySignatureTransaction {
     public var id: String
     public var walletId: String?
     public var kind: String
@@ -17150,11 +17150,11 @@ public struct NormalizedHistorySignatureTransaction {
 }
 
 #if compiler(>=6)
-extension NormalizedHistorySignatureTransaction: Sendable {}
+nonisolated extension NormalizedHistorySignatureTransaction: Sendable {}
 #endif
 
 
-extension NormalizedHistorySignatureTransaction: Equatable, Hashable {
+nonisolated extension NormalizedHistorySignatureTransaction: Equatable, Hashable {
     public static func ==(lhs: NormalizedHistorySignatureTransaction, rhs: NormalizedHistorySignatureTransaction) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -17200,7 +17200,7 @@ extension NormalizedHistorySignatureTransaction: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeNormalizedHistorySignatureTransaction: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeNormalizedHistorySignatureTransaction: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NormalizedHistorySignatureTransaction {
         return
             try NormalizedHistorySignatureTransaction(
@@ -17243,7 +17243,7 @@ nonisolated public func FfiConverterTypeNormalizedHistorySignatureTransaction_lo
 }
 
 
-public struct NormalizedRefreshTargetsRequest {
+nonisolated public struct NormalizedRefreshTargetsRequest {
     public var chainName: String
     public var wallets: [NormalizedRefreshWalletInput]
     public var allowedWalletIds: [String]?
@@ -17258,11 +17258,11 @@ public struct NormalizedRefreshTargetsRequest {
 }
 
 #if compiler(>=6)
-extension NormalizedRefreshTargetsRequest: Sendable {}
+nonisolated extension NormalizedRefreshTargetsRequest: Sendable {}
 #endif
 
 
-extension NormalizedRefreshTargetsRequest: Equatable, Hashable {
+nonisolated extension NormalizedRefreshTargetsRequest: Equatable, Hashable {
     public static func ==(lhs: NormalizedRefreshTargetsRequest, rhs: NormalizedRefreshTargetsRequest) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -17288,7 +17288,7 @@ extension NormalizedRefreshTargetsRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeNormalizedRefreshTargetsRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeNormalizedRefreshTargetsRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NormalizedRefreshTargetsRequest {
         return
             try NormalizedRefreshTargetsRequest(
@@ -17321,7 +17321,7 @@ nonisolated public func FfiConverterTypeNormalizedRefreshTargetsRequest_lower(_ 
 }
 
 
-public struct NormalizedRefreshWalletInput {
+nonisolated public struct NormalizedRefreshWalletInput {
     public var index: UInt64
     public var walletId: String
     public var selectedChain: String
@@ -17338,11 +17338,11 @@ public struct NormalizedRefreshWalletInput {
 }
 
 #if compiler(>=6)
-extension NormalizedRefreshWalletInput: Sendable {}
+nonisolated extension NormalizedRefreshWalletInput: Sendable {}
 #endif
 
 
-extension NormalizedRefreshWalletInput: Equatable, Hashable {
+nonisolated extension NormalizedRefreshWalletInput: Equatable, Hashable {
     public static func ==(lhs: NormalizedRefreshWalletInput, rhs: NormalizedRefreshWalletInput) -> Bool {
         if lhs.index != rhs.index {
             return false
@@ -17372,7 +17372,7 @@ extension NormalizedRefreshWalletInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeNormalizedRefreshWalletInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeNormalizedRefreshWalletInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NormalizedRefreshWalletInput {
         return
             try NormalizedRefreshWalletInput(
@@ -17407,7 +17407,7 @@ nonisolated public func FfiConverterTypeNormalizedRefreshWalletInput_lower(_ val
 }
 
 
-public struct NormalizedRefreshWalletTarget {
+nonisolated public struct NormalizedRefreshWalletTarget {
     public var index: UInt64
     public var walletId: String
     public var address: String
@@ -17422,11 +17422,11 @@ public struct NormalizedRefreshWalletTarget {
 }
 
 #if compiler(>=6)
-extension NormalizedRefreshWalletTarget: Sendable {}
+nonisolated extension NormalizedRefreshWalletTarget: Sendable {}
 #endif
 
 
-extension NormalizedRefreshWalletTarget: Equatable, Hashable {
+nonisolated extension NormalizedRefreshWalletTarget: Equatable, Hashable {
     public static func ==(lhs: NormalizedRefreshWalletTarget, rhs: NormalizedRefreshWalletTarget) -> Bool {
         if lhs.index != rhs.index {
             return false
@@ -17452,7 +17452,7 @@ extension NormalizedRefreshWalletTarget: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeNormalizedRefreshWalletTarget: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeNormalizedRefreshWalletTarget: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> NormalizedRefreshWalletTarget {
         return
             try NormalizedRefreshWalletTarget(
@@ -17485,7 +17485,7 @@ nonisolated public func FfiConverterTypeNormalizedRefreshWalletTarget_lower(_ va
 }
 
 
-public struct OwnedAddressAggregationRequest {
+nonisolated public struct OwnedAddressAggregationRequest {
     public var candidateAddresses: [String]
 
     // Default memberwise initializers are never public by default, so we
@@ -17496,11 +17496,11 @@ public struct OwnedAddressAggregationRequest {
 }
 
 #if compiler(>=6)
-extension OwnedAddressAggregationRequest: Sendable {}
+nonisolated extension OwnedAddressAggregationRequest: Sendable {}
 #endif
 
 
-extension OwnedAddressAggregationRequest: Equatable, Hashable {
+nonisolated extension OwnedAddressAggregationRequest: Equatable, Hashable {
     public static func ==(lhs: OwnedAddressAggregationRequest, rhs: OwnedAddressAggregationRequest) -> Bool {
         if lhs.candidateAddresses != rhs.candidateAddresses {
             return false
@@ -17518,7 +17518,7 @@ extension OwnedAddressAggregationRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeOwnedAddressAggregationRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeOwnedAddressAggregationRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> OwnedAddressAggregationRequest {
         return
             try OwnedAddressAggregationRequest(
@@ -17547,7 +17547,7 @@ nonisolated public func FfiConverterTypeOwnedAddressAggregationRequest_lower(_ v
 }
 
 
-public struct OwnedAddressRecord {
+nonisolated public struct OwnedAddressRecord {
     public var walletId: String
     public var chainName: String
     public var address: String
@@ -17568,11 +17568,11 @@ public struct OwnedAddressRecord {
 }
 
 #if compiler(>=6)
-extension OwnedAddressRecord: Sendable {}
+nonisolated extension OwnedAddressRecord: Sendable {}
 #endif
 
 
-extension OwnedAddressRecord: Equatable, Hashable {
+nonisolated extension OwnedAddressRecord: Equatable, Hashable {
     public static func ==(lhs: OwnedAddressRecord, rhs: OwnedAddressRecord) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -17610,7 +17610,7 @@ extension OwnedAddressRecord: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeOwnedAddressRecord: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeOwnedAddressRecord: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> OwnedAddressRecord {
         return
             try OwnedAddressRecord(
@@ -17649,7 +17649,7 @@ nonisolated public func FfiConverterTypeOwnedAddressRecord_lower(_ value: OwnedA
 }
 
 
-public struct PendingSelfSendConfirmationInput {
+nonisolated public struct PendingSelfSendConfirmationInput {
     public var walletId: String
     public var chainName: String
     public var symbol: String
@@ -17670,11 +17670,11 @@ public struct PendingSelfSendConfirmationInput {
 }
 
 #if compiler(>=6)
-extension PendingSelfSendConfirmationInput: Sendable {}
+nonisolated extension PendingSelfSendConfirmationInput: Sendable {}
 #endif
 
 
-extension PendingSelfSendConfirmationInput: Equatable, Hashable {
+nonisolated extension PendingSelfSendConfirmationInput: Equatable, Hashable {
     public static func ==(lhs: PendingSelfSendConfirmationInput, rhs: PendingSelfSendConfirmationInput) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -17712,7 +17712,7 @@ extension PendingSelfSendConfirmationInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypePendingSelfSendConfirmationInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypePendingSelfSendConfirmationInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PendingSelfSendConfirmationInput {
         return
             try PendingSelfSendConfirmationInput(
@@ -17754,7 +17754,7 @@ nonisolated public func FfiConverterTypePendingSelfSendConfirmationInput_lower(_
 /**
  * Typed app-settings record for UniFFI — Rust handles JSON serialization to/from SQLite.
  */
-public struct PersistedAppSettings {
+nonisolated public struct PersistedAppSettings {
     public var pricingProvider: String
     public var selectedFiatCurrency: String
     public var fiatRateProvider: String
@@ -17817,11 +17817,11 @@ public struct PersistedAppSettings {
 }
 
 #if compiler(>=6)
-extension PersistedAppSettings: Sendable {}
+nonisolated extension PersistedAppSettings: Sendable {}
 #endif
 
 
-extension PersistedAppSettings: Equatable, Hashable {
+nonisolated extension PersistedAppSettings: Equatable, Hashable {
     public static func ==(lhs: PersistedAppSettings, rhs: PersistedAppSettings) -> Bool {
         if lhs.pricingProvider != rhs.pricingProvider {
             return false
@@ -17943,7 +17943,7 @@ extension PersistedAppSettings: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypePersistedAppSettings: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypePersistedAppSettings: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PersistedAppSettings {
         return
             try PersistedAppSettings(
@@ -18024,7 +18024,7 @@ nonisolated public func FfiConverterTypePersistedAppSettings_lower(_ value: Pers
 }
 
 
-public struct PersistedAppSnapshot {
+nonisolated public struct PersistedAppSnapshot {
     public var schemaVersion: UInt32
     public var appState: CoreAppState
     public var secrets: [SecretMaterialDescriptor]
@@ -18039,11 +18039,11 @@ public struct PersistedAppSnapshot {
 }
 
 #if compiler(>=6)
-extension PersistedAppSnapshot: Sendable {}
+nonisolated extension PersistedAppSnapshot: Sendable {}
 #endif
 
 
-extension PersistedAppSnapshot: Equatable, Hashable {
+nonisolated extension PersistedAppSnapshot: Equatable, Hashable {
     public static func ==(lhs: PersistedAppSnapshot, rhs: PersistedAppSnapshot) -> Bool {
         if lhs.schemaVersion != rhs.schemaVersion {
             return false
@@ -18069,7 +18069,7 @@ extension PersistedAppSnapshot: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypePersistedAppSnapshot: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypePersistedAppSnapshot: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PersistedAppSnapshot {
         return
             try PersistedAppSnapshot(
@@ -18102,7 +18102,7 @@ nonisolated public func FfiConverterTypePersistedAppSnapshot_lower(_ value: Pers
 }
 
 
-public struct PlannedWallet {
+nonisolated public struct PlannedWallet {
     public var walletId: String
     public var name: String
     public var chainName: String
@@ -18119,11 +18119,11 @@ public struct PlannedWallet {
 }
 
 #if compiler(>=6)
-extension PlannedWallet: Sendable {}
+nonisolated extension PlannedWallet: Sendable {}
 #endif
 
 
-extension PlannedWallet: Equatable, Hashable {
+nonisolated extension PlannedWallet: Equatable, Hashable {
     public static func ==(lhs: PlannedWallet, rhs: PlannedWallet) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -18153,7 +18153,7 @@ extension PlannedWallet: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypePlannedWallet: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypePlannedWallet: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PlannedWallet {
         return
             try PlannedWallet(
@@ -18188,7 +18188,7 @@ nonisolated public func FfiConverterTypePlannedWallet_lower(_ value: PlannedWall
 }
 
 
-public struct PolkadotHistoryDiagnostics {
+nonisolated public struct PolkadotHistoryDiagnostics {
     public var address: String
     public var sourceUsed: String
     public var transactionCount: Int32
@@ -18205,11 +18205,11 @@ public struct PolkadotHistoryDiagnostics {
 }
 
 #if compiler(>=6)
-extension PolkadotHistoryDiagnostics: Sendable {}
+nonisolated extension PolkadotHistoryDiagnostics: Sendable {}
 #endif
 
 
-extension PolkadotHistoryDiagnostics: Equatable, Hashable {
+nonisolated extension PolkadotHistoryDiagnostics: Equatable, Hashable {
     public static func ==(lhs: PolkadotHistoryDiagnostics, rhs: PolkadotHistoryDiagnostics) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -18239,7 +18239,7 @@ extension PolkadotHistoryDiagnostics: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypePolkadotHistoryDiagnostics: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypePolkadotHistoryDiagnostics: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PolkadotHistoryDiagnostics {
         return
             try PolkadotHistoryDiagnostics(
@@ -18274,7 +18274,7 @@ nonisolated public func FfiConverterTypePolkadotHistoryDiagnostics_lower(_ value
 }
 
 
-public struct PolkadotSendPreview {
+nonisolated public struct PolkadotSendPreview {
     public var estimatedNetworkFeeDot: Double
     public var spendableBalance: Double
     public var feeRateDescription: String?
@@ -18297,11 +18297,11 @@ public struct PolkadotSendPreview {
 }
 
 #if compiler(>=6)
-extension PolkadotSendPreview: Sendable {}
+nonisolated extension PolkadotSendPreview: Sendable {}
 #endif
 
 
-extension PolkadotSendPreview: Equatable, Hashable {
+nonisolated extension PolkadotSendPreview: Equatable, Hashable {
     public static func ==(lhs: PolkadotSendPreview, rhs: PolkadotSendPreview) -> Bool {
         if lhs.estimatedNetworkFeeDot != rhs.estimatedNetworkFeeDot {
             return false
@@ -18343,7 +18343,7 @@ extension PolkadotSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypePolkadotSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypePolkadotSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PolkadotSendPreview {
         return
             try PolkadotSendPreview(
@@ -18384,7 +18384,7 @@ nonisolated public func FfiConverterTypePolkadotSendPreview_lower(_ value: Polka
 }
 
 
-public struct PreparedBroadcastPayload {
+nonisolated public struct PreparedBroadcastPayload {
     public var chainId: UInt32
     public var broadcastPayload: String
     public var resultField: String
@@ -18399,11 +18399,11 @@ public struct PreparedBroadcastPayload {
 }
 
 #if compiler(>=6)
-extension PreparedBroadcastPayload: Sendable {}
+nonisolated extension PreparedBroadcastPayload: Sendable {}
 #endif
 
 
-extension PreparedBroadcastPayload: Equatable, Hashable {
+nonisolated extension PreparedBroadcastPayload: Equatable, Hashable {
     public static func ==(lhs: PreparedBroadcastPayload, rhs: PreparedBroadcastPayload) -> Bool {
         if lhs.chainId != rhs.chainId {
             return false
@@ -18429,7 +18429,7 @@ extension PreparedBroadcastPayload: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypePreparedBroadcastPayload: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypePreparedBroadcastPayload: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PreparedBroadcastPayload {
         return
             try PreparedBroadcastPayload(
@@ -18466,7 +18466,7 @@ nonisolated public func FfiConverterTypePreparedBroadcastPayload_lower(_ value: 
  * Input per price alert — ids/metadata needed to produce notifications;
  * Swift formats the user-facing text itself.
  */
-public struct PriceAlertEvaluationAlert {
+nonisolated public struct PriceAlertEvaluationAlert {
     public var id: String
     public var holdingKey: String
     public var assetName: String
@@ -18493,11 +18493,11 @@ public struct PriceAlertEvaluationAlert {
 }
 
 #if compiler(>=6)
-extension PriceAlertEvaluationAlert: Sendable {}
+nonisolated extension PriceAlertEvaluationAlert: Sendable {}
 #endif
 
 
-extension PriceAlertEvaluationAlert: Equatable, Hashable {
+nonisolated extension PriceAlertEvaluationAlert: Equatable, Hashable {
     public static func ==(lhs: PriceAlertEvaluationAlert, rhs: PriceAlertEvaluationAlert) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -18547,7 +18547,7 @@ extension PriceAlertEvaluationAlert: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypePriceAlertEvaluationAlert: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypePriceAlertEvaluationAlert: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PriceAlertEvaluationAlert {
         return
             try PriceAlertEvaluationAlert(
@@ -18592,7 +18592,7 @@ nonisolated public func FfiConverterTypePriceAlertEvaluationAlert_lower(_ value:
 }
 
 
-public struct PriceAlertEvaluationPlan {
+nonisolated public struct PriceAlertEvaluationPlan {
     public var updates: [PriceAlertTriggerUpdate]
     public var notifications: [PriceAlertNotification]
 
@@ -18605,11 +18605,11 @@ public struct PriceAlertEvaluationPlan {
 }
 
 #if compiler(>=6)
-extension PriceAlertEvaluationPlan: Sendable {}
+nonisolated extension PriceAlertEvaluationPlan: Sendable {}
 #endif
 
 
-extension PriceAlertEvaluationPlan: Equatable, Hashable {
+nonisolated extension PriceAlertEvaluationPlan: Equatable, Hashable {
     public static func ==(lhs: PriceAlertEvaluationPlan, rhs: PriceAlertEvaluationPlan) -> Bool {
         if lhs.updates != rhs.updates {
             return false
@@ -18631,7 +18631,7 @@ extension PriceAlertEvaluationPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypePriceAlertEvaluationPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypePriceAlertEvaluationPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PriceAlertEvaluationPlan {
         return
             try PriceAlertEvaluationPlan(
@@ -18665,7 +18665,7 @@ nonisolated public func FfiConverterTypePriceAlertEvaluationPlan_lower(_ value: 
 /**
  * Live price lookup for one holding.
  */
-public struct PriceAlertEvaluationPrice {
+nonisolated public struct PriceAlertEvaluationPrice {
     public var holdingKey: String
     public var livePrice: Double
 
@@ -18678,11 +18678,11 @@ public struct PriceAlertEvaluationPrice {
 }
 
 #if compiler(>=6)
-extension PriceAlertEvaluationPrice: Sendable {}
+nonisolated extension PriceAlertEvaluationPrice: Sendable {}
 #endif
 
 
-extension PriceAlertEvaluationPrice: Equatable, Hashable {
+nonisolated extension PriceAlertEvaluationPrice: Equatable, Hashable {
     public static func ==(lhs: PriceAlertEvaluationPrice, rhs: PriceAlertEvaluationPrice) -> Bool {
         if lhs.holdingKey != rhs.holdingKey {
             return false
@@ -18704,7 +18704,7 @@ extension PriceAlertEvaluationPrice: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypePriceAlertEvaluationPrice: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypePriceAlertEvaluationPrice: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PriceAlertEvaluationPrice {
         return
             try PriceAlertEvaluationPrice(
@@ -18738,7 +18738,7 @@ nonisolated public func FfiConverterTypePriceAlertEvaluationPrice_lower(_ value:
 /**
  * A single firing — Swift formats the notification body using this.
  */
-public struct PriceAlertNotification {
+nonisolated public struct PriceAlertNotification {
     public var id: String
     public var assetName: String
     public var symbol: String
@@ -18761,11 +18761,11 @@ public struct PriceAlertNotification {
 }
 
 #if compiler(>=6)
-extension PriceAlertNotification: Sendable {}
+nonisolated extension PriceAlertNotification: Sendable {}
 #endif
 
 
-extension PriceAlertNotification: Equatable, Hashable {
+nonisolated extension PriceAlertNotification: Equatable, Hashable {
     public static func ==(lhs: PriceAlertNotification, rhs: PriceAlertNotification) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -18807,7 +18807,7 @@ extension PriceAlertNotification: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypePriceAlertNotification: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypePriceAlertNotification: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PriceAlertNotification {
         return
             try PriceAlertNotification(
@@ -18851,7 +18851,7 @@ nonisolated public func FfiConverterTypePriceAlertNotification_lower(_ value: Pr
 /**
  * Alert `has_triggered` state changes produced by the evaluator.
  */
-public struct PriceAlertTriggerUpdate {
+nonisolated public struct PriceAlertTriggerUpdate {
     public var id: String
     public var hasTriggered: Bool
 
@@ -18864,11 +18864,11 @@ public struct PriceAlertTriggerUpdate {
 }
 
 #if compiler(>=6)
-extension PriceAlertTriggerUpdate: Sendable {}
+nonisolated extension PriceAlertTriggerUpdate: Sendable {}
 #endif
 
 
-extension PriceAlertTriggerUpdate: Equatable, Hashable {
+nonisolated extension PriceAlertTriggerUpdate: Equatable, Hashable {
     public static func ==(lhs: PriceAlertTriggerUpdate, rhs: PriceAlertTriggerUpdate) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -18890,7 +18890,7 @@ extension PriceAlertTriggerUpdate: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypePriceAlertTriggerUpdate: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypePriceAlertTriggerUpdate: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PriceAlertTriggerUpdate {
         return
             try PriceAlertTriggerUpdate(
@@ -18921,7 +18921,7 @@ nonisolated public func FfiConverterTypePriceAlertTriggerUpdate_lower(_ value: P
 }
 
 
-public struct PriceMergeOutcome {
+nonisolated public struct PriceMergeOutcome {
     public var updatedPrices: [String: Double]
     public var hadMeaningfulChange: Bool
 
@@ -18934,11 +18934,11 @@ public struct PriceMergeOutcome {
 }
 
 #if compiler(>=6)
-extension PriceMergeOutcome: Sendable {}
+nonisolated extension PriceMergeOutcome: Sendable {}
 #endif
 
 
-extension PriceMergeOutcome: Equatable, Hashable {
+nonisolated extension PriceMergeOutcome: Equatable, Hashable {
     public static func ==(lhs: PriceMergeOutcome, rhs: PriceMergeOutcome) -> Bool {
         if lhs.updatedPrices != rhs.updatedPrices {
             return false
@@ -18960,7 +18960,7 @@ extension PriceMergeOutcome: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypePriceMergeOutcome: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypePriceMergeOutcome: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PriceMergeOutcome {
         return
             try PriceMergeOutcome(
@@ -18997,7 +18997,7 @@ nonisolated public func FfiConverterTypePriceMergeOutcome_lower(_ value: PriceMe
  * symbol-indexed providers (Binance, Coinbase), `coin_gecko_id` is used
  * by the id-indexed providers (CoinGecko, CoinPaprika, CoinLore).
  */
-public struct PriceRequestCoin {
+nonisolated public struct PriceRequestCoin {
     public var holdingKey: String
     public var symbol: String
     public var coinGeckoId: String
@@ -19012,11 +19012,11 @@ public struct PriceRequestCoin {
 }
 
 #if compiler(>=6)
-extension PriceRequestCoin: Sendable {}
+nonisolated extension PriceRequestCoin: Sendable {}
 #endif
 
 
-extension PriceRequestCoin: Equatable, Hashable {
+nonisolated extension PriceRequestCoin: Equatable, Hashable {
     public static func ==(lhs: PriceRequestCoin, rhs: PriceRequestCoin) -> Bool {
         if lhs.holdingKey != rhs.holdingKey {
             return false
@@ -19042,7 +19042,7 @@ extension PriceRequestCoin: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypePriceRequestCoin: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypePriceRequestCoin: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> PriceRequestCoin {
         return
             try PriceRequestCoin(
@@ -19075,7 +19075,7 @@ nonisolated public func FfiConverterTypePriceRequestCoin_lower(_ value: PriceReq
 }
 
 
-public struct RebroadcastDispatch {
+nonisolated public struct RebroadcastDispatch {
     public var chainId: UInt32
     public var resultField: String
     public var wrapKey: String?
@@ -19092,11 +19092,11 @@ public struct RebroadcastDispatch {
 }
 
 #if compiler(>=6)
-extension RebroadcastDispatch: Sendable {}
+nonisolated extension RebroadcastDispatch: Sendable {}
 #endif
 
 
-extension RebroadcastDispatch: Equatable, Hashable {
+nonisolated extension RebroadcastDispatch: Equatable, Hashable {
     public static func ==(lhs: RebroadcastDispatch, rhs: RebroadcastDispatch) -> Bool {
         if lhs.chainId != rhs.chainId {
             return false
@@ -19126,7 +19126,7 @@ extension RebroadcastDispatch: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeRebroadcastDispatch: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeRebroadcastDispatch: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RebroadcastDispatch {
         return
             try RebroadcastDispatch(
@@ -19165,7 +19165,7 @@ nonisolated public func FfiConverterTypeRebroadcastDispatch_lower(_ value: Rebro
  * Inputs needed to render the user-facing receive-address string for the
  * current wallet + chain selection.
  */
-public struct ReceiveAddressMessageInput {
+nonisolated public struct ReceiveAddressMessageInput {
     /**
      * The selected coin's chain name (e.g. "Bitcoin", "Ethereum").
      */
@@ -19240,11 +19240,11 @@ public struct ReceiveAddressMessageInput {
 }
 
 #if compiler(>=6)
-extension ReceiveAddressMessageInput: Sendable {}
+nonisolated extension ReceiveAddressMessageInput: Sendable {}
 #endif
 
 
-extension ReceiveAddressMessageInput: Equatable, Hashable {
+nonisolated extension ReceiveAddressMessageInput: Equatable, Hashable {
     public static func ==(lhs: ReceiveAddressMessageInput, rhs: ReceiveAddressMessageInput) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -19290,7 +19290,7 @@ extension ReceiveAddressMessageInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeReceiveAddressMessageInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeReceiveAddressMessageInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ReceiveAddressMessageInput {
         return
             try ReceiveAddressMessageInput(
@@ -19333,7 +19333,7 @@ nonisolated public func FfiConverterTypeReceiveAddressMessageInput_lower(_ value
 }
 
 
-public struct ReceiveSelectionHoldingInput {
+nonisolated public struct ReceiveSelectionHoldingInput {
     public var holdingIndex: UInt64
     public var chainName: String
     public var hasContractAddress: Bool
@@ -19348,11 +19348,11 @@ public struct ReceiveSelectionHoldingInput {
 }
 
 #if compiler(>=6)
-extension ReceiveSelectionHoldingInput: Sendable {}
+nonisolated extension ReceiveSelectionHoldingInput: Sendable {}
 #endif
 
 
-extension ReceiveSelectionHoldingInput: Equatable, Hashable {
+nonisolated extension ReceiveSelectionHoldingInput: Equatable, Hashable {
     public static func ==(lhs: ReceiveSelectionHoldingInput, rhs: ReceiveSelectionHoldingInput) -> Bool {
         if lhs.holdingIndex != rhs.holdingIndex {
             return false
@@ -19378,7 +19378,7 @@ extension ReceiveSelectionHoldingInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeReceiveSelectionHoldingInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeReceiveSelectionHoldingInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ReceiveSelectionHoldingInput {
         return
             try ReceiveSelectionHoldingInput(
@@ -19411,7 +19411,7 @@ nonisolated public func FfiConverterTypeReceiveSelectionHoldingInput_lower(_ val
 }
 
 
-public struct ReceiveSelectionPlan {
+nonisolated public struct ReceiveSelectionPlan {
     public var resolvedChainName: String
     public var selectedReceiveHoldingIndex: UInt64?
 
@@ -19424,11 +19424,11 @@ public struct ReceiveSelectionPlan {
 }
 
 #if compiler(>=6)
-extension ReceiveSelectionPlan: Sendable {}
+nonisolated extension ReceiveSelectionPlan: Sendable {}
 #endif
 
 
-extension ReceiveSelectionPlan: Equatable, Hashable {
+nonisolated extension ReceiveSelectionPlan: Equatable, Hashable {
     public static func ==(lhs: ReceiveSelectionPlan, rhs: ReceiveSelectionPlan) -> Bool {
         if lhs.resolvedChainName != rhs.resolvedChainName {
             return false
@@ -19450,7 +19450,7 @@ extension ReceiveSelectionPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeReceiveSelectionPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeReceiveSelectionPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ReceiveSelectionPlan {
         return
             try ReceiveSelectionPlan(
@@ -19481,7 +19481,7 @@ nonisolated public func FfiConverterTypeReceiveSelectionPlan_lower(_ value: Rece
 }
 
 
-public struct ReceiveSelectionRequest {
+nonisolated public struct ReceiveSelectionRequest {
     public var receiveChainName: String
     public var availableReceiveChains: [String]
     public var availableReceiveHoldings: [ReceiveSelectionHoldingInput]
@@ -19496,11 +19496,11 @@ public struct ReceiveSelectionRequest {
 }
 
 #if compiler(>=6)
-extension ReceiveSelectionRequest: Sendable {}
+nonisolated extension ReceiveSelectionRequest: Sendable {}
 #endif
 
 
-extension ReceiveSelectionRequest: Equatable, Hashable {
+nonisolated extension ReceiveSelectionRequest: Equatable, Hashable {
     public static func ==(lhs: ReceiveSelectionRequest, rhs: ReceiveSelectionRequest) -> Bool {
         if lhs.receiveChainName != rhs.receiveChainName {
             return false
@@ -19526,7 +19526,7 @@ extension ReceiveSelectionRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeReceiveSelectionRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeReceiveSelectionRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ReceiveSelectionRequest {
         return
             try ReceiveSelectionRequest(
@@ -19566,7 +19566,7 @@ nonisolated public func FfiConverterTypeReceiveSelectionRequest_lower(_ value: R
  * `WalletService::fetch_native_balance_summary_auto` detects extended keys
  * automatically.
  */
-public struct RefreshEntry {
+nonisolated public struct RefreshEntry {
     public var chainId: UInt32
     public var walletId: String
     /**
@@ -19589,11 +19589,11 @@ public struct RefreshEntry {
 }
 
 #if compiler(>=6)
-extension RefreshEntry: Sendable {}
+nonisolated extension RefreshEntry: Sendable {}
 #endif
 
 
-extension RefreshEntry: Equatable, Hashable {
+nonisolated extension RefreshEntry: Equatable, Hashable {
     public static func ==(lhs: RefreshEntry, rhs: RefreshEntry) -> Bool {
         if lhs.chainId != rhs.chainId {
             return false
@@ -19619,7 +19619,7 @@ extension RefreshEntry: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeRefreshEntry: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeRefreshEntry: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> RefreshEntry {
         return
             try RefreshEntry(
@@ -19652,7 +19652,7 @@ nonisolated public func FfiConverterTypeRefreshEntry_lower(_ value: RefreshEntry
 }
 
 
-public struct ResolvedPendingStatusInput {
+nonisolated public struct ResolvedPendingStatusInput {
     public var status: String
     public var confirmations: UInt32?
 
@@ -19665,11 +19665,11 @@ public struct ResolvedPendingStatusInput {
 }
 
 #if compiler(>=6)
-extension ResolvedPendingStatusInput: Sendable {}
+nonisolated extension ResolvedPendingStatusInput: Sendable {}
 #endif
 
 
-extension ResolvedPendingStatusInput: Equatable, Hashable {
+nonisolated extension ResolvedPendingStatusInput: Equatable, Hashable {
     public static func ==(lhs: ResolvedPendingStatusInput, rhs: ResolvedPendingStatusInput) -> Bool {
         if lhs.status != rhs.status {
             return false
@@ -19691,7 +19691,7 @@ extension ResolvedPendingStatusInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeResolvedPendingStatusInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeResolvedPendingStatusInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ResolvedPendingStatusInput {
         return
             try ResolvedPendingStatusInput(
@@ -19722,7 +19722,7 @@ nonisolated public func FfiConverterTypeResolvedPendingStatusInput_lower(_ value
 }
 
 
-public struct ResolvedPendingTransactionDecision {
+nonisolated public struct ResolvedPendingTransactionDecision {
     public var id: String
     public var newStatus: String
     public var statusChanged: Bool
@@ -19757,11 +19757,11 @@ public struct ResolvedPendingTransactionDecision {
 }
 
 #if compiler(>=6)
-extension ResolvedPendingTransactionDecision: Sendable {}
+nonisolated extension ResolvedPendingTransactionDecision: Sendable {}
 #endif
 
 
-extension ResolvedPendingTransactionDecision: Equatable, Hashable {
+nonisolated extension ResolvedPendingTransactionDecision: Equatable, Hashable {
     public static func ==(lhs: ResolvedPendingTransactionDecision, rhs: ResolvedPendingTransactionDecision) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -19807,7 +19807,7 @@ extension ResolvedPendingTransactionDecision: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeResolvedPendingTransactionDecision: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeResolvedPendingTransactionDecision: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ResolvedPendingTransactionDecision {
         return
             try ResolvedPendingTransactionDecision(
@@ -19850,7 +19850,7 @@ nonisolated public func FfiConverterTypeResolvedPendingTransactionDecision_lower
 }
 
 
-public struct ResolvedPendingTransactionInput {
+nonisolated public struct ResolvedPendingTransactionInput {
     public var id: String
     public var oldStatus: String
     public var oldFailureReason: String?
@@ -19873,11 +19873,11 @@ public struct ResolvedPendingTransactionInput {
 }
 
 #if compiler(>=6)
-extension ResolvedPendingTransactionInput: Sendable {}
+nonisolated extension ResolvedPendingTransactionInput: Sendable {}
 #endif
 
 
-extension ResolvedPendingTransactionInput: Equatable, Hashable {
+nonisolated extension ResolvedPendingTransactionInput: Equatable, Hashable {
     public static func ==(lhs: ResolvedPendingTransactionInput, rhs: ResolvedPendingTransactionInput) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -19919,7 +19919,7 @@ extension ResolvedPendingTransactionInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeResolvedPendingTransactionInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeResolvedPendingTransactionInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ResolvedPendingTransactionInput {
         return
             try ResolvedPendingTransactionInput(
@@ -19960,7 +19960,7 @@ nonisolated public func FfiConverterTypeResolvedPendingTransactionInput_lower(_ 
 }
 
 
-public struct SecretMaterialDescriptor {
+nonisolated public struct SecretMaterialDescriptor {
     public var walletId: String
     public var secretKind: String
     public var hasSeedPhrase: Bool
@@ -19987,11 +19987,11 @@ public struct SecretMaterialDescriptor {
 }
 
 #if compiler(>=6)
-extension SecretMaterialDescriptor: Sendable {}
+nonisolated extension SecretMaterialDescriptor: Sendable {}
 #endif
 
 
-extension SecretMaterialDescriptor: Equatable, Hashable {
+nonisolated extension SecretMaterialDescriptor: Equatable, Hashable {
     public static func ==(lhs: SecretMaterialDescriptor, rhs: SecretMaterialDescriptor) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -20041,7 +20041,7 @@ extension SecretMaterialDescriptor: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSecretMaterialDescriptor: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSecretMaterialDescriptor: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SecretMaterialDescriptor {
         return
             try SecretMaterialDescriptor(
@@ -20086,7 +20086,7 @@ nonisolated public func FfiConverterTypeSecretMaterialDescriptor_lower(_ value: 
 }
 
 
-public struct SelfSendConfirmationPlan {
+nonisolated public struct SelfSendConfirmationPlan {
     public var requiresConfirmation: Bool
     public var consumeExistingConfirmation: Bool
     public var clearPendingConfirmation: Bool
@@ -20101,11 +20101,11 @@ public struct SelfSendConfirmationPlan {
 }
 
 #if compiler(>=6)
-extension SelfSendConfirmationPlan: Sendable {}
+nonisolated extension SelfSendConfirmationPlan: Sendable {}
 #endif
 
 
-extension SelfSendConfirmationPlan: Equatable, Hashable {
+nonisolated extension SelfSendConfirmationPlan: Equatable, Hashable {
     public static func ==(lhs: SelfSendConfirmationPlan, rhs: SelfSendConfirmationPlan) -> Bool {
         if lhs.requiresConfirmation != rhs.requiresConfirmation {
             return false
@@ -20131,7 +20131,7 @@ extension SelfSendConfirmationPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSelfSendConfirmationPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSelfSendConfirmationPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SelfSendConfirmationPlan {
         return
             try SelfSendConfirmationPlan(
@@ -20164,7 +20164,7 @@ nonisolated public func FfiConverterTypeSelfSendConfirmationPlan_lower(_ value: 
 }
 
 
-public struct SelfSendConfirmationRequest {
+nonisolated public struct SelfSendConfirmationRequest {
     public var pendingConfirmation: PendingSelfSendConfirmationInput?
     public var walletId: String
     public var chainName: String
@@ -20191,11 +20191,11 @@ public struct SelfSendConfirmationRequest {
 }
 
 #if compiler(>=6)
-extension SelfSendConfirmationRequest: Sendable {}
+nonisolated extension SelfSendConfirmationRequest: Sendable {}
 #endif
 
 
-extension SelfSendConfirmationRequest: Equatable, Hashable {
+nonisolated extension SelfSendConfirmationRequest: Equatable, Hashable {
     public static func ==(lhs: SelfSendConfirmationRequest, rhs: SelfSendConfirmationRequest) -> Bool {
         if lhs.pendingConfirmation != rhs.pendingConfirmation {
             return false
@@ -20245,7 +20245,7 @@ extension SelfSendConfirmationRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSelfSendConfirmationRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSelfSendConfirmationRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SelfSendConfirmationRequest {
         return
             try SelfSendConfirmationRequest(
@@ -20290,7 +20290,7 @@ nonisolated public func FfiConverterTypeSelfSendConfirmationRequest_lower(_ valu
 }
 
 
-public struct SendAssetRoutingInput {
+nonisolated public struct SendAssetRoutingInput {
     public var chainName: String
     public var symbol: String
     public var isEvmChain: Bool
@@ -20309,11 +20309,11 @@ public struct SendAssetRoutingInput {
 }
 
 #if compiler(>=6)
-extension SendAssetRoutingInput: Sendable {}
+nonisolated extension SendAssetRoutingInput: Sendable {}
 #endif
 
 
-extension SendAssetRoutingInput: Equatable, Hashable {
+nonisolated extension SendAssetRoutingInput: Equatable, Hashable {
     public static func ==(lhs: SendAssetRoutingInput, rhs: SendAssetRoutingInput) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -20347,7 +20347,7 @@ extension SendAssetRoutingInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSendAssetRoutingInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSendAssetRoutingInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SendAssetRoutingInput {
         return
             try SendAssetRoutingInput(
@@ -20384,7 +20384,7 @@ nonisolated public func FfiConverterTypeSendAssetRoutingInput_lower(_ value: Sen
 }
 
 
-public struct SendAssetRoutingPlan {
+nonisolated public struct SendAssetRoutingPlan {
     public var previewKind: String?
     public var submitKind: String?
     public var nativeEvmSymbol: String?
@@ -20403,11 +20403,11 @@ public struct SendAssetRoutingPlan {
 }
 
 #if compiler(>=6)
-extension SendAssetRoutingPlan: Sendable {}
+nonisolated extension SendAssetRoutingPlan: Sendable {}
 #endif
 
 
-extension SendAssetRoutingPlan: Equatable, Hashable {
+nonisolated extension SendAssetRoutingPlan: Equatable, Hashable {
     public static func ==(lhs: SendAssetRoutingPlan, rhs: SendAssetRoutingPlan) -> Bool {
         if lhs.previewKind != rhs.previewKind {
             return false
@@ -20441,7 +20441,7 @@ extension SendAssetRoutingPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSendAssetRoutingPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSendAssetRoutingPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SendAssetRoutingPlan {
         return
             try SendAssetRoutingPlan(
@@ -20478,7 +20478,7 @@ nonisolated public func FfiConverterTypeSendAssetRoutingPlan_lower(_ value: Send
 }
 
 
-public struct SendBroadcastOutcome {
+nonisolated public struct SendBroadcastOutcome {
     public var transactionHash: String
     public var payloadFormat: String
 
@@ -20491,11 +20491,11 @@ public struct SendBroadcastOutcome {
 }
 
 #if compiler(>=6)
-extension SendBroadcastOutcome: Sendable {}
+nonisolated extension SendBroadcastOutcome: Sendable {}
 #endif
 
 
-extension SendBroadcastOutcome: Equatable, Hashable {
+nonisolated extension SendBroadcastOutcome: Equatable, Hashable {
     public static func ==(lhs: SendBroadcastOutcome, rhs: SendBroadcastOutcome) -> Bool {
         if lhs.transactionHash != rhs.transactionHash {
             return false
@@ -20517,7 +20517,7 @@ extension SendBroadcastOutcome: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSendBroadcastOutcome: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSendBroadcastOutcome: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SendBroadcastOutcome {
         return
             try SendBroadcastOutcome(
@@ -20556,7 +20556,7 @@ nonisolated public func FfiConverterTypeSendBroadcastOutcome_lower(_ value: Send
  * Swift passes the seed phrase or private key; Rust derives the signing key
  * material, builds the chain-specific payload, signs, and broadcasts.
  */
-public struct SendExecutionRequest {
+nonisolated public struct SendExecutionRequest {
     /**
      * Spectra chain ID matching `sign_and_send` routing (0 = BTC, 1 = ETH, …).
      */
@@ -20709,11 +20709,11 @@ public struct SendExecutionRequest {
 }
 
 #if compiler(>=6)
-extension SendExecutionRequest: Sendable {}
+nonisolated extension SendExecutionRequest: Sendable {}
 #endif
 
 
-extension SendExecutionRequest: Equatable, Hashable {
+nonisolated extension SendExecutionRequest: Equatable, Hashable {
     public static func ==(lhs: SendExecutionRequest, rhs: SendExecutionRequest) -> Bool {
         if lhs.chainId != rhs.chainId {
             return false
@@ -20795,7 +20795,7 @@ extension SendExecutionRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSendExecutionRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSendExecutionRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SendExecutionRequest {
         return
             try SendExecutionRequest(
@@ -20859,7 +20859,7 @@ nonisolated public func FfiConverterTypeSendExecutionRequest_lower(_ value: Send
 /**
  * Result from `WalletService::execute_send`.
  */
-public struct SendExecutionResult {
+nonisolated public struct SendExecutionResult {
     /**
      * Raw JSON result from the chain signer/broadcaster. Persisted opaquely
      * by Swift as the `signedTransactionPayload` blob — no Swift-side parsing.
@@ -20906,11 +20906,11 @@ public struct SendExecutionResult {
 }
 
 #if compiler(>=6)
-extension SendExecutionResult: Sendable {}
+nonisolated extension SendExecutionResult: Sendable {}
 #endif
 
 
-extension SendExecutionResult: Equatable, Hashable {
+nonisolated extension SendExecutionResult: Equatable, Hashable {
     public static func ==(lhs: SendExecutionResult, rhs: SendExecutionResult) -> Bool {
         if lhs.resultJson != rhs.resultJson {
             return false
@@ -20940,7 +20940,7 @@ extension SendExecutionResult: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSendExecutionResult: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSendExecutionResult: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SendExecutionResult {
         return
             try SendExecutionResult(
@@ -20975,7 +20975,7 @@ nonisolated public func FfiConverterTypeSendExecutionResult_lower(_ value: SendE
 }
 
 
-public struct SendPreviewDetailsCore {
+nonisolated public struct SendPreviewDetailsCore {
     public var spendableBalance: Double?
     public var feeRateDescription: String?
     public var estimatedTransactionBytes: Int64?
@@ -20996,11 +20996,11 @@ public struct SendPreviewDetailsCore {
 }
 
 #if compiler(>=6)
-extension SendPreviewDetailsCore: Sendable {}
+nonisolated extension SendPreviewDetailsCore: Sendable {}
 #endif
 
 
-extension SendPreviewDetailsCore: Equatable, Hashable {
+nonisolated extension SendPreviewDetailsCore: Equatable, Hashable {
     public static func ==(lhs: SendPreviewDetailsCore, rhs: SendPreviewDetailsCore) -> Bool {
         if lhs.spendableBalance != rhs.spendableBalance {
             return false
@@ -21038,7 +21038,7 @@ extension SendPreviewDetailsCore: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSendPreviewDetailsCore: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSendPreviewDetailsCore: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SendPreviewDetailsCore {
         return
             try SendPreviewDetailsCore(
@@ -21077,7 +21077,7 @@ nonisolated public func FfiConverterTypeSendPreviewDetailsCore_lower(_ value: Se
 }
 
 
-public struct SendPreviewRoutingPlan {
+nonisolated public struct SendPreviewRoutingPlan {
     public var activePreviewKind: String?
 
     // Default memberwise initializers are never public by default, so we
@@ -21088,11 +21088,11 @@ public struct SendPreviewRoutingPlan {
 }
 
 #if compiler(>=6)
-extension SendPreviewRoutingPlan: Sendable {}
+nonisolated extension SendPreviewRoutingPlan: Sendable {}
 #endif
 
 
-extension SendPreviewRoutingPlan: Equatable, Hashable {
+nonisolated extension SendPreviewRoutingPlan: Equatable, Hashable {
     public static func ==(lhs: SendPreviewRoutingPlan, rhs: SendPreviewRoutingPlan) -> Bool {
         if lhs.activePreviewKind != rhs.activePreviewKind {
             return false
@@ -21110,7 +21110,7 @@ extension SendPreviewRoutingPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSendPreviewRoutingPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSendPreviewRoutingPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SendPreviewRoutingPlan {
         return
             try SendPreviewRoutingPlan(
@@ -21139,7 +21139,7 @@ nonisolated public func FfiConverterTypeSendPreviewRoutingPlan_lower(_ value: Se
 }
 
 
-public struct SendPreviewRoutingRequest {
+nonisolated public struct SendPreviewRoutingRequest {
     public var asset: SendAssetRoutingInput?
 
     // Default memberwise initializers are never public by default, so we
@@ -21150,11 +21150,11 @@ public struct SendPreviewRoutingRequest {
 }
 
 #if compiler(>=6)
-extension SendPreviewRoutingRequest: Sendable {}
+nonisolated extension SendPreviewRoutingRequest: Sendable {}
 #endif
 
 
-extension SendPreviewRoutingRequest: Equatable, Hashable {
+nonisolated extension SendPreviewRoutingRequest: Equatable, Hashable {
     public static func ==(lhs: SendPreviewRoutingRequest, rhs: SendPreviewRoutingRequest) -> Bool {
         if lhs.asset != rhs.asset {
             return false
@@ -21172,7 +21172,7 @@ extension SendPreviewRoutingRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSendPreviewRoutingRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSendPreviewRoutingRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SendPreviewRoutingRequest {
         return
             try SendPreviewRoutingRequest(
@@ -21205,7 +21205,7 @@ nonisolated public func FfiConverterTypeSendPreviewRoutingRequest_lower(_ value:
  * Snapshot of every chain's current send-preview. Swift passes the full set;
  * Rust picks the one matching `chain_name` and flattens it to `SendPreviewDetails`.
  */
-public struct SendPreviewsInput {
+nonisolated public struct SendPreviewsInput {
     public var bitcoin: BitcoinSendPreview?
     public var bitcoinCash: BitcoinSendPreview?
     public var bitcoinSv: BitcoinSendPreview?
@@ -21250,11 +21250,11 @@ public struct SendPreviewsInput {
 }
 
 #if compiler(>=6)
-extension SendPreviewsInput: Sendable {}
+nonisolated extension SendPreviewsInput: Sendable {}
 #endif
 
 
-extension SendPreviewsInput: Equatable, Hashable {
+nonisolated extension SendPreviewsInput: Equatable, Hashable {
     public static func ==(lhs: SendPreviewsInput, rhs: SendPreviewsInput) -> Bool {
         if lhs.bitcoin != rhs.bitcoin {
             return false
@@ -21340,7 +21340,7 @@ extension SendPreviewsInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSendPreviewsInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSendPreviewsInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SendPreviewsInput {
         return
             try SendPreviewsInput(
@@ -21403,7 +21403,7 @@ nonisolated public func FfiConverterTypeSendPreviewsInput_lower(_ value: SendPre
 }
 
 
-public struct SendSubmitPreflightPlan {
+nonisolated public struct SendSubmitPreflightPlan {
     public var submitKind: String
     public var previewKind: String?
     public var normalizedDestinationAddress: String
@@ -21430,11 +21430,11 @@ public struct SendSubmitPreflightPlan {
 }
 
 #if compiler(>=6)
-extension SendSubmitPreflightPlan: Sendable {}
+nonisolated extension SendSubmitPreflightPlan: Sendable {}
 #endif
 
 
-extension SendSubmitPreflightPlan: Equatable, Hashable {
+nonisolated extension SendSubmitPreflightPlan: Equatable, Hashable {
     public static func ==(lhs: SendSubmitPreflightPlan, rhs: SendSubmitPreflightPlan) -> Bool {
         if lhs.submitKind != rhs.submitKind {
             return false
@@ -21484,7 +21484,7 @@ extension SendSubmitPreflightPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSendSubmitPreflightPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSendSubmitPreflightPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SendSubmitPreflightPlan {
         return
             try SendSubmitPreflightPlan(
@@ -21529,7 +21529,7 @@ nonisolated public func FfiConverterTypeSendSubmitPreflightPlan_lower(_ value: S
 }
 
 
-public struct SendSubmitPreflightRequest {
+nonisolated public struct SendSubmitPreflightRequest {
     public var walletFound: Bool
     public var assetFound: Bool
     public var destinationAddress: String
@@ -21550,11 +21550,11 @@ public struct SendSubmitPreflightRequest {
 }
 
 #if compiler(>=6)
-extension SendSubmitPreflightRequest: Sendable {}
+nonisolated extension SendSubmitPreflightRequest: Sendable {}
 #endif
 
 
-extension SendSubmitPreflightRequest: Equatable, Hashable {
+nonisolated extension SendSubmitPreflightRequest: Equatable, Hashable {
     public static func ==(lhs: SendSubmitPreflightRequest, rhs: SendSubmitPreflightRequest) -> Bool {
         if lhs.walletFound != rhs.walletFound {
             return false
@@ -21592,7 +21592,7 @@ extension SendSubmitPreflightRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSendSubmitPreflightRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSendSubmitPreflightRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SendSubmitPreflightRequest {
         return
             try SendSubmitPreflightRequest(
@@ -21631,7 +21631,7 @@ nonisolated public func FfiConverterTypeSendSubmitPreflightRequest_lower(_ value
 }
 
 
-public struct SendVerificationNotice {
+nonisolated public struct SendVerificationNotice {
     /**
      * None means "clear any existing notice". Some(text) means display text.
      */
@@ -21650,11 +21650,11 @@ public struct SendVerificationNotice {
 }
 
 #if compiler(>=6)
-extension SendVerificationNotice: Sendable {}
+nonisolated extension SendVerificationNotice: Sendable {}
 #endif
 
 
-extension SendVerificationNotice: Equatable, Hashable {
+nonisolated extension SendVerificationNotice: Equatable, Hashable {
     public static func ==(lhs: SendVerificationNotice, rhs: SendVerificationNotice) -> Bool {
         if lhs.notice != rhs.notice {
             return false
@@ -21676,7 +21676,7 @@ extension SendVerificationNotice: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSendVerificationNotice: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSendVerificationNotice: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SendVerificationNotice {
         return
             try SendVerificationNotice(
@@ -21710,7 +21710,7 @@ nonisolated public func FfiConverterTypeSendVerificationNotice_lower(_ value: Se
 /**
  * Simple (address/source/count/error) entry paired with the wallet id.
  */
-public struct SimpleAddressHistoryEntry {
+nonisolated public struct SimpleAddressHistoryEntry {
     public var walletId: String
     public var address: String
     public var sourceUsed: String
@@ -21729,11 +21729,11 @@ public struct SimpleAddressHistoryEntry {
 }
 
 #if compiler(>=6)
-extension SimpleAddressHistoryEntry: Sendable {}
+nonisolated extension SimpleAddressHistoryEntry: Sendable {}
 #endif
 
 
-extension SimpleAddressHistoryEntry: Equatable, Hashable {
+nonisolated extension SimpleAddressHistoryEntry: Equatable, Hashable {
     public static func ==(lhs: SimpleAddressHistoryEntry, rhs: SimpleAddressHistoryEntry) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -21767,7 +21767,7 @@ extension SimpleAddressHistoryEntry: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSimpleAddressHistoryEntry: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSimpleAddressHistoryEntry: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SimpleAddressHistoryEntry {
         return
             try SimpleAddressHistoryEntry(
@@ -21804,7 +21804,7 @@ nonisolated public func FfiConverterTypeSimpleAddressHistoryEntry_lower(_ value:
 }
 
 
-public struct SimpleChainRiskProbeConfig {
+nonisolated public struct SimpleChainRiskProbeConfig {
     public var displayChainName: String
     public var balanceLabel: String
 
@@ -21817,11 +21817,11 @@ public struct SimpleChainRiskProbeConfig {
 }
 
 #if compiler(>=6)
-extension SimpleChainRiskProbeConfig: Sendable {}
+nonisolated extension SimpleChainRiskProbeConfig: Sendable {}
 #endif
 
 
-extension SimpleChainRiskProbeConfig: Equatable, Hashable {
+nonisolated extension SimpleChainRiskProbeConfig: Equatable, Hashable {
     public static func ==(lhs: SimpleChainRiskProbeConfig, rhs: SimpleChainRiskProbeConfig) -> Bool {
         if lhs.displayChainName != rhs.displayChainName {
             return false
@@ -21843,7 +21843,7 @@ extension SimpleChainRiskProbeConfig: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSimpleChainRiskProbeConfig: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSimpleChainRiskProbeConfig: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SimpleChainRiskProbeConfig {
         return
             try SimpleChainRiskProbeConfig(
@@ -21874,7 +21874,7 @@ nonisolated public func FfiConverterTypeSimpleChainRiskProbeConfig_lower(_ value
 }
 
 
-public struct SimpleSendPreview {
+nonisolated public struct SimpleSendPreview {
     public var feeDisplay: Double
     public var feeRaw: String
     public var feeRateDescription: String
@@ -21893,11 +21893,11 @@ public struct SimpleSendPreview {
 }
 
 #if compiler(>=6)
-extension SimpleSendPreview: Sendable {}
+nonisolated extension SimpleSendPreview: Sendable {}
 #endif
 
 
-extension SimpleSendPreview: Equatable, Hashable {
+nonisolated extension SimpleSendPreview: Equatable, Hashable {
     public static func ==(lhs: SimpleSendPreview, rhs: SimpleSendPreview) -> Bool {
         if lhs.feeDisplay != rhs.feeDisplay {
             return false
@@ -21931,7 +21931,7 @@ extension SimpleSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSimpleSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSimpleSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SimpleSendPreview {
         return
             try SimpleSendPreview(
@@ -21968,7 +21968,7 @@ nonisolated public func FfiConverterTypeSimpleSendPreview_lower(_ value: SimpleS
 }
 
 
-public struct SolanaBalance {
+nonisolated public struct SolanaBalance {
     /**
      * Lamports (1 SOL = 1_000_000_000 lamports).
      */
@@ -21987,11 +21987,11 @@ public struct SolanaBalance {
 }
 
 #if compiler(>=6)
-extension SolanaBalance: Sendable {}
+nonisolated extension SolanaBalance: Sendable {}
 #endif
 
 
-extension SolanaBalance: Equatable, Hashable {
+nonisolated extension SolanaBalance: Equatable, Hashable {
     public static func ==(lhs: SolanaBalance, rhs: SolanaBalance) -> Bool {
         if lhs.lamports != rhs.lamports {
             return false
@@ -22013,7 +22013,7 @@ extension SolanaBalance: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSolanaBalance: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSolanaBalance: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SolanaBalance {
         return
             try SolanaBalance(
@@ -22044,7 +22044,7 @@ nonisolated public func FfiConverterTypeSolanaBalance_lower(_ value: SolanaBalan
 }
 
 
-public struct SolanaHistoryDiagnostics {
+nonisolated public struct SolanaHistoryDiagnostics {
     public var address: String
     public var rpcCount: Int32
     public var sourceUsed: String
@@ -22061,11 +22061,11 @@ public struct SolanaHistoryDiagnostics {
 }
 
 #if compiler(>=6)
-extension SolanaHistoryDiagnostics: Sendable {}
+nonisolated extension SolanaHistoryDiagnostics: Sendable {}
 #endif
 
 
-extension SolanaHistoryDiagnostics: Equatable, Hashable {
+nonisolated extension SolanaHistoryDiagnostics: Equatable, Hashable {
     public static func ==(lhs: SolanaHistoryDiagnostics, rhs: SolanaHistoryDiagnostics) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -22095,7 +22095,7 @@ extension SolanaHistoryDiagnostics: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSolanaHistoryDiagnostics: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSolanaHistoryDiagnostics: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SolanaHistoryDiagnostics {
         return
             try SolanaHistoryDiagnostics(
@@ -22133,7 +22133,7 @@ nonisolated public func FfiConverterTypeSolanaHistoryDiagnostics_lower(_ value: 
 /**
  * Solana history entry with wallet id.
  */
-public struct SolanaHistoryEntry {
+nonisolated public struct SolanaHistoryEntry {
     public var walletId: String
     public var diagnostics: SolanaHistoryDiagnostics
 
@@ -22146,11 +22146,11 @@ public struct SolanaHistoryEntry {
 }
 
 #if compiler(>=6)
-extension SolanaHistoryEntry: Sendable {}
+nonisolated extension SolanaHistoryEntry: Sendable {}
 #endif
 
 
-extension SolanaHistoryEntry: Equatable, Hashable {
+nonisolated extension SolanaHistoryEntry: Equatable, Hashable {
     public static func ==(lhs: SolanaHistoryEntry, rhs: SolanaHistoryEntry) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -22172,7 +22172,7 @@ extension SolanaHistoryEntry: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSolanaHistoryEntry: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSolanaHistoryEntry: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SolanaHistoryEntry {
         return
             try SolanaHistoryEntry(
@@ -22203,7 +22203,7 @@ nonisolated public func FfiConverterTypeSolanaHistoryEntry_lower(_ value: Solana
 }
 
 
-public struct SolanaSendPreview {
+nonisolated public struct SolanaSendPreview {
     public var estimatedNetworkFeeSol: Double
     public var spendableBalance: Double
     public var feeRateDescription: String?
@@ -22226,11 +22226,11 @@ public struct SolanaSendPreview {
 }
 
 #if compiler(>=6)
-extension SolanaSendPreview: Sendable {}
+nonisolated extension SolanaSendPreview: Sendable {}
 #endif
 
 
-extension SolanaSendPreview: Equatable, Hashable {
+nonisolated extension SolanaSendPreview: Equatable, Hashable {
     public static func ==(lhs: SolanaSendPreview, rhs: SolanaSendPreview) -> Bool {
         if lhs.estimatedNetworkFeeSol != rhs.estimatedNetworkFeeSol {
             return false
@@ -22272,7 +22272,7 @@ extension SolanaSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSolanaSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSolanaSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SolanaSendPreview {
         return
             try SolanaSendPreview(
@@ -22317,7 +22317,7 @@ nonisolated public func FfiConverterTypeSolanaSendPreview_lower(_ value: SolanaS
  * Amount preview for a staking action — what Swift renders before sign.
  * Mirrors `EthereumSendPreview` etc. but with staking-specific fields.
  */
-public struct StakingActionPreview {
+nonisolated public struct StakingActionPreview {
     public var kind: StakingActionKind
     public var validatorIdentifier: String
     public var validatorDisplayName: String
@@ -22382,11 +22382,11 @@ public struct StakingActionPreview {
 }
 
 #if compiler(>=6)
-extension StakingActionPreview: Sendable {}
+nonisolated extension StakingActionPreview: Sendable {}
 #endif
 
 
-extension StakingActionPreview: Equatable, Hashable {
+nonisolated extension StakingActionPreview: Equatable, Hashable {
     public static func ==(lhs: StakingActionPreview, rhs: StakingActionPreview) -> Bool {
         if lhs.kind != rhs.kind {
             return false
@@ -22436,7 +22436,7 @@ extension StakingActionPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStakingActionPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStakingActionPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StakingActionPreview {
         return
             try StakingActionPreview(
@@ -22485,7 +22485,7 @@ nonisolated public func FfiConverterTypeStakingActionPreview_lower(_ value: Stak
  * One staking position held by a wallet on a given chain. A wallet can
  * hold multiple positions if it stakes to multiple validators / pools.
  */
-public struct StakingPosition {
+nonisolated public struct StakingPosition {
     public var validatorIdentifier: String
     public var validatorDisplayName: String
     public var status: StakingPositionStatus
@@ -22540,11 +22540,11 @@ public struct StakingPosition {
 }
 
 #if compiler(>=6)
-extension StakingPosition: Sendable {}
+nonisolated extension StakingPosition: Sendable {}
 #endif
 
 
-extension StakingPosition: Equatable, Hashable {
+nonisolated extension StakingPosition: Equatable, Hashable {
     public static func ==(lhs: StakingPosition, rhs: StakingPosition) -> Bool {
         if lhs.validatorIdentifier != rhs.validatorIdentifier {
             return false
@@ -22590,7 +22590,7 @@ extension StakingPosition: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStakingPosition: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStakingPosition: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StakingPosition {
         return
             try StakingPosition(
@@ -22639,7 +22639,7 @@ nonisolated public func FfiConverterTypeStakingPosition_lower(_ value: StakingPo
  * minimum delegation, identity verification) are expressed via
  * `details` k/v pairs so the UI can show them without typing pressure.
  */
-public struct StakingValidator {
+nonisolated public struct StakingValidator {
     /**
      * Stable on-chain identifier (vote account, pool ID, validator address,
      * neuron follow target, etc.). Kept opaque to Swift.
@@ -22712,11 +22712,11 @@ public struct StakingValidator {
 }
 
 #if compiler(>=6)
-extension StakingValidator: Sendable {}
+nonisolated extension StakingValidator: Sendable {}
 #endif
 
 
-extension StakingValidator: Equatable, Hashable {
+nonisolated extension StakingValidator: Equatable, Hashable {
     public static func ==(lhs: StakingValidator, rhs: StakingValidator) -> Bool {
         if lhs.identifier != rhs.identifier {
             return false
@@ -22758,7 +22758,7 @@ extension StakingValidator: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStakingValidator: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStakingValidator: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StakingValidator {
         return
             try StakingValidator(
@@ -22799,7 +22799,7 @@ nonisolated public func FfiConverterTypeStakingValidator_lower(_ value: StakingV
 }
 
 
-public struct StalePendingFailureTransactionInput {
+nonisolated public struct StalePendingFailureTransactionInput {
     public var id: String
     public var createdAtUnix: Double
     public var statusIsPending: Bool
@@ -22816,11 +22816,11 @@ public struct StalePendingFailureTransactionInput {
 }
 
 #if compiler(>=6)
-extension StalePendingFailureTransactionInput: Sendable {}
+nonisolated extension StalePendingFailureTransactionInput: Sendable {}
 #endif
 
 
-extension StalePendingFailureTransactionInput: Equatable, Hashable {
+nonisolated extension StalePendingFailureTransactionInput: Equatable, Hashable {
     public static func ==(lhs: StalePendingFailureTransactionInput, rhs: StalePendingFailureTransactionInput) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -22850,7 +22850,7 @@ extension StalePendingFailureTransactionInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStalePendingFailureTransactionInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStalePendingFailureTransactionInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StalePendingFailureTransactionInput {
         return
             try StalePendingFailureTransactionInput(
@@ -22885,7 +22885,7 @@ nonisolated public func FfiConverterTypeStalePendingFailureTransactionInput_lowe
 }
 
 
-public struct StateEvent {
+nonisolated public struct StateEvent {
     public var kind: String
     public var subjectId: String?
 
@@ -22898,11 +22898,11 @@ public struct StateEvent {
 }
 
 #if compiler(>=6)
-extension StateEvent: Sendable {}
+nonisolated extension StateEvent: Sendable {}
 #endif
 
 
-extension StateEvent: Equatable, Hashable {
+nonisolated extension StateEvent: Equatable, Hashable {
     public static func ==(lhs: StateEvent, rhs: StateEvent) -> Bool {
         if lhs.kind != rhs.kind {
             return false
@@ -22924,7 +22924,7 @@ extension StateEvent: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStateEvent: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStateEvent: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StateEvent {
         return
             try StateEvent(
@@ -22955,7 +22955,7 @@ nonisolated public func FfiConverterTypeStateEvent_lower(_ value: StateEvent) ->
 }
 
 
-public struct StateTransition {
+nonisolated public struct StateTransition {
     public var state: CoreAppState
     public var events: [StateEvent]
 
@@ -22968,11 +22968,11 @@ public struct StateTransition {
 }
 
 #if compiler(>=6)
-extension StateTransition: Sendable {}
+nonisolated extension StateTransition: Sendable {}
 #endif
 
 
-extension StateTransition: Equatable, Hashable {
+nonisolated extension StateTransition: Equatable, Hashable {
     public static func ==(lhs: StateTransition, rhs: StateTransition) -> Bool {
         if lhs.state != rhs.state {
             return false
@@ -22994,7 +22994,7 @@ extension StateTransition: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStateTransition: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStateTransition: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StateTransition {
         return
             try StateTransition(
@@ -23025,7 +23025,7 @@ nonisolated public func FfiConverterTypeStateTransition_lower(_ value: StateTran
 }
 
 
-public struct StellarHistoryDiagnostics {
+nonisolated public struct StellarHistoryDiagnostics {
     public var address: String
     public var sourceUsed: String
     public var transactionCount: Int32
@@ -23042,11 +23042,11 @@ public struct StellarHistoryDiagnostics {
 }
 
 #if compiler(>=6)
-extension StellarHistoryDiagnostics: Sendable {}
+nonisolated extension StellarHistoryDiagnostics: Sendable {}
 #endif
 
 
-extension StellarHistoryDiagnostics: Equatable, Hashable {
+nonisolated extension StellarHistoryDiagnostics: Equatable, Hashable {
     public static func ==(lhs: StellarHistoryDiagnostics, rhs: StellarHistoryDiagnostics) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -23076,7 +23076,7 @@ extension StellarHistoryDiagnostics: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStellarHistoryDiagnostics: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStellarHistoryDiagnostics: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StellarHistoryDiagnostics {
         return
             try StellarHistoryDiagnostics(
@@ -23111,7 +23111,7 @@ nonisolated public func FfiConverterTypeStellarHistoryDiagnostics_lower(_ value:
 }
 
 
-public struct StellarSendPreview {
+nonisolated public struct StellarSendPreview {
     public var estimatedNetworkFeeXlm: Double
     public var feeStroops: Int64
     public var sequence: Int64
@@ -23138,11 +23138,11 @@ public struct StellarSendPreview {
 }
 
 #if compiler(>=6)
-extension StellarSendPreview: Sendable {}
+nonisolated extension StellarSendPreview: Sendable {}
 #endif
 
 
-extension StellarSendPreview: Equatable, Hashable {
+nonisolated extension StellarSendPreview: Equatable, Hashable {
     public static func ==(lhs: StellarSendPreview, rhs: StellarSendPreview) -> Bool {
         if lhs.estimatedNetworkFeeXlm != rhs.estimatedNetworkFeeXlm {
             return false
@@ -23192,7 +23192,7 @@ extension StellarSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStellarSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStellarSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StellarSendPreview {
         return
             try StellarSendPreview(
@@ -23237,7 +23237,7 @@ nonisolated public func FfiConverterTypeStellarSendPreview_lower(_ value: Stella
 }
 
 
-public struct StoreDerivedHoldingInput {
+nonisolated public struct StoreDerivedHoldingInput {
     public var holdingIndex: UInt64
     public var assetIdentityKey: String
     public var symbolUpper: String
@@ -23256,11 +23256,11 @@ public struct StoreDerivedHoldingInput {
 }
 
 #if compiler(>=6)
-extension StoreDerivedHoldingInput: Sendable {}
+nonisolated extension StoreDerivedHoldingInput: Sendable {}
 #endif
 
 
-extension StoreDerivedHoldingInput: Equatable, Hashable {
+nonisolated extension StoreDerivedHoldingInput: Equatable, Hashable {
     public static func ==(lhs: StoreDerivedHoldingInput, rhs: StoreDerivedHoldingInput) -> Bool {
         if lhs.holdingIndex != rhs.holdingIndex {
             return false
@@ -23294,7 +23294,7 @@ extension StoreDerivedHoldingInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStoreDerivedHoldingInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStoreDerivedHoldingInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StoreDerivedHoldingInput {
         return
             try StoreDerivedHoldingInput(
@@ -23331,7 +23331,7 @@ nonisolated public func FfiConverterTypeStoreDerivedHoldingInput_lower(_ value: 
 }
 
 
-public struct StoreDerivedStatePlan {
+nonisolated public struct StoreDerivedStatePlan {
     public var includedPortfolioHoldingRefs: [WalletHoldingRef]
     public var uniquePriceRequestHoldingRefs: [WalletHoldingRef]
     public var groupedPortfolio: [GroupedPortfolioHolding]
@@ -23350,11 +23350,11 @@ public struct StoreDerivedStatePlan {
 }
 
 #if compiler(>=6)
-extension StoreDerivedStatePlan: Sendable {}
+nonisolated extension StoreDerivedStatePlan: Sendable {}
 #endif
 
 
-extension StoreDerivedStatePlan: Equatable, Hashable {
+nonisolated extension StoreDerivedStatePlan: Equatable, Hashable {
     public static func ==(lhs: StoreDerivedStatePlan, rhs: StoreDerivedStatePlan) -> Bool {
         if lhs.includedPortfolioHoldingRefs != rhs.includedPortfolioHoldingRefs {
             return false
@@ -23388,7 +23388,7 @@ extension StoreDerivedStatePlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStoreDerivedStatePlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStoreDerivedStatePlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StoreDerivedStatePlan {
         return
             try StoreDerivedStatePlan(
@@ -23425,7 +23425,7 @@ nonisolated public func FfiConverterTypeStoreDerivedStatePlan_lower(_ value: Sto
 }
 
 
-public struct StoreDerivedStateRequest {
+nonisolated public struct StoreDerivedStateRequest {
     public var wallets: [StoreDerivedWalletInput]
 
     // Default memberwise initializers are never public by default, so we
@@ -23436,11 +23436,11 @@ public struct StoreDerivedStateRequest {
 }
 
 #if compiler(>=6)
-extension StoreDerivedStateRequest: Sendable {}
+nonisolated extension StoreDerivedStateRequest: Sendable {}
 #endif
 
 
-extension StoreDerivedStateRequest: Equatable, Hashable {
+nonisolated extension StoreDerivedStateRequest: Equatable, Hashable {
     public static func ==(lhs: StoreDerivedStateRequest, rhs: StoreDerivedStateRequest) -> Bool {
         if lhs.wallets != rhs.wallets {
             return false
@@ -23458,7 +23458,7 @@ extension StoreDerivedStateRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStoreDerivedStateRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStoreDerivedStateRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StoreDerivedStateRequest {
         return
             try StoreDerivedStateRequest(
@@ -23487,7 +23487,7 @@ nonisolated public func FfiConverterTypeStoreDerivedStateRequest_lower(_ value: 
 }
 
 
-public struct StoreDerivedWalletInput {
+nonisolated public struct StoreDerivedWalletInput {
     public var walletId: String
     public var includeInPortfolioTotal: Bool
     public var hasSigningMaterial: Bool
@@ -23506,11 +23506,11 @@ public struct StoreDerivedWalletInput {
 }
 
 #if compiler(>=6)
-extension StoreDerivedWalletInput: Sendable {}
+nonisolated extension StoreDerivedWalletInput: Sendable {}
 #endif
 
 
-extension StoreDerivedWalletInput: Equatable, Hashable {
+nonisolated extension StoreDerivedWalletInput: Equatable, Hashable {
     public static func ==(lhs: StoreDerivedWalletInput, rhs: StoreDerivedWalletInput) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -23544,7 +23544,7 @@ extension StoreDerivedWalletInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStoreDerivedWalletInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStoreDerivedWalletInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StoreDerivedWalletInput {
         return
             try StoreDerivedWalletInput(
@@ -23581,7 +23581,7 @@ nonisolated public func FfiConverterTypeStoreDerivedWalletInput_lower(_ value: S
 }
 
 
-public struct StringValidationRequest {
+nonisolated public struct StringValidationRequest {
     public var kind: String
     public var value: String
 
@@ -23594,11 +23594,11 @@ public struct StringValidationRequest {
 }
 
 #if compiler(>=6)
-extension StringValidationRequest: Sendable {}
+nonisolated extension StringValidationRequest: Sendable {}
 #endif
 
 
-extension StringValidationRequest: Equatable, Hashable {
+nonisolated extension StringValidationRequest: Equatable, Hashable {
     public static func ==(lhs: StringValidationRequest, rhs: StringValidationRequest) -> Bool {
         if lhs.kind != rhs.kind {
             return false
@@ -23620,7 +23620,7 @@ extension StringValidationRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStringValidationRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStringValidationRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StringValidationRequest {
         return
             try StringValidationRequest(
@@ -23651,7 +23651,7 @@ nonisolated public func FfiConverterTypeStringValidationRequest_lower(_ value: S
 }
 
 
-public struct StringValidationResult {
+nonisolated public struct StringValidationResult {
     public var isValid: Bool
     public var normalizedValue: String?
 
@@ -23664,11 +23664,11 @@ public struct StringValidationResult {
 }
 
 #if compiler(>=6)
-extension StringValidationResult: Sendable {}
+nonisolated extension StringValidationResult: Sendable {}
 #endif
 
 
-extension StringValidationResult: Equatable, Hashable {
+nonisolated extension StringValidationResult: Equatable, Hashable {
     public static func ==(lhs: StringValidationResult, rhs: StringValidationResult) -> Bool {
         if lhs.isValid != rhs.isValid {
             return false
@@ -23690,7 +23690,7 @@ extension StringValidationResult: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStringValidationResult: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStringValidationResult: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StringValidationResult {
         return
             try StringValidationResult(
@@ -23721,7 +23721,7 @@ nonisolated public func FfiConverterTypeStringValidationResult_lower(_ value: St
 }
 
 
-public struct SuiHistoryDiagnostics {
+nonisolated public struct SuiHistoryDiagnostics {
     public var address: String
     public var sourceUsed: String
     public var transactionCount: Int32
@@ -23738,11 +23738,11 @@ public struct SuiHistoryDiagnostics {
 }
 
 #if compiler(>=6)
-extension SuiHistoryDiagnostics: Sendable {}
+nonisolated extension SuiHistoryDiagnostics: Sendable {}
 #endif
 
 
-extension SuiHistoryDiagnostics: Equatable, Hashable {
+nonisolated extension SuiHistoryDiagnostics: Equatable, Hashable {
     public static func ==(lhs: SuiHistoryDiagnostics, rhs: SuiHistoryDiagnostics) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -23772,7 +23772,7 @@ extension SuiHistoryDiagnostics: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSuiHistoryDiagnostics: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSuiHistoryDiagnostics: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SuiHistoryDiagnostics {
         return
             try SuiHistoryDiagnostics(
@@ -23807,7 +23807,7 @@ nonisolated public func FfiConverterTypeSuiHistoryDiagnostics_lower(_ value: Sui
 }
 
 
-public struct SuiSendPreview {
+nonisolated public struct SuiSendPreview {
     public var estimatedNetworkFeeSui: Double
     public var gasBudgetMist: UInt64
     public var referenceGasPrice: UInt64
@@ -23834,11 +23834,11 @@ public struct SuiSendPreview {
 }
 
 #if compiler(>=6)
-extension SuiSendPreview: Sendable {}
+nonisolated extension SuiSendPreview: Sendable {}
 #endif
 
 
-extension SuiSendPreview: Equatable, Hashable {
+nonisolated extension SuiSendPreview: Equatable, Hashable {
     public static func ==(lhs: SuiSendPreview, rhs: SuiSendPreview) -> Bool {
         if lhs.estimatedNetworkFeeSui != rhs.estimatedNetworkFeeSui {
             return false
@@ -23888,7 +23888,7 @@ extension SuiSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSuiSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSuiSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SuiSendPreview {
         return
             try SuiSendPreview(
@@ -23933,7 +23933,7 @@ nonisolated public func FfiConverterTypeSuiSendPreview_lower(_ value: SuiSendPre
 }
 
 
-public struct TonHistoryDiagnostics {
+nonisolated public struct TonHistoryDiagnostics {
     public var address: String
     public var sourceUsed: String
     public var transactionCount: Int32
@@ -23950,11 +23950,11 @@ public struct TonHistoryDiagnostics {
 }
 
 #if compiler(>=6)
-extension TonHistoryDiagnostics: Sendable {}
+nonisolated extension TonHistoryDiagnostics: Sendable {}
 #endif
 
 
-extension TonHistoryDiagnostics: Equatable, Hashable {
+nonisolated extension TonHistoryDiagnostics: Equatable, Hashable {
     public static func ==(lhs: TonHistoryDiagnostics, rhs: TonHistoryDiagnostics) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -23984,7 +23984,7 @@ extension TonHistoryDiagnostics: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTONHistoryDiagnostics: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTONHistoryDiagnostics: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TonHistoryDiagnostics {
         return
             try TonHistoryDiagnostics(
@@ -24019,7 +24019,7 @@ nonisolated public func FfiConverterTypeTONHistoryDiagnostics_lower(_ value: Ton
 }
 
 
-public struct TonSendPreview {
+nonisolated public struct TonSendPreview {
     public var estimatedNetworkFeeTon: Double
     public var sequenceNumber: UInt32
     public var spendableBalance: Double
@@ -24044,11 +24044,11 @@ public struct TonSendPreview {
 }
 
 #if compiler(>=6)
-extension TonSendPreview: Sendable {}
+nonisolated extension TonSendPreview: Sendable {}
 #endif
 
 
-extension TonSendPreview: Equatable, Hashable {
+nonisolated extension TonSendPreview: Equatable, Hashable {
     public static func ==(lhs: TonSendPreview, rhs: TonSendPreview) -> Bool {
         if lhs.estimatedNetworkFeeTon != rhs.estimatedNetworkFeeTon {
             return false
@@ -24094,7 +24094,7 @@ extension TonSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTONSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTONSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TonSendPreview {
         return
             try TonSendPreview(
@@ -24140,7 +24140,7 @@ nonisolated public func FfiConverterTypeTONSendPreview_lower(_ value: TonSendPre
 /**
  * Typed token-balance result returned via UniFFI.
  */
-public struct TokenBalanceResult {
+nonisolated public struct TokenBalanceResult {
     public var contractAddress: String
     public var symbol: String
     public var decimals: UInt8
@@ -24159,11 +24159,11 @@ public struct TokenBalanceResult {
 }
 
 #if compiler(>=6)
-extension TokenBalanceResult: Sendable {}
+nonisolated extension TokenBalanceResult: Sendable {}
 #endif
 
 
-extension TokenBalanceResult: Equatable, Hashable {
+nonisolated extension TokenBalanceResult: Equatable, Hashable {
     public static func ==(lhs: TokenBalanceResult, rhs: TokenBalanceResult) -> Bool {
         if lhs.contractAddress != rhs.contractAddress {
             return false
@@ -24197,7 +24197,7 @@ extension TokenBalanceResult: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTokenBalanceResult: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTokenBalanceResult: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TokenBalanceResult {
         return
             try TokenBalanceResult(
@@ -24237,7 +24237,7 @@ nonisolated public func FfiConverterTypeTokenBalanceResult_lower(_ value: TokenB
 /**
  * Token descriptor passed across UniFFI without JSON-shuttle marshalling.
  */
-public struct TokenDescriptor {
+nonisolated public struct TokenDescriptor {
     public var contract: String
     public var symbol: String
     public var decimals: UInt8
@@ -24254,11 +24254,11 @@ public struct TokenDescriptor {
 }
 
 #if compiler(>=6)
-extension TokenDescriptor: Sendable {}
+nonisolated extension TokenDescriptor: Sendable {}
 #endif
 
 
-extension TokenDescriptor: Equatable, Hashable {
+nonisolated extension TokenDescriptor: Equatable, Hashable {
     public static func ==(lhs: TokenDescriptor, rhs: TokenDescriptor) -> Bool {
         if lhs.contract != rhs.contract {
             return false
@@ -24288,7 +24288,7 @@ extension TokenDescriptor: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTokenDescriptor: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTokenDescriptor: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TokenDescriptor {
         return
             try TokenDescriptor(
@@ -24323,7 +24323,7 @@ nonisolated public func FfiConverterTypeTokenDescriptor_lower(_ value: TokenDesc
 }
 
 
-public struct TokenEntry {
+nonisolated public struct TokenEntry {
     public var chain: String
     public var chainId: UInt32
     public var name: String
@@ -24358,11 +24358,11 @@ public struct TokenEntry {
 }
 
 #if compiler(>=6)
-extension TokenEntry: Sendable {}
+nonisolated extension TokenEntry: Sendable {}
 #endif
 
 
-extension TokenEntry: Equatable, Hashable {
+nonisolated extension TokenEntry: Equatable, Hashable {
     public static func ==(lhs: TokenEntry, rhs: TokenEntry) -> Bool {
         if lhs.chain != rhs.chain {
             return false
@@ -24428,7 +24428,7 @@ extension TokenEntry: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTokenEntry: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTokenEntry: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TokenEntry {
         return
             try TokenEntry(
@@ -24481,7 +24481,7 @@ nonisolated public func FfiConverterTypeTokenEntry_lower(_ value: TokenEntry) ->
 }
 
 
-public struct TokenPreferenceOverride {
+nonisolated public struct TokenPreferenceOverride {
     public var chainName: String
     public var symbol: String
     public var decimals: UInt32
@@ -24498,11 +24498,11 @@ public struct TokenPreferenceOverride {
 }
 
 #if compiler(>=6)
-extension TokenPreferenceOverride: Sendable {}
+nonisolated extension TokenPreferenceOverride: Sendable {}
 #endif
 
 
-extension TokenPreferenceOverride: Equatable, Hashable {
+nonisolated extension TokenPreferenceOverride: Equatable, Hashable {
     public static func ==(lhs: TokenPreferenceOverride, rhs: TokenPreferenceOverride) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -24532,7 +24532,7 @@ extension TokenPreferenceOverride: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTokenPreferenceOverride: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTokenPreferenceOverride: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TokenPreferenceOverride {
         return
             try TokenPreferenceOverride(
@@ -24567,7 +24567,7 @@ nonisolated public func FfiConverterTypeTokenPreferenceOverride_lower(_ value: T
 }
 
 
-public struct TransactionActivityInput {
+nonisolated public struct TransactionActivityInput {
     public var id: String
     public var walletId: String?
     public var chainName: String
@@ -24582,11 +24582,11 @@ public struct TransactionActivityInput {
 }
 
 #if compiler(>=6)
-extension TransactionActivityInput: Sendable {}
+nonisolated extension TransactionActivityInput: Sendable {}
 #endif
 
 
-extension TransactionActivityInput: Equatable, Hashable {
+nonisolated extension TransactionActivityInput: Equatable, Hashable {
     public static func ==(lhs: TransactionActivityInput, rhs: TransactionActivityInput) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -24612,7 +24612,7 @@ extension TransactionActivityInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTransactionActivityInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTransactionActivityInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TransactionActivityInput {
         return
             try TransactionActivityInput(
@@ -24645,7 +24645,7 @@ nonisolated public func FfiConverterTypeTransactionActivityInput_lower(_ value: 
 }
 
 
-public struct TransactionEarliestInput {
+nonisolated public struct TransactionEarliestInput {
     public var walletId: String?
     public var createdAtUnix: Double
 
@@ -24658,11 +24658,11 @@ public struct TransactionEarliestInput {
 }
 
 #if compiler(>=6)
-extension TransactionEarliestInput: Sendable {}
+nonisolated extension TransactionEarliestInput: Sendable {}
 #endif
 
 
-extension TransactionEarliestInput: Equatable, Hashable {
+nonisolated extension TransactionEarliestInput: Equatable, Hashable {
     public static func ==(lhs: TransactionEarliestInput, rhs: TransactionEarliestInput) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -24684,7 +24684,7 @@ extension TransactionEarliestInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTransactionEarliestInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTransactionEarliestInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TransactionEarliestInput {
         return
             try TransactionEarliestInput(
@@ -24715,7 +24715,7 @@ nonisolated public func FfiConverterTypeTransactionEarliestInput_lower(_ value: 
 }
 
 
-public struct TransactionMergeRequest {
+nonisolated public struct TransactionMergeRequest {
     public var existingTransactions: [CoreTransactionRecord]
     public var incomingTransactions: [CoreTransactionRecord]
     public var strategy: TransactionMergeStrategy
@@ -24736,11 +24736,11 @@ public struct TransactionMergeRequest {
 }
 
 #if compiler(>=6)
-extension TransactionMergeRequest: Sendable {}
+nonisolated extension TransactionMergeRequest: Sendable {}
 #endif
 
 
-extension TransactionMergeRequest: Equatable, Hashable {
+nonisolated extension TransactionMergeRequest: Equatable, Hashable {
     public static func ==(lhs: TransactionMergeRequest, rhs: TransactionMergeRequest) -> Bool {
         if lhs.existingTransactions != rhs.existingTransactions {
             return false
@@ -24778,7 +24778,7 @@ extension TransactionMergeRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTransactionMergeRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTransactionMergeRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TransactionMergeRequest {
         return
             try TransactionMergeRequest(
@@ -24817,7 +24817,7 @@ nonisolated public func FfiConverterTypeTransactionMergeRequest_lower(_ value: T
 }
 
 
-public struct TransactionStatusPollConfig {
+nonisolated public struct TransactionStatusPollConfig {
     public var pendingPollSeconds: Double
     public var confirmedPollSeconds: Double
     public var backoffMaxSeconds: Double
@@ -24838,11 +24838,11 @@ public struct TransactionStatusPollConfig {
 }
 
 #if compiler(>=6)
-extension TransactionStatusPollConfig: Sendable {}
+nonisolated extension TransactionStatusPollConfig: Sendable {}
 #endif
 
 
-extension TransactionStatusPollConfig: Equatable, Hashable {
+nonisolated extension TransactionStatusPollConfig: Equatable, Hashable {
     public static func ==(lhs: TransactionStatusPollConfig, rhs: TransactionStatusPollConfig) -> Bool {
         if lhs.pendingPollSeconds != rhs.pendingPollSeconds {
             return false
@@ -24880,7 +24880,7 @@ extension TransactionStatusPollConfig: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTransactionStatusPollConfig: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTransactionStatusPollConfig: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TransactionStatusPollConfig {
         return
             try TransactionStatusPollConfig(
@@ -24919,7 +24919,7 @@ nonisolated public func FfiConverterTypeTransactionStatusPollConfig_lower(_ valu
 }
 
 
-public struct TransactionStatusTrackerState {
+nonisolated public struct TransactionStatusTrackerState {
     public var lastCheckedAtUnix: Double?
     public var nextCheckAtUnix: Double
     public var consecutiveFailures: UInt32
@@ -24936,11 +24936,11 @@ public struct TransactionStatusTrackerState {
 }
 
 #if compiler(>=6)
-extension TransactionStatusTrackerState: Sendable {}
+nonisolated extension TransactionStatusTrackerState: Sendable {}
 #endif
 
 
-extension TransactionStatusTrackerState: Equatable, Hashable {
+nonisolated extension TransactionStatusTrackerState: Equatable, Hashable {
     public static func ==(lhs: TransactionStatusTrackerState, rhs: TransactionStatusTrackerState) -> Bool {
         if lhs.lastCheckedAtUnix != rhs.lastCheckedAtUnix {
             return false
@@ -24970,7 +24970,7 @@ extension TransactionStatusTrackerState: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTransactionStatusTrackerState: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTransactionStatusTrackerState: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TransactionStatusTrackerState {
         return
             try TransactionStatusTrackerState(
@@ -25005,7 +25005,7 @@ nonisolated public func FfiConverterTypeTransactionStatusTrackerState_lower(_ va
 }
 
 
-public struct TransferAvailabilityPlan {
+nonisolated public struct TransferAvailabilityPlan {
     public var wallets: [WalletTransferAvailability]
     public var sendEnabledWalletIds: [String]
     public var receiveEnabledWalletIds: [String]
@@ -25020,11 +25020,11 @@ public struct TransferAvailabilityPlan {
 }
 
 #if compiler(>=6)
-extension TransferAvailabilityPlan: Sendable {}
+nonisolated extension TransferAvailabilityPlan: Sendable {}
 #endif
 
 
-extension TransferAvailabilityPlan: Equatable, Hashable {
+nonisolated extension TransferAvailabilityPlan: Equatable, Hashable {
     public static func ==(lhs: TransferAvailabilityPlan, rhs: TransferAvailabilityPlan) -> Bool {
         if lhs.wallets != rhs.wallets {
             return false
@@ -25050,7 +25050,7 @@ extension TransferAvailabilityPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTransferAvailabilityPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTransferAvailabilityPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TransferAvailabilityPlan {
         return
             try TransferAvailabilityPlan(
@@ -25083,7 +25083,7 @@ nonisolated public func FfiConverterTypeTransferAvailabilityPlan_lower(_ value: 
 }
 
 
-public struct TransferAvailabilityRequest {
+nonisolated public struct TransferAvailabilityRequest {
     public var wallets: [TransferWalletInput]
 
     // Default memberwise initializers are never public by default, so we
@@ -25094,11 +25094,11 @@ public struct TransferAvailabilityRequest {
 }
 
 #if compiler(>=6)
-extension TransferAvailabilityRequest: Sendable {}
+nonisolated extension TransferAvailabilityRequest: Sendable {}
 #endif
 
 
-extension TransferAvailabilityRequest: Equatable, Hashable {
+nonisolated extension TransferAvailabilityRequest: Equatable, Hashable {
     public static func ==(lhs: TransferAvailabilityRequest, rhs: TransferAvailabilityRequest) -> Bool {
         if lhs.wallets != rhs.wallets {
             return false
@@ -25116,7 +25116,7 @@ extension TransferAvailabilityRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTransferAvailabilityRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTransferAvailabilityRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TransferAvailabilityRequest {
         return
             try TransferAvailabilityRequest(
@@ -25145,7 +25145,7 @@ nonisolated public func FfiConverterTypeTransferAvailabilityRequest_lower(_ valu
 }
 
 
-public struct TransferHoldingInput {
+nonisolated public struct TransferHoldingInput {
     public var index: UInt64
     public var chainName: String
     public var symbol: String
@@ -25170,11 +25170,11 @@ public struct TransferHoldingInput {
 }
 
 #if compiler(>=6)
-extension TransferHoldingInput: Sendable {}
+nonisolated extension TransferHoldingInput: Sendable {}
 #endif
 
 
-extension TransferHoldingInput: Equatable, Hashable {
+nonisolated extension TransferHoldingInput: Equatable, Hashable {
     public static func ==(lhs: TransferHoldingInput, rhs: TransferHoldingInput) -> Bool {
         if lhs.index != rhs.index {
             return false
@@ -25220,7 +25220,7 @@ extension TransferHoldingInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTransferHoldingInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTransferHoldingInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TransferHoldingInput {
         return
             try TransferHoldingInput(
@@ -25263,7 +25263,7 @@ nonisolated public func FfiConverterTypeTransferHoldingInput_lower(_ value: Tran
 }
 
 
-public struct TransferWalletInput {
+nonisolated public struct TransferWalletInput {
     public var walletId: String
     public var hasSigningMaterial: Bool
     public var holdings: [TransferHoldingInput]
@@ -25278,11 +25278,11 @@ public struct TransferWalletInput {
 }
 
 #if compiler(>=6)
-extension TransferWalletInput: Sendable {}
+nonisolated extension TransferWalletInput: Sendable {}
 #endif
 
 
-extension TransferWalletInput: Equatable, Hashable {
+nonisolated extension TransferWalletInput: Equatable, Hashable {
     public static func ==(lhs: TransferWalletInput, rhs: TransferWalletInput) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -25308,7 +25308,7 @@ extension TransferWalletInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTransferWalletInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTransferWalletInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TransferWalletInput {
         return
             try TransferWalletInput(
@@ -25341,7 +25341,7 @@ nonisolated public func FfiConverterTypeTransferWalletInput_lower(_ value: Trans
 }
 
 
-public struct TronHistoryDiagnostics {
+nonisolated public struct TronHistoryDiagnostics {
     public var address: String
     public var tronScanTxCount: Int32
     public var tronScanTrc20Count: Int32
@@ -25360,11 +25360,11 @@ public struct TronHistoryDiagnostics {
 }
 
 #if compiler(>=6)
-extension TronHistoryDiagnostics: Sendable {}
+nonisolated extension TronHistoryDiagnostics: Sendable {}
 #endif
 
 
-extension TronHistoryDiagnostics: Equatable, Hashable {
+nonisolated extension TronHistoryDiagnostics: Equatable, Hashable {
     public static func ==(lhs: TronHistoryDiagnostics, rhs: TronHistoryDiagnostics) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -25398,7 +25398,7 @@ extension TronHistoryDiagnostics: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTronHistoryDiagnostics: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTronHistoryDiagnostics: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TronHistoryDiagnostics {
         return
             try TronHistoryDiagnostics(
@@ -25438,7 +25438,7 @@ nonisolated public func FfiConverterTypeTronHistoryDiagnostics_lower(_ value: Tr
 /**
  * Tron history entry with wallet id.
  */
-public struct TronHistoryEntry {
+nonisolated public struct TronHistoryEntry {
     public var walletId: String
     public var diagnostics: TronHistoryDiagnostics
 
@@ -25451,11 +25451,11 @@ public struct TronHistoryEntry {
 }
 
 #if compiler(>=6)
-extension TronHistoryEntry: Sendable {}
+nonisolated extension TronHistoryEntry: Sendable {}
 #endif
 
 
-extension TronHistoryEntry: Equatable, Hashable {
+nonisolated extension TronHistoryEntry: Equatable, Hashable {
     public static func ==(lhs: TronHistoryEntry, rhs: TronHistoryEntry) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -25477,7 +25477,7 @@ extension TronHistoryEntry: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTronHistoryEntry: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTronHistoryEntry: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TronHistoryEntry {
         return
             try TronHistoryEntry(
@@ -25508,7 +25508,7 @@ nonisolated public func FfiConverterTypeTronHistoryEntry_lower(_ value: TronHist
 }
 
 
-public struct TronSendPreview {
+nonisolated public struct TronSendPreview {
     public var estimatedNetworkFeeTrx: Double
     public var feeLimitSun: Int64
     public var simulationUsed: Bool
@@ -25535,11 +25535,11 @@ public struct TronSendPreview {
 }
 
 #if compiler(>=6)
-extension TronSendPreview: Sendable {}
+nonisolated extension TronSendPreview: Sendable {}
 #endif
 
 
-extension TronSendPreview: Equatable, Hashable {
+nonisolated extension TronSendPreview: Equatable, Hashable {
     public static func ==(lhs: TronSendPreview, rhs: TronSendPreview) -> Bool {
         if lhs.estimatedNetworkFeeTrx != rhs.estimatedNetworkFeeTrx {
             return false
@@ -25589,7 +25589,7 @@ extension TronSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTronSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTronSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TronSendPreview {
         return
             try TronSendPreview(
@@ -25634,7 +25634,7 @@ nonisolated public func FfiConverterTypeTronSendPreview_lower(_ value: TronSendP
 }
 
 
-public struct TronSendPreviewDecoded {
+nonisolated public struct TronSendPreviewDecoded {
     public var estimatedNetworkFeeTrx: Double
     public var feeLimitSun: Int64
     public var spendableBalance: Double
@@ -25653,11 +25653,11 @@ public struct TronSendPreviewDecoded {
 }
 
 #if compiler(>=6)
-extension TronSendPreviewDecoded: Sendable {}
+nonisolated extension TronSendPreviewDecoded: Sendable {}
 #endif
 
 
-extension TronSendPreviewDecoded: Equatable, Hashable {
+nonisolated extension TronSendPreviewDecoded: Equatable, Hashable {
     public static func ==(lhs: TronSendPreviewDecoded, rhs: TronSendPreviewDecoded) -> Bool {
         if lhs.estimatedNetworkFeeTrx != rhs.estimatedNetworkFeeTrx {
             return false
@@ -25691,7 +25691,7 @@ extension TronSendPreviewDecoded: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTronSendPreviewDecoded: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTronSendPreviewDecoded: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TronSendPreviewDecoded {
         return
             try TronSendPreviewDecoded(
@@ -25728,9 +25728,8 @@ nonisolated public func FfiConverterTypeTronSendPreviewDecoded_lower(_ value: Tr
 }
 
 
-public struct UniFfiDerivationRequest {
+nonisolated public struct UniFfiDerivationRequest {
     public var chain: UInt32?
-    public var network: UInt32
     public var curve: UInt32
     public var requestedOutputs: UInt32
     public var derivationAlgorithm: UInt32
@@ -25747,9 +25746,8 @@ public struct UniFfiDerivationRequest {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(chain: UInt32?, network: UInt32, curve: UInt32, requestedOutputs: UInt32, derivationAlgorithm: UInt32, addressAlgorithm: UInt32, publicKeyFormat: UInt32, scriptType: UInt32, seedPhrase: String, derivationPath: String?, passphrase: String?, hmacKey: String?, mnemonicWordlist: String?, iterationCount: UInt32, saltPrefix: String?) {
+    nonisolated public init(chain: UInt32?, curve: UInt32, requestedOutputs: UInt32, derivationAlgorithm: UInt32, addressAlgorithm: UInt32, publicKeyFormat: UInt32, scriptType: UInt32, seedPhrase: String, derivationPath: String?, passphrase: String?, hmacKey: String?, mnemonicWordlist: String?, iterationCount: UInt32, saltPrefix: String?) {
         self.chain = chain
-        self.network = network
         self.curve = curve
         self.requestedOutputs = requestedOutputs
         self.derivationAlgorithm = derivationAlgorithm
@@ -25767,16 +25765,13 @@ public struct UniFfiDerivationRequest {
 }
 
 #if compiler(>=6)
-extension UniFfiDerivationRequest: Sendable {}
+nonisolated extension UniFfiDerivationRequest: Sendable {}
 #endif
 
 
-extension UniFfiDerivationRequest: Equatable, Hashable {
+nonisolated extension UniFfiDerivationRequest: Equatable, Hashable {
     public static func ==(lhs: UniFfiDerivationRequest, rhs: UniFfiDerivationRequest) -> Bool {
         if lhs.chain != rhs.chain {
-            return false
-        }
-        if lhs.network != rhs.network {
             return false
         }
         if lhs.curve != rhs.curve {
@@ -25823,7 +25818,6 @@ extension UniFfiDerivationRequest: Equatable, Hashable {
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(chain)
-        hasher.combine(network)
         hasher.combine(curve)
         hasher.combine(requestedOutputs)
         hasher.combine(derivationAlgorithm)
@@ -25845,12 +25839,11 @@ extension UniFfiDerivationRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeUniFFIDerivationRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeUniFFIDerivationRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UniFfiDerivationRequest {
         return
             try UniFfiDerivationRequest(
                 chain: FfiConverterOptionUInt32.read(from: &buf), 
-                network: FfiConverterUInt32.read(from: &buf), 
                 curve: FfiConverterUInt32.read(from: &buf), 
                 requestedOutputs: FfiConverterUInt32.read(from: &buf), 
                 derivationAlgorithm: FfiConverterUInt32.read(from: &buf), 
@@ -25869,7 +25862,6 @@ public struct FfiConverterTypeUniFFIDerivationRequest: FfiConverterRustBuffer {
 
     public static func write(_ value: UniFfiDerivationRequest, into buf: inout [UInt8]) {
         FfiConverterOptionUInt32.write(value.chain, into: &buf)
-        FfiConverterUInt32.write(value.network, into: &buf)
         FfiConverterUInt32.write(value.curve, into: &buf)
         FfiConverterUInt32.write(value.requestedOutputs, into: &buf)
         FfiConverterUInt32.write(value.derivationAlgorithm, into: &buf)
@@ -25902,7 +25894,7 @@ nonisolated public func FfiConverterTypeUniFFIDerivationRequest_lower(_ value: U
 }
 
 
-public struct UniFfiDerivationResponse {
+nonisolated public struct UniFfiDerivationResponse {
     public var address: String?
     public var publicKeyHex: String?
     public var privateKeyHex: String?
@@ -25917,11 +25909,11 @@ public struct UniFfiDerivationResponse {
 }
 
 #if compiler(>=6)
-extension UniFfiDerivationResponse: Sendable {}
+nonisolated extension UniFfiDerivationResponse: Sendable {}
 #endif
 
 
-extension UniFfiDerivationResponse: Equatable, Hashable {
+nonisolated extension UniFfiDerivationResponse: Equatable, Hashable {
     public static func ==(lhs: UniFfiDerivationResponse, rhs: UniFfiDerivationResponse) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -25947,7 +25939,7 @@ extension UniFfiDerivationResponse: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeUniFFIDerivationResponse: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeUniFFIDerivationResponse: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UniFfiDerivationResponse {
         return
             try UniFfiDerivationResponse(
@@ -25980,9 +25972,8 @@ nonisolated public func FfiConverterTypeUniFFIDerivationResponse_lower(_ value: 
 }
 
 
-public struct UniFfiMaterialRequest {
+nonisolated public struct UniFfiMaterialRequest {
     public var chain: UInt32?
-    public var network: UInt32
     public var curve: UInt32
     public var derivationAlgorithm: UInt32
     public var addressAlgorithm: UInt32
@@ -25998,9 +25989,8 @@ public struct UniFfiMaterialRequest {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(chain: UInt32?, network: UInt32, curve: UInt32, derivationAlgorithm: UInt32, addressAlgorithm: UInt32, publicKeyFormat: UInt32, scriptType: UInt32, seedPhrase: String, derivationPath: String, passphrase: String?, hmacKey: String?, mnemonicWordlist: String?, iterationCount: UInt32, saltPrefix: String?) {
+    nonisolated public init(chain: UInt32?, curve: UInt32, derivationAlgorithm: UInt32, addressAlgorithm: UInt32, publicKeyFormat: UInt32, scriptType: UInt32, seedPhrase: String, derivationPath: String, passphrase: String?, hmacKey: String?, mnemonicWordlist: String?, iterationCount: UInt32, saltPrefix: String?) {
         self.chain = chain
-        self.network = network
         self.curve = curve
         self.derivationAlgorithm = derivationAlgorithm
         self.addressAlgorithm = addressAlgorithm
@@ -26017,16 +26007,13 @@ public struct UniFfiMaterialRequest {
 }
 
 #if compiler(>=6)
-extension UniFfiMaterialRequest: Sendable {}
+nonisolated extension UniFfiMaterialRequest: Sendable {}
 #endif
 
 
-extension UniFfiMaterialRequest: Equatable, Hashable {
+nonisolated extension UniFfiMaterialRequest: Equatable, Hashable {
     public static func ==(lhs: UniFfiMaterialRequest, rhs: UniFfiMaterialRequest) -> Bool {
         if lhs.chain != rhs.chain {
-            return false
-        }
-        if lhs.network != rhs.network {
             return false
         }
         if lhs.curve != rhs.curve {
@@ -26070,7 +26057,6 @@ extension UniFfiMaterialRequest: Equatable, Hashable {
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(chain)
-        hasher.combine(network)
         hasher.combine(curve)
         hasher.combine(derivationAlgorithm)
         hasher.combine(addressAlgorithm)
@@ -26091,12 +26077,11 @@ extension UniFfiMaterialRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeUniFFIMaterialRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeUniFFIMaterialRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UniFfiMaterialRequest {
         return
             try UniFfiMaterialRequest(
                 chain: FfiConverterOptionUInt32.read(from: &buf), 
-                network: FfiConverterUInt32.read(from: &buf), 
                 curve: FfiConverterUInt32.read(from: &buf), 
                 derivationAlgorithm: FfiConverterUInt32.read(from: &buf), 
                 addressAlgorithm: FfiConverterUInt32.read(from: &buf), 
@@ -26114,7 +26099,6 @@ public struct FfiConverterTypeUniFFIMaterialRequest: FfiConverterRustBuffer {
 
     public static func write(_ value: UniFfiMaterialRequest, into buf: inout [UInt8]) {
         FfiConverterOptionUInt32.write(value.chain, into: &buf)
-        FfiConverterUInt32.write(value.network, into: &buf)
         FfiConverterUInt32.write(value.curve, into: &buf)
         FfiConverterUInt32.write(value.derivationAlgorithm, into: &buf)
         FfiConverterUInt32.write(value.addressAlgorithm, into: &buf)
@@ -26146,7 +26130,7 @@ nonisolated public func FfiConverterTypeUniFFIMaterialRequest_lower(_ value: Uni
 }
 
 
-public struct UniFfiMaterialResponse {
+nonisolated public struct UniFfiMaterialResponse {
     public var address: String
     public var privateKeyHex: String
     public var derivationPath: String
@@ -26167,11 +26151,11 @@ public struct UniFfiMaterialResponse {
 }
 
 #if compiler(>=6)
-extension UniFfiMaterialResponse: Sendable {}
+nonisolated extension UniFfiMaterialResponse: Sendable {}
 #endif
 
 
-extension UniFfiMaterialResponse: Equatable, Hashable {
+nonisolated extension UniFfiMaterialResponse: Equatable, Hashable {
     public static func ==(lhs: UniFfiMaterialResponse, rhs: UniFfiMaterialResponse) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -26209,7 +26193,7 @@ extension UniFfiMaterialResponse: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeUniFFIMaterialResponse: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeUniFFIMaterialResponse: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UniFfiMaterialResponse {
         return
             try UniFfiMaterialResponse(
@@ -26248,9 +26232,8 @@ nonisolated public func FfiConverterTypeUniFFIMaterialResponse_lower(_ value: Un
 }
 
 
-public struct UniFfiPrivateKeyDerivationRequest {
+nonisolated public struct UniFfiPrivateKeyDerivationRequest {
     public var chain: UInt32?
-    public var network: UInt32
     public var curve: UInt32
     public var addressAlgorithm: UInt32
     public var publicKeyFormat: UInt32
@@ -26259,9 +26242,8 @@ public struct UniFfiPrivateKeyDerivationRequest {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(chain: UInt32?, network: UInt32, curve: UInt32, addressAlgorithm: UInt32, publicKeyFormat: UInt32, scriptType: UInt32, privateKeyHex: String) {
+    nonisolated public init(chain: UInt32?, curve: UInt32, addressAlgorithm: UInt32, publicKeyFormat: UInt32, scriptType: UInt32, privateKeyHex: String) {
         self.chain = chain
-        self.network = network
         self.curve = curve
         self.addressAlgorithm = addressAlgorithm
         self.publicKeyFormat = publicKeyFormat
@@ -26271,16 +26253,13 @@ public struct UniFfiPrivateKeyDerivationRequest {
 }
 
 #if compiler(>=6)
-extension UniFfiPrivateKeyDerivationRequest: Sendable {}
+nonisolated extension UniFfiPrivateKeyDerivationRequest: Sendable {}
 #endif
 
 
-extension UniFfiPrivateKeyDerivationRequest: Equatable, Hashable {
+nonisolated extension UniFfiPrivateKeyDerivationRequest: Equatable, Hashable {
     public static func ==(lhs: UniFfiPrivateKeyDerivationRequest, rhs: UniFfiPrivateKeyDerivationRequest) -> Bool {
         if lhs.chain != rhs.chain {
-            return false
-        }
-        if lhs.network != rhs.network {
             return false
         }
         if lhs.curve != rhs.curve {
@@ -26303,7 +26282,6 @@ extension UniFfiPrivateKeyDerivationRequest: Equatable, Hashable {
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(chain)
-        hasher.combine(network)
         hasher.combine(curve)
         hasher.combine(addressAlgorithm)
         hasher.combine(publicKeyFormat)
@@ -26317,12 +26295,11 @@ extension UniFfiPrivateKeyDerivationRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeUniFFIPrivateKeyDerivationRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeUniFFIPrivateKeyDerivationRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UniFfiPrivateKeyDerivationRequest {
         return
             try UniFfiPrivateKeyDerivationRequest(
                 chain: FfiConverterOptionUInt32.read(from: &buf), 
-                network: FfiConverterUInt32.read(from: &buf), 
                 curve: FfiConverterUInt32.read(from: &buf), 
                 addressAlgorithm: FfiConverterUInt32.read(from: &buf), 
                 publicKeyFormat: FfiConverterUInt32.read(from: &buf), 
@@ -26333,7 +26310,6 @@ public struct FfiConverterTypeUniFFIPrivateKeyDerivationRequest: FfiConverterRus
 
     public static func write(_ value: UniFfiPrivateKeyDerivationRequest, into buf: inout [UInt8]) {
         FfiConverterOptionUInt32.write(value.chain, into: &buf)
-        FfiConverterUInt32.write(value.network, into: &buf)
         FfiConverterUInt32.write(value.curve, into: &buf)
         FfiConverterUInt32.write(value.addressAlgorithm, into: &buf)
         FfiConverterUInt32.write(value.publicKeyFormat, into: &buf)
@@ -26358,9 +26334,8 @@ nonisolated public func FfiConverterTypeUniFFIPrivateKeyDerivationRequest_lower(
 }
 
 
-public struct UniFfiPrivateKeyMaterialRequest {
+nonisolated public struct UniFfiPrivateKeyMaterialRequest {
     public var chain: UInt32?
-    public var network: UInt32
     public var curve: UInt32
     public var addressAlgorithm: UInt32
     public var publicKeyFormat: UInt32
@@ -26370,9 +26345,8 @@ public struct UniFfiPrivateKeyMaterialRequest {
 
     // Default memberwise initializers are never public by default, so we
     // declare one manually.
-    nonisolated public init(chain: UInt32?, network: UInt32, curve: UInt32, addressAlgorithm: UInt32, publicKeyFormat: UInt32, scriptType: UInt32, privateKeyHex: String, derivationPath: String) {
+    nonisolated public init(chain: UInt32?, curve: UInt32, addressAlgorithm: UInt32, publicKeyFormat: UInt32, scriptType: UInt32, privateKeyHex: String, derivationPath: String) {
         self.chain = chain
-        self.network = network
         self.curve = curve
         self.addressAlgorithm = addressAlgorithm
         self.publicKeyFormat = publicKeyFormat
@@ -26383,16 +26357,13 @@ public struct UniFfiPrivateKeyMaterialRequest {
 }
 
 #if compiler(>=6)
-extension UniFfiPrivateKeyMaterialRequest: Sendable {}
+nonisolated extension UniFfiPrivateKeyMaterialRequest: Sendable {}
 #endif
 
 
-extension UniFfiPrivateKeyMaterialRequest: Equatable, Hashable {
+nonisolated extension UniFfiPrivateKeyMaterialRequest: Equatable, Hashable {
     public static func ==(lhs: UniFfiPrivateKeyMaterialRequest, rhs: UniFfiPrivateKeyMaterialRequest) -> Bool {
         if lhs.chain != rhs.chain {
-            return false
-        }
-        if lhs.network != rhs.network {
             return false
         }
         if lhs.curve != rhs.curve {
@@ -26418,7 +26389,6 @@ extension UniFfiPrivateKeyMaterialRequest: Equatable, Hashable {
 
     public func hash(into hasher: inout Hasher) {
         hasher.combine(chain)
-        hasher.combine(network)
         hasher.combine(curve)
         hasher.combine(addressAlgorithm)
         hasher.combine(publicKeyFormat)
@@ -26433,12 +26403,11 @@ extension UniFfiPrivateKeyMaterialRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeUniFFIPrivateKeyMaterialRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeUniFFIPrivateKeyMaterialRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UniFfiPrivateKeyMaterialRequest {
         return
             try UniFfiPrivateKeyMaterialRequest(
                 chain: FfiConverterOptionUInt32.read(from: &buf), 
-                network: FfiConverterUInt32.read(from: &buf), 
                 curve: FfiConverterUInt32.read(from: &buf), 
                 addressAlgorithm: FfiConverterUInt32.read(from: &buf), 
                 publicKeyFormat: FfiConverterUInt32.read(from: &buf), 
@@ -26450,7 +26419,6 @@ public struct FfiConverterTypeUniFFIPrivateKeyMaterialRequest: FfiConverterRustB
 
     public static func write(_ value: UniFfiPrivateKeyMaterialRequest, into buf: inout [UInt8]) {
         FfiConverterOptionUInt32.write(value.chain, into: &buf)
-        FfiConverterUInt32.write(value.network, into: &buf)
         FfiConverterUInt32.write(value.curve, into: &buf)
         FfiConverterUInt32.write(value.addressAlgorithm, into: &buf)
         FfiConverterUInt32.write(value.publicKeyFormat, into: &buf)
@@ -26476,7 +26444,7 @@ nonisolated public func FfiConverterTypeUniFFIPrivateKeyMaterialRequest_lower(_ 
 }
 
 
-public struct UtxoEntry {
+nonisolated public struct UtxoEntry {
     public var index: UInt64
     public var value: UInt64
 
@@ -26489,11 +26457,11 @@ public struct UtxoEntry {
 }
 
 #if compiler(>=6)
-extension UtxoEntry: Sendable {}
+nonisolated extension UtxoEntry: Sendable {}
 #endif
 
 
-extension UtxoEntry: Equatable, Hashable {
+nonisolated extension UtxoEntry: Equatable, Hashable {
     public static func ==(lhs: UtxoEntry, rhs: UtxoEntry) -> Bool {
         if lhs.index != rhs.index {
             return false
@@ -26515,7 +26483,7 @@ extension UtxoEntry: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeUtxoEntry: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeUtxoEntry: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UtxoEntry {
         return
             try UtxoEntry(
@@ -26546,7 +26514,7 @@ nonisolated public func FfiConverterTypeUtxoEntry_lower(_ value: UtxoEntry) -> R
 }
 
 
-public struct UtxoFeePolicy {
+nonisolated public struct UtxoFeePolicy {
     public var chainName: String
     public var feeModel: String
     public var dustThreshold: UInt64
@@ -26577,11 +26545,11 @@ public struct UtxoFeePolicy {
 }
 
 #if compiler(>=6)
-extension UtxoFeePolicy: Sendable {}
+nonisolated extension UtxoFeePolicy: Sendable {}
 #endif
 
 
-extension UtxoFeePolicy: Equatable, Hashable {
+nonisolated extension UtxoFeePolicy: Equatable, Hashable {
     public static func ==(lhs: UtxoFeePolicy, rhs: UtxoFeePolicy) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -26639,7 +26607,7 @@ extension UtxoFeePolicy: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeUtxoFeePolicy: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeUtxoFeePolicy: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UtxoFeePolicy {
         return
             try UtxoFeePolicy(
@@ -26688,7 +26656,7 @@ nonisolated public func FfiConverterTypeUtxoFeePolicy_lower(_ value: UtxoFeePoli
 }
 
 
-public struct UtxoPreviewPlan {
+nonisolated public struct UtxoPreviewPlan {
     public var estimatedTransactionBytes: UInt64
     public var estimatedFee: UInt64
     public var spendableValue: UInt64
@@ -26705,11 +26673,11 @@ public struct UtxoPreviewPlan {
 }
 
 #if compiler(>=6)
-extension UtxoPreviewPlan: Sendable {}
+nonisolated extension UtxoPreviewPlan: Sendable {}
 #endif
 
 
-extension UtxoPreviewPlan: Equatable, Hashable {
+nonisolated extension UtxoPreviewPlan: Equatable, Hashable {
     public static func ==(lhs: UtxoPreviewPlan, rhs: UtxoPreviewPlan) -> Bool {
         if lhs.estimatedTransactionBytes != rhs.estimatedTransactionBytes {
             return false
@@ -26739,7 +26707,7 @@ extension UtxoPreviewPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeUtxoPreviewPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeUtxoPreviewPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UtxoPreviewPlan {
         return
             try UtxoPreviewPlan(
@@ -26774,7 +26742,7 @@ nonisolated public func FfiConverterTypeUtxoPreviewPlan_lower(_ value: UtxoPrevi
 }
 
 
-public struct UtxoPreviewRequest {
+nonisolated public struct UtxoPreviewRequest {
     public var inputs: [UtxoEntry]
     public var feeRate: Double
     public var feePolicy: UtxoFeePolicy
@@ -26789,11 +26757,11 @@ public struct UtxoPreviewRequest {
 }
 
 #if compiler(>=6)
-extension UtxoPreviewRequest: Sendable {}
+nonisolated extension UtxoPreviewRequest: Sendable {}
 #endif
 
 
-extension UtxoPreviewRequest: Equatable, Hashable {
+nonisolated extension UtxoPreviewRequest: Equatable, Hashable {
     public static func ==(lhs: UtxoPreviewRequest, rhs: UtxoPreviewRequest) -> Bool {
         if lhs.inputs != rhs.inputs {
             return false
@@ -26819,7 +26787,7 @@ extension UtxoPreviewRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeUtxoPreviewRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeUtxoPreviewRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UtxoPreviewRequest {
         return
             try UtxoPreviewRequest(
@@ -26852,7 +26820,7 @@ nonisolated public func FfiConverterTypeUtxoPreviewRequest_lower(_ value: UtxoPr
 }
 
 
-public struct UtxoSendPreview {
+nonisolated public struct UtxoSendPreview {
     public var estimatedFeeRateSatVb: UInt64
     public var estimatedNetworkFeeCoin: Double
     public var feeRateDescription: String
@@ -26881,11 +26849,11 @@ public struct UtxoSendPreview {
 }
 
 #if compiler(>=6)
-extension UtxoSendPreview: Sendable {}
+nonisolated extension UtxoSendPreview: Sendable {}
 #endif
 
 
-extension UtxoSendPreview: Equatable, Hashable {
+nonisolated extension UtxoSendPreview: Equatable, Hashable {
     public static func ==(lhs: UtxoSendPreview, rhs: UtxoSendPreview) -> Bool {
         if lhs.estimatedFeeRateSatVb != rhs.estimatedFeeRateSatVb {
             return false
@@ -26939,7 +26907,7 @@ extension UtxoSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeUtxoSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeUtxoSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UtxoSendPreview {
         return
             try UtxoSendPreview(
@@ -26986,7 +26954,7 @@ nonisolated public func FfiConverterTypeUtxoSendPreview_lower(_ value: UtxoSendP
 }
 
 
-public struct UtxoSpendPlan {
+nonisolated public struct UtxoSpendPlan {
     public var selectedIndices: [UInt64]
     public var totalInputValue: UInt64
     public var fee: UInt64
@@ -27007,11 +26975,11 @@ public struct UtxoSpendPlan {
 }
 
 #if compiler(>=6)
-extension UtxoSpendPlan: Sendable {}
+nonisolated extension UtxoSpendPlan: Sendable {}
 #endif
 
 
-extension UtxoSpendPlan: Equatable, Hashable {
+nonisolated extension UtxoSpendPlan: Equatable, Hashable {
     public static func ==(lhs: UtxoSpendPlan, rhs: UtxoSpendPlan) -> Bool {
         if lhs.selectedIndices != rhs.selectedIndices {
             return false
@@ -27049,7 +27017,7 @@ extension UtxoSpendPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeUtxoSpendPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeUtxoSpendPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UtxoSpendPlan {
         return
             try UtxoSpendPlan(
@@ -27088,7 +27056,7 @@ nonisolated public func FfiConverterTypeUtxoSpendPlan_lower(_ value: UtxoSpendPl
 }
 
 
-public struct UtxoSpendPlanRequest {
+nonisolated public struct UtxoSpendPlanRequest {
     public var inputs: [UtxoEntry]
     public var targetValue: UInt64
     public var feeRate: Double
@@ -27107,11 +27075,11 @@ public struct UtxoSpendPlanRequest {
 }
 
 #if compiler(>=6)
-extension UtxoSpendPlanRequest: Sendable {}
+nonisolated extension UtxoSpendPlanRequest: Sendable {}
 #endif
 
 
-extension UtxoSpendPlanRequest: Equatable, Hashable {
+nonisolated extension UtxoSpendPlanRequest: Equatable, Hashable {
     public static func ==(lhs: UtxoSpendPlanRequest, rhs: UtxoSpendPlanRequest) -> Bool {
         if lhs.inputs != rhs.inputs {
             return false
@@ -27145,7 +27113,7 @@ extension UtxoSpendPlanRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeUtxoSpendPlanRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeUtxoSpendPlanRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UtxoSpendPlanRequest {
         return
             try UtxoSpendPlanRequest(
@@ -27185,7 +27153,7 @@ nonisolated public func FfiConverterTypeUtxoSpendPlanRequest_lower(_ value: Utxo
 /**
  * Unified tx confirmation status returned by all UTXO chains.
  */
-public struct UtxoTxStatus {
+nonisolated public struct UtxoTxStatus {
     public var txid: String
     public var confirmed: Bool
     public var blockHeight: UInt64?
@@ -27210,11 +27178,11 @@ public struct UtxoTxStatus {
 }
 
 #if compiler(>=6)
-extension UtxoTxStatus: Sendable {}
+nonisolated extension UtxoTxStatus: Sendable {}
 #endif
 
 
-extension UtxoTxStatus: Equatable, Hashable {
+nonisolated extension UtxoTxStatus: Equatable, Hashable {
     public static func ==(lhs: UtxoTxStatus, rhs: UtxoTxStatus) -> Bool {
         if lhs.txid != rhs.txid {
             return false
@@ -27248,7 +27216,7 @@ extension UtxoTxStatus: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeUtxoTxStatus: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeUtxoTxStatus: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> UtxoTxStatus {
         return
             try UtxoTxStatus(
@@ -27285,7 +27253,7 @@ nonisolated public func FfiConverterTypeUtxoTxStatus_lower(_ value: UtxoTxStatus
 }
 
 
-public struct WalletAddress {
+nonisolated public struct WalletAddress {
     public var chainName: String
     public var address: String
     public var kind: String
@@ -27302,11 +27270,11 @@ public struct WalletAddress {
 }
 
 #if compiler(>=6)
-extension WalletAddress: Sendable {}
+nonisolated extension WalletAddress: Sendable {}
 #endif
 
 
-extension WalletAddress: Equatable, Hashable {
+nonisolated extension WalletAddress: Equatable, Hashable {
     public static func ==(lhs: WalletAddress, rhs: WalletAddress) -> Bool {
         if lhs.chainName != rhs.chainName {
             return false
@@ -27336,7 +27304,7 @@ extension WalletAddress: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletAddress: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletAddress: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletAddress {
         return
             try WalletAddress(
@@ -27371,7 +27339,7 @@ nonisolated public func FfiConverterTypeWalletAddress_lower(_ value: WalletAddre
 }
 
 
-public struct WalletBalanceRefreshPlan {
+nonisolated public struct WalletBalanceRefreshPlan {
     public var serviceKind: String?
     public var usesBulkRefresh: Bool
     public var needsTrackedTokens: Bool
@@ -27386,11 +27354,11 @@ public struct WalletBalanceRefreshPlan {
 }
 
 #if compiler(>=6)
-extension WalletBalanceRefreshPlan: Sendable {}
+nonisolated extension WalletBalanceRefreshPlan: Sendable {}
 #endif
 
 
-extension WalletBalanceRefreshPlan: Equatable, Hashable {
+nonisolated extension WalletBalanceRefreshPlan: Equatable, Hashable {
     public static func ==(lhs: WalletBalanceRefreshPlan, rhs: WalletBalanceRefreshPlan) -> Bool {
         if lhs.serviceKind != rhs.serviceKind {
             return false
@@ -27416,7 +27384,7 @@ extension WalletBalanceRefreshPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletBalanceRefreshPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletBalanceRefreshPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletBalanceRefreshPlan {
         return
             try WalletBalanceRefreshPlan(
@@ -27449,7 +27417,7 @@ nonisolated public func FfiConverterTypeWalletBalanceRefreshPlan_lower(_ value: 
 }
 
 
-public struct WalletBalanceRefreshRequest {
+nonisolated public struct WalletBalanceRefreshRequest {
     public var selectedChain: String
     public var hasSeedPhrase: Bool
     public var hasExtendedPublicKey: Bool
@@ -27466,11 +27434,11 @@ public struct WalletBalanceRefreshRequest {
 }
 
 #if compiler(>=6)
-extension WalletBalanceRefreshRequest: Sendable {}
+nonisolated extension WalletBalanceRefreshRequest: Sendable {}
 #endif
 
 
-extension WalletBalanceRefreshRequest: Equatable, Hashable {
+nonisolated extension WalletBalanceRefreshRequest: Equatable, Hashable {
     public static func ==(lhs: WalletBalanceRefreshRequest, rhs: WalletBalanceRefreshRequest) -> Bool {
         if lhs.selectedChain != rhs.selectedChain {
             return false
@@ -27500,7 +27468,7 @@ extension WalletBalanceRefreshRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletBalanceRefreshRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletBalanceRefreshRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletBalanceRefreshRequest {
         return
             try WalletBalanceRefreshRequest(
@@ -27535,7 +27503,7 @@ nonisolated public func FfiConverterTypeWalletBalanceRefreshRequest_lower(_ valu
 }
 
 
-public struct WalletChainEligibilityInput {
+nonisolated public struct WalletChainEligibilityInput {
     public var walletId: String
     public var selectedChain: String
     public var hasSeedPhrase: Bool
@@ -27558,11 +27526,11 @@ public struct WalletChainEligibilityInput {
 }
 
 #if compiler(>=6)
-extension WalletChainEligibilityInput: Sendable {}
+nonisolated extension WalletChainEligibilityInput: Sendable {}
 #endif
 
 
-extension WalletChainEligibilityInput: Equatable, Hashable {
+nonisolated extension WalletChainEligibilityInput: Equatable, Hashable {
     public static func ==(lhs: WalletChainEligibilityInput, rhs: WalletChainEligibilityInput) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -27604,7 +27572,7 @@ extension WalletChainEligibilityInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletChainEligibilityInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletChainEligibilityInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletChainEligibilityInput {
         return
             try WalletChainEligibilityInput(
@@ -27645,7 +27613,7 @@ nonisolated public func FfiConverterTypeWalletChainEligibilityInput_lower(_ valu
 }
 
 
-public struct WalletChainInput {
+nonisolated public struct WalletChainInput {
     public var walletId: String
     public var selectedChain: String
 
@@ -27658,11 +27626,11 @@ public struct WalletChainInput {
 }
 
 #if compiler(>=6)
-extension WalletChainInput: Sendable {}
+nonisolated extension WalletChainInput: Sendable {}
 #endif
 
 
-extension WalletChainInput: Equatable, Hashable {
+nonisolated extension WalletChainInput: Equatable, Hashable {
     public static func ==(lhs: WalletChainInput, rhs: WalletChainInput) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -27684,7 +27652,7 @@ extension WalletChainInput: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletChainInput: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletChainInput: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletChainInput {
         return
             try WalletChainInput(
@@ -27715,7 +27683,7 @@ nonisolated public func FfiConverterTypeWalletChainInput_lower(_ value: WalletCh
 }
 
 
-public struct WalletEarliestTransactionDate {
+nonisolated public struct WalletEarliestTransactionDate {
     public var walletId: String
     public var earliestCreatedAtUnix: Double
 
@@ -27728,11 +27696,11 @@ public struct WalletEarliestTransactionDate {
 }
 
 #if compiler(>=6)
-extension WalletEarliestTransactionDate: Sendable {}
+nonisolated extension WalletEarliestTransactionDate: Sendable {}
 #endif
 
 
-extension WalletEarliestTransactionDate: Equatable, Hashable {
+nonisolated extension WalletEarliestTransactionDate: Equatable, Hashable {
     public static func ==(lhs: WalletEarliestTransactionDate, rhs: WalletEarliestTransactionDate) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -27754,7 +27722,7 @@ extension WalletEarliestTransactionDate: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletEarliestTransactionDate: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletEarliestTransactionDate: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletEarliestTransactionDate {
         return
             try WalletEarliestTransactionDate(
@@ -27785,7 +27753,7 @@ nonisolated public func FfiConverterTypeWalletEarliestTransactionDate_lower(_ va
 }
 
 
-public struct WalletHoldingRef {
+nonisolated public struct WalletHoldingRef {
     public var walletId: String
     public var holdingIndex: UInt64
 
@@ -27798,11 +27766,11 @@ public struct WalletHoldingRef {
 }
 
 #if compiler(>=6)
-extension WalletHoldingRef: Sendable {}
+nonisolated extension WalletHoldingRef: Sendable {}
 #endif
 
 
-extension WalletHoldingRef: Equatable, Hashable {
+nonisolated extension WalletHoldingRef: Equatable, Hashable {
     public static func ==(lhs: WalletHoldingRef, rhs: WalletHoldingRef) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -27824,7 +27792,7 @@ extension WalletHoldingRef: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletHoldingRef: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletHoldingRef: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletHoldingRef {
         return
             try WalletHoldingRef(
@@ -27855,7 +27823,7 @@ nonisolated public func FfiConverterTypeWalletHoldingRef_lower(_ value: WalletHo
 }
 
 
-public struct WalletImportAddresses {
+nonisolated public struct WalletImportAddresses {
     public var bitcoinAddress: String?
     public var bitcoinXpub: String?
     public var bitcoinCashAddress: String?
@@ -27916,11 +27884,11 @@ public struct WalletImportAddresses {
 }
 
 #if compiler(>=6)
-extension WalletImportAddresses: Sendable {}
+nonisolated extension WalletImportAddresses: Sendable {}
 #endif
 
 
-extension WalletImportAddresses: Equatable, Hashable {
+nonisolated extension WalletImportAddresses: Equatable, Hashable {
     public static func ==(lhs: WalletImportAddresses, rhs: WalletImportAddresses) -> Bool {
         if lhs.bitcoinAddress != rhs.bitcoinAddress {
             return false
@@ -28038,7 +28006,7 @@ extension WalletImportAddresses: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletImportAddresses: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletImportAddresses: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletImportAddresses {
         return
             try WalletImportAddresses(
@@ -28117,7 +28085,7 @@ nonisolated public func FfiConverterTypeWalletImportAddresses_lower(_ value: Wal
 }
 
 
-public struct WalletImportDraftValidationRequest {
+nonisolated public struct WalletImportDraftValidationRequest {
     public var selectedChainNames: [String]
     public var isWatchOnly: Bool
     public var isPrivateKeyImport: Bool
@@ -28148,11 +28116,11 @@ public struct WalletImportDraftValidationRequest {
 }
 
 #if compiler(>=6)
-extension WalletImportDraftValidationRequest: Sendable {}
+nonisolated extension WalletImportDraftValidationRequest: Sendable {}
 #endif
 
 
-extension WalletImportDraftValidationRequest: Equatable, Hashable {
+nonisolated extension WalletImportDraftValidationRequest: Equatable, Hashable {
     public static func ==(lhs: WalletImportDraftValidationRequest, rhs: WalletImportDraftValidationRequest) -> Bool {
         if lhs.selectedChainNames != rhs.selectedChainNames {
             return false
@@ -28210,7 +28178,7 @@ extension WalletImportDraftValidationRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletImportDraftValidationRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletImportDraftValidationRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletImportDraftValidationRequest {
         return
             try WalletImportDraftValidationRequest(
@@ -28259,7 +28227,7 @@ nonisolated public func FfiConverterTypeWalletImportDraftValidationRequest_lower
 }
 
 
-public struct WalletImportPlan {
+nonisolated public struct WalletImportPlan {
     public var secretKind: String
     public var wallets: [PlannedWallet]
     public var secretInstructions: [WalletSecretInstruction]
@@ -28274,11 +28242,11 @@ public struct WalletImportPlan {
 }
 
 #if compiler(>=6)
-extension WalletImportPlan: Sendable {}
+nonisolated extension WalletImportPlan: Sendable {}
 #endif
 
 
-extension WalletImportPlan: Equatable, Hashable {
+nonisolated extension WalletImportPlan: Equatable, Hashable {
     public static func ==(lhs: WalletImportPlan, rhs: WalletImportPlan) -> Bool {
         if lhs.secretKind != rhs.secretKind {
             return false
@@ -28304,7 +28272,7 @@ extension WalletImportPlan: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletImportPlan: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletImportPlan: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletImportPlan {
         return
             try WalletImportPlan(
@@ -28337,7 +28305,7 @@ nonisolated public func FfiConverterTypeWalletImportPlan_lower(_ value: WalletIm
 }
 
 
-public struct WalletImportRequest {
+nonisolated public struct WalletImportRequest {
     public var walletName: String
     public var defaultWalletNameStartIndex: UInt64
     public var primarySelectedChainName: String
@@ -28366,11 +28334,11 @@ public struct WalletImportRequest {
 }
 
 #if compiler(>=6)
-extension WalletImportRequest: Sendable {}
+nonisolated extension WalletImportRequest: Sendable {}
 #endif
 
 
-extension WalletImportRequest: Equatable, Hashable {
+nonisolated extension WalletImportRequest: Equatable, Hashable {
     public static func ==(lhs: WalletImportRequest, rhs: WalletImportRequest) -> Bool {
         if lhs.walletName != rhs.walletName {
             return false
@@ -28424,7 +28392,7 @@ extension WalletImportRequest: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletImportRequest: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletImportRequest: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletImportRequest {
         return
             try WalletImportRequest(
@@ -28471,7 +28439,7 @@ nonisolated public func FfiConverterTypeWalletImportRequest_lower(_ value: Walle
 }
 
 
-public struct WalletImportWatchOnlyEntries {
+nonisolated public struct WalletImportWatchOnlyEntries {
     public var bitcoinAddresses: [String]
     public var bitcoinXpub: String?
     public var bitcoinCashAddresses: [String]
@@ -28528,11 +28496,11 @@ public struct WalletImportWatchOnlyEntries {
 }
 
 #if compiler(>=6)
-extension WalletImportWatchOnlyEntries: Sendable {}
+nonisolated extension WalletImportWatchOnlyEntries: Sendable {}
 #endif
 
 
-extension WalletImportWatchOnlyEntries: Equatable, Hashable {
+nonisolated extension WalletImportWatchOnlyEntries: Equatable, Hashable {
     public static func ==(lhs: WalletImportWatchOnlyEntries, rhs: WalletImportWatchOnlyEntries) -> Bool {
         if lhs.bitcoinAddresses != rhs.bitcoinAddresses {
             return false
@@ -28642,7 +28610,7 @@ extension WalletImportWatchOnlyEntries: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletImportWatchOnlyEntries: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletImportWatchOnlyEntries: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletImportWatchOnlyEntries {
         return
             try WalletImportWatchOnlyEntries(
@@ -28717,7 +28685,7 @@ nonisolated public func FfiConverterTypeWalletImportWatchOnlyEntries_lower(_ val
 }
 
 
-public struct WalletSecretIndex {
+nonisolated public struct WalletSecretIndex {
     public var descriptors: [SecretMaterialDescriptor]
     public var signingMaterialWalletIds: [String]
     public var privateKeyBackedWalletIds: [String]
@@ -28734,11 +28702,11 @@ public struct WalletSecretIndex {
 }
 
 #if compiler(>=6)
-extension WalletSecretIndex: Sendable {}
+nonisolated extension WalletSecretIndex: Sendable {}
 #endif
 
 
-extension WalletSecretIndex: Equatable, Hashable {
+nonisolated extension WalletSecretIndex: Equatable, Hashable {
     public static func ==(lhs: WalletSecretIndex, rhs: WalletSecretIndex) -> Bool {
         if lhs.descriptors != rhs.descriptors {
             return false
@@ -28768,7 +28736,7 @@ extension WalletSecretIndex: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletSecretIndex: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletSecretIndex: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletSecretIndex {
         return
             try WalletSecretIndex(
@@ -28803,7 +28771,7 @@ nonisolated public func FfiConverterTypeWalletSecretIndex_lower(_ value: WalletS
 }
 
 
-public struct WalletSecretInstruction {
+nonisolated public struct WalletSecretInstruction {
     public var walletId: String
     public var secretKind: String
     public var shouldStoreSeedPhrase: Bool
@@ -28822,11 +28790,11 @@ public struct WalletSecretInstruction {
 }
 
 #if compiler(>=6)
-extension WalletSecretInstruction: Sendable {}
+nonisolated extension WalletSecretInstruction: Sendable {}
 #endif
 
 
-extension WalletSecretInstruction: Equatable, Hashable {
+nonisolated extension WalletSecretInstruction: Equatable, Hashable {
     public static func ==(lhs: WalletSecretInstruction, rhs: WalletSecretInstruction) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -28860,7 +28828,7 @@ extension WalletSecretInstruction: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletSecretInstruction: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletSecretInstruction: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletSecretInstruction {
         return
             try WalletSecretInstruction(
@@ -28897,7 +28865,7 @@ nonisolated public func FfiConverterTypeWalletSecretInstruction_lower(_ value: W
 }
 
 
-public struct WalletSecretObservation {
+nonisolated public struct WalletSecretObservation {
     public var walletId: String
     public var secretKind: String?
     public var hasSeedPhrase: Bool
@@ -28916,11 +28884,11 @@ public struct WalletSecretObservation {
 }
 
 #if compiler(>=6)
-extension WalletSecretObservation: Sendable {}
+nonisolated extension WalletSecretObservation: Sendable {}
 #endif
 
 
-extension WalletSecretObservation: Equatable, Hashable {
+nonisolated extension WalletSecretObservation: Equatable, Hashable {
     public static func ==(lhs: WalletSecretObservation, rhs: WalletSecretObservation) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -28954,7 +28922,7 @@ extension WalletSecretObservation: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletSecretObservation: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletSecretObservation: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletSecretObservation {
         return
             try WalletSecretObservation(
@@ -28991,7 +28959,7 @@ nonisolated public func FfiConverterTypeWalletSecretObservation_lower(_ value: W
 }
 
 
-public struct WalletSummary {
+nonisolated public struct WalletSummary {
     public var id: String
     public var name: String
     public var isWatchOnly: Bool
@@ -29022,11 +28990,11 @@ public struct WalletSummary {
 }
 
 #if compiler(>=6)
-extension WalletSummary: Sendable {}
+nonisolated extension WalletSummary: Sendable {}
 #endif
 
 
-extension WalletSummary: Equatable, Hashable {
+nonisolated extension WalletSummary: Equatable, Hashable {
     public static func ==(lhs: WalletSummary, rhs: WalletSummary) -> Bool {
         if lhs.id != rhs.id {
             return false
@@ -29084,7 +29052,7 @@ extension WalletSummary: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletSummary: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletSummary: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletSummary {
         return
             try WalletSummary(
@@ -29133,7 +29101,7 @@ nonisolated public func FfiConverterTypeWalletSummary_lower(_ value: WalletSumma
 }
 
 
-public struct WalletTransferAvailability {
+nonisolated public struct WalletTransferAvailability {
     public var walletId: String
     public var sendHoldingIndices: [UInt64]
     public var receiveHoldingIndices: [UInt64]
@@ -29150,11 +29118,11 @@ public struct WalletTransferAvailability {
 }
 
 #if compiler(>=6)
-extension WalletTransferAvailability: Sendable {}
+nonisolated extension WalletTransferAvailability: Sendable {}
 #endif
 
 
-extension WalletTransferAvailability: Equatable, Hashable {
+nonisolated extension WalletTransferAvailability: Equatable, Hashable {
     public static func ==(lhs: WalletTransferAvailability, rhs: WalletTransferAvailability) -> Bool {
         if lhs.walletId != rhs.walletId {
             return false
@@ -29184,7 +29152,7 @@ extension WalletTransferAvailability: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeWalletTransferAvailability: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeWalletTransferAvailability: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> WalletTransferAvailability {
         return
             try WalletTransferAvailability(
@@ -29219,7 +29187,7 @@ nonisolated public func FfiConverterTypeWalletTransferAvailability_lower(_ value
 }
 
 
-public struct XrpHistoryDiagnostics {
+nonisolated public struct XrpHistoryDiagnostics {
     public var address: String
     public var sourceUsed: String
     public var transactionCount: Int32
@@ -29236,11 +29204,11 @@ public struct XrpHistoryDiagnostics {
 }
 
 #if compiler(>=6)
-extension XrpHistoryDiagnostics: Sendable {}
+nonisolated extension XrpHistoryDiagnostics: Sendable {}
 #endif
 
 
-extension XrpHistoryDiagnostics: Equatable, Hashable {
+nonisolated extension XrpHistoryDiagnostics: Equatable, Hashable {
     public static func ==(lhs: XrpHistoryDiagnostics, rhs: XrpHistoryDiagnostics) -> Bool {
         if lhs.address != rhs.address {
             return false
@@ -29270,7 +29238,7 @@ extension XrpHistoryDiagnostics: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeXRPHistoryDiagnostics: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeXRPHistoryDiagnostics: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> XrpHistoryDiagnostics {
         return
             try XrpHistoryDiagnostics(
@@ -29305,7 +29273,7 @@ nonisolated public func FfiConverterTypeXRPHistoryDiagnostics_lower(_ value: Xrp
 }
 
 
-public struct XrpSendPreview {
+nonisolated public struct XrpSendPreview {
     public var estimatedNetworkFeeXrp: Double
     public var feeDrops: Int64
     public var sequence: Int64
@@ -29334,11 +29302,11 @@ public struct XrpSendPreview {
 }
 
 #if compiler(>=6)
-extension XrpSendPreview: Sendable {}
+nonisolated extension XrpSendPreview: Sendable {}
 #endif
 
 
-extension XrpSendPreview: Equatable, Hashable {
+nonisolated extension XrpSendPreview: Equatable, Hashable {
     public static func ==(lhs: XrpSendPreview, rhs: XrpSendPreview) -> Bool {
         if lhs.estimatedNetworkFeeXrp != rhs.estimatedNetworkFeeXrp {
             return false
@@ -29392,7 +29360,7 @@ extension XrpSendPreview: Equatable, Hashable {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeXRPSendPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeXRPSendPreview: FfiConverterRustBuffer {
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> XrpSendPreview {
         return
             try XrpSendPreview(
@@ -29441,7 +29409,7 @@ nonisolated public func FfiConverterTypeXRPSendPreview_lower(_ value: XrpSendPre
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum AppCoreAddressAlgorithm {
+nonisolated public enum AppCoreAddressAlgorithm {
     
     case bitcoin
     case evm
@@ -29450,13 +29418,13 @@ public enum AppCoreAddressAlgorithm {
 
 
 #if compiler(>=6)
-extension AppCoreAddressAlgorithm: Sendable {}
+nonisolated extension AppCoreAddressAlgorithm: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreAddressAlgorithm: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreAddressAlgorithm: FfiConverterRustBuffer {
     typealias SwiftType = AppCoreAddressAlgorithm
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreAddressAlgorithm {
@@ -29508,7 +29476,7 @@ nonisolated public func FfiConverterTypeAppCoreAddressAlgorithm_lower(_ value: A
 }
 
 
-extension AppCoreAddressAlgorithm: Equatable, Hashable {}
+nonisolated extension AppCoreAddressAlgorithm: Equatable, Hashable {}
 
 
 
@@ -29518,7 +29486,7 @@ extension AppCoreAddressAlgorithm: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum AppCoreChainIntegrationState {
+nonisolated public enum AppCoreChainIntegrationState {
     
     case live
     case planned
@@ -29526,13 +29494,13 @@ public enum AppCoreChainIntegrationState {
 
 
 #if compiler(>=6)
-extension AppCoreChainIntegrationState: Sendable {}
+nonisolated extension AppCoreChainIntegrationState: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreChainIntegrationState: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreChainIntegrationState: FfiConverterRustBuffer {
     typealias SwiftType = AppCoreChainIntegrationState
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreChainIntegrationState {
@@ -29578,7 +29546,7 @@ nonisolated public func FfiConverterTypeAppCoreChainIntegrationState_lower(_ val
 }
 
 
-extension AppCoreChainIntegrationState: Equatable, Hashable {}
+nonisolated extension AppCoreChainIntegrationState: Equatable, Hashable {}
 
 
 
@@ -29588,7 +29556,7 @@ extension AppCoreChainIntegrationState: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum AppCoreDerivationAlgorithm {
+nonisolated public enum AppCoreDerivationAlgorithm {
     
     case bip32Secp256k1
     case slip10Ed25519
@@ -29596,13 +29564,13 @@ public enum AppCoreDerivationAlgorithm {
 
 
 #if compiler(>=6)
-extension AppCoreDerivationAlgorithm: Sendable {}
+nonisolated extension AppCoreDerivationAlgorithm: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreDerivationAlgorithm: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreDerivationAlgorithm: FfiConverterRustBuffer {
     typealias SwiftType = AppCoreDerivationAlgorithm
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreDerivationAlgorithm {
@@ -29648,7 +29616,7 @@ nonisolated public func FfiConverterTypeAppCoreDerivationAlgorithm_lower(_ value
 }
 
 
-extension AppCoreDerivationAlgorithm: Equatable, Hashable {}
+nonisolated extension AppCoreDerivationAlgorithm: Equatable, Hashable {}
 
 
 
@@ -29663,7 +29631,7 @@ extension AppCoreDerivationAlgorithm: Equatable, Hashable {}
  * reimplementing the offset arithmetic.
  */
 
-public enum AppCoreEndpointSlot {
+nonisolated public enum AppCoreEndpointSlot {
     
     case primary
     case secondary
@@ -29672,13 +29640,13 @@ public enum AppCoreEndpointSlot {
 
 
 #if compiler(>=6)
-extension AppCoreEndpointSlot: Sendable {}
+nonisolated extension AppCoreEndpointSlot: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreEndpointSlot: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreEndpointSlot: FfiConverterRustBuffer {
     typealias SwiftType = AppCoreEndpointSlot
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreEndpointSlot {
@@ -29730,7 +29698,7 @@ nonisolated public func FfiConverterTypeAppCoreEndpointSlot_lower(_ value: AppCo
 }
 
 
-extension AppCoreEndpointSlot: Equatable, Hashable {}
+nonisolated extension AppCoreEndpointSlot: Equatable, Hashable {}
 
 
 
@@ -29740,7 +29708,7 @@ extension AppCoreEndpointSlot: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum AppCorePublicKeyFormat {
+nonisolated public enum AppCorePublicKeyFormat {
     
     case compressed
     case uncompressed
@@ -29750,13 +29718,13 @@ public enum AppCorePublicKeyFormat {
 
 
 #if compiler(>=6)
-extension AppCorePublicKeyFormat: Sendable {}
+nonisolated extension AppCorePublicKeyFormat: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCorePublicKeyFormat: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCorePublicKeyFormat: FfiConverterRustBuffer {
     typealias SwiftType = AppCorePublicKeyFormat
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCorePublicKeyFormat {
@@ -29814,7 +29782,7 @@ nonisolated public func FfiConverterTypeAppCorePublicKeyFormat_lower(_ value: Ap
 }
 
 
-extension AppCorePublicKeyFormat: Equatable, Hashable {}
+nonisolated extension AppCorePublicKeyFormat: Equatable, Hashable {}
 
 
 
@@ -29824,7 +29792,7 @@ extension AppCorePublicKeyFormat: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum AppCoreScriptPolicy {
+nonisolated public enum AppCoreScriptPolicy {
     
     case bitcoinPurpose
     case fixed
@@ -29832,13 +29800,13 @@ public enum AppCoreScriptPolicy {
 
 
 #if compiler(>=6)
-extension AppCoreScriptPolicy: Sendable {}
+nonisolated extension AppCoreScriptPolicy: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreScriptPolicy: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreScriptPolicy: FfiConverterRustBuffer {
     typealias SwiftType = AppCoreScriptPolicy
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreScriptPolicy {
@@ -29884,7 +29852,7 @@ nonisolated public func FfiConverterTypeAppCoreScriptPolicy_lower(_ value: AppCo
 }
 
 
-extension AppCoreScriptPolicy: Equatable, Hashable {}
+nonisolated extension AppCoreScriptPolicy: Equatable, Hashable {}
 
 
 
@@ -29894,7 +29862,7 @@ extension AppCoreScriptPolicy: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum AppCoreScriptType {
+nonisolated public enum AppCoreScriptType {
     
     case p2pkh
     case p2shP2wpkh
@@ -29905,13 +29873,13 @@ public enum AppCoreScriptType {
 
 
 #if compiler(>=6)
-extension AppCoreScriptType: Sendable {}
+nonisolated extension AppCoreScriptType: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeAppCoreScriptType: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeAppCoreScriptType: FfiConverterRustBuffer {
     typealias SwiftType = AppCoreScriptType
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> AppCoreScriptType {
@@ -29975,7 +29943,7 @@ nonisolated public func FfiConverterTypeAppCoreScriptType_lower(_ value: AppCore
 }
 
 
-extension AppCoreScriptType: Equatable, Hashable {}
+nonisolated extension AppCoreScriptType: Equatable, Hashable {}
 
 
 
@@ -29985,7 +29953,7 @@ extension AppCoreScriptType: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum ChainOperationalEventLevel {
+nonisolated public enum ChainOperationalEventLevel {
     
     case info
     case warning
@@ -29994,13 +29962,13 @@ public enum ChainOperationalEventLevel {
 
 
 #if compiler(>=6)
-extension ChainOperationalEventLevel: Sendable {}
+nonisolated extension ChainOperationalEventLevel: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeChainOperationalEventLevel: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeChainOperationalEventLevel: FfiConverterRustBuffer {
     typealias SwiftType = ChainOperationalEventLevel
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChainOperationalEventLevel {
@@ -30052,7 +30020,7 @@ nonisolated public func FfiConverterTypeChainOperationalEventLevel_lower(_ value
 }
 
 
-extension ChainOperationalEventLevel: Equatable, Hashable {}
+nonisolated extension ChainOperationalEventLevel: Equatable, Hashable {}
 
 
 
@@ -30062,7 +30030,7 @@ extension ChainOperationalEventLevel: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum ChainSelfTestOutcome {
+nonisolated public enum ChainSelfTestOutcome {
     
     case validAddressAccepted
     case validAddressRejected
@@ -30081,13 +30049,13 @@ public enum ChainSelfTestOutcome {
 
 
 #if compiler(>=6)
-extension ChainSelfTestOutcome: Sendable {}
+nonisolated extension ChainSelfTestOutcome: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeChainSelfTestOutcome: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeChainSelfTestOutcome: FfiConverterRustBuffer {
     typealias SwiftType = ChainSelfTestOutcome
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChainSelfTestOutcome {
@@ -30195,7 +30163,7 @@ nonisolated public func FfiConverterTypeChainSelfTestOutcome_lower(_ value: Chai
 }
 
 
-extension ChainSelfTestOutcome: Equatable, Hashable {}
+nonisolated extension ChainSelfTestOutcome: Equatable, Hashable {}
 
 
 
@@ -30205,7 +30173,7 @@ extension ChainSelfTestOutcome: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum CoreBitcoinNetworkMode {
+nonisolated public enum CoreBitcoinNetworkMode {
     
     case mainnet
     case testnet
@@ -30215,13 +30183,13 @@ public enum CoreBitcoinNetworkMode {
 
 
 #if compiler(>=6)
-extension CoreBitcoinNetworkMode: Sendable {}
+nonisolated extension CoreBitcoinNetworkMode: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreBitcoinNetworkMode: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreBitcoinNetworkMode: FfiConverterRustBuffer {
     typealias SwiftType = CoreBitcoinNetworkMode
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreBitcoinNetworkMode {
@@ -30279,7 +30247,7 @@ nonisolated public func FfiConverterTypeCoreBitcoinNetworkMode_lower(_ value: Co
 }
 
 
-extension CoreBitcoinNetworkMode: Equatable, Hashable {}
+nonisolated extension CoreBitcoinNetworkMode: Equatable, Hashable {}
 
 
 
@@ -30289,7 +30257,7 @@ extension CoreBitcoinNetworkMode: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum CoreDogecoinNetworkMode {
+nonisolated public enum CoreDogecoinNetworkMode {
     
     case mainnet
     case testnet
@@ -30297,13 +30265,13 @@ public enum CoreDogecoinNetworkMode {
 
 
 #if compiler(>=6)
-extension CoreDogecoinNetworkMode: Sendable {}
+nonisolated extension CoreDogecoinNetworkMode: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreDogecoinNetworkMode: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreDogecoinNetworkMode: FfiConverterRustBuffer {
     typealias SwiftType = CoreDogecoinNetworkMode
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreDogecoinNetworkMode {
@@ -30349,7 +30317,7 @@ nonisolated public func FfiConverterTypeCoreDogecoinNetworkMode_lower(_ value: C
 }
 
 
-extension CoreDogecoinNetworkMode: Equatable, Hashable {}
+nonisolated extension CoreDogecoinNetworkMode: Equatable, Hashable {}
 
 
 
@@ -30362,7 +30330,7 @@ extension CoreDogecoinNetworkMode: Equatable, Hashable {}
  * Swift `PriceAlertCondition` — rawValues: `"Above"`, `"Below"` (PascalCase).
  */
 
-public enum CorePriceAlertCondition {
+nonisolated public enum CorePriceAlertCondition {
     
     case above
     case below
@@ -30370,13 +30338,13 @@ public enum CorePriceAlertCondition {
 
 
 #if compiler(>=6)
-extension CorePriceAlertCondition: Sendable {}
+nonisolated extension CorePriceAlertCondition: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCorePriceAlertCondition: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCorePriceAlertCondition: FfiConverterRustBuffer {
     typealias SwiftType = CorePriceAlertCondition
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CorePriceAlertCondition {
@@ -30422,7 +30390,7 @@ nonisolated public func FfiConverterTypeCorePriceAlertCondition_lower(_ value: C
 }
 
 
-extension CorePriceAlertCondition: Equatable, Hashable {}
+nonisolated extension CorePriceAlertCondition: Equatable, Hashable {}
 
 
 
@@ -30432,7 +30400,7 @@ extension CorePriceAlertCondition: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum CoreSeedDerivationPreset {
+nonisolated public enum CoreSeedDerivationPreset {
     
     case standard
     case account1
@@ -30441,13 +30409,13 @@ public enum CoreSeedDerivationPreset {
 
 
 #if compiler(>=6)
-extension CoreSeedDerivationPreset: Sendable {}
+nonisolated extension CoreSeedDerivationPreset: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreSeedDerivationPreset: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreSeedDerivationPreset: FfiConverterRustBuffer {
     typealias SwiftType = CoreSeedDerivationPreset
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreSeedDerivationPreset {
@@ -30499,7 +30467,7 @@ nonisolated public func FfiConverterTypeCoreSeedDerivationPreset_lower(_ value: 
 }
 
 
-extension CoreSeedDerivationPreset: Equatable, Hashable {}
+nonisolated extension CoreSeedDerivationPreset: Equatable, Hashable {}
 
 
 
@@ -30509,7 +30477,7 @@ extension CoreSeedDerivationPreset: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum CoreSendVerificationStatus {
+nonisolated public enum CoreSendVerificationStatus {
     
     case verified
     case deferred
@@ -30519,13 +30487,13 @@ public enum CoreSendVerificationStatus {
 
 
 #if compiler(>=6)
-extension CoreSendVerificationStatus: Sendable {}
+nonisolated extension CoreSendVerificationStatus: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreSendVerificationStatus: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreSendVerificationStatus: FfiConverterRustBuffer {
     typealias SwiftType = CoreSendVerificationStatus
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreSendVerificationStatus {
@@ -30579,7 +30547,7 @@ nonisolated public func FfiConverterTypeCoreSendVerificationStatus_lower(_ value
 }
 
 
-extension CoreSendVerificationStatus: Equatable, Hashable {}
+nonisolated extension CoreSendVerificationStatus: Equatable, Hashable {}
 
 
 
@@ -30592,7 +30560,7 @@ extension CoreSendVerificationStatus: Equatable, Hashable {}
  * Swift `TokenPreferenceCategory` — rawValues: "stablecoin", "meme", "custom".
  */
 
-public enum CoreTokenPreferenceCategory {
+nonisolated public enum CoreTokenPreferenceCategory {
     
     case stablecoin
     case meme
@@ -30601,13 +30569,13 @@ public enum CoreTokenPreferenceCategory {
 
 
 #if compiler(>=6)
-extension CoreTokenPreferenceCategory: Sendable {}
+nonisolated extension CoreTokenPreferenceCategory: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreTokenPreferenceCategory: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreTokenPreferenceCategory: FfiConverterRustBuffer {
     typealias SwiftType = CoreTokenPreferenceCategory
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreTokenPreferenceCategory {
@@ -30659,7 +30627,7 @@ nonisolated public func FfiConverterTypeCoreTokenPreferenceCategory_lower(_ valu
 }
 
 
-extension CoreTokenPreferenceCategory: Equatable, Hashable {}
+nonisolated extension CoreTokenPreferenceCategory: Equatable, Hashable {}
 
 
 
@@ -30672,7 +30640,7 @@ extension CoreTokenPreferenceCategory: Equatable, Hashable {}
  * Swift `TokenTrackingChain` — rawValues are chain display names.
  */
 
-public enum CoreTokenTrackingChain {
+nonisolated public enum CoreTokenTrackingChain {
     
     case ethereum
     case arbitrum
@@ -30696,13 +30664,13 @@ public enum CoreTokenTrackingChain {
 
 
 #if compiler(>=6)
-extension CoreTokenTrackingChain: Sendable {}
+nonisolated extension CoreTokenTrackingChain: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreTokenTrackingChain: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreTokenTrackingChain: FfiConverterRustBuffer {
     typealias SwiftType = CoreTokenTrackingChain
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreTokenTrackingChain {
@@ -30844,7 +30812,7 @@ nonisolated public func FfiConverterTypeCoreTokenTrackingChain_lower(_ value: Co
 }
 
 
-extension CoreTokenTrackingChain: Equatable, Hashable {}
+nonisolated extension CoreTokenTrackingChain: Equatable, Hashable {}
 
 
 
@@ -30857,7 +30825,7 @@ extension CoreTokenTrackingChain: Equatable, Hashable {}
  * Swift `TransactionKind` — rawValues: `"send"`, `"receive"`.
  */
 
-public enum CoreTransactionKind {
+nonisolated public enum CoreTransactionKind {
     
     case send
     case receive
@@ -30865,13 +30833,13 @@ public enum CoreTransactionKind {
 
 
 #if compiler(>=6)
-extension CoreTransactionKind: Sendable {}
+nonisolated extension CoreTransactionKind: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreTransactionKind: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreTransactionKind: FfiConverterRustBuffer {
     typealias SwiftType = CoreTransactionKind
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreTransactionKind {
@@ -30917,7 +30885,7 @@ nonisolated public func FfiConverterTypeCoreTransactionKind_lower(_ value: CoreT
 }
 
 
-extension CoreTransactionKind: Equatable, Hashable {}
+nonisolated extension CoreTransactionKind: Equatable, Hashable {}
 
 
 
@@ -30930,7 +30898,7 @@ extension CoreTransactionKind: Equatable, Hashable {}
  * Swift `TransactionStatus` — rawValues: `"pending"`, `"confirmed"`, `"failed"`.
  */
 
-public enum CoreTransactionStatus {
+nonisolated public enum CoreTransactionStatus {
     
     case pending
     case confirmed
@@ -30939,13 +30907,13 @@ public enum CoreTransactionStatus {
 
 
 #if compiler(>=6)
-extension CoreTransactionStatus: Sendable {}
+nonisolated extension CoreTransactionStatus: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeCoreTransactionStatus: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeCoreTransactionStatus: FfiConverterRustBuffer {
     typealias SwiftType = CoreTransactionStatus
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreTransactionStatus {
@@ -30997,7 +30965,7 @@ nonisolated public func FfiConverterTypeCoreTransactionStatus_lower(_ value: Cor
 }
 
 
-extension CoreTransactionStatus: Equatable, Hashable {}
+nonisolated extension CoreTransactionStatus: Equatable, Hashable {}
 
 
 
@@ -31007,7 +30975,7 @@ extension CoreTransactionStatus: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum DerivedAddressPostProcess {
+nonisolated public enum DerivedAddressPostProcess {
     
     case none
     case lowercase
@@ -31016,13 +30984,13 @@ public enum DerivedAddressPostProcess {
 
 
 #if compiler(>=6)
-extension DerivedAddressPostProcess: Sendable {}
+nonisolated extension DerivedAddressPostProcess: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeDerivedAddressPostProcess: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeDerivedAddressPostProcess: FfiConverterRustBuffer {
     typealias SwiftType = DerivedAddressPostProcess
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> DerivedAddressPostProcess {
@@ -31074,7 +31042,7 @@ nonisolated public func FfiConverterTypeDerivedAddressPostProcess_lower(_ value:
 }
 
 
-extension DerivedAddressPostProcess: Equatable, Hashable {}
+nonisolated extension DerivedAddressPostProcess: Equatable, Hashable {}
 
 
 
@@ -31084,7 +31052,7 @@ extension DerivedAddressPostProcess: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum EthereumCustomFeeValidationCode {
+nonisolated public enum EthereumCustomFeeValidationCode {
     
     case invalidMaxFee
     case invalidPriorityFee
@@ -31093,13 +31061,13 @@ public enum EthereumCustomFeeValidationCode {
 
 
 #if compiler(>=6)
-extension EthereumCustomFeeValidationCode: Sendable {}
+nonisolated extension EthereumCustomFeeValidationCode: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEthereumCustomFeeValidationCode: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEthereumCustomFeeValidationCode: FfiConverterRustBuffer {
     typealias SwiftType = EthereumCustomFeeValidationCode
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EthereumCustomFeeValidationCode {
@@ -31151,7 +31119,7 @@ nonisolated public func FfiConverterTypeEthereumCustomFeeValidationCode_lower(_ 
 }
 
 
-extension EthereumCustomFeeValidationCode: Equatable, Hashable {}
+nonisolated extension EthereumCustomFeeValidationCode: Equatable, Hashable {}
 
 
 
@@ -31161,7 +31129,7 @@ extension EthereumCustomFeeValidationCode: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum EthereumManualNonceValidationCode {
+nonisolated public enum EthereumManualNonceValidationCode {
     
     case empty
     case notNonNegativeInteger
@@ -31170,13 +31138,13 @@ public enum EthereumManualNonceValidationCode {
 
 
 #if compiler(>=6)
-extension EthereumManualNonceValidationCode: Sendable {}
+nonisolated extension EthereumManualNonceValidationCode: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEthereumManualNonceValidationCode: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEthereumManualNonceValidationCode: FfiConverterRustBuffer {
     typealias SwiftType = EthereumManualNonceValidationCode
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EthereumManualNonceValidationCode {
@@ -31228,7 +31196,7 @@ nonisolated public func FfiConverterTypeEthereumManualNonceValidationCode_lower(
 }
 
 
-extension EthereumManualNonceValidationCode: Equatable, Hashable {}
+nonisolated extension EthereumManualNonceValidationCode: Equatable, Hashable {}
 
 
 
@@ -31238,7 +31206,7 @@ extension EthereumManualNonceValidationCode: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum EthereumSendErrorCode {
+nonisolated public enum EthereumSendErrorCode {
     
     case nonceTooLow
     case replacementUnderpriced
@@ -31251,13 +31219,13 @@ public enum EthereumSendErrorCode {
 
 
 #if compiler(>=6)
-extension EthereumSendErrorCode: Sendable {}
+nonisolated extension EthereumSendErrorCode: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEthereumSendErrorCode: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEthereumSendErrorCode: FfiConverterRustBuffer {
     typealias SwiftType = EthereumSendErrorCode
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EthereumSendErrorCode {
@@ -31333,7 +31301,7 @@ nonisolated public func FfiConverterTypeEthereumSendErrorCode_lower(_ value: Eth
 }
 
 
-extension EthereumSendErrorCode: Equatable, Hashable {}
+nonisolated extension EthereumSendErrorCode: Equatable, Hashable {}
 
 
 
@@ -31341,7 +31309,7 @@ extension EthereumSendErrorCode: Equatable, Hashable {}
 
 
 
-public enum EvmSendError: Swift.Error {
+nonisolated public enum EvmSendError: Swift.Error {
 
     
     
@@ -31357,7 +31325,7 @@ public enum EvmSendError: Swift.Error {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeEvmSendError: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeEvmSendError: FfiConverterRustBuffer {
     typealias SwiftType = EvmSendError
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> EvmSendError {
@@ -31426,12 +31394,12 @@ nonisolated public func FfiConverterTypeEvmSendError_lower(_ value: EvmSendError
 }
 
 
-extension EvmSendError: Equatable, Hashable {}
+nonisolated extension EvmSendError: Equatable, Hashable {}
 
 
 
 
-extension EvmSendError: Foundation.LocalizedError {
+nonisolated extension EvmSendError: Foundation.LocalizedError {
     public var errorDescription: String? {
         String(reflecting: self)
     }
@@ -31443,7 +31411,7 @@ extension EvmSendError: Foundation.LocalizedError {
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum FailureReasonDisposition {
+nonisolated public enum FailureReasonDisposition {
     
     case none
     case preserve
@@ -31452,13 +31420,13 @@ public enum FailureReasonDisposition {
 
 
 #if compiler(>=6)
-extension FailureReasonDisposition: Sendable {}
+nonisolated extension FailureReasonDisposition: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeFailureReasonDisposition: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeFailureReasonDisposition: FfiConverterRustBuffer {
     typealias SwiftType = FailureReasonDisposition
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> FailureReasonDisposition {
@@ -31510,7 +31478,7 @@ nonisolated public func FfiConverterTypeFailureReasonDisposition_lower(_ value: 
 }
 
 
-extension FailureReasonDisposition: Equatable, Hashable {}
+nonisolated extension FailureReasonDisposition: Equatable, Hashable {}
 
 
 
@@ -31520,7 +31488,7 @@ extension FailureReasonDisposition: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum HoldingMergeAction {
+nonisolated public enum HoldingMergeAction {
     
     case updateAmount(existingIndex: UInt32, amount: Double
     )
@@ -31530,13 +31498,13 @@ public enum HoldingMergeAction {
 
 
 #if compiler(>=6)
-extension HoldingMergeAction: Sendable {}
+nonisolated extension HoldingMergeAction: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHoldingMergeAction: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHoldingMergeAction: FfiConverterRustBuffer {
     typealias SwiftType = HoldingMergeAction
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HoldingMergeAction {
@@ -31587,7 +31555,7 @@ nonisolated public func FfiConverterTypeHoldingMergeAction_lower(_ value: Holdin
 }
 
 
-extension HoldingMergeAction: Equatable, Hashable {}
+nonisolated extension HoldingMergeAction: Equatable, Hashable {}
 
 
 
@@ -31595,7 +31563,7 @@ extension HoldingMergeAction: Equatable, Hashable {}
 
 
 
-public enum HttpError: Swift.Error {
+nonisolated public enum HttpError: Swift.Error {
 
     
     
@@ -31619,7 +31587,7 @@ public enum HttpError: Swift.Error {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHttpError: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHttpError: FfiConverterRustBuffer {
     typealias SwiftType = HttpError
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HttpError {
@@ -31720,12 +31688,12 @@ nonisolated public func FfiConverterTypeHttpError_lower(_ value: HttpError) -> R
 }
 
 
-extension HttpError: Equatable, Hashable {}
+nonisolated extension HttpError: Equatable, Hashable {}
 
 
 
 
-extension HttpError: Foundation.LocalizedError {
+nonisolated extension HttpError: Foundation.LocalizedError {
     public var errorDescription: String? {
         String(reflecting: self)
     }
@@ -31737,7 +31705,7 @@ extension HttpError: Foundation.LocalizedError {
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum HttpRetryProfile {
+nonisolated public enum HttpRetryProfile {
     
     case chainRead
     case chainWrite
@@ -31746,13 +31714,13 @@ public enum HttpRetryProfile {
 
 
 #if compiler(>=6)
-extension HttpRetryProfile: Sendable {}
+nonisolated extension HttpRetryProfile: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeHttpRetryProfile: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeHttpRetryProfile: FfiConverterRustBuffer {
     typealias SwiftType = HttpRetryProfile
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> HttpRetryProfile {
@@ -31804,7 +31772,7 @@ nonisolated public func FfiConverterTypeHttpRetryProfile_lower(_ value: HttpRetr
 }
 
 
-extension HttpRetryProfile: Equatable, Hashable {}
+nonisolated extension HttpRetryProfile: Equatable, Hashable {}
 
 
 
@@ -31819,7 +31787,7 @@ extension HttpRetryProfile: Equatable, Hashable {}
  * JSON-escaped quoted strings; Raw emits verbatim (caller's responsibility).
  */
 
-public enum JsonFieldValue {
+nonisolated public enum JsonFieldValue {
     
     case str(value: String
     )
@@ -31840,13 +31808,13 @@ public enum JsonFieldValue {
 
 
 #if compiler(>=6)
-extension JsonFieldValue: Sendable {}
+nonisolated extension JsonFieldValue: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeJsonFieldValue: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeJsonFieldValue: FfiConverterRustBuffer {
     typealias SwiftType = JsonFieldValue
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> JsonFieldValue {
@@ -31928,7 +31896,7 @@ nonisolated public func FfiConverterTypeJsonFieldValue_lower(_ value: JsonFieldV
 }
 
 
-extension JsonFieldValue: Equatable, Hashable {}
+nonisolated extension JsonFieldValue: Equatable, Hashable {}
 
 
 
@@ -31938,7 +31906,7 @@ extension JsonFieldValue: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum ReceiveAddressResolverKind {
+nonisolated public enum ReceiveAddressResolverKind {
     
     case bitcoinLegacy
     case bitcoinCash
@@ -31969,13 +31937,13 @@ public enum ReceiveAddressResolverKind {
 
 
 #if compiler(>=6)
-extension ReceiveAddressResolverKind: Sendable {}
+nonisolated extension ReceiveAddressResolverKind: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeReceiveAddressResolverKind: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeReceiveAddressResolverKind: FfiConverterRustBuffer {
     typealias SwiftType = ReceiveAddressResolverKind
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ReceiveAddressResolverKind {
@@ -32159,7 +32127,7 @@ nonisolated public func FfiConverterTypeReceiveAddressResolverKind_lower(_ value
 }
 
 
-extension ReceiveAddressResolverKind: Equatable, Hashable {}
+nonisolated extension ReceiveAddressResolverKind: Equatable, Hashable {}
 
 
 
@@ -32174,7 +32142,7 @@ extension ReceiveAddressResolverKind: Equatable, Hashable {}
  * the appropriate accessibility / encryption policy.
  */
 
-public enum SecretClass {
+nonisolated public enum SecretClass {
     
     /**
      * BIP39 seed phrase. Platform should apply the strongest available
@@ -32195,13 +32163,13 @@ public enum SecretClass {
 
 
 #if compiler(>=6)
-extension SecretClass: Sendable {}
+nonisolated extension SecretClass: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSecretClass: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSecretClass: FfiConverterRustBuffer {
     typealias SwiftType = SecretClass
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SecretClass {
@@ -32253,7 +32221,7 @@ nonisolated public func FfiConverterTypeSecretClass_lower(_ value: SecretClass) 
 }
 
 
-extension SecretClass: Equatable, Hashable {}
+nonisolated extension SecretClass: Equatable, Hashable {}
 
 
 
@@ -32265,7 +32233,7 @@ extension SecretClass: Equatable, Hashable {}
  * Error surface returned across the FFI. Keeps "not found" distinct from
  * infrastructure failures so callers can react correctly.
  */
-public enum SecretStoreError: Swift.Error {
+nonisolated public enum SecretStoreError: Swift.Error {
 
     
     
@@ -32288,7 +32256,7 @@ public enum SecretStoreError: Swift.Error {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSecretStoreError: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSecretStoreError: FfiConverterRustBuffer {
     typealias SwiftType = SecretStoreError
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SecretStoreError {
@@ -32347,12 +32315,12 @@ nonisolated public func FfiConverterTypeSecretStoreError_lower(_ value: SecretSt
 }
 
 
-extension SecretStoreError: Equatable, Hashable {}
+nonisolated extension SecretStoreError: Equatable, Hashable {}
 
 
 
 
-extension SecretStoreError: Foundation.LocalizedError {
+nonisolated extension SecretStoreError: Foundation.LocalizedError {
     public var errorDescription: String? {
         String(reflecting: self)
     }
@@ -32364,7 +32332,7 @@ extension SecretStoreError: Foundation.LocalizedError {
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum SendChain {
+nonisolated public enum SendChain {
     
     case bitcoin
     case bitcoinCash
@@ -32394,13 +32362,13 @@ public enum SendChain {
 
 
 #if compiler(>=6)
-extension SendChain: Sendable {}
+nonisolated extension SendChain: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSendChain: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSendChain: FfiConverterRustBuffer {
     typealias SwiftType = SendChain
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SendChain {
@@ -32578,7 +32546,7 @@ nonisolated public func FfiConverterTypeSendChain_lower(_ value: SendChain) -> R
 }
 
 
-extension SendChain: Equatable, Hashable {}
+nonisolated extension SendChain: Equatable, Hashable {}
 
 
 
@@ -32588,7 +32556,7 @@ extension SendChain: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum SimpleChain {
+nonisolated public enum SimpleChain {
     
     case solana
     case xrp
@@ -32605,13 +32573,13 @@ public enum SimpleChain {
 
 
 #if compiler(>=6)
-extension SimpleChain: Sendable {}
+nonisolated extension SimpleChain: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSimpleChain: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSimpleChain: FfiConverterRustBuffer {
     typealias SwiftType = SimpleChain
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SimpleChain {
@@ -32711,7 +32679,7 @@ nonisolated public func FfiConverterTypeSimpleChain_lower(_ value: SimpleChain) 
 }
 
 
-extension SimpleChain: Equatable, Hashable {}
+nonisolated extension SimpleChain: Equatable, Hashable {}
 
 
 
@@ -32721,7 +32689,7 @@ extension SimpleChain: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum SimpleChainPreview {
+nonisolated public enum SimpleChainPreview {
     
     case solana(preview: SolanaSendPreview
     )
@@ -32749,13 +32717,13 @@ public enum SimpleChainPreview {
 
 
 #if compiler(>=6)
-extension SimpleChainPreview: Sendable {}
+nonisolated extension SimpleChainPreview: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSimpleChainPreview: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSimpleChainPreview: FfiConverterRustBuffer {
     typealias SwiftType = SimpleChainPreview
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SimpleChainPreview {
@@ -32877,7 +32845,7 @@ nonisolated public func FfiConverterTypeSimpleChainPreview_lower(_ value: Simple
 }
 
 
-extension SimpleChainPreview: Equatable, Hashable {}
+nonisolated extension SimpleChainPreview: Equatable, Hashable {}
 
 
 
@@ -32893,7 +32861,7 @@ extension SimpleChainPreview: Equatable, Hashable {}
  * the target of the blanket `From<String>` / `From<&str>` impls so the 200+
  * existing `.map_err(SpectraBridgeError::from)?` sites keep compiling.
  */
-public enum SpectraBridgeError: Swift.Error {
+nonisolated public enum SpectraBridgeError: Swift.Error {
 
     
     
@@ -32927,7 +32895,7 @@ public enum SpectraBridgeError: Swift.Error {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeSpectraBridgeError: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeSpectraBridgeError: FfiConverterRustBuffer {
     typealias SwiftType = SpectraBridgeError
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> SpectraBridgeError {
@@ -33000,12 +32968,12 @@ nonisolated public func FfiConverterTypeSpectraBridgeError_lower(_ value: Spectr
 }
 
 
-extension SpectraBridgeError: Equatable, Hashable {}
+nonisolated extension SpectraBridgeError: Equatable, Hashable {}
 
 
 
 
-extension SpectraBridgeError: Foundation.LocalizedError {
+nonisolated extension SpectraBridgeError: Foundation.LocalizedError {
     public var errorDescription: String? {
         String(reflecting: self)
     }
@@ -33021,7 +32989,7 @@ extension SpectraBridgeError: Foundation.LocalizedError {
  * each chain client maps it to the chain-native operation.
  */
 
-public enum StakingActionKind {
+nonisolated public enum StakingActionKind {
     
     /**
      * Begin staking (delegate / bond / stake / lock-up).
@@ -33047,13 +33015,13 @@ public enum StakingActionKind {
 
 
 #if compiler(>=6)
-extension StakingActionKind: Sendable {}
+nonisolated extension StakingActionKind: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStakingActionKind: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStakingActionKind: FfiConverterRustBuffer {
     typealias SwiftType = StakingActionKind
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StakingActionKind {
@@ -33117,7 +33085,7 @@ nonisolated public func FfiConverterTypeStakingActionKind_lower(_ value: Staking
 }
 
 
-extension StakingActionKind: Equatable, Hashable {}
+nonisolated extension StakingActionKind: Equatable, Hashable {}
 
 
 
@@ -33129,7 +33097,7 @@ extension StakingActionKind: Equatable, Hashable {}
  * Errors returned by staking client operations. UniFFI-friendly; the
  * `String` carries provider-specific detail for diagnostics.
  */
-public enum StakingError: Swift.Error {
+nonisolated public enum StakingError: Swift.Error {
 
     
     
@@ -33150,7 +33118,7 @@ public enum StakingError: Swift.Error {
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStakingError: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStakingError: FfiConverterRustBuffer {
     typealias SwiftType = StakingError
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StakingError {
@@ -33236,12 +33204,12 @@ nonisolated public func FfiConverterTypeStakingError_lower(_ value: StakingError
 }
 
 
-extension StakingError: Equatable, Hashable {}
+nonisolated extension StakingError: Equatable, Hashable {}
 
 
 
 
-extension StakingError: Foundation.LocalizedError {
+nonisolated extension StakingError: Foundation.LocalizedError {
     public var errorDescription: String? {
         String(reflecting: self)
     }
@@ -33253,7 +33221,7 @@ extension StakingError: Foundation.LocalizedError {
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum StakingPositionStatus {
+nonisolated public enum StakingPositionStatus {
     
     case active
     case activating
@@ -33264,13 +33232,13 @@ public enum StakingPositionStatus {
 
 
 #if compiler(>=6)
-extension StakingPositionStatus: Sendable {}
+nonisolated extension StakingPositionStatus: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStakingPositionStatus: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStakingPositionStatus: FfiConverterRustBuffer {
     typealias SwiftType = StakingPositionStatus
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StakingPositionStatus {
@@ -33334,7 +33302,7 @@ nonisolated public func FfiConverterTypeStakingPositionStatus_lower(_ value: Sta
 }
 
 
-extension StakingPositionStatus: Equatable, Hashable {}
+nonisolated extension StakingPositionStatus: Equatable, Hashable {}
 
 
 
@@ -33344,7 +33312,7 @@ extension StakingPositionStatus: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum StateCommand {
+nonisolated public enum StateCommand {
     
     case replaceState(state: CoreAppState
     )
@@ -33364,13 +33332,13 @@ public enum StateCommand {
 
 
 #if compiler(>=6)
-extension StateCommand: Sendable {}
+nonisolated extension StateCommand: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeStateCommand: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeStateCommand: FfiConverterRustBuffer {
     typealias SwiftType = StateCommand
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> StateCommand {
@@ -33460,7 +33428,7 @@ nonisolated public func FfiConverterTypeStateCommand_lower(_ value: StateCommand
 }
 
 
-extension StateCommand: Equatable, Hashable {}
+nonisolated extension StateCommand: Equatable, Hashable {}
 
 
 
@@ -33470,7 +33438,7 @@ extension StateCommand: Equatable, Hashable {}
 // Note that we don't yet support `indirect` for enums.
 // See https://github.com/mozilla/uniffi-rs/issues/396 for further discussion.
 
-public enum TransactionMergeStrategy {
+nonisolated public enum TransactionMergeStrategy {
     
     case standardUtxo
     case dogecoin
@@ -33480,13 +33448,13 @@ public enum TransactionMergeStrategy {
 
 
 #if compiler(>=6)
-extension TransactionMergeStrategy: Sendable {}
+nonisolated extension TransactionMergeStrategy: Sendable {}
 #endif
 
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-public struct FfiConverterTypeTransactionMergeStrategy: FfiConverterRustBuffer {
+nonisolated public struct FfiConverterTypeTransactionMergeStrategy: FfiConverterRustBuffer {
     typealias SwiftType = TransactionMergeStrategy
 
     public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> TransactionMergeStrategy {
@@ -33544,7 +33512,7 @@ nonisolated public func FfiConverterTypeTransactionMergeStrategy_lower(_ value: 
 }
 
 
-extension TransactionMergeStrategy: Equatable, Hashable {}
+nonisolated extension TransactionMergeStrategy: Equatable, Hashable {}
 
 
 
@@ -37981,8 +37949,8 @@ fileprivate struct FfiConverterDictionaryStringDictionaryStringTypeKeypoolState:
         return dict
     }
 }
-private let UNIFFI_RUST_FUTURE_POLL_READY: Int8 = 0
-private let UNIFFI_RUST_FUTURE_POLL_MAYBE_READY: Int8 = 1
+private nonisolated(unsafe) let UNIFFI_RUST_FUTURE_POLL_READY: Int8 = 0
+private nonisolated(unsafe) let UNIFFI_RUST_FUTURE_POLL_MAYBE_READY: Int8 = 1
 
 fileprivate nonisolated(unsafe) let uniffiContinuationHandleMap = UniffiHandleMap<UnsafeContinuation<Int8, Never>>()
 
@@ -38824,6 +38792,12 @@ nonisolated public func coreRouteSendAsset(request: SendAssetRoutingInput) -> Se
     )
 })
 }
+/**
+ * Returns the canonical "raw" derivation-chain name for a given chain row.
+ * Testnets share their mainnet counterpart's derivation engine, so e.g.
+ * `"Ethereum Sepolia"` returns `"Ethereum"`. The Chain enum is the source
+ * of truth for that mapping.
+ */
 nonisolated public func coreSeedDerivationChainRaw(chainName: String) -> String?  {
     return try!  FfiConverterOptionString.lift(try! rustCall() {
     uniffi_spectra_core_fn_func_core_seed_derivation_chain_raw(
@@ -40440,7 +40414,7 @@ private enum InitializationResult {
 }
 // Use a global variable to perform the versioning checks. Swift ensures that
 // the code inside is only computed once.
-private let initializationResult: InitializationResult = {
+private nonisolated(unsafe) let initializationResult: InitializationResult = {
     // Get the bindings contract version from our ComponentInterface
     let bindings_contract_version = 29
     // Get the scaffolding contract version by calling the into the dylib
@@ -40745,7 +40719,7 @@ private let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_func_core_route_send_asset() != 39821) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_func_core_seed_derivation_chain_raw() != 4535) {
+    if (uniffi_spectra_core_checksum_func_core_seed_derivation_chain_raw() != 33346) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_core_should_run_background_maintenance() != 61045) {

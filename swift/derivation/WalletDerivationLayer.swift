@@ -10,12 +10,6 @@ enum WalletDerivationCurve: String, Codable {
     case secp256k1
     case ed25519
 }
-enum WalletDerivationNetwork: String, Codable {
-    case mainnet
-    case testnet
-    case testnet4
-    case signet
-}
 enum WalletDerivationError: LocalizedError {
     case emptyRequestedOutputs
     var errorDescription: String? {
@@ -26,25 +20,25 @@ enum WalletDerivationError: LocalizedError {
 }
 enum WalletDerivationLayer {
     static func derive(
-        seedPhrase: String, chain: SeedDerivationChain, network: WalletDerivationNetwork = .mainnet,
+        seedPhrase: String, chain: SeedDerivationChain,
         derivationPath: String? = nil, requestedOutputs: WalletDerivationRequestedOutputs = .all,
         overrides: CoreWalletDerivationOverrides? = nil
     ) throws -> WalletRustDerivationResponseModel {
         guard !requestedOutputs.isEmpty else { throw WalletDerivationError.emptyRequestedOutputs }
         let request = try WalletRustDerivationBridge.makeRequestModel(
-            chain: chain, network: network, seedPhrase: seedPhrase, derivationPath: derivationPath,
+            chain: chain, seedPhrase: seedPhrase, derivationPath: derivationPath,
             passphrase: nil, iterationCount: nil, hmacKeyString: nil, requestedOutputs: requestedOutputs,
             overrides: overrides
         )
         return try WalletRustDerivationBridge.derive(request)
     }
     static func deriveAddress(
-        seedPhrase: String, chain: SeedDerivationChain, network: WalletDerivationNetwork, derivationPath: String,
+        seedPhrase: String, chain: SeedDerivationChain, derivationPath: String,
         overrides: CoreWalletDerivationOverrides? = nil
     ) throws -> String
     {
         let result = try derive(
-            seedPhrase: seedPhrase, chain: chain, network: network, derivationPath: derivationPath,
+            seedPhrase: seedPhrase, chain: chain, derivationPath: derivationPath,
             requestedOutputs: .address, overrides: overrides)
         guard let address = result.address else { throw WalletDerivationError.emptyRequestedOutputs }
         return address

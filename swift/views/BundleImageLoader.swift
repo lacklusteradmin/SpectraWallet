@@ -180,7 +180,7 @@ enum BundleImageLoader {
 
         private static func diskCacheURL(name: String, size: CGSize) -> URL? {
             guard let base = diskCacheDir else { return nil }
-            let scale = UIScreen.main.scale
+            let scale = UITraitCollection.current.displayScale
             let safeName = name.replacingOccurrences(of: "/", with: "_")
             return base.appendingPathComponent("\(safeName)@\(Int(size.width))x\(Int(scale)).png")
         }
@@ -189,7 +189,7 @@ enum BundleImageLoader {
             guard let url = diskCacheURL(name: name, size: size),
                 FileManager.default.fileExists(atPath: url.path),
                 let data = try? Data(contentsOf: url),
-                let image = UIImage(data: data, scale: UIScreen.main.scale)
+                let image = UIImage(data: data, scale: UITraitCollection.current.displayScale)
             else {
                 return nil
             }
@@ -217,13 +217,12 @@ enum BundleImageLoader {
             // Once-per-process gate. A second AppState init shouldn't re-render
             // every SVG — that turned the icon set into a heat source on
             // lock/unlock cycles.
-            didWarmCacheLock.lock()
-            if didWarmCache {
-                didWarmCacheLock.unlock()
-                return
+            let alreadyWarmed = didWarmCacheLock.withLock { () -> Bool in
+                if didWarmCache { return true }
+                didWarmCache = true
+                return false
             }
-            didWarmCache = true
-            didWarmCacheLock.unlock()
+            if alreadyWarmed { return }
 
             guard let bundleURL = Bundle.main.resourceURL else { return }
             let candidateDirs: [URL] = [

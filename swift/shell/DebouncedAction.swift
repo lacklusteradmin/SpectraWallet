@@ -17,7 +17,7 @@ import Foundation
 /// The interval is fixed at construction so reading the call site shows
 /// the action *and* its debounce window in one place. `cancel()` discards
 /// the pending action without firing it.
-final class DebouncedAction: @unchecked Sendable {
+nonisolated final class DebouncedAction: @unchecked Sendable {
     /// Debounce window for the most recently fired closure. Captured at
     /// init so the configured interval is visible alongside the field
     /// declaration ("wallets debounce 30ms; live prices 200ms; …").

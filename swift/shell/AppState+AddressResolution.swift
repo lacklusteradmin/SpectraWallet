@@ -42,7 +42,7 @@ extension AppState {
         if let seedPhrase = storedSeedPhrase(for: wallet.id),
             let derivationChain = WalletDerivationLayer.evmSeedDerivationChain(for: chainName),
             let derived = try? WalletDerivationLayer.deriveAddress(
-                seedPhrase: seedPhrase, chain: derivationChain, network: .mainnet,
+                seedPhrase: seedPhrase, chain: derivationChain,
                 derivationPath: walletDerivationPath(for: wallet, chain: derivationChain))
         {
             return derived
@@ -55,24 +55,44 @@ extension AppState {
 
     func resolvedBitcoinAddress(for wallet: ImportedWallet) -> String? {
         let networkMode = bitcoinNetworkMode(for: wallet)
+        let chain: SeedDerivationChain = bitcoinDerivationChain(for: networkMode)
         return resolveDerivedOrStoredAddress(
-            for: wallet, chain: .bitcoin, network: derivationNetwork(for: networkMode),
-            derivationPath: walletDerivationPath(for: wallet, chain: .bitcoin),
+            for: wallet, chain: chain,
+            derivationPath: walletDerivationPath(for: wallet, chain: chain),
             storedAddress: wallet.bitcoinAddress,
-            validationKind: "bitcoin", validationNetworkMode: networkMode.rawValue
+            validationKind: bitcoinValidationKind(for: networkMode), validationNetworkMode: nil
         )
     }
 
     func resolvedDogecoinAddress(for wallet: ImportedWallet) -> String? {
         let networkMode = dogecoinNetworkMode(for: wallet)
+        let chain: SeedDerivationChain = networkMode == .testnet ? .dogecoinTestnet : .dogecoin
         let derivationPath = WalletDerivationPath.dogecoin(
-            account: derivationAccount(for: wallet, chain: .dogecoin), branch: .external, index: 0
+            account: derivationAccount(for: wallet, chain: chain), branch: .external, index: 0
         )
         return resolveDerivedOrStoredAddress(
-            for: wallet, chain: .dogecoin, network: derivationNetwork(for: networkMode),
+            for: wallet, chain: chain,
             derivationPath: derivationPath, storedAddress: wallet.dogecoinAddress,
-            validationKind: "dogecoin", validationNetworkMode: networkMode.rawValue
+            validationKind: networkMode == .testnet ? "dogecoinTestnet" : "dogecoin", validationNetworkMode: nil
         )
+    }
+
+    private func bitcoinDerivationChain(for mode: BitcoinNetworkMode) -> SeedDerivationChain {
+        switch mode {
+        case .mainnet: return .bitcoin
+        case .testnet: return .bitcoinTestnet
+        case .testnet4: return .bitcoinTestnet4
+        case .signet: return .bitcoinSignet
+        }
+    }
+
+    private func bitcoinValidationKind(for mode: BitcoinNetworkMode) -> String {
+        switch mode {
+        case .mainnet: return "bitcoin"
+        case .testnet: return "bitcoinTestnet"
+        case .testnet4: return "bitcoinTestnet4"
+        case .signet: return "bitcoinSignet"
+        }
     }
 
     func resolvedTronAddress(for wallet: ImportedWallet) -> String? {
@@ -191,7 +211,7 @@ extension AppState {
         }
         if let seedPhrase = storedSeedPhrase(for: wallet.id),
             let derived = try? WalletDerivationLayer.deriveAddress(
-                seedPhrase: seedPhrase, chain: .cardano, network: .mainnet,
+                seedPhrase: seedPhrase, chain: .cardano,
                 derivationPath: walletDerivationPath(for: wallet, chain: .cardano)),
             AddressValidation.isValid(derived, kind: "cardano")
         {
@@ -293,7 +313,6 @@ extension AppState {
     private func resolveDerivedOrStoredAddress(
         for wallet: ImportedWallet,
         chain: SeedDerivationChain,
-        network: WalletDerivationNetwork = .mainnet,
         derivationPath: String,
         storedAddress: String?,
         validationKind: String,
@@ -304,7 +323,7 @@ extension AppState {
         let derived: String? = {
             guard let seedPhrase = storedSeedPhrase(for: wallet.id) else { return nil }
             return try? WalletDerivationLayer.deriveAddress(
-                seedPhrase: seedPhrase, chain: chain, network: network, derivationPath: derivationPath
+                seedPhrase: seedPhrase, chain: chain, derivationPath: derivationPath
             )
         }()
         return corePlanResolveDerivedOrStoredAddress(

@@ -5,7 +5,7 @@ import Foundation
 // `StakingActionPreview`, `StakingError`). This file adds Swift-side
 // presentation helpers on top.
 
-extension StakingActionKind: @retroactive CaseIterable, @retroactive Identifiable {
+extension StakingActionKind: CaseIterable, Identifiable {
     public static var allCases: [StakingActionKind] {
         [.stake, .unstake, .withdraw, .restake, .claimRewards]
     }

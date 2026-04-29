@@ -13,7 +13,6 @@ enum WalletDerivationPath {
 
 typealias WalletDerivationChainPreset = AppCoreChainPreset
 typealias WalletDerivationPathPreset = AppCorePathPreset
-typealias WalletDerivationNetworkPreset = AppCoreNetworkPreset
 typealias WalletDerivationRequestCompilationPreset = AppCoreRequestCompilationPreset
 
 extension AppCorePathPreset {
@@ -31,10 +30,6 @@ enum WalletDerivationPresetCatalog {
             fatalError("Missing derivation preset for \(chain.rawValue)")
         }
         return preset
-    }
-
-    nonisolated static func networkPresets(for chain: SeedDerivationChain) -> [WalletDerivationNetworkPreset] {
-        chainPreset(for: chain).networks
     }
 
     nonisolated static func pathPresets(for chain: SeedDerivationChain) -> [WalletDerivationPathPreset] {
@@ -61,7 +56,7 @@ enum WalletDerivationPresetCatalog {
         return paths.first(where: \.isDefault) ?? paths[0]
     }
 
-    nonisolated static func defaultPath(for chain: SeedDerivationChain, network _: WalletDerivationNetwork = .mainnet) -> String {
+    nonisolated static func defaultPath(for chain: SeedDerivationChain) -> String {
         defaultPreset(for: chain).derivationPath
     }
 
