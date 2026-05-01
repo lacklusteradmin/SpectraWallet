@@ -6770,116 +6770,6 @@ nonisolated public func FfiConverterTypeChainSelfTestResult_lower(_ value: Chain
 }
 
 
-nonisolated public struct ChainSummary {
-    public var chainName: String
-    public var curve: String
-    public var defaultNetwork: String?
-    public var defaultDerivationPath: String?
-    public var endpointCount: UInt64
-    public var settingsVisibleEndpointCount: UInt64
-    public var explorerEndpointCount: UInt64
-
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
-    nonisolated public init(chainName: String, curve: String, defaultNetwork: String?, defaultDerivationPath: String?, endpointCount: UInt64, settingsVisibleEndpointCount: UInt64, explorerEndpointCount: UInt64) {
-        self.chainName = chainName
-        self.curve = curve
-        self.defaultNetwork = defaultNetwork
-        self.defaultDerivationPath = defaultDerivationPath
-        self.endpointCount = endpointCount
-        self.settingsVisibleEndpointCount = settingsVisibleEndpointCount
-        self.explorerEndpointCount = explorerEndpointCount
-    }
-}
-
-#if compiler(>=6)
-nonisolated extension ChainSummary: Sendable {}
-#endif
-
-
-nonisolated extension ChainSummary: Equatable, Hashable {
-    public static func ==(lhs: ChainSummary, rhs: ChainSummary) -> Bool {
-        if lhs.chainName != rhs.chainName {
-            return false
-        }
-        if lhs.curve != rhs.curve {
-            return false
-        }
-        if lhs.defaultNetwork != rhs.defaultNetwork {
-            return false
-        }
-        if lhs.defaultDerivationPath != rhs.defaultDerivationPath {
-            return false
-        }
-        if lhs.endpointCount != rhs.endpointCount {
-            return false
-        }
-        if lhs.settingsVisibleEndpointCount != rhs.settingsVisibleEndpointCount {
-            return false
-        }
-        if lhs.explorerEndpointCount != rhs.explorerEndpointCount {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(chainName)
-        hasher.combine(curve)
-        hasher.combine(defaultNetwork)
-        hasher.combine(defaultDerivationPath)
-        hasher.combine(endpointCount)
-        hasher.combine(settingsVisibleEndpointCount)
-        hasher.combine(explorerEndpointCount)
-    }
-}
-
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public struct FfiConverterTypeChainSummary: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ChainSummary {
-        return
-            try ChainSummary(
-                chainName: FfiConverterString.read(from: &buf), 
-                curve: FfiConverterString.read(from: &buf), 
-                defaultNetwork: FfiConverterOptionString.read(from: &buf), 
-                defaultDerivationPath: FfiConverterOptionString.read(from: &buf), 
-                endpointCount: FfiConverterUInt64.read(from: &buf), 
-                settingsVisibleEndpointCount: FfiConverterUInt64.read(from: &buf), 
-                explorerEndpointCount: FfiConverterUInt64.read(from: &buf)
-        )
-    }
-
-    public static func write(_ value: ChainSummary, into buf: inout [UInt8]) {
-        FfiConverterString.write(value.chainName, into: &buf)
-        FfiConverterString.write(value.curve, into: &buf)
-        FfiConverterOptionString.write(value.defaultNetwork, into: &buf)
-        FfiConverterOptionString.write(value.defaultDerivationPath, into: &buf)
-        FfiConverterUInt64.write(value.endpointCount, into: &buf)
-        FfiConverterUInt64.write(value.settingsVisibleEndpointCount, into: &buf)
-        FfiConverterUInt64.write(value.explorerEndpointCount, into: &buf)
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public func FfiConverterTypeChainSummary_lift(_ buf: RustBuffer) throws -> ChainSummary {
-    return try FfiConverterTypeChainSummary.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public func FfiConverterTypeChainSummary_lower(_ value: ChainSummary) -> RustBuffer {
-    return FfiConverterTypeChainSummary.lower(value)
-}
-
-
 nonisolated public struct CoreAppState {
     public var schemaVersion: UInt32
     public var wallets: [WalletSummary]
@@ -7073,218 +6963,6 @@ nonisolated public func FfiConverterTypeCoreBitcoinHistorySnapshot_lift(_ buf: R
 #endif
 nonisolated public func FfiConverterTypeCoreBitcoinHistorySnapshot_lower(_ value: CoreBitcoinHistorySnapshot) -> RustBuffer {
     return FfiConverterTypeCoreBitcoinHistorySnapshot.lower(value)
-}
-
-
-nonisolated public struct CoreBootstrap {
-    public var capabilities: CoreCapabilities
-    public var chains: [ChainSummary]
-    public var localization: LocalizationSummary
-    public var liveChainNames: [String]
-
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
-    nonisolated public init(capabilities: CoreCapabilities, chains: [ChainSummary], localization: LocalizationSummary, liveChainNames: [String]) {
-        self.capabilities = capabilities
-        self.chains = chains
-        self.localization = localization
-        self.liveChainNames = liveChainNames
-    }
-}
-
-#if compiler(>=6)
-nonisolated extension CoreBootstrap: Sendable {}
-#endif
-
-
-nonisolated extension CoreBootstrap: Equatable, Hashable {
-    public static func ==(lhs: CoreBootstrap, rhs: CoreBootstrap) -> Bool {
-        if lhs.capabilities != rhs.capabilities {
-            return false
-        }
-        if lhs.chains != rhs.chains {
-            return false
-        }
-        if lhs.localization != rhs.localization {
-            return false
-        }
-        if lhs.liveChainNames != rhs.liveChainNames {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(capabilities)
-        hasher.combine(chains)
-        hasher.combine(localization)
-        hasher.combine(liveChainNames)
-    }
-}
-
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public struct FfiConverterTypeCoreBootstrap: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreBootstrap {
-        return
-            try CoreBootstrap(
-                capabilities: FfiConverterTypeCoreCapabilities.read(from: &buf), 
-                chains: FfiConverterSequenceTypeChainSummary.read(from: &buf), 
-                localization: FfiConverterTypeLocalizationSummary.read(from: &buf), 
-                liveChainNames: FfiConverterSequenceString.read(from: &buf)
-        )
-    }
-
-    public static func write(_ value: CoreBootstrap, into buf: inout [UInt8]) {
-        FfiConverterTypeCoreCapabilities.write(value.capabilities, into: &buf)
-        FfiConverterSequenceTypeChainSummary.write(value.chains, into: &buf)
-        FfiConverterTypeLocalizationSummary.write(value.localization, into: &buf)
-        FfiConverterSequenceString.write(value.liveChainNames, into: &buf)
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public func FfiConverterTypeCoreBootstrap_lift(_ buf: RustBuffer) throws -> CoreBootstrap {
-    return try FfiConverterTypeCoreBootstrap.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public func FfiConverterTypeCoreBootstrap_lower(_ value: CoreBootstrap) -> RustBuffer {
-    return FfiConverterTypeCoreBootstrap.lower(value)
-}
-
-
-nonisolated public struct CoreCapabilities {
-    public var schemaVersion: UInt32
-    public var supportsDerivation: Bool
-    public var supportsFetchContracts: Bool
-    public var supportsSendContracts: Bool
-    public var supportsStoreContracts: Bool
-    public var supportsLocalizationCatalogs: Bool
-    public var supportsStateReducer: Bool
-    public var supportedLocales: [String]
-    public var localizationTables: [String]
-
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
-    nonisolated public init(schemaVersion: UInt32, supportsDerivation: Bool, supportsFetchContracts: Bool, supportsSendContracts: Bool, supportsStoreContracts: Bool, supportsLocalizationCatalogs: Bool, supportsStateReducer: Bool, supportedLocales: [String], localizationTables: [String]) {
-        self.schemaVersion = schemaVersion
-        self.supportsDerivation = supportsDerivation
-        self.supportsFetchContracts = supportsFetchContracts
-        self.supportsSendContracts = supportsSendContracts
-        self.supportsStoreContracts = supportsStoreContracts
-        self.supportsLocalizationCatalogs = supportsLocalizationCatalogs
-        self.supportsStateReducer = supportsStateReducer
-        self.supportedLocales = supportedLocales
-        self.localizationTables = localizationTables
-    }
-}
-
-#if compiler(>=6)
-nonisolated extension CoreCapabilities: Sendable {}
-#endif
-
-
-nonisolated extension CoreCapabilities: Equatable, Hashable {
-    public static func ==(lhs: CoreCapabilities, rhs: CoreCapabilities) -> Bool {
-        if lhs.schemaVersion != rhs.schemaVersion {
-            return false
-        }
-        if lhs.supportsDerivation != rhs.supportsDerivation {
-            return false
-        }
-        if lhs.supportsFetchContracts != rhs.supportsFetchContracts {
-            return false
-        }
-        if lhs.supportsSendContracts != rhs.supportsSendContracts {
-            return false
-        }
-        if lhs.supportsStoreContracts != rhs.supportsStoreContracts {
-            return false
-        }
-        if lhs.supportsLocalizationCatalogs != rhs.supportsLocalizationCatalogs {
-            return false
-        }
-        if lhs.supportsStateReducer != rhs.supportsStateReducer {
-            return false
-        }
-        if lhs.supportedLocales != rhs.supportedLocales {
-            return false
-        }
-        if lhs.localizationTables != rhs.localizationTables {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(schemaVersion)
-        hasher.combine(supportsDerivation)
-        hasher.combine(supportsFetchContracts)
-        hasher.combine(supportsSendContracts)
-        hasher.combine(supportsStoreContracts)
-        hasher.combine(supportsLocalizationCatalogs)
-        hasher.combine(supportsStateReducer)
-        hasher.combine(supportedLocales)
-        hasher.combine(localizationTables)
-    }
-}
-
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public struct FfiConverterTypeCoreCapabilities: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> CoreCapabilities {
-        return
-            try CoreCapabilities(
-                schemaVersion: FfiConverterUInt32.read(from: &buf), 
-                supportsDerivation: FfiConverterBool.read(from: &buf), 
-                supportsFetchContracts: FfiConverterBool.read(from: &buf), 
-                supportsSendContracts: FfiConverterBool.read(from: &buf), 
-                supportsStoreContracts: FfiConverterBool.read(from: &buf), 
-                supportsLocalizationCatalogs: FfiConverterBool.read(from: &buf), 
-                supportsStateReducer: FfiConverterBool.read(from: &buf), 
-                supportedLocales: FfiConverterSequenceString.read(from: &buf), 
-                localizationTables: FfiConverterSequenceString.read(from: &buf)
-        )
-    }
-
-    public static func write(_ value: CoreCapabilities, into buf: inout [UInt8]) {
-        FfiConverterUInt32.write(value.schemaVersion, into: &buf)
-        FfiConverterBool.write(value.supportsDerivation, into: &buf)
-        FfiConverterBool.write(value.supportsFetchContracts, into: &buf)
-        FfiConverterBool.write(value.supportsSendContracts, into: &buf)
-        FfiConverterBool.write(value.supportsStoreContracts, into: &buf)
-        FfiConverterBool.write(value.supportsLocalizationCatalogs, into: &buf)
-        FfiConverterBool.write(value.supportsStateReducer, into: &buf)
-        FfiConverterSequenceString.write(value.supportedLocales, into: &buf)
-        FfiConverterSequenceString.write(value.localizationTables, into: &buf)
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public func FfiConverterTypeCoreCapabilities_lift(_ buf: RustBuffer) throws -> CoreCapabilities {
-    return try FfiConverterTypeCoreCapabilities.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public func FfiConverterTypeCoreCapabilities_lower(_ value: CoreCapabilities) -> RustBuffer {
-    return FfiConverterTypeCoreCapabilities.lower(value)
 }
 
 
@@ -9632,7 +9310,7 @@ nonisolated public func FfiConverterTypeCoreTokenPreferenceEntry_lower(_ value: 
 /**
  * Wire/merge form of a transaction record.
  *
- * Distinct from [`crate::store::persistence::models::CorePersistedTransactionRecord`]
+ * Distinct from [`crate::store::persistence_models::CorePersistedTransactionRecord`]
  * in two specific ways — they look almost identical but the differences are
  * load-bearing:
  * 1. **Timestamps**: this type uses unix-epoch seconds (`created_at_unix`)
@@ -16089,76 +15767,6 @@ nonisolated public func FfiConverterTypeLastSentTransactionSnapshot_lift(_ buf: 
 #endif
 nonisolated public func FfiConverterTypeLastSentTransactionSnapshot_lower(_ value: LastSentTransactionSnapshot) -> RustBuffer {
     return FfiConverterTypeLastSentTransactionSnapshot.lower(value)
-}
-
-
-nonisolated public struct LocalizationSummary {
-    public var supportedLocales: [String]
-    public var tables: [String]
-
-    // Default memberwise initializers are never public by default, so we
-    // declare one manually.
-    nonisolated public init(supportedLocales: [String], tables: [String]) {
-        self.supportedLocales = supportedLocales
-        self.tables = tables
-    }
-}
-
-#if compiler(>=6)
-nonisolated extension LocalizationSummary: Sendable {}
-#endif
-
-
-nonisolated extension LocalizationSummary: Equatable, Hashable {
-    public static func ==(lhs: LocalizationSummary, rhs: LocalizationSummary) -> Bool {
-        if lhs.supportedLocales != rhs.supportedLocales {
-            return false
-        }
-        if lhs.tables != rhs.tables {
-            return false
-        }
-        return true
-    }
-
-    public func hash(into hasher: inout Hasher) {
-        hasher.combine(supportedLocales)
-        hasher.combine(tables)
-    }
-}
-
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public struct FfiConverterTypeLocalizationSummary: FfiConverterRustBuffer {
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> LocalizationSummary {
-        return
-            try LocalizationSummary(
-                supportedLocales: FfiConverterSequenceString.read(from: &buf), 
-                tables: FfiConverterSequenceString.read(from: &buf)
-        )
-    }
-
-    public static func write(_ value: LocalizationSummary, into buf: inout [UInt8]) {
-        FfiConverterSequenceString.write(value.supportedLocales, into: &buf)
-        FfiConverterSequenceString.write(value.tables, into: &buf)
-    }
-}
-
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public func FfiConverterTypeLocalizationSummary_lift(_ buf: RustBuffer) throws -> LocalizationSummary {
-    return try FfiConverterTypeLocalizationSummary.lift(buf)
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
-nonisolated public func FfiConverterTypeLocalizationSummary_lower(_ value: LocalizationSummary) -> RustBuffer {
-    return FfiConverterTypeLocalizationSummary.lower(value)
 }
 
 
@@ -35532,31 +35140,6 @@ fileprivate struct FfiConverterSequenceTypeChainSelfTestResult: FfiConverterRust
 #if swift(>=5.8)
 @_documentation(visibility: private)
 #endif
-fileprivate struct FfiConverterSequenceTypeChainSummary: FfiConverterRustBuffer {
-    typealias SwiftType = [ChainSummary]
-
-    public static func write(_ value: [ChainSummary], into buf: inout [UInt8]) {
-        let len = Int32(value.count)
-        writeInt(&buf, len)
-        for item in value {
-            FfiConverterTypeChainSummary.write(item, into: &buf)
-        }
-    }
-
-    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> [ChainSummary] {
-        let len: Int32 = try readInt(&buf)
-        var seq = [ChainSummary]()
-        seq.reserveCapacity(Int(len))
-        for _ in 0 ..< len {
-            seq.append(try FfiConverterTypeChainSummary.read(from: &buf))
-        }
-        return seq
-    }
-}
-
-#if swift(>=5.8)
-@_documentation(visibility: private)
-#endif
 fileprivate struct FfiConverterSequenceTypeCoreBitcoinHistorySnapshot: FfiConverterRustBuffer {
     typealias SwiftType = [CoreBitcoinHistorySnapshot]
 
@@ -38333,6 +37916,10 @@ nonisolated public func coreEvaluateHighRiskSendReasons(request: HighRiskSendReq
     )
 })
 }
+/**
+ * Evaluate whether a portfolio-total swing crosses both an absolute USD
+ * threshold and a percent-change threshold (large-movement notifications).
+ */
 nonisolated public func coreEvaluateLargeMovement(previousTotalUsd: Double, currentTotalUsd: Double, usdThreshold: Double, percentThreshold: Double) -> LargeMovementEvaluation  {
     return try!  FfiConverterTypeLargeMovementEvaluation_lift(try! rustCall() {
     uniffi_spectra_core_fn_func_core_evaluate_large_movement(
@@ -38756,6 +38343,9 @@ nonisolated public func corePlanWalletImport(request: WalletImportRequest)throws
     )
 })
 }
+/**
+ * Heuristic check for a 32-byte hex private key.
+ */
 nonisolated public func corePrivateKeyHexIsLikely(rawValue: String) -> Bool  {
     return try!  FfiConverterBool.lift(try! rustCall() {
     uniffi_spectra_core_fn_func_core_private_key_hex_is_likely(
@@ -38763,6 +38353,9 @@ nonisolated public func corePrivateKeyHexIsLikely(rawValue: String) -> Bool  {
     )
 })
 }
+/**
+ * Trim + lowercase + strip leading `0x` from a private-key hex string.
+ */
 nonisolated public func corePrivateKeyHexNormalized(rawValue: String) -> String  {
     return try!  FfiConverterString.lift(try! rustCall() {
     uniffi_spectra_core_fn_func_core_private_key_hex_normalized(
@@ -40545,7 +40138,7 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_func_core_evaluate_high_risk_send_reasons() != 44464) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_func_core_evaluate_large_movement() != 46967) {
+    if (uniffi_spectra_core_checksum_func_core_evaluate_large_movement() != 15728) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_core_evm_chain_context_tag() != 36726) {
@@ -40704,10 +40297,10 @@ private nonisolated(unsafe) let initializationResult: InitializationResult = {
     if (uniffi_spectra_core_checksum_func_core_plan_wallet_import() != 24394) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_func_core_private_key_hex_is_likely() != 12251) {
+    if (uniffi_spectra_core_checksum_func_core_private_key_hex_is_likely() != 49651) {
         return InitializationResult.apiChecksumMismatch
     }
-    if (uniffi_spectra_core_checksum_func_core_private_key_hex_normalized() != 51581) {
+    if (uniffi_spectra_core_checksum_func_core_private_key_hex_normalized() != 2896) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_spectra_core_checksum_func_core_rebroadcast_dispatch_for_format() != 30671) {

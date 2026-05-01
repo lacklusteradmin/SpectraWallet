@@ -9,6 +9,64 @@
 /* Begin PBXBuildFile section */
 		9059229D2F5D2C49003ACDA5 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = 9059229C2F5D2C49003ACDA5 /* KeychainAccess */; };
 		91C100012F70000100AAA001 /* SpectraLiveActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 91C100032F70000100AAA001 /* SpectraLiveActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		90F002000000000000000009 /* WalletBalanceObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000009 /* WalletBalanceObserver.swift */; };
+		90F00200000000000000000E /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000E /* AppState.swift */; };
+		90F00200000000000000000F /* AppStateTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000F /* AppStateTypes.swift */; };
+		90F002000000000000000010 /* AppUserPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000010 /* AppUserPreferences.swift */; };
+		90F002000000000000000012 /* CachedCoreHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000012 /* CachedCoreHelpers.swift */; };
+		90F002000000000000000015 /* ChainRefreshDescriptors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000015 /* ChainRefreshDescriptors.swift */; };
+		90F002000000000000000016 /* ChainTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000016 /* ChainTypes.swift */; };
+		90F002000000000000000017 /* CoreModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000017 /* CoreModels.swift */; };
+		90F002000000000000000018 /* DashboardStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000018 /* DashboardStore.swift */; };
+		90F002000000000000000019 /* DebouncedAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000019 /* DebouncedAction.swift */; };
+		90F00200000000000000001A /* DiagnosticsState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000001A /* DiagnosticsState.swift */; };
+		90F00200000000000000001B /* DiagnosticsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000001B /* DiagnosticsStore.swift */; };
+		90F00200000000000000001D /* Identifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000001D /* Identifiers.swift */; };
+		90F00200000000000000001E /* LoadingTaskRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000001E /* LoadingTaskRegistry.swift */; };
+		90F00200000000000000001F /* MaintenanceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000001F /* MaintenanceStore.swift */; };
+		90F002000000000000000020 /* ManagedTaskRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000020 /* ManagedTaskRegistry.swift */; };
+		90F002000000000000000022 /* PersistenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000022 /* PersistenceStore.swift */; };
+		90F002000000000000000023 /* Platform.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000023 /* Platform.swift */; };
+		90F002000000000000000026 /* RegistryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000026 /* RegistryModels.swift */; };
+		90F002000000000000000027 /* SecureStores.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000027 /* SecureStores.swift */; };
+		90F002000000000000000029 /* SendPreviewTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000029 /* SendPreviewTypes.swift */; };
+		90F00200000000000000002B /* StakingTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002B /* StakingTypes.swift */; };
+		90F00200000000000000002C /* StaticContentCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002C /* StaticContentCatalog.swift */; };
+		90F00200000000000000002F /* StoreDiagnosticsExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002F /* StoreDiagnosticsExport.swift */; };
+		90F002000000000000000035 /* WalletDerivedCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000035 /* WalletDerivedCache.swift */; };
+		90F002000000000000000036 /* WalletRustDerivationBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000036 /* WalletRustDerivationBridge.swift */; };
+		90F002000000000000000037 /* WalletRustEndpointCatalogBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000037 /* WalletRustEndpointCatalogBridge.swift */; };
+		90F002000000000000000038 /* WalletServiceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000038 /* WalletServiceBridge.swift */; };
+		90F002000000000000000011 /* AptosStakingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000011 /* AptosStakingClient.swift */; };
+		90F002000000000000000013 /* CardanoStakingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000013 /* CardanoStakingClient.swift */; };
+		90F00200000000000000001C /* IcpStakingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000001C /* IcpStakingClient.swift */; };
+		90F002000000000000000021 /* NearStakingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000021 /* NearStakingClient.swift */; };
+		90F002000000000000000024 /* PolkadotStakingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000024 /* PolkadotStakingClient.swift */; };
+		90F00200000000000000002A /* SolanaStakingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002A /* SolanaStakingClient.swift */; };
+		90F002000000000000000033 /* SuiStakingClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000033 /* SuiStakingClient.swift */; };
+		90F002000000000000000001 /* AppState+AddressResolution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000001 /* AppState+AddressResolution.swift */; };
+		90F002000000000000000002 /* AppState+BalanceRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000002 /* AppState+BalanceRefresh.swift */; };
+		90F002000000000000000003 /* AppState+CoreStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000003 /* AppState+CoreStateStore.swift */; };
+		90F002000000000000000004 /* AppState+DiagnosticsEndpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000004 /* AppState+DiagnosticsEndpoints.swift */; };
+		90F002000000000000000005 /* AppState+ImportLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000005 /* AppState+ImportLifecycle.swift */; };
+		90F002000000000000000006 /* AppState+OperationalTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000006 /* AppState+OperationalTelemetry.swift */; };
+		90F002000000000000000007 /* AppState+PricingFiat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000007 /* AppState+PricingFiat.swift */; };
+		90F002000000000000000008 /* AppState+ReceiveFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000008 /* AppState+ReceiveFlow.swift */; };
+		90F00200000000000000000A /* AppState+SendExecution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000A /* AppState+SendExecution.swift */; };
+		90F00200000000000000000B /* AppState+SendFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000B /* AppState+SendFlow.swift */; };
+		90F00200000000000000000C /* AppState+SendPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000C /* AppState+SendPreview.swift */; };
+		90F00200000000000000000D /* AppState+SendRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000D /* AppState+SendRouting.swift */; };
+		90F00200000000000000002D /* Store+Formatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002D /* Store+Formatting.swift */; };
+		90F00200000000000000002E /* Store+Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002E /* Store+Notifications.swift */; };
+		90F002000000000000000030 /* StoreHistoryRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000030 /* StoreHistoryRefresh.swift */; };
+		90F002000000000000000031 /* StoreLifecycleReset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000031 /* StoreLifecycleReset.swift */; };
+		90F002000000000000000032 /* StorePersistenceNormalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000032 /* StorePersistenceNormalization.swift */; };
+		90F002000000000000000039 /* LiveActivityManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000039 /* LiveActivityManager.swift */; };
+		90F00200000000000000003A /* ActionResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003A /* ActionResult.swift */; };
+		90F00200000000000000003B /* SetupFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003B /* SetupFlow.swift */; };
+		90F00200000000000000003C /* ImportDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003C /* ImportDraft.swift */; };
+		90F00200000000000000003D /* ViewExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003D /* ViewExtensions.swift */; };
+		90F00200000000000000003E /* WalletDerivation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003E /* WalletDerivation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -48,6 +106,64 @@
 		90AEE1792F5AFB43008CFE5E /* Spectra.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = Spectra.xctestplan; sourceTree = "<group>"; };
 		91B000012F5B000100AAA001 /* SpectraTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpectraTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		91C100032F70000100AAA001 /* SpectraLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpectraLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		90F001000000000000000009 /* WalletBalanceObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WalletBalanceObserver.swift"; sourceTree = "<group>"; };
+		90F00100000000000000000E /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState.swift"; sourceTree = "<group>"; };
+		90F00100000000000000000F /* AppStateTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppStateTypes.swift"; sourceTree = "<group>"; };
+		90F001000000000000000010 /* AppUserPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppUserPreferences.swift"; sourceTree = "<group>"; };
+		90F001000000000000000012 /* CachedCoreHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CachedCoreHelpers.swift"; sourceTree = "<group>"; };
+		90F001000000000000000015 /* ChainRefreshDescriptors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ChainRefreshDescriptors.swift"; sourceTree = "<group>"; };
+		90F001000000000000000016 /* ChainTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ChainTypes.swift"; sourceTree = "<group>"; };
+		90F001000000000000000017 /* CoreModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CoreModels.swift"; sourceTree = "<group>"; };
+		90F001000000000000000018 /* DashboardStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DashboardStore.swift"; sourceTree = "<group>"; };
+		90F001000000000000000019 /* DebouncedAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DebouncedAction.swift"; sourceTree = "<group>"; };
+		90F00100000000000000001A /* DiagnosticsState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DiagnosticsState.swift"; sourceTree = "<group>"; };
+		90F00100000000000000001B /* DiagnosticsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "DiagnosticsStore.swift"; sourceTree = "<group>"; };
+		90F00100000000000000001D /* Identifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Identifiers.swift"; sourceTree = "<group>"; };
+		90F00100000000000000001E /* LoadingTaskRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LoadingTaskRegistry.swift"; sourceTree = "<group>"; };
+		90F00100000000000000001F /* MaintenanceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "MaintenanceStore.swift"; sourceTree = "<group>"; };
+		90F001000000000000000020 /* ManagedTaskRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ManagedTaskRegistry.swift"; sourceTree = "<group>"; };
+		90F001000000000000000022 /* PersistenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PersistenceStore.swift"; sourceTree = "<group>"; };
+		90F001000000000000000023 /* Platform.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Platform.swift"; sourceTree = "<group>"; };
+		90F001000000000000000026 /* RegistryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "RegistryModels.swift"; sourceTree = "<group>"; };
+		90F001000000000000000027 /* SecureStores.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SecureStores.swift"; sourceTree = "<group>"; };
+		90F001000000000000000029 /* SendPreviewTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SendPreviewTypes.swift"; sourceTree = "<group>"; };
+		90F00100000000000000002B /* StakingTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StakingTypes.swift"; sourceTree = "<group>"; };
+		90F00100000000000000002C /* StaticContentCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StaticContentCatalog.swift"; sourceTree = "<group>"; };
+		90F00100000000000000002F /* StoreDiagnosticsExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StoreDiagnosticsExport.swift"; sourceTree = "<group>"; };
+		90F001000000000000000035 /* WalletDerivedCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WalletDerivedCache.swift"; sourceTree = "<group>"; };
+		90F001000000000000000036 /* WalletRustDerivationBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WalletRustDerivationBridge.swift"; sourceTree = "<group>"; };
+		90F001000000000000000037 /* WalletRustEndpointCatalogBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WalletRustEndpointCatalogBridge.swift"; sourceTree = "<group>"; };
+		90F001000000000000000038 /* WalletServiceBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WalletServiceBridge.swift"; sourceTree = "<group>"; };
+		90F001000000000000000011 /* AptosStakingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AptosStakingClient.swift"; sourceTree = "<group>"; };
+		90F001000000000000000013 /* CardanoStakingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CardanoStakingClient.swift"; sourceTree = "<group>"; };
+		90F00100000000000000001C /* IcpStakingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "IcpStakingClient.swift"; sourceTree = "<group>"; };
+		90F001000000000000000021 /* NearStakingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NearStakingClient.swift"; sourceTree = "<group>"; };
+		90F001000000000000000024 /* PolkadotStakingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PolkadotStakingClient.swift"; sourceTree = "<group>"; };
+		90F00100000000000000002A /* SolanaStakingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SolanaStakingClient.swift"; sourceTree = "<group>"; };
+		90F001000000000000000033 /* SuiStakingClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SuiStakingClient.swift"; sourceTree = "<group>"; };
+		90F001000000000000000001 /* AppState+AddressResolution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+AddressResolution.swift"; sourceTree = "<group>"; };
+		90F001000000000000000002 /* AppState+BalanceRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+BalanceRefresh.swift"; sourceTree = "<group>"; };
+		90F001000000000000000003 /* AppState+CoreStateStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+CoreStateStore.swift"; sourceTree = "<group>"; };
+		90F001000000000000000004 /* AppState+DiagnosticsEndpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+DiagnosticsEndpoints.swift"; sourceTree = "<group>"; };
+		90F001000000000000000005 /* AppState+ImportLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+ImportLifecycle.swift"; sourceTree = "<group>"; };
+		90F001000000000000000006 /* AppState+OperationalTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+OperationalTelemetry.swift"; sourceTree = "<group>"; };
+		90F001000000000000000007 /* AppState+PricingFiat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+PricingFiat.swift"; sourceTree = "<group>"; };
+		90F001000000000000000008 /* AppState+ReceiveFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+ReceiveFlow.swift"; sourceTree = "<group>"; };
+		90F00100000000000000000A /* AppState+SendExecution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendExecution.swift"; sourceTree = "<group>"; };
+		90F00100000000000000000B /* AppState+SendFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendFlow.swift"; sourceTree = "<group>"; };
+		90F00100000000000000000C /* AppState+SendPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendPreview.swift"; sourceTree = "<group>"; };
+		90F00100000000000000000D /* AppState+SendRouting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendRouting.swift"; sourceTree = "<group>"; };
+		90F00100000000000000002D /* Store+Formatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Formatting.swift"; sourceTree = "<group>"; };
+		90F00100000000000000002E /* Store+Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Notifications.swift"; sourceTree = "<group>"; };
+		90F001000000000000000030 /* StoreHistoryRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StoreHistoryRefresh.swift"; sourceTree = "<group>"; };
+		90F001000000000000000031 /* StoreLifecycleReset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StoreLifecycleReset.swift"; sourceTree = "<group>"; };
+		90F001000000000000000032 /* StorePersistenceNormalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "StorePersistenceNormalization.swift"; sourceTree = "<group>"; };
+		90F001000000000000000039 /* LiveActivityManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "LiveActivityManager.swift"; sourceTree = "<group>"; };
+		90F00100000000000000003A /* ActionResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ActionResult.swift"; sourceTree = "<group>"; };
+		90F00100000000000000003B /* SetupFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "SetupFlow.swift"; sourceTree = "<group>"; };
+		90F00100000000000000003C /* ImportDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImportDraft.swift"; sourceTree = "<group>"; };
+		90F00100000000000000003D /* ViewExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ViewExtensions.swift"; sourceTree = "<group>"; };
+		90F00100000000000000003E /* WalletDerivation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "WalletDerivation.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -61,26 +177,6 @@
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		907491652F56D1E500D098D2 /* derivation */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = derivation;
-			sourceTree = "<group>";
-		};
-		907491662F56D1E500D098D2 /* fetch */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = fetch;
-			sourceTree = "<group>";
-		};
-		907491682F56D1E500D098D2 /* send */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = send;
-			sourceTree = "<group>";
-		};
-		907491692F56D1E500D098D2 /* shell */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = shell;
-			sourceTree = "<group>";
-		};
 		9074916A2F56D1E500D098D2 /* resources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = resources;
@@ -109,11 +205,6 @@
 			path = extensions/SpectraLiveActivityExtension;
 			sourceTree = "<group>";
 		};
-		9074917A2F56D1E500D098D2 /* staking */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = staking;
-			sourceTree = "<group>";
-		};
 		90AA000A2F60000100BBB001 /* SharedResources */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			name = SharedResources;
@@ -123,11 +214,6 @@
 		90AA00202F60000200BBB001 /* generated */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = generated;
-			sourceTree = "<group>";
-		};
-		90AA00212F60000200BBB001 /* rustbridge */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = rustbridge;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -167,18 +253,71 @@
 			isa = PBXGroup;
 			children = (
 				90AEE1792F5AFB43008CFE5E /* Spectra.xctestplan */,
-				907491652F56D1E500D098D2 /* derivation */,
+				9099000000000000000A1B2C /* swift */,
 				90AA00202F60000200BBB001 /* generated */,
-				90AA00212F60000200BBB001 /* rustbridge */,
-				907491662F56D1E500D098D2 /* fetch */,
-				907491682F56D1E500D098D2 /* send */,
-				907491692F56D1E500D098D2 /* shell */,
-				9074917A2F56D1E500D098D2 /* staking */,
 				9074916C2F56D1E500D098D2 /* views */,
 				9074916D2F56D1E500D098D2 /* extensions/SharedLiveActivities */,
 				907491712F56D1E600D098D2 /* extensions/SpectraLiveActivityExtension */,
 				9074916A2F56D1E500D098D2 /* resources */,
 				90AA000A2F60000100BBB001 /* SharedResources */,
+				90F001000000000000000009 /* WalletBalanceObserver.swift */,
+				90F00100000000000000000E /* AppState.swift */,
+				90F00100000000000000000F /* AppStateTypes.swift */,
+				90F001000000000000000010 /* AppUserPreferences.swift */,
+				90F001000000000000000012 /* CachedCoreHelpers.swift */,
+				90F001000000000000000015 /* ChainRefreshDescriptors.swift */,
+				90F001000000000000000016 /* ChainTypes.swift */,
+				90F001000000000000000017 /* CoreModels.swift */,
+				90F001000000000000000018 /* DashboardStore.swift */,
+				90F001000000000000000019 /* DebouncedAction.swift */,
+				90F00100000000000000001A /* DiagnosticsState.swift */,
+				90F00100000000000000001B /* DiagnosticsStore.swift */,
+				90F00100000000000000001D /* Identifiers.swift */,
+				90F00100000000000000001E /* LoadingTaskRegistry.swift */,
+				90F00100000000000000001F /* MaintenanceStore.swift */,
+				90F001000000000000000020 /* ManagedTaskRegistry.swift */,
+				90F001000000000000000022 /* PersistenceStore.swift */,
+				90F001000000000000000023 /* Platform.swift */,
+				90F001000000000000000026 /* RegistryModels.swift */,
+				90F001000000000000000027 /* SecureStores.swift */,
+				90F001000000000000000029 /* SendPreviewTypes.swift */,
+				90F00100000000000000002B /* StakingTypes.swift */,
+				90F00100000000000000002C /* StaticContentCatalog.swift */,
+				90F00100000000000000002F /* StoreDiagnosticsExport.swift */,
+				90F001000000000000000035 /* WalletDerivedCache.swift */,
+				90F001000000000000000036 /* WalletRustDerivationBridge.swift */,
+				90F001000000000000000037 /* WalletRustEndpointCatalogBridge.swift */,
+				90F001000000000000000038 /* WalletServiceBridge.swift */,
+				90F001000000000000000011 /* AptosStakingClient.swift */,
+				90F001000000000000000013 /* CardanoStakingClient.swift */,
+				90F00100000000000000001C /* IcpStakingClient.swift */,
+				90F001000000000000000021 /* NearStakingClient.swift */,
+				90F001000000000000000024 /* PolkadotStakingClient.swift */,
+				90F00100000000000000002A /* SolanaStakingClient.swift */,
+				90F001000000000000000033 /* SuiStakingClient.swift */,
+				90F001000000000000000001 /* AppState+AddressResolution.swift */,
+				90F001000000000000000002 /* AppState+BalanceRefresh.swift */,
+				90F001000000000000000003 /* AppState+CoreStateStore.swift */,
+				90F001000000000000000004 /* AppState+DiagnosticsEndpoints.swift */,
+				90F001000000000000000005 /* AppState+ImportLifecycle.swift */,
+				90F001000000000000000006 /* AppState+OperationalTelemetry.swift */,
+				90F001000000000000000007 /* AppState+PricingFiat.swift */,
+				90F001000000000000000008 /* AppState+ReceiveFlow.swift */,
+				90F00100000000000000000A /* AppState+SendExecution.swift */,
+				90F00100000000000000000B /* AppState+SendFlow.swift */,
+				90F00100000000000000000C /* AppState+SendPreview.swift */,
+				90F00100000000000000000D /* AppState+SendRouting.swift */,
+				90F00100000000000000002D /* Store+Formatting.swift */,
+				90F00100000000000000002E /* Store+Notifications.swift */,
+				90F001000000000000000030 /* StoreHistoryRefresh.swift */,
+				90F001000000000000000031 /* StoreLifecycleReset.swift */,
+				90F001000000000000000032 /* StorePersistenceNormalization.swift */,
+				90F001000000000000000039 /* LiveActivityManager.swift */,
+				90F00100000000000000003A /* ActionResult.swift */,
+				90F00100000000000000003B /* SetupFlow.swift */,
+				90F00100000000000000003C /* ImportDraft.swift */,
+				90F00100000000000000003D /* ViewExtensions.swift */,
+				90F00100000000000000003E /* WalletDerivation.swift */,
 				9074916B2F56D1E500D098D2 /* tests */,
 			);
 			sourceTree = "<group>";
@@ -212,17 +351,12 @@
 				91C1000E2F70000100AAA001 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				907491652F56D1E500D098D2 /* derivation */,
-				907491662F56D1E500D098D2 /* fetch */,
-				907491682F56D1E500D098D2 /* send */,
-				907491692F56D1E500D098D2 /* shell */,
+				9099000000000000000A1B2C /* swift */,
 				9074916A2F56D1E500D098D2 /* resources */,
 				9074916C2F56D1E500D098D2 /* views */,
 				9074916D2F56D1E500D098D2 /* extensions/SharedLiveActivities */,
-				9074917A2F56D1E500D098D2 /* staking */,
 				90AA000A2F60000100BBB001 /* SharedResources */,
 				90AA00202F60000200BBB001 /* generated */,
-				90AA00212F60000200BBB001 /* rustbridge */,
 			);
 			name = Spectra;
 			packageProductDependencies = (
@@ -384,6 +518,64 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				90F002000000000000000009 /* WalletBalanceObserver.swift in Sources */,
+				90F00200000000000000000E /* AppState.swift in Sources */,
+				90F00200000000000000000F /* AppStateTypes.swift in Sources */,
+				90F002000000000000000010 /* AppUserPreferences.swift in Sources */,
+				90F002000000000000000012 /* CachedCoreHelpers.swift in Sources */,
+				90F002000000000000000015 /* ChainRefreshDescriptors.swift in Sources */,
+				90F002000000000000000016 /* ChainTypes.swift in Sources */,
+				90F002000000000000000017 /* CoreModels.swift in Sources */,
+				90F002000000000000000018 /* DashboardStore.swift in Sources */,
+				90F002000000000000000019 /* DebouncedAction.swift in Sources */,
+				90F00200000000000000001A /* DiagnosticsState.swift in Sources */,
+				90F00200000000000000001B /* DiagnosticsStore.swift in Sources */,
+				90F00200000000000000001D /* Identifiers.swift in Sources */,
+				90F00200000000000000001E /* LoadingTaskRegistry.swift in Sources */,
+				90F00200000000000000001F /* MaintenanceStore.swift in Sources */,
+				90F002000000000000000020 /* ManagedTaskRegistry.swift in Sources */,
+				90F002000000000000000022 /* PersistenceStore.swift in Sources */,
+				90F002000000000000000023 /* Platform.swift in Sources */,
+				90F002000000000000000026 /* RegistryModels.swift in Sources */,
+				90F002000000000000000027 /* SecureStores.swift in Sources */,
+				90F002000000000000000029 /* SendPreviewTypes.swift in Sources */,
+				90F00200000000000000002B /* StakingTypes.swift in Sources */,
+				90F00200000000000000002C /* StaticContentCatalog.swift in Sources */,
+				90F00200000000000000002F /* StoreDiagnosticsExport.swift in Sources */,
+				90F002000000000000000035 /* WalletDerivedCache.swift in Sources */,
+				90F002000000000000000036 /* WalletRustDerivationBridge.swift in Sources */,
+				90F002000000000000000037 /* WalletRustEndpointCatalogBridge.swift in Sources */,
+				90F002000000000000000038 /* WalletServiceBridge.swift in Sources */,
+				90F002000000000000000039 /* LiveActivityManager.swift in Sources */,
+				90F00200000000000000003A /* ActionResult.swift in Sources */,
+				90F00200000000000000003B /* SetupFlow.swift in Sources */,
+				90F00200000000000000003C /* ImportDraft.swift in Sources */,
+				90F00200000000000000003D /* ViewExtensions.swift in Sources */,
+				90F00200000000000000003E /* WalletDerivation.swift in Sources */,
+				90F002000000000000000001 /* AppState+AddressResolution.swift in Sources */,
+				90F002000000000000000002 /* AppState+BalanceRefresh.swift in Sources */,
+				90F002000000000000000003 /* AppState+CoreStateStore.swift in Sources */,
+				90F002000000000000000004 /* AppState+DiagnosticsEndpoints.swift in Sources */,
+				90F002000000000000000005 /* AppState+ImportLifecycle.swift in Sources */,
+				90F002000000000000000006 /* AppState+OperationalTelemetry.swift in Sources */,
+				90F002000000000000000007 /* AppState+PricingFiat.swift in Sources */,
+				90F002000000000000000008 /* AppState+ReceiveFlow.swift in Sources */,
+				90F00200000000000000000A /* AppState+SendExecution.swift in Sources */,
+				90F00200000000000000000B /* AppState+SendFlow.swift in Sources */,
+				90F00200000000000000000C /* AppState+SendPreview.swift in Sources */,
+				90F00200000000000000000D /* AppState+SendRouting.swift in Sources */,
+				90F00200000000000000002D /* Store+Formatting.swift in Sources */,
+				90F00200000000000000002E /* Store+Notifications.swift in Sources */,
+				90F002000000000000000030 /* StoreHistoryRefresh.swift in Sources */,
+				90F002000000000000000031 /* StoreLifecycleReset.swift in Sources */,
+				90F002000000000000000032 /* StorePersistenceNormalization.swift in Sources */,
+				90F002000000000000000011 /* AptosStakingClient.swift in Sources */,
+				90F002000000000000000013 /* CardanoStakingClient.swift in Sources */,
+				90F00200000000000000001C /* IcpStakingClient.swift in Sources */,
+				90F002000000000000000021 /* NearStakingClient.swift in Sources */,
+				90F002000000000000000024 /* PolkadotStakingClient.swift in Sources */,
+				90F00200000000000000002A /* SolanaStakingClient.swift in Sources */,
+				90F002000000000000000033 /* SuiStakingClient.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
