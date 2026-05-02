@@ -39,46 +39,37 @@ extension AppState {
         if anyChanged { wallets = walletsCopy }
     }
 
-    /// Decode the `holdings` array from a WalletSummary JSON blob and apply
-    /// their amounts to `wallet`. Visual properties (color, priceUsd) are
-    /// preserved from the existing Coin if found; new holdings get defaults.
-    /// Returns `nil` if the JSON could not be parsed.
     private func holdingsAppliedFromSummary(_ summary: WalletSummary, to wallet: ImportedWallet) -> ImportedWallet? {
-        let existing = wallet.holdings.map {
-            HoldingMergeExistingInput(symbol: $0.symbol, chainName: $0.chainName, contractAddress: $0.contractAddress)
-        }
-        let incoming = summary.holdings.map {
-            HoldingMergeIncomingInput(
-                name: $0.name, symbol: $0.symbol, coinGeckoId: $0.coinGeckoId,
-                chainName: $0.chainName, tokenStandard: $0.tokenStandard, contractAddress: $0.contractAddress,
-                amount: $0.amount
-            )
-        }
-        let actions = corePlanApplyHoldingsFromSummary(existing: existing, incoming: incoming)
-        guard !actions.isEmpty else { return nil }
+        guard !summary.holdings.isEmpty else { return nil }
+        let existingKeys = wallet.holdings.map { holdingKey($0.chainName, $0.symbol, $0.contractAddress) }
         var merged = wallet.holdings
-        for action in actions {
-            switch action {
-            case .updateAmount(let existingIndex, let amount):
-                let idx = Int(existingIndex)
-                guard merged.indices.contains(idx) else { continue }
+        var anyChanged = false
+        for incoming in summary.holdings {
+            let key = holdingKey(incoming.chainName, incoming.symbol, incoming.contractAddress)
+            if let idx = existingKeys.firstIndex(of: key) {
+                guard merged[idx].amount != incoming.amount else { continue }
                 let old = merged[idx]
                 merged[idx] = CoreCoin(
                     id: old.id, name: old.name, symbol: old.symbol,
                     coinGeckoId: old.coinGeckoId, chainName: old.chainName,
                     tokenStandard: old.tokenStandard, contractAddress: old.contractAddress,
-                    amount: amount, priceUsd: old.priceUsd)
-            case .append(let coin):
-                merged.append(
-                    CoreCoin(
-                        id: UUID().uuidString,
-                        name: coin.name, symbol: coin.symbol,
-                        coinGeckoId: coin.coinGeckoId, chainName: coin.chainName,
-                        tokenStandard: coin.tokenStandard, contractAddress: coin.contractAddress,
-                        amount: coin.amount, priceUsd: 0))
+                    amount: incoming.amount, priceUsd: old.priceUsd)
+                anyChanged = true
+            } else if incoming.amount > 0 {
+                merged.append(CoreCoin(
+                    id: UUID().uuidString,
+                    name: incoming.name, symbol: incoming.symbol,
+                    coinGeckoId: incoming.coinGeckoId, chainName: incoming.chainName,
+                    tokenStandard: incoming.tokenStandard, contractAddress: incoming.contractAddress,
+                    amount: incoming.amount, priceUsd: 0))
+                anyChanged = true
             }
         }
-        return walletByReplacingHoldings(wallet, with: merged)
+        return anyChanged ? walletByReplacingHoldings(wallet, with: merged) : nil
+    }
+
+    private func holdingKey(_ chainName: String, _ symbol: String, _ contract: String?) -> String {
+        contract.map { "\(chainName):\($0.lowercased())" } ?? "\(chainName):\(symbol)"
     }
 
     func updateRefreshEngineEntries() {
@@ -88,7 +79,12 @@ extension AppState {
             else { return nil }
             return RefreshEntry(chainId: chainId, walletId: wallet.id, address: address)
         }
-        Task { try? await WalletServiceBridge.shared.setRefreshEntriesTyped(entries) }
+        Task {
+            try? await WalletServiceBridge.shared.setRefreshEntriesTyped(entries)
+            if !entries.isEmpty {
+                try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
+            }
+        }
     }
 
     /// Install the Rust balance-refresh observer and start the periodic
@@ -135,31 +131,12 @@ extension AppState {
     }
 
     private func resolvedRefreshAddress(for wallet: ImportedWallet) -> String? {
-        switch wallet.selectedChain {
-        case "Bitcoin":
-            if let xpub = wallet.bitcoinXpub, !xpub.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { return xpub }
-            return resolvedBitcoinAddress(for: wallet)
-        case "Ethereum", "Arbitrum", "Optimism", "Avalanche", "BNB Chain", "Hyperliquid", "Polygon", "Base", "Ethereum Classic",
-            "Linea", "Scroll", "Blast", "Mantle":
-            return resolvedEVMAddress(for: wallet, chainName: wallet.selectedChain)
-        case "Solana": return resolvedSolanaAddress(for: wallet)
-        case "Tron": return resolvedTronAddress(for: wallet)
-        case "Sui": return resolvedSuiAddress(for: wallet)
-        case "Aptos": return resolvedAptosAddress(for: wallet)
-        case "TON": return resolvedTONAddress(for: wallet)
-        case "ICP": return resolvedICPAddress(for: wallet)
-        case "NEAR": return resolvedNearAddress(for: wallet)
-        case "XRP Ledger": return resolvedXRPAddress(for: wallet)
-        case "Stellar": return resolvedStellarAddress(for: wallet)
-        case "Cardano": return resolvedCardanoAddress(for: wallet)
-        case "Polkadot": return resolvedPolkadotAddress(for: wallet)
-        case "Monero": return resolvedMoneroAddress(for: wallet)
-        case "Bitcoin Cash": return resolvedBitcoinCashAddress(for: wallet)
-        case "Bitcoin SV": return resolvedBitcoinSVAddress(for: wallet)
-        case "Litecoin": return resolvedLitecoinAddress(for: wallet)
-        case "Dogecoin": return resolvedDogecoinAddress(for: wallet)
-        default: return nil
+        if wallet.selectedChain == "Bitcoin",
+           let xpub = wallet.bitcoinXpub,
+           !xpub.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return xpub
         }
+        return resolvedAddress(for: wallet, chainName: wallet.selectedChain)
     }
 
     // EVM helpers kept because they're still called from SendFlow / DiagnosticsEndpoints.

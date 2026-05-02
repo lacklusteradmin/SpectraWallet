@@ -12,7 +12,7 @@ extension AppState {
             backgroundSyncProfile: backgroundSyncProfile.rawValue, balancedInterval: Self.activePendingRefreshInterval
         )
     }
-    func activePriceRefreshIntervalForProfile() -> TimeInterval { TimeInterval(preferences.automaticRefreshFrequencyMinutes * 60) }
+    func activePriceRefreshIntervalForProfile() -> TimeInterval { max(60, TimeInterval(preferences.automaticRefreshFrequencyMinutes * 60)) }
     func baseBackgroundMaintenanceInterval() -> TimeInterval { TimeInterval(backgroundBalanceRefreshFrequencyMinutes * 60) }
     func backgroundMaintenanceInterval(now _: Date = Date()) -> TimeInterval {
         computeBackgroundMaintenanceInterval(

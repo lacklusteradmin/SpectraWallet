@@ -191,8 +191,6 @@ extension WalletServiceBridge {
     func saveAddressBookStore(key: String, value: CorePersistedAddressBookStore) async throws {
         try await service().saveAddressBookStore(dbPath: sqliteDbPath(), key: key, value: value)
     }
-    func initWalletStateDirect(wallets: [WalletSummary]) async throws { try await service().initWalletStateDirect(wallets: wallets) }
-    func upsertWalletDirect(_ wallet: WalletSummary) async throws { try await service().upsertWalletDirect(wallet: wallet) }
     func fetchNormalizedHistory(chainId: UInt32, address: String) async throws -> [NormalizedHistoryItem] {
         try await service().fetchNormalizedHistory(chainId: chainId, address: address)
     }

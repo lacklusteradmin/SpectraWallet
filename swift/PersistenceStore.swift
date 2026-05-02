@@ -81,10 +81,6 @@ extension AppState {
         {
             selectedFeePriorityOptionRawByChain = feePrios
         }
-        if !wallets.isEmpty {
-            let summaries: [WalletSummary] = wallets.map { $0.walletSummary }
-            try? await WalletServiceBridge.shared.initWalletStateDirect(wallets: summaries)
-        }
         // ── Load app settings from Rust SQLite ────────────────────────────────
         if let settings = try? await WalletServiceBridge.shared.loadAppSettingsTyped() {
             if let v = PricingProvider(rawValue: settings.pricingProvider) { pricingProvider = v }

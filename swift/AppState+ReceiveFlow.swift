@@ -750,9 +750,6 @@ extension AppState {
             }
             appendWallets(createdWallets)
             importedWalletsForRefresh = createdWallets
-            for w in createdWallets {
-                Task { try? await WalletServiceBridge.shared.upsertWalletDirect(w.walletSummary) }
-            }
         }
         finishWalletImportFlow()
         withAnimation {

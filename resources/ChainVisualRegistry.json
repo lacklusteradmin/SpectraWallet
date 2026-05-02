@@ -271,5 +271,47 @@
     "chainName": "Unichain",
     "colorName": "pink",
     "assetName": "uniswap"
+  },
+  {
+    "id": "kaspa",
+    "symbol": "KAS",
+    "chainName": "Kaspa",
+    "colorName": "teal",
+    "assetName": "kaspa"
+  },
+  {
+    "id": "bittensor",
+    "symbol": "TAO",
+    "chainName": "Bittensor",
+    "colorName": "gray",
+    "assetName": "bittensor"
+  },
+  {
+    "id": "sonic",
+    "symbol": "S",
+    "chainName": "Sonic",
+    "colorName": "gray",
+    "assetName": "sonic"
+  },
+  {
+    "id": "berachain",
+    "symbol": "BERA",
+    "chainName": "Berachain",
+    "colorName": "orange",
+    "assetName": "bera"
+  },
+  {
+    "id": "x-layer",
+    "symbol": "OKB",
+    "chainName": "X Layer",
+    "colorName": "gray",
+    "assetName": "okb"
+  },
+  {
+    "id": "zksync-era",
+    "symbol": "ETH",
+    "chainName": "zkSync Era",
+    "colorName": "gray",
+    "assetName": "zksyncera"
   }
 ]

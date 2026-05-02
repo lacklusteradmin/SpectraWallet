@@ -89,33 +89,6 @@ typealias ImportedWallet = CoreImportedWallet
 extension CoreImportedWallet: Identifiable {}
 extension CoreImportedWallet {
     nonisolated var totalBalance: Double { holdings.reduce(0) { $0 + $1.valueUSD } }
-    var walletSummary: WalletSummary {
-        let chain = selectedChain
-        let networkMode: String? = {
-            switch chain {
-            case "Bitcoin", "Bitcoin Cash", "Bitcoin SV", "Litecoin":
-                return bitcoinNetworkMode.rawValue
-            case "Dogecoin":
-                return dogecoinNetworkMode.rawValue
-            default:
-                return nil
-            }
-        }()
-        let derivationPath: String? = {
-            guard let sdChain = SeedDerivationChain(rawValue: chain) else { return nil }
-            return seedDerivationPaths.path(for: sdChain)
-        }()
-        return WalletSummary(
-            id: id, name: name, isWatchOnly: false, chainName: chain, includeInPortfolioTotal: includeInPortfolioTotal,
-            networkMode: networkMode, xpub: bitcoinXpub, derivationPreset: seedDerivationPreset.rawValue, derivationPath: derivationPath,
-            holdings: holdings.map { coin in
-                AssetHolding(
-                    name: coin.name, symbol: coin.symbol, coinGeckoId: coin.coinGeckoId,
-                    chainName: coin.chainName, tokenStandard: coin.tokenStandard, contractAddress: coin.contractAddress,
-                    amount: coin.amount, priceUsd: coin.priceUsd)
-            }, addresses: []
-        )
-    }
 }
 typealias SeedDerivationPreset = CoreSeedDerivationPreset
 nonisolated extension CoreSeedDerivationPreset: RawRepresentable, CaseIterable, Codable, Identifiable {

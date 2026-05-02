@@ -965,6 +965,9 @@ final class AppState {
         async let sqliteReload: () = reloadPersistedStateFromSQLite()
         async let fiatRefresh: () = refreshFiatExchangeRatesIfNeeded()
         _ = await (sqliteReload, fiatRefresh)
+        // Rust wallet state is now initialized; the earlier triggerImmediate fired before
+        // initWalletStateDirect and returned None for every wallet. Re-trigger now.
+        await refreshBalances()
     }
     deinit {
         maintenanceTask?.cancel()

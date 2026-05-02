@@ -2,17 +2,14 @@ import Foundation
 struct WalletChainRefreshDescriptor {
     let chainID: WalletChainID
     let executeRefresh: (AppState, Bool) async -> Void
-    let executeBalancesOnly: (AppState) async -> Void
     let executeHistoryOnly: ((AppState) async -> Void)?
     var chainName: String { chainID.displayName }
     init(
         chainID: WalletChainID, executeRefresh: @escaping (AppState, Bool) async -> Void,
-        executeBalancesOnly: @escaping (AppState) async -> Void = { await $0.refreshBalances() },
         executeHistoryOnly: ((AppState) async -> Void)? = nil
     ) {
         self.chainID = chainID
         self.executeRefresh = executeRefresh
-        self.executeBalancesOnly = executeBalancesOnly
         self.executeHistoryOnly = executeHistoryOnly
     }
     static func evm(_ chainName: String) -> WalletChainRefreshDescriptor {
@@ -170,38 +167,12 @@ extension AppState {
             ),
         ]
     }
-    var importedWalletRefreshDescriptors: [WalletChainRefreshDescriptor] {
-        plannedChainRefreshDescriptors + [
-            WalletChainRefreshDescriptor(
-                chainID: WalletChainID("Aptos")!,
-                executeRefresh: { store, refreshHistory in
-                    await store.refreshBalances()
-                    if refreshHistory { await store.refreshAptosTransactions(loadMore: false) }
-                    await store.refreshPendingAptosTransactions()
-                }, executeHistoryOnly: { store in await store.refreshAptosTransactions(loadMore: false) }
-            ),
-            WalletChainRefreshDescriptor(
-                chainID: WalletChainID("Internet Computer")!,
-                executeRefresh: { store, refreshHistory in
-                    await store.refreshBalances()
-                    if refreshHistory { await store.refreshICPTransactions(loadMore: false) }
-                    await store.refreshPendingICPTransactions()
-                }, executeHistoryOnly: { store in await store.refreshICPTransactions(loadMore: false) }
-            ),
-        ]
-    }
-
     func runPlannedChainRefreshes(using refreshPlanByChain: [WalletChainID: Bool], timeout: Double) async {
         for descriptor in plannedChainRefreshDescriptors {
             guard let refreshHistory = refreshPlanByChain[descriptor.chainID] else { continue }
             await runTimedChainRefresh(descriptor.chainID, refreshHistory: refreshHistory, timeout: timeout) {
                 await descriptor.executeRefresh(self, refreshHistory)
             }
-        }
-    }
-    func refreshImportedWalletBalances(forChains chainNames: Set<String>) async {
-        for descriptor in importedWalletRefreshDescriptors where chainNames.contains(descriptor.chainName) {
-            await descriptor.executeBalancesOnly(self)
         }
     }
     func runHistoryRefreshes(for trackedChains: Set<WalletChainID>, interval: TimeInterval) async {

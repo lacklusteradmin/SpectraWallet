@@ -180,12 +180,11 @@ extension AppState {
             resetLargeMovementAlertBaseline()
             return
         }
-        let importedChains = Set(createdWallets.compactMap { WalletChainID($0.selectedChain) })
         importRefreshTask?.cancel()
         importRefreshTask = Task { [weak self] in
             guard let self else { return }
             await self.withBalanceRefreshWindow {
-                await self.refreshImportedWalletBalances(forChains: Set(importedChains.map(\.displayName)))
+                await self.refreshBalances()
                 _ = await self.refreshLivePrices()
             }
             await MainActor.run {
