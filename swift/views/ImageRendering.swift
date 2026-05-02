@@ -233,6 +233,8 @@ enum BundleImageLoader {
                 bundleURL,
                 bundleURL.appendingPathComponent("icons", isDirectory: true),
                 bundleURL.appendingPathComponent("Resources/icons", isDirectory: true),
+                bundleURL.appendingPathComponent("icons/fiat", isDirectory: true),
+                bundleURL.appendingPathComponent("Resources/icons/fiat", isDirectory: true),
             ]
             var seen = Set<String>()
             var renderedCount = 0
@@ -241,7 +243,10 @@ enum BundleImageLoader {
                     continue
                 }
                 for file in contents where file.pathExtension.lowercased() == "svg" {
-                    let stem = file.deletingPathExtension().lastPathComponent
+                    let filename = file.deletingPathExtension().lastPathComponent
+                    let dirName = dir.lastPathComponent
+                    let knownSubdirs = ["fiat"]
+                    let stem = knownSubdirs.contains(dirName) ? "\(dirName)/\(filename)" : filename
                     guard seen.insert(stem).inserted else { continue }
                     if imageCache.object(forKey: stem as NSString) != nil { continue }
                     let size = CGSize(width: targetSize, height: targetSize)

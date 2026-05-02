@@ -249,6 +249,15 @@ enum FiatCurrency: String, CaseIterable, Identifiable {
     case sgd = "SGD"
     case aed = "AED"
     var id: String { rawValue }
+    var iconName: String? {
+        switch self {
+        case .usd: return "fiat/usd"
+        case .eur: return "fiat/eur"
+        case .gbp: return "fiat/gbp"
+        case .cny: return "fiat/cny"
+        default: return nil
+        }
+    }
     var displayName: String {
         switch self {
         case .usd: return "US Dollar (USD)"

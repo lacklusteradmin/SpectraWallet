@@ -15,6 +15,11 @@
     "assetName": "bitcoinsv"
   },
   {
+    "id": "bitcoin-gold",
+    "colorName": "yellow",
+    "assetName": "bitcoingold"
+  },
+  {
     "id": "litecoin",
     "colorName": "blue",
     "assetName": "litecoin"
@@ -23,6 +28,21 @@
     "id": "dogecoin",
     "colorName": "yellow",
     "assetName": "dogecoin"
+  },
+  {
+    "id": "dash",
+    "colorName": "blue",
+    "assetName": "dash"
+  },
+  {
+    "id": "decred",
+    "colorName": "indigo",
+    "assetName": "decred"
+  },
+  {
+    "id": "zcash",
+    "colorName": "yellow",
+    "assetName": "zcash"
   },
   {
     "id": "ethereum",
@@ -52,7 +72,7 @@
   {
     "id": "avalanche",
     "colorName": "red",
-    "assetName": "avax"
+    "assetName": "avalanche"
   },
   {
     "id": "hyperliquid",
@@ -87,7 +107,7 @@
   {
     "id": "internet-computer",
     "colorName": "indigo",
-    "assetName": "icp"
+    "assetName": "internetcomputer"
   },
   {
     "id": "near",
@@ -120,6 +140,11 @@
     "assetName": "xrp"
   },
   {
+    "id": "sei",
+    "colorName": "red",
+    "assetName": "sei"
+  },
+  {
     "id": "polygon",
     "colorName": "purple",
     "assetName": "polygon"
@@ -135,6 +160,11 @@
     "assetName": "linea"
   },
   {
+    "id": "ink",
+    "colorName": "purple",
+    "assetName": "ink"
+  },
+  {
     "id": "scroll",
     "colorName": "orange",
     "assetName": "scroll"
@@ -143,6 +173,11 @@
     "id": "blast",
     "colorName": "yellow",
     "assetName": "blast"
+  },
+  {
+    "id": "celo",
+    "colorName": "yellow",
+    "assetName": "celo"
   },
   {
     "id": "mantle",
