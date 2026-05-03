@@ -1,0 +1,25 @@
+# iOS deployment target alignment.
+#
+# Without this, C build scripts (ring, secp256k1, secp256k1zkp, …) compile
+# their object files against whatever iOS SDK is active on the machine, while
+# rustc links with its built-in minimum (ios10.0). On Xcode 26 the SDK
+# defaults to iOS 26, so the C objects emit calls to `___chkstk_darwin`
+# (stack probe added in iOS 13) and the linker fails with an undefined symbol.
+#
+# Setting IPHONEOS_DEPLOYMENT_TARGET=16.0 here:
+#   1. Tells every cc invocation in a build script to target ios16.0, which
+#      matches what `__chkstk_darwin` needs and avoids newer ABI symbols.
+#   2. The matching link-arg tells the Apple linker's minimum-version check
+#      the same number so the version-mismatch warnings disappear.
+
+[env]
+IPHONEOS_DEPLOYMENT_TARGET = "16.0"
+
+[target.aarch64-apple-ios]
+rustflags = ["-C", "link-arg=-miphoneos-version-min=16.0"]
+
+[target.aarch64-apple-ios-sim]
+rustflags = ["-C", "link-arg=-mios-simulator-version-min=16.0"]
+
+[target.x86_64-apple-ios]
+rustflags = ["-C", "link-arg=-mios-simulator-version-min=16.0"]

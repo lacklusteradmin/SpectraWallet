@@ -14,6 +14,7 @@
 		90F002000000000000000002 /* AppState+BalanceRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000002 /* AppState+BalanceRefresh.swift */; };
 		90F002000000000000000003 /* AppState+CoreStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000003 /* AppState+CoreStateStore.swift */; };
 		90F002000000000000000004 /* AppState+DiagnosticsEndpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000004 /* AppState+DiagnosticsEndpoints.swift */; };
+		90F002000000000000000039 /* AppState+TorLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000039 /* AppState+TorLifecycle.swift */; };
 		90F002000000000000000005 /* AppState+ImportLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000005 /* AppState+ImportLifecycle.swift */; };
 		90F002000000000000000006 /* AppState+OperationalTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000006 /* AppState+OperationalTelemetry.swift */; };
 		90F002000000000000000007 /* AppState+PricingFiat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000007 /* AppState+PricingFiat.swift */; };
@@ -107,6 +108,7 @@
 		90F001000000000000000002 /* AppState+BalanceRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+BalanceRefresh.swift"; sourceTree = "<group>"; };
 		90F001000000000000000003 /* AppState+CoreStateStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+CoreStateStore.swift"; sourceTree = "<group>"; };
 		90F001000000000000000004 /* AppState+DiagnosticsEndpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+DiagnosticsEndpoints.swift"; sourceTree = "<group>"; };
+		90F001000000000000000039 /* AppState+TorLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TorLifecycle.swift"; sourceTree = "<group>"; };
 		90F001000000000000000005 /* AppState+ImportLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+ImportLifecycle.swift"; sourceTree = "<group>"; };
 		90F001000000000000000006 /* AppState+OperationalTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+OperationalTelemetry.swift"; sourceTree = "<group>"; };
 		90F001000000000000000007 /* AppState+PricingFiat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+PricingFiat.swift"; sourceTree = "<group>"; };
@@ -289,6 +291,7 @@
 				90F001000000000000000002 /* AppState+BalanceRefresh.swift */,
 				90F001000000000000000003 /* AppState+CoreStateStore.swift */,
 				90F001000000000000000004 /* AppState+DiagnosticsEndpoints.swift */,
+				90F001000000000000000039 /* AppState+TorLifecycle.swift */,
 				90F001000000000000000005 /* AppState+ImportLifecycle.swift */,
 				90F001000000000000000006 /* AppState+OperationalTelemetry.swift */,
 				90F001000000000000000007 /* AppState+PricingFiat.swift */,
@@ -542,6 +545,7 @@
 				90F002000000000000000002 /* AppState+BalanceRefresh.swift in Sources */,
 				90F002000000000000000003 /* AppState+CoreStateStore.swift in Sources */,
 				90F002000000000000000004 /* AppState+DiagnosticsEndpoints.swift in Sources */,
+				90F002000000000000000039 /* AppState+TorLifecycle.swift in Sources */,
 				90F002000000000000000005 /* AppState+ImportLifecycle.swift in Sources */,
 				90F002000000000000000006 /* AppState+OperationalTelemetry.swift in Sources */,
 				90F002000000000000000007 /* AppState+PricingFiat.swift in Sources */,

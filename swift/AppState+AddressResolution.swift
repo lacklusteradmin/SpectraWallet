@@ -112,7 +112,7 @@ extension AppState {
         }
     }
 
-    nonisolated(unsafe) private static let addressDescriptors: [SeedDerivationChain: ChainAddressDescriptor] = {
+    private static let addressDescriptors: [SeedDerivationChain: ChainAddressDescriptor] = {
         let all: [ChainAddressDescriptor] = [
             .init(.tron,            \.tronAddress,        "tron",            seedPath: \.tron),
             .init(.solana,          \.solanaAddress,       "solana"),

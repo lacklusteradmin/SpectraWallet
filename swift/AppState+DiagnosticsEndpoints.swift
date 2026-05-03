@@ -67,7 +67,7 @@ extension AppState {
             self.runHistory = runHistory; self.runHistoryForWallet = runHistoryForWallet; self.runEndpoints = runEndpoints
         }
     }
-    nonisolated(unsafe) private static let chainDiagDescriptors: [StandardDiagnosticsChain: ChainDiagnosticsDescriptor] = [
+    private static let chainDiagDescriptors: [StandardDiagnosticsChain: ChainDiagnosticsDescriptor] = [
         .bitcoin: .init(
             runHistory: { await $0.runBitcoinHistoryDiagnostics() },
             runHistoryForWallet: { await $0.runBitcoinHistoryDiagnostics(for: $1) },
@@ -468,7 +468,7 @@ extension AppState {
                         continue
                     }
                     do {
-                        let resp = try await self.httpRequest(method: "GET", url: probeURL, headers: [], body: nil, profile: .diagnostics)
+                        let resp = try await httpRequest(method: "GET", url: probeURL, headers: [], body: nil, profile: .diagnostics)
                         let statusCode = Int(resp.statusCode)
                         let reachable = (200...299).contains(statusCode)
                         results.append(

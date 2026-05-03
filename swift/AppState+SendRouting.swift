@@ -68,85 +68,85 @@ extension AppState {
         )
     }
     private func resetAllSendPreviews() {
-        bitcoinSendPreview = nil
-        bitcoinCashSendPreview = nil
-        bitcoinSVSendPreview = nil
-        litecoinSendPreview = nil
-        ethereumSendPreview = nil
-        dogecoinSendPreview = nil
-        tronSendPreview = nil
-        solanaSendPreview = nil
-        xrpSendPreview = nil
-        stellarSendPreview = nil
-        moneroSendPreview = nil
-        cardanoSendPreview = nil
-        suiSendPreview = nil
-        aptosSendPreview = nil
-        tonSendPreview = nil
-        icpSendPreview = nil
-        nearSendPreview = nil
-        polkadotSendPreview = nil
+        sendPreviewStore.bitcoinSendPreview = nil
+        sendPreviewStore.bitcoinCashSendPreview = nil
+        sendPreviewStore.bitcoinSVSendPreview = nil
+        sendPreviewStore.litecoinSendPreview = nil
+        sendPreviewStore.ethereumSendPreview = nil
+        sendPreviewStore.dogecoinSendPreview = nil
+        sendPreviewStore.tronSendPreview = nil
+        sendPreviewStore.solanaSendPreview = nil
+        sendPreviewStore.xrpSendPreview = nil
+        sendPreviewStore.stellarSendPreview = nil
+        sendPreviewStore.moneroSendPreview = nil
+        sendPreviewStore.cardanoSendPreview = nil
+        sendPreviewStore.suiSendPreview = nil
+        sendPreviewStore.aptosSendPreview = nil
+        sendPreviewStore.tonSendPreview = nil
+        sendPreviewStore.icpSendPreview = nil
+        sendPreviewStore.nearSendPreview = nil
+        sendPreviewStore.polkadotSendPreview = nil
         preparingChains = []
     }
     private func resetInactiveSendPreviews(except activePreview: SendPreviewKind?) {
-        if activePreview != .bitcoin { bitcoinSendPreview = nil }
-        if activePreview != .bitcoinCash { bitcoinCashSendPreview = nil }
-        if activePreview != .bitcoinSV { bitcoinSVSendPreview = nil }
-        if activePreview != .litecoin { litecoinSendPreview = nil }
+        if activePreview != .bitcoin { sendPreviewStore.bitcoinSendPreview = nil }
+        if activePreview != .bitcoinCash { sendPreviewStore.bitcoinCashSendPreview = nil }
+        if activePreview != .bitcoinSV { sendPreviewStore.bitcoinSVSendPreview = nil }
+        if activePreview != .litecoin { sendPreviewStore.litecoinSendPreview = nil }
         if activePreview != .ethereum {
-            ethereumSendPreview = nil
+            sendPreviewStore.ethereumSendPreview = nil
             preparingChains.remove("Ethereum")
         }
         if activePreview != .dogecoin {
-            dogecoinSendPreview = nil
+            sendPreviewStore.dogecoinSendPreview = nil
             preparingChains.remove("Dogecoin")
         }
         if activePreview != .tron {
-            tronSendPreview = nil
+            sendPreviewStore.tronSendPreview = nil
             preparingChains.remove("Tron")
         }
         if activePreview != .solana {
-            solanaSendPreview = nil
+            sendPreviewStore.solanaSendPreview = nil
             preparingChains.remove("Solana")
         }
         if activePreview != .xrp {
-            xrpSendPreview = nil
+            sendPreviewStore.xrpSendPreview = nil
             preparingChains.remove("XRP Ledger")
         }
         if activePreview != .stellar {
-            stellarSendPreview = nil
+            sendPreviewStore.stellarSendPreview = nil
             preparingChains.remove("Stellar")
         }
         if activePreview != .monero {
-            moneroSendPreview = nil
+            sendPreviewStore.moneroSendPreview = nil
             preparingChains.remove("Monero")
         }
         if activePreview != .cardano {
-            cardanoSendPreview = nil
+            sendPreviewStore.cardanoSendPreview = nil
             preparingChains.remove("Cardano")
         }
         if activePreview != .sui {
-            suiSendPreview = nil
+            sendPreviewStore.suiSendPreview = nil
             preparingChains.remove("Sui")
         }
         if activePreview != .aptos {
-            aptosSendPreview = nil
+            sendPreviewStore.aptosSendPreview = nil
             preparingChains.remove("Aptos")
         }
         if activePreview != .ton {
-            tonSendPreview = nil
+            sendPreviewStore.tonSendPreview = nil
             preparingChains.remove("TON")
         }
         if activePreview != .icp {
-            icpSendPreview = nil
+            sendPreviewStore.icpSendPreview = nil
             preparingChains.remove("Internet Computer")
         }
         if activePreview != .near {
-            nearSendPreview = nil
+            sendPreviewStore.nearSendPreview = nil
             preparingChains.remove("NEAR")
         }
         if activePreview != .polkadot {
-            polkadotSendPreview = nil
+            sendPreviewStore.polkadotSendPreview = nil
             preparingChains.remove("Polkadot")
         }
     }

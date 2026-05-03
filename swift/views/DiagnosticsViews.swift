@@ -74,7 +74,7 @@ enum StandardDiagnosticsChain: String, Hashable {
     var descriptor: AppChainDescriptor { AppEndpointDirectory.appChain(for: chainID) }
     var title: String { descriptor.title }
 
-    nonisolated(unsafe) static let dispatchTable: [StandardDiagnosticsChain: StandardChainDiagnosticsDispatch] = [
+    static let dispatchTable: [StandardDiagnosticsChain: StandardChainDiagnosticsDispatch] = [
         .bitcoin: .init(
             isRunningHistory: { $0.isRunningBitcoinHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingBitcoinEndpointHealth },
@@ -367,14 +367,14 @@ enum StandardDiagnosticsChain: String, Hashable {
     var dispatch: StandardChainDiagnosticsDispatch { Self.dispatchTable[self]! }
 }
 struct StandardChainDiagnosticsDispatch {
-    let isRunningHistory: (AppState) -> Bool
-    let isCheckingEndpoints: (AppState) -> Bool
-    let diagnosticsJSON: (AppState) -> String?
-    let historyLastUpdatedAt: (AppState) -> Date?
-    let historyWalletCount: (AppState) -> Int
-    let endpointLastUpdatedAt: (AppState) -> Date?
-    let endpointResults: (AppState) -> [(endpoint: String, reachable: Bool?, detail: String)]
-    let historySources: (AppState) -> [String]
+    let isRunningHistory: @MainActor (AppState) -> Bool
+    let isCheckingEndpoints: @MainActor (AppState) -> Bool
+    let diagnosticsJSON: @MainActor (AppState) -> String?
+    let historyLastUpdatedAt: @MainActor (AppState) -> Date?
+    let historyWalletCount: @MainActor (AppState) -> Int
+    let endpointLastUpdatedAt: @MainActor (AppState) -> Date?
+    let endpointResults: @MainActor (AppState) -> [(endpoint: String, reachable: Bool?, detail: String)]
+    let historySources: @MainActor (AppState) -> [String]
     let runHistoryDiagnostics: (AppState) async -> Void
     let runEndpointDiagnostics: (AppState) async -> Void
 }
@@ -410,15 +410,15 @@ struct StandardChainDiagnosticsView: View {
     }
 
     private struct UTXOChainActions {
-        let isSelfTesting: (AppState) -> Bool
-        let isRescanning: (AppState) -> Bool
+        let isSelfTesting: @MainActor (AppState) -> Bool
+        let isRescanning: @MainActor (AppState) -> Bool
         let selfTestTitle: String
         let rescanTitle: String
         let rescanInFlightTitle: String
-        let runSelfTests: (AppState) -> Void
+        let runSelfTests: @MainActor (AppState) -> Void
         let runRescan: (AppState) async -> Void
     }
-    nonisolated(unsafe) private static let utxoActions: [StandardDiagnosticsChain: UTXOChainActions] = [
+    private static let utxoActions: [StandardDiagnosticsChain: UTXOChainActions] = [
         .bitcoin: .init(
             isSelfTesting: { $0.isRunningBitcoinSelfTests }, isRescanning: { $0.isRunningBitcoinRescan },
             selfTestTitle: "Run BTC Self-Tests", rescanTitle: "Run BTC Rescan", rescanInFlightTitle: "Rescanning BTC...",

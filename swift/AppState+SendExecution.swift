@@ -5,7 +5,7 @@ private func evmSendOverrides(nonce: Int?, customFees: EthereumCustomFeeConfigur
         EvmCustomFeeConfiguration(maxFeePerGasGwei: $0.maxFeePerGasGwei, maxPriorityFeePerGasGwei: $0.maxPriorityFeePerGasGwei)
     }
     if nonce == nil && customDTO == nil { return nil }
-    return EvmSendOverridesInput(nonce: nonce.map(Int64.init), customFees: customDTO)
+    return EvmSendOverridesInput(nonce: nonce.map(Int64.init), customFees: customDTO, gasLimit: nil, calldataHex: nil, signOnly: nil, accessListJson: nil)
 }
 
 private func ethereumSendResult(from typed: EvmSendResultDecoded) -> EthereumSendResult {

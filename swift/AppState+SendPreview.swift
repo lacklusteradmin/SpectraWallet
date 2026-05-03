@@ -291,9 +291,9 @@ extension AppState {
     private struct SimpleChainConfig {
         let chainId: UInt32
         let rustChain: SimpleChain
-        let chainName: String
         let coinCheck: (AppState, Coin) -> Bool
         let resolveAddress: (AppState, ImportedWallet) -> String?
+        let chainName: String
         let applyPreview: (AppState, SimpleChainPreview?) -> Void
         let errorMessage: String
     }

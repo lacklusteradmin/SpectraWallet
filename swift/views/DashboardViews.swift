@@ -107,18 +107,17 @@ struct DashboardView: View {
     }
     private var torToolbarIndicator: some View {
         let status = store.torStatus
-        let isOn: Bool
         let color: Color
         let icon: String
         switch status {
         case .ready:
-            isOn = true; color = .green; icon = "network.badge.shield.half.filled"
+            color = .green; icon = "network.badge.shield.half.filled"
         case .bootstrapping:
-            isOn = true; color = .orange; icon = "network.badge.shield.half.filled"
+            color = .orange; icon = "network.badge.shield.half.filled"
         case .error:
-            isOn = false; color = .red; icon = "network.slash"
+            color = .red; icon = "network.slash"
         case .stopped:
-            isOn = false; color = Color(.systemGray3); icon = "network"
+            color = Color(.systemGray3); icon = "network"
         }
         return ZStack(alignment: .bottomTrailing) {
             Image(systemName: icon)

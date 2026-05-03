@@ -1,5 +1,6 @@
 import Foundation
-import Collections
+import DequeModule
+import OrderedCollections
 import SwiftUI
 import os
 import UIKit
@@ -840,7 +841,7 @@ final class AppState {
         }
         applyVerificationNotice(verificationNoticeForLastSent(snapshot: snapshot))
     }
-    nonisolated(unsafe) private static let utxoPostSendChains: Set<String> = [
+    private static let utxoPostSendChains: Set<String> = [
         "Bitcoin", "Bitcoin Cash", "Bitcoin SV", "Litecoin", "Dogecoin"
     ]
     func runPostSendRefreshActions(for chainName: String, verificationStatus: SendBroadcastVerificationStatus) async {
@@ -849,10 +850,10 @@ final class AppState {
             chainName: chainName, verificationStatus: verificationStatus,
             transactionHash: lastSentTransaction?.chainName == chainName ? lastSentTransaction?.transactionHash : nil
         )
+        let usePending = isEVMChain(chainName) || Self.utxoPostSendChains.contains(chainName)
         async let balanceRefresh: () = refreshBalances()
         async let chainRefresh: () = {
             guard let id = WalletChainID(chainName), let descriptor = Self.chainRefreshDescriptors[id] else { return }
-            let usePending = isEVMChain(chainName) || Self.utxoPostSendChains.contains(chainName)
             if usePending { await descriptor.executePendingOnly?(self) } else { await descriptor.executeHistoryOnly?(self) }
         }()
         _ = await (balanceRefresh, chainRefresh)
@@ -916,6 +917,9 @@ final class AppState {
         startMaintenanceLoopIfNeeded()
         SpectraSecretStoreAdapter.registerWithBridge()
         setupRustRefreshEngine()
+        BundleImageLoader.setScreenScale(
+            UIApplication.shared.connectedScenes
+                .compactMap { ($0 as? UIWindowScene)?.screen.scale }.first ?? 2.0)
         Task(priority: .utility) { await BundleImageLoader.warmRasterCache() }
         async let sqliteReload: () = reloadPersistedStateFromSQLite()
         async let fiatRefresh: () = refreshFiatExchangeRatesIfNeeded()

@@ -45,6 +45,8 @@ enum BundleImageLoader {
         // Once-per-process gate so warm-up runs at most once per app launch
         // even if AppState is reinitialized (lock/unlock, scene-phase reset).
         nonisolated(unsafe) private static var didWarmCache = false
+        nonisolated(unsafe) private static var _screenScale: CGFloat = 2.0
+        @MainActor static func setScreenScale(_ scale: CGFloat) { _screenScale = scale }
         private static let didWarmCacheLock = NSLock()
         // In-flight render dedupe: many cells can ask for the same SVG before
         // any of them has finished rendering. Sharing one Task per name turns
@@ -181,9 +183,7 @@ enum BundleImageLoader {
 
         private static func diskCacheURL(name: String, size: CGSize) -> URL? {
             guard let base = diskCacheDir else { return nil }
-            // UITraitCollection.current.displayScale returns 0 outside UIKit layout callbacks
-            // (including @MainActor async Tasks). UIScreen.main.scale is always correct.
-            let scale = UIScreen.main.scale
+            let scale = _screenScale
             let safeName = name.replacingOccurrences(of: "/", with: "_")
             return base.appendingPathComponent("\(safeName)@\(Int(size.width))x\(Int(scale)).png")
         }
@@ -192,7 +192,7 @@ enum BundleImageLoader {
             guard let url = diskCacheURL(name: name, size: size),
                 FileManager.default.fileExists(atPath: url.path),
                 let data = try? Data(contentsOf: url),
-                let image = UIImage(data: data, scale: UIScreen.main.scale)
+                let image = UIImage(data: data, scale: _screenScale)
             else {
                 return nil
             }

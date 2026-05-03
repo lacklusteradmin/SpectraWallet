@@ -7,7 +7,7 @@ import Foundation
 
 extension StakingActionKind: CaseIterable, Identifiable {
     public static var allCases: [StakingActionKind] {
-        [.stake, .unstake, .withdraw, .restake, .claimRewards]
+        [.stake, .unstake, .withdraw, .restake, .claimRewards, .changeValidator]
     }
     public var id: String { String(describing: self) }
     var displayName: String {
@@ -17,6 +17,7 @@ extension StakingActionKind: CaseIterable, Identifiable {
         case .withdraw: return AppLocalization.string("Withdraw")
         case .restake: return AppLocalization.string("Restake")
         case .claimRewards: return AppLocalization.string("Claim Rewards")
+        case .changeValidator: return AppLocalization.string("Change Validator")
         }
     }
     var systemIconName: String {
@@ -26,6 +27,7 @@ extension StakingActionKind: CaseIterable, Identifiable {
         case .withdraw: return "arrow.down.to.line.circle.fill"
         case .restake: return "arrow.triangle.2.circlepath.circle.fill"
         case .claimRewards: return "gift.circle.fill"
+        case .changeValidator: return "arrow.left.arrow.right.circle.fill"
         }
     }
 }

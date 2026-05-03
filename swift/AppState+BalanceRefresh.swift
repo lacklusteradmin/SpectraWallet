@@ -79,7 +79,7 @@ extension AppState {
             else { return nil }
             return RefreshEntry(chainId: chainId, walletId: wallet.id, address: address)
         }
-        Task {
+        Task(priority: .utility) {
             try? await WalletServiceBridge.shared.setRefreshEntriesTyped(entries)
             if !entries.isEmpty {
                 try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()

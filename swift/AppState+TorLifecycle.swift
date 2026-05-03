@@ -1,5 +1,10 @@
 import Foundation
 
+// File-scope forwarder so the `torStatus()` UniFFI free function can be called
+// from inside the AppState extension without colliding with the `torStatus`
+// observable property.
+private func fetchTorStatusFromRust() -> TorStatus { torStatus() }
+
 extension AppState {
 
     // MARK: - Entry points
@@ -72,7 +77,7 @@ extension AppState {
         torStatusPollingTask = Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
-                let latest = torStatus()
+                let latest = fetchTorStatusFromRust()
                 self.torStatus = latest
                 // Stop polling once terminal states are reached.
                 switch latest {

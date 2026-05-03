@@ -8,10 +8,10 @@ import os
 @MainActor
 extension AppState {
     private func clearAllChainSendState() {
-        bitcoinSendPreview = nil; bitcoinCashSendPreview = nil; bitcoinSVSendPreview = nil; litecoinSendPreview = nil;
-        dogecoinSendPreview = nil; ethereumSendPreview = nil; tronSendPreview = nil; solanaSendPreview = nil; xrpSendPreview = nil;
-        stellarSendPreview = nil; moneroSendPreview = nil; cardanoSendPreview = nil; suiSendPreview = nil; aptosSendPreview = nil;
-        tonSendPreview = nil; icpSendPreview = nil; nearSendPreview = nil; polkadotSendPreview = nil
+        sendPreviewStore.bitcoinSendPreview = nil; sendPreviewStore.bitcoinCashSendPreview = nil; sendPreviewStore.bitcoinSVSendPreview = nil; sendPreviewStore.litecoinSendPreview = nil;
+        sendPreviewStore.dogecoinSendPreview = nil; sendPreviewStore.ethereumSendPreview = nil; sendPreviewStore.tronSendPreview = nil; sendPreviewStore.solanaSendPreview = nil; sendPreviewStore.xrpSendPreview = nil;
+        sendPreviewStore.stellarSendPreview = nil; sendPreviewStore.moneroSendPreview = nil; sendPreviewStore.cardanoSendPreview = nil; sendPreviewStore.suiSendPreview = nil; sendPreviewStore.aptosSendPreview = nil;
+        sendPreviewStore.tonSendPreview = nil; sendPreviewStore.icpSendPreview = nil; sendPreviewStore.nearSendPreview = nil; sendPreviewStore.polkadotSendPreview = nil
         sendingChains = []
         preparingChains = []
         pendingSelfSendConfirmation = nil
@@ -53,11 +53,11 @@ extension AppState {
     }
     func sendPreviewDetails(for coin: Coin) -> SendPreviewDetails? {
         let input = SendPreviewsInput(
-            bitcoin: bitcoinSendPreview, bitcoinCash: bitcoinCashSendPreview, bitcoinSv: bitcoinSVSendPreview,
-            litecoin: litecoinSendPreview, dogecoin: dogecoinSendPreview, ethereum: ethereumSendPreview, tron: tronSendPreview,
-            solana: solanaSendPreview, xrp: xrpSendPreview, stellar: stellarSendPreview, monero: moneroSendPreview,
-            cardano: cardanoSendPreview, sui: suiSendPreview, aptos: aptosSendPreview, ton: tonSendPreview, icp: icpSendPreview,
-            near: nearSendPreview, polkadot: polkadotSendPreview)
+            bitcoin: sendPreviewStore.bitcoinSendPreview, bitcoinCash: sendPreviewStore.bitcoinCashSendPreview, bitcoinSv: sendPreviewStore.bitcoinSVSendPreview,
+            litecoin: sendPreviewStore.litecoinSendPreview, dogecoin: sendPreviewStore.dogecoinSendPreview, ethereum: sendPreviewStore.ethereumSendPreview, tron: sendPreviewStore.tronSendPreview,
+            solana: sendPreviewStore.solanaSendPreview, xrp: sendPreviewStore.xrpSendPreview, stellar: sendPreviewStore.stellarSendPreview, monero: sendPreviewStore.moneroSendPreview,
+            cardano: sendPreviewStore.cardanoSendPreview, sui: sendPreviewStore.suiSendPreview, aptos: sendPreviewStore.aptosSendPreview, ton: sendPreviewStore.tonSendPreview, icp: sendPreviewStore.icpSendPreview,
+            near: sendPreviewStore.nearSendPreview, polkadot: sendPreviewStore.polkadotSendPreview)
         guard let c = computeSendPreviewDetails(input: input, chainName: coin.chainName, coinAmount: coin.amount) else { return nil }
         return SendPreviewDetails(
             spendableBalance: c.spendableBalance, feeRateDescription: c.feeRateDescription,

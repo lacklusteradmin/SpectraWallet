@@ -48,21 +48,51 @@ extension CoreTokenTrackingChain: RawRepresentable, CaseIterable, Codable, Ident
     public typealias RawValue = String
     // Single source of truth for case↔rawValue mapping. Both init?(rawValue:) and
     // var rawValue are derived from this table so adding a chain is one edit here.
-    nonisolated(unsafe) private static let rawValuePairs: [(CoreTokenTrackingChain, String)] = [
-        (.ethereum, "Ethereum"), (.arbitrum, "Arbitrum"), (.optimism, "Optimism"), (.bnb, "BNB Chain"),
-        (.avalanche, "Avalanche"), (.hyperliquid, "Hyperliquid"), (.polygon, "Polygon"), (.base, "Base"),
-        (.linea, "Linea"), (.scroll, "Scroll"), (.blast, "Blast"), (.mantle, "Mantle"),
-        (.solana, "Solana"), (.sui, "Sui"), (.aptos, "Aptos"), (.ton, "TON"), (.near, "NEAR"), (.tron, "Tron"),
-    ]
-    nonisolated(unsafe) private static let rawValueByCase: [CoreTokenTrackingChain: String] =
-        Dictionary(uniqueKeysWithValues: rawValuePairs)
-    nonisolated(unsafe) private static let caseByRawValue: [String: CoreTokenTrackingChain] =
-        Dictionary(uniqueKeysWithValues: rawValuePairs.map { ($1, $0) })
     public init?(rawValue: String) {
-        guard let v = Self.caseByRawValue[rawValue] else { return nil }
-        self = v
+        switch rawValue {
+        case "Ethereum": self = .ethereum
+        case "Arbitrum": self = .arbitrum
+        case "Optimism": self = .optimism
+        case "BNB Chain": self = .bnb
+        case "Avalanche": self = .avalanche
+        case "Hyperliquid": self = .hyperliquid
+        case "Polygon": self = .polygon
+        case "Base": self = .base
+        case "Linea": self = .linea
+        case "Scroll": self = .scroll
+        case "Blast": self = .blast
+        case "Mantle": self = .mantle
+        case "Solana": self = .solana
+        case "Sui": self = .sui
+        case "Aptos": self = .aptos
+        case "TON": self = .ton
+        case "NEAR": self = .near
+        case "Tron": self = .tron
+        default: return nil
+        }
     }
-    public var rawValue: String { Self.rawValueByCase[self] ?? "\(self)" }
+    public var rawValue: String {
+        switch self {
+        case .ethereum: return "Ethereum"
+        case .arbitrum: return "Arbitrum"
+        case .optimism: return "Optimism"
+        case .bnb: return "BNB Chain"
+        case .avalanche: return "Avalanche"
+        case .hyperliquid: return "Hyperliquid"
+        case .polygon: return "Polygon"
+        case .base: return "Base"
+        case .linea: return "Linea"
+        case .scroll: return "Scroll"
+        case .blast: return "Blast"
+        case .mantle: return "Mantle"
+        case .solana: return "Solana"
+        case .sui: return "Sui"
+        case .aptos: return "Aptos"
+        case .ton: return "TON"
+        case .near: return "NEAR"
+        case .tron: return "Tron"
+        }
+    }
     public static var allCases: [CoreTokenTrackingChain] {
         [.ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .polygon, .base, .linea, .scroll, .blast, .mantle,
          .solana, .sui, .aptos, .ton, .near, .tron]

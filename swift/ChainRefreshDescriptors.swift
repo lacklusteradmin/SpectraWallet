@@ -1,22 +1,22 @@
 import Foundation
-import Collections
-struct WalletChainRefreshDescriptor {
+import OrderedCollections
+struct WalletChainRefreshDescriptor: Sendable {
     let chainID: WalletChainID
-    let executeRefresh: (AppState, Bool) async -> Void
-    let executeHistoryOnly: ((AppState) async -> Void)?
-    let executePendingOnly: ((AppState) async -> Void)?
+    let executeRefresh: @Sendable (AppState, Bool) async -> Void
+    let executeHistoryOnly: (@Sendable (AppState) async -> Void)?
+    let executePendingOnly: (@Sendable (AppState) async -> Void)?
     var chainName: String { chainID.displayName }
     init(
-        chainID: WalletChainID, executeRefresh: @escaping (AppState, Bool) async -> Void,
-        executeHistoryOnly: ((AppState) async -> Void)? = nil,
-        executePendingOnly: ((AppState) async -> Void)? = nil
+        chainID: WalletChainID, executeRefresh: @escaping @Sendable (AppState, Bool) async -> Void,
+        executeHistoryOnly: (@Sendable (AppState) async -> Void)? = nil,
+        executePendingOnly: (@Sendable (AppState) async -> Void)? = nil
     ) {
         self.chainID = chainID
         self.executeRefresh = executeRefresh
         self.executeHistoryOnly = executeHistoryOnly
         self.executePendingOnly = executePendingOnly
     }
-    static func evm(_ chainName: String) -> WalletChainRefreshDescriptor {
+    nonisolated static func evm(_ chainName: String) -> WalletChainRefreshDescriptor {
         WalletChainRefreshDescriptor(
             chainID: WalletChainID(chainName)!,
             executeRefresh: { store, refreshHistory in
@@ -28,10 +28,10 @@ struct WalletChainRefreshDescriptor {
             executePendingOnly: { await $0.refreshPendingEVMTransactions(chainName: chainName) }
         )
     }
-    static func standard(
+    nonisolated static func standard(
         _ chainName: String,
-        history: @escaping (AppState) async -> Void,
-        pending: @escaping (AppState) async -> Void
+        history: @escaping @Sendable (AppState) async -> Void,
+        pending: @escaping @Sendable (AppState) async -> Void
     ) -> WalletChainRefreshDescriptor {
         WalletChainRefreshDescriptor(
             chainID: WalletChainID(chainName)!,
@@ -44,10 +44,10 @@ struct WalletChainRefreshDescriptor {
             executePendingOnly: pending
         )
     }
-    static func utxo(
+    nonisolated static func utxo(
         _ chainName: String,
-        history: @escaping (AppState) async -> Void,
-        pending: @escaping (AppState) async -> Void
+        history: @escaping @Sendable (AppState) async -> Void,
+        pending: @escaping @Sendable (AppState) async -> Void
     ) -> WalletChainRefreshDescriptor {
         WalletChainRefreshDescriptor(
             chainID: WalletChainID(chainName)!,
@@ -63,23 +63,9 @@ struct WalletChainRefreshDescriptor {
         )
     }
 }
-extension AppState {
-    var lastHistoryRefreshAtByChainID: [WalletChainID: Date] {
-        get {
-            Dictionary(
-                uniqueKeysWithValues: lastHistoryRefreshAtByChain.compactMap { key, value in
-                    WalletChainID(key).map { ($0, value) }
-                }
-            )
-        }
-        set {
-            lastHistoryRefreshAtByChain = Dictionary(
-                uniqueKeysWithValues: newValue.map { ($0.key.displayName, $0.value) }
-            )
-        }
-    }
-    nonisolated(unsafe) static let chainRefreshDescriptors: OrderedDictionary<WalletChainID, WalletChainRefreshDescriptor> = {
-        let all: [WalletChainRefreshDescriptor] = [
+extension WalletChainRefreshDescriptor {
+    static let all: OrderedDictionary<WalletChainID, WalletChainRefreshDescriptor> = {
+        let descriptors: [WalletChainRefreshDescriptor] = [
             .utxo("Bitcoin",
                 history: { await $0.refreshBitcoinTransactions(limit: 20, loadMore: false) },
                 pending: { await $0.refreshPendingBitcoinTransactions() }),
@@ -135,8 +121,27 @@ extension AppState {
                 history: { await $0.refreshPolkadotTransactions(loadMore: false) },
                 pending: { await $0.refreshPendingPolkadotTransactions() }),
         ]
-        return OrderedDictionary(uniqueKeysWithValues: all.map { ($0.chainID, $0) })
+        return OrderedDictionary(uniqueKeysWithValues: descriptors.map { ($0.chainID, $0) })
     }()
+}
+extension AppState {
+    nonisolated static var chainRefreshDescriptors: OrderedDictionary<WalletChainID, WalletChainRefreshDescriptor> {
+        WalletChainRefreshDescriptor.all
+    }
+    var lastHistoryRefreshAtByChainID: [WalletChainID: Date] {
+        get {
+            Dictionary(
+                uniqueKeysWithValues: lastHistoryRefreshAtByChain.compactMap { key, value in
+                    WalletChainID(key).map { ($0, value) }
+                }
+            )
+        }
+        set {
+            lastHistoryRefreshAtByChain = Dictionary(
+                uniqueKeysWithValues: newValue.map { ($0.key.displayName, $0.value) }
+            )
+        }
+    }
     func runPlannedChainRefreshes(using refreshPlanByChain: [WalletChainID: Bool], timeout: Double) async {
         for descriptor in Self.chainRefreshDescriptors.values {
             guard let refreshHistory = refreshPlanByChain[descriptor.chainID] else { continue }
