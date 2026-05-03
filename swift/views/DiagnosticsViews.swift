@@ -84,8 +84,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.bitcoinEndpointHealthLastUpdatedAt },
             endpointResults: { $0.bitcoinEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.bitcoinHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runBitcoinHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runBitcoinEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .bitcoin) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .bitcoin) }
         ),
         .bitcoinCash: .init(
             isRunningHistory: { $0.isRunningBitcoinCashHistoryDiagnostics },
@@ -96,8 +96,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.bitcoinCashEndpointHealthLastUpdatedAt },
             endpointResults: { $0.bitcoinCashEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.bitcoinCashHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runBitcoinCashHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runBitcoinCashEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .bitcoinCash) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .bitcoinCash) }
         ),
         .bitcoinSV: .init(
             isRunningHistory: { $0.isRunningBitcoinSVHistoryDiagnostics },
@@ -108,8 +108,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.bitcoinSVEndpointHealthLastUpdatedAt },
             endpointResults: { $0.bitcoinSVEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.bitcoinSVHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runBitcoinSVHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runBitcoinSVEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .bitcoinSV) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .bitcoinSV) }
         ),
         .litecoin: .init(
             isRunningHistory: { $0.isRunningLitecoinHistoryDiagnostics },
@@ -120,8 +120,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.litecoinEndpointHealthLastUpdatedAt },
             endpointResults: { $0.litecoinEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.litecoinHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runLitecoinHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runLitecoinEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .litecoin) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .litecoin) }
         ),
         .dogecoin: .init(
             isRunningHistory: { $0.isRunningDogecoinHistoryDiagnostics },
@@ -132,8 +132,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.dogecoinEndpointHealthLastUpdatedAt },
             endpointResults: { $0.dogecoinEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.dogecoinHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runDogecoinHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runDogecoinEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .dogecoin) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .dogecoin) }
         ),
         .ethereum: .init(
             isRunningHistory: { $0.isRunningEthereumHistoryDiagnostics },
@@ -144,8 +144,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.ethereumEndpointHealthLastUpdatedAt },
             endpointResults: { $0.ethereumEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.ethereumHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runEthereumHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runEthereumEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .ethereum) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .ethereum) }
         ),
         .ethereumClassic: .init(
             isRunningHistory: { $0.isRunningETCHistoryDiagnostics },
@@ -156,8 +156,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.etcEndpointHealthLastUpdatedAt },
             endpointResults: { $0.etcEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.etcHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runETCHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runETCEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .ethereumClassic) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .ethereumClassic) }
         ),
         .arbitrum: .init(
             isRunningHistory: { $0.isRunningArbitrumHistoryDiagnostics },
@@ -168,8 +168,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.arbitrumEndpointHealthLastUpdatedAt },
             endpointResults: { $0.arbitrumEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.arbitrumHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runArbitrumHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runArbitrumEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .arbitrum) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .arbitrum) }
         ),
         .optimism: .init(
             isRunningHistory: { $0.isRunningOptimismHistoryDiagnostics },
@@ -180,8 +180,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.optimismEndpointHealthLastUpdatedAt },
             endpointResults: { $0.optimismEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.optimismHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runOptimismHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runOptimismEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .optimism) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .optimism) }
         ),
         .bnb: .init(
             isRunningHistory: { $0.isRunningBNBHistoryDiagnostics },
@@ -192,8 +192,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.bnbEndpointHealthLastUpdatedAt },
             endpointResults: { $0.bnbEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.bnbHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runBNBHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runBNBEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .bnb) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .bnb) }
         ),
         .avalanche: .init(
             isRunningHistory: { $0.isRunningAvalancheHistoryDiagnostics },
@@ -204,8 +204,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.avalancheEndpointHealthLastUpdatedAt },
             endpointResults: { $0.avalancheEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.avalancheHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runAvalancheHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runAvalancheEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .avalanche) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .avalanche) }
         ),
         .hyperliquid: .init(
             isRunningHistory: { $0.isRunningHyperliquidHistoryDiagnostics },
@@ -216,8 +216,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.hyperliquidEndpointHealthLastUpdatedAt },
             endpointResults: { $0.hyperliquidEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.hyperliquidHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runHyperliquidHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runHyperliquidEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .hyperliquid) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .hyperliquid) }
         ),
         .tron: .init(
             isRunningHistory: { $0.isRunningTronHistoryDiagnostics },
@@ -228,8 +228,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.tronEndpointHealthLastUpdatedAt },
             endpointResults: { $0.tronEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.tronHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runTronHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runTronEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .tron) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .tron) }
         ),
         .solana: .init(
             isRunningHistory: { $0.isRunningSolanaHistoryDiagnostics },
@@ -240,8 +240,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.solanaEndpointHealthLastUpdatedAt },
             endpointResults: { $0.solanaEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.solanaHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runSolanaHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runSolanaEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .solana) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .solana) }
         ),
         .cardano: .init(
             isRunningHistory: { $0.isRunningCardanoHistoryDiagnostics },
@@ -252,8 +252,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.cardanoEndpointHealthLastUpdatedAt },
             endpointResults: { $0.cardanoEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.cardanoHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runCardanoHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runCardanoEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .cardano) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .cardano) }
         ),
         .xrp: .init(
             isRunningHistory: { $0.isRunningXRPHistoryDiagnostics },
@@ -264,8 +264,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.xrpEndpointHealthLastUpdatedAt },
             endpointResults: { $0.xrpEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.xrpHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runXRPHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runXRPEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .xrp) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .xrp) }
         ),
         .stellar: .init(
             isRunningHistory: { $0.isRunningStellarHistoryDiagnostics },
@@ -276,8 +276,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.stellarEndpointHealthLastUpdatedAt },
             endpointResults: { $0.stellarEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.stellarHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runStellarHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runStellarEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .stellar) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .stellar) }
         ),
         .monero: .init(
             isRunningHistory: { $0.isRunningMoneroHistoryDiagnostics },
@@ -288,8 +288,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.moneroEndpointHealthLastUpdatedAt },
             endpointResults: { $0.moneroEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.moneroHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runMoneroHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runMoneroEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .monero) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .monero) }
         ),
         .sui: .init(
             isRunningHistory: { $0.isRunningSuiHistoryDiagnostics },
@@ -300,8 +300,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.suiEndpointHealthLastUpdatedAt },
             endpointResults: { $0.suiEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.suiHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runSuiHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runSuiEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .sui) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .sui) }
         ),
         .aptos: .init(
             isRunningHistory: { $0.isRunningAptosHistoryDiagnostics },
@@ -312,8 +312,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.aptosEndpointHealthLastUpdatedAt },
             endpointResults: { $0.aptosEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.aptosHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runAptosHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runAptosEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .aptos) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .aptos) }
         ),
         .ton: .init(
             isRunningHistory: { $0.isRunningTONHistoryDiagnostics },
@@ -324,8 +324,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.tonEndpointHealthLastUpdatedAt },
             endpointResults: { $0.tonEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.tonHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runTONHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runTONEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .ton) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .ton) }
         ),
         .icp: .init(
             isRunningHistory: { $0.isRunningICPHistoryDiagnostics },
@@ -336,8 +336,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.icpEndpointHealthLastUpdatedAt },
             endpointResults: { $0.icpEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.icpHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runICPHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runICPEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .icp) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .icp) }
         ),
         .near: .init(
             isRunningHistory: { $0.isRunningNearHistoryDiagnostics },
@@ -348,8 +348,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.nearEndpointHealthLastUpdatedAt },
             endpointResults: { $0.nearEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.nearHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runNearHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runNearEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .near) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .near) }
         ),
         .polkadot: .init(
             isRunningHistory: { $0.isRunningPolkadotHistoryDiagnostics },
@@ -360,8 +360,8 @@ enum StandardDiagnosticsChain: String, Hashable {
             endpointLastUpdatedAt: { $0.polkadotEndpointHealthLastUpdatedAt },
             endpointResults: { $0.polkadotEndpointHealthResults.map { ($0.endpoint, $0.reachable, $0.detail) } },
             historySources: { $0.polkadotHistoryDiagnosticsByWallet.values.map(\.sourceUsed) },
-            runHistoryDiagnostics: { await $0.runPolkadotHistoryDiagnostics() },
-            runEndpointDiagnostics: { await $0.runPolkadotEndpointReachabilityDiagnostics() }
+            runHistoryDiagnostics: { await $0.runHistoryDiagnostics(for: .polkadot) },
+            runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .polkadot) }
         ),
     ]
     var dispatch: StandardChainDiagnosticsDispatch { Self.dispatchTable[self]! }

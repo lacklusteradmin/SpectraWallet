@@ -65,9 +65,9 @@ extension AppState {
                 feeDecimals: 6, checkSelfSend: true, supportsPrivateKey: false, gasBudgetFromFee: true,
                 resolveAddress: { self.resolvedSuiAddress(for: $0) },
                 derivationPath: { self.walletDerivationPath(for: $0, chain: .sui) },
-                getPreviewFee: { self.suiSendPreview?.estimatedNetworkFeeSui },
+                getPreviewFee: { self.sendPreviewStore.suiSendPreview?.estimatedNetworkFeeSui },
                 refreshPreview: { await self.refreshSuiSendPreview() },
-                clearPreview: { self.suiSendPreview = nil }
+                clearPreview: { self.sendPreviewStore.suiSendPreview = nil }
             )
             return
         }
@@ -78,9 +78,9 @@ extension AppState {
                 feeDecimals: 6, checkSelfSend: true, supportsPrivateKey: false,
                 resolveAddress: { self.resolvedAptosAddress(for: $0) },
                 derivationPath: { self.walletDerivationPath(for: $0, chain: .aptos) },
-                getPreviewFee: { self.aptosSendPreview?.estimatedNetworkFeeApt },
+                getPreviewFee: { self.sendPreviewStore.aptosSendPreview?.estimatedNetworkFeeApt },
                 refreshPreview: { await self.refreshAptosSendPreview() },
-                clearPreview: { self.aptosSendPreview = nil }
+                clearPreview: { self.sendPreviewStore.aptosSendPreview = nil }
             )
             return
         }
@@ -91,15 +91,15 @@ extension AppState {
                 feeDecimals: 6, checkSelfSend: true, supportsPrivateKey: false,
                 resolveAddress: { self.resolvedTONAddress(for: $0) },
                 derivationPath: { self.walletDerivationPath(for: $0, chain: .ton) },
-                getPreviewFee: { self.tonSendPreview?.estimatedNetworkFeeTon },
+                getPreviewFee: { self.sendPreviewStore.tonSendPreview?.estimatedNetworkFeeTon },
                 refreshPreview: { await self.refreshTonSendPreview() },
-                clearPreview: { self.tonSendPreview = nil }
+                clearPreview: { self.sendPreviewStore.tonSendPreview = nil }
             )
             return
         }
         if holding.chainName == "Internet Computer", holding.symbol == "ICP" {
             guard !sendingChains.contains("Internet Computer") else { return }
-            if icpSendPreview == nil { await refreshIcpSendPreview() }
+            if sendPreviewStore.icpSendPreview == nil { await refreshIcpSendPreview() }
             guard let walletIndex = wallets.firstIndex(where: { $0.id == wallet.id }), let sourceAddress = resolvedICPAddress(for: wallet)
             else {
                 sendError = "Unable to resolve this wallet's ICP address."
@@ -138,7 +138,7 @@ extension AppState {
                 recordPendingSentTransaction(transaction)
                 await runPostSendRefreshActions(for: holding.chainName, verificationStatus: .verified)
                 resetSendComposerState {
-                    self.icpSendPreview = nil
+                    self.sendPreviewStore.icpSendPreview = nil
                     self.wallets[walletIndex] = self.wallets[walletIndex]
                 }
             } catch {
@@ -201,8 +201,8 @@ extension AppState {
                     sendError = "Unable to resolve this wallet's Bitcoin address from the seed phrase."
                     return
                 }
-                if bitcoinSendPreview == nil { await refreshBitcoinSendPreview() }
-                let feeRateSvB: Double = Double(bitcoinSendPreview?.estimatedFeeRateSatVb ?? 10)
+                if sendPreviewStore.bitcoinSendPreview == nil { await refreshBitcoinSendPreview() }
+                let feeRateSvB: Double = Double(sendPreviewStore.bitcoinSendPreview?.estimatedFeeRateSatVb ?? 10)
                 let result = try await WalletServiceBridge.shared.executeSend(
                     SendExecutionRequest(
                         chainId: SpectraChainID.bitcoin, chainName: "Bitcoin",
@@ -222,7 +222,7 @@ extension AppState {
                 recordPendingSentTransaction(transaction)
                 await runPostSendRefreshActions(for: holding.chainName, verificationStatus: .verified)
                 resetSendComposerState {
-                    self.bitcoinSendPreview = nil
+                    self.sendPreviewStore.bitcoinSendPreview = nil
                 }
             } catch {
                 sendError = error.localizedDescription
@@ -235,8 +235,8 @@ extension AppState {
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
                 chainId: SpectraChainID.bitcoinCash, chainName: "Bitcoin Cash", chain: .bitcoinCash,
                 symbol: "BCH", feeFallback: 0.00001, resolveAddress: { self.resolvedBitcoinCashAddress(for: $0) },
-                getPreview: { self.bitcoinCashSendPreview }, refreshPreview: { await self.refreshBitcoinCashSendPreview() },
-                clearPreview: { self.bitcoinCashSendPreview = nil }
+                getPreview: { self.sendPreviewStore.bitcoinCashSendPreview }, refreshPreview: { await self.refreshBitcoinCashSendPreview() },
+                clearPreview: { self.sendPreviewStore.bitcoinCashSendPreview = nil }
             )
             return
         }
@@ -244,8 +244,8 @@ extension AppState {
             await submitUTXOSatChainSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, chainId: SpectraChainID.bitcoinSv,
                 chainName: "Bitcoin SV", chain: .bitcoinSV, symbol: "BSV", feeFallback: 0.00001,
-                resolveAddress: { self.resolvedBitcoinSVAddress(for: $0) }, getPreview: { self.bitcoinSVSendPreview },
-                refreshPreview: { await self.refreshBitcoinSVSendPreview() }, clearPreview: { self.bitcoinSVSendPreview = nil }
+                resolveAddress: { self.resolvedBitcoinSVAddress(for: $0) }, getPreview: { self.sendPreviewStore.bitcoinSVSendPreview },
+                refreshPreview: { await self.refreshBitcoinSVSendPreview() }, clearPreview: { self.sendPreviewStore.bitcoinSVSendPreview = nil }
             )
             return
         }
@@ -253,8 +253,8 @@ extension AppState {
             await submitUTXOSatChainSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, chainId: SpectraChainID.litecoin,
                 chainName: "Litecoin", chain: .litecoin, symbol: "LTC", feeFallback: 0.0001,
-                resolveAddress: { self.resolvedLitecoinAddress(for: $0) }, getPreview: { self.litecoinSendPreview },
-                refreshPreview: { await self.refreshLitecoinSendPreview() }, clearPreview: { self.litecoinSendPreview = nil }
+                resolveAddress: { self.resolvedLitecoinAddress(for: $0) }, getPreview: { self.sendPreviewStore.litecoinSendPreview },
+                refreshPreview: { await self.refreshLitecoinSendPreview() }, clearPreview: { self.sendPreviewStore.litecoinSendPreview = nil }
             )
             return
         }
@@ -277,8 +277,8 @@ extension AppState {
                 return
             }
             appendChainOperationalEvent(.info, chainName: "Dogecoin", message: "DOGE send initiated.")
-            if dogecoinSendPreview == nil { await refreshDogecoinSendPreview() }
-            if let dogecoinSendPreview = dogecoinSendPreview, dogecoinAmount > dogecoinSendPreview.maxSendableDoge {
+            if sendPreviewStore.dogecoinSendPreview == nil { await refreshDogecoinSendPreview() }
+            if let dogecoinSendPreview = sendPreviewStore.dogecoinSendPreview, dogecoinAmount > dogecoinSendPreview.maxSendableDoge {
                 sendError =
                     "Insufficient DOGE for amount plus network fee (max sendable ~\(String(format: "%.6f", dogecoinSendPreview.maxSendableDoge)) DOGE)."
                 return
@@ -290,7 +290,7 @@ extension AppState {
                 return
             }
             do {
-                let feeRateDogePerKb = dogecoinSendPreview?.estimatedFeeRateDogePerKb ?? 0.01
+                let feeRateDogePerKb = sendPreviewStore.dogecoinSendPreview?.estimatedFeeRateDogePerKb ?? 0.01
                 let result = try await WalletServiceBridge.shared.executeSend(
                     SendExecutionRequest(
                         chainId: SpectraChainID.dogecoin, chainName: "Dogecoin",
@@ -307,8 +307,8 @@ extension AppState {
                         transactionHash: result.transactionHash,
                         feePriorityRaw: dogecoinFeePriority.rawValue,
                         confirmationCount: 0,
-                        dogecoinEstimatedFeeRateDogePerKb: dogecoinSendPreview?.estimatedFeeRateDogePerKb,
-                        usedChangeOutput: dogecoinSendPreview?.usesChangeOutput, sourceAddress: sourceAddress,
+                        dogecoinEstimatedFeeRateDogePerKb: sendPreviewStore.dogecoinSendPreview?.estimatedFeeRateDogePerKb,
+                        usedChangeOutput: sendPreviewStore.dogecoinSendPreview?.usesChangeOutput, sourceAddress: sourceAddress,
                         signedTransactionPayload: result.resultJson,
                         signedTransactionPayloadFormat: result.payloadFormat
                     ), holding: holding)
@@ -320,7 +320,7 @@ extension AppState {
                 await refreshPendingDogecoinTransactions()
                 updateSendVerificationNoticeForLastSentTransaction()
                 resetSendComposerState {
-                    self.dogecoinSendPreview = nil
+                    self.sendPreviewStore.dogecoinSendPreview = nil
                 }
             } catch {
                 sendError = error.localizedDescription
@@ -341,8 +341,8 @@ extension AppState {
                 sendError = "Unable to resolve this wallet's Tron signing address."
                 return
             }
-            if tronSendPreview == nil { await refreshTronSendPreview() }
-            guard let preview = tronSendPreview else {
+            if sendPreviewStore.tronSendPreview == nil { await refreshTronSendPreview() }
+            guard let preview = sendPreviewStore.tronSendPreview else {
                 sendError = sendError ?? "Unable to estimate Tron network fee."
                 return
             }
@@ -377,7 +377,7 @@ extension AppState {
                 recordPendingSentTransaction(transaction)
                 await runPostSendRefreshActions(for: holding.chainName, verificationStatus: .verified)
                 resetSendComposerState {
-                    self.tronSendPreview = nil
+                    self.sendPreviewStore.tronSendPreview = nil
                     self.tronLastSendErrorDetails = nil
                     self.tronLastSendErrorAt = nil
                 }
@@ -399,8 +399,8 @@ extension AppState {
                 sendError = "Unable to resolve this wallet's Solana signing address from the seed phrase."
                 return
             }
-            if solanaSendPreview == nil { await refreshSolanaSendPreview() }
-            guard let preview = solanaSendPreview else {
+            if sendPreviewStore.solanaSendPreview == nil { await refreshSolanaSendPreview() }
+            guard let preview = sendPreviewStore.solanaSendPreview else {
                 sendError = sendError ?? "Unable to estimate Solana network fee."
                 return
             }
@@ -451,7 +451,7 @@ extension AppState {
                 recordPendingSentTransaction(transaction)
                 await runPostSendRefreshActions(for: holding.chainName, verificationStatus: .verified)
                 resetSendComposerState {
-                    self.solanaSendPreview = nil
+                    self.sendPreviewStore.solanaSendPreview = nil
                 }
             } catch {
                 sendError = error.localizedDescription
@@ -466,9 +466,9 @@ extension AppState {
                 feeDecimals: 6, supportsPrivateKey: true,
                 resolveAddress: { self.resolvedXRPAddress(for: $0) },
                 derivationPath: { self.walletDerivationPath(for: $0, chain: .xrp) },
-                getPreviewFee: { self.xrpSendPreview?.estimatedNetworkFeeXrp },
+                getPreviewFee: { self.sendPreviewStore.xrpSendPreview?.estimatedNetworkFeeXrp },
                 refreshPreview: { await self.refreshXrpSendPreview() },
-                clearPreview: { self.xrpSendPreview = nil }
+                clearPreview: { self.sendPreviewStore.xrpSendPreview = nil }
             )
             return
         }
@@ -479,9 +479,9 @@ extension AppState {
                 feeDecimals: 7, supportsPrivateKey: true,
                 resolveAddress: { self.resolvedStellarAddress(for: $0) },
                 derivationPath: { $0.seedDerivationPaths.stellar },
-                getPreviewFee: { self.stellarSendPreview?.estimatedNetworkFeeXlm },
+                getPreviewFee: { self.sendPreviewStore.stellarSendPreview?.estimatedNetworkFeeXlm },
                 refreshPreview: { await self.refreshStellarSendPreview() },
-                clearPreview: { self.stellarSendPreview = nil }
+                clearPreview: { self.sendPreviewStore.stellarSendPreview = nil }
             )
             return
         }
@@ -492,9 +492,9 @@ extension AppState {
                 feeDecimals: 6, supportsPrivateKey: false, moneroPriority: 2,
                 resolveAddress: { self.resolvedMoneroAddress(for: $0) },
                 derivationPath: { _ in "" },
-                getPreviewFee: { self.moneroSendPreview?.estimatedNetworkFeeXmr },
+                getPreviewFee: { self.sendPreviewStore.moneroSendPreview?.estimatedNetworkFeeXmr },
                 refreshPreview: { await self.refreshMoneroSendPreview() },
-                clearPreview: { self.moneroSendPreview = nil }
+                clearPreview: { self.sendPreviewStore.moneroSendPreview = nil }
             )
             return
         }
@@ -505,9 +505,9 @@ extension AppState {
                 feeDecimals: 6, supportsPrivateKey: false, feeAmountFromFee: true,
                 resolveAddress: { self.resolvedCardanoAddress(for: $0) },
                 derivationPath: { self.walletDerivationPath(for: $0, chain: .cardano) },
-                getPreviewFee: { self.cardanoSendPreview?.estimatedNetworkFeeAda },
+                getPreviewFee: { self.sendPreviewStore.cardanoSendPreview?.estimatedNetworkFeeAda },
                 refreshPreview: { await self.refreshCardanoSendPreview() },
-                clearPreview: { self.cardanoSendPreview = nil }
+                clearPreview: { self.sendPreviewStore.cardanoSendPreview = nil }
             )
             return
         }
@@ -518,9 +518,9 @@ extension AppState {
                 feeDecimals: 6, checkSelfSend: true, supportsPrivateKey: false,
                 resolveAddress: { self.resolvedNearAddress(for: $0) },
                 derivationPath: { self.walletDerivationPath(for: $0, chain: .near) },
-                getPreviewFee: { self.nearSendPreview?.estimatedNetworkFeeNear },
+                getPreviewFee: { self.sendPreviewStore.nearSendPreview?.estimatedNetworkFeeNear },
                 refreshPreview: { await self.refreshNearSendPreview() },
-                clearPreview: { self.nearSendPreview = nil }
+                clearPreview: { self.sendPreviewStore.nearSendPreview = nil }
             )
             return
         }
@@ -561,7 +561,7 @@ extension AppState {
                 recordPendingSentTransaction(transaction)
                 await runPostSendRefreshActions(for: holding.chainName, verificationStatus: .verified)
                 resetSendComposerState {
-                    self.nearSendPreview = nil
+                    self.sendPreviewStore.nearSendPreview = nil
                 }
             } catch {
                 sendError = error.localizedDescription
@@ -576,9 +576,9 @@ extension AppState {
                 feeDecimals: 6, supportsPrivateKey: false,
                 resolveAddress: { self.resolvedPolkadotAddress(for: $0) },
                 derivationPath: { $0.seedDerivationPaths.polkadot },
-                getPreviewFee: { self.polkadotSendPreview?.estimatedNetworkFeeDot },
+                getPreviewFee: { self.sendPreviewStore.polkadotSendPreview?.estimatedNetworkFeeDot },
                 refreshPreview: { await self.refreshPolkadotSendPreview() },
-                clearPreview: { self.polkadotSendPreview = nil }
+                clearPreview: { self.sendPreviewStore.polkadotSendPreview = nil }
             )
             return
         }
@@ -609,8 +609,8 @@ extension AppState {
             let nativeSymbol = preflight.nativeEvmSymbol ?? "ETH"
             let nativeBalance =
                 wallet.holdings.first(where: { $0.chainName == holding.chainName && $0.symbol == nativeSymbol })?.amount ?? 0
-            if ethereumSendPreview == nil { await refreshEthereumSendPreview() }
-            guard let preview = ethereumSendPreview else {
+            if sendPreviewStore.ethereumSendPreview == nil { await refreshEthereumSendPreview() }
+            guard let preview = sendPreviewStore.ethereumSendPreview else {
                 sendError = sendError ?? "Unable to estimate \(holding.chainName) network fee."
                 return
             }
@@ -669,7 +669,7 @@ extension AppState {
                         contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
                         feeAmount: nil, evmOverrides: evmOverrides, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                     ))
-                let fallbackNonce = explicitNonce.map(Int64.init) ?? ethereumSendPreview?.nonce ?? 0
+                let fallbackNonce = explicitNonce.map(Int64.init) ?? sendPreviewStore.ethereumSendPreview?.nonce ?? 0
                 let typed = result.evm ?? EvmSendResultDecoded(txid: "", rawTxHex: "", nonce: fallbackNonce, gasLimit: 0)
                 let evmResult = ethereumSendResult(from: typed)
                 let transaction = decoratePendingSendTransaction(

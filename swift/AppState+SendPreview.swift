@@ -29,13 +29,13 @@ extension AppState {
             ((selectedSendCoin.symbol == "ETH" || selectedSendCoin.symbol == "ETC" || selectedSendCoin.symbol == "BNB")
                 ? amount >= 0 : amount > 0)
         else {
-            ethereumSendPreview = nil
+            sendPreviewStore.ethereumSendPreview = nil
             preparingChains.remove("Ethereum")
             return
         }
         if let customEthereumNonceValidationError = customEthereumNonceValidationError {
             sendError = customEthereumNonceValidationError
-            ethereumSendPreview = nil
+            sendPreviewStore.ethereumSendPreview = nil
             preparingChains.remove("Ethereum")
             return
         }
@@ -49,39 +49,36 @@ extension AppState {
             } else if selectedSendCoin.chainName == "Ethereum", isENSNameCandidate(trimmedDestination) {
                 do {
                     guard let resolved = try await WalletServiceBridge.shared.resolveENSName(trimmedDestination) else {
-                        ethereumSendPreview = nil
+                        sendPreviewStore.ethereumSendPreview = nil
                         preparingChains.remove("Ethereum")
                         return
                     }
                     previewDestination = resolved
                     sendDestinationInfoMessage = "Resolved ENS \(trimmedDestination) to \(resolved)."
                 } catch {
-                    ethereumSendPreview = nil
+                    sendPreviewStore.ethereumSendPreview = nil
                     preparingChains.remove("Ethereum")
                     return
                 }
             } else {
-                ethereumSendPreview = nil
+                sendPreviewStore.ethereumSendPreview = nil
                 preparingChains.remove("Ethereum")
                 return
             }
         }
         guard !preparingChains.contains("Ethereum") else {
-            pendingEthereumSendPreviewRefresh = true
+            pendingSendPreviewRefreshChains.insert("Ethereum")
             return
         }
         preparingChains.insert("Ethereum")
         defer {
             preparingChains.remove("Ethereum")
-            if pendingEthereumSendPreviewRefresh {
-                pendingEthereumSendPreviewRefresh = false
-                Task { @MainActor in
-                    await self.refreshEthereumSendPreview()
-                }
+            if pendingSendPreviewRefreshChains.remove("Ethereum") != nil {
+                Task { @MainActor in await self.refreshEthereumSendPreview() }
             }
         }
         guard let chainId = SpectraChainID.id(for: selectedSendCoin.chainName) else {
-            ethereumSendPreview = nil
+            sendPreviewStore.ethereumSendPreview = nil
             preparingChains.remove("Ethereum")
             return
         }
@@ -98,25 +95,25 @@ extension AppState {
                         token: assemblyToken
                     ))
             } catch {
-                ethereumSendPreview = nil
+                sendPreviewStore.ethereumSendPreview = nil
                 preparingChains.remove("Ethereum")
                 return
             }
             let valueWei = assembly.valueWei
             let toAddress = assembly.toAddress
             let dataHex = assembly.dataHex
-            ethereumSendPreview = try await WalletServiceBridge.shared.fetchEvmSendPreviewTyped(
+            sendPreviewStore.ethereumSendPreview = try await WalletServiceBridge.shared.fetchEvmSendPreviewTyped(
                 chainId: chainId, from: fromAddress, to: toAddress, valueWei: valueWei, dataHex: dataHex,
                 explicitNonce: explicitEthereumNonce().map(Int64.init),
                 customFees: evmCustomFeeDTO(customEthereumFeeConfiguration())
             )
-            if ethereumSendPreview != nil {
+            if sendPreviewStore.ethereumSendPreview != nil {
                 sendError = nil
                 clearSendVerificationNotice()
             }
         } catch {
             if isCancelledRequest(error) { return }
-            ethereumSendPreview = nil
+            sendPreviewStore.ethereumSendPreview = nil
             sendError = "Unable to estimate EVM fee right now. Check RPC and retry."
         }
     }
@@ -124,38 +121,35 @@ extension AppState {
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, selectedSendCoin.chainName == "Dogecoin",
             selectedSendCoin.symbol == "DOGE", let amount = parseDogecoinAmountInput(sendAmount), amount > 0
         else {
-            dogecoinSendPreview = nil
+            sendPreviewStore.dogecoinSendPreview = nil
             preparingChains.remove("Dogecoin")
             return
         }
         let trimmedDestination = sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedDestination.isEmpty, !isValidDogecoinAddressForPolicy(trimmedDestination, networkMode: dogecoinNetworkMode(for: wallet))
         {
-            dogecoinSendPreview = nil
+            sendPreviewStore.dogecoinSendPreview = nil
             preparingChains.remove("Dogecoin")
             return
         }
         guard storedSeedPhrase(for: wallet.id) != nil else {
-            dogecoinSendPreview = nil
+            sendPreviewStore.dogecoinSendPreview = nil
             preparingChains.remove("Dogecoin")
             return
         }
         guard !preparingChains.contains("Dogecoin") else {
-            pendingDogecoinSendPreviewRefresh = true
+            pendingSendPreviewRefreshChains.insert("Dogecoin")
             return
         }
         preparingChains.insert("Dogecoin")
         defer {
             preparingChains.remove("Dogecoin")
-            if pendingDogecoinSendPreviewRefresh {
-                pendingDogecoinSendPreviewRefresh = false
-                Task { @MainActor in
-                    await self.refreshDogecoinSendPreview()
-                }
+            if pendingSendPreviewRefreshChains.remove("Dogecoin") != nil {
+                Task { @MainActor in await self.refreshDogecoinSendPreview() }
             }
         }
         guard let address = resolvedDogecoinAddress(for: wallet) else {
-            dogecoinSendPreview = nil
+            sendPreviewStore.dogecoinSendPreview = nil
             preparingChains.remove("Dogecoin")
             return
         }
@@ -164,15 +158,15 @@ extension AppState {
                 let preview = try await WalletServiceBridge.shared.fetchDogecoinSendPreviewTyped(
                     address: address, requestedAmount: amount, feePriority: dogecoinFeePriority.rawValue)
             else {
-                dogecoinSendPreview = nil
+                sendPreviewStore.dogecoinSendPreview = nil
                 sendError = "Insufficient DOGE funds."
                 return
             }
-            dogecoinSendPreview = preview
+            sendPreviewStore.dogecoinSendPreview = preview
             sendError = nil
         } catch {
             if isCancelledRequest(error) { return }
-            dogecoinSendPreview = nil
+            sendPreviewStore.dogecoinSendPreview = nil
             sendError = "Unable to estimate DOGE fee right now. Check provider health and retry."
         }
     }
@@ -180,27 +174,27 @@ extension AppState {
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, selectedSendCoin.chainName == "Bitcoin",
             selectedSendCoin.symbol == "BTC", let amount = Double(sendAmount), amount > 0
         else {
-            bitcoinSendPreview = nil
+            sendPreviewStore.bitcoinSendPreview = nil
             return
         }
         guard storedSeedPhrase(for: wallet.id) != nil else {
-            bitcoinSendPreview = nil
+            sendPreviewStore.bitcoinSendPreview = nil
             return
         }
         do {
             if let xpub = wallet.bitcoinXpub?.trimmingCharacters(in: .whitespacesAndNewlines), !xpub.isEmpty {
-                bitcoinSendPreview = try await WalletServiceBridge.shared.fetchBitcoinHdSendPreviewTyped(xpub: xpub)
+                sendPreviewStore.bitcoinSendPreview = try await WalletServiceBridge.shared.fetchBitcoinHdSendPreviewTyped(xpub: xpub)
             } else if let address = resolvedBitcoinAddress(for: wallet) {
-                bitcoinSendPreview = try await decodedUTXOFeePreview(
+                sendPreviewStore.bitcoinSendPreview = try await decodedUTXOFeePreview(
                     chainId: SpectraChainID.bitcoin, address: address, satPerCoin: 100_000_000
                 )
             } else {
-                bitcoinSendPreview = nil
+                sendPreviewStore.bitcoinSendPreview = nil
             }
             sendError = nil
         } catch {
             if isCancelledRequest(error) { return }
-            bitcoinSendPreview = nil
+            sendPreviewStore.bitcoinSendPreview = nil
             sendError = "Unable to estimate BTC fee right now. Check provider health and retry."
         }
     }
@@ -224,28 +218,56 @@ extension AppState {
     func refreshBitcoinCashSendPreview() async {
         await refreshUTXOSatChainPreview(
             chainName: "Bitcoin Cash", symbol: "BCH", chainId: SpectraChainID.bitcoinCash,
-            resolveAddress: { self.resolvedBitcoinCashAddress(for: $0) }, setPreview: { self.bitcoinCashSendPreview = $0 })
+            resolveAddress: { self.resolvedBitcoinCashAddress(for: $0) }, setPreview: { self.sendPreviewStore.bitcoinCashSendPreview = $0 })
     }
     func refreshBitcoinSVSendPreview() async {
         await refreshUTXOSatChainPreview(
             chainName: "Bitcoin SV", symbol: "BSV", chainId: SpectraChainID.bitcoinSv,
-            resolveAddress: { self.resolvedBitcoinSVAddress(for: $0) }, setPreview: { self.bitcoinSVSendPreview = $0 })
+            resolveAddress: { self.resolvedBitcoinSVAddress(for: $0) }, setPreview: { self.sendPreviewStore.bitcoinSVSendPreview = $0 })
     }
     func refreshLitecoinSendPreview() async {
-        await refreshUTXOSatChainPreview(
-            chainName: "Litecoin", symbol: "LTC", chainId: SpectraChainID.litecoin,
-            resolveAddress: { self.resolvedLitecoinAddress(for: $0) }, setPreview: { self.litecoinSendPreview = $0 })
+        guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin,
+            selectedSendCoin.chainName == "Litecoin", selectedSendCoin.symbol == "LTC",
+            let amount = Double(sendAmount), amount > 0
+        else { sendPreviewStore.litecoinSendPreview = nil; return }
+        guard storedSeedPhrase(for: wallet.id) != nil, let sourceAddress = resolvedLitecoinAddress(for: wallet)
+        else { sendPreviewStore.litecoinSendPreview = nil; return }
+        let isMweb = sendAddress.hasPrefix("ltcmweb1") || sendAddress.hasPrefix("tmweb1")
+        do {
+            var preview = try await decodedUTXOFeePreview(chainId: SpectraChainID.litecoin, address: sourceAddress, satPerCoin: 100_000_000)
+            if isMweb {
+                let mwebOverhead: Int64 = 1017
+                let adjustedBytes = (preview.estimatedTransactionBytes ?? 0) + mwebOverhead
+                let additionalFeeBtc = Double(mwebOverhead) * Double(preview.estimatedFeeRateSatVb) / 100_000_000.0
+                preview = BitcoinSendPreview(
+                    estimatedFeeRateSatVb: preview.estimatedFeeRateSatVb,
+                    estimatedNetworkFeeBtc: preview.estimatedNetworkFeeBtc + additionalFeeBtc,
+                    feeRateDescription: preview.feeRateDescription,
+                    spendableBalance: preview.spendableBalance,
+                    estimatedTransactionBytes: adjustedBytes,
+                    selectedInputCount: preview.selectedInputCount,
+                    usesChangeOutput: preview.usesChangeOutput,
+                    maxSendable: preview.maxSendable.map { max(0, $0 - additionalFeeBtc) }
+                )
+            }
+            sendPreviewStore.litecoinSendPreview = preview
+            sendError = nil
+        } catch {
+            if isCancelledRequest(error) { return }
+            sendPreviewStore.litecoinSendPreview = nil
+            sendError = "Unable to estimate LTC fee right now. Check provider health and retry."
+        }
     }
     func refreshTronSendPreview() async {
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, selectedSendCoin.chainName == "Tron",
             (selectedSendCoin.symbol == "TRX" || selectedSendCoin.symbol == "USDT"), let amount = Double(sendAmount), amount > 0
         else {
-            tronSendPreview = nil
+            sendPreviewStore.tronSendPreview = nil
             preparingChains.remove("Tron")
             return
         }
         guard let sourceAddress = resolvedTronAddress(for: wallet) else {
-            tronSendPreview = nil
+            sendPreviewStore.tronSendPreview = nil
             preparingChains.remove("Tron")
             return
         }
@@ -253,13 +275,13 @@ extension AppState {
         preparingChains.insert("Tron")
         defer { preparingChains.remove("Tron") }
         do {
-            tronSendPreview = try await WalletServiceBridge.shared.fetchTronSendPreviewTyped(
+            sendPreviewStore.tronSendPreview = try await WalletServiceBridge.shared.fetchTronSendPreviewTyped(
                 address: sourceAddress, symbol: selectedSendCoin.symbol, contractAddress: selectedSendCoin.contractAddress ?? ""
             )
             sendError = nil
         } catch {
             if isCancelledRequest(error) { return }
-            tronSendPreview = nil
+            sendPreviewStore.tronSendPreview = nil
             sendError = "Unable to estimate Tron fee right now. Check provider health and retry."
         }
     }
@@ -302,7 +324,7 @@ extension AppState {
                 coinCheck: { s, c in s.isSupportedSolanaSendCoin(c) },
                 resolveAddress: { s, w in s.resolvedSolanaAddress(for: w) },
                 chainName: "Solana",
-                applyPreview: { s, p in if case .solana(let pv)? = p { s.solanaSendPreview = pv } else { s.solanaSendPreview = nil } },
+                applyPreview: { s, p in if case .solana(let pv)? = p { s.sendPreviewStore.solanaSendPreview = pv } else { s.sendPreviewStore.solanaSendPreview = nil } },
                 errorMessage: "Unable to estimate Solana fee right now. Check provider health and retry."))
     }
     func refreshXrpSendPreview() async {
@@ -312,7 +334,7 @@ extension AppState {
                 coinCheck: { _, c in c.chainName == "XRP Ledger" && c.symbol == "XRP" },
                 resolveAddress: { s, w in s.resolvedXRPAddress(for: w) },
                 chainName: "XRP Ledger",
-                applyPreview: { s, p in if case .xrp(let pv)? = p { s.xrpSendPreview = pv } else { s.xrpSendPreview = nil } },
+                applyPreview: { s, p in if case .xrp(let pv)? = p { s.sendPreviewStore.xrpSendPreview = pv } else { s.sendPreviewStore.xrpSendPreview = nil } },
                 errorMessage: "Unable to estimate XRP fee right now. Check provider health and retry."))
     }
     func refreshStellarSendPreview() async {
@@ -322,7 +344,7 @@ extension AppState {
                 coinCheck: { _, c in c.chainName == "Stellar" && c.symbol == "XLM" },
                 resolveAddress: { s, w in s.resolvedStellarAddress(for: w) },
                 chainName: "Stellar",
-                applyPreview: { s, p in if case .stellar(let pv)? = p { s.stellarSendPreview = pv } else { s.stellarSendPreview = nil } },
+                applyPreview: { s, p in if case .stellar(let pv)? = p { s.sendPreviewStore.stellarSendPreview = pv } else { s.sendPreviewStore.stellarSendPreview = nil } },
                 errorMessage: "Unable to estimate Stellar fee right now. Check provider health and retry."))
     }
     func refreshMoneroSendPreview() async {
@@ -332,7 +354,7 @@ extension AppState {
                 coinCheck: { _, c in c.chainName == "Monero" && c.symbol == "XMR" },
                 resolveAddress: { s, w in s.resolvedMoneroAddress(for: w) },
                 chainName: "Monero",
-                applyPreview: { s, p in if case .monero(let pv)? = p { s.moneroSendPreview = pv } else { s.moneroSendPreview = nil } },
+                applyPreview: { s, p in if case .monero(let pv)? = p { s.sendPreviewStore.moneroSendPreview = pv } else { s.sendPreviewStore.moneroSendPreview = nil } },
                 errorMessage: "Unable to estimate Monero fee right now. Check provider health and retry."))
     }
     func refreshCardanoSendPreview() async {
@@ -342,7 +364,7 @@ extension AppState {
                 coinCheck: { _, c in c.chainName == "Cardano" && c.symbol == "ADA" },
                 resolveAddress: { s, w in s.resolvedCardanoAddress(for: w) },
                 chainName: "Cardano",
-                applyPreview: { s, p in if case .cardano(let pv)? = p { s.cardanoSendPreview = pv } else { s.cardanoSendPreview = nil } },
+                applyPreview: { s, p in if case .cardano(let pv)? = p { s.sendPreviewStore.cardanoSendPreview = pv } else { s.sendPreviewStore.cardanoSendPreview = nil } },
                 errorMessage: "Unable to estimate Cardano fee right now. Check provider health and retry."))
     }
     func refreshSuiSendPreview() async {
@@ -352,7 +374,7 @@ extension AppState {
                 coinCheck: { _, c in c.chainName == "Sui" && c.symbol == "SUI" },
                 resolveAddress: { s, w in s.resolvedSuiAddress(for: w) },
                 chainName: "Sui",
-                applyPreview: { s, p in if case .sui(let pv)? = p { s.suiSendPreview = pv } else { s.suiSendPreview = nil } },
+                applyPreview: { s, p in if case .sui(let pv)? = p { s.sendPreviewStore.suiSendPreview = pv } else { s.sendPreviewStore.suiSendPreview = nil } },
                 errorMessage: "Unable to estimate Sui fee right now. Check provider health and retry."))
     }
     func refreshAptosSendPreview() async {
@@ -362,7 +384,7 @@ extension AppState {
                 coinCheck: { _, c in c.chainName == "Aptos" && c.symbol == "APT" },
                 resolveAddress: { s, w in s.resolvedAptosAddress(for: w) },
                 chainName: "Aptos",
-                applyPreview: { s, p in if case .aptos(let pv)? = p { s.aptosSendPreview = pv } else { s.aptosSendPreview = nil } },
+                applyPreview: { s, p in if case .aptos(let pv)? = p { s.sendPreviewStore.aptosSendPreview = pv } else { s.sendPreviewStore.aptosSendPreview = nil } },
                 errorMessage: "Unable to estimate Aptos fee right now. Check provider health and retry."))
     }
     func refreshTonSendPreview() async {
@@ -372,7 +394,7 @@ extension AppState {
                 coinCheck: { _, c in c.chainName == "TON" && c.symbol == "TON" },
                 resolveAddress: { s, w in s.resolvedTONAddress(for: w) },
                 chainName: "TON",
-                applyPreview: { s, p in if case .ton(let pv)? = p { s.tonSendPreview = pv } else { s.tonSendPreview = nil } },
+                applyPreview: { s, p in if case .ton(let pv)? = p { s.sendPreviewStore.tonSendPreview = pv } else { s.sendPreviewStore.tonSendPreview = nil } },
                 errorMessage: "Unable to estimate TON fee right now. Check provider health and retry."))
     }
     func refreshIcpSendPreview() async {
@@ -382,7 +404,7 @@ extension AppState {
                 coinCheck: { _, c in c.chainName == "Internet Computer" && c.symbol == "ICP" },
                 resolveAddress: { s, w in s.resolvedICPAddress(for: w) },
                 chainName: "Internet Computer",
-                applyPreview: { s, p in if case .icp(let pv)? = p { s.icpSendPreview = pv } else { s.icpSendPreview = nil } },
+                applyPreview: { s, p in if case .icp(let pv)? = p { s.sendPreviewStore.icpSendPreview = pv } else { s.sendPreviewStore.icpSendPreview = nil } },
                 errorMessage: "Unable to estimate ICP fee right now. Check provider health and retry."))
     }
     func refreshNearSendPreview() async {
@@ -392,7 +414,7 @@ extension AppState {
                 coinCheck: { _, c in c.chainName == "NEAR" && c.symbol == "NEAR" },
                 resolveAddress: { s, w in s.resolvedNearAddress(for: w) },
                 chainName: "NEAR",
-                applyPreview: { s, p in if case .near(let pv)? = p { s.nearSendPreview = pv } else { s.nearSendPreview = nil } },
+                applyPreview: { s, p in if case .near(let pv)? = p { s.sendPreviewStore.nearSendPreview = pv } else { s.sendPreviewStore.nearSendPreview = nil } },
                 errorMessage: "Unable to estimate NEAR fee right now. Check provider health and retry."))
     }
     func refreshPolkadotSendPreview() async {
@@ -402,7 +424,7 @@ extension AppState {
                 coinCheck: { _, c in c.chainName == "Polkadot" && c.symbol == "DOT" },
                 resolveAddress: { s, w in s.storedSeedPhrase(for: w.id) != nil ? s.resolvedPolkadotAddress(for: w) : nil },
                 chainName: "Polkadot",
-                applyPreview: { s, p in if case .polkadot(let pv)? = p { s.polkadotSendPreview = pv } else { s.polkadotSendPreview = nil }
+                applyPreview: { s, p in if case .polkadot(let pv)? = p { s.sendPreviewStore.polkadotSendPreview = pv } else { s.sendPreviewStore.polkadotSendPreview = nil }
                 },
                 errorMessage: "Unable to estimate Polkadot fee right now. Check provider health and retry."))
     }

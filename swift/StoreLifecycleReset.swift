@@ -112,6 +112,22 @@ extension AppState {
         }
         startNetworkPathMonitorIfNeeded()
         resetLargeMovementAlertBaseline()
+        // Restore Tor preferences. Booleans default to false in UserDefaults, so
+        // we only overwrite if a key was explicitly stored. `torEnabled` defaults
+        // to true on first install — the guard prevents silently forcing it off.
+        if UserDefaults.standard.object(forKey: Self.torEnabledDefaultsKey) != nil {
+            torEnabled = UserDefaults.standard.bool(forKey: Self.torEnabledDefaultsKey)
+        }
+        if UserDefaults.standard.object(forKey: Self.torUseCustomProxyDefaultsKey) != nil {
+            torUseCustomProxy = UserDefaults.standard.bool(forKey: Self.torUseCustomProxyDefaultsKey)
+        }
+        if let addr = UserDefaults.standard.string(forKey: Self.torCustomProxyAddressDefaultsKey), !addr.isEmpty {
+            torCustomProxyAddress = addr
+        }
+        if UserDefaults.standard.object(forKey: Self.torKillSwitchDefaultsKey) != nil {
+            torKillSwitch = UserDefaults.standard.bool(forKey: Self.torKillSwitchDefaultsKey)
+        }
+        startTorIfEnabled()
     }
     private func restoreBoolPreference(_ key: String, _ path: ReferenceWritableKeyPath<AppUserPreferences, Bool>) {
         guard UserDefaults.standard.object(forKey: key) != nil else { return }
@@ -187,19 +203,18 @@ extension AppState {
         ethereumManualNonce = ""
         isPreparingEthereumReplacementContext = false
         lastSentTransaction = nil
-        bitcoinSendPreview = nil
-        litecoinSendPreview = nil
-        ethereumSendPreview = nil
-        bitcoinCashSendPreview = nil
-        dogecoinSendPreview = nil
-        tronSendPreview = nil
-        solanaSendPreview = nil
-        xrpSendPreview = nil
-        moneroSendPreview = nil
+        sendPreviewStore.bitcoinSendPreview = nil
+        sendPreviewStore.litecoinSendPreview = nil
+        sendPreviewStore.ethereumSendPreview = nil
+        sendPreviewStore.bitcoinCashSendPreview = nil
+        sendPreviewStore.dogecoinSendPreview = nil
+        sendPreviewStore.tronSendPreview = nil
+        sendPreviewStore.solanaSendPreview = nil
+        sendPreviewStore.xrpSendPreview = nil
+        sendPreviewStore.moneroSendPreview = nil
         sendingChains = []
         preparingChains = []
-        pendingEthereumSendPreviewRefresh = false
-        pendingDogecoinSendPreviewRefresh = false
+        pendingSendPreviewRefreshChains = []
         pendingSelfSendConfirmation = nil
         activeEthereumSendWalletIDs = []
         lastSendDestinationProbeKey = nil
@@ -406,6 +421,10 @@ extension AppState {
         UserDefaults.standard.removeObject(forKey: Self.backgroundSyncProfileDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.largeMovementAlertPercentThresholdDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.largeMovementAlertUSDThresholdDefaultsKey)
+        UserDefaults.standard.removeObject(forKey: Self.torEnabledDefaultsKey)
+        UserDefaults.standard.removeObject(forKey: Self.torUseCustomProxyDefaultsKey)
+        UserDefaults.standard.removeObject(forKey: Self.torCustomProxyAddressDefaultsKey)
+        UserDefaults.standard.removeObject(forKey: Self.torKillSwitchDefaultsKey)
         tokenPreferences = ChainTokenRegistryEntry.builtIn.map(\.tokenPreferenceEntry)
         livePrices = [:]
         quoteRefreshError = nil

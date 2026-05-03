@@ -20,6 +20,7 @@ struct SettingsView: View {
         case chainWiki
         case advanced
         case donate
+        case tor
     }
     var body: some View {
         @Bindable var preferences = store.preferences
@@ -67,6 +68,19 @@ struct SettingsView: View {
                     Toggle(isOn: $preferences.useAutoLock) {
                         Label(AppLocalization.string("Auto Lock"), systemImage: "lock")
                     }.disabled(!preferences.useFaceID)
+                }
+                Section(AppLocalization.string("Tor")) {
+                    NavigationLink(value: Route.tor) {
+                        Label {
+                            HStack {
+                                Text(AppLocalization.string("Tor Network"))
+                                Spacer()
+                                TorStatusBadge(status: store.torStatus).padding(.trailing, 4)
+                            }
+                        } icon: {
+                            Image(systemName: "network.badge.shield.half.filled")
+                        }
+                    }
                 }
                 Section(AppLocalization.string("Data & Connectivity")) {
                     NavigationLink(value: Route.pricing) {
@@ -135,6 +149,7 @@ struct SettingsView: View {
                 case .chainWiki: ChainWikiLibraryView()
                 case .donate: DonationsView()
                 case .advanced: AdvancedSettingsView(store: store)
+                case .tor: TorSettingsView(store: store)
                 }
             }.sheet(isPresented: $isShowingResetWalletWarning) {
                 ResetWalletWarningView(store: store)

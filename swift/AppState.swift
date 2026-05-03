@@ -292,78 +292,6 @@ final class AppState {
     // do not invalidate every view that observes AppState. Views that need the
     // preview values should observe `sendPreviewStore` directly.
     let sendPreviewStore = SendPreviewStore()
-    var ethereumSendPreview: EthereumSendPreview? {
-        get { sendPreviewStore.ethereumSendPreview }
-        set { sendPreviewStore.ethereumSendPreview = newValue }
-    }
-    var bitcoinSendPreview: BitcoinSendPreview? {
-        get { sendPreviewStore.bitcoinSendPreview }
-        set { sendPreviewStore.bitcoinSendPreview = newValue }
-    }
-    var bitcoinCashSendPreview: BitcoinSendPreview? {
-        get { sendPreviewStore.bitcoinCashSendPreview }
-        set { sendPreviewStore.bitcoinCashSendPreview = newValue }
-    }
-    var bitcoinSVSendPreview: BitcoinSendPreview? {
-        get { sendPreviewStore.bitcoinSVSendPreview }
-        set { sendPreviewStore.bitcoinSVSendPreview = newValue }
-    }
-    var litecoinSendPreview: BitcoinSendPreview? {
-        get { sendPreviewStore.litecoinSendPreview }
-        set { sendPreviewStore.litecoinSendPreview = newValue }
-    }
-    var dogecoinSendPreview: DogecoinSendPreview? {
-        get { sendPreviewStore.dogecoinSendPreview }
-        set { sendPreviewStore.dogecoinSendPreview = newValue }
-    }
-    var tronSendPreview: TronSendPreview? {
-        get { sendPreviewStore.tronSendPreview }
-        set { sendPreviewStore.tronSendPreview = newValue }
-    }
-    var solanaSendPreview: SolanaSendPreview? {
-        get { sendPreviewStore.solanaSendPreview }
-        set { sendPreviewStore.solanaSendPreview = newValue }
-    }
-    var xrpSendPreview: XrpSendPreview? {
-        get { sendPreviewStore.xrpSendPreview }
-        set { sendPreviewStore.xrpSendPreview = newValue }
-    }
-    var stellarSendPreview: StellarSendPreview? {
-        get { sendPreviewStore.stellarSendPreview }
-        set { sendPreviewStore.stellarSendPreview = newValue }
-    }
-    var moneroSendPreview: MoneroSendPreview? {
-        get { sendPreviewStore.moneroSendPreview }
-        set { sendPreviewStore.moneroSendPreview = newValue }
-    }
-    var cardanoSendPreview: CardanoSendPreview? {
-        get { sendPreviewStore.cardanoSendPreview }
-        set { sendPreviewStore.cardanoSendPreview = newValue }
-    }
-    var suiSendPreview: SuiSendPreview? {
-        get { sendPreviewStore.suiSendPreview }
-        set { sendPreviewStore.suiSendPreview = newValue }
-    }
-    var aptosSendPreview: AptosSendPreview? {
-        get { sendPreviewStore.aptosSendPreview }
-        set { sendPreviewStore.aptosSendPreview = newValue }
-    }
-    var tonSendPreview: TonSendPreview? {
-        get { sendPreviewStore.tonSendPreview }
-        set { sendPreviewStore.tonSendPreview = newValue }
-    }
-    var icpSendPreview: IcpSendPreview? {
-        get { sendPreviewStore.icpSendPreview }
-        set { sendPreviewStore.icpSendPreview = newValue }
-    }
-    var nearSendPreview: NearSendPreview? {
-        get { sendPreviewStore.nearSendPreview }
-        set { sendPreviewStore.nearSendPreview = newValue }
-    }
-    var polkadotSendPreview: PolkadotSendPreview? {
-        get { sendPreviewStore.polkadotSendPreview }
-        set { sendPreviewStore.polkadotSendPreview = newValue }
-    }
     /// Chains currently broadcasting a send transaction. Observed by send UI to show loading state.
     var sendingChains: Set<String> = []
     var tronLastSendErrorDetails: String? = nil
@@ -603,8 +531,7 @@ final class AppState {
             for chainName in changedChains { persistOwnedAddressesForChain(chainName) }
         }
     }
-    @ObservationIgnored var pendingEthereumSendPreviewRefresh: Bool = false
-    @ObservationIgnored var pendingDogecoinSendPreviewRefresh: Bool = false
+    @ObservationIgnored var pendingSendPreviewRefreshChains: Set<String> = []
     var discoveredUTXOAddressesByChain: [String: [String: [String]]] = [:]
     var isLoadingMoreOnChainHistory: Bool = false
     let diagnostics = WalletDiagnosticsState()
@@ -619,16 +546,48 @@ final class AppState {
             persistSelectedFeePriorityOptions()
         }
     }
-    var isRunningBitcoinRescan: Bool = false
-    var bitcoinRescanLastRunAt: Date? = nil
-    var isRunningBitcoinCashRescan: Bool = false
-    var bitcoinCashRescanLastRunAt: Date? = nil
-    var isRunningBitcoinSVRescan: Bool = false
-    var bitcoinSVRescanLastRunAt: Date? = nil
-    var isRunningLitecoinRescan: Bool = false
-    var litecoinRescanLastRunAt: Date? = nil
-    var isRunningDogecoinRescan: Bool = false
-    var dogecoinRescanLastRunAt: Date? = nil
+    private struct UTXORescanState { var isRunning: Bool = false; var lastRunAt: Date? = nil }
+    private var utxoRescanStateByChain: [String: UTXORescanState] = [:]
+    var isRunningBitcoinRescan: Bool {
+        get { utxoRescanStateByChain["Bitcoin"]?.isRunning ?? false }
+        set { utxoRescanStateByChain["Bitcoin", default: UTXORescanState()].isRunning = newValue }
+    }
+    var bitcoinRescanLastRunAt: Date? {
+        get { utxoRescanStateByChain["Bitcoin"]?.lastRunAt }
+        set { utxoRescanStateByChain["Bitcoin", default: UTXORescanState()].lastRunAt = newValue }
+    }
+    var isRunningBitcoinCashRescan: Bool {
+        get { utxoRescanStateByChain["Bitcoin Cash"]?.isRunning ?? false }
+        set { utxoRescanStateByChain["Bitcoin Cash", default: UTXORescanState()].isRunning = newValue }
+    }
+    var bitcoinCashRescanLastRunAt: Date? {
+        get { utxoRescanStateByChain["Bitcoin Cash"]?.lastRunAt }
+        set { utxoRescanStateByChain["Bitcoin Cash", default: UTXORescanState()].lastRunAt = newValue }
+    }
+    var isRunningBitcoinSVRescan: Bool {
+        get { utxoRescanStateByChain["Bitcoin SV"]?.isRunning ?? false }
+        set { utxoRescanStateByChain["Bitcoin SV", default: UTXORescanState()].isRunning = newValue }
+    }
+    var bitcoinSVRescanLastRunAt: Date? {
+        get { utxoRescanStateByChain["Bitcoin SV"]?.lastRunAt }
+        set { utxoRescanStateByChain["Bitcoin SV", default: UTXORescanState()].lastRunAt = newValue }
+    }
+    var isRunningLitecoinRescan: Bool {
+        get { utxoRescanStateByChain["Litecoin"]?.isRunning ?? false }
+        set { utxoRescanStateByChain["Litecoin", default: UTXORescanState()].isRunning = newValue }
+    }
+    var litecoinRescanLastRunAt: Date? {
+        get { utxoRescanStateByChain["Litecoin"]?.lastRunAt }
+        set { utxoRescanStateByChain["Litecoin", default: UTXORescanState()].lastRunAt = newValue }
+    }
+    var isRunningDogecoinRescan: Bool {
+        get { utxoRescanStateByChain["Dogecoin"]?.isRunning ?? false }
+        set { utxoRescanStateByChain["Dogecoin", default: UTXORescanState()].isRunning = newValue }
+    }
+    var dogecoinRescanLastRunAt: Date? {
+        get { utxoRescanStateByChain["Dogecoin"]?.lastRunAt }
+        set { utxoRescanStateByChain["Dogecoin", default: UTXORescanState()].lastRunAt = newValue }
+    }
     @ObservationIgnored var suppressWalletSideEffects = false
     @ObservationIgnored var userInitiatedRefreshTask: Task<Void, Never>?
     @ObservationIgnored var importRefreshTask: Task<Void, Never>?
@@ -638,6 +597,43 @@ final class AppState {
     @ObservationIgnored var maintenanceTask: Task<Void, Never>?
     @ObservationIgnored var lastObservedPortfolioTotalUSD: Double?
     @ObservationIgnored var lastObservedPortfolioCompositionSignature: String?
+
+    // ── Tor routing ───────────────────────────────────────────────────────
+    /// Live Tor bootstrap/connection state polled from Rust. Drives the
+    /// dashboard indicator and the settings status row.
+    var torStatus: TorStatus = .stopped
+    /// Whether Tor is turned on. Persisted via UserDefaults; default true.
+    var torEnabled: Bool = true {
+        didSet {
+            guard torEnabled != oldValue else { return }
+            UserDefaults.standard.set(torEnabled, forKey: Self.torEnabledDefaultsKey)
+            handleTorEnabledChange()
+        }
+    }
+    /// Route through a user-supplied SOCKS5 address instead of embedded Arti.
+    var torUseCustomProxy: Bool = false {
+        didSet {
+            guard torUseCustomProxy != oldValue else { return }
+            UserDefaults.standard.set(torUseCustomProxy, forKey: Self.torUseCustomProxyDefaultsKey)
+            handleTorEnabledChange()
+        }
+    }
+    /// SOCKS5 URL for the custom proxy mode. Defaults to Orbot's port.
+    var torCustomProxyAddress: String = "socks5://127.0.0.1:9150" {
+        didSet {
+            guard torCustomProxyAddress != oldValue else { return }
+            UserDefaults.standard.set(torCustomProxyAddress, forKey: Self.torCustomProxyAddressDefaultsKey)
+        }
+    }
+    /// Kill switch: block all outbound requests when Tor is not ready.
+    var torKillSwitch: Bool = false {
+        didSet {
+            guard torKillSwitch != oldValue else { return }
+            UserDefaults.standard.set(torKillSwitch, forKey: Self.torKillSwitchDefaultsKey)
+        }
+    }
+    /// Background task that polls `torStatus()` from Rust every second.
+    @ObservationIgnored var torStatusPollingTask: Task<Void, Never>?
     #if canImport(Network)
         let networkPathMonitor = NWPathMonitor()
         let networkPathMonitorQueue = DispatchQueue(label: "spectra.network.monitor")
@@ -688,6 +684,11 @@ final class AppState {
     static let largeMovementAlertPercentThresholdDefaultsKey = "settings.largeMovementAlertPercentThreshold"
     static let largeMovementAlertUSDThresholdDefaultsKey = "settings.largeMovementAlertUSDThreshold"
     static let selectedFeePriorityOptionsByChainDefaultsKey = "settings.feePriorityOptionsByChain.v1"
+
+    static let torEnabledDefaultsKey = "tor.enabled"
+    static let torUseCustomProxyDefaultsKey = "tor.useCustomProxy"
+    static let torCustomProxyAddressDefaultsKey = "tor.customProxyAddress"
+    static let torKillSwitchDefaultsKey = "tor.killSwitch"
 
     static let chainOperationalEventsDefaultsKey = "chain.operational.events.v1"
     static let operationalLogsDefaultsKey = "operational.logs.v1"

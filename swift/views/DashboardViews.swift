@@ -40,6 +40,9 @@ struct DashboardView: View {
                         noticeToolbarLabel
                     }
                 }
+                ToolbarItem(placement: .topBarLeading) {
+                    torToolbarIndicator
+                }
                 ToolbarItem(placement: .topBarTrailing) {
                     dashboardSectionMenu
                 }
@@ -101,6 +104,49 @@ struct DashboardView: View {
                 ? AppLocalization.string("No active notices")
                 : AppLocalization.format("%lld active notices", count)
         )
+    }
+    private var torToolbarIndicator: some View {
+        let status = store.torStatus
+        let isOn: Bool
+        let color: Color
+        let icon: String
+        switch status {
+        case .ready:
+            isOn = true; color = .green; icon = "network.badge.shield.half.filled"
+        case .bootstrapping:
+            isOn = true; color = .orange; icon = "network.badge.shield.half.filled"
+        case .error:
+            isOn = false; color = .red; icon = "network.slash"
+        case .stopped:
+            isOn = false; color = Color(.systemGray3); icon = "network"
+        }
+        return ZStack(alignment: .bottomTrailing) {
+            Image(systemName: icon)
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(color)
+                .frame(width: 24, height: 24)
+            if case .bootstrapping(let pct) = status {
+                Text("\(pct)%")
+                    .font(.system(size: 7, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 3)
+                    .padding(.vertical, 1)
+                    .background(Capsule().fill(Color.orange))
+                    .offset(x: 6, y: 4)
+            } else if case .error = status {
+                Circle().fill(color).frame(width: 7, height: 7).offset(x: 3, y: 3)
+            }
+        }
+        .frame(width: 30, height: 28, alignment: .center)
+        .accessibilityLabel(torAccessibilityLabel(status))
+    }
+    private func torAccessibilityLabel(_ status: TorStatus) -> String {
+        switch status {
+        case .stopped:          return "Tor off"
+        case .bootstrapping(let p): return "Tor connecting, \(p)%"
+        case .ready:            return "Tor on"
+        case .error:            return "Tor error"
+        }
     }
     private var actionButtons: some View {
         DashboardActionButtons(store: store)
@@ -383,11 +429,6 @@ private struct AssetSummaryStatsCard: View {
                 label: AppLocalization.string("Total Value"),
                 value: store.formattedFiatAmountOrZero(fromUSD: assetGroup.totalValueUSD),
                 icon: "dollarsign.circle.fill")
-            Divider().opacity(0.4)
-            statRow(
-                label: AppLocalization.string("Chains"),
-                value: "\(assetGroup.chainEntries.count)",
-                icon: "link.circle.fill")
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
     }

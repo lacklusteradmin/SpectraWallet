@@ -135,6 +135,17 @@ struct SendPrimarySectionsView: View {
                     }.buttonStyle(.glass).accessibilityLabel(AppLocalization.string("Scan QR Code"))
                 }
                 if let qrScannerErrorMessage { Text(qrScannerErrorMessage).font(.caption).foregroundStyle(.orange) }
+                if presentation.selectedCoin?.chainName == "Litecoin",
+                   store.sendAddress.hasPrefix("ltcmweb1") || store.sendAddress.hasPrefix("tmweb1") {
+                    HStack(spacing: 6) {
+                        Image(systemName: "lock.shield.fill").font(.caption2.weight(.semibold))
+                        Text("MWEB · Privacy Send").font(.caption.weight(.semibold))
+                    }
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(LinearGradient(colors: [Color.indigo, Color.purple], startPoint: .leading, endPoint: .trailing).opacity(0.9))
+                    .clipShape(.capsule)
+                }
                 if store.isCheckingSendDestinationBalance {
                     HStack(spacing: 8) {
                         ProgressView()
