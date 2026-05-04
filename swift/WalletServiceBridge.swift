@@ -1,4 +1,5 @@
 import Foundation
+import os
 enum SpectraChainID: Sendable {
     static let bitcoin:          UInt32 = 0
     static let ethereum:         UInt32 = 1
@@ -176,7 +177,9 @@ extension WalletServiceBridge {
         try await service().fetchErc20BalanceTyped(chainId: chainId, contract: contract, holder: holder)
     }
     func loadState(key: String) async throws -> String { try await service().loadState(dbPath: sqliteDbPath(), key: key) }
-    func saveState(key: String, stateJSON: String) async throws { try await service().saveState(dbPath: sqliteDbPath(), key: key, stateJson: stateJSON) }
+    func saveState(key: String, stateJSON: String) async throws {
+        try await service().saveState(dbPath: sqliteDbPath(), key: key, stateJson: stateJSON)
+    }
     /// Typed price-alert store load — returns nil if no value or decode fails.
     /// Replaces the loadState→decodePersistedPriceAlertStoreJson roundtrip.
     func loadPriceAlertStore(key: String) async throws -> CorePersistedPriceAlertStore? {

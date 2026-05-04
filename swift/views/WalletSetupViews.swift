@@ -528,6 +528,7 @@ struct SetupView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             } else {
                 TextField("", text: seedPhraseBinding(for: index)).textInputAutocapitalization(.never).autocorrectionDisabled()
+                    .keyboardType(.asciiCapable)
                     .font(.footnote.weight(.medium)).foregroundStyle(isInvalidWord ? .red.opacity(0.95) : validEntryColor).focused(
                         $focusedSeedPhraseIndex, equals: index
                     ).frame(maxWidth: .infinity, alignment: .leading)

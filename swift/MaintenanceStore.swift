@@ -209,6 +209,6 @@ struct WalletRefreshPlanner {
                     uniqueKeysWithValues: lastHistoryRefreshAtByChainID.map { ($0.key.rawValue, $0.value.timeIntervalSince1970) })
             )
         )
-        return ids.compactMap(WalletChainID.init)
+        return ids.compactMap { WalletChainID($0) }
     }
 }

@@ -31,10 +31,6 @@ struct ContentView: View {
     @State private var store: AppState
     @Environment(\.scenePhase) private var scenePhase
     @MainActor
-    init() {
-        _store = State(wrappedValue: AppState())
-    }
-    @MainActor
     init(store: AppState) {
         _store = State(wrappedValue: store)
     }
@@ -83,13 +79,14 @@ struct ContentView: View {
     }
 }
 #Preview {
-    ContentView()
+    ContentView(store: AppState())
 }
 @main
 struct SpectraApp: App {
+    @State private var store = AppState()
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            ContentView(store: store)
         }
     }
 }

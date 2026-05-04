@@ -114,6 +114,7 @@ final class AppState {
     @ObservationIgnored private let priceAlertsPersist = DebouncedAction(intervalMilliseconds: 100)
     @ObservationIgnored private let addressBookPersist = DebouncedAction(intervalMilliseconds: 100)
     @ObservationIgnored private let livePricesPersist = DebouncedAction(intervalMilliseconds: 200)
+    @ObservationIgnored private let tokenPreferencesPersist = DebouncedAction(intervalMilliseconds: 50)
     @ObservationIgnored private let tokenPreferenceRebuild = DebouncedAction(intervalMilliseconds: 30)
     @ObservationIgnored private let transactionRebuild = DebouncedAction(intervalMilliseconds: 30)
     var transactions: [TransactionRecord] = [] {
@@ -376,7 +377,8 @@ final class AppState {
     }
     var tokenPreferences: [TokenPreferenceEntry] = [] {
         didSet {
-            persistTokenPreferences()
+            guard tokenPreferences != oldValue else { return }
+            tokenPreferencesPersist.fire { [weak self] in self?.persistTokenPreferences() }
             // Token-decimals overrides feed into the Rust asset-decimals
             // resolver, so drop the memoized cache when the overrides change.
             cachedAssetDecimalsResolutions = [:]
@@ -937,6 +939,7 @@ final class AppState {
         walletSideEffectsDebounce.cancel()
         transactionRebuild.cancel()
         tokenPreferenceRebuild.cancel()
+        tokenPreferencesPersist.cancel()
         livePricesPersist.cancel()
         priceAlertsPersist.cancel()
         addressBookPersist.cancel()

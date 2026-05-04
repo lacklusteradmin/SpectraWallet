@@ -321,15 +321,15 @@ extension AppState {
         let oldIDs = Set(oldRecords.map(\.id))
         let newIDs = Set(newRecords.map(\.id))
         let deletedIDs = oldIDs.subtracting(newIDs).map { $0.uuidString.lowercased() }
-        let upsertSnapshots = newRecords.map(\.persistedSnapshot)
+        let addedSnapshots = newRecords.filter { !oldIDs.contains($0.id) }.map(\.persistedSnapshot)
         if !deletedIDs.isEmpty {
             Task.detached(priority: .utility) {
                 try? await WalletServiceBridge.shared.deleteHistoryRecords(ids: deletedIDs)
             }
         }
-        if !upsertSnapshots.isEmpty {
+        if !addedSnapshots.isEmpty {
             Task.detached(priority: .utility) {
-                try? await WalletServiceBridge.shared.upsertHistoryRecords(historyRecordsTyped(upsertSnapshots))
+                try? await WalletServiceBridge.shared.upsertHistoryRecords(historyRecordsTyped(addedSnapshots))
             }
         }
     }

@@ -641,7 +641,7 @@ struct TransactionRecord: Identifiable, Equatable, Sendable {
     let failureReason: String?
     let transactionHistorySource: String?
     let createdAt: Date
-    init(
+    nonisolated init(
         id: UUID = UUID(), walletID: String? = nil, kind: TransactionKind, status: TransactionStatus, walletName: String, assetName: String,
         symbol: String, chainName: String, amount: Double, address: String, transactionHash: String? = nil, ethereumNonce: Int? = nil,
         receiptBlockNumber: Int? = nil, receiptGasUsed: String? = nil, receiptEffectiveGasPriceGwei: Double? = nil,
