@@ -851,9 +851,10 @@ final class AppState {
             transactionHash: lastSentTransaction?.chainName == chainName ? lastSentTransaction?.transactionHash : nil
         )
         let usePending = isEVMChain(chainName) || Self.utxoPostSendChains.contains(chainName)
+        let descriptor = WalletChainID(chainName).flatMap { Self.chainRefreshDescriptors[$0] }
         async let balanceRefresh: () = refreshBalances()
         async let chainRefresh: () = {
-            guard let id = WalletChainID(chainName), let descriptor = Self.chainRefreshDescriptors[id] else { return }
+            guard let descriptor else { return }
             if usePending { await descriptor.executePendingOnly?(self) } else { await descriptor.executeHistoryOnly?(self) }
         }()
         _ = await (balanceRefresh, chainRefresh)
@@ -917,10 +918,6 @@ final class AppState {
         startMaintenanceLoopIfNeeded()
         SpectraSecretStoreAdapter.registerWithBridge()
         setupRustRefreshEngine()
-        BundleImageLoader.setScreenScale(
-            UIApplication.shared.connectedScenes
-                .compactMap { ($0 as? UIWindowScene)?.screen.scale }.first ?? 2.0)
-        Task(priority: .utility) { await BundleImageLoader.warmRasterCache() }
         async let sqliteReload: () = reloadPersistedStateFromSQLite()
         async let fiatRefresh: () = refreshFiatExchangeRatesIfNeeded()
         _ = await (sqliteReload, fiatRefresh)

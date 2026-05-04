@@ -16,7 +16,7 @@ struct WalletChainRefreshDescriptor: Sendable {
         self.executeHistoryOnly = executeHistoryOnly
         self.executePendingOnly = executePendingOnly
     }
-    nonisolated static func evm(_ chainName: String) -> WalletChainRefreshDescriptor {
+    @MainActor static func evm(_ chainName: String) -> WalletChainRefreshDescriptor {
         WalletChainRefreshDescriptor(
             chainID: WalletChainID(chainName)!,
             executeRefresh: { store, refreshHistory in
@@ -28,7 +28,7 @@ struct WalletChainRefreshDescriptor: Sendable {
             executePendingOnly: { await $0.refreshPendingEVMTransactions(chainName: chainName) }
         )
     }
-    nonisolated static func standard(
+    @MainActor static func standard(
         _ chainName: String,
         history: @escaping @Sendable (AppState) async -> Void,
         pending: @escaping @Sendable (AppState) async -> Void
@@ -44,7 +44,7 @@ struct WalletChainRefreshDescriptor: Sendable {
             executePendingOnly: pending
         )
     }
-    nonisolated static func utxo(
+    @MainActor static func utxo(
         _ chainName: String,
         history: @escaping @Sendable (AppState) async -> Void,
         pending: @escaping @Sendable (AppState) async -> Void
@@ -64,7 +64,7 @@ struct WalletChainRefreshDescriptor: Sendable {
     }
 }
 extension WalletChainRefreshDescriptor {
-    static let all: OrderedDictionary<WalletChainID, WalletChainRefreshDescriptor> = {
+    @MainActor static let all: OrderedDictionary<WalletChainID, WalletChainRefreshDescriptor> = {
         let descriptors: [WalletChainRefreshDescriptor] = [
             .utxo("Bitcoin",
                 history: { await $0.refreshBitcoinTransactions(limit: 20, loadMore: false) },
@@ -125,7 +125,7 @@ extension WalletChainRefreshDescriptor {
     }()
 }
 extension AppState {
-    nonisolated static var chainRefreshDescriptors: OrderedDictionary<WalletChainID, WalletChainRefreshDescriptor> {
+    static var chainRefreshDescriptors: OrderedDictionary<WalletChainID, WalletChainRefreshDescriptor> {
         WalletChainRefreshDescriptor.all
     }
     var lastHistoryRefreshAtByChainID: [WalletChainID: Date] {

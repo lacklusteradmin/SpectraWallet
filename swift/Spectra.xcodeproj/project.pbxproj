@@ -8,13 +8,13 @@
 
 /* Begin PBXBuildFile section */
 		9059229D2F5D2C49003ACDA5 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = 9059229C2F5D2C49003ACDA5 /* KeychainAccess */; };
+		90A5CA760000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 90A5CA750000000000000001 /* Assets.xcassets */; };
 		90CC0EE12FA6EC91000FD44B /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 90CC0EE02FA6EC91000FD44B /* DequeModule */; };
 		90CC0EE32FA6EC91000FD44B /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 90CC0EE22FA6EC91000FD44B /* OrderedCollections */; };
 		90F002000000000000000001 /* AppState+AddressResolution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000001 /* AppState+AddressResolution.swift */; };
 		90F002000000000000000002 /* AppState+BalanceRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000002 /* AppState+BalanceRefresh.swift */; };
 		90F002000000000000000003 /* AppState+CoreStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000003 /* AppState+CoreStateStore.swift */; };
 		90F002000000000000000004 /* AppState+DiagnosticsEndpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000004 /* AppState+DiagnosticsEndpoints.swift */; };
-		90F002000000000000000039 /* AppState+TorLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000039 /* AppState+TorLifecycle.swift */; };
 		90F002000000000000000005 /* AppState+ImportLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000005 /* AppState+ImportLifecycle.swift */; };
 		90F002000000000000000006 /* AppState+OperationalTelemetry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000006 /* AppState+OperationalTelemetry.swift */; };
 		90F002000000000000000007 /* AppState+PricingFiat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000007 /* AppState+PricingFiat.swift */; };
@@ -62,6 +62,7 @@
 		90F002000000000000000036 /* WalletRustDerivationBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000036 /* WalletRustDerivationBridge.swift */; };
 		90F002000000000000000037 /* WalletRustEndpointCatalogBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000037 /* WalletRustEndpointCatalogBridge.swift */; };
 		90F002000000000000000038 /* WalletServiceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000038 /* WalletServiceBridge.swift */; };
+		90F002000000000000000039 /* AppState+TorLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000039 /* AppState+TorLifecycle.swift */; };
 		90F00200000000000000003B /* SetupFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003B /* SetupFlow.swift */; };
 		90F00200000000000000003C /* ImportDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003C /* ImportDraft.swift */; };
 		90F00200000000000000003D /* ViewExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003D /* ViewExtensions.swift */; };
@@ -101,14 +102,13 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		9069DCDD2F889F960040B236 /* Spectra.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Spectra.xcodeproj; sourceTree = "<group>"; };
 		907491632F56D1E500D098D2 /* Spectra.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Spectra.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		90A5CA750000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		90AEE1792F5AFB43008CFE5E /* Spectra.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = Spectra.xctestplan; sourceTree = "<group>"; };
 		90F001000000000000000001 /* AppState+AddressResolution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+AddressResolution.swift"; sourceTree = "<group>"; };
 		90F001000000000000000002 /* AppState+BalanceRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+BalanceRefresh.swift"; sourceTree = "<group>"; };
 		90F001000000000000000003 /* AppState+CoreStateStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+CoreStateStore.swift"; sourceTree = "<group>"; };
 		90F001000000000000000004 /* AppState+DiagnosticsEndpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+DiagnosticsEndpoints.swift"; sourceTree = "<group>"; };
-		90F001000000000000000039 /* AppState+TorLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TorLifecycle.swift"; sourceTree = "<group>"; };
 		90F001000000000000000005 /* AppState+ImportLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+ImportLifecycle.swift"; sourceTree = "<group>"; };
 		90F001000000000000000006 /* AppState+OperationalTelemetry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+OperationalTelemetry.swift"; sourceTree = "<group>"; };
 		90F001000000000000000007 /* AppState+PricingFiat.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+PricingFiat.swift"; sourceTree = "<group>"; };
@@ -156,6 +156,7 @@
 		90F001000000000000000036 /* WalletRustDerivationBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRustDerivationBridge.swift; sourceTree = "<group>"; };
 		90F001000000000000000037 /* WalletRustEndpointCatalogBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRustEndpointCatalogBridge.swift; sourceTree = "<group>"; };
 		90F001000000000000000038 /* WalletServiceBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletServiceBridge.swift; sourceTree = "<group>"; };
+		90F001000000000000000039 /* AppState+TorLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TorLifecycle.swift"; sourceTree = "<group>"; };
 		90F00100000000000000003B /* SetupFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlow.swift; sourceTree = "<group>"; };
 		90F00100000000000000003C /* ImportDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportDraft.swift; sourceTree = "<group>"; };
 		90F00100000000000000003D /* ViewExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewExtensions.swift; sourceTree = "<group>"; };
@@ -239,14 +240,10 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		9069DCDF2F889F960040B236 /* Products */ = {
-			isa = PBXGroup;
-			name = Products;
-			sourceTree = "<group>";
-		};
 		9074915A2F56D1E500D098D2 = {
 			isa = PBXGroup;
 			children = (
+				90A5CA750000000000000001 /* Assets.xcassets */,
 				90AEE1792F5AFB43008CFE5E /* Spectra.xctestplan */,
 				90AA00202F60000200BBB001 /* generated */,
 				9074916C2F56D1E500D098D2 /* views */,
@@ -440,12 +437,6 @@
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 907491642F56D1E500D098D2 /* Products */;
 			projectDirPath = "";
-			projectReferences = (
-				{
-					ProductGroup = 9069DCDF2F889F960040B236 /* Products */;
-					ProjectRef = 9069DCDD2F889F960040B236 /* Spectra.xcodeproj */;
-				},
-			);
 			projectRoot = "";
 			targets = (
 				907491622F56D1E500D098D2 /* Spectra */,
@@ -460,6 +451,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				90A5CA760000000000000001 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -902,7 +894,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Extensions/SpectraLiveActivityExtension/Info.plist;
+				INFOPLIST_FILE = extensions/SpectraLiveActivityExtension/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -930,7 +922,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
-				INFOPLIST_FILE = Extensions/SpectraLiveActivityExtension/Info.plist;
+				INFOPLIST_FILE = extensions/SpectraLiveActivityExtension/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 26.2;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",

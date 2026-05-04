@@ -5,6 +5,8 @@ import SwiftUI
 #endif
 struct WalletChainID: Hashable, Codable, Identifiable, Comparable {
     let rawValue: String
+    nonisolated static func == (lhs: WalletChainID, rhs: WalletChainID) -> Bool { lhs.rawValue == rhs.rawValue }
+    nonisolated func hash(into hasher: inout Hasher) { hasher.combine(rawValue) }
     nonisolated var id: String { rawValue }
     nonisolated var displayName: String { Self.displayNameByID[rawValue] ?? rawValue }
     nonisolated init(rawValue: String) { self.rawValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }

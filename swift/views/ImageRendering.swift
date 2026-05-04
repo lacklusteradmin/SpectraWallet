@@ -1,287 +1,18 @@
 import Foundation
 import SwiftUI
 
-// MARK: ─ (merged from views/BundleImageLoader.swift)
-
 #if canImport(UIKit)
     import UIKit
 #endif
 
-// Loads chain/token images from the root `resources/icons/` folder via
-// Bundle.main — no xcassets dependency. The icons folder lands in the iOS
-// bundle via a PBXFileSystemSynchronizedRootGroup that references `../resources`.
-//
-// Lookup order in `image(named:)`:
-//   1. Cached UIImage (a previously-decoded PNG OR a previously-rendered SVG snapshot).
-//   2. Flat-bundle `<name>.svg` — rendered once via `SVGRenderer.render` (WKWebView
-//      snapshot, async). The cache miss returns nil; callers should pre-warm
-//      the cache via `warmRasterCache()` so this miss never happens at render time.
-//   3. Flat-bundle `<name>.png` — synchronous fallback for icons that haven't
-//      been migrated to SVG yet.
-//
-// Heating-defence layers (added after diagnosing CPU heat from the SVG path):
-//   - `warmRasterCache()` is gated to run **once per process lifetime** via an
-//     atomic flag. AppState recreation on lock/unlock no longer re-renders the
-//     whole icon set.
-//   - SVGs are rendered **serially with a small inter-render sleep**, not in
-//     parallel — each WKWebView snapshot spawns a separate WebContent process,
-//     and N parallel processes thrash CPU.
-//   - `resolveImage(named:)` dedupes by name: concurrent callers asking for the
-//     same icon share one WKWebView render task instead of each spinning up
-//     their own.
-enum BundleImageLoader {
-    #if canImport(UIKit)
-        private static let imageCache: NSCache<NSString, UIImage> = {
-            let cache = NSCache<NSString, UIImage>()
-            cache.countLimit = 300
-            cache.totalCostLimit = 64 * 1024 * 1024
-            return cache
-        }()
-        private final class CachedURL {
-            let url: URL?
-            init(_ url: URL?) { self.url = url }
-        }
-        private static let urlCache = NSCache<NSString, CachedURL>()
-        // Once-per-process gate so warm-up runs at most once per app launch
-        // even if AppState is reinitialized (lock/unlock, scene-phase reset).
-        nonisolated(unsafe) private static var didWarmCache = false
-        nonisolated(unsafe) private static var _screenScale: CGFloat = 2.0
-        @MainActor static func setScreenScale(_ scale: CGFloat) { _screenScale = scale }
-        private static let didWarmCacheLock = NSLock()
-        // In-flight render dedupe: many cells can ask for the same SVG before
-        // any of them has finished rendering. Sharing one Task per name turns
-        // the N-concurrent-WKWebView storm into a single render.
-        @MainActor private static var pendingRenders: [String: Task<UIImage?, Never>] = [:]
-    #endif
-
-    private static func pngURL(forImageNamed name: String) -> URL? {
-        #if canImport(UIKit)
-            let key = "png:\(name)" as NSString
-            if let cached = urlCache.object(forKey: key) { return cached.url }
-        #endif
-        let resolved = resolvedURL(forImageNamed: name, ext: "png")
-        #if canImport(UIKit)
-            urlCache.setObject(CachedURL(resolved), forKey: "png:\(name)" as NSString)
-        #endif
-        return resolved
-    }
-
-    /// SVG file URL for `name` if `<name>.svg` exists in the bundle. SVGs are
-    /// rendered to UIImage via `SVGRenderer.render(svgURL:size:)` and cached.
-    static func svgURL(forImageNamed name: String) -> URL? {
-        #if canImport(UIKit)
-            let key = "svg:\(name)" as NSString
-            if let cached = urlCache.object(forKey: key) { return cached.url }
-        #endif
-        let resolved = resolvedURL(forImageNamed: name, ext: "svg")
-        #if canImport(UIKit)
-            urlCache.setObject(CachedURL(resolved), forKey: "svg:\(name)" as NSString)
-        #endif
-        return resolved
-    }
-
-    private static func resolvedURL(forImageNamed name: String, ext: String) -> URL? {
-        // Xcode's PBXFileSystemSynchronizedRootGroup flattens the referenced
-        // folder's contents into the bundle root, so icons/*.{ext} end up
-        // at the top level. Ask Bundle first, then fall back to legacy subpaths.
-        if let url = Bundle.main.url(forResource: name, withExtension: ext) { return url }
-        guard let resourceURL = Bundle.main.resourceURL else { return nil }
-        for subpath in ["icons", "Resources/icons"] {
-            let candidate =
-                resourceURL
-                .appendingPathComponent(subpath, isDirectory: true)
-                .appendingPathComponent("\(name).\(ext)")
-            if FileManager.default.fileExists(atPath: candidate.path) { return candidate }
-        }
-        return nil
-    }
-
-    /// Synchronous lookup. Returns the cached UIImage if present.
-    ///
-    /// **SVG-first semantics**: if an SVG file exists for `name` but its
-    /// rendered snapshot isn't cached yet, this returns `nil` rather than
-    /// loading a sibling PNG. That defers rendering to `resolveImage` and
-    /// guarantees the SVG wins once available — without it, a sibling PNG
-    /// would lock into the cache on first synchronous access and the SVG
-    /// would never be rendered.
-    ///
-    /// PNG-only icons still load synchronously and cache normally.
-    static func image(named name: String) -> UIImage? {
-        #if canImport(UIKit)
-            let key = name as NSString
-            if let cached = imageCache.object(forKey: key) { return cached }
-            // SVG exists but isn't cached yet → don't fall back to PNG; let the
-            // async path render the SVG so it ends up in the cache.
-            if svgURL(forImageNamed: name) != nil { return nil }
-            guard let url = pngURL(forImageNamed: name), let image = UIImage(contentsOfFile: url.path) else { return nil }
-            imageCache.setObject(image, forKey: key, cost: approximateByteCost(for: image))
-            return image
-        #else
-            return nil
-        #endif
-    }
-
-    /// Asynchronous lookup. Resolution order:
-    /// 1. Cached UIImage (cache hit returns immediately).
-    /// 2. Flat-bundle `<name>.svg` — rendered via `SVGRenderer`, cached.
-    /// 3. Flat-bundle `<name>.png` — loaded synchronously, cached.
-    /// Returns nil only when no icon file exists.
-    ///
-    /// **Dedupe**: if a render for `name` is already in flight, awaits the
-    /// existing task instead of spawning a second WKWebView. Prevents the
-    /// CPU storm when many cells ask for the same icon before any has finished.
-    @MainActor
-    static func resolveImage(named name: String, targetSize: CGFloat = 256) async -> UIImage? {
-        #if canImport(UIKit)
-            let key = name as NSString
-            if let cached = imageCache.object(forKey: key) { return cached }
-            if let inFlight = pendingRenders[name] { return await inFlight.value }
-            let task = Task<UIImage?, Never> { @MainActor in
-                defer { pendingRenders.removeValue(forKey: name) }
-                return await renderAndCache(name: name, targetSize: targetSize)
-            }
-            pendingRenders[name] = task
-            return await task.value
-        #else
-            return nil
-        #endif
-    }
-
-    #if canImport(UIKit)
-        @MainActor
-        private static func renderAndCache(name: String, targetSize: CGFloat) async -> UIImage? {
-            let key = name as NSString
-            if let cached = imageCache.object(forKey: key) { return cached }
-            if let svg = svgURL(forImageNamed: name) {
-                let size = CGSize(width: targetSize, height: targetSize)
-                // Disk-cache check first — once an SVG has been rendered in any
-                // prior session, we skip WebKit entirely on subsequent launches.
-                if let diskCached = readDiskCachedImage(name: name, size: size) {
-                    imageCache.setObject(diskCached, forKey: key, cost: approximateByteCost(for: diskCached))
-                    return diskCached
-                }
-                if let rendered = await SVGRenderer.render(svgURL: svg, size: size) {
-                    imageCache.setObject(rendered, forKey: key, cost: approximateByteCost(for: rendered))
-                    writeDiskCachedImage(rendered, name: name, size: size)
-                    return rendered
-                }
-            }
-            if let url = pngURL(forImageNamed: name), let image = UIImage(contentsOfFile: url.path) {
-                imageCache.setObject(image, forKey: key, cost: approximateByteCost(for: image))
-                return image
-            }
-            return nil
-        }
-
-        private static let rendererCacheVersion = "r5"
-        private static let diskCacheDir: URL? = {
-            guard let caches = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first else { return nil }
-            let dir = caches.appendingPathComponent("SpectraIconCache/v\(rendererCacheVersion)", isDirectory: true)
-            try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            return dir
-        }()
-
-        private static func diskCacheURL(name: String, size: CGSize) -> URL? {
-            guard let base = diskCacheDir else { return nil }
-            let scale = _screenScale
-            let safeName = name.replacingOccurrences(of: "/", with: "_")
-            return base.appendingPathComponent("\(safeName)@\(Int(size.width))x\(Int(scale)).png")
-        }
-
-        private static func readDiskCachedImage(name: String, size: CGSize) -> UIImage? {
-            guard let url = diskCacheURL(name: name, size: size),
-                FileManager.default.fileExists(atPath: url.path),
-                let data = try? Data(contentsOf: url),
-                let image = UIImage(data: data, scale: _screenScale)
-            else {
-                return nil
-            }
-            return image
-        }
-
-        private static func writeDiskCachedImage(_ image: UIImage, name: String, size: CGSize) {
-            guard let url = diskCacheURL(name: name, size: size), let data = image.pngData() else { return }
-            // Hop off the main actor for the file write — small payload but
-            // avoids holding main while the disk syscall completes.
-            Task.detached(priority: .utility) {
-                try? data.write(to: url, options: .atomic)
-            }
-        }
-    #endif
-
-    /// Loads disk-cached icon bitmaps into the memory cache so the first
-    /// badge render after launch is a cache hit. Disk-cache-only: never calls
-    /// SVGRenderer. Idempotent across the process lifetime.
-    @MainActor
-    static func warmRasterCache(targetSize: CGFloat = 256) async {
-        #if canImport(UIKit)
-            // Once-per-process gate. A second AppState init shouldn't re-render
-            // every SVG — that turned the icon set into a heat source on
-            // lock/unlock cycles.
-            let alreadyWarmed = didWarmCacheLock.withLock { () -> Bool in
-                if didWarmCache { return true }
-                didWarmCache = true
-                return false
-            }
-            if alreadyWarmed { return }
-
-            guard let bundleURL = Bundle.main.resourceURL else { return }
-            let candidateDirs: [URL] = [
-                bundleURL,
-                bundleURL.appendingPathComponent("icons", isDirectory: true),
-                bundleURL.appendingPathComponent("Resources/icons", isDirectory: true),
-                bundleURL.appendingPathComponent("icons/fiat", isDirectory: true),
-                bundleURL.appendingPathComponent("Resources/icons/fiat", isDirectory: true),
-            ]
-            // Disk-cache → memory-cache only. Never call SVGRenderer.render here.
-            // SVGRenderer uses a serial render queue; if warmRasterCache queues 70+
-            // WKWebView renders at boot, CoinBadge.task renders for VISIBLE badges
-            // block behind the entire chain (~14 s on a cold cache). Instead, let
-            // CoinBadge.task drive lazy rendering — it fires when the icon is
-            // actually on screen and writes the result to disk, so subsequent launches
-            // hit the disk cache here and pre-warm quickly without WKWebView.
-            var seen = Set<String>()
-            for dir in candidateDirs {
-                guard let contents = try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil) else {
-                    continue
-                }
-                for file in contents where file.pathExtension.lowercased() == "svg" {
-                    let filename = file.deletingPathExtension().lastPathComponent
-                    let dirName = dir.lastPathComponent
-                    let knownSubdirs = ["fiat"]
-                    let stem = knownSubdirs.contains(dirName) ? "\(dirName)/\(filename)" : filename
-                    guard seen.insert(stem).inserted else { continue }
-                    if imageCache.object(forKey: stem as NSString) != nil { continue }
-                    let size = CGSize(width: targetSize, height: targetSize)
-                    if let diskCached = readDiskCachedImage(name: stem, size: size) {
-                        imageCache.setObject(diskCached, forKey: stem as NSString, cost: approximateByteCost(for: diskCached))
-                    }
-                }
-            }
-        #endif
-    }
-
-    #if canImport(UIKit)
-        private static func approximateByteCost(for image: UIImage) -> Int {
-            let scale = image.scale
-            return Int(image.size.width * scale * image.size.height * scale * 4)
-        }
-    #endif
-
-    /// Returns true when an SVG OR PNG file exists in the flat bundle layout.
-    static func hasImage(named name: String) -> Bool {
-        svgURL(forImageNamed: name) != nil || pngURL(forImageNamed: name) != nil
-    }
-}
-
-/// A SwiftUI view that renders a token image loaded from Resources/icons/.
+/// A SwiftUI view that renders a token image from Assets.xcassets.
 /// Falls back to `nil` content when the image is unavailable so callers can provide their own fallback.
 struct BundleTokenImage: View {
     let name: String
     var size: CGFloat = 40
 
     var body: some View {
-        if let uiImage = BundleImageLoader.image(named: name) {
+        if let uiImage = UIImage(named: name) {
             Image(uiImage: uiImage)
                 .resizable()
                 .interpolation(.high)
@@ -304,30 +35,17 @@ struct CoinBadge: View {
     let fallbackText: String
     let color: Color
     var size: CGFloat = 40
-    @State private var resolvedImage: UIImage?
     var body: some View {
-        // Resolve once per body eval — this used to be a computed property
-        // that recomputed (and re-hit the memoized icon-identifier Rust
-        // helper) 3× per cell; locking to one `let` keeps a body eval at
-        // one cache read.
         let identifier: String =
             assetIdentifier.map { Coin.normalizedIconIdentifier($0) } ?? "generic:\(fallbackText.lowercased())"
         let assetName: String? = {
-            // Chain icon lookup uses the RAW assetIdentifier, not the normalized one.
-            // normalizedIconIdentifier collapses e.g. "ETH on zkSync Era" → canonical
-            // Ethereum identifier, which would match Ethereum's entry and show the wrong icon.
             if let raw = assetIdentifier {
                 if let direct = Coin.nativeIconAssetName(forAssetIdentifier: raw) { return direct }
-                // native: = chain-native token not in the visual registry → no icon.
                 if raw.hasPrefix("native:") { return nil }
             }
             return TokenVisualRegistryEntry.entry(matchingAssetIdentifier: identifier)?.assetName
         }()
-        // Synchronous cache hit (PNG load, or previously-rendered SVG snapshot).
-        // The async `.task` below promotes a cold SVG into the cache and bumps
-        // `resolvedImage` so the body re-renders with the rendered bitmap.
-        let syncImage: UIImage? = assetName.flatMap { BundleImageLoader.image(named: $0) }
-        let displayImage = resolvedImage ?? syncImage
+        let displayImage: UIImage? = assetName.flatMap { UIImage(named: $0) }
         return Group {
             if let displayImage {
                 Image(uiImage: displayImage).resizable().interpolation(.high).scaledToFit().frame(width: size, height: size)
@@ -335,18 +53,6 @@ struct CoinBadge: View {
                 letterFallback
             }
         }.shadow(color: color.opacity(0.18), radius: 6, y: 3)
-            .task(id: assetName) {
-                guard let assetName else {
-                    resolvedImage = nil
-                    return
-                }
-                // Warm-cache fast path — avoid re-assigning if state already has an image.
-                if let found = BundleImageLoader.image(named: assetName) {
-                    if resolvedImage == nil { resolvedImage = found }
-                    return
-                }
-                resolvedImage = await BundleImageLoader.resolveImage(named: assetName)
-            }
     }
     private var letterFallback: some View {
         let letter = fallbackText.first.map { String($0).uppercased() } ?? "?"
@@ -443,129 +149,3 @@ struct SpectraLogo: View {
         }.shadow(color: .black.opacity(0.18), radius: 16, y: 8)
     }
 }
-
-// MARK: ─ (merged from views/SVGRenderer.swift)
-
-// Renders SVG files from the flat `resources/icons/` bundle directory into
-// UIImage via a shared, long-lived WKWebView snapshot. iOS does not provide
-// a public API to render SVG from arbitrary file URLs, so we delegate to
-// WebKit. Earlier versions spawned a new WKWebView per render — each
-// instance bootstraps its own WebContent process, and a boot-time warm-up
-// of the icon set produced ~12 concurrent processes that thrashed the CPU
-// and stalled main-thread UI. The current path keeps a single WebContent
-// process alive and serializes renders through it.
-
-#if canImport(UIKit)
-    import UIKit
-    import WebKit
-#endif
-
-#if canImport(UIKit)
-    @MainActor
-    enum SVGRenderer {
-        private final class LoadObserver: NSObject, WKNavigationDelegate {
-            var onFinish: (() -> Void)?
-            func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { onFinish?() }
-            func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { onFinish?() }
-            func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-                onFinish?()
-            }
-        }
-
-        // One WebView, one WebContent process, reused for every SVG.
-        private static var sharedWebView: WKWebView?
-
-        // UIWindowScene.windows is deprecated (iOS 15+); keyWindow is the modern replacement.
-        // Falling back to flatMap(\.windows).first keeps compatibility if keyWindow is nil.
-        private static func window(for webView: WKWebView) -> UIWindow? {
-            if let kw = webView.window { return kw }
-            let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
-            return scenes.compactMap(\.keyWindow).first
-                ?? scenes.flatMap(\.windows).first
-        }
-        private static let sharedObserver = LoadObserver()
-        // Serialize renders so two concurrent callers don't fight over the
-        // shared web view's navigation state. Each render awaits the previous
-        // one before starting.
-        private static var renderQueue: Task<UIImage?, Never> = Task { nil }
-
-        private static func ensureWebView(size: CGSize) -> WKWebView {
-            if let existing = sharedWebView {
-                existing.frame = CGRect(origin: .zero, size: size)
-                return existing
-            }
-            let configuration = WKWebViewConfiguration()
-            configuration.suppressesIncrementalRendering = true
-            let webView = WKWebView(frame: CGRect(origin: .zero, size: size), configuration: configuration)
-            webView.isOpaque = false
-            webView.backgroundColor = .clear
-            webView.scrollView.backgroundColor = .clear
-            webView.scrollView.isScrollEnabled = false
-            webView.navigationDelegate = sharedObserver
-            webView.isHidden = true
-            // takeSnapshot requires the web view to be in the window hierarchy on iOS.
-            window(for: webView)?.addSubview(webView)
-            sharedWebView = webView
-            return webView
-        }
-
-        /// Renders the SVG at `url` into a UIImage of the requested point size,
-        /// at the device scale. Returns nil if WebKit can't load or snapshot.
-        ///
-        /// Concurrent callers are serialized so only one snapshot is in flight
-        /// at a time — the underlying shared WKWebView holds one navigation
-        /// state and can't multiplex requests.
-        static func render(svgURL: URL, size: CGSize) async -> UIImage? {
-            let previous = renderQueue
-            // Use .userInitiated so the render task is never lower priority than
-            // its callers — avoids the priority-inversion hang-risk warning where
-            // a user-initiated CoinBadge.task waits on a default-priority render
-            // that was enqueued earlier by warmRasterCache.
-            let task = Task<UIImage?, Never>(priority: .userInitiated) { @MainActor in
-                _ = await previous.value
-                return await performRender(svgURL: svgURL, size: size)
-            }
-            renderQueue = task
-            return await task.value
-        }
-
-        private static func performRender(svgURL: URL, size: CGSize) async -> UIImage? {
-            let webView = ensureWebView(size: size)
-            // Belt-and-suspenders: ensure in window even if ensureWebView ran before a window existed.
-            if webView.window == nil { window(for: webView)?.addSubview(webView) }
-            // If the webview still has no window, takeSnapshot returns a blank white image
-            // that looks correct but is pure noise. Return nil so the caller retries later
-            // (e.g. from CoinBadge.task, when the view hierarchy is definitely live).
-            guard webView.window != nil else { return nil }
-            // Inline the SVG content directly in HTML — loading via <img src> + file://
-            // baseURL is blocked by the WebContent sandbox on iOS.
-            guard let svgContent = try? String(contentsOf: svgURL, encoding: .utf8) else { return nil }
-            let html = """
-                <!doctype html><html><head><meta charset="utf-8">
-                <meta name="viewport" content="width=device-width,initial-scale=1.0">
-                <style>html,body{margin:0;padding:0;width:100%;height:100%;background:transparent;}
-                svg{width:100%;height:100%;display:block;}</style>
-                </head><body>\(svgContent)</body></html>
-                """
-            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
-                var resumed = false
-                sharedObserver.onFinish = {
-                    guard !resumed else { return }
-                    resumed = true
-                    continuation.resume()
-                }
-                webView.loadHTMLString(html, baseURL: nil)
-            }
-            sharedObserver.onFinish = nil
-            try? await Task.sleep(nanoseconds: 16_000_000)
-
-            let snapshotConfig = WKSnapshotConfiguration()
-            snapshotConfig.rect = CGRect(origin: .zero, size: size)
-            // snapshotWidth is the output width in points; pixelSize.width / scale == size.width
-            // algebraically, but UITraitCollection.current.displayScale returns 0 outside UIKit
-            // callbacks → NaN → takeSnapshot returns nil. Use size.width directly.
-            snapshotConfig.snapshotWidth = NSNumber(value: Double(size.width))
-            return try? await webView.takeSnapshot(configuration: snapshotConfig)
-        }
-    }
-#endif
