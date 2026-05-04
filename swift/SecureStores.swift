@@ -5,7 +5,7 @@ enum KeychainStoreError: Error, Equatable {
     case invalidEncoding
 }
 
-private struct KeychainBackedSecureStore {
+private struct KeychainBackedSecureStore: @unchecked Sendable {
     private let keychain: Keychain
     typealias StoreError = KeychainStoreError
     init(service: String) {
@@ -103,7 +103,7 @@ final class SpectraSecretStoreAdapter: SecretStore, @unchecked Sendable {
     static func registerWithBridge() {
         let adapter = SpectraSecretStoreAdapter()
         Task {
-            try? WalletServiceBridge.shared.registerSecretStore(adapter)
+            try? await WalletServiceBridge.shared.registerSecretStore(adapter)
         }
     }
 

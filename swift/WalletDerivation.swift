@@ -46,7 +46,7 @@ enum WalletDerivationLayer {
         guard let address = result.address else { throw WalletDerivationError.emptyRequestedOutputs }
         return address
     }
-    static func evmSeedDerivationChain(for chainName: String) -> SeedDerivationChain? {
+    @MainActor static func evmSeedDerivationChain(for chainName: String) -> SeedDerivationChain? {
         CachedCoreHelpers.evmSeedDerivationChainName(chainName: chainName).flatMap(SeedDerivationChain.init(rawValue:))
     }
 }

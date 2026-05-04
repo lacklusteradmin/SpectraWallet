@@ -13,14 +13,14 @@ extension View {
     }
 }
 extension Binding {
-    static func isPresent<Wrapped>(_ source: Binding<Wrapped?>) -> Binding<Bool> where Value == Bool {
+    static func isPresent<Wrapped: Sendable>(_ source: Binding<Wrapped?>) -> Binding<Bool> where Value == Bool {
         Binding<Bool>(
             get: { source.wrappedValue != nil },
             set: { if !$0 { source.wrappedValue = nil } }
         )
     }
 }
-@ViewBuilder
+@MainActor @ViewBuilder
 func spectraDetailCard(title: String? = nil, @ViewBuilder content: () -> some View) -> some View {
     VStack(alignment: .leading, spacing: 12) {
         if let title { Text(AppLocalization.string(title)).font(.headline) }

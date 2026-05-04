@@ -562,7 +562,7 @@ extension AppState {
     }
     private func runUTXORescan(
         running: ReferenceWritableKeyPath<AppState, Bool>, lastRun: ReferenceWritableKeyPath<AppState, Date?>, chainName: String,
-        abbrev: String, preWork: (() async -> Void)? = nil, refreshHistory: () async -> Void, refreshPending: () async -> Void
+        abbrev: String, preWork: (() async -> Void)? = nil, refreshHistory: @Sendable () async -> Void, refreshPending: @Sendable () async -> Void
     ) async {
         guard !self[keyPath: running] else { return }
         self[keyPath: running] = true; defer { self[keyPath: running] = false }

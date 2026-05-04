@@ -31,6 +31,7 @@ sed \
   -e 's/@escaping UniffiRustFutureContinuationCallback/UniffiRustFutureContinuationCallback/g' \
   -e 's/^fileprivate func uniffiFutureContinuationCallback/nonisolated fileprivate func uniffiFutureContinuationCallback/' \
   -e 's/^fileprivate let uniffiContinuationHandleMap/fileprivate nonisolated(unsafe) let uniffiContinuationHandleMap/' \
+  -e 's/    static let vtablePtr:/    nonisolated(unsafe) static let vtablePtr:/' \
   -e 's/^public func /nonisolated public func /' \
   -e 's/^open func /nonisolated open func /' \
   -e '/^    func .*[^{]$/s/^    func /    nonisolated func /' \

@@ -9,7 +9,7 @@ enum StaticContentCatalog {
     // accessed from inside view bodies (hot path) and each lookup used to hit
     // Rust FFI + JSON decode. Keyed by `(localeSignature, baseName, typeID)`
     // so a language switch invalidates automatically on the next read.
-    private static var decodedResourceCache: [String: Any] = [:]
+    nonisolated(unsafe) private static var decodedResourceCache: [String: Any] = [:]
     private static func cacheKey(baseName: String, typeID: String) -> String {
         let signature = AppLocalization.preferredLocalizationIdentifiers().joined(separator: ",")
         return "\(signature)|\(baseName)|\(typeID)"
@@ -457,12 +457,12 @@ enum AppLocalization {
             return seen.insert(bundleURL).inserted
         }
     }()
-    private static var localizedStringCache: [String: String] = [:]
-    private static var cachedState: LocalizationState?
-    private static var runtimeManifest: RuntimeStringManifest?
-    private static var manifestLoadAttempted = false
-    private static var runtimeStringsBaseURL: URL?
-    private static var loadedLocaleDicts: [String: [String: String]] = [:]
+    nonisolated(unsafe) private static var localizedStringCache: [String: String] = [:]
+    nonisolated(unsafe) private static var cachedState: LocalizationState?
+    nonisolated(unsafe) private static var runtimeManifest: RuntimeStringManifest?
+    nonisolated(unsafe) private static var manifestLoadAttempted = false
+    nonisolated(unsafe) private static var runtimeStringsBaseURL: URL?
+    nonisolated(unsafe) private static var loadedLocaleDicts: [String: [String: String]] = [:]
     static var locale: Locale { localizationState().locale }
     static func string(_ key: String, table: String? = nil) -> String {
         let state = localizationState()

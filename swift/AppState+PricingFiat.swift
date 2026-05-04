@@ -150,8 +150,8 @@ extension AppState {
             try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
         }
     }
-    func collectLimitedConcurrentIndexedResults<Item, Value>(
-        from items: [Item], maxConcurrent: Int = 4, operation: @escaping (Item) async -> (Int, Value?)
+    func collectLimitedConcurrentIndexedResults<Item: Sendable, Value: Sendable>(
+        from items: [Item], maxConcurrent: Int = 4, operation: @escaping @Sendable (Item) async -> (Int, Value?)
     ) async -> [Int: Value] {
         guard !items.isEmpty else { return [:] }
         let concurrencyLimit = max(1, min(maxConcurrent, items.count))

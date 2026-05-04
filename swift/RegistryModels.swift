@@ -178,8 +178,8 @@ struct ChainRegistryEntry: Identifiable {
             registryID: id, title: name, symbol: symbol, chainName: name, color: color, assetName: assetName
         )
     }
-    private static var cachedAllByLocalization: [String: [ChainRegistryEntry]] = [:]
-    private static var cachedEntriesByLowercasedID: [String: [String: ChainRegistryEntry]] = [:]
+    nonisolated(unsafe) private static var cachedAllByLocalization: [String: [ChainRegistryEntry]] = [:]
+    nonisolated(unsafe) private static var cachedEntriesByLowercasedID: [String: [String: ChainRegistryEntry]] = [:]
     static var all: [ChainRegistryEntry] {
         let cacheKey = AppLocalization.preferredLocalizationIdentifiers().joined(separator: "|")
         if let cachedEntries = cachedAllByLocalization[cacheKey] { return cachedEntries }

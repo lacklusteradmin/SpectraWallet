@@ -102,7 +102,7 @@ struct WalletCardView: View, Equatable {
         let badgeColor: Color
     }
     let presentation: Presentation
-    static func == (lhs: Self, rhs: Self) -> Bool { lhs.presentation == rhs.presentation }
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.presentation == rhs.presentation }
     private var watchOnlyBadge: some View {
         Image(systemName: "eye").font(.caption.weight(.semibold)).foregroundStyle(.orange).padding(.horizontal, 7).padding(.vertical, 5)
             .background(Color.orange.opacity(0.15), in: Capsule())

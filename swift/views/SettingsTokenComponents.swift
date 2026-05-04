@@ -101,7 +101,7 @@ struct TokenRegistryEntryCardView: View {
                 }
                 Spacer()
                 Toggle(
-                    AppLocalization.string("Shown"), isOn: Binding(get: { entry.isEnabled }, set: setEnabled)
+                    AppLocalization.string("Shown"), isOn: Binding(get: { entry.isEnabled }, set: { v in setEnabled(v) })
                 ).labelsHidden()
             }
             SettingsTokenDetailRow(
@@ -118,7 +118,7 @@ struct TokenRegistryEntryCardView: View {
             if !entry.isBuiltIn {
                 Stepper(
                     AppLocalization.format("Supports: %lld decimals", Int(entry.decimals)),
-                    value: Binding(get: { Int(entry.decimals) }, set: updateDecimals), in: 0...30, step: 1
+                    value: Binding(get: { Int(entry.decimals) }, set: { v in updateDecimals(v) }), in: 0...30, step: 1
                 )
                 Button(role: .destructive, action: removeToken) {
                     Label(AppLocalization.string("Remove Token"), systemImage: "trash")

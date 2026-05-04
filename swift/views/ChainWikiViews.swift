@@ -74,7 +74,7 @@ struct ChainWikiLibraryView: View {
 }
 private struct ChainWikiRowLabel: View, Equatable {
     let chain: ChainWikiEntry
-    static func == (lhs: Self, rhs: Self) -> Bool { lhs.chain == rhs.chain }
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.chain == rhs.chain }
     var body: some View {
         HStack(spacing: 12) {
             ChainWikiChainLogoBadge(chain: chain, size: 36)

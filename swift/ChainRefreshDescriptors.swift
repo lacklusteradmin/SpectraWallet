@@ -171,7 +171,7 @@ extension AppState {
         await runHistoryRefreshes(for: trackedChains, interval: interval)
     }
     private func runTimedChainRefresh(
-        _ chainID: WalletChainID, refreshHistory: Bool, timeout: Double, operation: @escaping () async -> Void
+        _ chainID: WalletChainID, refreshHistory: Bool, timeout: Double, operation: @escaping @Sendable () async -> Void
     ) async {
         let chainName = chainID.displayName
         do {

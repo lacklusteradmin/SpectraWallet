@@ -74,7 +74,7 @@ enum StandardDiagnosticsChain: String, Hashable {
     var descriptor: AppChainDescriptor { AppEndpointDirectory.appChain(for: chainID) }
     var title: String { descriptor.title }
 
-    static let dispatchTable: [StandardDiagnosticsChain: StandardChainDiagnosticsDispatch] = [
+    @MainActor static let dispatchTable: [StandardDiagnosticsChain: StandardChainDiagnosticsDispatch] = [
         .bitcoin: .init(
             isRunningHistory: { $0.isRunningBitcoinHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingBitcoinEndpointHealth },
@@ -364,7 +364,7 @@ enum StandardDiagnosticsChain: String, Hashable {
             runEndpointDiagnostics: { await $0.runEndpointDiagnostics(for: .polkadot) }
         ),
     ]
-    var dispatch: StandardChainDiagnosticsDispatch { Self.dispatchTable[self]! }
+    @MainActor var dispatch: StandardChainDiagnosticsDispatch { Self.dispatchTable[self]! }
 }
 struct StandardChainDiagnosticsDispatch {
     let isRunningHistory: @MainActor (AppState) -> Bool

@@ -573,7 +573,7 @@ extension CoreWalletDerivationOverrides: Codable {
 }
 extension SeedDerivationPaths: Codable {
     private typealias SeedPathEntry = (SeedDerivationPathsCodingKeys, WritableKeyPath<SeedDerivationPaths, String>, SeedDerivationChain)
-    private static let seedPathMappings: [SeedPathEntry] = [
+    nonisolated(unsafe) private static let seedPathMappings: [SeedPathEntry] = [
         (.bitcoin,          \.bitcoin,          .bitcoin),
         (.bitcoinCash,      \.bitcoinCash,      .bitcoinCash),
         (.bitcoinSV,        \.bitcoinSV,        .bitcoinSV),

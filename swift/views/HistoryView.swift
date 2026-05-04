@@ -12,7 +12,7 @@ private struct HistoryRowPresentation: Identifiable, Equatable {
 
 private struct HistoryTransactionRowView: View, Equatable {
     let row: HistoryRowPresentation
-    static func == (lhs: Self, rhs: Self) -> Bool { lhs.row == rhs.row }
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.row == rhs.row }
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 12) {

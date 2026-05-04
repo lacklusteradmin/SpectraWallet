@@ -645,7 +645,7 @@ extension AppState {
 
     // MARK: HTTP probes + timeout helper
 
-    func withTimeout<T>(seconds: Double, operation: @escaping () async throws -> T) async throws -> T {
+    func withTimeout<T: Sendable>(seconds: Double, operation: @escaping @Sendable () async throws -> T) async throws -> T {
         try await withThrowingTaskGroup(of: T.self) { group in
             group.addTask { try await operation() }
             group.addTask {

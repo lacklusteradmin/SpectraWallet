@@ -667,7 +667,7 @@ struct DashboardDetailRow: View {
 }
 struct DashboardAssetRowView: View, Equatable {
     let presentation: DashboardAssetRowPresentation
-    static func == (lhs: Self, rhs: Self) -> Bool { lhs.presentation == rhs.presentation }
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.presentation == rhs.presentation }
     var body: some View {
         HStack(spacing: 14) {
             CoinBadge(
@@ -698,7 +698,7 @@ struct DashboardAssetRowView: View, Equatable {
 struct DashboardPinnedAssetRowView: View, Equatable {
     let option: DashboardPinOption
     let subtitleText: String
-    static func == (lhs: Self, rhs: Self) -> Bool { lhs.option == rhs.option && lhs.subtitleText == rhs.subtitleText }
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.option == rhs.option && lhs.subtitleText == rhs.subtitleText }
     var body: some View {
         HStack(spacing: 12) {
             CoinBadge(assetIdentifier: option.assetIdentifier, fallbackText: option.symbol, color: option.color, size: 34)
@@ -712,7 +712,7 @@ struct DashboardPinnedAssetRowView: View, Equatable {
 struct PortfolioWalletToggleRowView: View, Equatable {
     let walletName: String
     let chainTitleText: String
-    static func == (lhs: Self, rhs: Self) -> Bool { lhs.walletName == rhs.walletName && lhs.chainTitleText == rhs.chainTitleText }
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.walletName == rhs.walletName && lhs.chainTitleText == rhs.chainTitleText }
     var body: some View {
         VStack(alignment: .leading, spacing: 3) {
             Text(walletName)
