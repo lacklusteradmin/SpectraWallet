@@ -58,9 +58,10 @@ extension AppState {
         var destinationAddress = preflight.normalizedDestinationAddress
         var usedENSResolution = false
         let amount = preflight.amount
+        let amountStr = preflight.amountStr
         if holding.chainName == "Sui", holding.symbol == "SUI" {
             await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
                 chainId: SpectraChainID.sui, chainName: "Sui", symbol: "SUI",
                 feeDecimals: 6, checkSelfSend: true, supportsPrivateKey: false, gasBudgetFromFee: true,
                 resolveAddress: { self.resolvedSuiAddress(for: $0) },
@@ -73,7 +74,7 @@ extension AppState {
         }
         if holding.chainName == "Aptos", holding.symbol == "APT" {
             await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
                 chainId: SpectraChainID.aptos, chainName: "Aptos", symbol: "APT",
                 feeDecimals: 6, checkSelfSend: true, supportsPrivateKey: false,
                 resolveAddress: { self.resolvedAptosAddress(for: $0) },
@@ -86,7 +87,7 @@ extension AppState {
         }
         if holding.chainName == "TON", holding.symbol == "TON" {
             await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
                 chainId: SpectraChainID.ton, chainName: "TON", symbol: "TON",
                 feeDecimals: 6, checkSelfSend: true, supportsPrivateKey: false,
                 resolveAddress: { self.resolvedTONAddress(for: $0) },
@@ -124,7 +125,7 @@ extension AppState {
                         chainId: SpectraChainID.icp, chainName: "Internet Computer",
                         derivationPath: wallet.seedDerivationPaths.internetComputer,
                         seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
-                        amount: amount,
+                        amount: amount, amountStr: amountStr,
                         contractAddress: nil, tokenDecimals: nil, feeRateSvb: nil, feeSat: nil, gasBudget: nil, feeAmount: nil,
                         evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                     ))
@@ -208,7 +209,7 @@ extension AppState {
                         chainId: SpectraChainID.bitcoin, chainName: "Bitcoin",
                         derivationPath: walletDerivationPath(for: wallet, chain: .bitcoin),
                         seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
-                        amount: amount,
+                        amount: amount, amountStr: amountStr,
                         contractAddress: nil, tokenDecimals: nil, feeRateSvb: feeRateSvB, feeSat: nil, gasBudget: nil, feeAmount: nil,
                         evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                     ))
@@ -232,7 +233,7 @@ extension AppState {
         }
         if holding.symbol == "BCH", holding.chainName == "Bitcoin Cash" {
             await submitUTXOSatChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
                 chainId: SpectraChainID.bitcoinCash, chainName: "Bitcoin Cash", chain: .bitcoinCash,
                 symbol: "BCH", feeFallback: 0.00001, resolveAddress: { self.resolvedBitcoinCashAddress(for: $0) },
                 getPreview: { self.sendPreviewStore.bitcoinCashSendPreview }, refreshPreview: { await self.refreshBitcoinCashSendPreview() },
@@ -242,8 +243,8 @@ extension AppState {
         }
         if holding.symbol == "BSV", holding.chainName == "Bitcoin SV" {
             await submitUTXOSatChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, chainId: SpectraChainID.bitcoinSv,
-                chainName: "Bitcoin SV", chain: .bitcoinSV, symbol: "BSV", feeFallback: 0.00001,
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
+                chainId: SpectraChainID.bitcoinSv, chainName: "Bitcoin SV", chain: .bitcoinSV, symbol: "BSV", feeFallback: 0.00001,
                 resolveAddress: { self.resolvedBitcoinSVAddress(for: $0) }, getPreview: { self.sendPreviewStore.bitcoinSVSendPreview },
                 refreshPreview: { await self.refreshBitcoinSVSendPreview() }, clearPreview: { self.sendPreviewStore.bitcoinSVSendPreview = nil }
             )
@@ -251,8 +252,8 @@ extension AppState {
         }
         if holding.symbol == "LTC", holding.chainName == "Litecoin" {
             await submitUTXOSatChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, chainId: SpectraChainID.litecoin,
-                chainName: "Litecoin", chain: .litecoin, symbol: "LTC", feeFallback: 0.0001,
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
+                chainId: SpectraChainID.litecoin, chainName: "Litecoin", chain: .litecoin, symbol: "LTC", feeFallback: 0.0001,
                 resolveAddress: { self.resolvedLitecoinAddress(for: $0) }, getPreview: { self.sendPreviewStore.litecoinSendPreview },
                 refreshPreview: { await self.refreshLitecoinSendPreview() }, clearPreview: { self.sendPreviewStore.litecoinSendPreview = nil }
             )
@@ -296,7 +297,7 @@ extension AppState {
                         chainId: SpectraChainID.dogecoin, chainName: "Dogecoin",
                         derivationPath: walletDerivationPath(for: wallet, chain: .dogecoin),
                         seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
-                        amount: dogecoinAmount,
+                        amount: dogecoinAmount, amountStr: sendAmount,
                         contractAddress: nil, tokenDecimals: nil, feeRateSvb: feeRateDogePerKb, feeSat: nil, gasBudget: nil, feeAmount: nil,
                         evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                     ))
@@ -363,7 +364,7 @@ extension AppState {
                     SendExecutionRequest(
                         chainId: SpectraChainID.tron, chainName: "Tron", derivationPath: wallet.seedDerivationPaths.tron,
                         seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
-                        amount: amount,
+                        amount: amount, amountStr: amountStr,
                         contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
                         feeAmount: nil, evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                     ))
@@ -437,7 +438,7 @@ extension AppState {
                         chainId: SpectraChainID.solana, chainName: "Solana",
                         derivationPath: walletDerivationPath(for: wallet, chain: .solana),
                         seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
-                        amount: amount,
+                        amount: amount, amountStr: amountStr,
                         contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
                         feeAmount: nil, evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                     ))
@@ -461,7 +462,7 @@ extension AppState {
         }
         if holding.chainName == "XRP Ledger", holding.symbol == "XRP" {
             await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
                 chainId: SpectraChainID.xrp, chainName: "XRP Ledger", symbol: "XRP",
                 feeDecimals: 6, supportsPrivateKey: true,
                 resolveAddress: { self.resolvedXRPAddress(for: $0) },
@@ -474,7 +475,7 @@ extension AppState {
         }
         if holding.chainName == "Stellar", holding.symbol == "XLM" {
             await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
                 chainId: SpectraChainID.stellar, chainName: "Stellar", symbol: "XLM",
                 feeDecimals: 7, supportsPrivateKey: true,
                 resolveAddress: { self.resolvedStellarAddress(for: $0) },
@@ -487,7 +488,7 @@ extension AppState {
         }
         if holding.chainName == "Monero", holding.symbol == "XMR" {
             await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
                 chainId: SpectraChainID.monero, chainName: "Monero", symbol: "XMR",
                 feeDecimals: 6, supportsPrivateKey: false, moneroPriority: 2,
                 resolveAddress: { self.resolvedMoneroAddress(for: $0) },
@@ -500,7 +501,7 @@ extension AppState {
         }
         if holding.chainName == "Cardano", holding.symbol == "ADA" {
             await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
                 chainId: SpectraChainID.cardano, chainName: "Cardano", symbol: "ADA",
                 feeDecimals: 6, supportsPrivateKey: false, feeAmountFromFee: true,
                 resolveAddress: { self.resolvedCardanoAddress(for: $0) },
@@ -513,7 +514,7 @@ extension AppState {
         }
         if holding.chainName == "NEAR", holding.symbol == "NEAR" {
             await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
                 chainId: SpectraChainID.near, chainName: "NEAR", symbol: "NEAR",
                 feeDecimals: 6, checkSelfSend: true, supportsPrivateKey: false,
                 resolveAddress: { self.resolvedNearAddress(for: $0) },
@@ -547,7 +548,7 @@ extension AppState {
                     SendExecutionRequest(
                         chainId: SpectraChainID.near, chainName: "NEAR", derivationPath: walletDerivationPath(for: wallet, chain: .near),
                         seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
-                        amount: amount,
+                        amount: amount, amountStr: amountStr,
                         contractAddress: contractAddress, tokenDecimals: UInt32(decimals), feeRateSvb: nil, feeSat: nil, gasBudget: nil,
                         feeAmount: nil, evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                     ))
@@ -571,7 +572,7 @@ extension AppState {
         }
         if holding.chainName == "Polkadot", holding.symbol == "DOT" {
             await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
                 chainId: SpectraChainID.polkadot, chainName: "Polkadot", symbol: "DOT",
                 feeDecimals: 6, supportsPrivateKey: false,
                 resolveAddress: { self.resolvedPolkadotAddress(for: $0) },
@@ -665,7 +666,7 @@ extension AppState {
                         chainId: chainId, chainName: holding.chainName,
                         derivationPath: walletDerivationPath(for: wallet, chain: evmDerivationChain),
                         seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
-                        amount: amount,
+                        amount: amount, amountStr: amountStr,
                         contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
                         feeAmount: nil, evmOverrides: evmOverrides, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                     ))
@@ -692,7 +693,7 @@ extension AppState {
     }
 
     private func submitSimpleNativeChainSend(
-        holding: Coin, wallet: ImportedWallet, destinationAddress: String, amount: Double,
+        holding: Coin, wallet: ImportedWallet, destinationAddress: String, amount: Double, amountStr: String,
         chainId: String, chainName: String, symbol: String,
         feeDecimals: UInt32, checkSelfSend: Bool = false, supportsPrivateKey: Bool,
         gasBudgetFromFee: Bool = false, feeAmountFromFee: Bool = false, moneroPriority: UInt32? = nil,
@@ -738,7 +739,7 @@ extension AppState {
                 SendExecutionRequest(
                     chainId: chainId, chainName: chainName, derivationPath: derivationPath(wallet),
                     seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
-                    amount: amount,
+                    amount: amount, amountStr: amountStr,
                     contractAddress: nil, tokenDecimals: nil, feeRateSvb: nil, feeSat: nil,
                     gasBudget: gasBudgetFromFee ? fee : nil, feeAmount: feeAmountFromFee ? fee : nil,
                     evmOverrides: nil, moneroPriority: moneroPriority, derivationOverrides: wallet.derivationOverrides
@@ -760,7 +761,7 @@ extension AppState {
     }
 
     private func submitUTXOSatChainSend(
-        holding: Coin, wallet: ImportedWallet, destinationAddress: String, amount: Double, chainId: String, chainName: String,
+        holding: Coin, wallet: ImportedWallet, destinationAddress: String, amount: Double, amountStr: String, chainId: String, chainName: String,
         chain: SeedDerivationChain, symbol: String, feeFallback: Double,
         resolveAddress: @escaping (ImportedWallet) -> String?, getPreview: @escaping () -> BitcoinSendPreview?,
         refreshPreview: @escaping () async -> Void, clearPreview: @escaping () -> Void
@@ -788,7 +789,8 @@ extension AppState {
             let result = try await WalletServiceBridge.shared.executeSend(
                 SendExecutionRequest(
                     chainId: chainId, chainName: chainName, derivationPath: walletDerivationPath(for: wallet, chain: chain),
-                    seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress, amount: amount,
+                    seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
+                    amount: amount, amountStr: amountStr,
                     contractAddress: nil, tokenDecimals: nil, feeRateSvb: nil, feeSat: feeSat, gasBudget: nil, feeAmount: nil,
                     evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                 ))
