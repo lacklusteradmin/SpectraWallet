@@ -143,11 +143,8 @@ struct ChainRegistryEntry: Identifiable {
             registryID: id, title: name, symbol: symbol, chainName: name, color: color, assetName: assetName
         )
     }
-    nonisolated(unsafe) private static var cachedAll: [ChainRegistryEntry]?
-    nonisolated(unsafe) private static var cachedEntriesByLowercasedID: [String: ChainRegistryEntry] = [:]
-    static var all: [ChainRegistryEntry] {
-        if let cached = cachedAll { return cached }
-        let entries = listAllChains()
+    static let all: [ChainRegistryEntry] = {
+        listAllChains()
             .filter { !$0.name.isEmpty }
             .map { chain in
                 ChainRegistryEntry(
@@ -160,13 +157,11 @@ struct ChainRegistryEntry: Identifiable {
                     totalCirculationModel: chain.totalCirculationModel, notableDetails: chain.notableDetails
                 )
             }
-        cachedAll = entries
-        cachedEntriesByLowercasedID = Dictionary(uniqueKeysWithValues: entries.map { ($0.id.lowercased(), $0) })
-        return entries
-    }
+    }()
+    private static let entriesByLowercasedID: [String: ChainRegistryEntry] =
+        Dictionary(uniqueKeysWithValues: all.map { ($0.id.lowercased(), $0) })
     static func entry(id: String) -> ChainRegistryEntry? {
-        if cachedAll == nil { _ = all }
-        return cachedEntriesByLowercasedID[id.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()]
+        entriesByLowercasedID[id.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()]
     }
 }
 struct TokenVisualRegistryEntry: Identifiable {
@@ -190,17 +185,9 @@ struct TokenVisualRegistryEntry: Identifiable {
         let normalized = symbol.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return entriesByLowercasedSymbol[normalized]
     }
-    // Memoize the substring-match lookup — can't be replaced with a dict
-    // because the match is `contains`, not exact. Called per `CoinBadge`
-    // body eval from `tokenIconAssetName`, so caching it means the O(n)
-    // scan fires at most once per unique assetIdentifier.
-    nonisolated(unsafe) private static var cachedMatchingEntries: [String: TokenVisualRegistryEntry?] = [:]
     static func entry(matchingAssetIdentifier assetIdentifier: String) -> TokenVisualRegistryEntry? {
         let normalized = assetIdentifier.lowercased()
-        if let cached = cachedMatchingEntries[normalized] { return cached }
-        let result = assetIdentifierFragments.first { normalized.contains($0.fragment) }?.entry
-        cachedMatchingEntries[normalized] = result
-        return result
+        return assetIdentifierFragments.first { normalized.contains($0.fragment) }?.entry
     }
 }
 typealias TokenPreferenceCategory = CoreTokenPreferenceCategory
@@ -376,47 +363,29 @@ extension Coin {
     static func nativeIconAssetName(forAssetIdentifier assetIdentifier: String) -> String? {
         nativeIconAssetNameByAssetIdentifier[assetIdentifier]
     }
-    // These caches survive the app lifetime — all inputs are pure data.
-    nonisolated(unsafe) private static var cachedCanonicalChainComponents: [String: String] = [:]
-    nonisolated(unsafe) private static var cachedIconIdentifiers: [String: String] = [:]
-    nonisolated(unsafe) private static var cachedNormalizedIconIdentifiers: [String: String] = [:]
-    nonisolated(unsafe) private static var cachedChainNameDescriptors: [String: NativeChainIconDescriptor?] = [:]
-    nonisolated(unsafe) private static var cachedSymbolDescriptors: [String: NativeChainIconDescriptor?] = [:]
     static func nativeChainIconDescriptor(forAssetIdentifier assetIdentifier: String) -> NativeChainIconDescriptor? {
         nativeChainIconDescriptorByAssetIdentifier[assetIdentifier]
     }
     static func nativeChainIconDescriptor(chainName: String) -> NativeChainIconDescriptor? {
         let normalizedChainName = chainName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedChainName.isEmpty else { return nil }
-        if let cached = cachedChainNameDescriptors[normalizedChainName] { return cached }
-        let canonicalChainName: String = {
-            if let cached = cachedCanonicalChainComponents[normalizedChainName] { return cached }
-            let value = corePlanCanonicalChainComponent(chainName: normalizedChainName, symbol: "")
-            cachedCanonicalChainComponents[normalizedChainName] = value
-            return value
-        }()
-        let descriptor = nativeChainIconDescriptors.first { descriptor in
+        let canonicalChainName = corePlanCanonicalChainComponent(chainName: normalizedChainName, symbol: "")
+        return nativeChainIconDescriptors.first { descriptor in
             descriptor.registryID.caseInsensitiveCompare(canonicalChainName) == .orderedSame
                 || descriptor.chainName.caseInsensitiveCompare(normalizedChainName) == .orderedSame
                 || descriptor.title.caseInsensitiveCompare(normalizedChainName) == .orderedSame
         }
-        cachedChainNameDescriptors[normalizedChainName] = descriptor
-        return descriptor
     }
     static func nativeChainIconDescriptor(symbol: String, chainName: String? = nil) -> NativeChainIconDescriptor? {
         let normalizedSymbol = symbol.trimmingCharacters(in: .whitespacesAndNewlines)
         let normalizedChainName = chainName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        let cacheKey = "\(normalizedSymbol)|\(normalizedChainName)"
-        if let cached = cachedSymbolDescriptors[cacheKey] { return cached }
-        let descriptor = nativeChainIconDescriptors.first { descriptor in
+        return nativeChainIconDescriptors.first { descriptor in
             let symbolMatches = descriptor.symbol.caseInsensitiveCompare(normalizedSymbol) == .orderedSame
             guard symbolMatches else { return false }
             if normalizedChainName.isEmpty { return true }
             return descriptor.chainName.caseInsensitiveCompare(normalizedChainName) == .orderedSame
                 || descriptor.title.caseInsensitiveCompare(normalizedChainName) == .orderedSame
         }
-        cachedSymbolDescriptors[cacheKey] = descriptor
-        return descriptor
     }
     static func nativeChainBadge(chainName: String) -> (assetIdentifier: String?, color: Color)? {
         guard let descriptor = nativeChainIconDescriptor(chainName: chainName) else { return nil }
@@ -425,18 +394,11 @@ extension Coin {
     static func iconIdentifier(symbol: String, chainName: String, contractAddress: String? = nil, tokenStandard: String = "Native")
         -> String
     {
-        let cacheKey = "\(symbol)|\(chainName)|\(contractAddress ?? "")|\(tokenStandard)"
-        if let cached = cachedIconIdentifiers[cacheKey] { return cached }
-        let value = corePlanIconIdentifier(
+        corePlanIconIdentifier(
             symbol: symbol, chainName: chainName, contractAddress: contractAddress, tokenStandard: tokenStandard)
-        cachedIconIdentifiers[cacheKey] = value
-        return value
     }
     static func normalizedIconIdentifier(_ identifier: String) -> String {
-        if let cached = cachedNormalizedIconIdentifiers[identifier] { return cached }
-        let value = corePlanNormalizedIconIdentifier(identifier: identifier)
-        cachedNormalizedIconIdentifiers[identifier] = value
-        return value
+        corePlanNormalizedIconIdentifier(identifier: identifier)
     }
     static func displayColor(for symbol: String) -> Color {
         if let nativeDescriptor = nativeChainIconDescriptor(symbol: symbol) { return nativeDescriptor.color }

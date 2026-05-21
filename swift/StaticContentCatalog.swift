@@ -3,29 +3,39 @@ import SwiftUI
 private enum LocalizationCatalogReferenceKeeper {
     static let strings: [String] = []
 }
+private final class LockedValue<Value>: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value: Value
+    init(_ value: Value) { self.value = value }
+    func withLock<Result>(_ body: (inout Value) -> Result) -> Result {
+        lock.lock()
+        defer { lock.unlock() }
+        return body(&value)
+    }
+}
 enum StaticContentCatalog {
     private final class BundleMarker {}
     // Memoize decoded resources across the app. `XxxContentCopy.current` is
     // accessed from inside view bodies (hot path) and each lookup used to hit
     // Rust FFI + JSON decode. Keyed by `(localeSignature, baseName, typeID)`
     // so a language switch invalidates automatically on the next read.
-    nonisolated(unsafe) private static var decodedResourceCache: [String: Any] = [:]
+    private static let decodedResourceCache = LockedValue<[String: Any]>([:])
     private static func cacheKey(baseName: String, typeID: String) -> String {
         let signature = AppLocalization.preferredLocalizationIdentifiers().joined(separator: ",")
         return "\(signature)|\(baseName)|\(typeID)"
     }
     static func loadRequiredResource<T: Decodable>(_ baseName: String, as type: T.Type) -> T {
         let key = cacheKey(baseName: baseName, typeID: String(describing: type))
-        if let cached = decodedResourceCache[key] as? T { return cached }
+        if let cached = decodedResourceCache.withLock({ $0[key] as? T }) { return cached }
         let value: T = loadRequiredResourceUncached(baseName, as: type)
-        decodedResourceCache[key] = value
+        decodedResourceCache.withLock { $0[key] = value }
         return value
     }
     static func loadResource<T: Decodable>(_ baseName: String, as type: T.Type) -> T? {
         let key = cacheKey(baseName: baseName, typeID: String(describing: type))
-        if let cached = decodedResourceCache[key] as? T { return cached }
+        if let cached = decodedResourceCache.withLock({ $0[key] as? T }) { return cached }
         guard let value: T = loadResourceUncached(baseName, as: type) else { return nil }
-        decodedResourceCache[key] = value
+        decodedResourceCache.withLock { $0[key] = value }
         return value
     }
     private static func loadRequiredResourceUncached<T: Decodable>(_ baseName: String, as type: T.Type) -> T {
@@ -409,17 +419,17 @@ enum BIP39EnglishWordList {
     static let words: Set<String> = BIP39WordList.words(for: "en")
 }
 enum BIP39WordList {
-    nonisolated(unsafe) private static var cache: [String: Set<String>] = [:]
+    private static let cache = LockedValue<[String: Set<String>]>([:])
     static func words(for language: String) -> Set<String> {
         let key = language.lowercased()
-        if let hit = cache[key] { return hit }
+        if let hit = cache.withLock({ $0[key] }) { return hit }
         let text = bip39Wordlist(language: language)
         let set = Set(
             text.split(whereSeparator: \.isWhitespace)
                 .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
                 .filter { !$0.isEmpty }
         )
-        cache[key] = set
+        cache.withLock { $0[key] = set }
         return set
     }
 }
@@ -442,26 +452,26 @@ enum AppLocalization {
             return seen.insert(bundleURL).inserted
         }
     }()
-    nonisolated(unsafe) private static var localizedStringCache: [String: String] = [:]
-    nonisolated(unsafe) private static var cachedState: LocalizationState?
-    nonisolated(unsafe) private static var runtimeManifest: RuntimeStringManifest?
-    nonisolated(unsafe) private static var manifestLoadAttempted = false
-    nonisolated(unsafe) private static var runtimeStringsBaseURL: URL?
-    nonisolated(unsafe) private static var loadedLocaleDicts: [String: [String: String]] = [:]
+    private static let localizedStringCache = LockedValue<[String: String]>([:])
+    private static let cachedState = LockedValue<LocalizationState?>(nil)
+    private static let runtimeManifest = LockedValue<RuntimeStringManifest?>(nil)
+    private static let manifestLoadAttempted = LockedValue(false)
+    private static let runtimeStringsBaseURL = LockedValue<URL?>(nil)
+    private static let loadedLocaleDicts = LockedValue<[String: [String: String]]>([:])
     static var locale: Locale { localizationState().locale }
     static func string(_ key: String, table: String? = nil) -> String {
         let state = localizationState()
         let signature = state.signature
         let cacheKey = "\(signature)|\(table ?? "<default>")|\(key)"
-        if let cachedValue = localizedStringCache[cacheKey] { return cachedValue }
+        if let cachedValue = localizedStringCache.withLock({ $0[cacheKey] }) { return cachedValue }
         if let runtimeValue = runtimeString(for: key, localizationIdentifiers: state.identifiers) {
-            localizedStringCache[cacheKey] = runtimeValue
+            localizedStringCache.withLock { $0[cacheKey] = runtimeValue }
             return runtimeValue
         }
         for bundle in state.bundles {
             let value = bundle.localizedString(forKey: key, value: key, table: table)
             if value != key {
-                localizedStringCache[cacheKey] = value
+                localizedStringCache.withLock { $0[cacheKey] = value }
                 return value
             }
         }
@@ -473,7 +483,7 @@ enum AppLocalization {
         } else {
             fallbackValue = Bundle.main.localizedString(forKey: key, value: key, table: table)
         }
-        localizedStringCache[cacheKey] = fallbackValue
+        localizedStringCache.withLock { $0[cacheKey] = fallbackValue }
         return fallbackValue
     }
     static func format(_ key: String, _ arguments: CVarArg...) -> String {
@@ -482,13 +492,13 @@ enum AppLocalization {
     static func preferredLocalizationIdentifiers() -> [String] { localizationState().identifiers }
     private static func localizationState() -> LocalizationState {
         let signature = preferenceSignature()
-        if let cachedState, cachedState.signature == signature { return cachedState }
+        if let state = cachedState.withLock({ $0 }), state.signature == signature { return state }
         let supported = supportedLocalizationIdentifiers()
         guard !supported.isEmpty else {
             let state = LocalizationState(
                 signature: signature, identifiers: ["en"], locale: Locale(identifier: "en"), bundles: [Bundle.main]
             )
-            cachedState = state
+            cachedState.withLock { $0 = state }
             return state
         }
         let development = loadManifest()?.sourceLanguage ?? Bundle.main.developmentLocalization ?? "en"
@@ -510,7 +520,7 @@ enum AppLocalization {
         let state = LocalizationState(
             signature: signature, identifiers: ordered, locale: Locale(identifier: ordered.first ?? development), bundles: bundles
         )
-        cachedState = state
+        cachedState.withLock { $0 = state }
         return state
     }
     private static func preferenceSignature() -> String {
@@ -564,12 +574,17 @@ enum AppLocalization {
                 if let dict = loadLocaleDict(fallback), let value = dict[key] { return value }
             }
         }
-        if let sourceLanguage = runtimeManifest?.sourceLanguage, let dict = loadLocaleDict(sourceLanguage) { return dict[key] }
+        if let sourceLanguage = runtimeManifest.withLock({ $0 })?.sourceLanguage,
+           let dict = loadLocaleDict(sourceLanguage) {
+            return dict[key]
+        }
         return nil
     }
     private static func loadManifest() -> RuntimeStringManifest? {
-        if manifestLoadAttempted { return runtimeManifest }
-        manifestLoadAttempted = true
+        if manifestLoadAttempted.withLock({ $0 }) {
+            return runtimeManifest.withLock { $0 }
+        }
+        manifestLoadAttempted.withLock { $0 = true }
         let decoder = JSONDecoder()
         for bundle in candidateBundles {
             guard let resourceURL = bundle.resourceURL else { continue }
@@ -582,21 +597,21 @@ enum AppLocalization {
                 let url = dir.appendingPathComponent("RuntimeStrings.manifest.json")
                 guard let data = try? Data(contentsOf: url), let manifest = try? decoder.decode(RuntimeStringManifest.self, from: data)
                 else { continue }
-                runtimeManifest = manifest
-                runtimeStringsBaseURL = dir
+                runtimeManifest.withLock { $0 = manifest }
+                runtimeStringsBaseURL.withLock { $0 = dir }
                 return manifest
             }
         }
         return nil
     }
     private static func loadLocaleDict(_ locale: String) -> [String: String]? {
-        if let cached = loadedLocaleDicts[locale] { return cached }
-        guard let baseURL = runtimeStringsBaseURL else { return nil }
+        if let cached = loadedLocaleDicts.withLock({ $0[locale] }) { return cached }
+        guard let baseURL = runtimeStringsBaseURL.withLock({ $0 }) else { return nil }
         let url = baseURL.appendingPathComponent("RuntimeStrings.\(locale).json")
         guard let data = try? Data(contentsOf: url), let dict = try? JSONDecoder().decode([String: String].self, from: data) else {
             return nil
         }
-        loadedLocaleDicts[locale] = dict
+        loadedLocaleDicts.withLock { $0[locale] = dict }
         return dict
     }
 }

@@ -43,8 +43,8 @@ protocol WalletServiceBridgeProtocol: Sendable {}
 @MainActor final class WalletServiceBridge: WalletServiceBridgeProtocol {
     static let shared = WalletServiceBridge()
     private var _service: WalletService?
-    nonisolated(unsafe) private static var _syncService: WalletService?
-    nonisolated(unsafe) private static var _pendingEtherscanAPIKey: String = ""
+    private static var _syncService: WalletService?
+    private static var _pendingEtherscanAPIKey: String = ""
     private var _balanceRefreshEngine: BalanceRefreshEngine?
     private func service() throws -> WalletService {
         if let existing = _service { return existing }
@@ -161,8 +161,10 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     }
     func registerSecretStore(_ store: SecretStore) throws { try service().setSecretStore(store: store) }
     nonisolated func setEtherscanAPIKey(_ key: String) {
-        Self._pendingEtherscanAPIKey = key
-        MainActor.assumeIsolated { Self._syncService?.setEtherscanApiKey(key: key) }
+        MainActor.assumeIsolated {
+            Self._pendingEtherscanAPIKey = key
+            Self._syncService?.setEtherscanApiKey(key: key)
+        }
     }
 }
 extension WalletServiceBridge {

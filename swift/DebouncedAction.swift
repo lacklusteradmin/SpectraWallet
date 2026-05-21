@@ -23,7 +23,7 @@ final class DebouncedAction: @unchecked Sendable {
     /// declaration ("wallets debounce 30ms; live prices 200ms; …").
     let intervalNanoseconds: UInt64
     private let lock = NSLock()
-    nonisolated(unsafe) private var task: Task<Void, Never>?
+    private var task: Task<Void, Never>?
 
     init(intervalMilliseconds: UInt64) {
         self.intervalNanoseconds = intervalMilliseconds * 1_000_000

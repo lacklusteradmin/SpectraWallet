@@ -33,7 +33,6 @@ enum CachedCoreHelpers {
     private static var seedDerivationChainRaws: [String: String?] = [:]
     private static var evmSeedDerivationChainNames: [String: String?] = [:]
     private static var receiveAddressResolvers: [String: ReceiveAddressResolverKind] = [:]
-    nonisolated(unsafe) private static var chainDerivationPaths: [String: String] = [:]
     private static var resolvedChainIds: [String: String] = [:]
 
     // ── Bounded cache for user-input helpers ───────────────────────────
@@ -127,10 +126,7 @@ enum CachedCoreHelpers {
         }
     }
     nonisolated static func chainDerivationPath(chainName: String) -> String {
-        if let hit = chainDerivationPaths[chainName] { return hit }
         let p = listAllChains().first(where: { $0.name == chainName })?.derivationPath ?? ""
-        let result = p.hasPrefix("m/") ? p : ""
-        chainDerivationPaths[chainName] = result
-        return result
+        return p.hasPrefix("m/") ? p : ""
     }
 }
