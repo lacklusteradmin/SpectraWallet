@@ -7,11 +7,12 @@ struct StakingView: View {
             ZStack {
                 SpectraBackdrop().ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.sectionSpacing) {
                         introCard
                         chainPickerCard
                         philosophyCard
-                    }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
+                    }.padding(.horizontal, SpectraLayout.screenHorizontal).padding(.top, SpectraLayout.screenTop).padding(
+                        .bottom, SpectraLayout.screenBottom)
                 }
             }.navigationTitle(AppLocalization.string("Staking")).navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(.hidden, for: .navigationBar)
@@ -26,8 +27,8 @@ struct StakingView: View {
             }
             Text(AppLocalization.string("Pick a chain below to delegate, manage positions, and claim rewards — all non-custodial."))
                 .font(.subheadline).foregroundStyle(.secondary)
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
+        }.padding(SpectraLayout.cardPadding).frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
     }
     @ViewBuilder
     private var chainPickerCard: some View {
@@ -44,8 +45,8 @@ struct StakingView: View {
                     NavigationLink(value: chain) { chainTile(chain) }.buttonStyle(.plain)
                 }
             }
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+        }.padding(SpectraLayout.cardPadding).frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
             .navigationDestination(for: StakingSupportedChain.self) { chain in
                 ChainStakingDetailView(chain: chain)
             }
@@ -53,11 +54,11 @@ struct StakingView: View {
     @ViewBuilder
     private func chainTile(_ chain: StakingSupportedChain) -> some View {
         let descriptor = chain.descriptor
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 9) {
                 CoinBadge(
                     assetIdentifier: Coin.iconIdentifier(symbol: descriptor.symbol, chainName: descriptor.chainName),
-                    fallbackText: descriptor.symbol, color: descriptor.tint, size: 36)
+                    fallbackText: descriptor.symbol, color: descriptor.tint, size: 32)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(descriptor.chainName).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
                     Text(descriptor.apyEstimate).font(.caption.weight(.semibold)).foregroundStyle(.green)
@@ -67,7 +68,7 @@ struct StakingView: View {
             }
             Text(descriptor.shortMechanic).font(.caption2).foregroundStyle(.secondary).lineLimit(2).fixedSize(
                 horizontal: false, vertical: true)
-        }.padding(14).frame(maxWidth: .infinity, alignment: .leading).background(
+        }.padding(12).frame(maxWidth: .infinity, alignment: .leading).background(
             RoundedRectangle(cornerRadius: 18, style: .continuous).fill(
                 Color.white.opacity(colorScheme == .light ? 0.55 : 0.05))
         ).overlay(
@@ -89,8 +90,8 @@ struct StakingView: View {
                     "Spectra prioritizes non-custodial flows: keys stay on device, transactions are signed locally, and you pick the validator."
                 )
             ).font(.subheadline).foregroundStyle(.secondary)
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+        }.padding(SpectraLayout.cardPadding).frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
     }
 }
 

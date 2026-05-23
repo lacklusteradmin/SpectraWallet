@@ -21,11 +21,12 @@ struct DashboardView: View {
             ZStack {
                 SpectraBackdrop().ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
-                    VStack(spacing: 18) {
+                    VStack(spacing: SpectraLayout.sectionSpacing) {
                         portfolioHeader
                         actionButtons
                         assetsOrWalletsCard
-                    }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
+                    }.padding(.horizontal, SpectraLayout.screenHorizontal).padding(.top, SpectraLayout.screenTop).padding(
+                        .bottom, SpectraLayout.screenBottom)
                 }.refreshable {
                     await store.performUserInitiatedRefresh()
                 }.scrollBounceBehavior(.always)
@@ -161,7 +162,7 @@ struct DashboardView: View {
                 Text(dashboardCardTitle).font(.headline)
                 Spacer()
                 Text(dashboardCardCountText).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
-            }.padding(.horizontal, 20).padding(.vertical, 16)
+            }.padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.cardHeaderVertical)
             Divider().opacity(0.25)
             VStack(spacing: 0) {
                 switch dashboardPage {
@@ -169,7 +170,8 @@ struct DashboardView: View {
                 case .assets: assetsCardRows(portfolio: visiblePortfolio)
                 }
             }.padding(.vertical, 4)
-        }.frame(maxWidth: .infinity).glassEffect(.regular.tint(.white.opacity(0.03)).interactive(), in: .rect(cornerRadius: 28))
+        }.frame(maxWidth: .infinity).glassEffect(
+            .regular.tint(.white.opacity(0.03)).interactive(), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
     }
     private var dashboardCardCountText: String {
         let count = dashboardPage == .assets ? visiblePortfolio.count : store.wallets.count
@@ -195,9 +197,9 @@ struct DashboardView: View {
                             isWatchOnly: store.isWatchOnlyWallet(wallet), badgeAssetIdentifier: badge.0,
                             badgeMark: wallet.selectedChain, badgeColor: badge.1
                         )
-                    ).equatable().padding(.horizontal, 20).padding(.vertical, 12)
+                    ).equatable().padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
                 }.buttonStyle(.plain)
-                if index < wallets.count - 1 { Divider().padding(.leading, 72).opacity(0.25) }
+                if index < wallets.count - 1 { Divider().padding(.leading, 64).opacity(0.25) }
             }
         }
     }
@@ -210,9 +212,10 @@ struct DashboardView: View {
             let presentations = visibleAssetPresentations(portfolio: portfolio)
             ForEach(Array(presentations.enumerated()), id: \.element.id) { index, presentation in
                 Button { selectedAssetGroup = presentation.assetGroup } label: {
-                    DashboardAssetRowView(presentation: presentation).equatable().padding(.horizontal, 20).padding(.vertical, 12)
+                    DashboardAssetRowView(presentation: presentation).equatable().padding(.horizontal, SpectraLayout.rowHorizontal).padding(
+                        .vertical, SpectraLayout.rowVertical)
                 }.buttonStyle(.plain)
-                if index < presentations.count - 1 { Divider().padding(.leading, 72).opacity(0.25) }
+                if index < presentations.count - 1 { Divider().padding(.leading, 64).opacity(0.25) }
             }
         }
     }
@@ -220,7 +223,7 @@ struct DashboardView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title).font(.body)
             Text(message).font(.footnote).foregroundStyle(.secondary)
-        }.padding(.horizontal, 20).padding(.vertical, 14).frame(maxWidth: .infinity, alignment: .leading)
+        }.padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
     }
     private var visiblePortfolio: [DashboardAssetGroup] { store.cachedDashboardAssetGroups }
     private func visibleAssetPresentations(portfolio: [DashboardAssetGroup]) -> [DashboardAssetRowPresentation] {
@@ -666,16 +669,16 @@ struct DashboardAssetRowView: View, Equatable {
     let presentation: DashboardAssetRowPresentation
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.presentation == rhs.presentation }
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
             CoinBadge(
                 assetIdentifier: presentation.assetGroup.iconIdentifier, fallbackText: presentation.assetGroup.symbol,
-                color: presentation.assetGroup.color, size: 40
+                color: presentation.assetGroup.color, size: 36
             )
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
                     if presentation.assetGroup.isPinned {
                         Image(systemName: "pin.fill").font(.caption.weight(.semibold)).foregroundStyle(Color.red.opacity(0.82)).frame(
-                            width: 28, height: 20
+                            width: 24, height: 18
                         ).background(Color.red.opacity(0.1), in: Capsule()).clipped()
                     }
                     Text(presentation.assetGroup.name).font(.headline).foregroundStyle(Color.primary).lineLimit(1).truncationMode(.tail)
@@ -684,7 +687,7 @@ struct DashboardAssetRowView: View, Equatable {
                 Text(presentation.chainSummaryText).font(.caption2).foregroundStyle(.secondary)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 3) {
                 Text(presentation.totalValueText).font(.headline).foregroundStyle(Color.primary).spectraNumericTextLayout()
                 Text(presentation.priceText).font(.caption).foregroundStyle(.secondary).spectraNumericTextLayout()
             }
@@ -755,16 +758,16 @@ private struct DashboardPortfolioHeader: View {
             PortfolioWalletSelectionView(store: store)
         } label: {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: 5) {
                     Text(AppLocalization.string("Portfolio")).font(.subheadline).foregroundStyle(.secondary)
                     Text(store.preferences.hideBalances ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: store.totalBalanceIfAvailable))
-                        .font(.largeTitle.weight(.bold)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.5).allowsTightening(true)
+                        .font(.title.weight(.bold)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.5).allowsTightening(true)
                     Text(AppLocalization.format("%lld in total", store.cachedIncludedPortfolioWallets.count)).font(.footnote).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
-            }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-                .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
+            }.padding(SpectraLayout.cardPadding).frame(maxWidth: .infinity, alignment: .leading)
+                .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
         }.buttonStyle(.plain)
     }
 }
@@ -774,15 +777,15 @@ private struct DashboardActionButtons: View {
     var body: some View {
         let canSend = store.canBeginSend
         let canReceive = store.canBeginReceive
-        return GlassEffectContainer(spacing: 12) {
-            HStack(spacing: 12) {
+        return GlassEffectContainer(spacing: 10) {
+            HStack(spacing: 10) {
                 Button { spectraHaptic(.medium); store.beginSend() } label: {
                     Label(AppLocalization.string("Send"), systemImage: "arrow.up.right")
-                        .font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 14)
+                        .font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 11)
                 }.buttonStyle(.glass).disabled(!canSend)
                 Button { spectraHaptic(.medium); store.beginReceive() } label: {
                     Label(AppLocalization.string("Receive"), systemImage: "arrow.down.left")
-                        .font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 14)
+                        .font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 11)
                 }.buttonStyle(.glassProminent).disabled(!canReceive)
             }
         }

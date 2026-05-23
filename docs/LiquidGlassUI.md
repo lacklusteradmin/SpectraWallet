@@ -26,7 +26,7 @@ Apple's iOS design philosophy has been remarkably consistent since iOS 7, and iO
 **What Spectra departs from:**
 - *Body content on glass cards.* Apple's own apps (Mail, Settings, Notes, Home) use `List(.insetGrouped)` with opaque `.systemGroupedBackground` rows. Spectra puts body content on glass over a rich backdrop — that's the fintech signature. Valid, just non-Apple.
 - *Custom gradient wallpaper.* Apple apps render against system neutral backgrounds. Spectra ships `SpectraBackdrop`. This is what makes our glass *look* like glass; it's also what makes the app read as "crypto" rather than "system."
-- *Corner radii slightly rounder than system.* 28pt on top-level cards is a few points past Apple's proportional default — deliberate lean into the consumer-fintech look.
+- *Corner radii tuned by density.* Primary phone tabs use a tighter 24pt card radius for scan-friendly density; richer detail/hero surfaces keep 28pt where the extra roundness still feels proportional.
 
 The philosophy we're following: *use Apple's APIs and typography/color semantics correctly, but break from Apple's restraint on where glass and rich backgrounds appear.* That's how consumer fintech apps look native on iOS 26 without feeling like a system app.
 
@@ -34,7 +34,7 @@ The philosophy we're following: *use Apple's APIs and typography/color semantics
 
 - **Backdrop:** `SpectraBackdrop` (gradient + chroma clouds) on every top-level tab NavigationStack **and on every detail destination** (asset, wallet, staking-chain). Glass needs something to refract.
 - **Chrome:** Navigation bar is transparent (`.toolbarBackground(.hidden, for: .navigationBar)`); toolbar actions are `.buttonStyle(.glass)` pills. Content scrolls under.
-- **Surfaces:** Content sits in `.glassEffect(.regular.tint(.white.opacity(~0.03)), in: .rect(cornerRadius: ~28))` cards. Top-level = 28pt, nested/detail = 24pt.
+- **Surfaces:** Content sits in `.glassEffect(.regular.tint(.white.opacity(~0.03)), in: .rect(cornerRadius: 24...28))` cards. Primary phone tabs use the shared `SpectraLayout` compact metrics; detail and narrative surfaces can stay roomier.
 - **Hero card opacity:** Hero/header cards use `tint(.white.opacity(0.04))` (slightly stronger). Stats/content cards use `0.03`. Two opacity bands create subtle depth without explicit borders.
 - **Stat row pattern:** detail-page key/value rows lead with an SF Symbol in `.orange` + secondary label + primary value, separated by `Divider().opacity(0.4)`. Used across Asset detail, Wallet detail, Staking chain detail.
 - **Typography:** system text styles (`.largeTitle.weight(.bold)`, `.title`, `.headline`, etc.). No `design: .rounded` + `weight: .black` outside icon artwork.
@@ -47,8 +47,8 @@ Actual values in the codebase:
 
 | Radius | Where |
 |--------|-------|
-| 28pt | All top-level tab hero/container cards — Dashboard portfolio hero + assets-wallets card, History section cards + empty state, Staking intro/chain-picker/philosophy cards, **Staking chain-detail cards (hero/stats/actions/explanation)**, Donations hero + addresses card, About hero + narrative + ethos cards, TransactionDetail hero amount card, `spectraDetailCard` helper, lock-screen glass card, ChainWiki intro card + row cards + section cards + hero card, **Asset Group / Contracts detail (hero/stats/breakdown/contracts)**, **Wallet detail (hero/stats/holdings/address)** |
-| 24pt | **Default `spectraCardFill` radius** — legacy detail/nested cards: SendFlowViews card, ReceiveFlowViews primary card, WalletSetupViews final cards |
+| 28pt | Roomier detail/narrative cards — **Staking chain-detail cards (hero/stats/actions/explanation)**, Donations hero + addresses card, About hero + narrative + ethos cards, TransactionDetail hero amount card, `spectraDetailCard` helper, lock-screen glass card, ChainWiki intro card + row cards + section cards + hero card, **Asset Group / Contracts detail (hero/stats/breakdown/contracts)**, **Wallet detail (hero/stats/holdings/address)** |
+| 24pt | **Primary phone tab cards via `SpectraLayout.cardCornerRadius`** — Dashboard portfolio hero + assets-wallets card, History section cards + empty state, Staking intro/chain-picker/philosophy cards; also default `spectraCardFill` radius for legacy detail/nested cards |
 | 22pt | AddWalletEntryView entry cards |
 | 20pt | WalletSetupViews chain chip background |
 | 18pt | ReceiveFlowViews small nested card, TransactionDetail `.ultraThinMaterial` chips, ChainWiki accessory chips, default `spectraInputFieldStyle` radius, Wallet detail address inset capsule |
@@ -93,21 +93,21 @@ Detail destinations (added so glass refraction works after navigation push):
 ### `.glassEffect(...)` on surfaces/cards
 
 **Dashboard** ([DashboardViews.swift](DashboardViews.swift)):
-- L122 — assets/wallets card (`.interactive()`, 28pt)
+- L122 — assets/wallets card (`.interactive()`, 24pt compact)
 - L368 — `AssetDetailHeroCard` (28pt, `0.04` tint)
 - L392 — `AssetSummaryStatsCard` (28pt)
 - L440 — `AssetChainBreakdownCard` (28pt)
 - L480 — `AssetContractsCard` (28pt)
-- L730 — portfolio hero card (28pt, `0.04` tint)
+- L730 — portfolio hero card (24pt compact, `0.04` tint)
 
 **History** ([HistoryView.swift](HistoryView.swift)):
-- L68 — empty-state card (28pt)
-- L108 — transaction section cards (`.interactive()`, 28pt)
+- L68 — empty-state card (24pt compact)
+- L108 — transaction section cards (`.interactive()`, 24pt compact)
 
 **Staking** ([StakingView.swift](StakingView.swift)) — chain hub:
-- L34 — intro card (28pt, `0.04` tint)
-- L52 — chain-picker card (28pt)
-- L97 — philosophy card (28pt)
+- L34 — intro card (24pt compact, `0.04` tint)
+- L52 — chain-picker card (24pt compact)
+- L97 — philosophy card (24pt compact)
 
 **Staking** chain detail (`ChainStakingDetailView`):
 - L232 — hero card (28pt, `0.04` tint)

@@ -202,4 +202,25 @@ final class SendPreviewStore {
     var icpSendPreview: IcpSendPreview?
     var nearSendPreview: NearSendPreview?
     var polkadotSendPreview: PolkadotSendPreview?
+
+    func resetAll() {
+        ethereumSendPreview = nil
+        bitcoinSendPreview = nil
+        bitcoinCashSendPreview = nil
+        bitcoinSVSendPreview = nil
+        litecoinSendPreview = nil
+        dogecoinSendPreview = nil
+        tronSendPreview = nil
+        solanaSendPreview = nil
+        xrpSendPreview = nil
+        stellarSendPreview = nil
+        moneroSendPreview = nil
+        cardanoSendPreview = nil
+        suiSendPreview = nil
+        aptosSendPreview = nil
+        tonSendPreview = nil
+        icpSendPreview = nil
+        nearSendPreview = nil
+        polkadotSendPreview = nil
+    }
 }

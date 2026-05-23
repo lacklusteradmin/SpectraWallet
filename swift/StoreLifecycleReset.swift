@@ -203,15 +203,7 @@ extension AppState {
         ethereumManualNonce = ""
         isPreparingEthereumReplacementContext = false
         lastSentTransaction = nil
-        sendPreviewStore.bitcoinSendPreview = nil
-        sendPreviewStore.litecoinSendPreview = nil
-        sendPreviewStore.ethereumSendPreview = nil
-        sendPreviewStore.bitcoinCashSendPreview = nil
-        sendPreviewStore.dogecoinSendPreview = nil
-        sendPreviewStore.tronSendPreview = nil
-        sendPreviewStore.solanaSendPreview = nil
-        sendPreviewStore.xrpSendPreview = nil
-        sendPreviewStore.moneroSendPreview = nil
+        sendPreviewStore.resetAll()
         sendingChains = []
         preparingChains = []
         pendingSendPreviewRefreshChains = []

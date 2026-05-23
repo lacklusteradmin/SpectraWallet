@@ -68,24 +68,7 @@ extension AppState {
         )
     }
     private func resetAllSendPreviews() {
-        sendPreviewStore.bitcoinSendPreview = nil
-        sendPreviewStore.bitcoinCashSendPreview = nil
-        sendPreviewStore.bitcoinSVSendPreview = nil
-        sendPreviewStore.litecoinSendPreview = nil
-        sendPreviewStore.ethereumSendPreview = nil
-        sendPreviewStore.dogecoinSendPreview = nil
-        sendPreviewStore.tronSendPreview = nil
-        sendPreviewStore.solanaSendPreview = nil
-        sendPreviewStore.xrpSendPreview = nil
-        sendPreviewStore.stellarSendPreview = nil
-        sendPreviewStore.moneroSendPreview = nil
-        sendPreviewStore.cardanoSendPreview = nil
-        sendPreviewStore.suiSendPreview = nil
-        sendPreviewStore.aptosSendPreview = nil
-        sendPreviewStore.tonSendPreview = nil
-        sendPreviewStore.icpSendPreview = nil
-        sendPreviewStore.nearSendPreview = nil
-        sendPreviewStore.polkadotSendPreview = nil
+        sendPreviewStore.resetAll()
         preparingChains = []
     }
     private func resetInactiveSendPreviews(except activePreview: SendPreviewKind?) {

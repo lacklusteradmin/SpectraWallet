@@ -14,11 +14,11 @@ private struct HistoryTransactionRowView: View, Equatable {
     let row: HistoryRowPresentation
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.row == rhs.row }
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 10) {
                 CoinBadge(
                     assetIdentifier: row.transaction.assetIdentifier, fallbackText: row.transaction.symbol,
-                    color: row.transaction.badgeColor, size: 40)
+                    color: row.transaction.badgeColor, size: 36)
                 VStack(alignment: .leading, spacing: 3) {
                     if let amountText = row.amountText {
                         Text(amountText).font(.headline.weight(.semibold)).foregroundStyle(row.amountColor ?? Color.primary)
@@ -27,8 +27,8 @@ private struct HistoryTransactionRowView: View, Equatable {
                     Text(row.subtitleText).spectraHintText()
                 }
                 Spacer()
-                VStack(alignment: .trailing, spacing: 6) {
-                    Text(row.statusText).font(.caption2.bold()).foregroundStyle(Color.primary).padding(.horizontal, 8).padding(.vertical, 5)
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(row.statusText).font(.caption2.bold()).foregroundStyle(Color.primary).padding(.horizontal, 8).padding(.vertical, 4)
                         .background(row.transaction.statusColor.opacity(0.85), in: Capsule())
                     Text(row.fullTimestampText).font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(
                         .trailing)
@@ -59,14 +59,14 @@ struct HistoryView: View {
             ZStack {
                 SpectraBackdrop().ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
-                    LazyVStack(alignment: .leading, spacing: 18) {
+                    LazyVStack(alignment: .leading, spacing: SpectraLayout.sectionSpacing) {
                         ForEach(groupedSections) { section in
                                 VStack(spacing: 0) {
                                     HStack {
                                         Text(AppLocalization.format("history.section.titleCount", section.title, section.rows.count))
                                             .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
                                         Spacer()
-                                    }.padding(.horizontal, 20).padding(.vertical, 14)
+                                    }.padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.cardHeaderVertical)
                                     Divider().opacity(0.25)
                                     VStack(spacing: 0) {
                                         ForEach(Array(section.rows.enumerated()), id: \.element.id) { index, row in
@@ -74,7 +74,7 @@ struct HistoryView: View {
                                                 HistoryDetailView(store: store, transaction: row.transaction)
                                             } label: {
                                                 HistoryTransactionRowView(row: row).equatable()
-                                                    .padding(.horizontal, 20).padding(.vertical, 12)
+                                                    .padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
                                             }.buttonStyle(.plain).contextMenu {
                                                 if row.transaction.kind == .send,
                                                     row.transaction.status == .pending || row.transaction.status == .failed
@@ -97,13 +97,16 @@ struct HistoryView: View {
                                                     }
                                                 }
                                             }
-                                            if index < section.rows.count - 1 { Divider().padding(.leading, 72).opacity(0.25) }
+                                            if index < section.rows.count - 1 { Divider().padding(.leading, 64).opacity(0.25) }
                                         }
                                     }.padding(.vertical, 4)
-                                }.frame(maxWidth: .infinity).glassEffect(.regular.tint(.white.opacity(0.03)).interactive(), in: .rect(cornerRadius: 28))
+                                }.frame(maxWidth: .infinity).glassEffect(
+                                    .regular.tint(.white.opacity(0.03)).interactive(),
+                                    in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
                             }
                         if shouldShowPagingControls { historyPagingControls }
-                    }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
+                    }.padding(.horizontal, SpectraLayout.screenHorizontal).padding(.top, SpectraLayout.screenTop).padding(
+                        .bottom, SpectraLayout.screenBottom)
                 }.refreshable {
                     await store.performUserInitiatedRefresh()
                 }.scrollBounceBehavior(.always)
@@ -325,4 +328,3 @@ struct HistoryView: View {
         Color.spectraTransactionAmountColor(isReceive: transaction.kind == .receive)
     }
 }
-

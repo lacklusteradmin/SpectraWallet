@@ -110,6 +110,17 @@ struct SpectraBackdrop: View {
         ]
     }
 }
+enum SpectraLayout {
+    static let screenHorizontal: CGFloat = 14
+    static let screenTop: CGFloat = 6
+    static let screenBottom: CGFloat = 20
+    static let sectionSpacing: CGFloat = 14
+    static let cardPadding: CGFloat = 16
+    static let cardHeaderVertical: CGFloat = 12
+    static let rowHorizontal: CGFloat = 16
+    static let rowVertical: CGFloat = 9
+    static let cardCornerRadius: CGFloat = 24
+}
 extension View {
     func spectraNumericTextLayout(minimumScaleFactor: CGFloat = 0.62) -> some View {
         lineLimit(1).minimumScaleFactor(minimumScaleFactor).allowsTightening(true)

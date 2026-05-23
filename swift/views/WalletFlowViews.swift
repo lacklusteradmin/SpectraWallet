@@ -104,11 +104,11 @@ struct WalletCardView: View, Equatable {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 14) {
+            HStack(spacing: 12) {
                 CoinBadge(
                     assetIdentifier: presentation.badgeAssetIdentifier, fallbackText: presentation.badgeMark,
-                    color: presentation.badgeColor, size: 40)
-                VStack(alignment: .leading, spacing: 4) {
+                    color: presentation.badgeColor, size: 36)
+                VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
                         if presentation.isWatchOnly { watchOnlyBadge }
                         Text(presentation.walletName).font(.headline).foregroundStyle(Color.primary)
@@ -116,7 +116,7 @@ struct WalletCardView: View, Equatable {
                     Text(presentation.chainTitleText).font(.caption2).foregroundStyle(.secondary).lineLimit(2)
                 }
                 Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
+                VStack(alignment: .trailing, spacing: 3) {
                     Text(presentation.totalValueText).font(.headline).foregroundStyle(Color.primary).spectraNumericTextLayout()
                     Text(presentation.assetCountText).font(.caption2).foregroundStyle(.secondary)
                 }
