@@ -128,15 +128,14 @@ struct ChainRegistryEntry: Identifiable {
     let symbol: String
     let color: Color
     let assetName: String
+    let comment: String
     let family: String
     let consensus: String
     let stateModel: String
     let primaryUse: String
-    let slip44CoinType: String
     let derivationPath: String
     let alternateDerivationPath: String?
     let totalCirculationModel: String
-    let notableDetails: [String]
     var assetIdentifier: String { Coin.iconIdentifier(symbol: symbol, chainName: name) }
     var nativeIconDescriptor: NativeChainIconDescriptor {
         NativeChainIconDescriptor(
@@ -149,12 +148,12 @@ struct ChainRegistryEntry: Identifiable {
             .map { chain in
                 ChainRegistryEntry(
                     id: chain.id, name: chain.name, symbol: chain.symbol,
-                    color: RegistryColorLookup.color(named: chain.colorName), assetName: chain.assetName,
-                    family: chain.family, consensus: chain.consensus, stateModel: chain.stateModel,
-                    primaryUse: chain.primaryUse, slip44CoinType: chain.slip44CoinType,
+                    color: RegistryColorLookup.color(named: chain.color), assetName: chain.assetName,
+                    comment: chain.comment, family: chain.family, consensus: chain.consensus, stateModel: chain.stateModel,
+                    primaryUse: chain.primaryUse,
                     derivationPath: chain.derivationPath,
                     alternateDerivationPath: chain.altDerivationPath.isEmpty ? nil : chain.altDerivationPath,
-                    totalCirculationModel: chain.totalCirculationModel, notableDetails: chain.notableDetails
+                    totalCirculationModel: chain.totalCirculationModel
                 )
             }
     }()
@@ -289,6 +288,7 @@ struct ChainTokenRegistryEntry: Identifiable, Equatable {
     let decimals: Int
     let displayDecimals: Int?
     let category: TokenPreferenceCategory
+    let comment: String
     let isBuiltIn: Bool
     let isEnabledByDefault: Bool
     var id: String {
@@ -299,7 +299,7 @@ struct ChainTokenRegistryEntry: Identifiable, Equatable {
     init(
         chain: TokenTrackingChain, name: String, symbol: String, tokenStandard: String, contractAddress: String,
         coinGeckoId: String, decimals: Int, displayDecimals: Int? = nil, category: TokenPreferenceCategory, isBuiltIn: Bool,
-        isEnabledByDefault: Bool
+        comment: String = "", isEnabledByDefault: Bool
     ) {
         self.chain = chain
         self.name = name
@@ -310,6 +310,7 @@ struct ChainTokenRegistryEntry: Identifiable, Equatable {
         self.decimals = decimals
         self.displayDecimals = displayDecimals
         self.category = category
+        self.comment = comment
         self.isBuiltIn = isBuiltIn
         self.isEnabledByDefault = isEnabledByDefault
     }
@@ -323,6 +324,7 @@ struct ChainTokenRegistryEntry: Identifiable, Equatable {
         decimals = Int(tokenPreferenceEntry.decimals)
         displayDecimals = tokenPreferenceEntry.displayDecimals.map(Int.init)
         category = tokenPreferenceEntry.category
+        comment = ""
         isBuiltIn = tokenPreferenceEntry.isBuiltIn
         isEnabledByDefault = tokenPreferenceEntry.isEnabled
     }

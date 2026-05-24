@@ -150,12 +150,14 @@ struct SendView: View {
             isPreparing: store.preparingChains.contains("Cardano"),
             fee: sendPreviewStore.cardanoSendPreview.map { ($0.estimatedNetworkFeeAda, "ADA", "%.6f") },
             footer: "Spectra signs and broadcasts ADA transfers in-app.",
-            extraLines: sendPreviewStore.cardanoSendPreview.map { p in p.ttlSlot > 0 ? ["TTL Slot: \(p.ttlSlot)"] : [] } ?? [])
+            extraLines: sendPreviewStore.cardanoSendPreview.map { p in
+                p.ttlSlot > 0 ? [AppLocalization.format("TTL Slot: %lld", p.ttlSlot)] : []
+            } ?? [])
         simpleFeeContent(selectedCoin: selectedCoin, chainName: "Monero",
             isPreparing: store.preparingChains.contains("Monero"),
             fee: sendPreviewStore.moneroSendPreview.map { ($0.estimatedNetworkFeeXmr, "XMR", "%.6f") },
             footer: "Spectra prepares Monero sends in-app using the configured backend fee quote.",
-            extraLines: sendPreviewStore.moneroSendPreview.map { ["Priority: \($0.priorityLabel)"] } ?? [])
+            extraLines: sendPreviewStore.moneroSendPreview.map { [AppLocalization.format("Priority: %@", $0.priorityLabel)] } ?? [])
         simpleFeeContent(selectedCoin: selectedCoin, chainName: "NEAR",
             isPreparing: store.preparingChains.contains("NEAR"),
             fee: sendPreviewStore.nearSendPreview.map { ($0.estimatedNetworkFeeNear, "NEAR", "%.6f") },
@@ -168,7 +170,9 @@ struct SendView: View {
             isPreparing: store.preparingChains.contains("Stellar"),
             fee: sendPreviewStore.stellarSendPreview.map { ($0.estimatedNetworkFeeXlm, "XLM", "%.7f") },
             footer: "Spectra signs and broadcasts Stellar payments in-app.",
-            extraLines: sendPreviewStore.stellarSendPreview.map { p in p.sequence > 0 ? ["Sequence: \(p.sequence)"] : [] } ?? [])
+            extraLines: sendPreviewStore.stellarSendPreview.map { p in
+                p.sequence > 0 ? [AppLocalization.format("Sequence: %lld", p.sequence)] : []
+            } ?? [])
         simpleFeeContent(selectedCoin: selectedCoin, chainName: "Internet Computer",
             isPreparing: store.preparingChains.contains("Internet Computer"),
             fee: sendPreviewStore.icpSendPreview.map { ($0.estimatedNetworkFeeIcp, "ICP", "%.8f") },
@@ -178,20 +182,26 @@ struct SendView: View {
             fee: sendPreviewStore.suiSendPreview.map { ($0.estimatedNetworkFeeSui, "SUI", "%.6f") },
             footer: "Spectra signs and broadcasts Sui transfers in-app.",
             extraLines: sendPreviewStore.suiSendPreview.map {
-                ["Gas Budget: \($0.gasBudgetMist) MIST", "Reference Gas Price: \($0.referenceGasPrice)"]
+                [
+                    AppLocalization.format("Gas Budget: %llu MIST", $0.gasBudgetMist),
+                    AppLocalization.format("Reference Gas Price: %llu", $0.referenceGasPrice),
+                ]
             } ?? [])
         simpleFeeContent(selectedCoin: selectedCoin, chainName: "Aptos",
             isPreparing: store.preparingChains.contains("Aptos"),
             fee: sendPreviewStore.aptosSendPreview.map { ($0.estimatedNetworkFeeApt, "APT", "%.6f") },
             footer: "Spectra signs and broadcasts Aptos transfers in-app.",
             extraLines: sendPreviewStore.aptosSendPreview.map {
-                ["Max Gas Amount: \($0.maxGasAmount)", "Gas Unit Price: \($0.gasUnitPriceOctas) octas"]
+                [
+                    AppLocalization.format("Max Gas Amount: %llu", $0.maxGasAmount),
+                    AppLocalization.format("Gas Unit Price: %llu octas", $0.gasUnitPriceOctas),
+                ]
             } ?? [])
         simpleFeeContent(selectedCoin: selectedCoin, chainName: "TON",
             isPreparing: store.preparingChains.contains("TON"),
             fee: sendPreviewStore.tonSendPreview.map { ($0.estimatedNetworkFeeTon, "TON", "%.6f") },
             footer: "Spectra signs and broadcasts TON transfers in-app.",
-            extraLines: sendPreviewStore.tonSendPreview.map { ["Sequence Number: \($0.sequenceNumber)"] } ?? [])
+            extraLines: sendPreviewStore.tonSendPreview.map { [AppLocalization.format("Sequence Number: %u", $0.sequenceNumber)] } ?? [])
         if let selectedCoin { sendPreviewDetailsContent(for: selectedCoin) }
     }
 
@@ -259,7 +269,7 @@ struct SendView: View {
         let feeSymbol = selectedCoin.symbol
         let utxoPreview = utxoPreview(for: selectedCoin)
         VStack(alignment: .leading, spacing: 10) {
-            networkSectionHeader("\(selectedCoin.chainName) Network")
+            networkSectionHeader(AppLocalization.format("%@ Network", selectedCoin.chainName))
             Picker(AppLocalization.string("Fee Priority"), selection: chainFeePriorityBinding(for: selectedCoin.chainName)) {
                 ForEach(ChainFeePriorityOption.allCases) { priority in Text(priority.displayName).tag(priority) }
             }.pickerStyle(.segmented)
@@ -269,20 +279,30 @@ struct SendView: View {
                 HStack(spacing: 10) { ProgressView(); Text(AppLocalization.string("Loading UTXOs and fee estimate...")).font(.caption) }
             } else if selectedCoin.chainID == .dogecoin, let dogecoinSendPreview = sendPreviewStore.dogecoinSendPreview {
                 if let fiatFee = store.formattedFiatAmount(fromNative: dogecoinSendPreview.estimatedNetworkFeeDoge, symbol: feeSymbol) {
-                    Text("Estimated Network Fee: \(dogecoinSendPreview.estimatedNetworkFeeDoge, specifier: "%.6f") \(feeSymbol) (~\(fiatFee))")
+                    Text(
+                        AppLocalization.format(
+                            "Estimated Network Fee: %.6f %@ (~%@)",
+                            dogecoinSendPreview.estimatedNetworkFeeDoge, feeSymbol, fiatFee
+                        )
+                    )
                 } else {
-                    Text("Estimated Network Fee: \(dogecoinSendPreview.estimatedNetworkFeeDoge, specifier: "%.6f") \(feeSymbol)")
+                    Text(AppLocalization.format("Estimated Network Fee: %.6f %@", dogecoinSendPreview.estimatedNetworkFeeDoge, feeSymbol))
                 }
-                Text("Confirmation Preference: \(confirmationPreferenceText(for: dogecoinSendPreview.feePriority))")
+                Text(AppLocalization.format("Confirmation Preference: %@", confirmationPreferenceText(for: dogecoinSendPreview.feePriority)))
             } else if let utxoPreview {
-                Text("Estimated Fee Rate: \(utxoPreview.estimatedFeeRateSatVb) sat/vB")
+                Text(AppLocalization.format("Estimated Fee Rate: %@ sat/vB", "\(utxoPreview.estimatedFeeRateSatVb)"))
                 if let fiatFee = store.formattedFiatAmount(fromNative: utxoPreview.estimatedNetworkFeeBtc, symbol: feeSymbol) {
-                    Text("Estimated Network Fee: \(utxoPreview.estimatedNetworkFeeBtc, specifier: "%.8f") \(feeSymbol) (~\(fiatFee))")
+                    Text(
+                        AppLocalization.format(
+                            "Estimated Network Fee: %.8f %@ (~%@)",
+                            utxoPreview.estimatedNetworkFeeBtc, feeSymbol, fiatFee
+                        )
+                    )
                 } else {
-                    Text("Estimated Network Fee: \(utxoPreview.estimatedNetworkFeeBtc, specifier: "%.8f") \(feeSymbol)")
+                    Text(AppLocalization.format("Estimated Network Fee: %.8f %@", utxoPreview.estimatedNetworkFeeBtc, feeSymbol))
                 }
             } else {
-                Text("Enter amount to preview estimated \(selectedCoin.chainName) network fee.")
+                Text(AppLocalization.format("Enter amount to preview estimated %@ network fee.", selectedCoin.chainName))
                     .font(.caption).foregroundStyle(.secondary)
             }
         }
@@ -291,7 +311,7 @@ struct SendView: View {
     @ViewBuilder
     private func evmNetworkContent(selectedCoin: Coin) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            networkSectionHeader("\(selectedCoin.chainName) Network")
+            networkSectionHeader(AppLocalization.format("%@ Network", selectedCoin.chainName))
             Toggle(AppLocalization.string("Use Custom Fees"), isOn: $store.useCustomEthereumFees)
             if store.useCustomEthereumFees {
                 TextField(AppLocalization.string("Max Fee (gwei)"), text: $store.customEthereumMaxFeeGwei)
@@ -339,23 +359,33 @@ struct SendView: View {
             if store.preparingChains.contains("Ethereum") {
                 HStack(spacing: 10) { ProgressView(); Text(AppLocalization.string("Loading nonce and fee estimate...")).font(.caption) }
             } else if let ethereumSendPreview = sendPreviewStore.ethereumSendPreview {
-                Text("Nonce: \(ethereumSendPreview.nonce)")
-                Text("Gas Limit: \(ethereumSendPreview.gasLimit)")
-                Text("Max Fee: \(ethereumSendPreview.maxFeePerGasGwei, specifier: "%.2f") gwei")
-                Text("Priority Fee: \(ethereumSendPreview.maxPriorityFeePerGasGwei, specifier: "%.2f") gwei")
+                Text(AppLocalization.format("Nonce: %lld", ethereumSendPreview.nonce))
+                Text(AppLocalization.format("Gas Limit: %lld", ethereumSendPreview.gasLimit))
+                Text(AppLocalization.format("Max Fee: %.2f gwei", ethereumSendPreview.maxFeePerGasGwei))
+                Text(AppLocalization.format("Priority Fee: %.2f gwei", ethereumSendPreview.maxPriorityFeePerGasGwei))
                 let feeSymbol = evmFeeSymbol(for: selectedCoin.chainName)
                 if let fiatFee = store.formattedFiatAmount(fromNative: ethereumSendPreview.estimatedNetworkFeeEth, symbol: feeSymbol) {
-                    Text("Estimated Network Fee: \(ethereumSendPreview.estimatedNetworkFeeEth, specifier: "%.6f") \(feeSymbol) (~\(fiatFee))")
+                    Text(
+                        AppLocalization.format(
+                            "Estimated Network Fee: %.6f %@ (~%@)",
+                            ethereumSendPreview.estimatedNetworkFeeEth, feeSymbol, fiatFee
+                        )
+                    )
                         .font(.subheadline.weight(.semibold))
                 } else {
-                    Text("Estimated Network Fee: \(ethereumSendPreview.estimatedNetworkFeeEth, specifier: "%.6f") \(feeSymbol)")
+                    Text(AppLocalization.format("Estimated Network Fee: %.6f %@", ethereumSendPreview.estimatedNetworkFeeEth, feeSymbol))
                         .font(.subheadline.weight(.semibold))
                 }
             } else {
                 Text(AppLocalization.string("Enter an amount to load a live nonce and fee preview. Add a valid destination address before sending."))
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Text(AppLocalization.string("Spectra signs and broadcasts supported \(selectedCoin.chainName) transfers. This preview is the live nonce and fee estimate for the transaction you are about to send."))
+            Text(
+                AppLocalization.format(
+                    "Spectra signs and broadcasts supported %@ transfers. This preview is the live nonce and fee estimate for the transaction you are about to send.",
+                    selectedCoin.chainName
+                )
+            )
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -368,23 +398,23 @@ struct SendView: View {
     ) -> some View {
         if let selectedCoin, selectedCoin.chainName == chainName {
             VStack(alignment: .leading, spacing: 10) {
-                networkSectionHeader("\(chainName) Network")
+                networkSectionHeader(AppLocalization.format("%@ Network", chainName))
                 if isPreparing {
-                    HStack(spacing: 10) { ProgressView(); Text("Loading \(chainName) fee estimate...").font(.caption) }
+                    HStack(spacing: 10) { ProgressView(); Text(AppLocalization.format("Loading %@ fee estimate...", chainName)).font(.caption) }
                 } else if let fee {
                     let feeFormatted = String(format: fee.specifier, fee.amount)
                     if let fiatFee = store.formattedFiatAmount(fromNative: fee.amount, symbol: fee.symbol) {
-                        Text("Estimated Network Fee: \(feeFormatted) \(fee.symbol) (~\(fiatFee))").font(.subheadline.weight(.semibold))
+                        Text(AppLocalization.format("Estimated Network Fee: %@ %@ (~%@)", feeFormatted, fee.symbol, fiatFee)).font(.subheadline.weight(.semibold))
                     } else {
-                        Text("Estimated Network Fee: \(feeFormatted) \(fee.symbol)").font(.subheadline.weight(.semibold))
+                        Text(AppLocalization.format("Estimated Network Fee: %@ %@", feeFormatted, fee.symbol)).font(.subheadline.weight(.semibold))
                     }
                     ForEach(extraLines, id: \.self) { Text($0) }
-                    if let extraCaption { Text(extraCaption).font(.caption).foregroundStyle(.secondary) }
+                    if let extraCaption { Text(AppLocalization.string(extraCaption)).font(.caption).foregroundStyle(.secondary) }
                 } else {
-                    Text("Enter an amount to load a \(chainName) fee preview. Add a valid destination address before sending.")
+                    Text(AppLocalization.format("Enter an amount to load a %@ fee preview. Add a valid destination address before sending.", chainName))
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                Text(footer).font(.caption).foregroundStyle(.secondary)
+                Text(AppLocalization.string(footer)).font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -393,20 +423,20 @@ struct SendView: View {
     private func sendPreviewDetailsContent(for selectedCoin: Coin) -> some View {
         if let details = store.sendPreviewDetails(for: selectedCoin), details.hasVisibleContent {
             VStack(alignment: .leading, spacing: 8) {
-                networkSectionHeader("Preview Details")
+                networkSectionHeader(AppLocalization.string("Preview Details"))
                 if let spendableBalance = details.spendableBalance {
-                    Text("Spendable Balance: \(formattedPreviewAssetAmount(spendableBalance, for: selectedCoin))")
+                    Text(AppLocalization.format("Spendable Balance: %@", formattedPreviewAssetAmount(spendableBalance, for: selectedCoin)))
                 }
-                if let feeRateDescription = details.feeRateDescription { Text("Fee Rate: \(feeRateDescription)") }
+                if let feeRateDescription = details.feeRateDescription { Text(AppLocalization.format("Fee Rate: %@", feeRateDescription)) }
                 if let estimatedTransactionBytes = details.estimatedTransactionBytes {
-                    Text("Estimated Size: \(estimatedTransactionBytes) bytes")
+                    Text(AppLocalization.format("Estimated Size: %lld bytes", estimatedTransactionBytes))
                 }
-                if let selectedInputCount = details.selectedInputCount { Text("Selected Inputs: \(selectedInputCount)") }
+                if let selectedInputCount = details.selectedInputCount { Text(AppLocalization.format("Selected Inputs: %lld", selectedInputCount)) }
                 if let usesChangeOutput = details.usesChangeOutput {
-                    Text("Change Output: \(usesChangeOutput ? AppLocalization.string("Yes") : AppLocalization.string("No"))")
+                    Text(AppLocalization.format("Change Output: %@", usesChangeOutput ? AppLocalization.string("Yes") : AppLocalization.string("No")))
                 }
                 if let maxSendable = details.maxSendable {
-                    Text("Max Sendable: \(formattedPreviewAssetAmount(maxSendable, for: selectedCoin))")
+                    Text(AppLocalization.format("Max Sendable: %@", formattedPreviewAssetAmount(maxSendable, for: selectedCoin)))
                 }
             }
         }
@@ -445,7 +475,7 @@ struct SendView: View {
         if let chainName = store.sendingChains.first {
             HStack(spacing: 10) {
                 ProgressView()
-                Text(AppLocalization.string("Broadcasting \(chainName) transaction...")).font(.caption)
+                Text(AppLocalization.format("Broadcasting %@ transaction...", chainName)).font(.caption)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -461,7 +491,7 @@ struct SendView: View {
                 Spacer()
                 TransactionStatusBadge(status: tx.status)
             }
-            Text("\(tx.symbol) sent to \(tx.addressPreviewText)").font(.subheadline)
+            Text(AppLocalization.format("%@ sent to %@", tx.symbol, tx.addressPreviewText)).font(.subheadline)
             if let pendingText = store.pendingTransactionRefreshStatusText {
                 Text(pendingText).font(.caption2).foregroundStyle(.secondary)
             }

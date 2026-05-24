@@ -288,7 +288,7 @@ enum CommonLocalization {
         String(format: CommonLocalizationContent.current.rpcErrorFormat, chainName, AppLocalization.string(message))
     }
 }
-/// Maps a human-readable color name string (stored in `core/tokens.toml`
+/// Maps a human-readable color string (stored in `core/tokens.toml`
 /// and `core/chains.toml`) to a SwiftUI `Color`.
 enum RegistryColorLookup {
     static func color(named name: String) -> Color {
@@ -324,7 +324,7 @@ enum TokenVisualRegistryCatalog {
             entries.append(
                 TokenVisualRegistryEntry(
                     title: token.name, symbol: token.symbol, referenceChain: referenceChain,
-                    color: RegistryColorLookup.color(named: token.colorName), assetName: token.assetName
+                    color: RegistryColorLookup.color(named: token.color), assetName: token.assetName
                 )
             )
         }
@@ -410,7 +410,7 @@ extension ChainTokenRegistryEntry {
                 chain: chain, name: entry.name, symbol: entry.symbol, tokenStandard: entry.tokenStandard,
                 contractAddress: entry.contract, coinGeckoId: entry.coingeckoId,
                 decimals: Int(entry.decimals), displayDecimals: entry.displayDecimals.map(Int.init),
-                category: category, isBuiltIn: true, isEnabledByDefault: entry.enabled
+                category: category, isBuiltIn: true, comment: entry.comment, isEnabledByDefault: entry.enabled
             )
         }
     }()

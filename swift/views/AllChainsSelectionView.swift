@@ -160,11 +160,13 @@ struct AllChainsSelectionView: View {
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: 20) {
                     VStack(alignment: .leading, spacing: 10) {
-                        Label("Gas Token", systemImage: "fuelpump.fill")
+                        Label(AppLocalization.string("Gas Token"), systemImage: "fuelpump.fill")
                             .font(.headline)
                             .foregroundStyle(.orange)
                         Text(
-                            "The symbol shown on the right of each chain is its gas token — the asset you need to pay transaction fees."
+                            AppLocalization.string(
+                                "The symbol shown on the right of each chain is its gas token — the asset you need to pay transaction fees."
+                            )
                         )
                         .font(.subheadline).foregroundStyle(.secondary)
                     }
@@ -174,11 +176,13 @@ struct AllChainsSelectionView: View {
                         RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.orange.opacity(0.08))
                     )
                     VStack(alignment: .leading, spacing: 10) {
-                        Label("L2s and Native Tokens", systemImage: "square.stack.3d.up.fill")
+                        Label(AppLocalization.string("L2s and Native Tokens"), systemImage: "square.stack.3d.up.fill")
                             .font(.headline)
                             .foregroundStyle(.blue)
                         Text(
-                            "Some L2 chains have a separate native token (e.g. ARB, OP) but use a different asset for gas fees (e.g. ETH). Spectra shows the gas token since that's what you'll need to keep funded for transactions."
+                            AppLocalization.string(
+                                "Some L2 chains have a separate native token (e.g. ARB, OP) but use a different asset for gas fees (e.g. ETH). Spectra shows the gas token since that's what you'll need to keep funded for transactions."
+                            )
                         )
                         .font(.subheadline).foregroundStyle(.secondary)
                     }
@@ -188,11 +192,13 @@ struct AllChainsSelectionView: View {
                         RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.blue.opacity(0.08))
                     )
                     VStack(alignment: .leading, spacing: 10) {
-                        Label("Missing a Chain?", systemImage: "plus.circle.fill")
+                        Label(AppLocalization.string("Missing a Chain?"), systemImage: "plus.circle.fill")
                             .font(.headline)
                             .foregroundStyle(.purple)
                         Text(
-                            "If you'd like a chain added, go to Settings → Report a Problem and let the developer know. New chains are added regularly."
+                            AppLocalization.string(
+                                "If you'd like a chain added, go to Settings → Report a Problem and let the developer know. New chains are added regularly."
+                            )
                         )
                         .font(.subheadline).foregroundStyle(.secondary)
                     }
@@ -204,11 +210,11 @@ struct AllChainsSelectionView: View {
                 }
                 .padding(20)
             }
-            .navigationTitle("Chain Info")
+            .navigationTitle(AppLocalization.string("Chain Info"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Done") { isShowingInfo = false }
+                    Button(AppLocalization.string("Done")) { isShowingInfo = false }
                         .buttonStyle(.borderedProminent).tint(.orange)
                 }
             }

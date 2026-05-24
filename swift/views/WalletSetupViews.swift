@@ -65,7 +65,7 @@ struct SetupView: View {
         guard let category = SetupChainCategory(chainCategory: chain.category) else { return nil }
         return SetupChainSelectionDescriptor(
             id: chain.id, title: chain.name, symbol: chain.symbol, chainName: chain.name,
-            color: RegistryColorLookup.color(named: chain.colorName), category: category,
+            color: RegistryColorLookup.color(named: chain.color), category: category,
             gasToken: chain.gasTokenSymbol == chain.symbol ? nil : chain.gasTokenSymbol
         )
     }

@@ -4,26 +4,25 @@ struct ChainWikiEntry: Identifiable, Equatable {
     let name: String
     let symbol: String
     let tags: [String]
+    let comment: String
     let family: String
     let consensus: String
     let stateModel: String
     let primaryUse: String
-    let slip44CoinType: String
     let derivationPath: String
     let alternateDerivationPath: String?
     let totalCirculationModel: String
-    let notableDetails: [String]
     static var all: [ChainWikiEntry] {
         listAllChains()
             .filter { !$0.family.isEmpty }
             .map { chain in
                 ChainWikiEntry(
                     id: chain.id, name: chain.name, symbol: chain.symbol, tags: chain.tags,
-                    family: chain.family, consensus: chain.consensus, stateModel: chain.stateModel,
-                    primaryUse: chain.primaryUse, slip44CoinType: chain.slip44CoinType,
+                    comment: chain.comment, family: chain.family, consensus: chain.consensus, stateModel: chain.stateModel,
+                    primaryUse: chain.primaryUse,
                     derivationPath: chain.derivationPath,
                     alternateDerivationPath: chain.altDerivationPath.isEmpty ? nil : chain.altDerivationPath,
-                    totalCirculationModel: chain.totalCirculationModel, notableDetails: chain.notableDetails
+                    totalCirculationModel: chain.totalCirculationModel
                 )
             }
     }
@@ -42,6 +41,7 @@ struct ChainWikiLibraryView: View {
         return entries.filter { entry in
             entry.name.localizedCaseInsensitiveContains(query)
                 || entry.symbol.localizedCaseInsensitiveContains(query)
+                || entry.comment.localizedCaseInsensitiveContains(query)
                 || entry.family.localizedCaseInsensitiveContains(query)
                 || entry.tags.contains(where: { $0.localizedCaseInsensitiveContains(query) })
         }
@@ -118,7 +118,6 @@ struct ChainWikiDetailView: View {
                 wikiIdentityCard
                 wikiDerivationCard
                 wikiCirculationCard
-                if !chain.notableDetails.isEmpty { wikiTechnicalNotesCard }
             }
             .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
         }
@@ -137,7 +136,7 @@ struct ChainWikiDetailView: View {
                 }
                 Spacer(minLength: 0)
             }
-            Text(chain.primaryUse).font(.subheadline).foregroundStyle(.secondary)
+            Text(chain.comment).font(.subheadline).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
             if !chain.tags.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -171,8 +170,6 @@ struct ChainWikiDetailView: View {
 
     private var wikiDerivationCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            wikiStatRow(label: AppLocalization.string("SLIP-44"), value: chain.slip44CoinType, icon: "number.circle.fill")
-            Divider().opacity(0.4)
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 10) {
                     Image(systemName: "key.fill")
@@ -206,28 +203,6 @@ struct ChainWikiDetailView: View {
             }
             Text(chain.totalCirculationModel).font(.subheadline).foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true).padding(.leading, 32)
-        }
-        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
-    }
-
-    private var wikiTechnicalNotesCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 10) {
-                Image(systemName: "doc.text.fill")
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(width: 22)
-                Text(AppLocalization.string("Technical Notes"))
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-            }
-            ForEach(Array(chain.notableDetails.enumerated()), id: \.offset) { index, detail in
-                if index > 0 { Divider().opacity(0.4) }
-                HStack(alignment: .top, spacing: 12) {
-                    Text("\(index + 1)").font(.caption.weight(.bold)).foregroundStyle(chain.accentColor)
-                        .frame(width: 22, height: 22).background(Circle().fill(chain.accentColor.opacity(0.18)))
-                    Text(detail).font(.subheadline).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true).frame(maxWidth: .infinity, alignment: .leading)
-                }
-            }
         }
         .padding(20).frame(maxWidth: .infinity, alignment: .leading)
         .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))

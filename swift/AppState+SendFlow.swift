@@ -1452,9 +1452,10 @@ extension AppState {
         if isNativeAsset {
             let total = amount + networkFee
             if total > holdingBalance {
+                let totalText = String(format: "%.\(feeDecimals)f", total)
                 return localizedStoreFormat(
-                    "Insufficient %@ for amount plus network fee (needs ~%.\(feeDecimals)f %@).",
-                    symbol, total, symbol
+                    "Insufficient %@ for amount plus network fee (needs ~%@ %@).",
+                    symbol, totalText, symbol
                 )
             }
         } else {
@@ -1462,15 +1463,16 @@ extension AppState {
                 return localizedStoreFormat("Insufficient %@ balance for this transfer.", symbol)
             }
             if let nativeSym = nativeSymbol, let nativeBal = nativeBalance, networkFee > nativeBal {
+                let feeText = String(format: "%.\(feeDecimals)f", networkFee)
                 if let chain = chainLabel {
                     return localizedStoreFormat(
-                        "Insufficient %@ to cover %@ network fee (~%.\(feeDecimals)f %@).",
-                        nativeSym, chain, networkFee, nativeSym
+                        "Insufficient %@ to cover %@ network fee (~%@ %@).",
+                        nativeSym, chain, feeText, nativeSym
                     )
                 }
                 return localizedStoreFormat(
-                    "Insufficient %@ to cover the network fee (~%.\(feeDecimals)f %@).",
-                    nativeSym, networkFee, nativeSym
+                    "Insufficient %@ to cover the network fee (~%@ %@).",
+                    nativeSym, feeText, nativeSym
                 )
             }
         }

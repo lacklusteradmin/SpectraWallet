@@ -1001,7 +1001,7 @@ final class AppState {
         switch chain {
         case .ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .polygon, .base, .linea, .scroll, .blast, .mantle:
             guard AddressValidation.isValid(normalizedContract, kind: "evm") else {
-                return localizedStoreString("Enter a valid \(chain.rawValue) token contract address.")
+                return localizedStoreFormat("Enter a valid %@ token contract address.", chain.rawValue)
             }
         case .solana:
             guard AddressValidation.isValid(normalizedContract, kind: "solana") else {
