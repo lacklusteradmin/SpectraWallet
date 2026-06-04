@@ -133,8 +133,7 @@ struct ChainRegistryEntry: Identifiable {
     let consensus: String
     let stateModel: String
     let primaryUse: String
-    let derivationPath: String
-    let alternateDerivationPath: String?
+    let derivationPath: [ChainDerivationPathEntry]
     let totalCirculationModel: String
     var assetIdentifier: String { Coin.iconIdentifier(symbol: symbol, chainName: name) }
     var nativeIconDescriptor: NativeChainIconDescriptor {
@@ -152,7 +151,6 @@ struct ChainRegistryEntry: Identifiable {
                     comment: chain.comment, family: chain.family, consensus: chain.consensus, stateModel: chain.stateModel,
                     primaryUse: chain.primaryUse,
                     derivationPath: chain.derivationPath,
-                    alternateDerivationPath: chain.altDerivationPath.isEmpty ? nil : chain.altDerivationPath,
                     totalCirculationModel: chain.totalCirculationModel
                 )
             }

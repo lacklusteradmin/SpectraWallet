@@ -126,7 +126,9 @@ enum CachedCoreHelpers {
         }
     }
     nonisolated static func chainDerivationPath(chainName: String) -> String {
-        let p = listAllChains().first(where: { $0.name == chainName })?.derivationPath ?? ""
-        return p.hasPrefix("m/") ? p : ""
+        let paths = listAllChains().first(where: { $0.name == chainName })?.derivationPath ?? []
+        let p = (paths.first(where: { $0.isDefault }) ?? paths.first)?.path ?? ""
+        let rendered = p.replacingOccurrences(of: "{account}", with: "0")
+        return rendered.hasPrefix("m/") ? rendered : ""
     }
 }

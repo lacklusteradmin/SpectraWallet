@@ -9,8 +9,7 @@ struct ChainWikiEntry: Identifiable, Equatable {
     let consensus: String
     let stateModel: String
     let primaryUse: String
-    let derivationPath: String
-    let alternateDerivationPath: String?
+    let derivationPaths: [ChainWikiDerivationPath]
     let totalCirculationModel: String
     static var all: [ChainWikiEntry] {
         listAllChains()
@@ -20,11 +19,26 @@ struct ChainWikiEntry: Identifiable, Equatable {
                     id: chain.id, name: chain.name, symbol: chain.symbol, tags: chain.tags,
                     comment: chain.comment, family: chain.family, consensus: chain.consensus, stateModel: chain.stateModel,
                     primaryUse: chain.primaryUse,
-                    derivationPath: chain.derivationPath,
-                    alternateDerivationPath: chain.altDerivationPath.isEmpty ? nil : chain.altDerivationPath,
+                    derivationPaths: chain.derivationPath.map(ChainWikiDerivationPath.init(corePath:)),
                     totalCirculationModel: chain.totalCirculationModel
                 )
             }
+    }
+}
+
+struct ChainWikiDerivationPath: Identifiable, Equatable {
+    let tag: String
+    let path: String
+    let isDefault: Bool
+    let note: String
+    var id: String { "\(tag)|\(path)" }
+    var displayPath: String { path.replacingOccurrences(of: "{account}", with: "0") }
+
+    init(corePath: ChainDerivationPathEntry) {
+        tag = corePath.tag
+        path = corePath.path
+        isDefault = corePath.isDefault
+        note = corePath.note
     }
 }
 
@@ -170,22 +184,37 @@ struct ChainWikiDetailView: View {
 
     private var wikiDerivationCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 10) {
-                    Image(systemName: "key.fill")
-                        .font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(width: 22)
-                    Text(AppLocalization.string("Default Path")).font(.subheadline).foregroundStyle(.secondary)
-                }
-                Text(chain.derivationPath).font(.body.monospaced()).foregroundStyle(Color.primary)
-                    .textSelection(.enabled).padding(.leading, 32)
+            HStack(spacing: 10) {
+                Image(systemName: "key.fill")
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(width: 22)
+                Text(AppLocalization.string("Derivation Paths")).font(.subheadline).foregroundStyle(.secondary)
             }
-            if let alt = chain.alternateDerivationPath {
-                Divider().opacity(0.4)
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "arrow.triangle.branch")
-                        .font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(width: 22)
-                    Text(alt).font(.footnote).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
+            if chain.derivationPaths.isEmpty {
+                Text(AppLocalization.string("Not user-configurable in Spectra's current UI."))
+                    .font(.subheadline).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.leading, 32)
+            } else {
+                ForEach(chain.derivationPaths) { path in
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 6) {
+                            Text(path.tag).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                            if path.isDefault {
+                                Text(AppLocalization.string("Default"))
+                                    .font(.caption2.weight(.semibold))
+                                    .foregroundStyle(.orange)
+                                    .padding(.horizontal, 7).padding(.vertical, 3)
+                                    .background(.orange.opacity(0.14), in: Capsule())
+                            }
+                        }
+                        Text(path.displayPath).font(.body.monospaced()).foregroundStyle(Color.primary)
+                            .textSelection(.enabled)
+                        if !path.note.isEmpty {
+                            Text(path.note).font(.footnote).foregroundStyle(.secondary)
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                    }
+                    .padding(.leading, 32)
                 }
             }
         }

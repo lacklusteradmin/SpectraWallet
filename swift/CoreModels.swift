@@ -189,8 +189,8 @@ enum SeedDerivationChain: String, CaseIterable, Codable, Identifiable {
     case dash = "Dash"
     case xLayer = "X Layer"
     case bittensor = "Bittensor"
-    // Testnets — each is a first-class chain with its own derivation row in
-    // core/data/derivation_presets.toml. The chain identity alone encodes
+    // Testnets — each is a first-class chain in core/data/chains.toml.
+    // The chain identity alone encodes
     // mainnet vs testnet; there is no separate network parameter.
     case bitcoinTestnet = "Bitcoin Testnet"
     case bitcoinTestnet4 = "Bitcoin Testnet4"
