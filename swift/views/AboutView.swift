@@ -48,7 +48,7 @@ struct AboutView: View {
                 Text(paragraph).font(.subheadline).foregroundStyle(.secondary)
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading).spectraBubbleFill().glassEffect(
-            .regular.tint(.white.opacity(0.028)), in: .rect(cornerRadius: 28))
+            .regular.tint(.white.opacity(0.028)), in: .rect(cornerRadius: 24))
     }
     private func aboutCard(title: String, lines: [String]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -60,6 +60,6 @@ struct AboutView: View {
                 }
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading).spectraBubbleFill().glassEffect(
-            .regular.tint(.white.opacity(0.028)), in: .rect(cornerRadius: 28))
+            .regular.tint(.white.opacity(0.028)), in: .rect(cornerRadius: 24))
     }
 }

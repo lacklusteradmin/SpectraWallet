@@ -437,7 +437,7 @@ private struct AssetSummaryStatsCard: View {
                 value: store.formattedFiatAmountOrZero(fromUSD: assetGroup.totalValueUSD),
                 icon: "dollarsign.circle.fill")
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
     @ViewBuilder
     private func statRow(label: String, value: String, icon: String) -> some View {
@@ -485,7 +485,7 @@ private struct AssetChainBreakdownCard: View {
                     .font(.caption2).foregroundStyle(.secondary).padding(.top, 4)
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
 }
 private struct AssetContractsCard: View {
@@ -525,7 +525,7 @@ private struct AssetContractsCard: View {
                 }
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
 }
 private struct AssetChainBreakdownRow: View {

@@ -27,7 +27,7 @@ struct StakingView: View {
             Text(AppLocalization.string("Pick a chain below to delegate, manage positions, and claim rewards — all non-custodial."))
                 .font(.subheadline).foregroundStyle(.secondary)
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
     }
     @ViewBuilder
     private var chainPickerCard: some View {
@@ -45,7 +45,7 @@ struct StakingView: View {
                 }
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
             .navigationDestination(for: StakingSupportedChain.self) { chain in
                 ChainStakingDetailView(chain: chain)
             }
@@ -90,7 +90,7 @@ struct StakingView: View {
                 )
             ).font(.subheadline).foregroundStyle(.secondary)
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
     }
 }
 
@@ -257,7 +257,7 @@ struct ChainStakingDetailView: View {
                 )
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
 
     @ViewBuilder
@@ -294,7 +294,7 @@ struct ChainStakingDetailView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
 
     @ViewBuilder
@@ -313,7 +313,7 @@ struct ChainStakingDetailView: View {
                 .padding(.vertical, 4)
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
 
     @ViewBuilder
@@ -326,7 +326,7 @@ struct ChainStakingDetailView: View {
                 }
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
 
     @ViewBuilder
@@ -358,7 +358,7 @@ struct ChainStakingDetailView: View {
             Text(AppLocalization.string("How it works")).font(.headline)
             Text(descriptor.detailedExplanation).font(.subheadline).foregroundStyle(.secondary)
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
 }
 

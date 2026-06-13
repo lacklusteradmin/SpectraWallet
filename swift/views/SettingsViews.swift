@@ -26,114 +26,95 @@ struct SettingsView: View {
     var body: some View {
         @Bindable var preferences = store.preferences
         return NavigationStack {
-            Form {
-                Section(AppLocalization.string("Wallet & Transfers")) {
-                    NavigationLink(value: Route.addressBook) {
-                        Label(AppLocalization.string("Address Book"), systemImage: "book.closed")
-                    }
-                    NavigationLink(value: Route.trackedTokens) {
-                        Label(AppLocalization.string("Tracked Tokens"), systemImage: "bitcoinsign.bank.building")
-                    }
-                }
-                Section(AppLocalization.string("Display")) {
-                    Toggle(isOn: $preferences.hideBalances) {
-                        Label(AppLocalization.string("Hide balances"), systemImage: "eye.slash")
-                    }
-                    NavigationLink(value: Route.decimalDisplay) {
-                        Label(AppLocalization.string("Decimal Display"), systemImage: "number")
-                    }
-                    NavigationLink(value: Route.appearance) {
-                        Label(AppLocalization.string("Appearance"), systemImage: "circle.lefthalf.filled")
-                    }
-                }
-                Section(AppLocalization.string("Sync & Automation")) {
-                    NavigationLink(value: Route.refreshFrequency) {
-                        Label(AppLocalization.string("Refresh Frequency"), systemImage: "arrow.triangle.2.circlepath")
-                    }
-                }
-                Section(AppLocalization.string("Notifications")) {
-                    NavigationLink(value: Route.priceAlerts) {
-                        Label(AppLocalization.string("Price Alerts"), systemImage: "bell.badge")
-                    }
-                    Toggle(
-                        isOn: Binding(
-                            get: { preferences.useTransactionStatusNotifications }, set: { preferences.useTransactionStatusNotifications = $0 })
-                    ) {
-                        Label(AppLocalization.string("Transaction Status Updates"), systemImage: "clock.badge.checkmark")
-                    }
-                    NavigationLink(value: Route.largeMovementAlerts) {
-                        Label(AppLocalization.string("Large Movement Alerts"), systemImage: "chart.line.uptrend.xyaxis")
-                    }
-                }
-                Section(AppLocalization.string("Security & Privacy")) {
-                    Toggle(isOn: $preferences.useFaceID) {
-                        Label(AppLocalization.string("Use Face ID"), systemImage: "faceid")
-                    }
-                    Toggle(isOn: $preferences.useAutoLock) {
-                        Label(AppLocalization.string("Auto Lock"), systemImage: "lock")
-                    }.disabled(!preferences.useFaceID)
-                }
-                Section(AppLocalization.string("Tor")) {
-                    NavigationLink(value: Route.tor) {
-                        Label {
-                            HStack {
-                                Text(AppLocalization.string("Tor Network"))
-                                Spacer()
-                                TorStatusBadge(status: store.torStatus).padding(.trailing, 4)
-                            }
-                        } icon: {
-                            Image(systemName: "network.badge.shield.half.filled")
+            ZStack {
+                SpectraBackdrop().ignoresSafeArea()
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(alignment: .leading, spacing: SpectraLayout.sectionSpacing) {
+                        settingsCard(title: "Wallet & Transfers") {
+                            settingsLink("Address Book", systemImage: "book.closed", route: .addressBook)
+                            settingsDivider
+                            settingsLink("Tracked Tokens", systemImage: "bitcoinsign.bank.building", route: .trackedTokens)
+                        }
+                        settingsCard(title: "Display") {
+                            settingsToggle("Hide balances", systemImage: "eye.slash", isOn: $preferences.hideBalances)
+                            settingsDivider
+                            settingsLink("Decimal Display", systemImage: "number", route: .decimalDisplay)
+                            settingsDivider
+                            settingsLink("Appearance", systemImage: "circle.lefthalf.filled", route: .appearance)
+                        }
+                        settingsCard(title: "Sync & Automation") {
+                            settingsLink("Refresh Frequency", systemImage: "arrow.triangle.2.circlepath", route: .refreshFrequency)
+                        }
+                        settingsCard(title: "Notifications") {
+                            settingsLink("Price Alerts", systemImage: "bell.badge", route: .priceAlerts)
+                            settingsDivider
+                            settingsToggle(
+                                "Transaction Status Updates", systemImage: "clock.badge.checkmark",
+                                isOn: Binding(
+                                    get: { preferences.useTransactionStatusNotifications },
+                                    set: { preferences.useTransactionStatusNotifications = $0 }))
+                            settingsDivider
+                            settingsLink("Large Movement Alerts", systemImage: "chart.line.uptrend.xyaxis", route: .largeMovementAlerts)
+                        }
+                        settingsCard(title: "Security & Privacy") {
+                            settingsToggle("Use Face ID", systemImage: "faceid", isOn: $preferences.useFaceID)
+                            settingsDivider
+                            settingsToggle("Auto Lock", systemImage: "lock", isOn: $preferences.useAutoLock)
+                                .disabled(!preferences.useFaceID)
+                        }
+                        settingsCard(title: "Tor") {
+                            NavigationLink(value: Route.tor) {
+                                HStack(spacing: 12) {
+                                    settingsIcon("network.badge.shield.half.filled")
+                                    Text(AppLocalization.string("Tor Network")).font(.body).foregroundStyle(Color.primary)
+                                    Spacer(minLength: 8)
+                                    TorStatusBadge(status: store.torStatus)
+                                    settingsChevron
+                                }.padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
+                            }.buttonStyle(.plain)
+                        }
+                        settingsCard(title: "Data & Connectivity") {
+                            settingsLink("Pricing", systemImage: "dollarsign.circle", route: .pricing)
+                            settingsDivider
+                            settingsLink("Endpoints", systemImage: "network", route: .endpoints)
+                        }
+                        settingsCard(title: "Diagnostics & Support") {
+                            settingsLink("Diagnostics", systemImage: "waveform.path.ecg.rectangle", route: .diagnostics)
+                            settingsDivider
+                            settingsLink("Operational Logs", systemImage: "doc.text.magnifyingglass", route: .operationalLogs)
+                            settingsDivider
+                            settingsLink("Report a Problem", systemImage: "exclamationmark.bubble", route: .reportProblem)
+                        }
+                        settingsCard(title: "Help") {
+                            settingsLink("Where can I buy crypto?", systemImage: "creditcard", route: .buyCryptoHelp)
+                        }
+                        settingsCard(title: "About") {
+                            settingsLink("About Spectra", systemImage: "info.circle", route: .about)
+                            settingsDivider
+                            settingsLink("Chain Wiki", systemImage: "books.vertical", route: .chainWiki)
+                            settingsDivider
+                            settingsLink("Donate", systemImage: "heart", route: .donate)
+                        }
+                        settingsCard(title: "Advanced") {
+                            settingsLink("Advanced", systemImage: "slider.horizontal.3", route: .advanced)
+                        }
+                        settingsCard(title: "Reset") {
+                            Button(role: .destructive) {
+                                isShowingResetWalletWarning = true
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Image(systemName: "trash").font(.body.weight(.semibold)).frame(width: 22)
+                                    Text(AppLocalization.string("Reset Wallet")).font(.body)
+                                    Spacer()
+                                }.foregroundStyle(.red).padding(.horizontal, SpectraLayout.rowHorizontal)
+                                    .padding(.vertical, SpectraLayout.rowVertical)
+                            }.buttonStyle(.plain)
                         }
                     }
+                    .padding(.horizontal, SpectraLayout.screenHorizontal).padding(.top, SpectraLayout.screenTop)
+                    .padding(.bottom, SpectraLayout.screenBottom)
                 }
-                Section(AppLocalization.string("Data & Connectivity")) {
-                    NavigationLink(value: Route.pricing) {
-                        Label(AppLocalization.string("Pricing"), systemImage: "dollarsign.circle")
-                    }
-                    NavigationLink(value: Route.endpoints) {
-                        Label(AppLocalization.string("Endpoints"), systemImage: "network")
-                    }
-                }
-                Section(AppLocalization.string("Diagnostics & Support")) {
-                    NavigationLink(value: Route.diagnostics) {
-                        Label(AppLocalization.string("Diagnostics"), systemImage: "waveform.path.ecg.rectangle")
-                    }
-                    NavigationLink(value: Route.operationalLogs) {
-                        Label(AppLocalization.string("Operational Logs"), systemImage: "doc.text.magnifyingglass")
-                    }
-                    NavigationLink(value: Route.reportProblem) {
-                        Label(AppLocalization.string("Report a Problem"), systemImage: "exclamationmark.bubble")
-                    }
-                }
-                Section(AppLocalization.string("Help")) {
-                    NavigationLink(value: Route.buyCryptoHelp) {
-                        Label(AppLocalization.string("Where can I buy crypto?"), systemImage: "creditcard")
-                    }
-                }
-                Section(AppLocalization.string("About")) {
-                    NavigationLink(value: Route.about) {
-                        Label(AppLocalization.string("About Spectra"), systemImage: "info.circle")
-                    }
-                    NavigationLink(value: Route.chainWiki) {
-                        Label(AppLocalization.string("Chain Wiki"), systemImage: "books.vertical")
-                    }
-                    NavigationLink(value: Route.donate) {
-                        Label(AppLocalization.string("Donate"), systemImage: "heart")
-                    }
-                }
-                Section(AppLocalization.string("Advanced")) {
-                    NavigationLink(value: Route.advanced) {
-                        Label(AppLocalization.string("Advanced"), systemImage: "slider.horizontal.3")
-                    }
-                }
-                Section(AppLocalization.string("Reset")) {
-                    Button(role: .destructive) {
-                        isShowingResetWalletWarning = true
-                    } label: {
-                        Label(AppLocalization.string("Reset Wallet"), systemImage: "trash")
-                    }
-                }
-            }.navigationTitle(AppLocalization.string("Settings"))
+            }.navigationTitle(AppLocalization.string("Settings")).navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(.hidden, for: .navigationBar)
                 .navigationDestination(for: Route.self) { route in
                 switch route {
@@ -160,5 +141,44 @@ struct SettingsView: View {
                 ResetWalletWarningView(store: store)
             }
         }
+    }
+    @ViewBuilder
+    private func settingsCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(AppLocalization.string(title)).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                .textCase(.uppercase).padding(.horizontal, SpectraLayout.rowHorizontal)
+                .padding(.top, SpectraLayout.cardHeaderVertical).padding(.bottom, 6)
+            content()
+        }.frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
+    }
+    @ViewBuilder
+    private func settingsLink(_ title: String, systemImage: String, route: Route) -> some View {
+        NavigationLink(value: route) {
+            HStack(spacing: 12) {
+                settingsIcon(systemImage)
+                Text(AppLocalization.string(title)).font(.body).foregroundStyle(Color.primary)
+                Spacer(minLength: 8)
+                settingsChevron
+            }.padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
+        }.buttonStyle(.plain)
+    }
+    @ViewBuilder
+    private func settingsToggle(_ title: String, systemImage: String, isOn: Binding<Bool>) -> some View {
+        Toggle(isOn: isOn) {
+            HStack(spacing: 12) {
+                settingsIcon(systemImage)
+                Text(AppLocalization.string(title)).font(.body).foregroundStyle(Color.primary)
+            }
+        }.tint(.orange).padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
+    }
+    private func settingsIcon(_ systemImage: String) -> some View {
+        Image(systemName: systemImage).font(.body.weight(.semibold)).foregroundStyle(.orange).frame(width: 22)
+    }
+    private var settingsChevron: some View {
+        Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.tertiary)
+    }
+    private var settingsDivider: some View {
+        Divider().opacity(0.25).padding(.leading, SpectraLayout.rowHorizontal + 34)
     }
 }

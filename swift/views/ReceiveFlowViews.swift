@@ -245,7 +245,7 @@ private struct ReceiveQRSheet: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
 
     @ViewBuilder
@@ -306,6 +306,6 @@ private struct ReceiveQRSheet: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
 }

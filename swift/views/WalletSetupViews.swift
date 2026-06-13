@@ -600,7 +600,7 @@ struct SetupView: View {
                         .foregroundStyle(.secondary)
                     Spacer()
                     Text(chainSelectionSummary).font(.caption.weight(.semibold)).foregroundStyle(
-                        selectedChainCount == 0 ? Color.primary.opacity(0.68) : .orange
+                        selectedChainCount == 0 ? Color.secondary : .orange
                     ).padding(.horizontal, 12).padding(.vertical, 7).background(
                         Capsule(style: .continuous).fill(
                             selectedChainCount == 0
@@ -639,7 +639,7 @@ struct SetupView: View {
                 }
             }
             .padding(20)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
             chainSelectionFooterNote
         }.tint(.orange)
         .navigationDestination(isPresented: $isShowingAllChainsPage) {
@@ -1336,4 +1336,3 @@ private struct AdvancedOverridePicker: View {
         }
     }
 }
-

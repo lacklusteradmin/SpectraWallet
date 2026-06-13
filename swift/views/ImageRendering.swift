@@ -119,7 +119,7 @@ enum SpectraLayout {
     static let cardHeaderVertical: CGFloat = 12
     static let rowHorizontal: CGFloat = 16
     static let rowVertical: CGFloat = 9
-    static let cardCornerRadius: CGFloat = 24
+    static let cardCornerRadius: CGFloat = 28
 }
 extension View {
     func spectraNumericTextLayout(minimumScaleFactor: CGFloat = 0.62) -> some View {

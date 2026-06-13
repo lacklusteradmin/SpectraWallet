@@ -463,7 +463,7 @@ struct WalletDetailView: View {
             Divider().opacity(0.25)
             walletStatRow(label: localizedWalletFlowString("First Activity"), value: firstActivityDateText, icon: "clock.fill")
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
     @ViewBuilder
     private func walletStatRow(label: String, value: String, icon: String) -> some View {
@@ -500,7 +500,7 @@ struct WalletDetailView: View {
                 }
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
     @ViewBuilder
     private func walletAddressCard(walletAddress: String) -> some View {
@@ -520,13 +520,13 @@ struct WalletDetailView: View {
                     ).font(.caption.weight(.semibold))
                 }.buttonStyle(.glass).tint(.orange)
             }
-            Text(walletAddress).font(.footnote.monospaced()).foregroundStyle(Color.primary.opacity(0.85)).textSelection(
+            Text(walletAddress).font(.footnote.monospaced()).foregroundStyle(.secondary).textSelection(
                 .enabled
             ).padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading).background(
                 RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.04))
             )
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
+            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
     @ViewBuilder
     private var walletActionsStack: some View {
