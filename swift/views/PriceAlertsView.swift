@@ -34,10 +34,11 @@ struct PriceAlertsView: View {
             }
             Section(AppLocalization.string("New Alert")) {
                 if store.alertableCoins.isEmpty {
-                    Text(
-                        AppLocalization.string(
-                            "Import a wallet with assets first. Alerts are created from assets currently in your portfolio.")
-                    ).spectraHintText()
+                    SpectraEmptyStateCard(
+                        title: "No alertable assets",
+                        message: "Import a wallet with assets first. Alerts are created from assets currently in your portfolio.",
+                        systemImage: "chart.line.uptrend.xyaxis"
+                    )
                 } else {
                     Picker(AppLocalization.string("Asset"), selection: $selectedHoldingKey) {
                         ForEach(store.alertableCoins, id: \.holdingKey) { coin in
@@ -60,13 +61,17 @@ struct PriceAlertsView: View {
                     if let formMessage { Text(formMessage).font(.caption).foregroundStyle(isDuplicateDraftAlert ? .orange : .secondary) }
                     Button(AppLocalization.string("Add Alert")) {
                         addAlert()
-                    }.disabled(!canAddAlert)
+                    }.spectraPressable()
+                        .disabled(!canAddAlert)
                 }
             }
             Section(AppLocalization.string("Active Alerts")) {
                 if store.priceAlerts.isEmpty {
-                    Label(AppLocalization.string("No alerts configured yet"), systemImage: "bell.slash")
-                        .font(.subheadline).foregroundStyle(.secondary).padding(.vertical, 4)
+                    SpectraEmptyStateCard(
+                        title: "No alerts configured yet",
+                        message: "Add a price rule to watch one of your portfolio assets.",
+                        systemImage: "bell.slash"
+                    )
                 } else {
                     ForEach(store.priceAlerts) { alert in
                         VStack(alignment: .leading, spacing: 8) {

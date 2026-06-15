@@ -69,6 +69,7 @@ struct HistoryDetailView: View {
                                 .spectraNumericTextLayout(minimumScaleFactor: 0.5)
                         }
                     }.padding(20).spectraBubbleFill().spectraCardFill(cornerRadius: 28)
+                    transactionTimelineCard
                     spectraDetailCard(title: "Overview") {
                         detailRow(label: "Type", value: displayedTransaction.kind == .send ? AppLocalization.string("Send") : AppLocalization.string("Receive"))
                         detailRow(label: "Status", value: displayedTransaction.statusText)
@@ -141,6 +142,7 @@ struct HistoryDetailView: View {
                                     Text(AppLocalization.string("Speed Up This Transaction")).font(.headline).frame(maxWidth: .infinity).padding(
                                         .vertical, 12)
                                 }.buttonStyle(.glassProminent)
+                                    .spectraPressable()
                                 Button {
                                     Task {
                                         ethereumReplacementMessage = await store.openEthereumReplacementComposer(
@@ -151,6 +153,7 @@ struct HistoryDetailView: View {
                                     Text(AppLocalization.string("Cancel This Transaction")).font(.headline).frame(maxWidth: .infinity).padding(
                                         .vertical, 12)
                                 }.buttonStyle(.glass)
+                                    .spectraPressable()
                                 Text(
                                     AppLocalization.string(
                                         "This opens the Send composer with the same nonce and higher fee defaults so you can safely speed up or cancel the pending transaction."
@@ -181,7 +184,9 @@ struct HistoryDetailView: View {
                                     Label(transactionExplorerLabel, systemImage: "safari").font(.subheadline.weight(.semibold)).padding(
                                         .horizontal, 12
                                     ).padding(.vertical, 8)
-                                }.buttonStyle(.glassProminent).frame(maxWidth: .infinity, alignment: .leading)
+                                }.buttonStyle(.glassProminent)
+                                    .spectraPressable()
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
                     }
@@ -243,8 +248,151 @@ struct HistoryDetailView: View {
                         ? AppLocalization.string("Copied")
                         : AppLocalization.string("Copy Address"), systemImage: didCopyAddress ? "checkmark" : "doc.on.doc"
                 ).font(.subheadline.weight(.semibold)).padding(.horizontal, 12).padding(.vertical, 8)
-            }.buttonStyle(.glass).frame(maxWidth: .infinity, alignment: .leading)
+            }.buttonStyle(.glass)
+                .spectraPressable()
+                .frame(maxWidth: .infinity, alignment: .leading)
         }
+    }
+    private var transactionTimelineCard: some View {
+        spectraDetailCard(title: "Timeline") {
+            VStack(alignment: .leading, spacing: 0) {
+                ForEach(Array(transactionTimelineItems.enumerated()), id: \.element.id) { index, item in
+                    timelineRow(item, isLast: index == transactionTimelineItems.count - 1)
+                }
+            }
+        }
+    }
+    private var transactionTimelineItems: [TransactionTimelineItem] {
+        var items: [TransactionTimelineItem] = [
+            TransactionTimelineItem(
+                id: "recorded",
+                title: displayedTransaction.kind == .send ? "Created" : "Recorded",
+                detail: displayedTransaction.fullTimestampText,
+                systemImage: displayedTransaction.kind == .send ? "paperplane.fill" : "arrow.down.circle.fill",
+                tint: .orange,
+                isComplete: true,
+                isCurrent: false
+            )
+        ]
+
+        if let transactionHash = nonEmptyAddress(displayedTransaction.transactionHash) {
+            items.append(
+                TransactionTimelineItem(
+                    id: "network-hash",
+                    title: displayedTransaction.kind == .send ? "Broadcast" : "Detected",
+                    detail: AppLocalization.format("Hash %@", shortTransactionHash(transactionHash)),
+                    systemImage: "link",
+                    tint: .blue,
+                    isComplete: true,
+                    isCurrent: displayedTransaction.status == .pending
+                )
+            )
+        } else {
+            items.append(
+                TransactionTimelineItem(
+                    id: "network-hash",
+                    title: "Awaiting Network Hash",
+                    detail: "Spectra has not attached a network transaction hash yet.",
+                    systemImage: "hourglass",
+                    tint: .orange,
+                    isComplete: false,
+                    isCurrent: displayedTransaction.status == .pending
+                )
+            )
+        }
+
+        switch displayedTransaction.status {
+        case .pending:
+            items.append(
+                TransactionTimelineItem(
+                    id: "pending",
+                    title: "Pending Confirmation",
+                    detail: "Spectra will keep refreshing this transaction.",
+                    systemImage: "clock.arrow.circlepath",
+                    tint: .orange,
+                    isComplete: false,
+                    isCurrent: true
+                )
+            )
+        case .confirmed:
+            items.append(
+                TransactionTimelineItem(
+                    id: "confirmed",
+                    title: "Confirmed",
+                    detail: confirmedTimelineDetail,
+                    systemImage: "checkmark.seal.fill",
+                    tint: .mint,
+                    isComplete: true,
+                    isCurrent: true
+                )
+            )
+        case .failed:
+            items.append(
+                TransactionTimelineItem(
+                    id: "failed",
+                    title: "Failed",
+                    detail: displayedTransaction.failureReason ?? AppLocalization.string("Network or local validation failed."),
+                    systemImage: "xmark.octagon.fill",
+                    tint: .red,
+                    isComplete: false,
+                    isCurrent: true
+                )
+            )
+        }
+        return items
+    }
+    private var confirmedTimelineDetail: String {
+        var parts: [String] = []
+        if let receiptBlockNumberText = displayedTransaction.receiptBlockNumberText {
+            parts.append(AppLocalization.format("Block %@", receiptBlockNumberText))
+        }
+        if let storedConfirmationCountText = displayedTransaction.storedConfirmationCountText {
+            parts.append(storedConfirmationCountText)
+        }
+        return parts.isEmpty ? AppLocalization.string("Network has confirmed this transaction.") : parts.joined(separator: " - ")
+    }
+    private func shortTransactionHash(_ hash: String) -> String {
+        guard hash.count > 20 else { return hash }
+        return "\(hash.prefix(10))...\(hash.suffix(6))"
+    }
+    private func timelineRow(_ item: TransactionTimelineItem, isLast: Bool) -> some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(spacing: 5) {
+                Image(systemName: item.systemImage)
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(item.isComplete || item.isCurrent ? item.tint : Color.secondary)
+                    .frame(width: 30, height: 30)
+                    .background(
+                        Circle()
+                            .fill((item.isComplete || item.isCurrent ? item.tint : Color.primary).opacity(0.14))
+                    )
+                if !isLast {
+                    Rectangle()
+                        .fill(item.isComplete ? item.tint.opacity(0.35) : Color.primary.opacity(0.12))
+                        .frame(width: 2, height: 28)
+                }
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 8) {
+                    Text(AppLocalization.string(item.title))
+                        .font(.subheadline.weight(.semibold))
+                    if item.isCurrent {
+                        Text(AppLocalization.string("Current"))
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(item.tint)
+                            .padding(.horizontal, 7)
+                            .padding(.vertical, 3)
+                            .background(item.tint.opacity(0.14), in: Capsule())
+                    }
+                }
+                Text(AppLocalization.string(item.detail))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 3)
     }
     private func nonEmptyAddress(_ value: String?) -> String? {
         guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return nil }
@@ -267,5 +415,14 @@ struct HistoryDetailView: View {
             return
         }
         liveOwnedAddresses = Set(store.knownOwnedAddresses(for: walletID).compactMap { normalizedAddress($0) })
+    }
+    private struct TransactionTimelineItem: Identifiable {
+        let id: String
+        let title: String
+        let detail: String
+        let systemImage: String
+        let tint: Color
+        let isComplete: Bool
+        let isCurrent: Bool
     }
 }

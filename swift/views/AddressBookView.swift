@@ -66,12 +66,16 @@ struct AddressBookView: View {
                 }
                 Button(AppLocalization.string("Save Contact")) {
                     saveContact()
-                }.disabled(!store.canSaveAddressBookEntry(name: contactName, address: address, chainName: selectedChainName))
+                }.spectraPressable()
+                    .disabled(!store.canSaveAddressBookEntry(name: contactName, address: address, chainName: selectedChainName))
             }
             Section(AppLocalization.string("Saved Addresses")) {
                 if store.addressBook.isEmpty {
-                    Label(AppLocalization.string("No saved addresses yet"), systemImage: "person.crop.circle.badge.plus")
-                        .font(.subheadline).foregroundStyle(.secondary).padding(.vertical, 4)
+                    SpectraEmptyStateCard(
+                        title: "No saved addresses yet",
+                        message: "Save frequent recipients here so future sends are faster.",
+                        systemImage: "person.crop.circle.badge.plus"
+                    )
                 } else {
                     ForEach(store.addressBook) { entry in
                         VStack(alignment: .leading, spacing: 4) {

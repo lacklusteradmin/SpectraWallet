@@ -207,6 +207,7 @@ struct SendView: View {
                             .frame(width: 46, height: 46)
                     }
                     .buttonStyle(.glass)
+                    .spectraPressable()
                 }
 
                 Button {
@@ -226,6 +227,7 @@ struct SendView: View {
                     .frame(height: 46)
                 }
                 .buttonStyle(.glassProminent)
+                .spectraPressable()
                 .disabled(!canUsePrimaryAction(selectedCoin: selectedCoin))
             }
             .padding(.horizontal, 20)
@@ -952,6 +954,7 @@ struct SendView: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                 }.buttonStyle(.glassProminent)
+                    .spectraPressable()
             }
             Button {
                 spectraHaptic(.light)
@@ -968,6 +971,7 @@ struct SendView: View {
                 .padding(.vertical, 10)
             }
             .buttonStyle(.glass)
+            .spectraPressable()
             .disabled(!store.canSaveLastSentRecipientToAddressBook())
         }
         .padding(18)

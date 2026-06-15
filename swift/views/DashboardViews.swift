@@ -180,8 +180,9 @@ struct DashboardView: View {
     @ViewBuilder
     private func walletsCardRows(wallets: [ImportedWallet]) -> some View {
         if wallets.isEmpty {
-            emptyCardState(title: AppLocalization.string("No wallets yet"),
-                           message: AppLocalization.string("Tap the + button in the top right to add your first wallet."))
+            emptyCardState(title: "No wallets yet",
+                           message: "Tap the + button in the top right to add your first wallet.",
+                           systemImage: "wallet.pass")
         } else {
             ForEach(Array(wallets.enumerated()), id: \.element.id) { index, wallet in
                 let badge = Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, .mint)
@@ -199,6 +200,7 @@ struct DashboardView: View {
                         )
                     ).equatable().padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
                 }.buttonStyle(.plain)
+                    .spectraPressable()
                 if index < wallets.count - 1 { Divider().padding(.leading, 64).opacity(0.25) }
             }
         }
@@ -206,8 +208,9 @@ struct DashboardView: View {
     @ViewBuilder
     private func assetsCardRows(portfolio: [DashboardAssetGroup]) -> some View {
         if portfolio.isEmpty {
-            emptyCardState(title: AppLocalization.string("No assets to display yet"),
-                           message: AppLocalization.string("Import a wallet or pull to refresh to load chain balances."))
+            emptyCardState(title: "No assets to display yet",
+                           message: "Import a wallet or pull to refresh to load chain balances.",
+                           systemImage: "chart.pie")
         } else {
             let presentations = visibleAssetPresentations(portfolio: portfolio)
             ForEach(Array(presentations.enumerated()), id: \.element.id) { index, presentation in
@@ -215,15 +218,15 @@ struct DashboardView: View {
                     DashboardAssetRowView(presentation: presentation).equatable().padding(.horizontal, SpectraLayout.rowHorizontal).padding(
                         .vertical, SpectraLayout.rowVertical)
                 }.buttonStyle(.plain)
+                    .spectraPressable()
                 if index < presentations.count - 1 { Divider().padding(.leading, 64).opacity(0.25) }
             }
         }
     }
-    private func emptyCardState(title: String, message: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.body)
-            Text(message).font(.footnote).foregroundStyle(.secondary)
-        }.padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, 12).frame(maxWidth: .infinity, alignment: .leading)
+    private func emptyCardState(title: String, message: String, systemImage: String) -> some View {
+        SpectraEmptyStateContent(title: title, message: message, systemImage: systemImage)
+            .padding(.horizontal, SpectraLayout.rowHorizontal)
+            .padding(.vertical, 12)
     }
     private var visiblePortfolio: [DashboardAssetGroup] { store.cachedDashboardAssetGroups }
     private func visibleAssetPresentations(portfolio: [DashboardAssetGroup]) -> [DashboardAssetRowPresentation] {
@@ -514,8 +517,11 @@ private struct AssetChainBreakdownCard: View {
                 ).padding(.vertical, 3).background(Capsule(style: .continuous).fill(Color.orange.opacity(0.14)))
             }
             if assetGroup.chainEntries.isEmpty {
-                Text(AppLocalization.string("No chain balances yet for this asset.")).font(.subheadline).foregroundStyle(
-                    .secondary)
+                SpectraEmptyStateContent(
+                    title: "No chain balances yet",
+                    message: "No chain balances yet for this asset.",
+                    systemImage: "point.3.connected.trianglepath.dotted"
+                )
             } else {
                 ForEach(assetGroup.chainEntries) { entry in
                     AssetChainBreakdownRow(
@@ -832,11 +838,15 @@ private struct DashboardActionButtons: View {
                 Button { spectraHaptic(.medium); store.beginSend() } label: {
                     Label(AppLocalization.string("Send"), systemImage: "arrow.up.right")
                         .font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 11)
-                }.buttonStyle(.glass).disabled(!canSend)
+                }.buttonStyle(.glass)
+                    .spectraPressable()
+                    .disabled(!canSend)
                 Button { spectraHaptic(.medium); store.beginReceive() } label: {
                     Label(AppLocalization.string("Receive"), systemImage: "arrow.down.left")
                         .font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 11)
-                }.buttonStyle(.glassProminent).disabled(!canReceive)
+                }.buttonStyle(.glassProminent)
+                    .spectraPressable()
+                    .disabled(!canReceive)
             }
         }
     }

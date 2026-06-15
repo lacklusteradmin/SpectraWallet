@@ -86,6 +86,29 @@ extension View {
     func spectraSectionCaption() -> some View {
         font(.caption2.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
     }
+    func spectraPressable(scale: CGFloat = 0.985, opacity: CGFloat = 0.92) -> some View {
+        modifier(SpectraPressableModifier(scale: scale, opacity: opacity))
+    }
+}
+
+private struct SpectraPressableModifier: ViewModifier {
+    let scale: CGFloat
+    let opacity: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @GestureState private var isPressed = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(reduceMotion || !isPressed ? 1 : scale)
+            .opacity(isPressed ? opacity : 1)
+            .animation(.snappy(duration: 0.16), value: isPressed)
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .updating($isPressed) { _, state, _ in
+                        state = true
+                    }
+            )
+    }
 }
 
 // MARK: — Semantic status colors
@@ -208,6 +231,58 @@ struct SpectraLoadingCard: View {
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+    }
+}
+
+struct SpectraEmptyStateCard: View {
+    let title: String
+    let message: String
+    var systemImage: String = "tray"
+    var actionTitle: String? = nil
+    var actionSystemImage: String = "arrow.right"
+    var action: (() -> Void)? = nil
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            SpectraEmptyStateContent(title: title, message: message, systemImage: systemImage)
+            if let actionTitle, let action {
+                Button(action: action) {
+                    Label(AppLocalization.string(actionTitle), systemImage: actionSystemImage)
+                        .font(.subheadline.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }
+                .buttonStyle(.glassProminent)
+                .spectraPressable()
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+    }
+}
+
+struct SpectraEmptyStateContent: View {
+    let title: String
+    let message: String
+    var systemImage: String = "tray"
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            Image(systemName: systemImage)
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.orange)
+                .frame(width: 40, height: 40)
+                .glassEffect(.regular.tint(.white.opacity(0.04)), in: .circle)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(AppLocalization.string(title))
+                    .font(.headline)
+                Text(AppLocalization.string(message))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

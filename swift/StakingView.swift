@@ -43,6 +43,7 @@ struct StakingView: View {
             VStack(spacing: 8) {
                 ForEach(StakingSupportedChain.allCases) { chain in
                     NavigationLink(value: chain) { chainTile(chain) }.buttonStyle(.plain)
+                        .spectraPressable()
                 }
             }
         }.padding(SpectraLayout.cardPadding).frame(maxWidth: .infinity, alignment: .leading)
@@ -214,6 +215,9 @@ struct ChainStakingDetailView: View {
                 heroCard(descriptor: descriptor)
                 detailSectionPicker
                 selectedDetailSection(descriptor: descriptor)
+                    .id(selectedSection)
+                    .transition(.opacity.combined(with: .move(edge: .trailing)))
+                    .animation(.snappy(duration: 0.24), value: selectedSection)
             }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
         }
         .background(SpectraBackdrop().ignoresSafeArea())
@@ -422,6 +426,7 @@ struct ChainStakingDetailView: View {
                     Color.primary.opacity(colorScheme == .light ? 0.10 : 0.07), lineWidth: 1)
             )
         }.buttonStyle(.plain)
+            .spectraPressable()
     }
 
     @ViewBuilder
@@ -619,7 +624,9 @@ private struct StakingActionInputSheet: View {
             }
             .padding(.vertical, 14)
             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.orange))
-        }.buttonStyle(.plain).disabled(walletAddress.trimmingCharacters(in: .whitespaces).isEmpty || vm.isLoading)
+        }.buttonStyle(.plain)
+            .spectraPressable()
+            .disabled(walletAddress.trimmingCharacters(in: .whitespaces).isEmpty || vm.isLoading)
     }
 
     // ── Dispatch to the right VM method ──────────────────────────────────────

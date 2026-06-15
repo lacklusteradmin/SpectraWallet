@@ -489,8 +489,11 @@ struct WalletDetailView: View {
                 }
             }
             if holdings.isEmpty {
-                Text(localizedWalletFlowString("No assets loaded for this wallet yet.")).font(.subheadline).foregroundStyle(
-                    .secondary)
+                SpectraEmptyStateContent(
+                    title: "No assets loaded",
+                    message: "No assets loaded for this wallet yet.",
+                    systemImage: "tray"
+                )
             } else {
                 ForEach(holdings) { holding in
                     holdingRow(holding)

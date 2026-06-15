@@ -135,14 +135,11 @@ struct ReceiveView: View {
             )
 
             if store.receiveEnabledWallets.isEmpty {
-                ContentUnavailableView(
-                    AppLocalization.string("No receive wallets"),
-                    systemImage: "wallet.pass",
-                    description: Text(AppLocalization.string("Import a wallet to generate receive addresses."))
+                SpectraEmptyStateCard(
+                    title: "No receive wallets",
+                    message: "Import a wallet to generate receive addresses.",
+                    systemImage: "wallet.pass"
                 )
-                .frame(maxWidth: .infinity)
-                .padding(24)
-                .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 28))
             } else {
                 LazyVStack(spacing: 12) {
                     ForEach(store.receiveEnabledWallets) { wallet in
@@ -259,6 +256,7 @@ struct ReceiveView: View {
                     .padding(.vertical, 10)
             }
             .buttonStyle(.glassProminent)
+            .spectraPressable()
             .disabled(selectedWallet == nil)
 
             Button {
@@ -271,6 +269,7 @@ struct ReceiveView: View {
                     .padding(.vertical, 10)
             }
             .buttonStyle(.glass)
+            .spectraPressable()
             .disabled(!canUseResolvedAddress || store.isResolvingReceiveAddress)
         }
         .padding(20)
@@ -292,6 +291,7 @@ struct ReceiveView: View {
                             .frame(width: 46, height: 46)
                     }
                     .buttonStyle(.glass)
+                    .spectraPressable()
                 }
 
                 Button {
@@ -316,6 +316,7 @@ struct ReceiveView: View {
                     .frame(height: 46)
                 }
                 .buttonStyle(.glassProminent)
+                .spectraPressable()
                 .disabled(store.receiveEnabledWallets.isEmpty)
             }
             .padding(.horizontal, 20)

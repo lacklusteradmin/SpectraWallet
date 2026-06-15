@@ -361,25 +361,11 @@ struct HistoryView: View {
             .background(Color.primary.opacity(0.06), in: Capsule())
     }
     private var historyEmptyStateCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .top, spacing: 12) {
-                Image(systemName: store.normalizedHistoryIndex.isEmpty ? "clock.arrow.circlepath" : "magnifyingglass")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.orange)
-                    .frame(width: 38, height: 38)
-                    .glassEffect(.regular.tint(.white.opacity(0.04)), in: .circle)
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(emptyStateTitle)
-                        .font(.headline)
-                    Text(emptyStateMessage)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+        SpectraEmptyStateCard(
+            title: emptyStateTitle,
+            message: emptyStateMessage,
+            systemImage: store.normalizedHistoryIndex.isEmpty ? "clock.arrow.circlepath" : "magnifyingglass"
+        )
     }
     private var emptyStateTitle: String {
         store.normalizedHistoryIndex.isEmpty
