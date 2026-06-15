@@ -106,6 +106,24 @@ private struct StakingChainDescriptor {
     let detailedExplanation: String
 }
 
+private enum StakingDetailSection: String, CaseIterable, Identifiable {
+    case overview
+    case validators
+    case actions
+    case learn
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .overview: return "Overview"
+        case .validators: return "Validators"
+        case .actions: return "Actions"
+        case .learn: return "Learn"
+        }
+    }
+}
+
 extension StakingSupportedChain {
     fileprivate var descriptor: StakingChainDescriptor {
         switch self {
@@ -179,6 +197,7 @@ extension StakingSupportedChain {
 struct ChainStakingDetailView: View {
     let chain: StakingSupportedChain
     @State private var vm: StakingViewModel
+    @State private var selectedSection: StakingDetailSection = .overview
     @Environment(\.colorScheme) private var colorScheme
 
     init(chain: StakingSupportedChain) {
@@ -191,11 +210,8 @@ struct ChainStakingDetailView: View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 18) {
                 heroCard(descriptor: descriptor)
-                statsCard(descriptor: descriptor)
-                if !vm.validators.isEmpty { validatorsCard }
-                if !vm.positions.isEmpty { positionsCard }
-                actionsCard(descriptor: descriptor)
-                explanationCard(descriptor: descriptor)
+                detailSectionPicker
+                selectedDetailSection(descriptor: descriptor)
             }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
         }
         .background(SpectraBackdrop().ignoresSafeArea())
@@ -222,6 +238,38 @@ struct ChainStakingDetailView: View {
     }
 
     @ViewBuilder
+    private var detailSectionPicker: some View {
+        Picker(AppLocalization.string("Staking Section"), selection: $selectedSection) {
+            ForEach(StakingDetailSection.allCases) { section in
+                Text(AppLocalization.string(section.title)).tag(section)
+            }
+        }
+        .pickerStyle(.segmented)
+        .padding(6)
+        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 18))
+    }
+
+    @ViewBuilder
+    private func selectedDetailSection(descriptor: StakingChainDescriptor) -> some View {
+        switch selectedSection {
+        case .overview:
+            statsCard(descriptor: descriptor)
+            if !vm.positions.isEmpty { positionsCard }
+        case .validators:
+            if vm.validators.isEmpty {
+                loadingValidatorsCard
+            } else {
+                validatorsCard
+            }
+        case .actions:
+            actionsCard(descriptor: descriptor)
+            if !vm.positions.isEmpty { positionsCard }
+        case .learn:
+            explanationCard(descriptor: descriptor)
+        }
+    }
+
+    @ViewBuilder
     private func heroCard(descriptor: StakingChainDescriptor) -> some View {
         HStack(spacing: 14) {
             CoinBadge(
@@ -234,7 +282,7 @@ struct ChainStakingDetailView: View {
             }
             Spacer()
             if vm.isLoading {
-                ProgressView().tint(.orange)
+                SpectraLoadingGlyph(size: 30, tint: .orange)
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
@@ -295,6 +343,23 @@ struct ChainStakingDetailView: View {
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+    }
+
+    @ViewBuilder
+    private var loadingValidatorsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(AppLocalization.string("Validators")).font(.headline)
+            if vm.isLoading {
+                SpectraLoadingRow(title: "Loading validators...")
+            } else {
+                Text(AppLocalization.string("Validator data will appear here once it is available for this chain."))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
 
     @ViewBuilder

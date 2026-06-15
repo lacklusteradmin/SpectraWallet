@@ -243,9 +243,7 @@ struct FundsFinderView: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 if store.isFundsFinderScanning {
-                    ProgressView()
-                        .scaleEffect(0.9)
-                        .padding(.trailing, 4)
+                    SpectraLoadingGlyph(size: 26, tint: .orange)
                     Text(AppLocalization.string("Scanning…"))
                         .font(.headline)
                 } else {

@@ -129,10 +129,7 @@ struct HistoryDetailView: View {
                     {
                         spectraDetailCard(title: "Ethereum Mempool Actions") {
                             if store.isPreparingEthereumReplacementContext {
-                                HStack(spacing: 10) {
-                                    ProgressView()
-                                    Text(AppLocalization.string("Preparing replacement/cancel context...")).font(.caption).foregroundStyle(.secondary)
-                                }
+                                SpectraLoadingRow(title: "Preparing replacement/cancel context...")
                             } else {
                                 Button {
                                     Task {

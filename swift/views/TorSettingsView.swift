@@ -18,7 +18,7 @@ struct TorStatusBadge: View {
     @ViewBuilder private var statusDot: some View {
         switch status {
         case .bootstrapping:
-            ProgressView().scaleEffect(0.55).frame(width: 8, height: 8)
+            SpectraLoadingGlyph(size: 10, tint: statusColor)
         default:
             Circle().fill(statusColor).frame(width: 6, height: 6)
         }

@@ -24,8 +24,7 @@ struct SettingsView: View {
         case tor
     }
     var body: some View {
-        @Bindable var preferences = store.preferences
-        return NavigationStack {
+        NavigationStack {
             ZStack {
                 SpectraBackdrop().ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
@@ -36,7 +35,7 @@ struct SettingsView: View {
                             settingsLink("Tracked Tokens", systemImage: "bitcoinsign.bank.building", route: .trackedTokens)
                         }
                         settingsCard(title: "Display") {
-                            settingsToggle("Hide balances", systemImage: "eye.slash", isOn: $preferences.hideBalances)
+                            settingsToggle("Hide balances", systemImage: "eye.slash", isOn: preferenceBinding(\.hideBalances))
                             settingsDivider
                             settingsLink("Decimal Display", systemImage: "number", route: .decimalDisplay)
                             settingsDivider
@@ -51,16 +50,16 @@ struct SettingsView: View {
                             settingsToggle(
                                 "Transaction Status Updates", systemImage: "clock.badge.checkmark",
                                 isOn: Binding(
-                                    get: { preferences.useTransactionStatusNotifications },
-                                    set: { preferences.useTransactionStatusNotifications = $0 }))
+                                    get: { store.preferences.useTransactionStatusNotifications },
+                                    set: { store.preferences.useTransactionStatusNotifications = $0 }))
                             settingsDivider
                             settingsLink("Large Movement Alerts", systemImage: "chart.line.uptrend.xyaxis", route: .largeMovementAlerts)
                         }
                         settingsCard(title: "Security & Privacy") {
-                            settingsToggle("Use Face ID", systemImage: "faceid", isOn: $preferences.useFaceID)
+                            settingsToggle("Use Face ID", systemImage: "faceid", isOn: preferenceBinding(\.useFaceID))
                             settingsDivider
-                            settingsToggle("Auto Lock", systemImage: "lock", isOn: $preferences.useAutoLock)
-                                .disabled(!preferences.useFaceID)
+                            settingsToggle("Auto Lock", systemImage: "lock", isOn: preferenceBinding(\.useAutoLock))
+                                .disabled(!store.preferences.useFaceID)
                         }
                         settingsCard(title: "Tor") {
                             NavigationLink(value: Route.tor) {
@@ -68,7 +67,7 @@ struct SettingsView: View {
                                     settingsIcon("network.badge.shield.half.filled")
                                     Text(AppLocalization.string("Tor Network")).font(.body).foregroundStyle(Color.primary)
                                     Spacer(minLength: 8)
-                                    TorStatusBadge(status: store.torStatus)
+                                    settingsTorStatusBadge
                                     settingsChevron
                                 }.padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
                             }.buttonStyle(.plain)
@@ -142,6 +141,14 @@ struct SettingsView: View {
             }
         }
     }
+
+    private func preferenceBinding(_ keyPath: ReferenceWritableKeyPath<AppUserPreferences, Bool>) -> Binding<Bool> {
+        Binding(
+            get: { store.preferences[keyPath: keyPath] },
+            set: { store.preferences[keyPath: keyPath] = $0 }
+        )
+    }
+
     @ViewBuilder
     private func settingsCard<Content: View>(title: String, @ViewBuilder content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -180,5 +187,35 @@ struct SettingsView: View {
     }
     private var settingsDivider: some View {
         Divider().opacity(0.25).padding(.leading, SpectraLayout.rowHorizontal + 34)
+    }
+
+    private var settingsTorStatusBadge: some View {
+        HStack(spacing: 4) {
+            Circle().fill(torStatusColor).frame(width: 6, height: 6)
+            Text(AppLocalization.string(torStatusText))
+                .font(.caption.weight(.semibold))
+        }
+        .foregroundStyle(torStatusColor)
+        .padding(.horizontal, 7)
+        .padding(.vertical, 3)
+        .background(torStatusColor.opacity(0.12), in: Capsule())
+    }
+
+    private var torStatusText: String {
+        switch store.torStatus {
+        case .stopped: return "Off"
+        case .bootstrapping(let percent): return percent > 0 ? "\(percent)%" : "Starting"
+        case .ready: return "On"
+        case .error: return "Error"
+        }
+    }
+
+    private var torStatusColor: Color {
+        switch store.torStatus {
+        case .stopped: return .secondary
+        case .bootstrapping: return .orange
+        case .ready: return .green
+        case .error: return .red
+        }
     }
 }

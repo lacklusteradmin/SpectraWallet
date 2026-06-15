@@ -133,7 +133,7 @@ extension AppState {
                     TransactionRecord(
                         walletID: wallet.id, kind: .send, status: .pending, walletName: wallet.name, assetName: holding.name,
                         symbol: holding.symbol, chainName: holding.chainName, amount: amount, address: destinationAddress,
-                        transactionHash: result.transactionHash, signedTransactionPayload: result.resultJson,
+                        transactionHash: result.transactionHash, signedTransactionPayload: result.rebroadcastPayload,
                         signedTransactionPayloadFormat: result.payloadFormat
                     ), holding: holding)
                 recordPendingSentTransaction(transaction)
@@ -217,7 +217,7 @@ extension AppState {
                     TransactionRecord(
                         walletID: wallet.id, kind: .send, status: .pending, walletName: wallet.name, assetName: holding.name,
                         symbol: holding.symbol, chainName: holding.chainName, amount: amount, address: destinationAddress,
-                        transactionHash: result.transactionHash, signedTransactionPayload: result.resultJson,
+                        transactionHash: result.transactionHash, signedTransactionPayload: result.rebroadcastPayload,
                         signedTransactionPayloadFormat: result.payloadFormat
                     ), holding: holding)
                 recordPendingSentTransaction(transaction)
@@ -310,7 +310,7 @@ extension AppState {
                         confirmationCount: 0,
                         dogecoinEstimatedFeeRateDogePerKb: sendPreviewStore.dogecoinSendPreview?.estimatedFeeRateDogePerKb,
                         usedChangeOutput: sendPreviewStore.dogecoinSendPreview?.usesChangeOutput, sourceAddress: sourceAddress,
-                        signedTransactionPayload: result.resultJson,
+                        signedTransactionPayload: result.rebroadcastPayload,
                         signedTransactionPayloadFormat: result.payloadFormat
                     ), holding: holding)
                 recordPendingSentTransaction(transaction)
@@ -372,7 +372,7 @@ extension AppState {
                     TransactionRecord(
                         walletID: wallet.id, kind: .send, status: .pending, walletName: wallet.name, assetName: holding.name,
                         symbol: holding.symbol, chainName: holding.chainName, amount: amount, address: destinationAddress,
-                        transactionHash: result.transactionHash, signedTransactionPayload: result.resultJson,
+                        transactionHash: result.transactionHash, signedTransactionPayload: result.rebroadcastPayload,
                         signedTransactionPayloadFormat: result.payloadFormat
                     ), holding: holding)
                 recordPendingSentTransaction(transaction)
@@ -446,7 +446,7 @@ extension AppState {
                     TransactionRecord(
                         walletID: wallet.id, kind: .send, status: .pending, walletName: wallet.name, assetName: holding.name,
                         symbol: holding.symbol, chainName: holding.chainName, amount: amount, address: destinationAddress,
-                        transactionHash: result.transactionHash, signedTransactionPayload: result.resultJson,
+                        transactionHash: result.transactionHash, signedTransactionPayload: result.rebroadcastPayload,
                         signedTransactionPayloadFormat: result.payloadFormat
                     ), holding: holding)
                 recordPendingSentTransaction(transaction)
@@ -556,7 +556,7 @@ extension AppState {
                     TransactionRecord(
                         walletID: wallet.id, kind: .send, status: .pending, walletName: wallet.name, assetName: holding.name,
                         symbol: holding.symbol, chainName: holding.chainName, amount: amount, address: destinationAddress,
-                        transactionHash: result.transactionHash, signedTransactionPayload: result.resultJson,
+                        transactionHash: result.transactionHash, signedTransactionPayload: result.rebroadcastPayload,
                         signedTransactionPayloadFormat: result.payloadFormat
                     ), holding: holding)
                 recordPendingSentTransaction(transaction)
@@ -748,7 +748,7 @@ extension AppState {
                 TransactionRecord(
                     walletID: wallet.id, kind: .send, status: .pending, walletName: wallet.name, assetName: holding.name,
                     symbol: holding.symbol, chainName: holding.chainName, amount: amount, address: destinationAddress,
-                    transactionHash: result.transactionHash, signedTransactionPayload: result.resultJson,
+                    transactionHash: result.transactionHash, signedTransactionPayload: result.rebroadcastPayload,
                     signedTransactionPayloadFormat: result.payloadFormat
                 ), holding: holding)
             recordPendingSentTransaction(transaction)
@@ -798,7 +798,7 @@ extension AppState {
                 TransactionRecord(
                     walletID: wallet.id, kind: .send, status: .pending, walletName: wallet.name, assetName: holding.name,
                     symbol: holding.symbol, chainName: holding.chainName, amount: amount, address: destinationAddress,
-                    transactionHash: result.transactionHash, signedTransactionPayload: result.resultJson,
+                    transactionHash: result.transactionHash, signedTransactionPayload: result.rebroadcastPayload,
                     signedTransactionPayloadFormat: result.payloadFormat
                 ), holding: holding)
             recordPendingSentTransaction(transaction)

@@ -2,52 +2,70 @@ import Foundation
 import SwiftUI
 import VisionKit
 
+@MainActor
+fileprivate struct SendComposerPresentation {
+    let sendWallets: [ImportedWallet]
+    let selectedWallet: ImportedWallet?
+    let availableSendCoins: [Coin]
+    let selectedCoin: Coin?
+    let selectedCoinAmountText: String?
+    let selectedCoinApproximateFiatText: String?
+    let addressBookEntries: [AddressBookEntry]
+
+    init(store: AppState) {
+        sendWallets = store.sendEnabledWallets
+        selectedWallet = sendWallets.first(where: { $0.id == store.sendWalletID })
+        availableSendCoins = store.availableSendCoins(for: store.sendWalletID)
+        selectedCoin = availableSendCoins.first(where: { $0.holdingKey == store.sendHoldingKey })
+        selectedCoinAmountText = selectedCoin.map { store.formattedAssetAmount($0.amount, symbol: $0.symbol, chainName: $0.chainName) }
+        let sendAmount = Double(store.sendAmount) ?? 0
+        if let selectedCoin, !sendAmount.isZero {
+            selectedCoinApproximateFiatText = store.formattedFiatAmount(fromNative: sendAmount, symbol: selectedCoin.symbol)
+        } else {
+            selectedCoinApproximateFiatText = nil
+        }
+        addressBookEntries = store.sendAddressBookEntries
+    }
+}
+
+@MainActor
 struct SendPrimarySectionsView: View {
     @Bindable var store: AppState
     @Binding var selectedAddressBookEntryID: String
     @Binding var isShowingQRScanner: Bool
     @Binding var qrScannerErrorMessage: String?
 
-    private struct Presentation {
-        let sendWallets: [ImportedWallet]
-        let selectedWallet: ImportedWallet?
-        let availableSendCoins: [Coin]
-        let selectedCoin: Coin?
-        let selectedCoinAmountText: String?
-        let selectedCoinApproximateFiatText: String?
-        let addressBookEntries: [AddressBookEntry]
-    }
-
-    private var presentation: Presentation {
-        let sendWallets = store.sendEnabledWallets
-        let selectedWallet = sendWallets.first(where: { $0.id == store.sendWalletID })
-        let availableSendCoins = store.availableSendCoins(for: store.sendWalletID)
-        let selectedCoin = availableSendCoins.first(where: { $0.holdingKey == store.sendHoldingKey })
-        let selectedCoinAmountText = selectedCoin.map { store.formattedAssetAmount($0.amount, symbol: $0.symbol, chainName: $0.chainName) }
-        let sendAmount = Double(store.sendAmount) ?? 0
-        let selectedCoinApproximateFiatText: String?
-        if let selectedCoin, !sendAmount.isZero {
-            selectedCoinApproximateFiatText = store.formattedFiatAmount(fromNative: sendAmount, symbol: selectedCoin.symbol)
-        } else {
-            selectedCoinApproximateFiatText = nil
-        }
-        return Presentation(
-            sendWallets: sendWallets, selectedWallet: selectedWallet, availableSendCoins: availableSendCoins,
-            selectedCoin: selectedCoin, selectedCoinAmountText: selectedCoinAmountText,
-            selectedCoinApproximateFiatText: selectedCoinApproximateFiatText,
-            addressBookEntries: store.sendAddressBookEntries
-        )
-    }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            fromCard
-            toCard
-            amountCard
+            SendFromPage(store: store)
+            SendRecipientPage(
+                store: store,
+                selectedAddressBookEntryID: $selectedAddressBookEntryID,
+                isShowingQRScanner: $isShowingQRScanner,
+                qrScannerErrorMessage: $qrScannerErrorMessage
+            )
+            SendAmountPage(store: store)
         }
     }
+}
 
-    // MARK: — From card (wallet + asset picker)
+@MainActor
+struct SendFromPage: View {
+    @Bindable var store: AppState
+
+    private var presentation: SendComposerPresentation { SendComposerPresentation(store: store) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            pageHeader(
+                title: "Choose Asset",
+                subtitle: "Pick the wallet and asset to send from.",
+                systemImage: "creditcard.fill"
+            )
+
+            fromCard
+        }
+    }
 
     private var fromCard: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -66,16 +84,16 @@ struct SendPrimarySectionsView: View {
 
             if let selectedWallet = presentation.selectedWallet {
                 let badge = Coin.nativeChainBadge(chainName: selectedWallet.selectedChain) ?? (nil, Color.mint)
-                HStack(spacing: 10) {
+                HStack(spacing: 12) {
                     CoinBadge(
                         assetIdentifier: badge.assetIdentifier,
                         fallbackText: selectedWallet.selectedChain,
                         color: badge.color,
-                        size: 32
+                        size: 38
                     )
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(selectedWallet.name).font(.subheadline.weight(.semibold))
-                        Text(selectedWallet.selectedChain).font(.caption).foregroundStyle(.secondary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(selectedWallet.name).font(.headline)
+                        Text(selectedWallet.selectedChain).font(.subheadline).foregroundStyle(.secondary)
                     }
                     Spacer()
                 }
@@ -83,19 +101,22 @@ struct SendPrimarySectionsView: View {
 
             if !presentation.availableSendCoins.isEmpty {
                 Divider().opacity(0.3)
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(presentation.availableSendCoins, id: \.holdingKey) { coin in
-                            coinChip(coin: coin, isSelected: coin.holdingKey == store.sendHoldingKey)
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(AppLocalization.string("Assets")).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) {
+                            ForEach(presentation.availableSendCoins, id: \.holdingKey) { coin in
+                                coinChip(coin: coin, isSelected: coin.holdingKey == store.sendHoldingKey)
+                            }
                         }
+                        .padding(.vertical, 2)
                     }
-                    .padding(.vertical, 2)
                 }
             }
         }
-        .padding(18)
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 24))
+        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
     }
 
     private func coinChip(coin: Coin, isSelected: Bool) -> some View {
@@ -104,38 +125,58 @@ struct SendPrimarySectionsView: View {
             store.sendHoldingKey = coin.holdingKey
             spectraHaptic(.light)
         } label: {
-            HStack(spacing: 8) {
-                CoinBadge(
-                    assetIdentifier: coin.iconIdentifier,
-                    fallbackText: coin.symbol,
-                    color: coin.color,
-                    size: 26
-                )
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(coin.symbol).font(.subheadline.weight(.semibold))
-                    Text(store.formattedAssetAmount(coin.amount, symbol: coin.symbol, chainName: coin.chainName))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .spectraNumericTextLayout()
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 8) {
+                    CoinBadge(
+                        assetIdentifier: coin.iconIdentifier,
+                        fallbackText: coin.symbol,
+                        color: coin.color,
+                        size: 28
+                    )
+                    Text(coin.symbol).font(.headline)
                 }
+                Text(store.formattedAssetAmount(coin.amount, symbol: coin.symbol, chainName: coin.chainName))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .spectraNumericTextLayout()
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
+            .frame(width: 142, alignment: .leading)
+            .padding(14)
             .background(
                 isSelected
                     ? coin.color.opacity(0.18)
                     : Color.primary.opacity(0.06),
-                in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous)
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .strokeBorder(isSelected ? coin.color.opacity(0.5) : Color.clear, lineWidth: 1)
             )
         }
         .buttonStyle(.plain)
     }
+}
 
-    // MARK: — To card (recipient address)
+@MainActor
+struct SendRecipientPage: View {
+    @Bindable var store: AppState
+    @Binding var selectedAddressBookEntryID: String
+    @Binding var isShowingQRScanner: Bool
+    @Binding var qrScannerErrorMessage: String?
+
+    private var presentation: SendComposerPresentation { SendComposerPresentation(store: store) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            pageHeader(
+                title: "Recipient",
+                subtitle: "Enter a destination address or scan a QR code.",
+                systemImage: "person.crop.circle.badge.arrow.forward.fill"
+            )
+
+            toCard
+        }
+    }
 
     private var toCard: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -147,8 +188,8 @@ struct SendPrimarySectionsView: View {
                     .autocorrectionDisabled()
                     .font(.subheadline.monospaced())
                     .padding(.horizontal, 12)
-                    .padding(.vertical, 10)
-                    .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 14))
+                    .padding(.vertical, 12)
+                    .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 16))
 
                 Button {
                     guard DataScannerViewController.isSupported else {
@@ -164,7 +205,7 @@ struct SendPrimarySectionsView: View {
                 } label: {
                     Image(systemName: "qrcode.viewfinder")
                         .font(.title3.weight(.semibold))
-                        .frame(width: 42, height: 42)
+                        .frame(width: 44, height: 44)
                 }
                 .buttonStyle(.glass)
                 .accessibilityLabel(AppLocalization.string("Scan QR Code"))
@@ -185,55 +226,73 @@ struct SendPrimarySectionsView: View {
                 }
             }
 
-            if let qrScannerErrorMessage {
-                Label(qrScannerErrorMessage, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption).foregroundStyle(.orange)
-            }
-
-            if presentation.selectedCoin?.chainName == "Litecoin",
-               store.sendAddress.hasPrefix("ltcmweb1") || store.sendAddress.hasPrefix("tmweb1") {
-                HStack(spacing: 6) {
-                    Image(systemName: "lock.shield.fill").font(.caption2.weight(.semibold))
-                    Text("MWEB · Privacy Send").font(.caption.weight(.semibold))
-                }
-                .foregroundStyle(.white)
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(
-                    LinearGradient(colors: [Color.indigo, Color.purple], startPoint: .leading, endPoint: .trailing).opacity(0.9)
-                )
-                .clipShape(.capsule)
-            }
-
-            if store.isCheckingSendDestinationBalance {
-                HStack(spacing: 8) {
-                    ProgressView().controlSize(.mini)
-                    Text(AppLocalization.string("Checking destination on-chain balance..."))
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
-
-            if let warning = store.sendDestinationRiskWarning {
-                Label(warning, systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption).foregroundStyle(.orange)
-            }
-
-            if let info = store.sendDestinationInfoMessage {
-                Text(info).font(.caption).foregroundStyle(.secondary)
-            }
+            recipientMessages
         }
-        .padding(18)
+        .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 24))
+        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
     }
 
-    // MARK: — Amount card
+    @ViewBuilder
+    private var recipientMessages: some View {
+        if let qrScannerErrorMessage {
+            Label(qrScannerErrorMessage, systemImage: "exclamationmark.triangle.fill")
+                .font(.caption).foregroundStyle(.orange)
+        }
+
+        if presentation.selectedCoin?.chainName == "Litecoin",
+           store.sendAddress.hasPrefix("ltcmweb1") || store.sendAddress.hasPrefix("tmweb1") {
+            HStack(spacing: 6) {
+                Image(systemName: "lock.shield.fill").font(.caption2.weight(.semibold))
+                Text("MWEB · Privacy Send").font(.caption.weight(.semibold))
+            }
+            .foregroundStyle(.white)
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(
+                LinearGradient(colors: [Color.indigo, Color.purple], startPoint: .leading, endPoint: .trailing).opacity(0.9)
+            )
+            .clipShape(.capsule)
+        }
+
+        if store.isCheckingSendDestinationBalance {
+            SpectraLoadingRow(title: "Checking destination on-chain balance...")
+        }
+
+        if let warning = store.sendDestinationRiskWarning {
+            Label(warning, systemImage: "exclamationmark.triangle.fill")
+                .font(.caption).foregroundStyle(.orange)
+        }
+
+        if let info = store.sendDestinationInfoMessage {
+            Text(info).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+@MainActor
+struct SendAmountPage: View {
+    @Bindable var store: AppState
+
+    private var presentation: SendComposerPresentation { SendComposerPresentation(store: store) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            pageHeader(
+                title: "Amount",
+                subtitle: "Set the amount and compare it against your available balance.",
+                systemImage: "number.circle.fill"
+            )
+
+            amountCard
+        }
+    }
 
     private var amountCard: some View {
         VStack(spacing: 16) {
             HStack(spacing: 12) {
                 TextField("0", text: $store.sendAmount)
                     .keyboardType(.decimalPad)
-                    .font(.system(size: 36, weight: .semibold, design: .rounded))
+                    .font(.system(size: 42, weight: .semibold, design: .rounded))
                     .multilineTextAlignment(.trailing)
                     .spectraNumericTextLayout()
                     .frame(maxWidth: .infinity)
@@ -276,9 +335,9 @@ struct SendPrimarySectionsView: View {
                 }
             }
         }
-        .padding(18)
+        .padding(20)
         .frame(maxWidth: .infinity)
-        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 24))
+        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
     }
 
     private func percentButton(fraction: Double, coin: Coin) -> some View {
@@ -304,5 +363,21 @@ struct SendPrimarySectionsView: View {
                 .foregroundStyle(isActive ? coin.color : Color.secondary)
         }
         .buttonStyle(.plain)
+    }
+}
+
+@ViewBuilder
+private func pageHeader(title: String, subtitle: String, systemImage: String) -> some View {
+    HStack(alignment: .top, spacing: 14) {
+        Image(systemName: systemImage)
+            .font(.title2.weight(.semibold))
+            .foregroundStyle(.orange)
+            .frame(width: 42, height: 42)
+            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .circle)
+
+        VStack(alignment: .leading, spacing: 4) {
+            Text(AppLocalization.string(title)).font(.title2.weight(.bold))
+            Text(AppLocalization.string(subtitle)).font(.subheadline).foregroundStyle(.secondary)
+        }
     }
 }

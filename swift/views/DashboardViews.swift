@@ -361,6 +361,7 @@ struct AssetGroupDetailView: View {
         ScrollView(showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: 16) {
                 AssetDetailHeroCard(assetGroup: assetGroup, store: store)
+                AssetDetailHubCard(assetGroup: assetGroup, contractCount: supportedTokenEntries.count)
                 AssetSummaryStatsCard(assetGroup: assetGroup, store: store)
                 AssetChainBreakdownCard(assetGroup: assetGroup, store: store)
             }.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
@@ -376,6 +377,55 @@ struct AssetGroupDetailView: View {
                     }
                 }
             }
+    }
+}
+private struct AssetDetailHubCard: View {
+    let assetGroup: DashboardAssetGroup
+    let contractCount: Int
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                Text(AppLocalization.string("Asset Hub"))
+                    .font(.headline)
+                Spacer()
+                if assetGroup.isPinned {
+                    Label(AppLocalization.string("Pinned"), systemImage: "pin.fill")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 9)
+                        .padding(.vertical, 4)
+                        .background(Color.red.opacity(0.12), in: Capsule())
+                }
+            }
+
+            HStack(spacing: 10) {
+                hubMetric(title: "Networks", value: "\(assetGroup.chainEntries.count)", icon: "circle.hexagongrid.fill")
+                hubMetric(title: "Contracts", value: "\(contractCount)", icon: "doc.text.magnifyingglass")
+                hubMetric(title: "Symbol", value: assetGroup.symbol, icon: "tag.fill")
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+    }
+
+    private func hubMetric(title: String, value: String, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.orange)
+            Text(value)
+                .font(.subheadline.weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Text(AppLocalization.string(title))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 struct AssetContractsDetailView: View {

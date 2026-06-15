@@ -60,6 +60,11 @@ struct HistoryView: View {
                 SpectraBackdrop().ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: SpectraLayout.sectionSpacing) {
+                        historySummaryCard
+                        activeFilterStrip
+                        if visibleTransactions.isEmpty {
+                            historyEmptyStateCard
+                        }
                         ForEach(groupedSections) { section in
                                 VStack(spacing: 0) {
                                     HStack {
@@ -110,15 +115,6 @@ struct HistoryView: View {
                 }.refreshable {
                     await store.performUserInitiatedRefresh()
                 }.scrollBounceBehavior(.always)
-                .overlay {
-                    if visibleTransactions.isEmpty {
-                        ContentUnavailableView {
-                            Label(emptyStateTitle, systemImage: store.normalizedHistoryIndex.isEmpty ? "clock.arrow.circlepath" : "magnifyingglass")
-                        } description: {
-                            Text(emptyStateMessage)
-                        }
-                    }
-                }
             }.searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always),
                          prompt: AppLocalization.string("Search wallet, asset, symbol, or address"))
             .textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -154,6 +150,90 @@ struct HistoryView: View {
         } label: {
             Image(systemName: "line.3.horizontal.decrease.circle")
         }.accessibilityLabel(AppLocalization.string("Filter history"))
+    }
+
+    private var historySummaryCard: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            HStack {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(AppLocalization.string("Activity"))
+                        .font(.title3.weight(.bold))
+                    Text(AppLocalization.string("Recent sends, receives, and pending confirmations."))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.orange)
+            }
+
+            HStack(spacing: 10) {
+                historyMetric(title: "Visible", value: "\(visibleTransactions.count)", icon: "list.bullet.rectangle")
+                historyMetric(title: "Pending", value: "\(pendingVisibleCount)", icon: "hourglass")
+                historyMetric(title: "Sends", value: "\(sendVisibleCount)", icon: "arrow.up.right")
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
+    }
+
+    private var activeFilterStrip: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                Menu {
+                    Picker(AppLocalization.string("Wallet"), selection: $selectedWalletID) {
+                        Text(AppLocalization.string("All Wallets")).tag(Optional<String>.none)
+                        ForEach(store.wallets) { wallet in Text(wallet.name).tag(Optional(wallet.id)) }
+                    }
+                } label: {
+                    filterCapsuleLabel(title: "Wallet", value: selectedWalletName, systemImage: "wallet.pass")
+                }
+
+                Menu {
+                    Picker(AppLocalization.string("Type"), selection: $selectedFilter) {
+                        ForEach(HistoryFilter.allCases) { filter in Text(filter.localizedTitle).tag(filter) }
+                    }
+                } label: {
+                    filterCapsuleLabel(title: "Type", value: selectedFilter.localizedTitle, systemImage: "line.3.horizontal.decrease")
+                }
+
+                Menu {
+                    Picker(AppLocalization.string("Sort"), selection: $selectedSortOrder) {
+                        ForEach(HistorySortOrder.allCases) { sortOrder in Text(sortOrder.localizedTitle).tag(sortOrder) }
+                    }
+                } label: {
+                    filterCapsuleLabel(title: "Sort", value: selectedSortOrder.localizedTitle, systemImage: "arrow.up.arrow.down")
+                }
+            }
+            .padding(.vertical, 2)
+        }
+    }
+
+    private func historyMetric(title: String, value: String, icon: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Image(systemName: icon)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.orange)
+            Text(value)
+                .font(.headline.weight(.bold))
+                .spectraNumericTextLayout()
+            Text(AppLocalization.string(title))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+    }
+
+    private var sendVisibleCount: Int {
+        visibleTransactions.filter { $0.kind == .send }.count
+    }
+
+    private var pendingVisibleCount: Int {
+        visibleTransactions.filter { $0.status == .pending }.count
     }
     private var clampedPageIndex: Int {
         guard totalLoadedPages > 0 else { return 0 }
@@ -270,7 +350,7 @@ struct HistoryView: View {
                 HStack(spacing: 6) {
                     Text(store.isLoadingMoreOnChainHistory ? AppLocalization.string("Loading") : AppLocalization.string("Next"))
                     if store.isLoadingMoreOnChainHistory {
-                        ProgressView().controlSize(.small).tint(.white)
+                        SpectraLoadingGlyph(size: 18, tint: .white)
                     } else {
                         Image(systemName: "chevron.right")
                     }
@@ -279,6 +359,27 @@ struct HistoryView: View {
                 ((!hasNextLoadedPage && !canLoadMoreVisibleHistory) || store.isLoadingMoreOnChainHistory) ? 0.4 : 1)
         }.padding(.horizontal, 16).padding(.vertical, 12).frame(maxWidth: .infinity)
             .background(Color.primary.opacity(0.06), in: Capsule())
+    }
+    private var historyEmptyStateCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: store.normalizedHistoryIndex.isEmpty ? "clock.arrow.circlepath" : "magnifyingglass")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.orange)
+                    .frame(width: 38, height: 38)
+                    .glassEffect(.regular.tint(.white.opacity(0.04)), in: .circle)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(emptyStateTitle)
+                        .font(.headline)
+                    Text(emptyStateMessage)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
     private var emptyStateTitle: String {
         store.normalizedHistoryIndex.isEmpty

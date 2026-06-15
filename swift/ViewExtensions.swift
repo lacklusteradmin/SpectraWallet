@@ -134,6 +134,83 @@ struct SpectraShimmer: View {
     }
 }
 
+struct SpectraLoadingGlyph: View {
+    var size: CGFloat = 28
+    var tint: Color = .orange
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var isPulsing = false
+    @State private var isSpinning = false
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(tint.opacity(0.14))
+            Circle()
+                .trim(from: 0.18, to: 0.84)
+                .stroke(tint.opacity(0.82), style: StrokeStyle(lineWidth: max(2, size * 0.09), lineCap: .round))
+                .rotationEffect(.degrees(isSpinning ? 360 : 0))
+            Text("S")
+                .font(.system(size: size * 0.44, weight: .black, design: .rounded))
+                .foregroundStyle(tint)
+        }
+        .frame(width: size, height: size)
+        .scaleEffect(reduceMotion ? 1 : (isPulsing ? 1.06 : 0.94))
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 1.05).repeatForever(autoreverses: true)) {
+                isPulsing = true
+            }
+            withAnimation(.linear(duration: 1.35).repeatForever(autoreverses: false)) {
+                isSpinning = true
+            }
+        }
+    }
+}
+
+struct SpectraLoadingRow: View {
+    let title: String
+    var subtitle: String? = nil
+    var tint: Color = .orange
+
+    var body: some View {
+        HStack(spacing: 12) {
+            SpectraLoadingGlyph(size: 30, tint: tint)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(AppLocalization.string(title))
+                    .font(.subheadline.weight(.semibold))
+                if let subtitle {
+                    Text(AppLocalization.string(subtitle))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+struct SpectraLoadingCard: View {
+    let title: String
+    var subtitle: String? = nil
+    var lineCount: Int = 3
+    var tint: Color = .orange
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            SpectraLoadingRow(title: title, subtitle: subtitle, tint: tint)
+            VStack(alignment: .leading, spacing: 8) {
+                ForEach(0..<max(1, lineCount), id: \.self) { index in
+                    SpectraShimmer(cornerRadius: 6, height: index == lineCount - 1 ? 12 : 14)
+                        .frame(maxWidth: index == lineCount - 1 ? 190 : .infinity, alignment: .leading)
+                }
+            }
+        }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+    }
+}
+
 #Preview {
     ContentView(store: AppState())
 }

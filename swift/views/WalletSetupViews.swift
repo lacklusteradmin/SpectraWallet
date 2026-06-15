@@ -814,7 +814,7 @@ struct SetupView: View {
         }
         if store.isImportingWallet {
             HStack(spacing: 10) {
-                ProgressView().tint(.white)
+                SpectraLoadingGlyph(size: 22, tint: .orange)
                 Text(AppLocalization.string("import_flow.initializing_wallet_connections")).font(.footnote).foregroundStyle(.secondary)
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
