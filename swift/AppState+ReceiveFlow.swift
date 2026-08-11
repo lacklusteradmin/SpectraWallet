@@ -393,39 +393,25 @@ extension AppState {
             let createdWalletIDs = selectedChainNames.map { _ in UUID() }
             let bitcoinWalletID = zip(selectedChainNames, createdWalletIDs).first(where: { $0.0 == "Bitcoin" })?.1
             if requiresSeedPhrase {
-                let p = selectedDerivationPaths
-                let needsEvm =
-                    selectedChains.contains("Ethereum") || selectedChains.contains("Arbitrum") || selectedChains.contains("Optimism") || selectedChains.contains("BNB Chain") || selectedChains.contains("Avalanche")
-                    || selectedChains.contains("Hyperliquid")
-                let chainPathCandidates: [(Bool, String, String)] = [
-                    (selectedChains.contains("Bitcoin"), "Bitcoin", p.bitcoin), (selectedChains.contains("Bitcoin Cash"), "Bitcoin Cash", p.bitcoinCash),
-                    (selectedChains.contains("Bitcoin SV"), "Bitcoin SV", p.bitcoinSV), (selectedChains.contains("Litecoin"), "Litecoin", p.litecoin),
-                    (selectedChains.contains("Dogecoin"), "Dogecoin", p.dogecoin), (needsEvm, "Ethereum", p.ethereum),
-                    (selectedChains.contains("Ethereum Classic"), "Ethereum Classic", p.ethereumClassic), (selectedChains.contains("Tron"), "Tron", p.tron),
-                    (selectedChains.contains("Solana"), "Solana", p.solana), (selectedChains.contains("Cardano"), "Cardano", p.cardano),
-                    (selectedChains.contains("XRP Ledger"), "XRP Ledger", p.xrp), (selectedChains.contains("Stellar"), "Stellar", p.stellar), (selectedChains.contains("Sui"), "Sui", p.sui),
-                    (selectedChains.contains("Aptos"), "Aptos", p.aptos), (selectedChains.contains("TON"), "TON", p.ton),
-                    (selectedChains.contains("Internet Computer"), "Internet Computer", p.internetComputer), (selectedChains.contains("NEAR"), "NEAR", p.near),
-                    (selectedChains.contains("Polkadot"), "Polkadot", p.polkadot),
-                    (selectedChains.contains("Zcash"), "Zcash", p.zcash),
-                    (selectedChains.contains("Bitcoin Gold"), "Bitcoin Gold", p.bitcoinGold),
-                    (selectedChains.contains("Sei"), "Sei", p.sei),
-                    (selectedChains.contains("Celo"), "Celo", p.celo),
-                    (selectedChains.contains("Cronos"), "Cronos", p.cronos),
-                    (selectedChains.contains("opBNB"), "opBNB", p.opBnb),
-                    (selectedChains.contains("zkSync Era"), "zkSync Era", p.zksyncEra),
-                    (selectedChains.contains("Sonic"), "Sonic", p.sonic),
-                    (selectedChains.contains("Berachain"), "Berachain", p.berachain),
-                    (selectedChains.contains("Unichain"), "Unichain", p.unichain),
-                    (selectedChains.contains("Ink"), "Ink", p.ink),
-                    (selectedChains.contains("Decred"), "Decred", p.decred),
-                    (selectedChains.contains("Kaspa"), "Kaspa", p.kaspa),
-                    (selectedChains.contains("Dash"), "Dash", p.dash),
-                    (selectedChains.contains("X Layer"), "X Layer", p.xLayer),
-                    (selectedChains.contains("Bittensor"), "Bittensor", p.bittensor),
-                ]
-                let chainPaths: [String: String] = Dictionary(
-                    uniqueKeysWithValues: chainPathCandidates.compactMap { $0.0 ? ($0.1, $0.2) : nil })
+                // Derivation paths for the chains being imported, keyed by
+                // chain display name. Every EVM chain derives from Ethereum's
+                // path, which is what `coreSeedDerivationPathKey` already
+                // encodes — so this is a loop over the selection rather than a
+                // 30-entry table of (isSelected, chainName, path) triples.
+                var chainPaths: [String: String] = [:]
+                for chainName in selectedChains {
+                    guard let chain = SeedDerivationChain(rawValue: chainName) else { continue }
+                    let path = selectedDerivationPaths.path(for: chain)
+                    guard !path.isEmpty else { continue }
+                    chainPaths[chainName] = path
+                }
+                // EVM chains share one derived address, produced under the
+                // Ethereum entry, so ensure it is present whenever any EVM
+                // chain is selected even if Ethereum itself is not.
+                if chainPaths["Ethereum"] == nil, selectedChains.contains(where: { coreIsEvmChain(chainName: $0) }) {
+                    let ethereumPath = selectedDerivationPaths.path(for: .ethereum)
+                    if !ethereumPath.isEmpty { chainPaths["Ethereum"] = ethereumPath }
+                }
                 do {
                     let overrides = draft.resolvedDerivationOverrides
                     let derived: [String: String]
@@ -597,41 +583,62 @@ extension AppState {
                 plannedWalletIds: plannedWalletIDs.map(\.uuidString), isWatchOnlyImport: isWatchOnlyImport,
                 isPrivateKeyImport: isPrivateKeyImport, hasWalletPassword: trimmedWalletPassword != nil,
                 resolvedAddresses: WalletImportAddresses(
-                    bitcoinAddress: resolvedBitcoinAddress ?? derivedBitcoinAddress, bitcoinXpub: resolvedBitcoinXPub,
-                    bitcoinCashAddress: resolvedBitcoinCashAddress ?? bitcoinCashAddress,
-                    bitcoinSvAddress: resolvedBitcoinSVAddress ?? bitcoinSvAddress,
-                    litecoinAddress: resolvedLitecoinAddress ?? litecoinAddress, dogecoinAddress: dogecoinAddress,
-                    ethereumAddress: ethereumAddress, ethereumClassicAddress: ethereumClassicAddress,
-                    tronAddress: resolvedTronAddress ?? tronAddress, solanaAddress: resolvedSolanaAddress ?? solanaAddress,
-                    xrpAddress: resolvedXRPAddress ?? xrpAddress, stellarAddress: resolvedStellarAddress ?? stellarAddress,
-                    moneroAddress: resolvedMoneroAddress ?? moneroAddress, cardanoAddress: resolvedCardanoAddress ?? cardanoAddress,
-                    suiAddress: resolvedSuiAddress ?? suiAddress, aptosAddress: resolvedAptosAddress ?? aptosAddress,
-                    tonAddress: resolvedTONAddress ?? tonAddress, icpAddress: resolvedICPAddress ?? icpAddress,
-                    nearAddress: resolvedNearAddress ?? nearAddress, polkadotAddress: resolvedPolkadotAddress ?? polkadotAddress,
-                    zcashAddress: resolvedZcashAddress ?? zcashAddress,
-                    bitcoinGoldAddress: resolvedBitcoinGoldAddress ?? bitcoinGoldAddress,
-                    decredAddress: resolvedDecredAddress ?? decredAddress,
-                    kaspaAddress: resolvedKaspaAddress ?? kaspaAddress,
-                    dashAddress: resolvedDashAddress ?? dashAddress,
-                    bittensorAddress: resolvedBittensorAddress ?? bittensorAddress
+                    bySlot: WalletImportAddresses.slotMap([
+                        "Bitcoin": resolvedBitcoinAddress ?? derivedBitcoinAddress,
+                        "Bitcoin Cash": resolvedBitcoinCashAddress ?? bitcoinCashAddress,
+                        "Bitcoin SV": resolvedBitcoinSVAddress ?? bitcoinSvAddress,
+                        "Litecoin": resolvedLitecoinAddress ?? litecoinAddress,
+                        "Dogecoin": dogecoinAddress,
+                        "Ethereum": ethereumAddress,
+                        "Ethereum Classic": ethereumClassicAddress,
+                        "Tron": resolvedTronAddress ?? tronAddress,
+                        "Solana": resolvedSolanaAddress ?? solanaAddress,
+                        "XRP Ledger": resolvedXRPAddress ?? xrpAddress,
+                        "Stellar": resolvedStellarAddress ?? stellarAddress,
+                        "Monero": resolvedMoneroAddress ?? moneroAddress,
+                        "Cardano": resolvedCardanoAddress ?? cardanoAddress,
+                        "Sui": resolvedSuiAddress ?? suiAddress,
+                        "Aptos": resolvedAptosAddress ?? aptosAddress,
+                        "TON": resolvedTONAddress ?? tonAddress,
+                        "Internet Computer": resolvedICPAddress ?? icpAddress,
+                        "NEAR": resolvedNearAddress ?? nearAddress,
+                        "Polkadot": resolvedPolkadotAddress ?? polkadotAddress,
+                        "Zcash": resolvedZcashAddress ?? zcashAddress,
+                        "Bitcoin Gold": resolvedBitcoinGoldAddress ?? bitcoinGoldAddress,
+                        "Decred": resolvedDecredAddress ?? decredAddress,
+                        "Kaspa": resolvedKaspaAddress ?? kaspaAddress,
+                        "Dash": resolvedDashAddress ?? dashAddress,
+                        "Bittensor": resolvedBittensorAddress ?? bittensorAddress,
+                    ]),
+                    bitcoinXpub: resolvedBitcoinXPub
                 ),
                 watchOnlyEntries: WalletImportWatchOnlyEntries(
-                    bitcoinAddresses: bitcoinAddressEntries, bitcoinXpub: resolvedBitcoinXPub,
-                    bitcoinCashAddresses: bitcoinCashAddressEntries, bitcoinSvAddresses: bitcoinSvAddressEntries,
-                    litecoinAddresses: litecoinAddressEntries, dogecoinAddresses: dogecoinAddressEntries,
-                    ethereumAddresses: ethereumAddressEntries.map { normalizeEVMAddress($0) }, tronAddresses: tronAddressEntries,
-                    solanaAddresses: solanaAddressEntries, xrpAddresses: xrpAddressEntries, stellarAddresses: stellarAddressEntries,
-                    cardanoAddresses: cardanoAddressEntries, suiAddresses: suiAddressEntries.map { $0.lowercased() },
-                    aptosAddresses: aptosAddressEntries.map { normalizedAddress($0, for: "Aptos") },
-                    tonAddresses: tonAddressEntries.map { normalizedAddress($0, for: "TON") },
-                    icpAddresses: icpAddressEntries.map { normalizedAddress($0, for: "Internet Computer") },
-                    nearAddresses: nearAddressEntries.map { $0.lowercased() }, polkadotAddresses: polkadotAddressEntries,
-                    zcashAddresses: zcashAddressEntries,
-                    bitcoinGoldAddresses: bitcoinGoldAddressEntries,
-                    decredAddresses: decredAddressEntries,
-                    kaspaAddresses: kaspaAddressEntries.map { $0.lowercased() },
-                    dashAddresses: dashAddressEntries,
-                    bittensorAddresses: bittensorAddressEntries
+                    bySlot: WalletImportWatchOnlyEntries.slotMap([
+                        "Bitcoin": bitcoinAddressEntries,
+                        "Bitcoin Cash": bitcoinCashAddressEntries,
+                        "Bitcoin SV": bitcoinSvAddressEntries,
+                        "Litecoin": litecoinAddressEntries,
+                        "Dogecoin": dogecoinAddressEntries,
+                        "Ethereum": ethereumAddressEntries.map { normalizeEVMAddress($0) },
+                        "Tron": tronAddressEntries,
+                        "Solana": solanaAddressEntries,
+                        "XRP Ledger": xrpAddressEntries,
+                        "Stellar": stellarAddressEntries,
+                        "Cardano": cardanoAddressEntries,
+                        "Sui": suiAddressEntries.map { $0.lowercased() },
+                        "Aptos": aptosAddressEntries.map { normalizedAddress($0, for: "Aptos") },
+                        "TON": tonAddressEntries.map { normalizedAddress($0, for: "TON") },
+                        "Internet Computer": icpAddressEntries.map { normalizedAddress($0, for: "Internet Computer") },
+                        "NEAR": nearAddressEntries.map { $0.lowercased() },
+                        "Polkadot": polkadotAddressEntries,
+                        "Zcash": zcashAddressEntries,
+                        "Bitcoin Gold": bitcoinGoldAddressEntries,
+                        "Decred": decredAddressEntries,
+                        "Kaspa": kaspaAddressEntries.map { $0.lowercased() },
+                        "Dash": dashAddressEntries,
+                        "Bittensor": bittensorAddressEntries,
+                    ]),
+                    bitcoinXpub: resolvedBitcoinXPub
                 )
             )
             let importPlan: WalletImportPlan
@@ -681,24 +688,7 @@ extension AppState {
     }
     func renameWallet(id: String, to newName: String) {
         guard let index = wallets.firstIndex(where: { $0.id == id }) else { return }
-        let wallet = wallets[index]
-        wallets[index] = ImportedWallet(
-            id: wallet.id, name: newName, bitcoinNetworkMode: wallet.bitcoinNetworkMode, dogecoinNetworkMode: wallet.dogecoinNetworkMode,
-            bitcoinAddress: wallet.bitcoinAddress, bitcoinXpub: wallet.bitcoinXpub, bitcoinCashAddress: wallet.bitcoinCashAddress,
-            bitcoinSvAddress: wallet.bitcoinSvAddress, litecoinAddress: wallet.litecoinAddress, dogecoinAddress: wallet.dogecoinAddress,
-            ethereumAddress: wallet.ethereumAddress, tronAddress: wallet.tronAddress, solanaAddress: wallet.solanaAddress,
-            stellarAddress: wallet.stellarAddress, xrpAddress: wallet.xrpAddress, moneroAddress: wallet.moneroAddress,
-            cardanoAddress: wallet.cardanoAddress, suiAddress: wallet.suiAddress, aptosAddress: wallet.aptosAddress,
-            tonAddress: wallet.tonAddress, icpAddress: wallet.icpAddress, nearAddress: wallet.nearAddress,
-            polkadotAddress: wallet.polkadotAddress, zcashAddress: wallet.zcashAddress,
-            bitcoinGoldAddress: wallet.bitcoinGoldAddress,
-            decredAddress: wallet.decredAddress, kaspaAddress: wallet.kaspaAddress,
-            dashAddress: wallet.dashAddress,
-            bittensorAddress: wallet.bittensorAddress,
-            seedDerivationPreset: wallet.seedDerivationPreset,
-            seedDerivationPaths: wallet.seedDerivationPaths, derivationOverrides: wallet.derivationOverrides, selectedChain: wallet.selectedChain, holdings: wallet.holdings,
-            includeInPortfolioTotal: wallet.includeInPortfolioTotal
-        )
+        wallets[index].name = newName
         finishWalletImportFlow()
     }
     func finishWalletImportFlow() {
@@ -784,53 +774,29 @@ extension AppState {
     func nextDefaultWalletNameIndex() -> Int {
         (wallets.compactMap { $0.name.hasPrefix("Wallet ") ? Int($0.name.dropFirst(7)) : nil }.max() ?? 0) + 1
     }
+    /// Build a wallet for one chain from the slot-keyed addresses Rust planned.
+    ///
+    /// The 26 per-chain arguments this used to take, each filtered by
+    /// `chainName == "..."`, are gone: `core_plan_wallet_import` already scopes
+    /// a planned wallet's `addresses` to its own chain, so the map passes
+    /// straight through.
     func walletForSingleChain(
-        id: UUID, name: String, chainName: String, bitcoinAddress: String?, bitcoinXpub: String?, bitcoinCashAddress: String?,
-        bitcoinSvAddress: String?, litecoinAddress: String?, dogecoinAddress: String?, ethereumAddress: String?, tronAddress: String?,
-        solanaAddress: String?, xrpAddress: String?, stellarAddress: String?, moneroAddress: String?, cardanoAddress: String?,
-        suiAddress: String?, aptosAddress: String?, tonAddress: String?, icpAddress: String?, nearAddress: String?,
-        polkadotAddress: String?, zcashAddress: String?, bitcoinGoldAddress: String?,
-        decredAddress: String?, kaspaAddress: String?, dashAddress: String?,
-        bittensorAddress: String?,
+        id: UUID, name: String, chainName: String,
+        addresses: [String: String], bitcoinXpub: String?,
         seedDerivationPreset: SeedDerivationPreset, seedDerivationPaths: SeedDerivationPaths,
         derivationOverrides: CoreWalletDerivationOverrides? = nil,
         holdings: [Coin]
     ) -> ImportedWallet {
-        let resolvedOverrides = derivationOverrides ?? CoreWalletDerivationOverrides(
-            passphrase: nil, mnemonicWordlist: nil, iterationCount: nil, saltPrefix: nil, hmacKey: nil,
-            curve: nil, derivationAlgorithm: nil, addressAlgorithm: nil, publicKeyFormat: nil, scriptType: nil
-        )
-        return ImportedWallet(
-            id: id.uuidString, name: name, bitcoinNetworkMode: chainName == "Bitcoin" ? bitcoinNetworkMode : .mainnet,
+        ImportedWallet(
+            id: id.uuidString, name: name,
+            bitcoinNetworkMode: chainName == "Bitcoin" ? bitcoinNetworkMode : .mainnet,
             dogecoinNetworkMode: chainName == "Dogecoin" ? dogecoinNetworkMode : .mainnet,
-            bitcoinAddress: chainName == "Bitcoin" ? bitcoinAddress : nil, bitcoinXpub: chainName == "Bitcoin" ? bitcoinXpub : nil,
-            bitcoinCashAddress: chainName == "Bitcoin Cash" ? bitcoinCashAddress : nil,
-            bitcoinSvAddress: chainName == "Bitcoin SV" ? bitcoinSvAddress : nil,
-            litecoinAddress: chainName == "Litecoin" ? litecoinAddress : nil,
-            dogecoinAddress: chainName == "Dogecoin" ? dogecoinAddress : nil,
-            ethereumAddress: (chainName == "Ethereum" || chainName == "Ethereum Classic" || chainName == "Arbitrum"
-                || chainName == "Optimism" || chainName == "BNB Chain" || chainName == "Avalanche" || chainName == "Hyperliquid"
-                || chainName == "Polygon" || chainName == "Base" || chainName == "Linea" || chainName == "Scroll"
-                || chainName == "Blast" || chainName == "Mantle"
-                || chainName == "Sei" || chainName == "Celo" || chainName == "Cronos" || chainName == "opBNB"
-                || chainName == "zkSync Era" || chainName == "Sonic" || chainName == "Berachain"
-                || chainName == "Unichain" || chainName == "Ink" || chainName == "X Layer")
-                ? ethereumAddress : nil, tronAddress: chainName == "Tron" ? tronAddress : nil,
-            solanaAddress: chainName == "Solana" ? solanaAddress : nil, stellarAddress: chainName == "Stellar" ? stellarAddress : nil,
-            xrpAddress: chainName == "XRP Ledger" ? xrpAddress : nil, moneroAddress: chainName == "Monero" ? moneroAddress : nil,
-            cardanoAddress: chainName == "Cardano" ? cardanoAddress : nil, suiAddress: chainName == "Sui" ? suiAddress : nil,
-            aptosAddress: chainName == "Aptos" ? aptosAddress : nil, tonAddress: chainName == "TON" ? tonAddress : nil,
-            icpAddress: chainName == "Internet Computer" ? icpAddress : nil, nearAddress: chainName == "NEAR" ? nearAddress : nil,
-            polkadotAddress: chainName == "Polkadot" ? polkadotAddress : nil,
-            zcashAddress: chainName == "Zcash" ? zcashAddress : nil,
-            bitcoinGoldAddress: chainName == "Bitcoin Gold" ? bitcoinGoldAddress : nil,
-            decredAddress: chainName == "Decred" ? decredAddress : nil,
-            kaspaAddress: chainName == "Kaspa" ? kaspaAddress : nil,
-            dashAddress: chainName == "Dash" ? dashAddress : nil,
-            bittensorAddress: chainName == "Bittensor" ? bittensorAddress : nil,
+            addresses: addresses,
+            bitcoinXpub: chainName == "Bitcoin" ? bitcoinXpub : nil,
             seedDerivationPreset: seedDerivationPreset,
-            seedDerivationPaths: seedDerivationPaths, derivationOverrides: resolvedOverrides,
-            selectedChain: chainName, holdings: holdings.filter { $0.chainName == chainName },
+            seedDerivationPaths: seedDerivationPaths,
+            derivationOverrides: derivationOverrides ?? .empty,
+            selectedChain: chainName, holdings: holdings,
             includeInPortfolioTotal: true
         )
     }
@@ -840,46 +806,16 @@ extension AppState {
         holdings: [Coin]
     ) -> ImportedWallet {
         walletForSingleChain(
-            id: id, name: plan.name, chainName: plan.chainName, bitcoinAddress: plan.addresses.bitcoinAddress,
-            bitcoinXpub: plan.addresses.bitcoinXpub, bitcoinCashAddress: plan.addresses.bitcoinCashAddress,
-            bitcoinSvAddress: plan.addresses.bitcoinSvAddress, litecoinAddress: plan.addresses.litecoinAddress,
-            dogecoinAddress: plan.addresses.dogecoinAddress,
-            ethereumAddress: plan.chainName == "Ethereum Classic"
-                ? (plan.addresses.ethereumClassicAddress ?? plan.addresses.ethereumAddress)
-                : plan.addresses.ethereumAddress, tronAddress: plan.addresses.tronAddress, solanaAddress: plan.addresses.solanaAddress,
-            xrpAddress: plan.addresses.xrpAddress, stellarAddress: plan.addresses.stellarAddress,
-            moneroAddress: plan.addresses.moneroAddress, cardanoAddress: plan.addresses.cardanoAddress,
-            suiAddress: plan.addresses.suiAddress, aptosAddress: plan.addresses.aptosAddress, tonAddress: plan.addresses.tonAddress,
-            icpAddress: plan.addresses.icpAddress, nearAddress: plan.addresses.nearAddress, polkadotAddress: plan.addresses.polkadotAddress,
-            zcashAddress: plan.addresses.zcashAddress,
-            bitcoinGoldAddress: plan.addresses.bitcoinGoldAddress,
-            decredAddress: plan.addresses.decredAddress,
-            kaspaAddress: plan.addresses.kaspaAddress,
-            dashAddress: plan.addresses.dashAddress,
-            bittensorAddress: plan.addresses.bittensorAddress,
+            id: id, name: plan.name, chainName: plan.chainName,
+            addresses: plan.addresses.bySlot, bitcoinXpub: plan.addresses.bitcoinXpub,
             seedDerivationPreset: seedDerivationPreset, seedDerivationPaths: seedDerivationPaths,
             derivationOverrides: derivationOverrides, holdings: holdings
         )
     }
     func walletByReplacingHoldings(_ wallet: ImportedWallet, with holdings: [Coin]) -> ImportedWallet {
-        ImportedWallet(
-            id: wallet.id, name: wallet.name, bitcoinNetworkMode: wallet.bitcoinNetworkMode,
-            dogecoinNetworkMode: wallet.dogecoinNetworkMode, bitcoinAddress: wallet.bitcoinAddress, bitcoinXpub: wallet.bitcoinXpub,
-            bitcoinCashAddress: wallet.bitcoinCashAddress, bitcoinSvAddress: wallet.bitcoinSvAddress,
-            litecoinAddress: wallet.litecoinAddress, dogecoinAddress: wallet.dogecoinAddress, ethereumAddress: wallet.ethereumAddress,
-            tronAddress: wallet.tronAddress, solanaAddress: wallet.solanaAddress, stellarAddress: wallet.stellarAddress,
-            xrpAddress: wallet.xrpAddress, moneroAddress: wallet.moneroAddress, cardanoAddress: wallet.cardanoAddress,
-            suiAddress: wallet.suiAddress, aptosAddress: wallet.aptosAddress, tonAddress: wallet.tonAddress, icpAddress: wallet.icpAddress,
-            nearAddress: wallet.nearAddress, polkadotAddress: wallet.polkadotAddress,
-            zcashAddress: wallet.zcashAddress,
-            bitcoinGoldAddress: wallet.bitcoinGoldAddress,
-            decredAddress: wallet.decredAddress, kaspaAddress: wallet.kaspaAddress,
-            dashAddress: wallet.dashAddress,
-            bittensorAddress: wallet.bittensorAddress,
-            seedDerivationPreset: wallet.seedDerivationPreset,
-            seedDerivationPaths: wallet.seedDerivationPaths, derivationOverrides: wallet.derivationOverrides, selectedChain: wallet.selectedChain, holdings: holdings,
-            includeInPortfolioTotal: wallet.includeInPortfolioTotal
-        )
+        var updated = wallet
+        updated.holdings = holdings
+        return updated
     }
     var portfolio: [Coin] { cachedPortfolio }
     var priceRequestCoins: [Coin] {

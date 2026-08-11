@@ -238,7 +238,7 @@ extension AppState {
         if cursor == nil, let seedPhrase = storedSeedPhrase(for: wallet.id),
             !seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         {
-            let pathParts = wallet.seedDerivationPaths.bitcoin.split(separator: "/")
+            let pathParts = wallet.seedDerivationPaths.path(for: .bitcoin).split(separator: "/")
             let accountPath = String(pathParts.prefix(4).joined(separator: "/"))
             if let xpub = try? WalletServiceBridge.shared.deriveBitcoinAccountXpub(
                 mnemonicPhrase: seedPhrase, passphrase: "", accountPath: accountPath

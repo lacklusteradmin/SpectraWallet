@@ -5,6 +5,16 @@ import Foundation
     @testable import Spectra
     @MainActor
     final class AppStatePlatformBridgeTests: XCTestCase {
+        /// `AppState()` loads whatever is in the shared keychain-backed wallet
+        /// store, which persists across runs on the simulator. Start every test
+        /// from an empty store so results don't depend on what ran before.
+        override func setUp() async throws {
+            try await super.setUp()
+            let store = AppState()
+            store.wallets = []
+            store.persistWallets()
+        }
+
         func testEditingWalletNamePreservesExistingHoldings() async {
             let store = AppState()
             let existingHolding = Coin.makeCustom(
@@ -34,7 +44,7 @@ import Foundation
         func testImportingBitcoinWalletPersistsDerivedAddress() async {
             let store = AppState()
             store.importDraft.walletName = "Primary BTC"
-            store.importDraft.seedPhrase = "test test test test test test test test test test test junk"
+            store.importDraft.setSeedPhraseForTesting("test test test test test test test test test test test junk")
             store.importDraft.selectedChainNamesStorage = ["Bitcoin"]
             await store.importWallet()
             XCTAssertNil(store.importError)
@@ -47,7 +57,7 @@ import Foundation
             let store = AppState()
             store.bitcoinNetworkMode = .testnet4
             store.importDraft.walletName = "Primary BTC Testnet4"
-            store.importDraft.seedPhrase = "test test test test test test test test test test test junk"
+            store.importDraft.setSeedPhraseForTesting("test test test test test test test test test test test junk")
             store.importDraft.selectedChainNamesStorage = ["Bitcoin"]
             await store.importWallet()
             XCTAssertNil(store.importError)
@@ -111,6 +121,26 @@ import Foundation
                 EVMChainContext.ethereumHoodi.defaultRPCEndpoints, ["https://ethereum-hoodi-rpc.publicnode.com"]
             )
         }
+        /// A watch-only wallet on a chain outside the old hand-written
+        /// 14-chain list was dropped from the store on load. Storage is now a
+        /// map, so "has any address" is a property of the wallet, not of a
+        /// list someone has to remember to extend.
+        func testWatchOnlyWalletOnAnyChainSurvivesPersistence() throws {
+            for chainName in ["Kaspa", "Dash", "Zcash", "TON", "Internet Computer", "Bitcoin Gold", "Bittensor"] {
+                let store = AppState()
+                var wallet = ImportedWallet(name: "Watch \(chainName)", selectedChain: chainName)
+                wallet.setAddress("address-for-\(chainName)", forChainNamed: chainName)
+                store.wallets = [wallet]
+                store.persistWallets()
+
+                let reloaded = store.loadPersistedWallets()
+                XCTAssertEqual(reloaded.count, 1, "\(chainName) wallet was dropped on load")
+                XCTAssertEqual(
+                    reloaded.first?.address(forChainNamed: chainName), "address-for-\(chainName)",
+                    "\(chainName) address did not round-trip")
+            }
+        }
+
         func testExportsPlatformSnapshotEnvelopeWithStableFoundationModels() throws {
             let store = AppState()
             let wallet = ImportedWallet(

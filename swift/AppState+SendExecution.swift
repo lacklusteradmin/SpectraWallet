@@ -123,7 +123,7 @@ extension AppState {
                 let result = try await WalletServiceBridge.shared.executeSend(
                     SendExecutionRequest(
                         chainId: SpectraChainID.icp, chainName: "Internet Computer",
-                        derivationPath: wallet.seedDerivationPaths.internetComputer,
+                        derivationPath: wallet.seedDerivationPaths.path(for: .internetComputer),
                         seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
                         amount: amount, amountStr: amountStr,
                         contractAddress: nil, tokenDecimals: nil, feeRateSvb: nil, feeSat: nil, gasBudget: nil, feeAmount: nil,
@@ -362,7 +362,7 @@ extension AppState {
                 let tokenDecimals: UInt32? = (contractAddress != nil) ? 6 : nil
                 let result = try await WalletServiceBridge.shared.executeSend(
                     SendExecutionRequest(
-                        chainId: SpectraChainID.tron, chainName: "Tron", derivationPath: wallet.seedDerivationPaths.tron,
+                        chainId: SpectraChainID.tron, chainName: "Tron", derivationPath: wallet.seedDerivationPaths.path(for: .tron),
                         seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
                         amount: amount, amountStr: amountStr,
                         contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
@@ -479,7 +479,7 @@ extension AppState {
                 chainId: SpectraChainID.stellar, chainName: "Stellar", symbol: "XLM",
                 feeDecimals: 7, supportsPrivateKey: true,
                 resolveAddress: { self.resolvedStellarAddress(for: $0) },
-                derivationPath: { $0.seedDerivationPaths.stellar },
+                derivationPath: { $0.seedDerivationPaths.path(for: .stellar) },
                 getPreviewFee: { self.sendPreviewStore.stellarSendPreview?.estimatedNetworkFeeXlm },
                 refreshPreview: { await self.refreshStellarSendPreview() },
                 clearPreview: { self.sendPreviewStore.stellarSendPreview = nil }
@@ -576,7 +576,7 @@ extension AppState {
                 chainId: SpectraChainID.polkadot, chainName: "Polkadot", symbol: "DOT",
                 feeDecimals: 6, supportsPrivateKey: false,
                 resolveAddress: { self.resolvedPolkadotAddress(for: $0) },
-                derivationPath: { $0.seedDerivationPaths.polkadot },
+                derivationPath: { $0.seedDerivationPaths.path(for: .polkadot) },
                 getPreviewFee: { self.sendPreviewStore.polkadotSendPreview?.estimatedNetworkFeeDot },
                 refreshPreview: { await self.refreshPolkadotSendPreview() },
                 clearPreview: { self.sendPreviewStore.polkadotSendPreview = nil }

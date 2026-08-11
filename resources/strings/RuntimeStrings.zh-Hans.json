@@ -499,6 +499,7 @@
   "Insufficient TON balance to cover amount and network fee.": "TON 余额不足，无法覆盖转账金额和网络费。",
   "Internet Computer": "Internet Computer",
   "Internet Computer Network": "Internet Computer 网络",
+  "Interactive coin": "可交互硬币",
   "Invalid /tip response payload.": "/tip 响应载荷无效。",
   "Invalid Bitcoin Cash verification response.": "Bitcoin Cash 验证响应无效。",
   "Invalid Bitcoin SV verification response.": "Bitcoin SV 验证响应无效。",

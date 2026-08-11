@@ -105,6 +105,13 @@ enum CachedCoreHelpers {
             coreEvmChainContextTag(chainName: chainName, ethereumNetworkMode: ethereumNetworkMode)
         }
     }
+    /// Storage key for a chain's derivation path (testnets fold onto their
+    /// mainnet counterpart). `nonisolated` because `SeedDerivationPaths` is a
+    /// value type read from background contexts; the call is a pure registry
+    /// lookup in Rust, so it needs no cache.
+    nonisolated static func seedDerivationPathKey(chainName: String) -> String {
+        coreSeedDerivationPathKey(chainName: chainName)
+    }
     static func seedDerivationChainRaw(chainName: String) -> String? {
         cached(in: &seedDerivationChainRaws, key: chainName) {
             coreSeedDerivationChainRaw(chainName: chainName)

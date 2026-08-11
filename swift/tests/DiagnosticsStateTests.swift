@@ -59,7 +59,8 @@ import Foundation
             let state = WalletDiagnosticsState()
             let walletID = UUID()
             state.appendOperationalLog(
-                .warning, category: "Chain Sync", message: "Ethereum refresh timed out.", chainName: "Ethereum", walletID: walletID,
+                .warning, category: "Chain Sync", message: "Ethereum refresh timed out.", chainName: "Ethereum",
+                walletID: walletID.uuidString,
                 transactionHash: "0xabc", source: "network", metadata: "cached"
             )
             await state.flushPendingPersistence()

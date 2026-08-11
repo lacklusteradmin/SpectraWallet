@@ -183,26 +183,11 @@ extension AppState {
         return []
     }
     func sanitizedWallet(_ wallet: ImportedWallet) -> ImportedWallet {
-        let supportedHoldings = wallet.holdings.filter { coin in AppEndpointDirectory.supportsBalanceRefresh(for: coin.chainName) }
-        return ImportedWallet(
-            id: wallet.id, name: wallet.name, bitcoinNetworkMode: wallet.bitcoinNetworkMode,
-            dogecoinNetworkMode: wallet.dogecoinNetworkMode, bitcoinAddress: wallet.bitcoinAddress, bitcoinXpub: wallet.bitcoinXpub,
-            bitcoinCashAddress: wallet.bitcoinCashAddress, bitcoinSvAddress: wallet.bitcoinSvAddress,
-            litecoinAddress: wallet.litecoinAddress, dogecoinAddress: wallet.dogecoinAddress, ethereumAddress: wallet.ethereumAddress,
-            tronAddress: wallet.tronAddress, solanaAddress: wallet.solanaAddress, stellarAddress: wallet.stellarAddress,
-            xrpAddress: wallet.xrpAddress, moneroAddress: wallet.moneroAddress, cardanoAddress: wallet.cardanoAddress,
-            suiAddress: wallet.suiAddress, aptosAddress: wallet.aptosAddress, tonAddress: wallet.tonAddress, icpAddress: wallet.icpAddress,
-            nearAddress: wallet.nearAddress, polkadotAddress: wallet.polkadotAddress,
-            zcashAddress: wallet.zcashAddress, bitcoinGoldAddress: wallet.bitcoinGoldAddress,
-            decredAddress: wallet.decredAddress, kaspaAddress: wallet.kaspaAddress,
-            dashAddress: wallet.dashAddress,
-            bittensorAddress: wallet.bittensorAddress,
-            seedDerivationPreset: wallet.seedDerivationPreset,
-            seedDerivationPaths: wallet.seedDerivationPaths,
-            derivationOverrides: wallet.derivationOverrides,
-            selectedChain: wallet.selectedChain, holdings: supportedHoldings,
-            includeInPortfolioTotal: wallet.includeInPortfolioTotal
-        )
+        var sanitized = wallet
+        sanitized.holdings = wallet.holdings.filter { coin in
+            AppEndpointDirectory.supportsBalanceRefresh(for: coin.chainName)
+        }
+        return sanitized
     }
     func persistPriceAlerts() {
         let payload = CorePersistedPriceAlertStore(
@@ -279,12 +264,14 @@ extension AppState {
         else { return nil }
         return payload.wallets.compactMap { snapshot in
             let hasSeedPhrase = walletHasSigningMaterial(snapshot.id)
-            let hasWatchOnlyAddress = [
-                snapshot.bitcoinAddress, snapshot.bitcoinXpub, snapshot.litecoinAddress, snapshot.dogecoinAddress, snapshot.ethereumAddress,
-                snapshot.tronAddress, snapshot.solanaAddress, snapshot.xrpAddress, snapshot.stellarAddress, snapshot.moneroAddress,
-                snapshot.cardanoAddress, snapshot.suiAddress, snapshot.nearAddress, snapshot.polkadotAddress,
-            ]
-            .contains { ($0 ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false }
+            // Any stored address counts. This used to be a hand-written list of
+            // 14 chains, which meant a watch-only wallet on one of the other
+            // ten — Kaspa, Dash, Zcash, TON, ICP, Aptos, Bitcoin Cash,
+            // Bitcoin SV, Bitcoin Gold, Decred, Bittensor — failed the check
+            // and was dropped from the store on load.
+            let hasWatchOnlyAddress =
+                snapshot.addresses.values.contains { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                || (snapshot.bitcoinXpub ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
             guard hasSeedPhrase || hasWatchOnlyAddress else { return nil }
             let wallet = sanitizedWallet(ImportedWallet(snapshot: snapshot))
             #if DEBUG
@@ -304,128 +291,47 @@ struct PersistedCoin: Codable {
     let amount: Double
     let priceUsd: Double
 }
+/// On-disk mirror of `ImportedWallet`.
+///
+/// `addresses` is the same slot-keyed map the Rust record uses, so `Codable`
+/// is synthesized apart from the tolerances below. What used to be here was 26
+/// per-chain fields repeated four times over — declarations, an initializer's
+/// parameters, its assignments, and a hand-written decoder — roughly 180 lines
+/// that had to grow with every chain added.
 struct PersistedWallet: Codable {
     let id: String
     let name: String
     let bitcoinNetworkMode: BitcoinNetworkMode
     let dogecoinNetworkMode: DogecoinNetworkMode
-    let bitcoinAddress: String?
+    /// `Chain::address_slot()` → address.
+    let addresses: [String: String]
     let bitcoinXpub: String?
-    let bitcoinCashAddress: String?
-    let bitcoinSvAddress: String?
-    let litecoinAddress: String?
-    let dogecoinAddress: String?
-    let ethereumAddress: String?
-    let tronAddress: String?
-    let solanaAddress: String?
-    let stellarAddress: String?
-    let xrpAddress: String?
-    let moneroAddress: String?
-    let cardanoAddress: String?
-    let suiAddress: String?
-    let aptosAddress: String?
-    let tonAddress: String?
-    let icpAddress: String?
-    let nearAddress: String?
-    let polkadotAddress: String?
-    let zcashAddress: String?
-    let bitcoinGoldAddress: String?
-    let decredAddress: String?
-    let kaspaAddress: String?
-    let dashAddress: String?
-    let bittensorAddress: String?
     let seedDerivationPreset: SeedDerivationPreset
     let seedDerivationPaths: SeedDerivationPaths
     let derivationOverrides: CoreWalletDerivationOverrides
     let selectedChain: String
     let holdings: [PersistedCoin]
     let includeInPortfolioTotal: Bool
-    enum CodingKeys: String, CodingKey {
-        case id
-        case name
-        case bitcoinNetworkMode
-        case dogecoinNetworkMode
-        case bitcoinAddress
-        case bitcoinXpub
-        case bitcoinCashAddress
-        case bitcoinSvAddress
-        case litecoinAddress
-        case dogecoinAddress
-        case ethereumAddress
-        case tronAddress
-        case solanaAddress
-        case stellarAddress
-        case xrpAddress
-        case moneroAddress
-        case cardanoAddress
-        case suiAddress
-        case aptosAddress
-        case tonAddress
-        case icpAddress
-        case nearAddress
-        case polkadotAddress
-        case zcashAddress
-        case bitcoinGoldAddress
-        case decredAddress
-        case kaspaAddress
-        case dashAddress
-        case bittensorAddress
-        case seedDerivationPreset
-        case seedDerivationPaths
-        case derivationOverrides
-        case selectedChain
-        case holdings
-        case includeInPortfolioTotal
-    }
+
     init(
-        id: String, name: String, bitcoinNetworkMode: BitcoinNetworkMode = .mainnet, dogecoinNetworkMode: DogecoinNetworkMode = .mainnet,
-        bitcoinAddress: String?, bitcoinXpub: String?, bitcoinCashAddress: String?, bitcoinSvAddress: String?, litecoinAddress: String?,
-        dogecoinAddress: String?, ethereumAddress: String?, tronAddress: String?, solanaAddress: String?, stellarAddress: String?,
-        xrpAddress: String?, moneroAddress: String?, cardanoAddress: String?, suiAddress: String?, aptosAddress: String?,
-        tonAddress: String?, icpAddress: String?, nearAddress: String?, polkadotAddress: String?,
-        zcashAddress: String? = nil,
-        bitcoinGoldAddress: String? = nil,
-        decredAddress: String? = nil,
-        kaspaAddress: String? = nil,
-        dashAddress: String? = nil,
-        bittensorAddress: String? = nil,
-        seedDerivationPreset: SeedDerivationPreset, seedDerivationPaths: SeedDerivationPaths,
-        derivationOverrides: CoreWalletDerivationOverrides = CoreWalletDerivationOverrides(
-            passphrase: nil, mnemonicWordlist: nil, iterationCount: nil, saltPrefix: nil, hmacKey: nil,
-            curve: nil, derivationAlgorithm: nil, addressAlgorithm: nil, publicKeyFormat: nil, scriptType: nil
-        ),
+        id: String, name: String,
+        bitcoinNetworkMode: BitcoinNetworkMode = .mainnet,
+        dogecoinNetworkMode: DogecoinNetworkMode = .mainnet,
+        addresses: [String: String],
+        bitcoinXpub: String? = nil,
+        seedDerivationPreset: SeedDerivationPreset,
+        seedDerivationPaths: SeedDerivationPaths,
+        derivationOverrides: CoreWalletDerivationOverrides = .empty,
         selectedChain: String,
-        holdings: [PersistedCoin], includeInPortfolioTotal: Bool
+        holdings: [PersistedCoin],
+        includeInPortfolioTotal: Bool
     ) {
         self.id = id
         self.name = name
         self.bitcoinNetworkMode = bitcoinNetworkMode
         self.dogecoinNetworkMode = dogecoinNetworkMode
-        self.bitcoinAddress = bitcoinAddress
+        self.addresses = addresses
         self.bitcoinXpub = bitcoinXpub
-        self.bitcoinCashAddress = bitcoinCashAddress
-        self.bitcoinSvAddress = bitcoinSvAddress
-        self.litecoinAddress = litecoinAddress
-        self.dogecoinAddress = dogecoinAddress
-        self.ethereumAddress = ethereumAddress
-        self.tronAddress = tronAddress
-        self.solanaAddress = solanaAddress
-        self.stellarAddress = stellarAddress
-        self.xrpAddress = xrpAddress
-        self.moneroAddress = moneroAddress
-        self.cardanoAddress = cardanoAddress
-        self.suiAddress = suiAddress
-        self.aptosAddress = aptosAddress
-        self.tonAddress = tonAddress
-        self.icpAddress = icpAddress
-        self.nearAddress = nearAddress
-        self.polkadotAddress = polkadotAddress
-        self.zcashAddress = zcashAddress
-        self.bitcoinGoldAddress = bitcoinGoldAddress
-        self.decredAddress = decredAddress
-        self.kaspaAddress = kaspaAddress
-        self.dashAddress = dashAddress
-        self.bittensorAddress = bittensorAddress
         self.seedDerivationPreset = seedDerivationPreset
         self.seedDerivationPaths = seedDerivationPaths
         self.derivationOverrides = derivationOverrides
@@ -433,45 +339,21 @@ struct PersistedWallet: Codable {
         self.holdings = holdings
         self.includeInPortfolioTotal = includeInPortfolioTotal
     }
+
+    // Explicit decoder only for the fields that tolerate absence; everything
+    // else is required and should fail loudly.
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(String.self, forKey: .id)
         name = try container.decode(String.self, forKey: .name)
         bitcoinNetworkMode = try container.decodeIfPresent(BitcoinNetworkMode.self, forKey: .bitcoinNetworkMode) ?? .mainnet
         dogecoinNetworkMode = try container.decodeIfPresent(DogecoinNetworkMode.self, forKey: .dogecoinNetworkMode) ?? .mainnet
-        bitcoinAddress = try container.decodeIfPresent(String.self, forKey: .bitcoinAddress)
+        addresses = try container.decodeIfPresent([String: String].self, forKey: .addresses) ?? [:]
         bitcoinXpub = try container.decodeIfPresent(String.self, forKey: .bitcoinXpub)
-        bitcoinCashAddress = try container.decodeIfPresent(String.self, forKey: .bitcoinCashAddress)
-        bitcoinSvAddress = try container.decodeIfPresent(String.self, forKey: .bitcoinSvAddress)
-        litecoinAddress = try container.decodeIfPresent(String.self, forKey: .litecoinAddress)
-        dogecoinAddress = try container.decodeIfPresent(String.self, forKey: .dogecoinAddress)
-        ethereumAddress = try container.decodeIfPresent(String.self, forKey: .ethereumAddress)
-        tronAddress = try container.decodeIfPresent(String.self, forKey: .tronAddress)
-        solanaAddress = try container.decodeIfPresent(String.self, forKey: .solanaAddress)
-        stellarAddress = try container.decodeIfPresent(String.self, forKey: .stellarAddress)
-        xrpAddress = try container.decodeIfPresent(String.self, forKey: .xrpAddress)
-        moneroAddress = try container.decodeIfPresent(String.self, forKey: .moneroAddress)
-        cardanoAddress = try container.decodeIfPresent(String.self, forKey: .cardanoAddress)
-        suiAddress = try container.decodeIfPresent(String.self, forKey: .suiAddress)
-        aptosAddress = try container.decodeIfPresent(String.self, forKey: .aptosAddress)
-        tonAddress = try container.decodeIfPresent(String.self, forKey: .tonAddress)
-        icpAddress = try container.decodeIfPresent(String.self, forKey: .icpAddress)
-        nearAddress = try container.decodeIfPresent(String.self, forKey: .nearAddress)
-        polkadotAddress = try container.decodeIfPresent(String.self, forKey: .polkadotAddress)
-        zcashAddress = try container.decodeIfPresent(String.self, forKey: .zcashAddress)
-        bitcoinGoldAddress = try container.decodeIfPresent(String.self, forKey: .bitcoinGoldAddress)
-        decredAddress = try container.decodeIfPresent(String.self, forKey: .decredAddress)
-        kaspaAddress = try container.decodeIfPresent(String.self, forKey: .kaspaAddress)
-        dashAddress = try container.decodeIfPresent(String.self, forKey: .dashAddress)
-        bittensorAddress = try container.decodeIfPresent(String.self, forKey: .bittensorAddress)
         seedDerivationPreset = try container.decode(SeedDerivationPreset.self, forKey: .seedDerivationPreset)
         seedDerivationPaths = try container.decode(SeedDerivationPaths.self, forKey: .seedDerivationPaths)
         derivationOverrides =
-            try container.decodeIfPresent(CoreWalletDerivationOverrides.self, forKey: .derivationOverrides)
-            ?? CoreWalletDerivationOverrides(
-                passphrase: nil, mnemonicWordlist: nil, iterationCount: nil, saltPrefix: nil, hmacKey: nil,
-                curve: nil, derivationAlgorithm: nil, addressAlgorithm: nil, publicKeyFormat: nil, scriptType: nil
-            )
+            try container.decodeIfPresent(CoreWalletDerivationOverrides.self, forKey: .derivationOverrides) ?? .empty
         selectedChain = try container.decode(String.self, forKey: .selectedChain)
         holdings = try container.decode([PersistedCoin].self, forKey: .holdings)
         includeInPortfolioTotal = try container.decode(Bool.self, forKey: .includeInPortfolioTotal)
@@ -481,53 +363,6 @@ struct PersistedWalletStore: Codable {
     let version: Int
     let wallets: [PersistedWallet]
     static let currentVersion = 5
-}
-private enum SeedDerivationPathsCodingKeys: String, CodingKey {
-    case isCustomEnabled
-    case bitcoin
-    case bitcoinCash
-    case bitcoinSV
-    case litecoin
-    case dogecoin
-    case ethereum
-    case ethereumClassic
-    case arbitrum
-    case optimism
-    case avalanche
-    case hyperliquid
-    case polygon
-    case base
-    case linea
-    case scroll
-    case blast
-    case mantle
-    case tron
-    case solana
-    case stellar
-    case xrp
-    case cardano
-    case sui
-    case aptos
-    case ton
-    case internetComputer
-    case near
-    case polkadot
-    case zcash
-    case bitcoinGold
-    case sei
-    case celo
-    case cronos
-    case opBnb
-    case zksyncEra
-    case sonic
-    case berachain
-    case unichain
-    case ink
-    case decred
-    case kaspa
-    case dash
-    case xLayer
-    case bittensor
 }
 private enum WalletDerivationOverridesCodingKeys: String, CodingKey {
     case passphrase
@@ -572,66 +407,32 @@ extension CoreWalletDerivationOverrides: Codable {
     }
 }
 extension SeedDerivationPaths: Codable {
-    private typealias SeedPathEntry = (SeedDerivationPathsCodingKeys, WritableKeyPath<SeedDerivationPaths, String>, SeedDerivationChain)
-    nonisolated(unsafe) private static let seedPathMappings: [SeedPathEntry] = [
-        (.bitcoin,          \.bitcoin,          .bitcoin),
-        (.bitcoinCash,      \.bitcoinCash,      .bitcoinCash),
-        (.bitcoinSV,        \.bitcoinSV,        .bitcoinSV),
-        (.litecoin,         \.litecoin,         .litecoin),
-        (.dogecoin,         \.dogecoin,         .dogecoin),
-        (.ethereum,         \.ethereum,         .ethereum),
-        (.ethereumClassic,  \.ethereumClassic,  .ethereumClassic),
-        (.arbitrum,         \.arbitrum,         .arbitrum),
-        (.optimism,         \.optimism,         .optimism),
-        (.avalanche,        \.avalanche,        .avalanche),
-        (.hyperliquid,      \.hyperliquid,      .hyperliquid),
-        (.polygon,          \.polygon,          .polygon),
-        (.base,             \.base,             .base),
-        (.linea,            \.linea,            .linea),
-        (.scroll,           \.scroll,           .scroll),
-        (.blast,            \.blast,            .blast),
-        (.mantle,           \.mantle,           .mantle),
-        (.tron,             \.tron,             .tron),
-        (.solana,           \.solana,           .solana),
-        (.stellar,          \.stellar,          .stellar),
-        (.xrp,              \.xrp,              .xrp),
-        (.cardano,          \.cardano,          .cardano),
-        (.sui,              \.sui,              .sui),
-        (.aptos,            \.aptos,            .aptos),
-        (.ton,              \.ton,              .ton),
-        (.internetComputer, \.internetComputer, .internetComputer),
-        (.near,             \.near,             .near),
-        (.polkadot,         \.polkadot,         .polkadot),
-        (.zcash,            \.zcash,            .zcash),
-        (.bitcoinGold,      \.bitcoinGold,      .bitcoinGold),
-        (.sei,              \.sei,              .sei),
-        (.celo,             \.celo,             .celo),
-        (.cronos,           \.cronos,           .cronos),
-        (.opBnb,            \.opBnb,            .opBNB),
-        (.zksyncEra,        \.zksyncEra,        .zkSyncEra),
-        (.sonic,            \.sonic,            .sonic),
-        (.berachain,        \.berachain,        .berachain),
-        (.unichain,         \.unichain,         .unichain),
-        (.ink,              \.ink,              .ink),
-        (.decred,           \.decred,           .decred),
-        (.kaspa,            \.kaspa,            .kaspa),
-        (.dash,             \.dash,             .dash),
-        (.xLayer,           \.xLayer,           .xLayer),
-        (.bittensor,        \.bittensor,        .bittensor),
-    ]
-    public init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: SeedDerivationPathsCodingKeys.self)
-        self = SeedDerivationPaths.defaults
-        isCustomEnabled = try container.decodeIfPresent(Bool.self, forKey: .isCustomEnabled) ?? false
-        for (key, kp, chain) in Self.seedPathMappings {
-            self[keyPath: kp] = try container.decodeIfPresent(String.self, forKey: key) ?? chain.defaultPath
-        }
+    // `byChain` is a plain [String: String], so the synthesized Codable is
+    // correct and complete. What used to be here was a 44-entry table of
+    // (coding key, key path, chain) that had to be extended for every new
+    // chain, plus a `SeedDerivationPathsCodingKeys` enum to match.
+    private enum CodingKeys: String, CodingKey {
+        case isCustomEnabled
+        case byChain
     }
-    public func encode(to encoder: Encoder) throws {
-        var container = encoder.container(keyedBy: SeedDerivationPathsCodingKeys.self)
-        try container.encode(isCustomEnabled, forKey: .isCustomEnabled)
-        for (key, kp, _) in Self.seedPathMappings {
-            try container.encode(self[keyPath: kp], forKey: key)
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        // Start from catalog defaults so a payload written before a chain
+        // existed still yields a usable path for it.
+        var byChain = SeedDerivationPaths.defaults.byChain
+        for (key, path) in try container.decodeIfPresent([String: String].self, forKey: .byChain) ?? [:] {
+            byChain[key] = path
         }
+        self.init(
+            isCustomEnabled: try container.decodeIfPresent(Bool.self, forKey: .isCustomEnabled) ?? false,
+            byChain: byChain
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(isCustomEnabled, forKey: .isCustomEnabled)
+        try container.encode(byChain, forKey: .byChain)
     }
 }

@@ -240,30 +240,32 @@ extension AppState {
             generatedAt: Date().timeIntervalSince1970,
             environment: environment,
             chainDegradedMessages: diagnostics.chainDegradedMessages,
-            bitcoinDiagnosticsJson: bitcoinDiagnosticsJSON() ?? "{}",
-            dogecoinDiagnosticsJson: dogecoinDiagnosticsJSON() ?? "{}",
-            bitcoinCashDiagnosticsJson: bitcoinCashDiagnosticsJSON() ?? "{}",
-            bitcoinSvDiagnosticsJson: bitcoinSVDiagnosticsJSON() ?? "{}",
-            litecoinDiagnosticsJson: litecoinDiagnosticsJSON() ?? "{}",
-            ethereumDiagnosticsJson: ethereumDiagnosticsJSON() ?? "{}",
-            etcDiagnosticsJson: etcDiagnosticsJSON() ?? "{}",
-            arbitrumDiagnosticsJson: arbitrumDiagnosticsJSON() ?? "{}",
-            optimismDiagnosticsJson: optimismDiagnosticsJSON() ?? "{}",
-            bnbDiagnosticsJson: bnbDiagnosticsJSON() ?? "{}",
-            avalancheDiagnosticsJson: avalancheDiagnosticsJSON() ?? "{}",
-            hyperliquidDiagnosticsJson: hyperliquidDiagnosticsJSON() ?? "{}",
-            tronDiagnosticsJson: tronDiagnosticsJSON() ?? "{}",
-            solanaDiagnosticsJson: solanaDiagnosticsJSON() ?? "{}",
-            stellarDiagnosticsJson: stellarDiagnosticsJSON() ?? "{}",
-            cardanoDiagnosticsJson: cardanoDiagnosticsJSON() ?? "{}",
-            xrpDiagnosticsJson: xrpDiagnosticsJSON() ?? "{}",
-            moneroDiagnosticsJson: moneroDiagnosticsJSON() ?? "{}",
-            suiDiagnosticsJson: suiDiagnosticsJSON() ?? "{}",
-            aptosDiagnosticsJson: aptosDiagnosticsJSON() ?? "{}",
-            tonDiagnosticsJson: tonDiagnosticsJSON() ?? "{}",
-            icpDiagnosticsJson: icpDiagnosticsJSON() ?? "{}",
-            nearDiagnosticsJson: nearDiagnosticsJSON() ?? "{}",
-            polkadotDiagnosticsJson: polkadotDiagnosticsJSON() ?? "{}")
+            chainDiagnosticsJson: DiagnosticsBundlePayload.chainKeyed([
+                "Bitcoin": bitcoinDiagnosticsJSON(),
+                "Dogecoin": dogecoinDiagnosticsJSON(),
+                "Bitcoin Cash": bitcoinCashDiagnosticsJSON(),
+                "Bitcoin SV": bitcoinSVDiagnosticsJSON(),
+                "Litecoin": litecoinDiagnosticsJSON(),
+                "Ethereum": ethereumDiagnosticsJSON(),
+                "Ethereum Classic": etcDiagnosticsJSON(),
+                "Arbitrum": arbitrumDiagnosticsJSON(),
+                "Optimism": optimismDiagnosticsJSON(),
+                "BNB Chain": bnbDiagnosticsJSON(),
+                "Avalanche": avalancheDiagnosticsJSON(),
+                "Hyperliquid": hyperliquidDiagnosticsJSON(),
+                "Tron": tronDiagnosticsJSON(),
+                "Solana": solanaDiagnosticsJSON(),
+                "Stellar": stellarDiagnosticsJSON(),
+                "Cardano": cardanoDiagnosticsJSON(),
+                "XRP Ledger": xrpDiagnosticsJSON(),
+                "Monero": moneroDiagnosticsJSON(),
+                "Sui": suiDiagnosticsJSON(),
+                "Aptos": aptosDiagnosticsJSON(),
+                "TON": tonDiagnosticsJSON(),
+                "Internet Computer": icpDiagnosticsJSON(),
+                "NEAR": nearDiagnosticsJSON(),
+                "Polkadot": polkadotDiagnosticsJSON(),
+            ]))
     }
 
     // MARK: File I/O
@@ -319,4 +321,22 @@ enum DiagnosticsBundleError: Error {
 
 extension DiagnosticsBundlePayload {
     var generatedAtDate: Date { Date(timeIntervalSince1970: generatedAt) }
+
+    /// Fold a chain-display-name → JSON table into the chain-id-keyed map,
+    /// substituting `"{}"` for chains with no data. Ids come from the Rust
+    /// registry, so the bundle keys stay canonical.
+    static func chainKeyed(_ byChainName: [String: String?]) -> [String: String] {
+        var byChainID: [String: String] = [:]
+        for (chainName, json) in byChainName {
+            let id = coreResolveChainId(input: chainName)
+            guard !id.isEmpty else { continue }
+            byChainID[id] = json ?? "{}"
+        }
+        return byChainID
+    }
+
+    /// Diagnostics JSON for a chain, by display name.
+    func diagnosticsJSON(forChainNamed chainName: String) -> String? {
+        chainDiagnosticsJson[coreResolveChainId(input: chainName)]
+    }
 }

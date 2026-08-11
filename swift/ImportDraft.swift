@@ -225,6 +225,56 @@ final class WalletImportDraft {
         rawValue.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
     }
+
+    /// Populate the seed phrase the way the UI does — the per-word entry grid
+    /// *and* the joined string. Validation reads `seedPhraseEntries`, so
+    /// setting `seedPhrase` alone leaves the draft looking incomplete.
+    func setSeedPhraseForTesting(_ phrase: String) {
+        let words = phrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
+        selectedSeedPhraseWordCount = words.count
+        seedPhraseEntries = words
+        seedPhrase = words.joined(separator: " ")
+    }
+
+    /// The draft's per-chain watch-only text fields, keyed by chain display
+    /// name. One table instead of one constructor argument per chain; the
+    /// mapping to storage slots is Rust's job (`coreAddressSlot`).
+    var watchOnlyInputsByChainName: [String: String] {
+        [
+            "Bitcoin": bitcoinAddressInput,
+            "Bitcoin Cash": bitcoinCashAddressInput,
+            "Bitcoin SV": bitcoinSvAddressInput,
+            "Litecoin": litecoinAddressInput,
+            "Dogecoin": dogecoinAddressInput,
+            "Ethereum": ethereumAddressInput,
+            "Tron": tronAddressInput,
+            "Solana": solanaAddressInput,
+            "XRP Ledger": xrpAddressInput,
+            "Stellar": stellarAddressInput,
+            "Cardano": cardanoAddressInput,
+            "Sui": suiAddressInput,
+            "Aptos": aptosAddressInput,
+            "TON": tonAddressInput,
+            "Internet Computer": icpAddressInput,
+            "NEAR": nearAddressInput,
+            "Polkadot": polkadotAddressInput,
+            "Zcash": zcashAddressInput,
+            "Bitcoin Gold": bitcoinGoldAddressInput,
+            "Decred": decredAddressInput,
+            "Kaspa": kaspaAddressInput,
+            "Dash": dashAddressInput,
+            "Bittensor": bittensorAddressInput,
+        ]
+    }
+
+    /// Watch-only entries keyed by the storage slot Rust expects. Empty when
+    /// the draft is not in watch-only mode.
+    var watchOnlyEntriesBySlot: [String: [String]] {
+        guard isWatchOnlyMode else { return [:] }
+        return WalletImportWatchOnlyEntries.slotMap(
+            watchOnlyInputsByChainName.mapValues { watchOnlyEntries(from: $0) }
+        )
+    }
     var canImportWallet: Bool {
         let hasValidSeedPhrase =
             !isEditingWallet
@@ -234,30 +284,8 @@ final class WalletImportDraft {
             && hasValidSeedPhraseChecksum
         let trimmedXpub = bitcoinXpubInput.trimmingCharacters(in: .whitespacesAndNewlines)
         let watchEntries = WalletImportWatchOnlyEntries(
-            bitcoinAddresses: isWatchOnlyMode ? watchOnlyEntries(from: bitcoinAddressInput) : [],
-            bitcoinXpub: isWatchOnlyMode && !trimmedXpub.isEmpty ? trimmedXpub : nil,
-            bitcoinCashAddresses: isWatchOnlyMode ? watchOnlyEntries(from: bitcoinCashAddressInput) : [],
-            bitcoinSvAddresses: isWatchOnlyMode ? watchOnlyEntries(from: bitcoinSvAddressInput) : [],
-            litecoinAddresses: isWatchOnlyMode ? watchOnlyEntries(from: litecoinAddressInput) : [],
-            dogecoinAddresses: isWatchOnlyMode ? watchOnlyEntries(from: dogecoinAddressInput) : [],
-            ethereumAddresses: isWatchOnlyMode ? watchOnlyEntries(from: ethereumAddressInput) : [],
-            tronAddresses: isWatchOnlyMode ? watchOnlyEntries(from: tronAddressInput) : [],
-            solanaAddresses: isWatchOnlyMode ? watchOnlyEntries(from: solanaAddressInput) : [],
-            xrpAddresses: isWatchOnlyMode ? watchOnlyEntries(from: xrpAddressInput) : [],
-            stellarAddresses: isWatchOnlyMode ? watchOnlyEntries(from: stellarAddressInput) : [],
-            cardanoAddresses: isWatchOnlyMode ? watchOnlyEntries(from: cardanoAddressInput) : [],
-            suiAddresses: isWatchOnlyMode ? watchOnlyEntries(from: suiAddressInput) : [],
-            aptosAddresses: isWatchOnlyMode ? watchOnlyEntries(from: aptosAddressInput) : [],
-            tonAddresses: isWatchOnlyMode ? watchOnlyEntries(from: tonAddressInput) : [],
-            icpAddresses: isWatchOnlyMode ? watchOnlyEntries(from: icpAddressInput) : [],
-            nearAddresses: isWatchOnlyMode ? watchOnlyEntries(from: nearAddressInput) : [],
-            polkadotAddresses: isWatchOnlyMode ? watchOnlyEntries(from: polkadotAddressInput) : [],
-            zcashAddresses: isWatchOnlyMode ? watchOnlyEntries(from: zcashAddressInput) : [],
-            bitcoinGoldAddresses: isWatchOnlyMode ? watchOnlyEntries(from: bitcoinGoldAddressInput) : [],
-            decredAddresses: isWatchOnlyMode ? watchOnlyEntries(from: decredAddressInput) : [],
-            kaspaAddresses: isWatchOnlyMode ? watchOnlyEntries(from: kaspaAddressInput) : [],
-            dashAddresses: isWatchOnlyMode ? watchOnlyEntries(from: dashAddressInput) : [],
-            bittensorAddresses: isWatchOnlyMode ? watchOnlyEntries(from: bittensorAddressInput) : []
+            bySlot: watchOnlyEntriesBySlot,
+            bitcoinXpub: isWatchOnlyMode && !trimmedXpub.isEmpty ? trimmedXpub : nil
         )
         return coreValidateWalletImportDraft(
             request: WalletImportDraftValidationRequest(

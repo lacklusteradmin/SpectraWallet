@@ -30,16 +30,21 @@ private struct ChainAddressDescriptor {
     let chain: SeedDerivationChain
     let storedAddressKP: KeyPath<ImportedWallet, String?>
     let validationKind: String
-    let seedPathKP: KeyPath<SeedDerivationPaths, String>?
+    /// Whether this chain derives from the wallet's configured seed path
+    /// rather than from `walletDerivationPath(for:chain:)`. Used to be a
+    /// `KeyPath` into a per-chain field on `SeedDerivationPaths`; the paths are
+    /// a map now, so the chain itself is the key and only the opt-in remains.
+    let usesConfiguredSeedPath: Bool
     let derivedPostProcess: DerivedAddressPostProcess
     let normalizeStored: Bool
     init(
         _ chain: SeedDerivationChain, _ addressKP: KeyPath<ImportedWallet, String?>, _ kind: String,
-        seedPath: KeyPath<SeedDerivationPaths, String>? = nil,
+        usesConfiguredSeedPath: Bool = false,
         post: DerivedAddressPostProcess = .none, normalize: Bool = false
     ) {
         self.chain = chain; self.storedAddressKP = addressKP; self.validationKind = kind
-        self.seedPathKP = seedPath; self.derivedPostProcess = post; self.normalizeStored = normalize
+        self.usesConfiguredSeedPath = usesConfiguredSeedPath
+        self.derivedPostProcess = post; self.normalizeStored = normalize
     }
 }
 
@@ -114,21 +119,21 @@ extension AppState {
 
     private static let addressDescriptors: [SeedDerivationChain: ChainAddressDescriptor] = {
         let all: [ChainAddressDescriptor] = [
-            .init(.tron,            \.tronAddress,        "tron",            seedPath: \.tron),
+            .init(.tron,            \.tronAddress,        "tron",            usesConfiguredSeedPath: true),
             .init(.solana,          \.solanaAddress,       "solana"),
             .init(.sui,             \.suiAddress,          "sui",             normalize: true),
             .init(.aptos,           \.aptosAddress,        "aptos",           normalize: true),
             .init(.ton,             \.tonAddress,          "ton",             normalize: true),
-            .init(.internetComputer,\.icpAddress,          "internetComputer",seedPath: \.internetComputer, normalize: true),
+            .init(.internetComputer,\.icpAddress,          "internetComputer",usesConfiguredSeedPath: true, normalize: true),
             .init(.near,            \.nearAddress,         "near",            post: .lowercase, normalize: true),
-            .init(.polkadot,        \.polkadotAddress,     "polkadot",        seedPath: \.polkadot, post: .trim),
-            .init(.zcash,           \.zcashAddress,        "zcash",           seedPath: \.zcash),
-            .init(.bitcoinGold,     \.bitcoinGoldAddress,  "bitcoinGold",     seedPath: \.bitcoinGold),
-            .init(.decred,          \.decredAddress,       "decred",          seedPath: \.decred),
-            .init(.kaspa,           \.kaspaAddress,        "kaspa",           seedPath: \.kaspa, post: .lowercase, normalize: true),
-            .init(.dash,            \.dashAddress,         "dash",            seedPath: \.dash),
-            .init(.bittensor,       \.bittensorAddress,    "bittensor",       seedPath: \.bittensor, post: .trim),
-            .init(.stellar,         \.stellarAddress,      "stellar",         seedPath: \.stellar, post: .trim),
+            .init(.polkadot,        \.polkadotAddress,     "polkadot",        usesConfiguredSeedPath: true, post: .trim),
+            .init(.zcash,           \.zcashAddress,        "zcash",           usesConfiguredSeedPath: true),
+            .init(.bitcoinGold,     \.bitcoinGoldAddress,  "bitcoinGold",     usesConfiguredSeedPath: true),
+            .init(.decred,          \.decredAddress,       "decred",          usesConfiguredSeedPath: true),
+            .init(.kaspa,           \.kaspaAddress,        "kaspa",           usesConfiguredSeedPath: true, post: .lowercase, normalize: true),
+            .init(.dash,            \.dashAddress,         "dash",            usesConfiguredSeedPath: true),
+            .init(.bittensor,       \.bittensorAddress,    "bittensor",       usesConfiguredSeedPath: true, post: .trim),
+            .init(.stellar,         \.stellarAddress,      "stellar",         usesConfiguredSeedPath: true, post: .trim),
             .init(.xrp,             \.xrpAddress,          "xrp"),
             .init(.litecoin,        \.litecoinAddress,     "litecoin"),
             .init(.bitcoinCash,     \.bitcoinCashAddress,  "bitcoinCash"),
@@ -139,8 +144,10 @@ extension AppState {
 
     private func resolvedChainAddress(for wallet: ImportedWallet, chain: SeedDerivationChain) -> String? {
         guard let desc = Self.addressDescriptors[chain] else { return nil }
-        let derivationPath = desc.seedPathKP.map { wallet.seedDerivationPaths[keyPath: $0] }
-            ?? walletDerivationPath(for: wallet, chain: chain)
+        let derivationPath =
+            desc.usesConfiguredSeedPath
+            ? wallet.seedDerivationPaths.path(for: chain)
+            : walletDerivationPath(for: wallet, chain: chain)
         return resolveDerivedOrStoredAddress(
             for: wallet, chain: chain, derivationPath: derivationPath,
             storedAddress: wallet[keyPath: desc.storedAddressKP],
@@ -222,29 +229,8 @@ extension AppState {
     }
 
     func walletWithResolvedDogecoinAddress(_ wallet: ImportedWallet) -> ImportedWallet {
-        ImportedWallet(
-            id: wallet.id, name: wallet.name, bitcoinNetworkMode: wallet.bitcoinNetworkMode,
-            dogecoinNetworkMode: wallet.dogecoinNetworkMode, bitcoinAddress: wallet.bitcoinAddress,
-            bitcoinXpub: wallet.bitcoinXpub, bitcoinCashAddress: wallet.bitcoinCashAddress,
-            bitcoinSvAddress: wallet.bitcoinSvAddress, litecoinAddress: wallet.litecoinAddress,
-            dogecoinAddress: resolvedDogecoinAddress(for: wallet) ?? wallet.dogecoinAddress,
-            ethereumAddress: wallet.ethereumAddress, tronAddress: wallet.tronAddress,
-            solanaAddress: wallet.solanaAddress, stellarAddress: wallet.stellarAddress,
-            xrpAddress: wallet.xrpAddress, moneroAddress: wallet.moneroAddress,
-            cardanoAddress: wallet.cardanoAddress, suiAddress: wallet.suiAddress,
-            aptosAddress: wallet.aptosAddress, tonAddress: wallet.tonAddress,
-            icpAddress: wallet.icpAddress, nearAddress: wallet.nearAddress,
-            polkadotAddress: wallet.polkadotAddress, zcashAddress: wallet.zcashAddress,
-            bitcoinGoldAddress: wallet.bitcoinGoldAddress,
-            decredAddress: wallet.decredAddress, kaspaAddress: wallet.kaspaAddress,
-            dashAddress: wallet.dashAddress,
-            bittensorAddress: wallet.bittensorAddress,
-            seedDerivationPreset: wallet.seedDerivationPreset,
-            seedDerivationPaths: wallet.seedDerivationPaths,
-            derivationOverrides: wallet.derivationOverrides,
-            selectedChain: wallet.selectedChain,
-            holdings: wallet.holdings, includeInPortfolioTotal: wallet.includeInPortfolioTotal
-        )
+        guard let resolved = resolvedDogecoinAddress(for: wallet) else { return wallet }
+        return wallet.settingAddress(resolved, forChainNamed: "Dogecoin")
     }
 
     private func resolveDerivedOrStoredAddress(

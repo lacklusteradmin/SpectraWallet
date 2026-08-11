@@ -203,6 +203,41 @@ final class SendPreviewStore {
     var nearSendPreview: NearSendPreview?
     var polkadotSendPreview: PolkadotSendPreview?
 
+    /// The preview to hand Rust for `chainName`, tagged with its shape.
+    ///
+    /// Rust used to receive all eighteen previews and select one by matching on
+    /// the chain name — a match that carried its own EVM chain list and had
+    /// gone stale. Tagging at the source means only the relevant preview
+    /// crosses the FFI, and EVM membership is asked of the registry.
+    func taggedPreview(forChainNamed chainName: String) -> SendPreview? {
+        switch chainName {
+        case "Bitcoin": return bitcoinSendPreview.map { .utxo(preview: $0) }
+        case "Bitcoin Cash": return bitcoinCashSendPreview.map { .utxo(preview: $0) }
+        case "Bitcoin SV": return bitcoinSVSendPreview.map { .utxo(preview: $0) }
+        case "Litecoin": return litecoinSendPreview.map { .utxo(preview: $0) }
+        case "Dogecoin": return dogecoinSendPreview.map { .dogecoin(preview: $0) }
+        case "Tron": return tronSendPreview.map { .tron(preview: $0) }
+        case "Solana": return solanaSendPreview.map { .solana(preview: $0) }
+        case "XRP Ledger": return xrpSendPreview.map { .xrp(preview: $0) }
+        case "Stellar": return stellarSendPreview.map { .stellar(preview: $0) }
+        case "Monero": return moneroSendPreview.map { .monero(preview: $0) }
+        case "Cardano": return cardanoSendPreview.map { .cardano(preview: $0) }
+        case "Sui": return suiSendPreview.map { .sui(preview: $0) }
+        case "Aptos": return aptosSendPreview.map { .aptos(preview: $0) }
+        case "TON": return tonSendPreview.map { .ton(preview: $0) }
+        case "Internet Computer": return icpSendPreview.map { .icp(preview: $0) }
+        case "NEAR": return nearSendPreview.map { .near(preview: $0) }
+        case "Polkadot": return polkadotSendPreview.map { .polkadot(preview: $0) }
+        default:
+            // Every EVM chain shares one preview. Asking the registry rather
+            // than listing them is what fixes Base, Polygon, Linea, Scroll,
+            // Blast, Mantle and the newer rollups, which the old name match
+            // never reached.
+            guard coreIsEvmChain(chainName: chainName) else { return nil }
+            return ethereumSendPreview.map { .ethereum(preview: $0) }
+        }
+    }
+
     func resetAll() {
         ethereumSendPreview = nil
         bitcoinSendPreview = nil

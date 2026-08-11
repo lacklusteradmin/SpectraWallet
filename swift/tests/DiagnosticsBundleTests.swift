@@ -9,8 +9,14 @@ final class DiagnosticsBundleTests: XCTestCase {
         let imported = try store.importDiagnosticsBundle(from: fileURL)
         XCTAssertEqual(imported.schemaVersion, 1)
         XCTAssertFalse(imported.environment.osVersion.isEmpty)
-        XCTAssertFalse(imported.bitcoinDiagnosticsJson.isEmpty)
-        XCTAssertFalse(imported.litecoinDiagnosticsJson.isEmpty)
-        XCTAssertFalse(imported.ethereumDiagnosticsJson.isEmpty)
+        for chainName in ["Bitcoin", "Litecoin", "Ethereum"] {
+            let json = imported.diagnosticsJSON(forChainNamed: chainName)
+            XCTAssertNotNil(json, "\(chainName) missing from the bundle")
+            XCTAssertFalse(json?.isEmpty ?? true, "\(chainName) diagnostics empty")
+        }
+        // Keys are canonical chain ids, not display names.
+        XCTAssertNotNil(imported.chainDiagnosticsJson["bitcoin-cash"])
+        XCTAssertNotNil(imported.chainDiagnosticsJson["internet-computer"])
+        XCTAssertEqual(imported.chainDiagnosticsJson.count, 24)
     }
 }

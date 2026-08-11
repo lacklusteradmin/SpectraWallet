@@ -49,13 +49,11 @@ extension AppState {
         availableSendCoins(for: sendWalletID).first(where: { $0.holdingKey == sendHoldingKey })
     }
     func sendPreviewDetails(for coin: Coin) -> SendPreviewDetails? {
-        let input = SendPreviewsInput(
-            bitcoin: sendPreviewStore.bitcoinSendPreview, bitcoinCash: sendPreviewStore.bitcoinCashSendPreview, bitcoinSv: sendPreviewStore.bitcoinSVSendPreview,
-            litecoin: sendPreviewStore.litecoinSendPreview, dogecoin: sendPreviewStore.dogecoinSendPreview, ethereum: sendPreviewStore.ethereumSendPreview, tron: sendPreviewStore.tronSendPreview,
-            solana: sendPreviewStore.solanaSendPreview, xrp: sendPreviewStore.xrpSendPreview, stellar: sendPreviewStore.stellarSendPreview, monero: sendPreviewStore.moneroSendPreview,
-            cardano: sendPreviewStore.cardanoSendPreview, sui: sendPreviewStore.suiSendPreview, aptos: sendPreviewStore.aptosSendPreview, ton: sendPreviewStore.tonSendPreview, icp: sendPreviewStore.icpSendPreview,
-            near: sendPreviewStore.nearSendPreview, polkadot: sendPreviewStore.polkadotSendPreview)
-        guard let c = computeSendPreviewDetails(input: input, chainName: coin.chainName, coinAmount: coin.amount) else { return nil }
+        guard
+            let c = computeSendPreviewDetails(
+                preview: sendPreviewStore.taggedPreview(forChainNamed: coin.chainName),
+                coinAmount: coin.amount)
+        else { return nil }
         return SendPreviewDetails(
             spendableBalance: c.spendableBalance, feeRateDescription: c.feeRateDescription,
             estimatedTransactionBytes: c.estimatedTransactionBytes.map(Int.init), selectedInputCount: c.selectedInputCount.map(Int.init),

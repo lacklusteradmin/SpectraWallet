@@ -89,6 +89,222 @@ typealias ImportedWallet = CoreImportedWallet
 extension CoreImportedWallet: Identifiable {}
 extension CoreImportedWallet {
     var totalBalance: Double { holdings.reduce(0) { $0 + $1.valueUSD } }
+
+    /// This wallet's address for a chain, by display name. Slot resolution
+    /// (including "every EVM chain shares Ethereum's") lives in the Rust
+    /// registry, so this never needs to know which chains exist.
+    func address(forChainNamed chainName: String) -> String? {
+        let slot = coreAddressSlot(chainName: chainName)
+        guard !slot.isEmpty else { return nil }
+        return addresses[slot]
+    }
+
+    /// The address for the wallet's own chain.
+    var primaryAddress: String? { address(forChainNamed: selectedChain) }
+
+    /// Set this wallet's address for a chain. Passing `nil` clears it.
+    ///
+    /// Replaces the "rebuild the whole record to change one field" pattern the
+    /// 27-field version forced on every caller.
+    mutating func setAddress(_ address: String?, forChainNamed chainName: String) {
+        let slot = coreAddressSlot(chainName: chainName)
+        guard !slot.isEmpty else { return }
+        if let address, !address.isEmpty {
+            addresses[slot] = address
+        } else {
+            addresses.removeValue(forKey: slot)
+        }
+    }
+
+    /// A copy with one chain's address replaced.
+    func settingAddress(_ address: String?, forChainNamed chainName: String) -> ImportedWallet {
+        var copy = self
+        copy.setAddress(address, forChainNamed: chainName)
+        return copy
+    }
+
+    // MARK: Per-chain accessors (compatibility shim)
+    //
+    // `addresses` is the storage. These read through it so the ~300 existing
+    // `wallet.<chain>Address` call sites keep working. New code should call
+    // `address(forChainNamed:)`; a new chain needs no entry here.
+    var bitcoinAddress: String? { address(forChainNamed: "Bitcoin") }
+    var bitcoinCashAddress: String? { address(forChainNamed: "Bitcoin Cash") }
+    var bitcoinSvAddress: String? { address(forChainNamed: "Bitcoin SV") }
+    var litecoinAddress: String? { address(forChainNamed: "Litecoin") }
+    var dogecoinAddress: String? { address(forChainNamed: "Dogecoin") }
+    var ethereumAddress: String? { address(forChainNamed: "Ethereum") }
+    var tronAddress: String? { address(forChainNamed: "Tron") }
+    var solanaAddress: String? { address(forChainNamed: "Solana") }
+    var stellarAddress: String? { address(forChainNamed: "Stellar") }
+    var xrpAddress: String? { address(forChainNamed: "XRP Ledger") }
+    var moneroAddress: String? { address(forChainNamed: "Monero") }
+    var cardanoAddress: String? { address(forChainNamed: "Cardano") }
+    var suiAddress: String? { address(forChainNamed: "Sui") }
+    var aptosAddress: String? { address(forChainNamed: "Aptos") }
+    var tonAddress: String? { address(forChainNamed: "TON") }
+    var icpAddress: String? { address(forChainNamed: "Internet Computer") }
+    var nearAddress: String? { address(forChainNamed: "NEAR") }
+    var polkadotAddress: String? { address(forChainNamed: "Polkadot") }
+    var zcashAddress: String? { address(forChainNamed: "Zcash") }
+    var bitcoinGoldAddress: String? { address(forChainNamed: "Bitcoin Gold") }
+    var decredAddress: String? { address(forChainNamed: "Decred") }
+    var kaspaAddress: String? { address(forChainNamed: "Kaspa") }
+    var dashAddress: String? { address(forChainNamed: "Dash") }
+    var bittensorAddress: String? { address(forChainNamed: "Bittensor") }
+
+    /// Convenience initializer that defaults every field a caller doesn't set.
+    ///
+    /// `CoreImportedWallet` is a UniFFI record, so its generated memberwise
+    /// init has no defaults. Per-chain arguments are folded into `addresses`.
+    init(
+        id: UUID = UUID(),
+        name: String,
+        bitcoinNetworkMode: CoreBitcoinNetworkMode = .mainnet,
+        dogecoinNetworkMode: CoreDogecoinNetworkMode = .mainnet,
+        bitcoinAddress: String? = nil,
+        bitcoinXpub: String? = nil,
+        bitcoinCashAddress: String? = nil,
+        bitcoinSvAddress: String? = nil,
+        litecoinAddress: String? = nil,
+        dogecoinAddress: String? = nil,
+        ethereumAddress: String? = nil,
+        tronAddress: String? = nil,
+        solanaAddress: String? = nil,
+        stellarAddress: String? = nil,
+        xrpAddress: String? = nil,
+        moneroAddress: String? = nil,
+        cardanoAddress: String? = nil,
+        suiAddress: String? = nil,
+        aptosAddress: String? = nil,
+        tonAddress: String? = nil,
+        icpAddress: String? = nil,
+        nearAddress: String? = nil,
+        polkadotAddress: String? = nil,
+        zcashAddress: String? = nil,
+        bitcoinGoldAddress: String? = nil,
+        decredAddress: String? = nil,
+        kaspaAddress: String? = nil,
+        dashAddress: String? = nil,
+        bittensorAddress: String? = nil,
+        seedDerivationPreset: CoreSeedDerivationPreset = .standard,
+        seedDerivationPaths: CoreSeedDerivationPaths? = nil,
+        derivationOverrides: CoreWalletDerivationOverrides = .empty,
+        selectedChain: String,
+        holdings: [Coin] = [],
+        includeInPortfolioTotal: Bool = true
+    ) {
+        self.init(
+            id: id.uuidString, name: name, bitcoinNetworkMode: bitcoinNetworkMode,
+            dogecoinNetworkMode: dogecoinNetworkMode,
+            addresses: CoreImportedWallet.addressMap([
+                "Bitcoin": bitcoinAddress,
+                "Bitcoin Cash": bitcoinCashAddress,
+                "Bitcoin SV": bitcoinSvAddress,
+                "Litecoin": litecoinAddress,
+                "Dogecoin": dogecoinAddress,
+                "Ethereum": ethereumAddress,
+                "Tron": tronAddress,
+                "Solana": solanaAddress,
+                "Stellar": stellarAddress,
+                "XRP Ledger": xrpAddress,
+                "Monero": moneroAddress,
+                "Cardano": cardanoAddress,
+                "Sui": suiAddress,
+                "Aptos": aptosAddress,
+                "TON": tonAddress,
+                "Internet Computer": icpAddress,
+                "NEAR": nearAddress,
+                "Polkadot": polkadotAddress,
+                "Zcash": zcashAddress,
+                "Bitcoin Gold": bitcoinGoldAddress,
+                "Decred": decredAddress,
+                "Kaspa": kaspaAddress,
+                "Dash": dashAddress,
+                "Bittensor": bittensorAddress,
+            ]),
+            bitcoinXpub: bitcoinXpub,
+            seedDerivationPreset: seedDerivationPreset,
+            seedDerivationPaths: seedDerivationPaths ?? .applyingPreset(seedDerivationPreset),
+            derivationOverrides: derivationOverrides,
+            selectedChain: selectedChain, holdings: holdings,
+            includeInPortfolioTotal: includeInPortfolioTotal
+        )
+    }
+
+    /// Fold a chain-display-name → address table into the slot-keyed storage,
+    /// dropping empty and unknown entries.
+    static func addressMap(_ byChainName: [String: String?]) -> [String: String] {
+        var bySlot: [String: String] = [:]
+        for (chainName, address) in byChainName {
+            guard let address, !address.isEmpty else { continue }
+            let slot = coreAddressSlot(chainName: chainName)
+            guard !slot.isEmpty else { continue }
+            bySlot[slot] = address
+        }
+        return bySlot
+    }
+}
+
+extension CoreWalletDerivationOverrides {
+    /// All-nil overrides — "use the chain's defaults".
+    static var empty: CoreWalletDerivationOverrides {
+        CoreWalletDerivationOverrides(
+            passphrase: nil, mnemonicWordlist: nil, iterationCount: nil, saltPrefix: nil, hmacKey: nil,
+            curve: nil, derivationAlgorithm: nil, addressAlgorithm: nil, publicKeyFormat: nil, scriptType: nil
+        )
+    }
+}
+
+// MARK: - Wallet import address slots
+//
+// `WalletImportAddresses` and `WalletImportWatchOnlyEntries` are keyed by
+// storage slot rather than carrying one field per chain. Slots come from the
+// Rust registry via `coreAddressSlot`, so the UI never hardcodes a key and
+// never has to know that every EVM chain shares Ethereum's slot.
+
+extension WalletImportAddresses {
+    /// Fold a chain-display-name → address table into the slot-keyed map,
+    /// dropping empty and unknown entries.
+    static func slotMap(_ byChainName: [String: String?]) -> [String: String] {
+        var bySlot: [String: String] = [:]
+        for (chainName, address) in byChainName {
+            guard let address, !address.isEmpty else { continue }
+            let slot = coreAddressSlot(chainName: chainName)
+            guard !slot.isEmpty else { continue }
+            bySlot[slot] = address
+        }
+        return bySlot
+    }
+
+    /// The address stored for a chain, by display name.
+    func address(for chainName: String) -> String? {
+        let slot = coreAddressSlot(chainName: chainName)
+        guard !slot.isEmpty else { return nil }
+        return bySlot[slot]
+    }
+}
+
+extension WalletImportWatchOnlyEntries {
+    /// Fold a chain-display-name → addresses table into the slot-keyed map,
+    /// dropping empty and unknown entries. Chains that share a slot (the EVM
+    /// family) have their lists concatenated.
+    static func slotMap(_ byChainName: [String: [String]]) -> [String: [String]] {
+        var bySlot: [String: [String]] = [:]
+        for (chainName, addresses) in byChainName where !addresses.isEmpty {
+            let slot = coreAddressSlot(chainName: chainName)
+            guard !slot.isEmpty else { continue }
+            bySlot[slot, default: []].append(contentsOf: addresses)
+        }
+        return bySlot
+    }
+
+    /// Addresses entered for a chain, by display name.
+    func addresses(for chainName: String) -> [String] {
+        let slot = coreAddressSlot(chainName: chainName)
+        guard !slot.isEmpty else { return [] }
+        return bySlot[slot] ?? []
+    }
 }
 typealias SeedDerivationPreset = CoreSeedDerivationPreset
 extension CoreSeedDerivationPreset: RawRepresentable, CaseIterable, Codable, Identifiable {
@@ -265,238 +481,46 @@ extension SeedDerivationChain {
 }
 typealias SeedDerivationPaths = CoreSeedDerivationPaths
 extension CoreSeedDerivationPaths {
-    // Compat forwarder: legacy property name preserved for call sites pre-rename.
-    var bitcoinSV: String {
-        get { bitcoinSv }
-        set { bitcoinSv = newValue }
+    /// Storage key for a chain. Testnets share their mainnet counterpart's
+    /// slot — the derivation recipe is identical and only the address encoding
+    /// differs — and the registry decides which is which.
+    private static func storageKey(for chain: SeedDerivationChain) -> String {
+        CachedCoreHelpers.seedDerivationPathKey(chainName: chain.rawValue)
     }
-    static var defaults: CoreSeedDerivationPaths { loadRustDefaultPreset() }
-    init(
-        isCustomEnabled: Bool, bitcoin: String, bitcoinCash: String, bitcoinSV: String, litecoin: String, dogecoin: String,
-        ethereum: String, ethereumClassic: String, arbitrum: String, optimism: String, avalanche: String, hyperliquid: String,
-        polygon: String, base: String, linea: String, scroll: String, blast: String, mantle: String, tron: String,
-        solana: String, stellar: String, xrp: String, cardano: String, sui: String, aptos: String, ton: String, internetComputer: String,
-        near: String, polkadot: String, zcash: String, bitcoinGold: String,
-        sei: String, celo: String, cronos: String, opBnb: String, zksyncEra: String, sonic: String,
-        berachain: String, unichain: String, ink: String,
-        decred: String, kaspa: String, dash: String, xLayer: String, bittensor: String
-    ) {
-        self.init(
-            isCustomEnabled: isCustomEnabled, bitcoin: bitcoin, bitcoinCash: bitcoinCash, bitcoinSv: bitcoinSV, litecoin: litecoin,
-            dogecoin: dogecoin, ethereum: ethereum, ethereumClassic: ethereumClassic, arbitrum: arbitrum, optimism: optimism,
-            avalanche: avalanche, hyperliquid: hyperliquid, polygon: polygon, base: base, linea: linea, scroll: scroll, blast: blast,
-            mantle: mantle, tron: tron, solana: solana, stellar: stellar, xrp: xrp, cardano: cardano, sui: sui, aptos: aptos,
-            ton: ton, internetComputer: internetComputer, near: near, polkadot: polkadot, zcash: zcash,
-            bitcoinGold: bitcoinGold, sei: sei, celo: celo, cronos: cronos, opBnb: opBnb, zksyncEra: zksyncEra, sonic: sonic,
-            berachain: berachain, unichain: unichain, ink: ink,
-            decred: decred, kaspa: kaspa, dash: dash, xLayer: xLayer, bittensor: bittensor)
-    }
+
+    /// Configured derivation path for a chain, or `""` when the chain has no
+    /// BIP-32 path (Monero) or is not in the catalog.
     func path(for chain: SeedDerivationChain) -> String {
-        switch chain {
-        case .bitcoin: return bitcoin
-        case .bitcoinCash: return bitcoinCash
-        case .bitcoinSV: return bitcoinSv
-        case .litecoin: return litecoin
-        case .dogecoin: return dogecoin
-        case .ethereum: return ethereum
-        case .ethereumClassic: return ethereumClassic
-        case .arbitrum: return arbitrum
-        case .optimism: return optimism
-        case .avalanche: return avalanche
-        case .hyperliquid: return hyperliquid
-        case .polygon: return polygon
-        case .base: return base
-        case .linea: return linea
-        case .scroll: return scroll
-        case .blast: return blast
-        case .mantle: return mantle
-        case .tron: return tron
-        case .solana: return solana
-        case .stellar: return stellar
-        case .xrp: return xrp
-        case .cardano: return cardano
-        case .sui: return sui
-        case .aptos: return aptos
-        case .ton: return ton
-        case .internetComputer: return internetComputer
-        case .near: return near
-        case .polkadot: return polkadot
-        case .zcash: return zcash
-        case .bitcoinGold: return bitcoinGold
-        case .sei: return sei
-        case .celo: return celo
-        case .cronos: return cronos
-        case .opBNB: return opBnb
-        case .zkSyncEra: return zksyncEra
-        case .sonic: return sonic
-        case .berachain: return berachain
-        case .unichain: return unichain
-        case .ink: return ink
-        case .decred: return decred
-        case .kaspa: return kaspa
-        case .dash: return dash
-        case .xLayer: return xLayer
-        case .bittensor: return bittensor
-        // Testnets share the persisted path slot of their mainnet
-        // counterpart since the derivation recipe is identical (the
-        // chain identity drives only the byte-encoding differences).
-        case .bitcoinTestnet, .bitcoinTestnet4, .bitcoinSignet: return bitcoin
-        case .litecoinTestnet: return litecoin
-        case .bitcoinCashTestnet: return bitcoinCash
-        case .bitcoinSVTestnet: return bitcoinSv
-        case .dogecoinTestnet: return dogecoin
-        case .zcashTestnet: return zcash
-        case .decredTestnet: return decred
-        case .kaspaTestnet: return kaspa
-        case .dashTestnet: return dash
-        case .ethereumSepolia, .ethereumHoodi, .baseSepolia, .bnbChainTestnet, .polygonAmoy: return ethereum
-        case .arbitrumSepolia: return arbitrum
-        case .optimismSepolia: return optimism
-        case .avalancheFuji: return avalanche
-        case .hyperliquidTestnet: return hyperliquid
-        case .ethereumClassicMordor: return ethereumClassic
-        case .tronNile: return tron
-        case .solanaDevnet: return solana
-        case .xrpTestnet: return xrp
-        case .stellarTestnet: return stellar
-        case .cardanoPreprod: return cardano
-        case .suiTestnet: return sui
-        case .aptosTestnet: return aptos
-        case .tonTestnet: return ton
-        case .nearTestnet: return near
-        case .polkadotWestend: return polkadot
-        case .moneroStagenet: return ""  // Monero has no BIP-32 path slot today
-        }
+        byChain[Self.storageKey(for: chain)] ?? ""
     }
+
     mutating func setPath(_ path: String, for chain: SeedDerivationChain) {
-        switch chain {
-        case .bitcoin: bitcoin = path
-        case .bitcoinCash: bitcoinCash = path
-        case .bitcoinSV: bitcoinSv = path
-        case .litecoin: litecoin = path
-        case .dogecoin: dogecoin = path
-        case .ethereum: ethereum = path
-        case .ethereumClassic: ethereumClassic = path
-        case .arbitrum: arbitrum = path
-        case .optimism: optimism = path
-        case .avalanche: avalanche = path
-        case .hyperliquid: hyperliquid = path
-        case .polygon: polygon = path
-        case .base: base = path
-        case .linea: linea = path
-        case .scroll: scroll = path
-        case .blast: blast = path
-        case .mantle: mantle = path
-        case .tron: tron = path
-        case .solana: solana = path
-        case .stellar: stellar = path
-        case .xrp: xrp = path
-        case .cardano: cardano = path
-        case .sui: sui = path
-        case .aptos: aptos = path
-        case .ton: ton = path
-        case .internetComputer: internetComputer = path
-        case .near: near = path
-        case .polkadot: polkadot = path
-        case .zcash: zcash = path
-        case .bitcoinGold: bitcoinGold = path
-        case .sei: sei = path
-        case .celo: celo = path
-        case .cronos: cronos = path
-        case .opBNB: opBnb = path
-        case .zkSyncEra: zksyncEra = path
-        case .sonic: sonic = path
-        case .berachain: berachain = path
-        case .unichain: unichain = path
-        case .ink: ink = path
-        case .decred: decred = path
-        case .kaspa: kaspa = path
-        case .dash: dash = path
-        case .xLayer: xLayer = path
-        case .bittensor: bittensor = path
-        // Testnets write through to the mainnet counterpart's stored slot
-        // (see `path(for:)` for rationale).
-        case .bitcoinTestnet, .bitcoinTestnet4, .bitcoinSignet: bitcoin = path
-        case .litecoinTestnet: litecoin = path
-        case .bitcoinCashTestnet: bitcoinCash = path
-        case .bitcoinSVTestnet: bitcoinSv = path
-        case .dogecoinTestnet: dogecoin = path
-        case .zcashTestnet: zcash = path
-        case .decredTestnet: decred = path
-        case .kaspaTestnet: kaspa = path
-        case .dashTestnet: dash = path
-        case .ethereumSepolia, .ethereumHoodi, .baseSepolia, .bnbChainTestnet, .polygonAmoy: ethereum = path
-        case .arbitrumSepolia: arbitrum = path
-        case .optimismSepolia: optimism = path
-        case .avalancheFuji: avalanche = path
-        case .hyperliquidTestnet: hyperliquid = path
-        case .ethereumClassicMordor: ethereumClassic = path
-        case .tronNile: tron = path
-        case .solanaDevnet: solana = path
-        case .xrpTestnet: xrp = path
-        case .stellarTestnet: stellar = path
-        case .cardanoPreprod: cardano = path
-        case .suiTestnet: sui = path
-        case .aptosTestnet: aptos = path
-        case .tonTestnet: ton = path
-        case .nearTestnet: near = path
-        case .polkadotWestend: polkadot = path
-        case .moneroStagenet: break  // Monero has no BIP-32 path slot today
-        }
+        let key = Self.storageKey(for: chain)
+        guard !key.isEmpty else { return }
+        byChain[key] = path
     }
+
+    static var defaults: CoreSeedDerivationPaths { migrated(from: nil) }
+
+    /// Defaults for a preset's account index, straight from the Rust chain
+    /// catalog.
+    ///
+    /// There is deliberately no hardcoded Swift fallback table. The one that
+    /// used to live here restated all 44 paths from `chains.toml` and would
+    /// have drifted silently; an empty map instead surfaces a broken catalog
+    /// as a visibly missing path rather than a plausible wrong one.
     static func migrated(from preset: SeedDerivationPreset?) -> CoreSeedDerivationPaths {
-        do {
-            return try appCoreDerivationPathsForPreset(accountIndex: preset?.accountIndex ?? 0)
-        } catch {
-            return fallbackPaths(for: preset)
-        }
+        (try? appCoreDerivationPathsForPreset(accountIndex: preset?.accountIndex ?? 0))
+            ?? CoreSeedDerivationPaths(isCustomEnabled: false, byChain: [:])
     }
+
     static func applyingPreset(_ preset: SeedDerivationPreset, keepCustomEnabled: Bool = false) -> CoreSeedDerivationPaths {
         var paths = migrated(from: preset)
         paths.isCustomEnabled = keepCustomEnabled
         return paths
     }
-    private static func loadRustDefaultPreset() -> CoreSeedDerivationPaths {
-        do {
-            return try appCoreDerivationPathsForPreset(accountIndex: 0)
-        } catch {
-            return fallbackPaths(for: nil)
-        }
-    }
-    private static func fallbackPaths(for preset: SeedDerivationPreset?) -> CoreSeedDerivationPaths {
-        let accountIndex = preset?.accountIndex ?? 0
-        return CoreSeedDerivationPaths(
-            isCustomEnabled: false, bitcoin: "m/84'/0'/\(accountIndex)'/0/0", bitcoinCash: "m/44'/145'/\(accountIndex)'/0/0",
-            bitcoinSv: "m/44'/236'/\(accountIndex)'/0/0", litecoin: "m/44'/2'/\(accountIndex)'/0/0",
-            dogecoin: "m/44'/3'/\(accountIndex)'/0/0", ethereum: "m/44'/60'/\(accountIndex)'/0/0",
-            ethereumClassic: "m/44'/61'/\(accountIndex)'/0/0", arbitrum: "m/44'/60'/\(accountIndex)'/0/0",
-            optimism: "m/44'/60'/\(accountIndex)'/0/0", avalanche: "m/44'/60'/\(accountIndex)'/0/0",
-            hyperliquid: "m/44'/60'/\(accountIndex)'/0/0", polygon: "m/44'/60'/\(accountIndex)'/0/0",
-            base: "m/44'/60'/\(accountIndex)'/0/0", linea: "m/44'/60'/\(accountIndex)'/0/0",
-            scroll: "m/44'/60'/\(accountIndex)'/0/0", blast: "m/44'/60'/\(accountIndex)'/0/0",
-            mantle: "m/44'/60'/\(accountIndex)'/0/0", tron: "m/44'/195'/\(accountIndex)'/0/0",
-            solana: "m/44'/501'/\(accountIndex)'/0'", stellar: "m/44'/148'/\(accountIndex)'", xrp: "m/44'/144'/\(accountIndex)'/0/0",
-            cardano: "m/1852'/1815'/\(accountIndex)'/0/0", sui: "m/44'/784'/\(accountIndex)'/0'/0'",
-            aptos: "m/44'/637'/\(accountIndex)'/0'/0'", ton: "m/44'/607'/\(accountIndex)'/0/0",
-            internetComputer: "m/44'/223'/\(accountIndex)'/0/0", near: "m/44'/397'/\(accountIndex)'",
-            polkadot: "m/44'/354'/\(accountIndex)'", zcash: "m/44'/133'/\(accountIndex)'/0/0",
-            bitcoinGold: "m/44'/156'/\(accountIndex)'/0/0",
-            sei: "m/44'/60'/\(accountIndex)'/0/0",
-            celo: "m/44'/60'/\(accountIndex)'/0/0",
-            cronos: "m/44'/60'/\(accountIndex)'/0/0",
-            opBnb: "m/44'/60'/\(accountIndex)'/0/0",
-            zksyncEra: "m/44'/60'/\(accountIndex)'/0/0",
-            sonic: "m/44'/60'/\(accountIndex)'/0/0",
-            berachain: "m/44'/60'/\(accountIndex)'/0/0",
-            unichain: "m/44'/60'/\(accountIndex)'/0/0",
-            ink: "m/44'/60'/\(accountIndex)'/0/0",
-            decred: "m/44'/42'/\(accountIndex)'/0/0",
-            kaspa: "m/44'/111111'/\(accountIndex)'/0/0",
-            dash: "m/44'/5'/\(accountIndex)'/0/0",
-            xLayer: "m/44'/60'/\(accountIndex)'/0/0",
-            bittensor: "m/44'/1005'/\(accountIndex)'/0'/0'"
-        )
-    }
+
+    /// Paths keyed by chain display name, for the UI and for diagnostics.
     func toDictionary() -> [String: String] {
         var d: [String: String] = [:]
         for chain in SeedDerivationChain.allCases { d[chain.rawValue] = path(for: chain) }
@@ -716,17 +740,8 @@ extension ImportedWallet {
     @MainActor init(snapshot: PersistedWallet) {
         self.init(
             id: snapshot.id, name: snapshot.name, bitcoinNetworkMode: snapshot.bitcoinNetworkMode,
-            dogecoinNetworkMode: snapshot.dogecoinNetworkMode, bitcoinAddress: snapshot.bitcoinAddress, bitcoinXpub: snapshot.bitcoinXpub,
-            bitcoinCashAddress: snapshot.bitcoinCashAddress, bitcoinSvAddress: snapshot.bitcoinSvAddress,
-            litecoinAddress: snapshot.litecoinAddress, dogecoinAddress: snapshot.dogecoinAddress, ethereumAddress: snapshot.ethereumAddress,
-            tronAddress: snapshot.tronAddress, solanaAddress: snapshot.solanaAddress, stellarAddress: snapshot.stellarAddress,
-            xrpAddress: snapshot.xrpAddress, moneroAddress: snapshot.moneroAddress, cardanoAddress: snapshot.cardanoAddress,
-            suiAddress: snapshot.suiAddress, aptosAddress: snapshot.aptosAddress, tonAddress: snapshot.tonAddress,
-            icpAddress: snapshot.icpAddress, nearAddress: snapshot.nearAddress, polkadotAddress: snapshot.polkadotAddress,
-            zcashAddress: snapshot.zcashAddress, bitcoinGoldAddress: snapshot.bitcoinGoldAddress,
-            decredAddress: snapshot.decredAddress, kaspaAddress: snapshot.kaspaAddress,
-            dashAddress: snapshot.dashAddress,
-            bittensorAddress: snapshot.bittensorAddress,
+            dogecoinNetworkMode: snapshot.dogecoinNetworkMode,
+            addresses: snapshot.addresses, bitcoinXpub: snapshot.bitcoinXpub,
             seedDerivationPreset: snapshot.seedDerivationPreset, seedDerivationPaths: snapshot.seedDerivationPaths,
             derivationOverrides: snapshot.derivationOverrides,
             selectedChain: snapshot.selectedChain, holdings: snapshot.holdings.map(Coin.init(snapshot:)),
@@ -736,15 +751,7 @@ extension ImportedWallet {
     var persistedSnapshot: PersistedWallet {
         PersistedWallet(
             id: id, name: name, bitcoinNetworkMode: bitcoinNetworkMode, dogecoinNetworkMode: dogecoinNetworkMode,
-            bitcoinAddress: bitcoinAddress, bitcoinXpub: bitcoinXpub, bitcoinCashAddress: bitcoinCashAddress,
-            bitcoinSvAddress: bitcoinSvAddress, litecoinAddress: litecoinAddress, dogecoinAddress: dogecoinAddress,
-            ethereumAddress: ethereumAddress, tronAddress: tronAddress, solanaAddress: solanaAddress, stellarAddress: stellarAddress,
-            xrpAddress: xrpAddress, moneroAddress: moneroAddress, cardanoAddress: cardanoAddress, suiAddress: suiAddress,
-            aptosAddress: aptosAddress, tonAddress: tonAddress, icpAddress: icpAddress, nearAddress: nearAddress,
-            polkadotAddress: polkadotAddress, zcashAddress: zcashAddress, bitcoinGoldAddress: bitcoinGoldAddress,
-            decredAddress: decredAddress, kaspaAddress: kaspaAddress,
-            dashAddress: dashAddress,
-            bittensorAddress: bittensorAddress,
+            addresses: addresses, bitcoinXpub: bitcoinXpub,
             seedDerivationPreset: seedDerivationPreset, seedDerivationPaths: seedDerivationPaths,
             derivationOverrides: derivationOverrides,
             selectedChain: selectedChain, holdings: holdings.map(\.persistedSnapshot), includeInPortfolioTotal: includeInPortfolioTotal

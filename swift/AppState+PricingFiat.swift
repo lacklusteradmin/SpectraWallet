@@ -89,24 +89,7 @@ extension AppState {
     var totalBalanceIfAvailable: Double? { sumLiveQuotedValues(for: portfolio) }
     func setPortfolioInclusion(_ isIncluded: Bool, for walletID: String) {
         guard let walletIndex = wallets.firstIndex(where: { $0.id == walletID }) else { return }
-        let wallet = wallets[walletIndex]
-        wallets[walletIndex] = ImportedWallet(
-            id: wallet.id, name: wallet.name, bitcoinNetworkMode: wallet.bitcoinNetworkMode,
-            dogecoinNetworkMode: wallet.dogecoinNetworkMode, bitcoinAddress: wallet.bitcoinAddress, bitcoinXpub: wallet.bitcoinXpub,
-            bitcoinCashAddress: wallet.bitcoinCashAddress, bitcoinSvAddress: wallet.bitcoinSvAddress,
-            litecoinAddress: wallet.litecoinAddress, dogecoinAddress: wallet.dogecoinAddress, ethereumAddress: wallet.ethereumAddress,
-            tronAddress: wallet.tronAddress, solanaAddress: wallet.solanaAddress, stellarAddress: wallet.stellarAddress,
-            xrpAddress: wallet.xrpAddress, moneroAddress: wallet.moneroAddress, cardanoAddress: wallet.cardanoAddress,
-            suiAddress: wallet.suiAddress, aptosAddress: wallet.aptosAddress, tonAddress: wallet.tonAddress, icpAddress: wallet.icpAddress,
-            nearAddress: wallet.nearAddress, polkadotAddress: wallet.polkadotAddress,
-            zcashAddress: wallet.zcashAddress, bitcoinGoldAddress: wallet.bitcoinGoldAddress,
-            decredAddress: wallet.decredAddress, kaspaAddress: wallet.kaspaAddress,
-            dashAddress: wallet.dashAddress,
-            bittensorAddress: wallet.bittensorAddress,
-            seedDerivationPreset: wallet.seedDerivationPreset,
-            seedDerivationPaths: wallet.seedDerivationPaths, derivationOverrides: wallet.derivationOverrides, selectedChain: wallet.selectedChain, holdings: wallet.holdings,
-            includeInPortfolioTotal: isIncluded
-        )
+        wallets[walletIndex].includeInPortfolioTotal = isIncluded
         resetLargeMovementAlertBaseline()
     }
     func hasWalletForChain(_ chainName: String) -> Bool {
