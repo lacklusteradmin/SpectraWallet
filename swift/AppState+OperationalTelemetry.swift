@@ -45,12 +45,6 @@ extension AppState {
             mappedLevel, category: "\(chainName) Broadcast", message: message, chainName: chainName, transactionHash: transactionHash
         )
     }
-    func loadChainOperationalEvents() -> [String: [ChainOperationalEvent]] {
-        guard let data = UserDefaults.standard.data(forKey: Self.chainOperationalEventsDefaultsKey),
-            let decoded = try? JSONDecoder().decode([String: [ChainOperationalEvent]].self, from: data)
-        else { return [:] }
-        return decoded
-    }
     func persistChainOperationalEvents() {
         persistCodableToSQLite(chainOperationalEventsByChain, key: Self.chainOperationalEventsDefaultsKey)
     }
@@ -122,10 +116,10 @@ extension AppState {
         if plan.clearPendingConfirmation { pendingSelfSendConfirmation = nil }
         return plan.consumeExistingConfirmation
     }
-    func requiresSelfSendConfirmation(wallet: ImportedWallet, holding: Coin, destinationAddress: String, amount: Double) -> Bool {
+    func requiresSelfSendConfirmation(wallet: ImportedWallet, holding: Coin, destinationAddress: String, amount: Double) async -> Bool {
         let ownAddresses: [String]
         if holding.chainName == "Dogecoin" {
-            ownAddresses = knownUTXOAddresses(for: wallet, chainName: "Dogecoin")
+            ownAddresses = await knownUTXOAddresses(for: wallet, chainName: "Dogecoin")
         } else {
             ownAddresses = knownOwnedAddresses(for: wallet.id)
         }
@@ -153,7 +147,7 @@ extension AppState {
     private func rustSelfSendConfirmationPlan(
         walletID: String, chainName: String, symbol: String, destinationAddress: String, amount: Double, ownedAddresses: [String]
     ) -> SelfSendConfirmationPlan {
-        corePlanSelfSendConfirmation(
+        coreSelfSendConfirmation(
             request: SelfSendConfirmationRequest(
                 pendingConfirmation: pendingSelfSendConfirmation.map {
                     PendingSelfSendConfirmationInput(
@@ -204,53 +198,46 @@ extension AppState {
             pendingFailureMinFailures: UInt32(Self.pendingFailureMinFailures)
         )
     }
-    private func coreTrackerState(for transactionID: UUID) -> TransactionStatusTrackerState? {
-        statusTrackingByTransactionID[transactionID].map(\.coreRecord)
-    }
-    private func storeCoreTracker(_ tracker: TransactionStatusTrackerState, for transactionID: UUID) {
-        statusTrackingByTransactionID[transactionID] = TransactionStatusTrackingState(coreRecord: tracker)
-    }
-    func shouldPollTransactionStatus(for transaction: TransactionRecord, now: Date) -> Bool {
-        corePlanTransactionStatusShouldPoll(tracker: coreTrackerState(for: transaction.id), nowUnix: now.timeIntervalSince1970)
+    // Core owns the confirmation-poll backoff table. These forward the poll
+    // outcome and read back the schedule; nothing about it is cached here.
+
+    func shouldPollTransactionStatus(for transaction: TransactionRecord, now: Date) async -> Bool {
+        let due = try? await WalletServiceBridge.shared.transactionsDueForStatusPoll(
+            ids: [transaction.id.uuidString], now: now)
+        // An unreachable core must not wedge polling off permanently.
+        return due.map { !$0.isEmpty } ?? true
     }
     func markTransactionStatusPollSuccess(
         for transaction: TransactionRecord, resolvedStatus: TransactionStatus, confirmations: Int? = nil, now: Date
-    ) {
-        let tracker = corePlanTransactionStatusPollSuccess(
-            tracker: coreTrackerState(for: transaction.id),
-            resolvedStatusConfirmed: resolvedStatus == .confirmed,
-            resolvedStatusPending: resolvedStatus == .pending,
-            reportedConfirmations: confirmations.map { UInt32(max(0, $0)) },
-            nowUnix: now.timeIntervalSince1970,
+    ) async {
+        try? await WalletServiceBridge.shared.recordStatusPollSuccess(
+            id: transaction.id.uuidString,
+            confirmed: resolvedStatus == .confirmed,
+            pending: resolvedStatus == .pending,
+            confirmations: confirmations.map { UInt32(max(0, $0)) },
+            now: now,
             config: transactionStatusPollConfig()
         )
-        storeCoreTracker(tracker, for: transaction.id)
     }
-    func markTransactionStatusPollFailure(for transaction: TransactionRecord, now: Date) {
-        let tracker = corePlanTransactionStatusPollFailure(
-            tracker: coreTrackerState(for: transaction.id),
-            nowUnix: now.timeIntervalSince1970,
-            config: transactionStatusPollConfig()
-        )
-        storeCoreTracker(tracker, for: transaction.id)
+    func markTransactionStatusPollFailure(for transaction: TransactionRecord, now: Date) async {
+        try? await WalletServiceBridge.shared.recordStatusPollFailure(
+            id: transaction.id.uuidString, now: now, config: transactionStatusPollConfig())
     }
-    func stalePendingFailureIDs(from trackedTransactions: [TransactionRecord], now: Date) -> Set<UUID> {
+    func stalePendingFailureIDs(from trackedTransactions: [TransactionRecord], now: Date) async -> Set<UUID> {
         let inputs = trackedTransactions.map { transaction in
             StalePendingFailureTransactionInput(
                 id: transaction.id.uuidString,
                 createdAtUnix: transaction.createdAt.timeIntervalSince1970,
-                statusIsPending: transaction.status == .pending,
-                trackerConsecutiveFailures: UInt32(max(0, statusTrackingByTransactionID[transaction.id]?.consecutiveFailures ?? 0))
+                statusIsPending: transaction.status == .pending
             )
         }
-        let ids = corePlanStalePendingFailureIds(
-            transactions: inputs, nowUnix: now.timeIntervalSince1970, config: transactionStatusPollConfig()
-        )
+        let ids = (try? await WalletServiceBridge.shared.stalePendingFailureIDs(
+            transactions: inputs, now: now, config: transactionStatusPollConfig())) ?? []
         return Set(ids.compactMap(UUID.init(uuidString:)))
     }
     func applyResolvedPendingTransactionStatuses(
         _ resolvedStatuses: [UUID: PendingTransactionStatusResolution], staleFailureIDs: Set<UUID>, now: Date
-    ) {
+    ) async {
         guard !resolvedStatuses.isEmpty || !staleFailureIDs.isEmpty else { return }
         let oldByID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
         let inputs: [ResolvedPendingTransactionInput] = transactions.compactMap { transaction in
@@ -265,27 +252,23 @@ extension AppState {
                 resolution: resolution.map {
                     ResolvedPendingStatusInput(status: $0.status.rawValue, confirmations: $0.confirmations.map { UInt32(max(0, $0)) })
                 },
-                isStaleFailure: isStale,
-                currentTracker: coreTrackerState(for: transaction.id)
+                isStaleFailure: isStale
             )
         }
-        let decisions = corePlanApplyResolvedPendingTransactionStatuses(
-            inputs: inputs, nowUnix: now.timeIntervalSince1970, config: transactionStatusPollConfig()
-        )
+        let decisions = (try? await WalletServiceBridge.shared.applyResolvedPendingTransactionStatuses(
+            inputs: inputs, now: now, config: transactionStatusPollConfig())) ?? []
         let decisionByID: [UUID: ResolvedPendingTransactionDecision] = Dictionary(
             uniqueKeysWithValues: decisions.compactMap { decision in
                 UUID(uuidString: decision.id).map { ($0, decision) }
             }
         )
-        for (transactionID, decision) in decisionByID {
-            if let tracker = decision.updatedTracker {
-                storeCoreTracker(tracker, for: transactionID)
-            }
-        }
-        setTransactions(
-            transactions.map { transaction in
-                guard let decision = decisionByID[transaction.id] else { return transaction }
-                guard let newStatus = TransactionStatus(rawValue: decision.newStatus) else { return transaction }
+        // Only the transactions a decision actually applies to are written —
+        // core stores what it is given, so handing it the untouched ones would
+        // be a needless rewrite of the whole history.
+        recordTransactions(
+            transactions.compactMap { transaction in
+                guard let decision = decisionByID[transaction.id] else { return nil }
+                guard let newStatus = TransactionStatus(rawValue: decision.newStatus) else { return nil }
                 let resolution = resolvedStatuses[transaction.id]
                 let failureReason: String?
                 switch decision.failureReasonDisposition {
@@ -378,22 +361,22 @@ extension AppState {
             guard let address else { continue }
             let (statusByHash, hadError) = await fetchStatuses(address)
             if hadError {
-                for transaction in group { markTransactionStatusPollFailure(for: transaction, now: now) }
+                for transaction in group { await markTransactionStatusPollFailure(for: transaction, now: now) }
                 continue
             }
             for transaction in group {
-                guard shouldPollTransactionStatus(for: transaction, now: now),
+                guard await shouldPollTransactionStatus(for: transaction, now: now),
                     let transactionHash = transaction.transactionHash?.lowercased()
                 else { continue }
                 let resolvedStatus = statusByHash[transactionHash] ?? .pending
-                markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus, now: now)
+                await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus, now: now)
                 resolvedStatuses[transaction.id] = PendingTransactionStatusResolution(
                     status: resolvedStatus, receiptBlockNumber: nil, confirmations: nil, dogecoinNetworkFeeDoge: nil
                 )
             }
         }
-        let staleFailureIDs = stalePendingFailureIDs(from: trackedTransactions, now: now)
-        applyResolvedPendingTransactionStatuses(resolvedStatuses, staleFailureIDs: staleFailureIDs, now: now)
+        let staleFailureIDs = await stalePendingFailureIDs(from: trackedTransactions, now: now)
+        await applyResolvedPendingTransactionStatuses(resolvedStatuses, staleFailureIDs: staleFailureIDs, now: now)
     }
     func statusMapByTransactionHash<S: Sequence>(
         from snapshots: S, hash: (S.Element) -> String, status: (S.Element) -> TransactionStatus
@@ -410,7 +393,8 @@ extension AppState {
         guard let index = transactions.firstIndex(where: { $0.id == id }) else { return }
         let transaction = transactions[index]
         if transaction.chainName == "Dogecoin" { return }
-        transactions[index] = TransactionRecord(
+        recordTransaction(
+            TransactionRecord(
             id: transaction.id, walletID: transaction.walletID, kind: transaction.kind, status: status, walletName: transaction.walletName,
             assetName: transaction.assetName, symbol: transaction.symbol, chainName: transaction.chainName, amount: transaction.amount,
             address: transaction.address, transactionHash: transaction.transactionHash, receiptBlockNumber: transaction.receiptBlockNumber,
@@ -425,7 +409,7 @@ extension AppState {
             signedTransactionPayload: transaction.signedTransactionPayload,
             signedTransactionPayloadFormat: transaction.signedTransactionPayloadFormat, failureReason: transaction.failureReason,
             transactionHistorySource: transaction.transactionHistorySource, createdAt: transaction.createdAt
-        )
+            ))
     }
     func addPriceAlert(for coin: Coin, targetPrice: Double, condition: PriceAlertCondition) {
         let normalizedTargetPrice = (targetPrice * 100).rounded() / 100

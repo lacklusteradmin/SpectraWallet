@@ -31,7 +31,7 @@ final class WalletBalanceObserver: BalanceObserver, @unchecked Sendable {
             store.isRefreshingChainBalances = false
             if refreshed > 0 {
                 store.lastChainBalanceRefreshAt = Date()
-                // Derived-state rebuilds + `persistWallets` are already driven
+                // Derived-state rebuilds are already driven
                 // by `wallets.didSet` whenever a balance actually differed
                 // (via `flushBalanceBatch`). Calling them again here ran a
                 // redundant Keychain write + Rust FFI cascade every cycle

@@ -397,6 +397,9 @@ struct StandardChainDiagnosticsView: View {
     @State private var selectedMoneroBackendID: String = MoneroBalanceService.defaultBackendID
     @State private var cachedEndpointRows: [StandardEndpointRow] = []
     @State private var cachedHistorySourceRows: [StandardHistorySourceRow] = []
+    /// Keypool state now lives in core, so it is loaded rather than read
+    /// synchronously — see `.task` below.
+    @State private var cachedKeypoolDiagnostics: [AppState.ChainKeypoolDiagnostic] = []
     private let moneroCustomBackendID = "custom"
     private var chainDiagnosticsState: WalletChainDiagnosticsState { store.chainDiagnosticsState }
     private var displayChainTitle: String { store.displayChainTitle(for: chain.descriptor.chainName) }
@@ -543,6 +546,8 @@ struct StandardChainDiagnosticsView: View {
         }.navigationTitle(displayChainTitle + " Diagnostics").onAppear {
             if chain == .monero { syncSelectedMoneroBackendIDFromStore() }
             rebuildCachedRows()
+        }.task(id: chain.title) {
+            cachedKeypoolDiagnostics = await store.chainKeypoolDiagnostics(for: chain.title)
         }.onChange(of: copiedDiagnosticsNotice) { _, newValue in
             guard newValue != nil else { return }
             Task {
@@ -764,7 +769,7 @@ struct StandardChainDiagnosticsView: View {
             }
         }
         Section(AppLocalization.string("Owned Address Management")) {
-            let diagnostics = store.chainKeypoolDiagnostics(for: chain.title)
+            let diagnostics = cachedKeypoolDiagnostics
             if diagnostics.isEmpty {
                 Text(AppLocalization.string("No owned-address management state recorded yet.")).font(.caption).foregroundStyle(.secondary)
             } else {

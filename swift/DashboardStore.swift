@@ -52,14 +52,10 @@ extension AppState {
         } else {
             symbols.removeAll { $0 == normalized }
         }
-        cachedPinnedDashboardAssetSymbols = symbols
-        persistAppSettings()
-        rebuildDashboardDerivedState()
+        setPinnedDashboardAssets(symbols)
     }
     func resetPinnedDashboardAssets() {
-        cachedPinnedDashboardAssetSymbols = []
-        persistAppSettings()
-        rebuildDashboardDerivedState()
+        setPinnedDashboardAssets([])
     }
     private func dashboardAssetGroupingKey(for coin: Coin) -> String {
         CachedCoreHelpers.dashboardAssetGroupingKey(

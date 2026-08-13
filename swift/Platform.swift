@@ -73,7 +73,9 @@ struct PlatformTransactionSnapshot: Codable, Identifiable {
     let createdAt: Date
 }
 struct PlatformAddressBookEntrySnapshot: Codable, Identifiable {
-    let id: UUID
+    /// Core-assigned identifier. A string, not a `UUID`: the id is opaque to
+    /// the platform and core is free to mint it however it likes.
+    let id: String
     let name: String
     let chainID: String
     let chainName: String

@@ -33,7 +33,7 @@ extension AppState {
         }
         let preflight: SendSubmitPreflightPlan
         do {
-            preflight = try corePlanSendSubmitPreflight(
+            preflight = try coreSendSubmitPreflight(
                 request: SendSubmitPreflightRequest(
                     walletFound: walletIndex != nil, assetFound: holdingIndex != nil, destinationAddress: destinationInput,
                     amountInput: sendAmount, availableBalance: selectedCoin?.amount ?? 0,
@@ -112,7 +112,7 @@ extension AppState {
                 sendError = "This wallet's signing secret is unavailable."
                 return
             }
-            if requiresSelfSendConfirmation(
+            if await requiresSelfSendConfirmation(
                 wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount
             ) {
                 return
@@ -140,7 +140,6 @@ extension AppState {
                 await runPostSendRefreshActions(for: holding.chainName, verificationStatus: .verified)
                 resetSendComposerState {
                     self.sendPreviewStore.icpSendPreview = nil
-                    self.wallets[walletIndex] = self.wallets[walletIndex]
                 }
             } catch {
                 sendError = error.localizedDescription
@@ -179,7 +178,7 @@ extension AppState {
         } else {
             bypassHighRiskSendConfirmation = false
         }
-        if requiresSelfSendConfirmation(
+        if await requiresSelfSendConfirmation(
             wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount
         ) {
             return
@@ -728,7 +727,7 @@ extension AppState {
             sendError = err; return
         }
         if checkSelfSend,
-            requiresSelfSendConfirmation(wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount)
+            await requiresSelfSendConfirmation(wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount)
         {
             return
         }

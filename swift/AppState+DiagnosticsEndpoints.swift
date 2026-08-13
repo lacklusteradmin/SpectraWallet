@@ -703,21 +703,21 @@ extension AppState {
             return $0.status == .pending
         }
         if tracked.isEmpty {
-            if tracksFinality { statusTrackingByTransactionID = [:] }
+            if tracksFinality { try? await WalletServiceBridge.shared.retainStatusTrackers(ids: []) }
             return
         }
         if tracksFinality {
-            let trackedIDs = Set(tracked.map(\.id))
-            statusTrackingByTransactionID = statusTrackingByTransactionID.filter { trackedIDs.contains($0.key) }
+            try? await WalletServiceBridge.shared.retainStatusTrackers(
+                ids: tracked.map(\.id.uuidString))
         }
         var resolved: [UUID: PendingTransactionStatusResolution] = [:]
         for transaction in tracked {
-            guard let hash = transaction.transactionHash, shouldPollTransactionStatus(for: transaction, now: now) else { continue }
+            guard let hash = transaction.transactionHash, await shouldPollTransactionStatus(for: transaction, now: now) else { continue }
             do {
                 let status = try await WalletServiceBridge.shared.fetchUtxoTxStatusTyped(chainId: chainId, txid: hash)
                 let confirmed = status.confirmed
                 let confirmations = tracksFinality ? (status.confirmations.map(Int.init) ?? transaction.confirmationCount) : nil
-                markTransactionStatusPollSuccess(
+                await markTransactionStatusPollSuccess(
                     for: transaction, resolvedStatus: confirmed ? .confirmed : .pending, confirmations: confirmations, now: now
                 )
                 resolved[transaction.id] = PendingTransactionStatusResolution(
@@ -725,9 +725,9 @@ extension AppState {
                     receiptBlockNumber: status.blockHeight.map(Int.init),
                     confirmations: confirmations,
                     dogecoinNetworkFeeDoge: nil)
-            } catch { markTransactionStatusPollFailure(for: transaction, now: now) }
+            } catch { await markTransactionStatusPollFailure(for: transaction, now: now) }
         }
-        applyResolvedPendingTransactionStatuses(resolved, staleFailureIDs: stalePendingFailureIDs(from: tracked, now: now), now: now)
+        await applyResolvedPendingTransactionStatuses(resolved, staleFailureIDs: await stalePendingFailureIDs(from: tracked, now: now), now: now)
     }
 
     func refreshPendingDogecoinTransactions() async {

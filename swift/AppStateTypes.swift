@@ -2,7 +2,7 @@
 // keep that file focused on state + orchestration wiring. All types here used
 // to live directly inside `class AppState { ... }`; lifting them to an
 // `extension AppState` preserves every call site (`AppState.ResetScope`,
-// `AppState.PersistedChainKeypoolStore`, etc.) unchanged.
+// `AppState.ChainKeypoolState`, etc.) unchanged.
 //
 // Nothing here owns runtime state — just value-type schemas, enums, and the
 // typealiases that went with them.
@@ -191,12 +191,6 @@ extension AppState {
         var reservedReceiveIndex: Int?
     }
 
-    struct PersistedChainKeypoolStore: Codable {
-        let version: Int
-        let keypoolByChain: [String: [String: ChainKeypoolState]]
-        static let currentVersion = 1
-    }
-
     struct ChainOwnedAddressRecord: Codable, Equatable {
         let chainName: String
         let address: String?
@@ -206,27 +200,11 @@ extension AppState {
         let branch: String?
     }
 
-    struct TransactionStatusTrackingState {
-        var lastCheckedAt: Date?
-        var nextCheckAt: Date
-        var consecutiveFailures: Int
-        var reachedFinality: Bool
-        static func initial(now: Date = Date()) -> TransactionStatusTrackingState {
-            TransactionStatusTrackingState(lastCheckedAt: nil, nextCheckAt: now, consecutiveFailures: 0, reachedFinality: false)
-        }
-    }
-
     struct PendingTransactionStatusResolution {
         let status: TransactionStatus
         let receiptBlockNumber: Int?
         let confirmations: Int?
         let dogecoinNetworkFeeDoge: Double?
-    }
-
-    struct PersistedChainOwnedAddressStore: Codable {
-        let version: Int
-        let addressMapByChain: [String: [String: ChainOwnedAddressRecord]]
-        static let currentVersion = 1
     }
 
     struct ChainDegradedBanner: Identifiable {
@@ -265,11 +243,18 @@ extension AppState {
         let nextChangeIndex: Int
         var id: String { "\(chainName):\(walletID)" }
     }
-
-    typealias DogecoinStatusTrackingState = TransactionStatusTrackingState
 }
 
 extension AppState.ChainKeypoolState {
+    /// From core's stored keypool row.
+    init(keypool: KeypoolState) {
+        self.init(
+            nextExternalIndex: Int(keypool.nextExternalIndex),
+            nextChangeIndex: Int(keypool.nextChangeIndex),
+            reservedReceiveIndex: keypool.reservedReceiveIndex.map { Int($0) }
+        )
+    }
+
     var coreRecord: ChainKeypoolStateRecord {
         ChainKeypoolStateRecord(
             nextExternalIndex: Int32(nextExternalIndex),
@@ -286,21 +271,3 @@ extension AppState.ChainKeypoolState {
     }
 }
 
-extension AppState.TransactionStatusTrackingState {
-    var coreRecord: TransactionStatusTrackerState {
-        TransactionStatusTrackerState(
-            lastCheckedAtUnix: lastCheckedAt?.timeIntervalSince1970,
-            nextCheckAtUnix: nextCheckAt.timeIntervalSince1970,
-            consecutiveFailures: UInt32(max(0, consecutiveFailures)),
-            reachedFinality: reachedFinality
-        )
-    }
-    init(coreRecord: TransactionStatusTrackerState) {
-        self.init(
-            lastCheckedAt: coreRecord.lastCheckedAtUnix.map { Date(timeIntervalSince1970: $0) },
-            nextCheckAt: Date(timeIntervalSince1970: coreRecord.nextCheckAtUnix),
-            consecutiveFailures: Int(coreRecord.consecutiveFailures),
-            reachedFinality: coreRecord.reachedFinality
-        )
-    }
-}

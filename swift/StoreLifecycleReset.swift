@@ -31,11 +31,6 @@ extension AppState {
             self.bitcoinStopGap = UserDefaults.standard.integer(forKey: Self.bitcoinStopGapDefaultsKey)
         }
         self.bitcoinEsploraEndpoints = UserDefaults.standard.string(forKey: Self.bitcoinEsploraEndpointsDefaultsKey) ?? ""
-        if let storedFiatCurrency = UserDefaults.standard.string(forKey: Self.selectedFiatCurrencyDefaultsKey),
-            let selectedFiatCurrency = FiatCurrency(rawValue: storedFiatCurrency)
-        {
-            self.selectedFiatCurrency = selectedFiatCurrency
-        }
         if let storedFiatRateProvider = UserDefaults.standard.string(forKey: Self.fiatRateProviderDefaultsKey),
             let fiatRateProvider = FiatRateProvider(rawValue: storedFiatRateProvider)
         {
@@ -55,16 +50,21 @@ extension AppState {
         moneroBackendBaseURL = UserDefaults.standard.string(forKey: MoneroBalanceService.backendBaseURLDefaultsKey) ?? ""
         moneroBackendAPIKey = UserDefaults.standard.string(forKey: MoneroBalanceService.backendAPIKeyDefaultsKey) ?? ""
         suppressWalletSideEffects = true
-        setWallets(loadPersistedWallets())
         // Price alerts + address book are loaded async via
         // `reloadPersistedStateFromSQLite()` from the typed Rust SQLite store.
-        tokenPreferences = loadPersistedTokenPreferences()
+        // Built-in tokens only. The user's tracked list is core state and
+        // arrives in `reloadPersistedStateFromSQLite()`; reading a second copy
+        // from UserDefaults here would race it and usually win.
+        tokenPreferences = ChainTokenRegistryEntry.builtIn.map(\.tokenPreferenceEntry)
         rebuildTokenPreferenceDerivedState()
         livePrices = loadPersistedLivePrices()
-        chainKeypoolByChain = loadChainKeypoolState()
-        chainOwnedAddressMapByChain = loadChainOwnedAddressMap()
-        chainOperationalEventsByChain = loadChainOperationalEvents()
-        syncChainOwnedAddressManagementState()
+        // Keypool, owned addresses and operational events all load from core in
+        // `reloadPersistedStateFromSQLite()`. They used to be seeded here from
+        // UserDefaults first, but nothing has written those keys since the move
+        // to SQLite — the seed could only ever supply stale indices.
+        // `syncChainOwnedAddressManagementState` runs there too: it reserves
+        // receive indices, so it must not run before core has loaded the
+        // keypool or it would reserve against an empty table.
         if let storedAssetDisplayDecimalsByChain = loadAssetDisplayDecimalsByChain() {
             assetDisplayDecimalsByChain = storedAssetDisplayDecimalsByChain
         }
@@ -101,10 +101,9 @@ extension AppState {
         {
             selectedFeePriorityOptionRawByChain = storedFeePrioritySelections
         }
-        let storedPins = (UserDefaults.standard.stringArray(forKey: Self.pinnedDashboardAssetSymbolsDefaultsKey) ?? []).map {
-            $0.uppercased()
-        }.filter { !$0.isEmpty }
-        if !storedPins.isEmpty { cachedPinnedDashboardAssetSymbols = storedPins }
+        // Pinned dashboard assets are a core setting now; they arrive with
+        // the rest of `CoreAppState`. The UserDefaults key they used to be
+        // seeded from has had no writer since that move.
         suppressWalletSideEffects = false
         applyWalletCollectionSideEffects()
         Task { @MainActor in
@@ -135,7 +134,7 @@ extension AppState {
     }
     func clearPersistedSecureDataOnFreshInstallIfNeeded() {
         if UserDefaults.standard.bool(forKey: Self.installMarkerDefaultsKey) { return }
-        let persistedWalletIDs = storedWalletIDs()
+        let persistedWalletIDs = wallets.map(\.id)
         for walletID in persistedWalletIDs { deleteWalletSecrets(for: walletID) }
         SecureStore.deleteValue(for: Self.walletsAccount)
         SecureStore.deleteValue(for: Self.walletsCoreSnapshotAccount)
@@ -169,8 +168,7 @@ extension AppState {
         SecureStore.deleteValue(for: Self.walletsCoreSnapshotAccount)
         UserDefaults.standard.removeObject(forKey: Self.walletsAccount)
         clearWalletSecretIndex()
-        setWallets([])
-        chainKeypoolByChain = [:]
+        clearAllWalletsDetached()
         chainOwnedAddressMapByChain = [:]
         discoveredUTXOAddressesByChain = [:]
         receiveWalletID = ""
@@ -214,7 +212,7 @@ extension AppState {
         lastSendDestinationProbeInfoMessage = nil
         cachedResolvedENSAddresses = [:]
         bypassHighRiskSendConfirmation = false
-        statusTrackingByTransactionID = [:]
+        Task { try? await WalletServiceBridge.shared.clearStatusTrackers() }
         isShowingWalletImporter = false
         isShowingAddWalletEntry = false
         isShowingSendSheet = false
@@ -229,7 +227,7 @@ extension AppState {
         UserDefaults.standard.removeObject(forKey: Self.operationalLogsDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.chainKeypoolDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.chainOwnedAddressMapDefaultsKey)
-        setTransactions([])
+        clearAllTransactions()
         resetAllHistoryPagination()
         bitcoinSelfTestResults = []
         bitcoinSelfTestsLastRunAt = nil
@@ -372,20 +370,21 @@ extension AppState {
         litecoinRescanLastRunAt = nil
         isRunningDogecoinRescan = false
         dogecoinRescanLastRunAt = nil
-        persistTransactionsFullSync()
         rebuildNormalizedHistoryIndex()
     }
     private func resetAlertsAndContactsState() {
         UserDefaults.standard.removeObject(forKey: Self.priceAlertsDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.addressBookDefaultsKey)
         priceAlerts = []
-        setAddressBook([])
+        // Core-owned: clear by command so the store and the mirror agree.
+        let contactIDs = addressBook.map(\.id)
+        Task { @MainActor [weak self] in
+            for id in contactIDs { self?.removeAddressBookEntry(id: id) }
+        }
     }
     private func resetDashboardCustomizationState() { resetPinnedDashboardAssets() }
     private func resetSettingsAndEndpointsState() {
         UserDefaults.standard.removeObject(forKey: Self.tokenPreferencesDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.pricingProviderDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.selectedFiatCurrencyDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.fiatRateProviderDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.fiatRatesFromUSDDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.livePricesDefaultsKey)
@@ -422,7 +421,8 @@ extension AppState {
         quoteRefreshError = nil
         fiatRatesRefreshError = nil
         pricingProvider = .coinGecko
-        selectedFiatCurrency = .usd
+        // Core-owned: reset by command so the store and the mirror agree.
+        Task { @MainActor [weak self] in await self?.setFiatCurrency(.usd) }
         fiatRateProvider = .openER
         assetDisplayDecimalsByChain = defaultAssetDisplayDecimalsByChain()
         ethereumRPCEndpoint = ""

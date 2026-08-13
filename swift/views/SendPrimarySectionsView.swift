@@ -215,13 +215,13 @@ struct SendRecipientPage: View {
                 Picker(AppLocalization.string("Saved Recipient"), selection: $selectedAddressBookEntryID) {
                     Text(AppLocalization.string("None")).tag("")
                     ForEach(presentation.addressBookEntries) { entry in
-                        Text("\(entry.name) · \(entry.chainName)").tag(entry.id.uuidString)
+                        Text("\(entry.name) · \(entry.chainName)").tag(entry.id)
                     }
                 }
                 .pickerStyle(.menu)
                 .font(.subheadline)
                 .onChange(of: selectedAddressBookEntryID) { _, newValue in
-                    guard let entry = presentation.addressBookEntries.first(where: { $0.id.uuidString == newValue }) else { return }
+                    guard let entry = presentation.addressBookEntries.first(where: { $0.id == newValue }) else { return }
                     store.sendAddress = entry.address
                 }
             }

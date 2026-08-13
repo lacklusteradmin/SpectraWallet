@@ -201,7 +201,7 @@ extension AppState {
         // network-mode `didSet`s drop the cache when the inputs can change.
         let key = "\(chainName)|\(bitcoinNetworkMode.rawValue)|\(ethereumNetworkMode.rawValue)"
         if let cached = cachedPricedChainByKey[key] { return cached }
-        let result = corePlanPricedChain(
+        let result = corePricedChain(
             chainName: chainName, bitcoinNetworkModeRaw: bitcoinNetworkMode.rawValue,
             ethereumNetworkModeRaw: ethereumNetworkMode.rawValue
         )
@@ -230,7 +230,7 @@ extension AppState {
             )
         }
         let inputSignature = Int(
-            corePlanNormalizedHistorySignature(
+            coreNormalizedHistorySignature(
                 transactions: signatureInputs, wallets: walletChainInputs(from: walletByID)
             ))
         guard lastNormalizedHistorySignature != inputSignature else { return }
@@ -248,7 +248,7 @@ extension AppState {
         let earliestInputs = transactions.map {
             TransactionEarliestInput(walletId: $0.walletID, createdAtUnix: $0.createdAt.timeIntervalSince1970)
         }
-        let earliestPairs = corePlanEarliestTransactionDates(transactions: earliestInputs)
+        let earliestPairs = coreEarliestTransactionDates(transactions: earliestInputs)
         cachedFirstActivityDateByWalletID = Dictionary(
             uniqueKeysWithValues: earliestPairs.map { ($0.walletId, Date(timeIntervalSince1970: $0.earliestCreatedAtUnix)) })
         rebuildNormalizedHistoryIndex()
@@ -259,13 +259,13 @@ extension AppState {
             TransactionActivityInput(id: $0.id.uuidString, walletId: $0.walletID, chainName: $0.chainName)
         }
         let keptIDStrings = Set(
-            corePlanActiveWalletTransactionIds(
+            coreActiveWalletTransactionIds(
                 transactions: activityInputs, wallets: walletChainInputs(from: walletByID)
             )
         )
-        let filtered = transactions.filter { keptIDStrings.contains($0.id.uuidString) }
-        guard filtered.count != transactions.count else { return }
-        setTransactions(filtered.sorted { $0.createdAt > $1.createdAt })
+        let droppedIDs = transactions.filter { !keptIDStrings.contains($0.id.uuidString) }.map(\.id)
+        guard !droppedIDs.isEmpty else { return }
+        removeTransactions(withIDs: droppedIDs)
     }
     private func formattedTransactionDetailAssetAmount(_ amount: Double, symbol: String, chainName: String) -> String {
         let supportedDecimals = supportedDecimalPlaces(for: symbol, chainName: chainName)

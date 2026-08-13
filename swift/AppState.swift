@@ -98,21 +98,31 @@ final class AppState {
     // construction so the interval is visible next to the field declaration
     // instead of being a magic number buried in an async closure.
     @ObservationIgnored private let priceAlertsPersist = DebouncedAction(intervalMilliseconds: 100)
-    @ObservationIgnored private let addressBookPersist = DebouncedAction(intervalMilliseconds: 100)
     @ObservationIgnored private let livePricesPersist = DebouncedAction(intervalMilliseconds: 200)
     @ObservationIgnored private let tokenPreferencesPersist = DebouncedAction(intervalMilliseconds: 50)
     @ObservationIgnored private let tokenPreferenceRebuild = DebouncedAction(intervalMilliseconds: 30)
     @ObservationIgnored private let transactionRebuild = DebouncedAction(intervalMilliseconds: 30)
-    var transactions: [TransactionRecord] = [] {
+    /// Recorded transactions.
+    ///
+    /// Domain state: core owns the store and its persistence. This is a
+    /// projection — assigning to it would only desynchronise the two, so it is
+    /// `private(set)` and changed through `recordTransactions` /
+    /// `removeTransactions` / `clearAllTransactions`, which send commands.
+    private(set) var transactions: [TransactionRecord] = [] {
         didSet {
             transactionRevision &+= 1
-            let old = lastObservedTransactions
             lastObservedTransactions = transactions
             if !suppressSideEffects {
-                persistTransactionsDelta(from: old, to: transactions)
                 transactionRebuild.fire { [weak self] in self?.rebuildTransactionDerivedState() }
             }
         }
+    }
+
+    /// The only place the transaction projection is written. Everything else
+    /// goes through the command helpers in `AppState+CoreStateStore.swift`,
+    /// which keep the store in step with it.
+    func setTransactionProjection(_ records: [TransactionRecord]) {
+        transactions = records
     }
     var normalizedHistoryIndex: [NormalizedHistoryEntry] = [] {
         didSet { normalizedHistoryRevision &+= 1 }
@@ -139,11 +149,24 @@ final class AppState {
     /// dictionary-key access tracking kicks in. New views that read from
     /// `wallets` directly should justify it (e.g. they actually iterate
     /// the entire collection).
-    var wallets: [ImportedWallet] = [] {
+    /// Imported wallets.
+    ///
+    /// Domain state: core owns the list and persists it. This is a projection
+    /// of `CoreAppState.wallets`, rendered into the shape the views use — see
+    /// `WalletSummary::to_imported_wallet`. `private(set)`, because assigning
+    /// to it would only desynchronise it from core; change it with
+    /// `recordWallets` / `removeWallet` / `clearAllWallets`.
+    private(set) var wallets: [ImportedWallet] = [] {
         didSet {
             walletsRevision &+= 1
             scheduleWalletCollectionSideEffects()
         }
+    }
+
+    /// The only place the wallet projection is written. Everything else goes
+    /// through a `StateCommand` and lands back here.
+    func setWalletProjection(_ records: [ImportedWallet]) {
+        wallets = records
     }
     @ObservationIgnored private let walletSideEffectsDebounce = DebouncedAction(intervalMilliseconds: 30)
     @ObservationIgnored var pendingBalanceUpdates: [PendingBalanceUpdate] = []
@@ -252,7 +275,6 @@ final class AppState {
     var isPreparingEthereumReplacementContext: Bool = false
     /// Chains currently computing a send fee preview. Observed by send UI to show loading state.
     var preparingChains: Set<String> = []
-    @ObservationIgnored var statusTrackingByTransactionID: [UUID: AppState.TransactionStatusTrackingState] = [:]
     @ObservationIgnored var pendingSelfSendConfirmation: AppState.PendingSelfSendConfirmation?
     @ObservationIgnored var activeEthereumSendWalletIDs: Set<String> = []
     @ObservationIgnored var lastSendDestinationProbeKey: String?
@@ -298,19 +320,28 @@ final class AppState {
     var _fundsFinderScanError: String? = nil
     @ObservationIgnored var _fundsFinderScanTask: Task<Void, Never>? = nil
     var isShowingFundsFinder: Bool = false
-    func chainKeypoolDiagnostics(for chainName: String) -> [ChainKeypoolDiagnostic] {
-        wallets.filter { wallet in wallet.selectedChain == chainName || walletHasAddress(for: wallet, chainName: chainName) }
-            .compactMap { wallet in
-                let state = keypoolState(for: wallet, chainName: chainName)
-                let reservedIndex = state.reservedReceiveIndex
-                return ChainKeypoolDiagnostic(
-                    walletID: wallet.id, walletName: wallet.name, chainName: chainName, reservedReceiveIndex: reservedIndex,
-                    reservedReceivePath: reservedReceiveDerivationPath(for: wallet, chainName: chainName, index: reservedIndex),
-                    reservedReceiveAddress: reservedReceiveAddress(for: wallet, chainName: chainName, reserveIfMissing: false),
-                    nextExternalIndex: state.nextExternalIndex, nextChangeIndex: state.nextChangeIndex
-                )
-            }
-            .sorted { $0.walletName.localizedCaseInsensitiveCompare($1.walletName) == .orderedAscending }
+    /// Read-only view of the keypool for the diagnostics screen.
+    ///
+    /// Takes one snapshot and merges locally, so reporting the state never
+    /// records or reserves anything.
+    func chainKeypoolDiagnostics(for chainName: String) async -> [ChainKeypoolDiagnostic] {
+        let snapshot = (try? await WalletServiceBridge.shared.keypoolSnapshot()) ?? [:]
+        return wallets.filter { wallet in
+            wallet.selectedChain == chainName || walletHasAddress(for: wallet, chainName: chainName)
+        }
+        .compactMap { wallet in
+            let state = keypoolStateForDisplay(
+                for: wallet, chainName: chainName, snapshot: snapshot)
+            let reservedIndex = state.reservedReceiveIndex
+            return ChainKeypoolDiagnostic(
+                walletID: wallet.id, walletName: wallet.name, chainName: chainName, reservedReceiveIndex: reservedIndex,
+                reservedReceivePath: reservedReceiveDerivationPath(for: wallet, chainName: chainName, index: reservedIndex),
+                reservedReceiveAddress: reservedReceiveAddressForDisplay(
+                    for: wallet, chainName: chainName, snapshot: snapshot),
+                nextExternalIndex: state.nextExternalIndex, nextChangeIndex: state.nextChangeIndex
+            )
+        }
+        .sorted { $0.walletName.localizedCaseInsensitiveCompare($1.walletName) == .orderedAscending }
     }
     var pricingProvider: PricingProvider = .coinGecko {
         didSet {
@@ -318,11 +349,49 @@ final class AppState {
             persistAppSettings()
         }
     }
-    var selectedFiatCurrency: FiatCurrency = .usd {
-        didSet {
-            guard selectedFiatCurrency != oldValue else { return }
-            persistAppSettings()
-            Task { @MainActor [weak self] in await self?.refreshFiatExchangeRatesIfNeeded(force: true) }
+    /// Display currency for prices and totals.
+    ///
+    /// Domain state: core owns it, persists it, and the CLI reads and writes the
+    /// same value. This is a mirror of core's copy — reading it is free, and
+    /// assigning to it sends a command rather than storing anything. The mirror
+    /// updates when core answers, which is what re-renders observers.
+    ///
+    /// Do not add a `didSet` that persists here. One owner.
+    var selectedFiatCurrency: FiatCurrency {
+        get { coreFiatCurrency }
+        set {
+            guard newValue != coreFiatCurrency else { return }
+            Task { @MainActor [weak self] in await self?.setFiatCurrency(newValue) }
+        }
+    }
+    private(set) var coreFiatCurrency: FiatCurrency = .usd
+
+    // Core round-trips are async and can overlap: the launch reload runs
+    // concurrently with whatever the user is doing. Each one claims an epoch
+    // before it awaits, and a result from an epoch older than the last applied
+    // is dropped — otherwise a slow reload lands after a command and reverts
+    // the mirror to what core held before that command ran.
+    @ObservationIgnored private var coreStateEpoch: UInt64 = 0
+    @ObservationIgnored private var appliedCoreStateEpoch: UInt64 = 0
+
+    /// Claim an epoch before awaiting core. Pass it back to `applyCoreState`.
+    func beginCoreStateRead() -> UInt64 {
+        coreStateEpoch &+= 1
+        return coreStateEpoch
+    }
+
+    /// The only place the core-owned mirrors are written. Everything else goes
+    /// through a `StateCommand` and lands back here.
+    func applyCoreState(_ state: CoreAppState, epoch: UInt64) {
+        guard epoch >= appliedCoreStateEpoch else { return }
+        appliedCoreStateEpoch = epoch
+        coreFiatCurrency = FiatCurrency(rawValue: state.settings.fiatCurrencyCode) ?? .usd
+        coreAddressBook = state.addressBook
+        if state.tokenPreferences != tokenPreferences { tokenPreferences = state.tokenPreferences }
+        let pins = state.settings.pinnedDashboardAssetSymbols
+        if pins != cachedPinnedDashboardAssetSymbols {
+            cachedPinnedDashboardAssetSymbols = pins
+            rebuildDashboardDerivedState()
         }
     }
     var fiatRateProvider: FiatRateProvider = .openER {
@@ -369,13 +438,23 @@ final class AppState {
     var priceAlerts: [PriceAlertRule] = [] {
         didSet { priceAlertsPersist.fire { [weak self] in self?.persistPriceAlerts() } }
     }
-    var addressBook: [AddressBookEntry] = [] {
-        didSet { addressBookPersist.fire { [weak self] in self?.persistAddressBook() } }
-    }
+    /// Saved recipients.
+    ///
+    /// Domain state: core owns the list, the rules about what may be saved, and
+    /// the persistence. This is a mirror — see `coreFiatCurrency` for the same
+    /// pattern. Mutate it with `addAddressBookEntry` / `renameAddressBookEntry`
+    /// / `removeAddressBookEntry`, which send commands.
+    var addressBook: [AddressBookEntry] { coreAddressBook }
+    private(set) var coreAddressBook: [AddressBookEntry] = []
+    /// Why core refused the last address-book change, if it did.
+    var addressBookError: String?
     var tokenPreferences: [TokenPreferenceEntry] = [] {
         didSet {
             guard tokenPreferences != oldValue else { return }
-            tokenPreferencesPersist.fire { [weak self] in self?.persistTokenPreferences() }
+            // Core is the store. It also clamps the decimal fields, so the
+            // normalised list comes back and lands here again — the guard above
+            // stops that second pass, since by then it matches.
+            tokenPreferencesPersist.fire { [weak self] in self?.commitTokenPreferences() }
             // Token-decimals overrides feed into the Rust asset-decimals
             // resolver, so drop the memoized cache when the overrides change.
             cachedAssetDecimalsResolutions = [:]
@@ -397,7 +476,11 @@ final class AppState {
     var fiatRatesFromUSD: [String: Double] = [:]
     var fiatRatesRefreshError: String? = nil
     var quoteRefreshError: String? = nil
-    var cachedPinnedDashboardAssetSymbols: [String] = [] { didSet { bumpCachesRevision() } }
+    /// Projection of `CoreAppState.settings.pinnedDashboardAssetSymbols`.
+    /// Written only by `applyCoreState`; change it with `setPinnedDashboardAssets`.
+    private(set) var cachedPinnedDashboardAssetSymbols: [String] = [] {
+        didSet { bumpCachesRevision() }
+    }
     var cachedDashboardPinOptionBySymbol: [String: DashboardPinOption] = [:] { didSet { bumpCachesRevision() } }
     var cachedAvailableDashboardPinOptions: [DashboardPinOption] = [] { didSet { bumpCachesRevision() } }
     var cachedDashboardAssetGroups: [DashboardAssetGroup] = [] { didSet { bumpCachesRevision() } }
@@ -426,7 +509,7 @@ final class AppState {
     @ObservationIgnored var cachedFiatAmountRules: [String: FiatAmountRules] = [:]
     @ObservationIgnored var cachedAssetMinimumVisibleAmounts: [UInt32: Double] = [:]
     @ObservationIgnored var cachedAssetDecimalsResolutions: [String: (supported: UInt32, display: UInt32)] = [:]
-    /// Memoizes `corePlanPricedChain`. Called once per coin per body render
+    /// Memoizes `corePricedChain`. Called once per coin per body render
     /// via `isPricedAsset` (portfolio totals, asset rows, wallet cards). Key
     /// composes chain name + both network modes because the Rust answer
     /// depends on all three. Invalidated from the network-mode `didSet`s.
@@ -454,7 +537,6 @@ final class AppState {
                 try? await WalletServiceBridge.shared.deleteKeypoolForChain(chainName: "Bitcoin")
                 try? await WalletServiceBridge.shared.deleteOwnedAddressesForChain(chainName: "Bitcoin")
             }
-            chainKeypoolByChain.removeValue(forKey: "Bitcoin")
             chainOwnedAddressMapByChain.removeValue(forKey: "Bitcoin")
         }
     }
@@ -465,7 +547,6 @@ final class AppState {
                 try? await WalletServiceBridge.shared.deleteKeypoolForChain(chainName: "Dogecoin")
                 try? await WalletServiceBridge.shared.deleteOwnedAddressesForChain(chainName: "Dogecoin")
             }
-            chainKeypoolByChain["Dogecoin"] = [:]
             chainOwnedAddressMapByChain["Dogecoin"] = [:]
         }
     }
@@ -517,12 +598,6 @@ final class AppState {
         didSet {
             guard backgroundSyncProfile != oldValue else { return }
             persistAppSettings()
-        }
-    }
-    var chainKeypoolByChain: [String: [String: ChainKeypoolState]] = [:] {
-        didSet {
-            let changedChains = chainKeypoolByChain.keys.filter { chainKeypoolByChain[$0] != oldValue[$0] }
-            for chainName in changedChains { persistKeypoolForChain(chainName) }
         }
     }
     var chainOwnedAddressMapByChain: [String: [String: ChainOwnedAddressRecord]] = [:] {
@@ -649,12 +724,10 @@ final class AppState {
     // incompatibly; the previous key is left here briefly for any
     // migration-read code that still references it.
     static let pricingProviderDefaultsKey = "pricing.provider"
-    static let selectedFiatCurrencyDefaultsKey = "pricing.selectedFiatCurrency"
     static let fiatRateProviderDefaultsKey = "pricing.fiatRateProvider"
     static let fiatRatesFromUSDDefaultsKey = "pricing.fiatRatesFromUSD.v1"
     static let livePricesDefaultsKey = "pricing.livePrices.v1"
     static let priceAlertsDefaultsKey = "priceAlerts.snapshot"
-    static let addressBookDefaultsKey = "addressBook.snapshot"
 
     static let walletsAccount = "wallets.snapshot"
     static let walletsCoreSnapshotAccount = "wallets.core.snapshot.v1"
@@ -937,7 +1010,6 @@ final class AppState {
         tokenPreferencesPersist.cancel()
         livePricesPersist.cancel()
         priceAlertsPersist.cancel()
-        addressBookPersist.cancel()
         #if canImport(Network)
             networkPathMonitor.cancel()
         #endif
@@ -1177,14 +1249,4 @@ final class AppState {
     var ethereumRPCEndpointValidationError: String? { ethereumRpcEndpointValidationError(endpoint: ethereumRPCEndpoint) }
     var moneroBackendBaseURLValidationError: String? { moneroBackendBaseUrlValidationError(endpoint: moneroBackendBaseURL) }
 
-    @discardableResult
-    func setTransactionsIfChanged(_ newTransactions: [TransactionRecord]) -> Bool {
-        guard !transactionSnapshotsMatch(transactions, newTransactions) else { return false }
-        setTransactions(newTransactions)
-        return true
-    }
-    private func transactionSnapshotsMatch(_ lhs: [TransactionRecord], _ rhs: [TransactionRecord]) -> Bool {
-        guard lhs.count == rhs.count else { return false }
-        return zip(lhs, rhs).allSatisfy { $0.persistedSnapshot == $1.persistedSnapshot }
-    }
 }

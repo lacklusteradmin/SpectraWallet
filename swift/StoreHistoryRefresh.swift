@@ -87,12 +87,11 @@ extension AppState {
         chainName: String,
         chainId: String,
         resolveAddress: (ImportedWallet) -> String?,
-        upsert: ([TransactionRecord]) -> Void,
         loadMore: Bool = false,
         targetWalletIDs: Set<String>? = nil
     ) async {
         let walletSnapshot = wallets
-        let targets = corePlanNormalizedRefreshTargets(
+        let targets = coreNormalizedRefreshTargets(
             request: NormalizedRefreshTargetsRequest(
                 chainName: chainName,
                 wallets: walletSnapshot.enumerated().map { index, wallet in
@@ -146,7 +145,7 @@ extension AppState {
             if hadErrors { markChainDegraded(chainName, detail: "\(chainName) history refresh failed. Using cached history.") }
             return
         }
-        upsert(discovered)
+        upsertTransactions(discovered, chainName: chainName)
         if hadErrors {
             markChainDegraded(chainName, detail: "\(chainName) history loaded with partial provider failures.")
         } else {
@@ -157,76 +156,63 @@ extension AppState {
     // ── Per-chain refresh methods (thin wrappers over the generic above)
     func refreshBitcoinCashTransactions(limit: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil) async {
         await refreshNormalizedChainTransactions(
-            chainName: "Bitcoin Cash", chainId: SpectraChainID.bitcoinCash, resolveAddress: { resolvedBitcoinCashAddress(for: $0) },
-            upsert: upsertBitcoinCashTransactions, loadMore: loadMore, targetWalletIDs: targetWalletIDs)
+            chainName: "Bitcoin Cash", chainId: SpectraChainID.bitcoinCash, resolveAddress: { resolvedBitcoinCashAddress(for: $0) }, loadMore: loadMore, targetWalletIDs: targetWalletIDs)
     }
     func refreshBitcoinSVTransactions(limit: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil) async {
         await refreshNormalizedChainTransactions(
-            chainName: "Bitcoin SV", chainId: SpectraChainID.bitcoinSv, resolveAddress: { resolvedBitcoinSVAddress(for: $0) },
-            upsert: upsertBitcoinSVTransactions, loadMore: loadMore, targetWalletIDs: targetWalletIDs)
+            chainName: "Bitcoin SV", chainId: SpectraChainID.bitcoinSv, resolveAddress: { resolvedBitcoinSVAddress(for: $0) }, loadMore: loadMore, targetWalletIDs: targetWalletIDs)
     }
     func refreshLitecoinTransactions(limit: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil) async {
         await refreshNormalizedChainTransactions(
-            chainName: "Litecoin", chainId: SpectraChainID.litecoin, resolveAddress: { resolvedLitecoinAddress(for: $0) },
-            upsert: upsertLitecoinTransactions, loadMore: loadMore, targetWalletIDs: targetWalletIDs)
+            chainName: "Litecoin", chainId: SpectraChainID.litecoin, resolveAddress: { resolvedLitecoinAddress(for: $0) }, loadMore: loadMore, targetWalletIDs: targetWalletIDs)
     }
     func refreshCardanoTransactions(loadMore: Bool = false) async {
         await refreshNormalizedChainTransactions(
-            chainName: "Cardano", chainId: SpectraChainID.cardano, resolveAddress: { resolvedCardanoAddress(for: $0) },
-            upsert: upsertCardanoTransactions)
+            chainName: "Cardano", chainId: SpectraChainID.cardano, resolveAddress: { resolvedCardanoAddress(for: $0) })
     }
     func refreshXRPTransactions(loadMore: Bool = false) async {
         await refreshNormalizedChainTransactions(
-            chainName: "XRP Ledger", chainId: SpectraChainID.xrp, resolveAddress: { resolvedXRPAddress(for: $0) },
-            upsert: upsertXRPTransactions)
+            chainName: "XRP Ledger", chainId: SpectraChainID.xrp, resolveAddress: { resolvedXRPAddress(for: $0) })
     }
     func refreshStellarTransactions(loadMore: Bool = false) async {
         await refreshNormalizedChainTransactions(
-            chainName: "Stellar", chainId: SpectraChainID.stellar, resolveAddress: { resolvedStellarAddress(for: $0) },
-            upsert: upsertStellarTransactions)
+            chainName: "Stellar", chainId: SpectraChainID.stellar, resolveAddress: { resolvedStellarAddress(for: $0) })
     }
     func refreshMoneroTransactions(loadMore: Bool = false) async {
         await refreshNormalizedChainTransactions(
-            chainName: "Monero", chainId: SpectraChainID.monero, resolveAddress: { resolvedMoneroAddress(for: $0) },
-            upsert: upsertMoneroTransactions)
+            chainName: "Monero", chainId: SpectraChainID.monero, resolveAddress: { resolvedMoneroAddress(for: $0) })
     }
     func refreshSuiTransactions(loadMore: Bool = false) async {
         await refreshNormalizedChainTransactions(
-            chainName: "Sui", chainId: SpectraChainID.sui, resolveAddress: { resolvedSuiAddress(for: $0) }, upsert: upsertSuiTransactions)
+            chainName: "Sui", chainId: SpectraChainID.sui, resolveAddress: { resolvedSuiAddress(for: $0) })
     }
     func refreshICPTransactions(loadMore: Bool = false) async {
         await refreshNormalizedChainTransactions(
-            chainName: "Internet Computer", chainId: SpectraChainID.icp, resolveAddress: { resolvedICPAddress(for: $0) },
-            upsert: upsertICPTransactions)
+            chainName: "Internet Computer", chainId: SpectraChainID.icp, resolveAddress: { resolvedICPAddress(for: $0) })
     }
     func refreshAptosTransactions(loadMore: Bool = false) async {
         await refreshNormalizedChainTransactions(
-            chainName: "Aptos", chainId: SpectraChainID.aptos, resolveAddress: { resolvedAptosAddress(for: $0) },
-            upsert: upsertAptosTransactions)
+            chainName: "Aptos", chainId: SpectraChainID.aptos, resolveAddress: { resolvedAptosAddress(for: $0) })
     }
     func refreshTONTransactions(loadMore: Bool = false) async {
         await refreshNormalizedChainTransactions(
-            chainName: "TON", chainId: SpectraChainID.ton, resolveAddress: { resolvedTONAddress(for: $0) }, upsert: upsertTONTransactions)
+            chainName: "TON", chainId: SpectraChainID.ton, resolveAddress: { resolvedTONAddress(for: $0) })
     }
     func refreshNearTransactions(loadMore: Bool = false) async {
         await refreshNormalizedChainTransactions(
-            chainName: "NEAR", chainId: SpectraChainID.near, resolveAddress: { resolvedNearAddress(for: $0) },
-            upsert: upsertNearTransactions)
+            chainName: "NEAR", chainId: SpectraChainID.near, resolveAddress: { resolvedNearAddress(for: $0) })
     }
     func refreshPolkadotTransactions(loadMore: Bool = false) async {
         await refreshNormalizedChainTransactions(
-            chainName: "Polkadot", chainId: SpectraChainID.polkadot, resolveAddress: { resolvedPolkadotAddress(for: $0) },
-            upsert: upsertPolkadotTransactions)
+            chainName: "Polkadot", chainId: SpectraChainID.polkadot, resolveAddress: { resolvedPolkadotAddress(for: $0) })
     }
     func refreshSolanaTransactions(loadMore: Bool = false) async {
         await refreshNormalizedChainTransactions(
-            chainName: "Solana", chainId: SpectraChainID.solana, resolveAddress: { resolvedSolanaAddress(for: $0) },
-            upsert: upsertSolanaTransactions)
+            chainName: "Solana", chainId: SpectraChainID.solana, resolveAddress: { resolvedSolanaAddress(for: $0) })
     }
     func refreshTronTransactions(loadMore: Bool = false, targetWalletIDs: Set<String>? = nil) async {
         await refreshNormalizedChainTransactions(
-            chainName: "Tron", chainId: SpectraChainID.tron, resolveAddress: { resolvedTronAddress(for: $0) },
-            upsert: upsertTronTransactions, loadMore: loadMore, targetWalletIDs: targetWalletIDs)
+            chainName: "Tron", chainId: SpectraChainID.tron, resolveAddress: { resolvedTronAddress(for: $0) }, loadMore: loadMore, targetWalletIDs: targetWalletIDs)
     }
 }
 
@@ -322,7 +308,7 @@ extension AppState {
             }
         }
         if !discoveredTransactions.isEmpty {
-            upsertBitcoinTransactions(discoveredTransactions)
+            upsertTransactions(discoveredTransactions, chainName: "Bitcoin")
             if encounteredErrors {
                 markChainDegraded("Bitcoin", detail: "Bitcoin history loaded with partial provider failures.")
             } else {
@@ -340,15 +326,19 @@ extension AppState {
 extension AppState {
     func refreshDogecoinTransactions(limit: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil) async {
         let walletSnapshot = wallets
-        let walletsToRefresh =
-            plannedDogecoinHistoryWallets(walletSnapshot: walletSnapshot, targetWalletIDs: targetWalletIDs)
-            ?? walletSnapshot.compactMap { wallet -> (ImportedWallet, [String])? in
-                guard wallet.selectedChain == "Dogecoin", !knownUTXOAddresses(for: wallet, chainName: "Dogecoin").isEmpty else {
-                    return nil
-                }
-                if let targetWalletIDs, !targetWalletIDs.contains(wallet.id) { return nil }
-                return (wallet, knownUTXOAddresses(for: wallet, chainName: "Dogecoin"))
+        // Explicit loops rather than compactMap: gathering a wallet's known
+        // addresses now reads core's keypool, and map closures cannot await.
+        var walletsToRefresh = await plannedDogecoinHistoryWallets(
+            walletSnapshot: walletSnapshot, targetWalletIDs: targetWalletIDs) ?? []
+        if walletsToRefresh.isEmpty {
+            for wallet in walletSnapshot {
+                guard wallet.selectedChain == "Dogecoin" else { continue }
+                if let targetWalletIDs, !targetWalletIDs.contains(wallet.id) { continue }
+                let addresses = await knownUTXOAddresses(for: wallet, chainName: "Dogecoin")
+                guard !addresses.isEmpty else { continue }
+                walletsToRefresh.append((wallet, addresses))
             }
+        }
         guard !walletsToRefresh.isEmpty else { return }
         if !loadMore {
             for walletID in Set(walletsToRefresh.map { $0.0.id }) {
@@ -388,7 +378,7 @@ extension AppState {
             if encounteredErrors { markChainDegraded("Dogecoin", detail: "Dogecoin history refresh failed. Using cached history.") }
             return
         }
-        upsertDogecoinTransactions(syncedTransactions)
+        upsertTransactions(syncedTransactions, chainName: "Dogecoin")
         if encounteredErrors {
             markChainDegraded("Dogecoin", detail: "Dogecoin history loaded with partial provider failures.")
         } else {
@@ -397,16 +387,19 @@ extension AppState {
     }
     private func plannedDogecoinHistoryWallets(
         walletSnapshot: [ImportedWallet], targetWalletIDs: Set<String>?
-    ) -> [(ImportedWallet, [String])]? {
-        let request = DogecoinRefreshTargetsRequest(
-            wallets: walletSnapshot.enumerated().map { index, wallet in
+    ) async -> [(ImportedWallet, [String])]? {
+        var inputs: [DogecoinRefreshWalletInput] = []
+        for (index, wallet) in walletSnapshot.enumerated() {
+            inputs.append(
                 DogecoinRefreshWalletInput(
                     index: UInt64(index), walletId: wallet.id, selectedChain: wallet.selectedChain,
-                    addresses: knownUTXOAddresses(for: wallet, chainName: "Dogecoin")
-                )
-            }, allowedWalletIds: targetWalletIDs.map(Array.init)
+                    addresses: await knownUTXOAddresses(for: wallet, chainName: "Dogecoin")
+                ))
+        }
+        let request = DogecoinRefreshTargetsRequest(
+            wallets: inputs, allowedWalletIds: targetWalletIDs.map(Array.init)
         )
-        let targets = corePlanDogecoinRefreshTargets(request: request)
+        let targets = coreDogecoinRefreshTargets(request: request)
         guard !targets.isEmpty else { return nil }
         let walletByID = Dictionary(uniqueKeysWithValues: walletSnapshot.map { ($0.id, $0) })
         return targets.compactMap { target in
@@ -574,7 +567,7 @@ extension AppState {
             }
             return
         }
-        upsertEVMTransactions(syncedTransactions, chainName: chainName)
+        upsertTransactions(syncedTransactions, chainName: chainName)
         if encounteredErrors {
             markChainDegraded(chainName, detail: "\(chainName) history loaded with partial provider failures.")
         } else {
@@ -594,7 +587,7 @@ extension AppState {
             allowedWalletIds: targetWalletIDs.map(Array.init),
             groupByNormalizedAddress: groupByNormalizedAddress
         )
-        return corePlanEvmRefreshTargets(request: request)
+        return coreEvmRefreshTargets(request: request)
     }
     private func plannedEVMHistoryWallets(chainName: String, walletSnapshot: [ImportedWallet], targetWalletIDs: Set<String>?) -> [(
         ImportedWallet, String

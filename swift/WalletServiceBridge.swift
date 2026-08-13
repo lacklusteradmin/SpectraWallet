@@ -177,6 +177,133 @@ extension WalletServiceBridge {
     func fetchErc20Balance(chainId: String, contract: String, holder: String) async throws -> Erc20Balance {
         try await service().fetchErc20BalanceTyped(chainId: chainId, contract: contract, holder: holder)
     }
+    // ── Owned application state ───────────────────────────────────────────
+    //
+    // `CoreAppState` is the domain state and Rust owns it. Swift sends a
+    // command and renders the state it gets back; it does not keep its own
+    // copy and mutate it. See PLAN.md.
+
+    /// Bind the core to its state database and return what is stored.
+    @discardableResult
+    func openState() async throws -> CoreAppState {
+        try await service().openState(dbPath: sqliteDbPath())
+    }
+
+    /// Apply a command to the owned state. Core persists before returning.
+    @discardableResult
+    func applyStateCommand(_ command: StateCommand) async throws -> StateTransition {
+        try await service().applyStateCommand(command: command)
+    }
+
+    /// Current snapshot of the owned state.
+    func appState() async throws -> CoreAppState { try await service().appState() }
+
+    /// Change the core-owned transaction store. Returns which ids changed.
+    @discardableResult
+    func applyTransactionCommand(_ command: TransactionCommand) async throws -> TransactionChange {
+        try await service().applyTransactionCommand(command: command)
+    }
+
+    /// The wallets core holds, in the shape the views render.
+    func storedWallets() async throws -> [ImportedWallet] {
+        try await service().walletsForDisplay()
+    }
+
+    /// Every stored transaction, newest first.
+    func storedTransactions() async throws -> [CorePersistedTransactionRecord] {
+        try await service().transactions()
+    }
+
+    // ── Confirmation-poll backoff ─────────────────────────────────────────
+    // Core owns the tracker table; these forward intent, not computed state.
+
+    func transactionsDueForStatusPoll(ids: [String], now: Date) async throws -> [String] {
+        try await service().transactionsDueForStatusPoll(
+            transactionIds: ids, nowUnix: now.timeIntervalSince1970)
+    }
+
+    func recordStatusPollSuccess(
+        id: String, confirmed: Bool, pending: Bool, confirmations: UInt32?, now: Date,
+        config: TransactionStatusPollConfig
+    ) async throws {
+        try await service().recordStatusPollSuccess(
+            transactionId: id, resolvedStatusConfirmed: confirmed, resolvedStatusPending: pending,
+            reportedConfirmations: confirmations, nowUnix: now.timeIntervalSince1970, config: config)
+    }
+
+    func recordStatusPollFailure(id: String, now: Date, config: TransactionStatusPollConfig)
+        async throws
+    {
+        try await service().recordStatusPollFailure(
+            transactionId: id, nowUnix: now.timeIntervalSince1970, config: config)
+    }
+
+    func resetStatusTracker(id: String, now: Date, clearFinality: Bool) async throws {
+        try await service().resetStatusTracker(
+            transactionId: id, nowUnix: now.timeIntervalSince1970, clearFinality: clearFinality)
+    }
+
+    func retainStatusTrackers(ids: [String]) async throws {
+        try await service().retainStatusTrackers(transactionIds: ids)
+    }
+
+    func clearStatusTrackers() async throws { try await service().clearStatusTrackers() }
+
+    // ── Keypool ───────────────────────────────────────────────────────────
+    // Reservation is read-modify-write, so it happens inside core under one
+    // lock. Swift supplies the baseline and takes back the index.
+
+    func keypoolState(walletID: String, chainName: String, baseline: ChainKeypoolStateRecord)
+        async throws -> KeypoolState
+    {
+        try await service().keypoolState(
+            walletId: walletID, chainName: chainName, baseline: baseline)
+    }
+
+    func reserveReceiveIndex(
+        walletID: String, chainName: String, baseline: ChainKeypoolStateRecord, minimumIndex: Int64
+    ) async throws -> Int64 {
+        try await service().reserveReceiveIndex(
+            walletId: walletID, chainName: chainName, baseline: baseline,
+            minimumIndex: minimumIndex)
+    }
+
+    func reserveChangeIndex(
+        walletID: String, chainName: String, baseline: ChainKeypoolStateRecord
+    ) async throws -> Int64 {
+        try await service().reserveChangeIndex(
+            walletId: walletID, chainName: chainName, baseline: baseline)
+    }
+
+    func clearReservedReceiveIndex(walletID: String, chainName: String) async throws {
+        try await service().clearReservedReceiveIndex(walletId: walletID, chainName: chainName)
+    }
+
+    func keypoolSnapshot() async throws -> [String: [String: KeypoolState]] {
+        try await service().keypoolSnapshot()
+    }
+
+    /// Import wallets into core. Returns what was created, plus the Keychain
+    /// writes the caller still owns.
+    func importWallets(_ commit: WalletImportCommit) async throws -> WalletImportOutcome {
+        try await service().importWallets(commit: commit)
+    }
+
+    func applyResolvedPendingTransactionStatuses(
+        inputs: [ResolvedPendingTransactionInput], now: Date, config: TransactionStatusPollConfig
+    ) async throws -> [ResolvedPendingTransactionDecision] {
+        try await service().applyResolvedPendingTransactionStatuses(
+            inputs: inputs, nowUnix: now.timeIntervalSince1970, config: config)
+    }
+
+    func stalePendingFailureIDs(
+        transactions: [StalePendingFailureTransactionInput], now: Date,
+        config: TransactionStatusPollConfig
+    ) async throws -> [String] {
+        try await service().stalePendingFailureIds(
+            transactions: transactions, nowUnix: now.timeIntervalSince1970, config: config)
+    }
+
     func loadState(key: String) async throws -> String { try await service().loadState(dbPath: sqliteDbPath(), key: key) }
     func saveState(key: String, stateJSON: String) async throws {
         try await service().saveState(dbPath: sqliteDbPath(), key: key, stateJson: stateJSON)
@@ -188,12 +315,6 @@ extension WalletServiceBridge {
     }
     func savePriceAlertStore(key: String, value: CorePersistedPriceAlertStore) async throws {
         try await service().savePriceAlertStore(dbPath: sqliteDbPath(), key: key, value: value)
-    }
-    func loadAddressBookStore(key: String) async throws -> CorePersistedAddressBookStore? {
-        try await service().loadAddressBookStore(dbPath: sqliteDbPath(), key: key)
-    }
-    func saveAddressBookStore(key: String, value: CorePersistedAddressBookStore) async throws {
-        try await service().saveAddressBookStore(dbPath: sqliteDbPath(), key: key, value: value)
     }
     func fetchNormalizedHistory(chainId: String, address: String) async throws -> [NormalizedHistoryItem] {
         try await service().fetchNormalizedHistory(chainId: chainId, address: address)
@@ -208,6 +329,9 @@ extension WalletServiceBridge {
         )
     }
     func loadAllKeypoolStateTyped() async throws -> [String: [String: KeypoolState]] { try await service().loadAllKeypoolStateTyped(dbPath: sqliteDbPath()) }
+    func deleteKeypoolForWallet(walletId: String) async throws {
+        try await service().deleteKeypoolForWallet(dbPath: sqliteDbPath(), walletId: walletId)
+    }
     func deleteKeypoolForChain(chainName: String) async throws {
         try await service().deleteKeypoolForChain(dbPath: sqliteDbPath(), chainName: chainName)
     }

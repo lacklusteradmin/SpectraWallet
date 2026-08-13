@@ -124,7 +124,7 @@ enum CachedCoreHelpers {
     }
     static func receiveAddressResolver(symbol: String, chainName: String, isEvmChain: Bool) -> ReceiveAddressResolverKind {
         cached(in: &receiveAddressResolvers, key: "\(symbol)|\(chainName)|\(isEvmChain ? "1" : "0")") {
-            corePlanReceiveAddressResolver(symbol: symbol, chainName: chainName, isEvmChain: isEvmChain)
+            coreReceiveAddressResolver(symbol: symbol, chainName: chainName, isEvmChain: isEvmChain)
         }
     }
     static func privateKeyHexIsLikely(rawValue: String) -> Bool {

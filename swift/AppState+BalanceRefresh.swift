@@ -21,14 +21,15 @@ extension AppState {
             let batch = self.pendingBalanceUpdates
             self.pendingBalanceUpdates = []
             guard !batch.isEmpty else { return }
-            self.flushBalanceBatch(batch)
+            Task { @MainActor in await self.flushBalanceBatch(batch) }
         }
     }
 
-    private func flushBalanceBatch(_ batch: [PendingBalanceUpdate]) {
+    private func flushBalanceBatch(_ batch: [PendingBalanceUpdate]) async {
         var walletsCopy = wallets
         let walletIndexById = Dictionary(uniqueKeysWithValues: walletsCopy.enumerated().map { ($1.id, $0) })
         var anyChanged = false
+        var changedWallets: [ImportedWallet] = []
         for update in batch {
             guard let idx = walletIndexById[update.walletId] else {
                 print("[BalanceRefresh] flushBatch: walletId \(update.walletId) not found in \(walletsCopy.map(\.id))")
@@ -36,13 +37,16 @@ extension AppState {
             }
             if let updated = holdingsAppliedFromSummary(update.summary, to: walletsCopy[idx]) {
                 walletsCopy[idx] = updated
+                changedWallets.append(updated)
                 anyChanged = true
                 print("[BalanceRefresh] applied balance for wallet '\(walletsCopy[idx].name)' holdings=\(updated.holdings.map { "\($0.symbol):\($0.amount)" })")
             } else {
                 print("[BalanceRefresh] holdingsAppliedFromSummary returned nil for wallet '\(walletsCopy[idx].name)' incoming=\(update.summary.holdings.map { "\($0.symbol):\($0.amount)" }) existing=\(walletsCopy[idx].holdings.map { "\($0.symbol):\($0.amount)" })")
             }
         }
-        if anyChanged { wallets = walletsCopy }
+        // Only the wallets whose holdings moved are written — a refresh cycle
+        // mostly returns balances that have not changed.
+        if anyChanged { await updateWalletsIfPresent(changedWallets) }
     }
 
     private func holdingsAppliedFromSummary(_ summary: WalletSummary, to wallet: ImportedWallet) -> ImportedWallet? {
@@ -124,9 +128,7 @@ extension AppState {
                 }
             }
             if holdingsChanged {
-                var walletsCopy = wallets
-                walletsCopy[currentIdx] = walletByReplacingHoldings(walletsCopy[currentIdx], with: holdings)
-                wallets = walletsCopy
+                await updateWalletsIfPresent([walletByReplacingHoldings(wallets[currentIdx], with: holdings)])
                 print("[BalanceRefresh] applied token balances for wallet '\(wallet.name)' tokens=\(results.filter { (Double($0.balanceDisplay) ?? 0) > 0 }.map { "\($0.symbol):\($0.balanceDisplay)" })")
             }
         }
@@ -175,9 +177,7 @@ extension AppState {
                 }
             }
             if holdingsChanged {
-                var walletsCopy = wallets
-                walletsCopy[currentIdx] = walletByReplacingHoldings(walletsCopy[currentIdx], with: holdings)
-                wallets = walletsCopy
+                await updateWalletsIfPresent([walletByReplacingHoldings(wallets[currentIdx], with: holdings)])
                 print("[BalanceRefresh] applied Solana SPL balances for wallet '\(wallet.name)' tokens=\(results.filter { (Double($0.balanceDisplay) ?? 0) > 0 }.map { "\($0.symbol):\($0.balanceDisplay)" })")
             }
         }
@@ -287,25 +287,25 @@ extension AppState {
         var resolvedClassifications: [UUID: (TransactionStatus, EvmReceiptClassification)] = [:]
         for transaction in pendingTransactions {
             guard let transactionHash = transaction.transactionHash else { continue }
-            guard shouldPollTransactionStatus(for: transaction, now: now) else { continue }
+            guard await shouldPollTransactionStatus(for: transaction, now: now) else { continue }
             do {
                 guard
                     let classified = try await WalletServiceBridge.shared.fetchEvmReceiptClassification(
                         chainId: chainId, txHash: transactionHash
                     )
                 else {
-                    markTransactionStatusPollSuccess(for: transaction, resolvedStatus: .pending, now: now)
+                    await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: .pending, now: now)
                     continue
                 }
                 if classified.isConfirmed {
                     let resolvedStatus: TransactionStatus = classified.isFailed ? .failed : .confirmed
-                    markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus, now: now)
+                    await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus, now: now)
                     resolvedClassifications[transaction.id] = (resolvedStatus, classified)
                 } else {
-                    markTransactionStatusPollSuccess(for: transaction, resolvedStatus: .pending, now: now)
+                    await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: .pending, now: now)
                 }
             } catch {
-                markTransactionStatusPollFailure(for: transaction, now: now)
+                await markTransactionStatusPollFailure(for: transaction, now: now)
                 continue
             }
         }
@@ -315,7 +315,7 @@ extension AppState {
                 dogecoinNetworkFeeDoge: nil
             )
         }
-        let staleFailureIDs = stalePendingFailureIDs(from: pendingTransactions, now: now)
-        applyResolvedPendingTransactionStatuses(resolvedStatuses, staleFailureIDs: staleFailureIDs, now: now)
+        let staleFailureIDs = await stalePendingFailureIDs(from: pendingTransactions, now: now)
+        await applyResolvedPendingTransactionStatuses(resolvedStatuses, staleFailureIDs: staleFailureIDs, now: now)
     }
 }

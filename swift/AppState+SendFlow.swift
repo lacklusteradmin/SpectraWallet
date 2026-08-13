@@ -60,7 +60,7 @@ extension AppState {
             usesChangeOutput: c.usesChangeOutput, maxSendable: c.maxSendable)
     }
     var customEthereumFeeValidationError: String? {
-        let code = corePlanEthereumCustomFeeValidation(
+        let code = coreEthereumCustomFeeValidation(
             useCustomFees: useCustomEthereumFees,
             isEthereumChain: selectedSendCoin?.chainName == "Ethereum",
             maxFeeGweiRaw: customEthereumMaxFeeGwei,
@@ -82,7 +82,7 @@ extension AppState {
         return EthereumCustomFeeConfiguration(maxFeePerGasGwei: maxFee, maxPriorityFeePerGasGwei: priorityFee)
     }
     var customEthereumNonceValidationError: String? {
-        let code = corePlanEthereumManualNonceValidation(
+        let code = coreEthereumManualNonceValidation(
             manualNonceEnabled: ethereumManualNonceEnabled, nonceRaw: ethereumManualNonce
         )
         switch code {
@@ -185,7 +185,7 @@ extension AppState {
     }
     func mapEthereumSendError(_ error: Error) -> String {
         let message = error.localizedDescription
-        switch corePlanEthereumSendErrorCode(message: message) {
+        switch coreEthereumSendErrorCode(message: message) {
         case .nonceTooLow:
             return localizedStoreString("Nonce too low. A newer transaction from this wallet is already known. Refresh and retry.")
         case .replacementUnderpriced:
@@ -226,12 +226,12 @@ extension AppState {
     func configuredEVMRPCEndpointURL(for chainName: String) -> URL? { chainName == "Ethereum" ? configuredEthereumRPCEndpointURL() : nil }
     func supportedEVMToken(for coin: Coin) -> ChainTokenRegistryEntry? {
         guard evmChainContext(for: coin.chainName) != nil else { return nil }
-        if coin.chainName == "Ethereum", coin.symbol == "ETH" { return nil }
-        if coin.chainName == "Ethereum Classic", coin.symbol == "ETC" { return nil }
-        if coin.chainName == "Optimism", coin.symbol == "ETH" { return nil }
-        if coin.chainName == "BNB Chain", coin.symbol == "BNB" { return nil }
-        if coin.chainName == "Avalanche", coin.symbol == "AVAX" { return nil }
-        if coin.chainName == "Hyperliquid", coin.symbol == "HYPE" { return nil }
+        // A chain's native asset is never one of its tokens. This used to be
+        // six hand-written chain/symbol pairs covering a fraction of the EVM
+        // chains; the registry has the full table.
+        if AppEndpointDirectory.appChain(for: coin.chainName)?.nativeSymbol == coin.symbol {
+            return nil
+        }
         let chainTokens = TokenTrackingChain.forChainName(coin.chainName).map { enabledEVMTrackedTokens(for: $0) } ?? []
         if let contractAddress = coin.contractAddress {
             let normalizedContract = normalizeEVMAddress(contractAddress)
@@ -289,7 +289,7 @@ extension AppState {
         } else {
             tokenHasCode = nil
         }
-        let warnings = corePlanEvmRecipientPreflightWarnings(
+        let warnings = coreEvmRecipientPreflightWarnings(
             request: EvmRecipientPreflightRequest(
                 chainName: holding.chainName, holdingSymbol: holding.symbol,
                 tokenSymbol: token?.symbol, recipientHasCode: recipientHasCode, tokenHasCode: tokenHasCode
@@ -405,7 +405,7 @@ extension AppState {
         default: return localizedStoreFormat("Enter a valid %@ address.", chainName)
         }
     }
-    func isDuplicateAddressBookAddress(_ address: String, chainName: String, excluding entryID: UUID? = nil) -> Bool {
+    func isDuplicateAddressBookAddress(_ address: String, chainName: String, excluding entryID: String? = nil) -> Bool {
         let normalized = normalizedAddress(address, for: chainName)
         guard !normalized.isEmpty else { return false }
         return addressBook.contains {
@@ -417,12 +417,16 @@ extension AppState {
         return !trimmedName.isEmpty && isValidAddress(address, for: chainName)
             && !isDuplicateAddressBookAddress(address, chainName: chainName)
     }
+    /// Save a recipient. Core trims, normalizes the address, validates it and
+    /// rejects duplicates; the UI does not pre-check beyond disabling the
+    /// button via `canSaveAddressBookEntry`.
     func addAddressBookEntry(name: String, address: String, chainName: String, note: String = "") {
-        guard canSaveAddressBookEntry(name: name, address: address, chainName: chainName) else { return }
-        prependAddressBookEntry(
-            AddressBookEntry(
-                name: name.trimmingCharacters(in: .whitespacesAndNewlines), chainName: chainName,
-                address: normalizedAddress(address, for: chainName), note: note.trimmingCharacters(in: .whitespacesAndNewlines)))
+        Task { @MainActor [weak self] in
+            await self?.sendAddressBookCommand(
+                .addAddressBookEntry(
+                    id: UUID().uuidString, name: name, chainName: chainName,
+                    address: address, note: note))
+        }
     }
     func canSaveLastSentRecipientToAddressBook() -> Bool {
         guard let tx = lastSentTransaction, tx.kind == .send else { return false }
@@ -432,15 +436,43 @@ extension AppState {
         guard let tx = lastSentTransaction, tx.kind == .send else { return }
         addAddressBookEntry(name: "\(tx.symbol) Recipient", address: tx.address, chainName: tx.chainName, note: "Saved from recent send")
     }
-    func renameAddressBookEntry(id: UUID, to newName: String) {
-        let trimmedName = newName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty, let index = addressBook.firstIndex(where: { $0.id == id }) else { return }
-        let e = addressBook[index]
-        var next = addressBook
-        next[index] = AddressBookEntry(id: e.id, name: trimmedName, chainName: e.chainName, address: e.address, note: e.note)
-        setAddressBook(next)
+    func renameAddressBookEntry(id: String, to newName: String) {
+        Task { @MainActor [weak self] in
+            await self?.sendAddressBookCommand(.renameAddressBookEntry(id: id, name: newName))
+        }
     }
-    func removeAddressBookEntry(id: UUID) { removeAddressBookEntry(byID: id) }
+    func removeAddressBookEntry(id: String) {
+        Task { @MainActor [weak self] in
+            await self?.sendAddressBookCommand(.removeAddressBookEntry(id: id))
+        }
+    }
+
+    /// Send an address-book command and mirror the result.
+    ///
+    /// A refusal arrives as an `addressBookRejected` event carrying the reason
+    /// core decided on; surfacing it beats silently doing nothing.
+    private func sendAddressBookCommand(_ command: StateCommand) async {
+        let epoch = beginCoreStateRead()
+        guard let transition = try? await WalletServiceBridge.shared.applyStateCommand(command)
+        else { return }
+        applyCoreState(transition.state, epoch: epoch)
+        if let reason = transition.events.first(where: { $0.kind == "addressBookRejected" })?
+            .subjectId
+        {
+            addressBookError = addressBookRejectionMessage(reason)
+        } else {
+            addressBookError = nil
+        }
+    }
+
+    private func addressBookRejectionMessage(_ reason: String) -> String {
+        switch reason {
+        case "emptyName": return localizedStoreString("Enter a name for this contact.")
+        case "invalidAddress": return localizedStoreString("That address is not valid for this chain.")
+        case "duplicateAddress": return localizedStoreString("That address is already saved.")
+        default: return localizedStoreString("This contact could not be saved.")
+        }
+    }
     private func runSyncSelfTests(
         running: ReferenceWritableKeyPath<AppState, Bool>, results: ReferenceWritableKeyPath<AppState, [ChainSelfTestResult]>,
         lastRun: ReferenceWritableKeyPath<AppState, Date?>, suite: () -> [ChainSelfTestResult], chainName: String, abbrev: String
@@ -755,13 +787,11 @@ extension AppState {
         guard ["Bitcoin", "Bitcoin Cash", "Bitcoin SV", "Litecoin", "Dogecoin"].contains(transaction.chainName), transaction.kind == .send
         else { return "Status recheck is only supported for UTXO send transactions." }
         guard transaction.transactionHash != nil else { return "This transaction has no hash to recheck." }
-        if transaction.chainName == "Dogecoin" {
-            var tracker = statusTrackingByTransactionID[transactionID] ?? DogecoinStatusTrackingState.initial(now: Date())
-            tracker.nextCheckAt = Date.distantPast; tracker.reachedFinality = false; statusTrackingByTransactionID[transactionID] = tracker
-        } else {
-            var tracker = statusTrackingByTransactionID[transactionID] ?? TransactionStatusTrackingState.initial(now: Date())
-            tracker.nextCheckAt = Date.distantPast; statusTrackingByTransactionID[transactionID] = tracker
-        }
+        // Dogecoin tracks finality, so a manual recheck must also re-open a
+        // transaction already considered final.
+        try? await WalletServiceBridge.shared.resetStatusTracker(
+            id: transactionID.uuidString, now: Date(),
+            clearFinality: transaction.chainName == "Dogecoin")
         switch transaction.chainName {
         case "Bitcoin": await refreshPendingBitcoinTransactions()
         case "Bitcoin Cash": await refreshPendingBitcoinCashTransactions()
@@ -795,7 +825,7 @@ extension AppState {
             let txHash = txidFromJSON.isEmpty ? (transaction.transactionHash ?? "") : txidFromJSON
             let result = (transactionHash: txHash, verificationStatus: SendBroadcastVerificationStatus.deferred)
             if let index = transactions.firstIndex(where: { $0.id == transactionID }) {
-                transactions[index] = transactions[index].withRebroadcastUpdate(status: .pending, transactionHash: result.transactionHash)
+                recordTransaction(transactions[index].withRebroadcastUpdate(status: .pending, transactionHash: result.transactionHash))
             }
             await refreshPendingDogecoinTransactions()
             switch result.verificationStatus {
@@ -835,7 +865,7 @@ extension AppState {
                 transaction: transaction, payload: payload, format: format
             )
             if let index = transactions.firstIndex(where: { $0.id == transactionID }) {
-                transactions[index] = transactions[index].withRebroadcastUpdate(status: .pending, transactionHash: transactionHash)
+                recordTransaction(transactions[index].withRebroadcastUpdate(status: .pending, transactionHash: transactionHash))
             }
             if transaction.chainName == "Dogecoin" { await refreshPendingDogecoinTransactions() }
             switch verificationStatus {
@@ -988,7 +1018,7 @@ extension AppState {
         }
         return false
     }
-    func knownUTXOAddresses(for wallet: ImportedWallet, chainName: String) -> [String] {
+    func knownUTXOAddresses(for wallet: ImportedWallet, chainName: String) async -> [String] {
         var ordered: [String] = []; var seen: Set<String> = []
         func appendAddress(_ candidate: String?) {
             guard let candidate else { return }
@@ -1005,7 +1035,7 @@ extension AppState {
         default: break
         }
         appendAddress(resolvedAddress(for: wallet, chainName: chainName))
-        appendAddress(reservedReceiveAddress(for: wallet, chainName: chainName, reserveIfMissing: false))
+        appendAddress(await reservedReceiveAddress(for: wallet, chainName: chainName, reserveIfMissing: false))
         for transaction in transactions where transaction.chainName == chainName && transaction.walletID == wallet.id {
             appendAddress(transaction.sourceAddress)
             appendAddress(transaction.changeAddress)
@@ -1015,10 +1045,10 @@ extension AppState {
         return ordered
     }
     func discoverUTXOAddresses(for wallet: ImportedWallet, chainName: String) async -> [String] {
-        var ordered = knownUTXOAddresses(for: wallet, chainName: chainName)
+        var ordered = await knownUTXOAddresses(for: wallet, chainName: chainName)
         var seen = Set(ordered.map { $0.lowercased() })
         guard supportsDeepUTXODiscovery(chainName: chainName), storedSeedPhrase(for: wallet.id) != nil else { return ordered }
-        let state = keypoolState(for: wallet, chainName: chainName)
+        let state = await keypoolState(for: wallet, chainName: chainName)
         let highestOwnedExternal =
             (chainOwnedAddressMapByChain[chainName] ?? [:]).values.filter { $0.walletID == wallet.id && $0.branch == "external" }.map(
                 \.index
@@ -1078,8 +1108,8 @@ extension AppState {
         guard !utxoWallets.isEmpty else { return }
         for wallet in utxoWallets {
             guard storedSeedPhrase(for: wallet.id) != nil else { continue }
-            _ = reserveReceiveIndex(for: wallet, chainName: chainName)
-            var state = keypoolState(for: wallet, chainName: chainName)
+            _ = await reserveReceiveIndex(for: wallet, chainName: chainName, minimumIndex: 1)
+            let state = await keypoolState(for: wallet, chainName: chainName)
             guard let reservedIndex = state.reservedReceiveIndex,
                 let reservedAddress = deriveUTXOAddress(
                     for: wallet, chainName: chainName, branch: .external, index: reservedIndex
@@ -1094,9 +1124,14 @@ extension AppState {
                 ), index: reservedIndex, branch: "external"
             )
             guard await hasUTXOOnChainActivity(address: reservedAddress, chainName: chainName) else { continue }
-            let nextReserved = max(state.nextExternalIndex, reservedIndex + 1)
-            state.reservedReceiveIndex = nextReserved; state.nextExternalIndex = max(state.nextExternalIndex, nextReserved + 1)
-            storeChainKeypoolState(state, chainName: chainName, walletID: wallet.id)
+            // The reserved address has been used, so move past it: release the
+            // reservation and take the next index. Both halves run in core, so
+            // nothing else can slip in between and reissue what we just used.
+            try? await WalletServiceBridge.shared.clearReservedReceiveIndex(
+                walletID: wallet.id, chainName: chainName)
+            guard let nextReserved = await reserveReceiveIndex(
+                for: wallet, chainName: chainName, minimumIndex: reservedIndex + 1)
+            else { continue }
             if let nextAddress = deriveUTXOAddress(for: wallet, chainName: chainName, branch: .external, index: nextReserved) {
                 registerOwnedAddress(
                     chainName: chainName, address: nextAddress, walletID: wallet.id,
@@ -1165,31 +1200,38 @@ extension AppState {
         }
         return ChainKeypoolState(coreRecord: corePlanBaselineChainKeypoolState(input: input))
     }
-    func keypoolState(for wallet: ImportedWallet, chainName: String) -> ChainKeypoolState {
+    /// The wallet's keypool state for this chain, merged with the baseline.
+    ///
+    /// Core holds the table and does the merge under its own lock — Swift only
+    /// supplies the baseline, which depends on transaction and owned-address
+    /// history it still computes.
+    func keypoolState(for wallet: ImportedWallet, chainName: String) async -> ChainKeypoolState {
         let baseline = baselineChainKeypoolState(for: wallet, chainName: chainName)
-        let existing = (chainKeypoolByChain[chainName] ?? [:])[wallet.id]
-        let merged = ChainKeypoolState(
-            coreRecord: corePlanChainKeypoolState(
-                baseline: baseline.coreRecord,
-                existing: existing?.coreRecord
-            )
-        )
-        storeChainKeypoolState(merged, chainName: chainName, walletID: wallet.id)
-        return merged
+        guard let state = try? await WalletServiceBridge.shared.keypoolState(
+            walletID: wallet.id, chainName: chainName, baseline: baseline.coreRecord)
+        else { return baseline }
+        return ChainKeypoolState(keypool: state)
     }
-    func reserveReceiveIndex(for wallet: ImportedWallet, chainName: String) -> Int? {
-        var state = keypoolState(for: wallet, chainName: chainName)
-        if let reserved = state.reservedReceiveIndex { return reserved }
-        let reserved = max(state.nextExternalIndex, 0)
-        state.reservedReceiveIndex = reserved; state.nextExternalIndex = reserved + 1
-        storeChainKeypoolState(state, chainName: chainName, walletID: wallet.id)
-        return reserved
+    /// Reserve the next receive index, or return the one already reserved.
+    ///
+    /// Read-modify-write happens inside core: reserving from two places at once
+    /// must not hand the same address to two people.
+    /// `minimumIndex` is the floor the chain requires: the deep-UTXO path never
+    /// hands out index 0 as a receive address.
+    func reserveReceiveIndex(for wallet: ImportedWallet, chainName: String, minimumIndex: Int = 0)
+        async -> Int?
+    {
+        let baseline = baselineChainKeypoolState(for: wallet, chainName: chainName)
+        let reserved = try? await WalletServiceBridge.shared.reserveReceiveIndex(
+            walletID: wallet.id, chainName: chainName, baseline: baseline.coreRecord,
+            minimumIndex: Int64(minimumIndex))
+        return reserved.map(Int.init)
     }
-    func reserveChangeIndex(for wallet: ImportedWallet, chainName: String) -> Int? {
-        var state = keypoolState(for: wallet, chainName: chainName)
-        let reserved = max(state.nextChangeIndex, 0); state.nextChangeIndex = reserved + 1
-        storeChainKeypoolState(state, chainName: chainName, walletID: wallet.id)
-        return reserved
+    func reserveChangeIndex(for wallet: ImportedWallet, chainName: String) async -> Int? {
+        let baseline = baselineChainKeypoolState(for: wallet, chainName: chainName)
+        let reserved = try? await WalletServiceBridge.shared.reserveChangeIndex(
+            walletID: wallet.id, chainName: chainName, baseline: baseline.coreRecord)
+        return reserved.map(Int.init)
     }
     func reservedReceiveDerivationPath(for wallet: ImportedWallet, chainName: String, index: Int?) -> String? {
         if supportsDeepUTXODiscovery(chainName: chainName) {
@@ -1199,15 +1241,51 @@ extension AppState {
         guard seedDerivationChain(for: chainName) != nil else { return nil }
         return seedDerivationChain(for: chainName).map { walletDerivationPath(for: wallet, chain: $0) }
     }
-    func reservedReceiveAddress(for wallet: ImportedWallet, chainName: String, reserveIfMissing: Bool) -> String? {
+    /// The reserved receive address as it currently stands, recording nothing.
+    ///
+    /// The `reserveIfMissing: false` path of `reservedReceiveAddress` still
+    /// wrote — through `keypoolState` and `registerOwnedAddress`, both of which
+    /// touch observed state. This is the variant a SwiftUI `body` can call.
+    /// Merge a stored keypool row with the baseline without recording anything.
+    /// `snapshot` comes from `WalletServiceBridge.keypoolSnapshot()`.
+    func keypoolStateForDisplay(
+        for wallet: ImportedWallet, chainName: String,
+        snapshot: [String: [String: KeypoolState]]
+    ) -> ChainKeypoolState {
+        let baseline = baselineChainKeypoolState(for: wallet, chainName: chainName)
+        let existing = snapshot[chainName]?[wallet.id].map {
+            ChainKeypoolStateRecord(
+                nextExternalIndex: Int32($0.nextExternalIndex),
+                nextChangeIndex: Int32($0.nextChangeIndex),
+                reservedReceiveIndex: $0.reservedReceiveIndex.map { Int32($0) }
+            )
+        }
+        return ChainKeypoolState(
+            coreRecord: corePlanChainKeypoolState(baseline: baseline.coreRecord, existing: existing))
+    }
+    func reservedReceiveAddressForDisplay(
+        for wallet: ImportedWallet, chainName: String,
+        snapshot: [String: [String: KeypoolState]]
+    ) -> String? {
         if supportsDeepUTXODiscovery(chainName: chainName) {
-            var state = keypoolState(for: wallet, chainName: chainName)
-            if state.reservedReceiveIndex == nil, reserveIfMissing {
-                let reserved = max(state.nextExternalIndex, 1)
-                state.reservedReceiveIndex = reserved; state.nextExternalIndex = max(state.nextExternalIndex, reserved + 1)
-                storeChainKeypoolState(state, chainName: chainName, walletID: wallet.id)
-            }
+            let state = keypoolStateForDisplay(
+                for: wallet, chainName: chainName, snapshot: snapshot)
             guard let reservedIndex = state.reservedReceiveIndex,
+                let address = deriveUTXOAddress(
+                    for: wallet, chainName: chainName, branch: .external, index: reservedIndex)
+            else { return resolvedAddress(for: wallet, chainName: chainName) }
+            return address
+        }
+        return resolvedAddress(for: wallet, chainName: chainName)
+    }
+    func reservedReceiveAddress(for wallet: ImportedWallet, chainName: String, reserveIfMissing: Bool) async -> String? {
+        if supportsDeepUTXODiscovery(chainName: chainName) {
+            // Deep-UTXO chains never hand out index 0 as a receive address.
+            let reserved: Int? =
+                reserveIfMissing
+                ? await reserveReceiveIndex(for: wallet, chainName: chainName, minimumIndex: 1)
+                : await keypoolState(for: wallet, chainName: chainName).reservedReceiveIndex
+            guard let reservedIndex = reserved,
                 let address = deriveUTXOAddress(for: wallet, chainName: chainName, branch: .external, index: reservedIndex)
             else { return resolvedAddress(for: wallet, chainName: chainName) }
             registerOwnedAddress(
@@ -1218,9 +1296,9 @@ extension AppState {
             )
             return address
         }
-        if reserveIfMissing { _ = reserveReceiveIndex(for: wallet, chainName: chainName) }
+        if reserveIfMissing { _ = await reserveReceiveIndex(for: wallet, chainName: chainName) }
         guard let address = resolvedAddress(for: wallet, chainName: chainName) else { return nil }
-        let reservedIndex = keypoolState(for: wallet, chainName: chainName).reservedReceiveIndex
+        let reservedIndex = await keypoolState(for: wallet, chainName: chainName).reservedReceiveIndex
         registerOwnedAddress(
             chainName: chainName, address: address, walletID: wallet.id,
             derivationPath: reservedReceiveDerivationPath(for: wallet, chainName: chainName, index: reservedIndex), index: reservedIndex,
@@ -1229,12 +1307,12 @@ extension AppState {
         return address
     }
     func activateLiveReceiveAddress(_ address: String?, for wallet: ImportedWallet, chainName: String, derivationPath: String? = nil)
-        -> String
+        async -> String
     {
         guard let address else { return "" }
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
-        let reservedIndex = reserveReceiveIndex(for: wallet, chainName: chainName)
+        let reservedIndex = await reserveReceiveIndex(for: wallet, chainName: chainName)
         registerOwnedAddress(
             chainName: chainName, address: trimmed, walletID: wallet.id,
             derivationPath: derivationPath ?? reservedReceiveDerivationPath(for: wallet, chainName: chainName, index: reservedIndex),
@@ -1242,11 +1320,11 @@ extension AppState {
         )
         return trimmed
     }
-    func syncChainOwnedAddressManagementState() {
+    func syncChainOwnedAddressManagementState() async {
         for wallet in wallets {
             for chainName in AppEndpointDirectory.diagnosticsChains.map(\.title) {
                 guard let address = resolvedAddress(for: wallet, chainName: chainName) else { continue }
-                let reservedIndex = reserveReceiveIndex(for: wallet, chainName: chainName)
+                let reservedIndex = await reserveReceiveIndex(for: wallet, chainName: chainName)
                 registerOwnedAddress(
                     chainName: chainName, address: address, walletID: wallet.id,
                     derivationPath: reservedReceiveDerivationPath(for: wallet, chainName: chainName, index: reservedIndex),
@@ -1254,11 +1332,6 @@ extension AppState {
                 )
             }
         }
-    }
-    private func storeChainKeypoolState(_ state: ChainKeypoolState, chainName: String, walletID: String) {
-        var perWallet = chainKeypoolByChain[chainName] ?? [:]
-        perWallet[walletID] = state
-        chainKeypoolByChain[chainName] = perWallet
     }
     func refreshSendDestinationRiskWarning(for coin: Coin) async {
         let probeID = "\(sendWalletID)|\(sendHoldingKey)|\(sendAddress)"

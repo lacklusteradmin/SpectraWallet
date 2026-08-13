@@ -369,7 +369,7 @@ extension Coin {
     static func nativeChainIconDescriptor(chainName: String) -> NativeChainIconDescriptor? {
         let normalizedChainName = chainName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedChainName.isEmpty else { return nil }
-        let canonicalChainName = corePlanCanonicalChainComponent(chainName: normalizedChainName, symbol: "")
+        let canonicalChainName = coreCanonicalChainComponent(chainName: normalizedChainName, symbol: "")
         return nativeChainIconDescriptors.first { descriptor in
             descriptor.registryID.caseInsensitiveCompare(canonicalChainName) == .orderedSame
                 || descriptor.chainName.caseInsensitiveCompare(normalizedChainName) == .orderedSame
@@ -394,11 +394,11 @@ extension Coin {
     static func iconIdentifier(symbol: String, chainName: String, contractAddress: String? = nil, tokenStandard: String = "Native")
         -> String
     {
-        corePlanIconIdentifier(
+        coreIconIdentifier(
             symbol: symbol, chainName: chainName, contractAddress: contractAddress, tokenStandard: tokenStandard)
     }
     static func normalizedIconIdentifier(_ identifier: String) -> String {
-        corePlanNormalizedIconIdentifier(identifier: identifier)
+        coreNormalizedIconIdentifier(identifier: identifier)
     }
     static func displayColor(for symbol: String) -> Color {
         if let nativeDescriptor = nativeChainIconDescriptor(symbol: symbol) { return nativeDescriptor.color }

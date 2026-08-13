@@ -60,11 +60,11 @@ extension AppState {
         let deletedChainName = normalizedWalletChainName(walletPendingDeletion.selectedChain)
         deleteWalletSecrets(for: deletedWalletID)
         try? await WalletServiceBridge.shared.deleteWalletRelationalData(walletId: deletedWalletIDString)
-        removeWallet(id: walletPendingDeletion.id)
+        await removeWallet(id: walletPendingDeletion.id)
         let hasRemainingWalletsOnDeletedChain = wallets.contains { normalizedWalletChainName($0.selectedChain) == deletedChainName }
         resetLargeMovementAlertBaseline()
         removeTransactions(forWalletID: walletPendingDeletion.id)
-        for chainName in chainKeypoolByChain.keys { chainKeypoolByChain[chainName]?[walletPendingDeletion.id] = nil }
+        try? await WalletServiceBridge.shared.deleteKeypoolForWallet(walletId: walletPendingDeletion.id)
         for chainName in discoveredUTXOAddressesByChain.keys { discoveredUTXOAddressesByChain[chainName]?[walletPendingDeletion.id] = nil }
         clearHistoryTracking(for: walletPendingDeletion.id)
         clearDeletedWalletDiagnostics(
@@ -169,43 +169,32 @@ extension AppState {
     func availableReceiveChains(for walletID: String) -> [String] { cachedAvailableReceiveChainsByWalletID[walletID] ?? [] }
     func selectedReceiveCoin(for walletID: String) -> Coin? {
         let receiveCoins = availableReceiveCoins(for: walletID)
-        if let plan = rustReceiveSelectionPlan(for: walletID, coins: receiveCoins) {
-            guard let selectedIndex = plan.selectedReceiveHoldingIndex.map(Int.init), receiveCoins.indices.contains(selectedIndex) else {
-                return nil
-            }
-            return receiveCoins[selectedIndex]
-        }
-        let resolvedChainName = resolvedReceiveChainName(for: walletID)
-        guard !resolvedChainName.isEmpty else { return nil }
-        var firstMatchingCoin: Coin?
-        for coin in receiveCoins where coin.chainName == resolvedChainName {
-            if firstMatchingCoin == nil { firstMatchingCoin = coin }
-            if coin.contractAddress == nil { return coin }
-        }
-        return firstMatchingCoin
+        let plan = receiveSelection(for: walletID, coins: receiveCoins)
+        guard let selectedIndex = plan.selectedReceiveHoldingIndex.map(Int.init),
+            receiveCoins.indices.contains(selectedIndex)
+        else { return nil }
+        return receiveCoins[selectedIndex]
     }
     func resolvedReceiveChainName(for walletID: String) -> String {
-        let availableChains = availableReceiveChains(for: walletID)
-        if let plan = rustReceiveSelectionPlan(
-            for: walletID, coins: availableReceiveCoins(for: walletID), chains: availableChains
-        ) {
-            return plan.resolvedChainName
-        }
-        if availableChains.contains(receiveChainName) { return receiveChainName }
-        return availableChains.first ?? ""
+        receiveSelection(for: walletID).resolvedChainName
     }
-    private func rustReceiveSelectionPlan(for walletID: String, coins: [Coin]? = nil, chains: [String]? = nil) -> ReceiveSelectionPlan? {
+    /// Which chain and holding the receive sheet should show. `receiveChainName`
+    /// is the user's current pick and stays in Swift — it is a sheet selection,
+    /// not something a restart should preserve.
+    private func receiveSelection(for walletID: String, coins: [Coin]? = nil) -> ReceiveSelectionPlan {
         let receiveCoins = coins ?? availableReceiveCoins(for: walletID)
-        let availableChains = chains ?? availableReceiveChains(for: walletID)
-        let request = ReceiveSelectionRequest(
-            receiveChainName: receiveChainName, availableReceiveChains: availableChains,
-            availableReceiveHoldings: receiveCoins.enumerated().map { offset, coin in
-                ReceiveSelectionHoldingInput(
-                    holdingIndex: UInt64(offset), chainName: coin.chainName, hasContractAddress: coin.contractAddress != nil
-                )
-            }
+        return coreReceiveSelection(
+            request: ReceiveSelectionRequest(
+                receiveChainName: receiveChainName,
+                availableReceiveChains: availableReceiveChains(for: walletID),
+                availableReceiveHoldings: receiveCoins.enumerated().map { offset, coin in
+                    ReceiveSelectionHoldingInput(
+                        holdingIndex: UInt64(offset), chainName: coin.chainName,
+                        hasContractAddress: coin.contractAddress != nil
+                    )
+                }
+            )
         )
-        return corePlanReceiveSelection(request: request)
     }
     var sendEnabledWallets: [ImportedWallet] { cachedSendEnabledWallets }
     var receiveEnabledWallets: [ImportedWallet] { cachedReceiveEnabledWallets }

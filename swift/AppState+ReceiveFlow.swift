@@ -43,7 +43,8 @@ extension AppState {
                 guard t.kind == .send, t.transactionHash != nil, t.status == .pending || t.status == .confirmed else { return nil }
                 return t.id
             })
-        statusTrackingByTransactionID = statusTrackingByTransactionID.filter { trackedTransactionIDs.contains($0.key) }
+        try? await WalletServiceBridge.shared.retainStatusTrackers(
+            ids: trackedTransactionIDs.map(\.uuidString))
         await withTaskGroup(of: Void.self) { group in
             for descriptor in Self.chainRefreshDescriptors.values {
                 guard trackedChains.contains(descriptor.chainID), let pending = descriptor.executePendingOnly else { continue }
@@ -121,7 +122,7 @@ extension AppState {
             isResolvingReceiveAddress = true
             defer { isResolvingReceiveAddress = false }
             receiveResolvedAddress =
-                (try? activateLiveReceiveAddress(receiveEVMAddress(for: evmAddress), for: wallet, chainName: receiveCoin.chainName)) ?? ""
+                (try? await activateLiveReceiveAddress(receiveEVMAddress(for: evmAddress), for: wallet, chainName: receiveCoin.chainName)) ?? ""
             return
         }
         let liveResolvers: [(String, (ImportedWallet) -> String?)] = [
@@ -139,7 +140,7 @@ extension AppState {
             ("Bittensor", { self.resolvedBittensorAddress(for: $0) }),
         ]
         for (chainName, resolver) in liveResolvers where receiveCoin.chainName == chainName {
-            receiveResolvedAddress = activateLiveReceiveAddress(resolver(wallet), for: wallet, chainName: chainName)
+            receiveResolvedAddress = await activateLiveReceiveAddress(resolver(wallet), for: wallet, chainName: chainName)
             return
         }
         guard receiveCoin.symbol == "BTC" else {
@@ -148,7 +149,7 @@ extension AppState {
                 || (receiveCoin.symbol == "LTC" && receiveCoin.chainName == "Litecoin")
                 || (receiveCoin.symbol == "DOGE" && receiveCoin.chainName == "Dogecoin")
             {
-                receiveResolvedAddress = reservedReceiveAddress(for: wallet, chainName: receiveCoin.chainName, reserveIfMissing: true) ?? ""
+                receiveResolvedAddress = await reservedReceiveAddress(for: wallet, chainName: receiveCoin.chainName, reserveIfMissing: true) ?? ""
                 return
             }
             receiveResolvedAddress = ""
@@ -157,7 +158,7 @@ extension AppState {
         if let bitcoinAddress = wallet.bitcoinAddress?.trimmingCharacters(in: .whitespacesAndNewlines), !bitcoinAddress.isEmpty,
             storedSeedPhrase(for: wallet.id) == nil
         {
-            receiveResolvedAddress = activateLiveReceiveAddress(bitcoinAddress, for: wallet, chainName: receiveCoin.chainName)
+            receiveResolvedAddress = await activateLiveReceiveAddress(bitcoinAddress, for: wallet, chainName: receiveCoin.chainName)
             return
         }
         guard !isResolvingReceiveAddress else { return }
@@ -175,7 +176,7 @@ extension AppState {
                 return
             }
             let address = try await WalletServiceBridge.shared.fetchBitcoinNextUnusedAddressTyped(xpub: xpub)
-            receiveResolvedAddress = activateLiveReceiveAddress(
+            receiveResolvedAddress = await activateLiveReceiveAddress(
                 address ?? wallet.bitcoinAddress ?? "", for: wallet, chainName: receiveCoin.chainName
             )
         } catch {
@@ -641,23 +642,28 @@ extension AppState {
                     bitcoinXpub: resolvedBitcoinXPub
                 )
             )
-            let importPlan: WalletImportPlan
+            // Core plans, builds and stores the wallets in one call. What comes
+            // back is what it created, plus the Keychain writes below — the only
+            // part of an import that is genuinely platform work.
+            let outcome: WalletImportOutcome
             do {
-                importPlan = try corePlanWalletImport(request: importPlanRequest)
+                outcome = try await WalletServiceBridge.shared.importWallets(
+                    WalletImportCommit(
+                        request: importPlanRequest,
+                        holdings: coins,
+                        seedDerivationPreset: selectedDerivationPreset,
+                        seedDerivationPaths: selectedDerivationPaths,
+                        derivationOverrides: draft.resolvedDerivationOverrides ?? .empty,
+                        bitcoinNetworkMode: bitcoinNetworkMode,
+                        dogecoinNetworkMode: dogecoinNetworkMode
+                    )
+                )
             } catch {
                 importError = error.localizedDescription
                 return
             }
-            let createdWallets: [ImportedWallet] = importPlan.wallets.compactMap { plannedWallet in
-                guard let walletID = UUID(uuidString: plannedWallet.walletId) else { return nil }
-                return walletForPlannedImport(
-                    id: walletID, plan: plannedWallet, seedDerivationPreset: selectedDerivationPreset,
-                    seedDerivationPaths: selectedDerivationPaths,
-                    derivationOverrides: draft.resolvedDerivationOverrides,
-                    holdings: coins
-                )
-            }
-            for instruction in importPlan.secretInstructions {
+            let createdWallets = outcome.wallets
+            for instruction in outcome.secretInstructions {
                 let walletID = instruction.walletId
                 let account = resolvedSeedPhraseAccount(for: walletID)
                 let passwordAccount = resolvedSeedPhrasePasswordAccount(for: walletID)
@@ -678,7 +684,11 @@ extension AppState {
                     SecurePrivateKeyStore.deleteValue(for: privateKeyAccount)
                 }
             }
-            appendWallets(createdWallets)
+            // Core already stored them; re-read the projection from core rather
+            // than appending locally, so the two cannot disagree.
+            if let stored = try? await WalletServiceBridge.shared.storedWallets() {
+                setWalletProjection(stored)
+            }
             importedWalletsForRefresh = createdWallets
         }
         finishWalletImportFlow()
@@ -687,8 +697,9 @@ extension AppState {
         scheduleImportedWalletRefresh(importedWalletsForRefresh)
     }
     func renameWallet(id: String, to newName: String) {
-        guard let index = wallets.firstIndex(where: { $0.id == id }) else { return }
-        wallets[index].name = newName
+        guard var wallet = wallets.first(where: { $0.id == id }) else { return }
+        wallet.name = newName
+        recordWalletDetached(wallet)
         finishWalletImportFlow()
     }
     func finishWalletImportFlow() {
@@ -780,38 +791,6 @@ extension AppState {
     /// `chainName == "..."`, are gone: `core_plan_wallet_import` already scopes
     /// a planned wallet's `addresses` to its own chain, so the map passes
     /// straight through.
-    func walletForSingleChain(
-        id: UUID, name: String, chainName: String,
-        addresses: [String: String], bitcoinXpub: String?,
-        seedDerivationPreset: SeedDerivationPreset, seedDerivationPaths: SeedDerivationPaths,
-        derivationOverrides: CoreWalletDerivationOverrides? = nil,
-        holdings: [Coin]
-    ) -> ImportedWallet {
-        ImportedWallet(
-            id: id.uuidString, name: name,
-            bitcoinNetworkMode: chainName == "Bitcoin" ? bitcoinNetworkMode : .mainnet,
-            dogecoinNetworkMode: chainName == "Dogecoin" ? dogecoinNetworkMode : .mainnet,
-            addresses: addresses,
-            bitcoinXpub: chainName == "Bitcoin" ? bitcoinXpub : nil,
-            seedDerivationPreset: seedDerivationPreset,
-            seedDerivationPaths: seedDerivationPaths,
-            derivationOverrides: derivationOverrides ?? .empty,
-            selectedChain: chainName, holdings: holdings,
-            includeInPortfolioTotal: true
-        )
-    }
-    func walletForPlannedImport(
-        id: UUID, plan: PlannedWallet, seedDerivationPreset: SeedDerivationPreset, seedDerivationPaths: SeedDerivationPaths,
-        derivationOverrides: CoreWalletDerivationOverrides? = nil,
-        holdings: [Coin]
-    ) -> ImportedWallet {
-        walletForSingleChain(
-            id: id, name: plan.name, chainName: plan.chainName,
-            addresses: plan.addresses.bySlot, bitcoinXpub: plan.addresses.bitcoinXpub,
-            seedDerivationPreset: seedDerivationPreset, seedDerivationPaths: seedDerivationPaths,
-            derivationOverrides: derivationOverrides, holdings: holdings
-        )
-    }
     func walletByReplacingHoldings(_ wallet: ImportedWallet, with holdings: [Coin]) -> ImportedWallet {
         var updated = wallet
         updated.holdings = holdings

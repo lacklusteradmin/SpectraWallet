@@ -1,18 +1,4 @@
 import Foundation
-private func historyRecordsTyped(
-    _ snapshots: [CorePersistedTransactionRecord]
-) -> [HistoryRecord] {
-    snapshots.map { snap in
-        HistoryRecord(
-            id: snap.id.lowercased(),
-            walletId: snap.walletId?.lowercased(),
-            chainName: snap.chainName,
-            txHash: snap.transactionHash?.lowercased(),
-            createdAt: Date(timeIntervalSinceReferenceDate: snap.createdAt).timeIntervalSince1970,
-            payload: snap
-        )
-    }
-}
 extension AppState {
     func rebuildTokenPreferenceDerivedState() {
         batchCacheUpdates {
@@ -139,8 +125,9 @@ extension AppState {
     /// transactions that no longer reference an active wallet. No network I/O;
     /// safe to call inside the debounce.
     private func persistWalletStateOptimistically() {
+        // Wallets persist themselves: every mutation goes through a
+        // `StateCommand` that core writes before it returns.
         updateRefreshEngineEntries()
-        persistWallets()
         pruneTransactionsForActiveWallets()
     }
 
@@ -159,96 +146,28 @@ extension AppState {
         }
     }
 
-    func appendTransaction(_ transaction: TransactionRecord) { prependTransaction(transaction) }
-    func upsertBitcoinTransactions(_ newTransactions: [TransactionRecord]) {
-        upsertStandardUTXOTransactions(newTransactions, chainName: "Bitcoin")
-    }
-    func upsertBitcoinCashTransactions(_ newTransactions: [TransactionRecord]) {
-        upsertStandardUTXOTransactions(newTransactions, chainName: "Bitcoin Cash")
-    }
-    func upsertBitcoinSVTransactions(_ newTransactions: [TransactionRecord]) {
-        upsertStandardUTXOTransactions(newTransactions, chainName: "Bitcoin SV")
-    }
-    func upsertLitecoinTransactions(_ newTransactions: [TransactionRecord]) {
-        upsertStandardUTXOTransactions(newTransactions, chainName: "Litecoin")
-    }
-    func upsertStandardUTXOTransactions(_ newTransactions: [TransactionRecord], chainName: String) {
-        guard
-            let mergedTransactions = mergeTransactionsUsingRust(
-                existingTransactions: transactions, incomingTransactions: newTransactions, strategy: .standardUtxo, chainName: chainName
-            )
-        else {
-            assertionFailure("Rust transaction merge failed for standardUTXO chain \(chainName)")
-            return
+    func appendTransaction(_ transaction: TransactionRecord) { recordTransaction(transaction) }
+    /// Merge freshly fetched history for a chain into the store.
+    ///
+    /// One entry point for every chain: the merge strategy and whether the
+    /// identity includes the asset symbol are per-chain facts core reads from
+    /// its registry. This replaced eighteen wrappers that each named a chain
+    /// and a strategy by hand.
+    func upsertTransactions(_ newTransactions: [TransactionRecord], chainName: String) {
+        let command = TransactionCommand.merge(
+            incoming: newTransactions.map(\.rustBridgeRecord),
+            chainName: chainName,
+            // Account-based and EVM merges preserve a sentinel createdAt for
+            // records the app created locally before the chain confirmed them.
+            preserveCreatedAtSentinelUnix: Date.distantPast.timeIntervalSince1970
+        )
+        Task { @MainActor [weak self] in
+            guard
+                let change = try? await WalletServiceBridge.shared.applyTransactionCommand(command),
+                !change.added.isEmpty || !change.updated.isEmpty || !change.removed.isEmpty
+            else { return }
+            await self?.refreshTransactionProjection()
         }
-        setTransactionsIfChanged(mergedTransactions)
-    }
-    func upsertDogecoinTransactions(_ newTransactions: [TransactionRecord]) {
-        guard
-            let mergedTransactions = mergeTransactionsUsingRust(
-                existingTransactions: transactions, incomingTransactions: newTransactions, strategy: .dogecoin, chainName: "Dogecoin"
-            )
-        else {
-            assertionFailure("Rust transaction merge failed for Dogecoin")
-            return
-        }
-        setTransactionsIfChanged(mergedTransactions)
-    }
-    func upsertTronTransactions(_ newTransactions: [TransactionRecord]) {
-        upsertAccountBasedTransactions(newTransactions, chainName: "Tron", includeSymbolInIdentity: true)
-    }
-    func upsertSolanaTransactions(_ newTransactions: [TransactionRecord]) {
-        upsertAccountBasedTransactions(newTransactions, chainName: "Solana")
-    }
-    func upsertCardanoTransactions(_ newTransactions: [TransactionRecord]) {
-        upsertAccountBasedTransactions(newTransactions, chainName: "Cardano")
-    }
-    func upsertXRPTransactions(_ newTransactions: [TransactionRecord]) {
-        upsertAccountBasedTransactions(newTransactions, chainName: "XRP Ledger")
-    }
-    func upsertStellarTransactions(_ newTransactions: [TransactionRecord]) {
-        upsertAccountBasedTransactions(newTransactions, chainName: "Stellar")
-    }
-    func upsertMoneroTransactions(_ newTransactions: [TransactionRecord]) {
-        upsertAccountBasedTransactions(newTransactions, chainName: "Monero")
-    }
-    func upsertSuiTransactions(_ newTransactions: [TransactionRecord]) { upsertAccountBasedTransactions(newTransactions, chainName: "Sui") }
-    func upsertAptosTransactions(_ newTransactions: [TransactionRecord]) {
-        upsertAccountBasedTransactions(newTransactions, chainName: "Aptos")
-    }
-    func upsertTONTransactions(_ newTransactions: [TransactionRecord]) { upsertAccountBasedTransactions(newTransactions, chainName: "TON") }
-    func upsertICPTransactions(_ newTransactions: [TransactionRecord]) {
-        upsertAccountBasedTransactions(newTransactions, chainName: "Internet Computer")
-    }
-    func upsertNearTransactions(_ newTransactions: [TransactionRecord]) {
-        upsertAccountBasedTransactions(newTransactions, chainName: "NEAR")
-    }
-    func upsertPolkadotTransactions(_ newTransactions: [TransactionRecord]) {
-        upsertAccountBasedTransactions(newTransactions, chainName: "Polkadot")
-    }
-    func upsertAccountBasedTransactions(_ newTransactions: [TransactionRecord], chainName: String, includeSymbolInIdentity: Bool = false) {
-        guard
-            let mergedTransactions = mergeTransactionsUsingRust(
-                existingTransactions: transactions, incomingTransactions: newTransactions, strategy: .accountBased, chainName: chainName,
-                includeSymbolInIdentity: includeSymbolInIdentity, preserveCreatedAtSentinelUnix: Date.distantPast.timeIntervalSince1970
-            )
-        else {
-            assertionFailure("Rust transaction merge failed for accountBased chain \(chainName)")
-            return
-        }
-        setTransactionsIfChanged(mergedTransactions)
-    }
-    func upsertEVMTransactions(_ newTransactions: [TransactionRecord], chainName: String) {
-        guard
-            let mergedTransactions = mergeTransactionsUsingRust(
-                existingTransactions: transactions, incomingTransactions: newTransactions, strategy: .evm, chainName: chainName,
-                preserveCreatedAtSentinelUnix: Date.distantPast.timeIntervalSince1970
-            )
-        else {
-            assertionFailure("Rust transaction merge failed for EVM chain \(chainName)")
-            return
-        }
-        setTransactionsIfChanged(mergedTransactions)
     }
     func markChainHealthy(_ chainName: String) { diagnostics.markChainHealthy(chainName) }
     func noteChainSuccessfulSync(_ chainName: String) { diagnostics.noteChainSuccessfulSync(chainName) }
@@ -293,59 +212,19 @@ extension AppState {
         nearHistoryDiagnosticsByWallet[walletID] = nil
         polkadotHistoryDiagnosticsByWallet[walletID] = nil
     }
-    private func mergeTransactionsUsingRust(
-        existingTransactions: [TransactionRecord], incomingTransactions: [TransactionRecord], strategy: TransactionMergeStrategy,
-        chainName: String, includeSymbolInIdentity: Bool = false, preserveCreatedAtSentinelUnix: Double? = nil
-    ) -> [TransactionRecord]? {
-        let request = TransactionMergeRequest(
-            existingTransactions: existingTransactions.map(\.rustBridgeRecord),
-            incomingTransactions: incomingTransactions.map(\.rustBridgeRecord), strategy: strategy, chainName: chainName,
-            includeSymbolInIdentity: includeSymbolInIdentity, preserveCreatedAtSentinelUnix: preserveCreatedAtSentinelUnix
-        )
-        let mergedRecords = coreMergeTransactions(request: request)
-        var resolvedTransactions: [TransactionRecord] = []
-        resolvedTransactions.reserveCapacity(mergedRecords.count)
-        for record in mergedRecords {
-            guard let transaction = record.transactionRecord else { return nil }
-            resolvedTransactions.append(transaction)
-        }
-        return resolvedTransactions
-    }
-    func persistTransactionsFullSync() {
-        let snapshots = transactions.map(\.persistedSnapshot)
-        Task.detached(priority: .utility) {
-            try? await WalletServiceBridge.shared.replaceAllHistoryRecords(historyRecordsTyped(snapshots))
-        }
-    }
-    func persistTransactionsDelta(from oldRecords: [TransactionRecord], to newRecords: [TransactionRecord]) {
-        let oldIDs = Set(oldRecords.map(\.id))
-        let newIDs = Set(newRecords.map(\.id))
-        let deletedIDs = oldIDs.subtracting(newIDs).map { $0.uuidString.lowercased() }
-        let addedSnapshots = newRecords.filter { !oldIDs.contains($0.id) }.map(\.persistedSnapshot)
-        if !deletedIDs.isEmpty {
-            Task.detached(priority: .utility) {
-                try? await WalletServiceBridge.shared.deleteHistoryRecords(ids: deletedIDs)
-            }
-        }
-        if !addedSnapshots.isEmpty {
-            Task.detached(priority: .utility) {
-                try? await WalletServiceBridge.shared.upsertHistoryRecords(historyRecordsTyped(addedSnapshots))
-            }
-        }
-    }
-    func persistChainKeypoolState() {
-        for (chainName, walletMap) in chainKeypoolByChain { persistKeypoolToRust(chainName: chainName, walletMap: walletMap) }
-    }
-    func persistKeypoolForChain(_ chainName: String) {
-        guard let walletMap = chainKeypoolByChain[chainName] else { return }
-        persistKeypoolToRust(chainName: chainName, walletMap: walletMap)
-    }
-    func loadChainKeypoolState() -> [String: [String: ChainKeypoolState]] {
-        guard let payload = loadCodableFromUserDefaults(PersistedChainKeypoolStore.self, key: Self.chainKeypoolDefaultsKey) else {
-            return [:]
-        }
-        guard payload.version == PersistedChainKeypoolStore.currentVersion else { return [:] }
-        return payload.keypoolByChain
+    /// Merge a fetched page into the store core owns, then adopt the result.
+    ///
+    /// Only the incoming page crosses the FFI. Core merges against its own
+    /// records and writes just what changed; this then re-reads the projection.
+    /// Previously the entire history went out, came back merged, and the
+    /// changed subset went out again — three crossings of the whole list per
+    /// refresh.
+    /// Re-read the projection from core. Used after a change core made itself.
+    func refreshTransactionProjection() async {
+        guard let stored = try? await WalletServiceBridge.shared.storedTransactions() else { return }
+        adoptTransactionsFromCore(stored.compactMap(TransactionRecord.init(snapshot:)))
+        pruneTransactionsForActiveWallets()
+        rebuildTransactionDerivedState()
     }
     func persistChainOwnedAddressMap() {
         for (chainName, addressMap) in chainOwnedAddressMapByChain {
@@ -364,27 +243,6 @@ extension AppState {
                 walletId: record.walletID, chainName: chainName, address: record.address ?? "", derivationPath: record.derivationPath,
                 branch: record.branch, branchIndex: record.index
             )
-        }
-    }
-    func loadChainOwnedAddressMap() -> [String: [String: ChainOwnedAddressRecord]] {
-        guard
-            let payload = loadCodableFromUserDefaults(
-                PersistedChainOwnedAddressStore.self, key: Self.chainOwnedAddressMapDefaultsKey
-            )
-        else {
-            return [:]
-        }
-        guard payload.version == PersistedChainOwnedAddressStore.currentVersion else { return [:] }
-        return payload.addressMapByChain
-    }
-    private func persistKeypoolToRust(chainName: String, walletMap: [String: ChainKeypoolState]) {
-        for (walletID, state) in walletMap {
-            let typed = KeypoolState(
-                nextExternalIndex: Int64(state.nextExternalIndex),
-                nextChangeIndex: Int64(state.nextChangeIndex),
-                reservedReceiveIndex: state.reservedReceiveIndex.map { Int64($0) }
-            )
-            Task { try? await WalletServiceBridge.shared.saveKeypoolStateTyped(walletId: walletID, chainName: chainName, state: typed) }
         }
     }
     private func persistOwnedAddressToRust(

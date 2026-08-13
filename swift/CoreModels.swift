@@ -153,6 +153,14 @@ extension CoreImportedWallet {
     var dashAddress: String? { address(forChainNamed: "Dash") }
     var bittensorAddress: String? { address(forChainNamed: "Bittensor") }
 
+    /// The authoritative model this view model was rendered from.
+    ///
+    /// `isWatchOnly` is a Keychain fact the record cannot carry, so the caller
+    /// supplies it — see `WalletSummary` in `core/src/store/state.rs`.
+    func summary(isWatchOnly: Bool) -> WalletSummary {
+        coreWalletSummary(wallet: self, isWatchOnly: isWatchOnly)
+    }
+
     /// Convenience initializer that defaults every field a caller doesn't set.
     ///
     /// `CoreImportedWallet` is a UniFFI record, so its generated memberwise
@@ -613,21 +621,9 @@ struct DonationDestination: Identifiable {
     let assetIdentifier: String?
     let color: Color
 }
-struct AddressBookEntry: Identifiable {
-    let id: UUID
-    let name: String
-    let chainName: String
-    let address: String
-    let note: String
-    init(
-        id: UUID = UUID(), name: String, chainName: String, address: String, note: String = ""
-    ) {
-        self.id = id
-        self.name = name
-        self.chainName = chainName
-        self.address = address
-        self.note = note
-    }
+// `AddressBookEntry` is the Rust record — core owns saved recipients, including
+// the rules about which ones are acceptable. Only display helpers live here.
+extension AddressBookEntry: Identifiable {
     var subtitleText: String {
         guard !note.isEmpty else { return chainName }
         return String(format: CommonLocalizationContent.current.addressBookSubtitleFormat, chainName, note)
@@ -736,28 +732,6 @@ enum SendBroadcastVerificationStatus: Equatable {
     case failed(String)
 }
 
-extension ImportedWallet {
-    @MainActor init(snapshot: PersistedWallet) {
-        self.init(
-            id: snapshot.id, name: snapshot.name, bitcoinNetworkMode: snapshot.bitcoinNetworkMode,
-            dogecoinNetworkMode: snapshot.dogecoinNetworkMode,
-            addresses: snapshot.addresses, bitcoinXpub: snapshot.bitcoinXpub,
-            seedDerivationPreset: snapshot.seedDerivationPreset, seedDerivationPaths: snapshot.seedDerivationPaths,
-            derivationOverrides: snapshot.derivationOverrides,
-            selectedChain: snapshot.selectedChain, holdings: snapshot.holdings.map(Coin.init(snapshot:)),
-            includeInPortfolioTotal: snapshot.includeInPortfolioTotal
-        )
-    }
-    var persistedSnapshot: PersistedWallet {
-        PersistedWallet(
-            id: id, name: name, bitcoinNetworkMode: bitcoinNetworkMode, dogecoinNetworkMode: dogecoinNetworkMode,
-            addresses: addresses, bitcoinXpub: bitcoinXpub,
-            seedDerivationPreset: seedDerivationPreset, seedDerivationPaths: seedDerivationPaths,
-            derivationOverrides: derivationOverrides,
-            selectedChain: selectedChain, holdings: holdings.map(\.persistedSnapshot), includeInPortfolioTotal: includeInPortfolioTotal
-        )
-    }
-}
 extension TransactionRecord {
     func withRebroadcastUpdate(status: TransactionStatus, transactionHash: String?, failureReason: String? = nil) -> TransactionRecord {
         TransactionRecord(
@@ -994,19 +968,6 @@ extension PriceAlertRule {
         CorePersistedPriceAlertRule(
             id: id.uuidString, holdingKey: holdingKey, assetName: assetName, symbol: symbol, chainName: chainName, targetPrice: targetPrice,
             condition: condition, isEnabled: isEnabled, hasTriggered: hasTriggered
-        )
-    }
-}
-extension AddressBookEntry {
-    init?(snapshot: CorePersistedAddressBookEntry) {
-        guard let resolvedID = UUID(uuidString: snapshot.id) else { return nil }
-        self.init(
-            id: resolvedID, name: snapshot.name, chainName: snapshot.chainName, address: snapshot.address, note: snapshot.note
-        )
-    }
-    var persistedSnapshot: CorePersistedAddressBookEntry {
-        CorePersistedAddressBookEntry(
-            id: id.uuidString, name: name, chainName: chainName, address: address, note: note
         )
     }
 }

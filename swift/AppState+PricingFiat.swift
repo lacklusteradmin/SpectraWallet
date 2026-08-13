@@ -86,10 +86,35 @@ extension AppState {
     var totalBalance: Double {
         portfolio.reduce(0) { $0 + currentValue(for: $1) }
     }
+    // ── Fiat currency (core-owned) ────────────────────────────────────────
+
+    /// Load core's state and mirror it. Call once at launch.
+    func loadCoreOwnedState() async {
+        let epoch = beginCoreStateRead()
+        guard let state = try? await WalletServiceBridge.shared.openState() else { return }
+        applyCoreState(state, epoch: epoch)
+    }
+
+    /// Send the currency change to core and mirror the result.
+    ///
+    /// Core decides — it normalizes the code and reports whether anything
+    /// actually changed, so the rate refresh only runs on a real change.
+    func setFiatCurrency(_ currency: FiatCurrency) async {
+        let epoch = beginCoreStateRead()
+        guard
+            let transition = try? await WalletServiceBridge.shared.applyStateCommand(
+                .setFiatCurrency(fiatCurrencyCode: currency.rawValue))
+        else { return }
+        applyCoreState(transition.state, epoch: epoch)
+        guard transition.events.contains(where: { $0.kind == "fiatCurrencyChanged" }) else { return }
+        await refreshFiatExchangeRatesIfNeeded(force: true)
+    }
+
     var totalBalanceIfAvailable: Double? { sumLiveQuotedValues(for: portfolio) }
     func setPortfolioInclusion(_ isIncluded: Bool, for walletID: String) {
-        guard let walletIndex = wallets.firstIndex(where: { $0.id == walletID }) else { return }
-        wallets[walletIndex].includeInPortfolioTotal = isIncluded
+        guard var wallet = wallets.first(where: { $0.id == walletID }) else { return }
+        wallet.includeInPortfolioTotal = isIncluded
+        recordWalletDetached(wallet)
         resetLargeMovementAlertBaseline()
     }
     func hasWalletForChain(_ chainName: String) -> Bool {
@@ -105,7 +130,7 @@ extension AppState {
                 resolvedAddressForChain: resolvedAddress(for: wallet, chainName: chainName)
             )
         }
-        return corePlanHasWalletForChain(chainName: chainName, wallets: eligibilityInputs)
+        return coreHasWalletForChain(chainName: chainName, wallets: eligibilityInputs)
     }
     func refreshChainBalances(
         includeHistoryRefreshes: Bool = true, historyRefreshInterval: TimeInterval = 120, forceChainRefresh: Bool = true

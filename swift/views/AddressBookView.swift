@@ -10,7 +10,7 @@ struct AddressBookView: View {
     @State private var formMessage: String?
     @State private var editingEntry: AddressBookEntry?
     @State private var editedName: String = ""
-    @State private var copiedEntryID: UUID?
+    @State private var copiedEntryID: String?
     private let supportedChains = [
         "Bitcoin", "Litecoin", "Dogecoin", "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid",
         "Tron", "Solana", "Cardano", "XRP Ledger", "Monero", "Sui", "Aptos", "TON", "Internet Computer", "NEAR", "Polkadot", "Stellar",

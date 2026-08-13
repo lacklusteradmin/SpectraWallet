@@ -249,7 +249,7 @@ extension AppState {
                 seedPhrase: seedPhrase, chain: chain, derivationPath: derivationPath
             )
         }()
-        return corePlanResolveDerivedOrStoredAddress(
+        return coreResolveDerivedOrStoredAddress(
             derived: derived, stored: storedAddress, validationKind: validationKind,
             validationNetworkMode: validationNetworkMode, derivedPostProcess: derivedPostProcess,
             normalizeStored: normalizeStored
