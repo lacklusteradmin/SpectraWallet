@@ -256,182 +256,79 @@ final class WalletDiagnosticsState {
 final class WalletChainDiagnosticsState {
     var diagnosticsRevision: Int = 0
 
+    /// One chain's self-test state, keyed by chain display name.
+    ///
+    /// This was three stored properties per chain — `<chain>SelfTestResults`,
+    /// `isRunning<Chain>SelfTests`, `<chain>SelfTestsLastRunAt` — with a
+    /// matching pair of forwarding accessors each, a runner each, and a row in
+    /// two more tables. Keyed by chain, adding one costs nothing.
+    struct SelfTests {
+        var results: [ChainSelfTestResult] = []
+        var isRunning: Bool = false
+        var lastRunAt: Date?
+    }
+    var selfTestsByChain: [String: SelfTests] = [:]
+
+    /// One chain's endpoint-health state, keyed by chain display name.
+    ///
+    /// Was three stored properties per chain across 24 chains. Keying them
+    /// needed the two row records unified first — `EvmEndpointHealthRow`
+    /// differed from `EndpointHealthRow` by a `label` field, and two types for
+    /// one thing meant two differently-typed slots here.
+    struct EndpointHealth {
+        var results: [EndpointHealthRow] = []
+        var lastUpdatedAt: Date?
+        var isChecking: Bool = false
+    }
+    var endpointHealthByChain: [String: EndpointHealth] = [:]
+
+    /// When a chain's history diagnostics last ran, and whether one is in
+    /// flight. The *results* stay per chain for now — their record types still
+    /// differ — but the scalars around them never did.
+    struct HistoryRun {
+        var lastUpdatedAt: Date?
+        var isRunning: Bool = false
+    }
+    var historyRunByChain: [String: HistoryRun] = [:]
+
     private func bump() { diagnosticsRevision &+= 1 }
 
     // MARK: Non-dict state (unchanged)
-    var dogecoinSelfTestResults: [ChainSelfTestResult] = []
-    var isRunningDogecoinSelfTests: Bool = false
-    var dogecoinSelfTestsLastRunAt: Date?
-    var bitcoinSelfTestResults: [ChainSelfTestResult] = []
-    var isRunningBitcoinSelfTests: Bool = false
-    var bitcoinSelfTestsLastRunAt: Date?
-    var bitcoinCashSelfTestResults: [ChainSelfTestResult] = []
-    var isRunningBitcoinCashSelfTests: Bool = false
-    var bitcoinCashSelfTestsLastRunAt: Date?
-    var bitcoinSVSelfTestResults: [ChainSelfTestResult] = []
-    var isRunningBitcoinSVSelfTests: Bool = false
-    var bitcoinSVSelfTestsLastRunAt: Date?
-    var litecoinSelfTestResults: [ChainSelfTestResult] = []
-    var isRunningLitecoinSelfTests: Bool = false
-    var litecoinSelfTestsLastRunAt: Date?
-    var dogecoinHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningDogecoinHistoryDiagnostics: Bool = false
-    var dogecoinEndpointHealthResults: [EndpointHealthRow] = []
-    var dogecoinEndpointHealthLastUpdatedAt: Date?
-    var isCheckingDogecoinEndpointHealth: Bool = false
-    var ethereumSelfTestResults: [ChainSelfTestResult] = []
-    var isRunningEthereumSelfTests: Bool = false
-    var ethereumSelfTestsLastRunAt: Date?
-    var ethereumHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningEthereumHistoryDiagnostics: Bool = false
-    var ethereumEndpointHealthResults: [EvmEndpointHealthRow] = []
-    var ethereumEndpointHealthLastUpdatedAt: Date?
-    var isCheckingEthereumEndpointHealth: Bool = false
-    var etcHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningETCHistoryDiagnostics: Bool = false
-    var etcEndpointHealthResults: [EvmEndpointHealthRow] = []
-    var etcEndpointHealthLastUpdatedAt: Date?
-    var isCheckingETCEndpointHealth: Bool = false
-    var arbitrumHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningArbitrumHistoryDiagnostics: Bool = false
-    var arbitrumEndpointHealthResults: [EvmEndpointHealthRow] = []
-    var arbitrumEndpointHealthLastUpdatedAt: Date?
-    var isCheckingArbitrumEndpointHealth: Bool = false
-    var optimismHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningOptimismHistoryDiagnostics: Bool = false
-    var optimismEndpointHealthResults: [EvmEndpointHealthRow] = []
-    var optimismEndpointHealthLastUpdatedAt: Date?
-    var isCheckingOptimismEndpointHealth: Bool = false
-    var bnbHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningBNBHistoryDiagnostics: Bool = false
-    var bnbEndpointHealthResults: [EvmEndpointHealthRow] = []
-    var bnbEndpointHealthLastUpdatedAt: Date?
-    var isCheckingBNBEndpointHealth: Bool = false
-    var avalancheHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningAvalancheHistoryDiagnostics: Bool = false
-    var avalancheEndpointHealthResults: [EvmEndpointHealthRow] = []
-    var avalancheEndpointHealthLastUpdatedAt: Date?
-    var isCheckingAvalancheEndpointHealth: Bool = false
-    var hyperliquidHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningHyperliquidHistoryDiagnostics: Bool = false
-    var hyperliquidEndpointHealthResults: [EvmEndpointHealthRow] = []
-    var hyperliquidEndpointHealthLastUpdatedAt: Date?
-    var isCheckingHyperliquidEndpointHealth: Bool = false
-    var tronHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningTronHistoryDiagnostics: Bool = false
-    var tronEndpointHealthResults: [EndpointHealthRow] = []
-    var tronEndpointHealthLastUpdatedAt: Date?
-    var isCheckingTronEndpointHealth: Bool = false
-    var solanaHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningSolanaHistoryDiagnostics: Bool = false
-    var solanaEndpointHealthResults: [EndpointHealthRow] = []
-    var solanaEndpointHealthLastUpdatedAt: Date?
-    var isCheckingSolanaEndpointHealth: Bool = false
-    var xrpHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningXRPHistoryDiagnostics: Bool = false
-    var xrpEndpointHealthResults: [EndpointHealthRow] = []
-    var xrpEndpointHealthLastUpdatedAt: Date?
-    var isCheckingXRPEndpointHealth: Bool = false
-    var stellarHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningStellarHistoryDiagnostics: Bool = false
-    var stellarEndpointHealthResults: [EndpointHealthRow] = []
-    var stellarEndpointHealthLastUpdatedAt: Date?
-    var isCheckingStellarEndpointHealth: Bool = false
-    var moneroHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningMoneroHistoryDiagnostics: Bool = false
-    var moneroEndpointHealthResults: [EndpointHealthRow] = []
-    var moneroEndpointHealthLastUpdatedAt: Date?
-    var isCheckingMoneroEndpointHealth: Bool = false
-    var suiHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningSuiHistoryDiagnostics: Bool = false
-    var suiEndpointHealthResults: [EndpointHealthRow] = []
-    var suiEndpointHealthLastUpdatedAt: Date?
-    var isCheckingSuiEndpointHealth: Bool = false
-    var aptosHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningAptosHistoryDiagnostics: Bool = false
-    var aptosEndpointHealthResults: [EndpointHealthRow] = []
-    var aptosEndpointHealthLastUpdatedAt: Date?
-    var isCheckingAptosEndpointHealth: Bool = false
-    var tonHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningTONHistoryDiagnostics: Bool = false
-    var tonEndpointHealthResults: [EndpointHealthRow] = []
-    var tonEndpointHealthLastUpdatedAt: Date?
-    var isCheckingTONEndpointHealth: Bool = false
-    var icpHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningICPHistoryDiagnostics: Bool = false
-    var icpEndpointHealthResults: [EndpointHealthRow] = []
-    var icpEndpointHealthLastUpdatedAt: Date?
-    var isCheckingICPEndpointHealth: Bool = false
-    var nearHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningNearHistoryDiagnostics: Bool = false
-    var nearEndpointHealthResults: [EndpointHealthRow] = []
-    var nearEndpointHealthLastUpdatedAt: Date?
-    var isCheckingNearEndpointHealth: Bool = false
-    var polkadotHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningPolkadotHistoryDiagnostics: Bool = false
-    var polkadotEndpointHealthResults: [EndpointHealthRow] = []
-    var polkadotEndpointHealthLastUpdatedAt: Date?
-    var isCheckingPolkadotEndpointHealth: Bool = false
-    var cardanoHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningCardanoHistoryDiagnostics: Bool = false
-    var cardanoEndpointHealthResults: [EndpointHealthRow] = []
-    var cardanoEndpointHealthLastUpdatedAt: Date?
-    var isCheckingCardanoEndpointHealth: Bool = false
     var lastImportedDiagnosticsBundle: DiagnosticsBundlePayload?
-    var bitcoinHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningBitcoinHistoryDiagnostics: Bool = false
-    var bitcoinEndpointHealthResults: [EndpointHealthRow] = []
-    var bitcoinEndpointHealthLastUpdatedAt: Date?
-    var isCheckingBitcoinEndpointHealth: Bool = false
-    var bitcoinCashHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningBitcoinCashHistoryDiagnostics: Bool = false
-    var bitcoinCashEndpointHealthResults: [EndpointHealthRow] = []
-    var bitcoinCashEndpointHealthLastUpdatedAt: Date?
-    var isCheckingBitcoinCashEndpointHealth: Bool = false
-    var bitcoinSVHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningBitcoinSVHistoryDiagnostics: Bool = false
-    var bitcoinSVEndpointHealthResults: [EndpointHealthRow] = []
-    var bitcoinSVEndpointHealthLastUpdatedAt: Date?
-    var isCheckingBitcoinSVEndpointHealth: Bool = false
-    var litecoinHistoryDiagnosticsLastUpdatedAt: Date?
-    var isRunningLitecoinHistoryDiagnostics: Bool = false
-    var litecoinEndpointHealthResults: [EndpointHealthRow] = []
-    var litecoinEndpointHealthLastUpdatedAt: Date?
-    var isCheckingLitecoinEndpointHealth: Bool = false
 
     // MARK: Per-wallet diagnostic dicts (Rust-owned; computed delegates)
 
     var dogecoinHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { diagnosticsAllDogecoin() }
-        set { diagnosticsReplaceDogecoin(entries: newValue); bump() }
+        get { diagnosticsAllUtxo(chainName: "Dogecoin") }
+        set { diagnosticsReplaceUtxo(chainName: "Dogecoin", entries: newValue); bump() }
     }
     var ethereumHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllEthereum() }
-        set { diagnosticsReplaceEthereum(entries: newValue); bump() }
+        get { diagnosticsAllEvm(chainName: "Ethereum") }
+        set { diagnosticsReplaceEvm(chainName: "Ethereum", entries: newValue); bump() }
     }
     var etcHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllEtc() }
-        set { diagnosticsReplaceEtc(entries: newValue); bump() }
+        get { diagnosticsAllEvm(chainName: "Ethereum Classic") }
+        set { diagnosticsReplaceEvm(chainName: "Ethereum Classic", entries: newValue); bump() }
     }
     var arbitrumHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllArbitrum() }
-        set { diagnosticsReplaceArbitrum(entries: newValue); bump() }
+        get { diagnosticsAllEvm(chainName: "Arbitrum") }
+        set { diagnosticsReplaceEvm(chainName: "Arbitrum", entries: newValue); bump() }
     }
     var optimismHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllOptimism() }
-        set { diagnosticsReplaceOptimism(entries: newValue); bump() }
+        get { diagnosticsAllEvm(chainName: "Optimism") }
+        set { diagnosticsReplaceEvm(chainName: "Optimism", entries: newValue); bump() }
     }
     var bnbHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllBnb() }
-        set { diagnosticsReplaceBnb(entries: newValue); bump() }
+        get { diagnosticsAllEvm(chainName: "BNB Chain") }
+        set { diagnosticsReplaceEvm(chainName: "BNB Chain", entries: newValue); bump() }
     }
     var avalancheHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllAvalanche() }
-        set { diagnosticsReplaceAvalanche(entries: newValue); bump() }
+        get { diagnosticsAllEvm(chainName: "Avalanche") }
+        set { diagnosticsReplaceEvm(chainName: "Avalanche", entries: newValue); bump() }
     }
     var hyperliquidHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllHyperliquid() }
-        set { diagnosticsReplaceHyperliquid(entries: newValue); bump() }
+        get { diagnosticsAllEvm(chainName: "Hyperliquid") }
+        set { diagnosticsReplaceEvm(chainName: "Hyperliquid", entries: newValue); bump() }
     }
     var tronHistoryDiagnosticsByWallet: [String: TronHistoryDiagnostics] {
         get { diagnosticsAllTron() }
@@ -441,60 +338,60 @@ final class WalletChainDiagnosticsState {
         get { diagnosticsAllSolana() }
         set { diagnosticsReplaceSolana(entries: newValue); bump() }
     }
-    var xrpHistoryDiagnosticsByWallet: [String: XrpHistoryDiagnostics] {
-        get { diagnosticsAllXrp() }
-        set { diagnosticsReplaceXrp(entries: newValue); bump() }
+    var xrpHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
+        get { diagnosticsAllSimple(chainName: "XRP Ledger") }
+        set { diagnosticsReplaceSimple(chainName: "XRP Ledger", entries: newValue); bump() }
     }
-    var stellarHistoryDiagnosticsByWallet: [String: StellarHistoryDiagnostics] {
-        get { diagnosticsAllStellar() }
-        set { diagnosticsReplaceStellar(entries: newValue); bump() }
+    var stellarHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
+        get { diagnosticsAllSimple(chainName: "Stellar") }
+        set { diagnosticsReplaceSimple(chainName: "Stellar", entries: newValue); bump() }
     }
-    var moneroHistoryDiagnosticsByWallet: [String: MoneroHistoryDiagnostics] {
-        get { diagnosticsAllMonero() }
-        set { diagnosticsReplaceMonero(entries: newValue); bump() }
+    var moneroHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
+        get { diagnosticsAllSimple(chainName: "Monero") }
+        set { diagnosticsReplaceSimple(chainName: "Monero", entries: newValue); bump() }
     }
-    var suiHistoryDiagnosticsByWallet: [String: SuiHistoryDiagnostics] {
-        get { diagnosticsAllSui() }
-        set { diagnosticsReplaceSui(entries: newValue); bump() }
+    var suiHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
+        get { diagnosticsAllSimple(chainName: "Sui") }
+        set { diagnosticsReplaceSimple(chainName: "Sui", entries: newValue); bump() }
     }
-    var aptosHistoryDiagnosticsByWallet: [String: AptosHistoryDiagnostics] {
-        get { diagnosticsAllAptos() }
-        set { diagnosticsReplaceAptos(entries: newValue); bump() }
+    var aptosHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
+        get { diagnosticsAllSimple(chainName: "Aptos") }
+        set { diagnosticsReplaceSimple(chainName: "Aptos", entries: newValue); bump() }
     }
-    var tonHistoryDiagnosticsByWallet: [String: TonHistoryDiagnostics] {
-        get { diagnosticsAllTon() }
-        set { diagnosticsReplaceTon(entries: newValue); bump() }
+    var tonHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
+        get { diagnosticsAllSimple(chainName: "TON") }
+        set { diagnosticsReplaceSimple(chainName: "TON", entries: newValue); bump() }
     }
-    var icpHistoryDiagnosticsByWallet: [String: IcpHistoryDiagnostics] {
-        get { diagnosticsAllIcp() }
-        set { diagnosticsReplaceIcp(entries: newValue); bump() }
+    var icpHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
+        get { diagnosticsAllSimple(chainName: "Internet Computer") }
+        set { diagnosticsReplaceSimple(chainName: "Internet Computer", entries: newValue); bump() }
     }
-    var nearHistoryDiagnosticsByWallet: [String: NearHistoryDiagnostics] {
-        get { diagnosticsAllNear() }
-        set { diagnosticsReplaceNear(entries: newValue); bump() }
+    var nearHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
+        get { diagnosticsAllSimple(chainName: "NEAR") }
+        set { diagnosticsReplaceSimple(chainName: "NEAR", entries: newValue); bump() }
     }
-    var polkadotHistoryDiagnosticsByWallet: [String: PolkadotHistoryDiagnostics] {
-        get { diagnosticsAllPolkadot() }
-        set { diagnosticsReplacePolkadot(entries: newValue); bump() }
+    var polkadotHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
+        get { diagnosticsAllSimple(chainName: "Polkadot") }
+        set { diagnosticsReplaceSimple(chainName: "Polkadot", entries: newValue); bump() }
     }
-    var cardanoHistoryDiagnosticsByWallet: [String: CardanoHistoryDiagnostics] {
-        get { diagnosticsAllCardano() }
-        set { diagnosticsReplaceCardano(entries: newValue); bump() }
+    var cardanoHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
+        get { diagnosticsAllSimple(chainName: "Cardano") }
+        set { diagnosticsReplaceSimple(chainName: "Cardano", entries: newValue); bump() }
     }
     var bitcoinHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { diagnosticsAllBitcoin() }
-        set { diagnosticsReplaceBitcoin(entries: newValue); bump() }
+        get { diagnosticsAllUtxo(chainName: "Bitcoin") }
+        set { diagnosticsReplaceUtxo(chainName: "Bitcoin", entries: newValue); bump() }
     }
     var bitcoinCashHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { diagnosticsAllBitcoinCash() }
-        set { diagnosticsReplaceBitcoinCash(entries: newValue); bump() }
+        get { diagnosticsAllUtxo(chainName: "Bitcoin Cash") }
+        set { diagnosticsReplaceUtxo(chainName: "Bitcoin Cash", entries: newValue); bump() }
     }
     var bitcoinSVHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { diagnosticsAllBitcoinSv() }
-        set { diagnosticsReplaceBitcoinSv(entries: newValue); bump() }
+        get { diagnosticsAllUtxo(chainName: "Bitcoin SV") }
+        set { diagnosticsReplaceUtxo(chainName: "Bitcoin SV", entries: newValue); bump() }
     }
     var litecoinHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { diagnosticsAllLitecoin() }
-        set { diagnosticsReplaceLitecoin(entries: newValue); bump() }
+        get { diagnosticsAllUtxo(chainName: "Litecoin") }
+        set { diagnosticsReplaceUtxo(chainName: "Litecoin", entries: newValue); bump() }
     }
 }

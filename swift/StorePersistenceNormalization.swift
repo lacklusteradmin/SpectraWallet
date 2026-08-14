@@ -175,16 +175,10 @@ extension AppState {
         hyperliquidHistoryDiagnosticsByWallet[walletID] = nil
         tronHistoryDiagnosticsByWallet[walletID] = nil
         solanaHistoryDiagnosticsByWallet[walletID] = nil
-        cardanoHistoryDiagnosticsByWallet[walletID] = nil
-        xrpHistoryDiagnosticsByWallet[walletID] = nil
-        stellarHistoryDiagnosticsByWallet[walletID] = nil
-        moneroHistoryDiagnosticsByWallet[walletID] = nil
-        suiHistoryDiagnosticsByWallet[walletID] = nil
-        aptosHistoryDiagnosticsByWallet[walletID] = nil
-        tonHistoryDiagnosticsByWallet[walletID] = nil
-        icpHistoryDiagnosticsByWallet[walletID] = nil
-        nearHistoryDiagnosticsByWallet[walletID] = nil
-        polkadotHistoryDiagnosticsByWallet[walletID] = nil
+        // The ten chains sharing one record shape, over one keyed store.
+        for chainName in ["Cardano", "XRP Ledger", "Stellar", "Monero", "Sui", "Aptos", "TON", "Internet Computer", "NEAR", "Polkadot"] {
+            self[simpleHistoryFor: chainName][walletID] = nil
+        }
     }
     /// Merge a fetched page into the store core owns, then adopt the result.
     ///

@@ -284,7 +284,7 @@ extension AppState {
                     walletId: wallet.id, identifier: identifier, sourceUsed: page.sourceUsed, transactionCount: Int32(page.snapshots.count),
                     nextCursor: page.nextCursor, error: nil
                 )
-                bitcoinHistoryDiagnosticsLastUpdatedAt = Date()
+                self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
                 discoveredTransactions.append(
                     contentsOf: page.snapshots.map { snapshot in
                         TransactionRecord(
@@ -304,7 +304,7 @@ extension AppState {
                     walletId: wallet.id, identifier: identifier, sourceUsed: "none", transactionCount: 0, nextCursor: nil,
                     error: error.localizedDescription
                 )
-                bitcoinHistoryDiagnosticsLastUpdatedAt = Date()
+                self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
             }
         }
         if !discoveredTransactions.isEmpty {
@@ -497,15 +497,14 @@ extension AppState {
                     : chain == .optimism
                         ? \.optimismHistoryDiagnosticsByWallet
                         : nil
-            let tsKP: ReferenceWritableKeyPath<AppState, Date?>? =
+            // The timestamp is keyed by chain now, so it needs a name rather
+            // than a key path. A `?:` chain ending in `nil` also infers a
+            // read-only `KeyPath`, which a subscript-backed path cannot satisfy.
+            let historyRunChainName: String? =
                 chain.isEthereumFamily
-                ? \.ethereumHistoryDiagnosticsLastUpdatedAt
-                : chain == .arbitrum
-                    ? \.arbitrumHistoryDiagnosticsLastUpdatedAt
-                    : chain == .optimism
-                        ? \.optimismHistoryDiagnosticsLastUpdatedAt
-                        : nil
-            if let diagsKP, let tsKP {
+                ? "Ethereum"
+                : chain == .arbitrum ? "Arbitrum" : chain == .optimism ? "Optimism" : nil
+            if let diagsKP, let historyRunChainName {
                 if let tokenDiagnostics {
                     var diags = self[keyPath: diagsKP]
                     for wallet in targetWallets { diags[wallet.id] = tokenDiagnostics }
@@ -521,7 +520,7 @@ extension AppState {
                     for wallet in targetWallets { diags[wallet.id] = errDiag }
                     self[keyPath: diagsKP] = diags
                 }
-                self[keyPath: tsKP] = Date()
+                self[historyRunFor: historyRunChainName].lastUpdatedAt = Date()
             }
             let isLastPage = decodedPage.tokens.count < requestedPageSize && decodedPage.native.count < requestedPageSize
             for wallet in targetWallets {

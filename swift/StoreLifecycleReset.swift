@@ -229,123 +229,110 @@ extension AppState {
         UserDefaults.standard.removeObject(forKey: Self.chainOwnedAddressMapDefaultsKey)
         clearAllTransactions()
         resetAllHistoryPagination()
-        bitcoinSelfTestResults = []
-        bitcoinSelfTestsLastRunAt = nil
-        bitcoinCashSelfTestResults = []
-        bitcoinCashSelfTestsLastRunAt = nil
-        bitcoinSVSelfTestResults = []
-        bitcoinSVSelfTestsLastRunAt = nil
-        litecoinSelfTestResults = []
-        litecoinSelfTestsLastRunAt = nil
-        dogecoinSelfTestResults = []
-        dogecoinSelfTestsLastRunAt = nil
         dogecoinHistoryDiagnosticsByWallet = [:]
-        dogecoinHistoryDiagnosticsLastUpdatedAt = nil
-        dogecoinEndpointHealthResults = []
-        dogecoinEndpointHealthLastUpdatedAt = nil
-        ethereumSelfTestResults = []
-        ethereumSelfTestsLastRunAt = nil
+        self[historyRunFor: "Dogecoin"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Dogecoin"].results = []
+        self[endpointHealthFor: "Dogecoin"].lastUpdatedAt = nil
         ethereumHistoryDiagnosticsByWallet = [:]
-        ethereumHistoryDiagnosticsLastUpdatedAt = nil
-        ethereumEndpointHealthResults = []
-        ethereumEndpointHealthLastUpdatedAt = nil
+        self[historyRunFor: "Ethereum"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Ethereum"].results = []
+        self[endpointHealthFor: "Ethereum"].lastUpdatedAt = nil
         arbitrumHistoryDiagnosticsByWallet = [:]
-        arbitrumHistoryDiagnosticsLastUpdatedAt = nil
-        arbitrumEndpointHealthResults = []
-        arbitrumEndpointHealthLastUpdatedAt = nil
+        self[historyRunFor: "Arbitrum"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Arbitrum"].results = []
+        self[endpointHealthFor: "Arbitrum"].lastUpdatedAt = nil
         optimismHistoryDiagnosticsByWallet = [:]
-        optimismHistoryDiagnosticsLastUpdatedAt = nil
-        optimismEndpointHealthResults = []
-        optimismEndpointHealthLastUpdatedAt = nil
+        self[historyRunFor: "Optimism"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Optimism"].results = []
+        self[endpointHealthFor: "Optimism"].lastUpdatedAt = nil
         etcHistoryDiagnosticsByWallet = [:]
-        etcHistoryDiagnosticsLastUpdatedAt = nil
-        etcEndpointHealthResults = []
-        etcEndpointHealthLastUpdatedAt = nil
+        self[historyRunFor: "Ethereum Classic"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Ethereum Classic"].results = []
+        self[endpointHealthFor: "Ethereum Classic"].lastUpdatedAt = nil
         bnbHistoryDiagnosticsByWallet = [:]
-        bnbHistoryDiagnosticsLastUpdatedAt = nil
-        bnbEndpointHealthResults = []
-        bnbEndpointHealthLastUpdatedAt = nil
+        self[historyRunFor: "BNB Chain"].lastUpdatedAt = nil
+        self[endpointHealthFor: "BNB Chain"].results = []
+        self[endpointHealthFor: "BNB Chain"].lastUpdatedAt = nil
         avalancheHistoryDiagnosticsByWallet = [:]
-        avalancheHistoryDiagnosticsLastUpdatedAt = nil
-        avalancheEndpointHealthResults = []
-        avalancheEndpointHealthLastUpdatedAt = nil
+        self[historyRunFor: "Avalanche"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Avalanche"].results = []
+        self[endpointHealthFor: "Avalanche"].lastUpdatedAt = nil
         hyperliquidHistoryDiagnosticsByWallet = [:]
-        hyperliquidHistoryDiagnosticsLastUpdatedAt = nil
-        hyperliquidEndpointHealthResults = []
-        hyperliquidEndpointHealthLastUpdatedAt = nil
+        self[historyRunFor: "Hyperliquid"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Hyperliquid"].results = []
+        self[endpointHealthFor: "Hyperliquid"].lastUpdatedAt = nil
         tronHistoryDiagnosticsByWallet = [:]
-        tronHistoryDiagnosticsLastUpdatedAt = nil
-        tronEndpointHealthResults = []
-        tronEndpointHealthLastUpdatedAt = nil
+        self[historyRunFor: "Tron"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Tron"].results = []
+        self[endpointHealthFor: "Tron"].lastUpdatedAt = nil
         solanaHistoryDiagnosticsByWallet = [:]
-        solanaHistoryDiagnosticsLastUpdatedAt = nil
-        solanaEndpointHealthResults = []
-        solanaEndpointHealthLastUpdatedAt = nil
-        xrpHistoryDiagnosticsByWallet = [:]
-        xrpHistoryDiagnosticsLastUpdatedAt = nil
-        xrpEndpointHealthResults = []
-        xrpEndpointHealthLastUpdatedAt = nil
-        moneroHistoryDiagnosticsByWallet = [:]
-        moneroHistoryDiagnosticsLastUpdatedAt = nil
-        moneroEndpointHealthResults = []
-        moneroEndpointHealthLastUpdatedAt = nil
-        suiHistoryDiagnosticsByWallet = [:]
-        suiHistoryDiagnosticsLastUpdatedAt = nil
-        suiEndpointHealthResults = []
-        suiEndpointHealthLastUpdatedAt = nil
-        nearHistoryDiagnosticsByWallet = [:]
-        nearHistoryDiagnosticsLastUpdatedAt = nil
-        nearEndpointHealthResults = []
-        nearEndpointHealthLastUpdatedAt = nil
-        polkadotHistoryDiagnosticsByWallet = [:]
-        polkadotHistoryDiagnosticsLastUpdatedAt = nil
-        polkadotEndpointHealthResults = []
-        polkadotEndpointHealthLastUpdatedAt = nil
-        cardanoHistoryDiagnosticsByWallet = [:]
-        cardanoHistoryDiagnosticsLastUpdatedAt = nil
-        cardanoEndpointHealthResults = []
-        cardanoEndpointHealthLastUpdatedAt = nil
+        self[historyRunFor: "Solana"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Solana"].results = []
+        self[endpointHealthFor: "Solana"].lastUpdatedAt = nil
+        self[simpleHistoryFor: "XRP Ledger"] = [:]
+        self[historyRunFor: "XRP Ledger"].lastUpdatedAt = nil
+        self[endpointHealthFor: "XRP Ledger"].results = []
+        self[endpointHealthFor: "XRP Ledger"].lastUpdatedAt = nil
+        self[simpleHistoryFor: "Monero"] = [:]
+        self[historyRunFor: "Monero"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Monero"].results = []
+        self[endpointHealthFor: "Monero"].lastUpdatedAt = nil
+        self[simpleHistoryFor: "Sui"] = [:]
+        self[historyRunFor: "Sui"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Sui"].results = []
+        self[endpointHealthFor: "Sui"].lastUpdatedAt = nil
+        self[simpleHistoryFor: "NEAR"] = [:]
+        self[historyRunFor: "NEAR"].lastUpdatedAt = nil
+        self[endpointHealthFor: "NEAR"].results = []
+        self[endpointHealthFor: "NEAR"].lastUpdatedAt = nil
+        self[simpleHistoryFor: "Polkadot"] = [:]
+        self[historyRunFor: "Polkadot"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Polkadot"].results = []
+        self[endpointHealthFor: "Polkadot"].lastUpdatedAt = nil
+        self[simpleHistoryFor: "Cardano"] = [:]
+        self[historyRunFor: "Cardano"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Cardano"].results = []
+        self[endpointHealthFor: "Cardano"].lastUpdatedAt = nil
         bitcoinCashHistoryDiagnosticsByWallet = [:]
-        bitcoinCashHistoryDiagnosticsLastUpdatedAt = nil
-        bitcoinCashEndpointHealthResults = []
-        bitcoinCashEndpointHealthLastUpdatedAt = nil
+        self[historyRunFor: "Bitcoin Cash"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Bitcoin Cash"].results = []
+        self[endpointHealthFor: "Bitcoin Cash"].lastUpdatedAt = nil
         bitcoinSVHistoryDiagnosticsByWallet = [:]
-        bitcoinSVHistoryDiagnosticsLastUpdatedAt = nil
-        bitcoinSVEndpointHealthResults = []
-        bitcoinSVEndpointHealthLastUpdatedAt = nil
+        self[historyRunFor: "Bitcoin SV"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Bitcoin SV"].results = []
+        self[endpointHealthFor: "Bitcoin SV"].lastUpdatedAt = nil
         bitcoinHistoryDiagnosticsByWallet = [:]
-        bitcoinHistoryDiagnosticsLastUpdatedAt = nil
-        bitcoinEndpointHealthResults = []
-        bitcoinEndpointHealthLastUpdatedAt = nil
+        self[historyRunFor: "Bitcoin"].lastUpdatedAt = nil
+        self[endpointHealthFor: "Bitcoin"].results = []
+        self[endpointHealthFor: "Bitcoin"].lastUpdatedAt = nil
         litecoinHistoryDiagnosticsByWallet = [:]
-        litecoinHistoryDiagnosticsLastUpdatedAt = nil
+        self[historyRunFor: "Litecoin"].lastUpdatedAt = nil
         // Belt-and-suspenders: drop the entire Rust-owned diagnostics registry.
         diagnosticsClearAll()
-        litecoinEndpointHealthResults = []
-        litecoinEndpointHealthLastUpdatedAt = nil
+        self[endpointHealthFor: "Litecoin"].results = []
+        self[endpointHealthFor: "Litecoin"].lastUpdatedAt = nil
         diagnostics.chainDegradedMessages = [:]
         diagnostics.lastGoodChainSyncByName = [:]
         chainOperationalEventsByChain = [:]
+        selfTests = [:]
         diagnostics.clearOperationalLogs()
         for kp: ReferenceWritableKeyPath<AppState, Bool> in [
-            \.isRunningBitcoinSelfTests, \.isRunningBitcoinCashSelfTests, \.isRunningBitcoinSVSelfTests,
-            \.isRunningLitecoinSelfTests, \.isRunningDogecoinSelfTests,
-            \.isRunningDogecoinHistoryDiagnostics, \.isCheckingDogecoinEndpointHealth,
-            \.isRunningEthereumSelfTests, \.isRunningEthereumHistoryDiagnostics, \.isCheckingEthereumEndpointHealth,
-            \.isRunningArbitrumHistoryDiagnostics, \.isCheckingArbitrumEndpointHealth,
-            \.isRunningOptimismHistoryDiagnostics, \.isCheckingOptimismEndpointHealth,
-            \.isRunningETCHistoryDiagnostics, \.isCheckingETCEndpointHealth,
-            \.isRunningBNBHistoryDiagnostics, \.isCheckingBNBEndpointHealth,
-            \.isRunningAvalancheHistoryDiagnostics, \.isCheckingAvalancheEndpointHealth,
-            \.isRunningHyperliquidHistoryDiagnostics, \.isCheckingHyperliquidEndpointHealth,
-            \.isRunningTronHistoryDiagnostics, \.isCheckingTronEndpointHealth,
-            \.isRunningSolanaHistoryDiagnostics, \.isCheckingSolanaEndpointHealth,
-            \.isRunningXRPHistoryDiagnostics, \.isCheckingXRPEndpointHealth,
-            \.isRunningMoneroHistoryDiagnostics, \.isCheckingMoneroEndpointHealth,
-            \.isRunningSuiHistoryDiagnostics, \.isCheckingSuiEndpointHealth,
-            \.isRunningCardanoHistoryDiagnostics, \.isCheckingCardanoEndpointHealth,
-            \.isRunningBitcoinHistoryDiagnostics, \.isCheckingBitcoinEndpointHealth,
-            \.isRunningLitecoinHistoryDiagnostics, \.isCheckingLitecoinEndpointHealth,
+            \.[historyRunFor: "Dogecoin"].isRunning, \.self[endpointHealthFor: "Dogecoin"].isChecking,
+            \.[historyRunFor: "Ethereum"].isRunning, \.self[endpointHealthFor: "Ethereum"].isChecking,
+            \.[historyRunFor: "Arbitrum"].isRunning, \.self[endpointHealthFor: "Arbitrum"].isChecking,
+            \.[historyRunFor: "Optimism"].isRunning, \.self[endpointHealthFor: "Optimism"].isChecking,
+            \.[historyRunFor: "Ethereum Classic"].isRunning, \.self[endpointHealthFor: "Ethereum Classic"].isChecking,
+            \.[historyRunFor: "BNB Chain"].isRunning, \.self[endpointHealthFor: "BNB Chain"].isChecking,
+            \.[historyRunFor: "Avalanche"].isRunning, \.self[endpointHealthFor: "Avalanche"].isChecking,
+            \.[historyRunFor: "Hyperliquid"].isRunning, \.self[endpointHealthFor: "Hyperliquid"].isChecking,
+            \.[historyRunFor: "Tron"].isRunning, \.self[endpointHealthFor: "Tron"].isChecking,
+            \.[historyRunFor: "Solana"].isRunning, \.self[endpointHealthFor: "Solana"].isChecking,
+            \.[historyRunFor: "XRP Ledger"].isRunning, \.self[endpointHealthFor: "XRP Ledger"].isChecking,
+            \.[historyRunFor: "Monero"].isRunning, \.self[endpointHealthFor: "Monero"].isChecking,
+            \.[historyRunFor: "Sui"].isRunning, \.self[endpointHealthFor: "Sui"].isChecking,
+            \.[historyRunFor: "Cardano"].isRunning, \.self[endpointHealthFor: "Cardano"].isChecking,
+            \.[historyRunFor: "Bitcoin"].isRunning, \.self[endpointHealthFor: "Bitcoin"].isChecking,
+            \.[historyRunFor: "Litecoin"].isRunning, \.self[endpointHealthFor: "Litecoin"].isChecking,
         ] { self[keyPath: kp] = false }
         isLoadingMoreOnChainHistory = false
         tronLastSendErrorDetails = nil

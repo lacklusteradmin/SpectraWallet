@@ -459,50 +459,30 @@ extension AppState {
         default: return localizedStoreString("This contact could not be saved.")
         }
     }
-    private func runSyncSelfTests(
-        running: ReferenceWritableKeyPath<AppState, Bool>, results: ReferenceWritableKeyPath<AppState, [ChainSelfTestResult]>,
-        lastRun: ReferenceWritableKeyPath<AppState, Date?>, suite: () -> [ChainSelfTestResult], chainName: String, abbrev: String
-    ) {
-        guard !self[keyPath: running] else { return }
-        self[keyPath: running] = true
-        self[keyPath: results] = suite()
-        self[keyPath: lastRun] = Date()
-        self[keyPath: running] = false
-        let r = self[keyPath: results]
-        let failedCount = r.filter { !$0.passed }.count
+    /// Run a chain's synchronous self-test suite and record the outcome.
+    ///
+    /// Was five wrappers, each threading three key paths into three per-chain
+    /// stored properties. The suite, the abbreviation and the state are all
+    /// keyed by chain now — the abbreviation from the registry, which has had
+    /// it all along as `coin_symbol`.
+    func runSelfTests(for chainName: String) {
+        guard !selfTests(for: chainName).isRunning else { return }
+        selfTests[chainName, default: .init()].isRunning = true
+        let results = ChainSelfTests.run(chainName)
+        selfTests[chainName] = .init(results: results, isRunning: false, lastRunAt: Date())
+
+        let failedCount = results.filter { !$0.passed }.count
+        let abbrev = AppEndpointDirectory.appChain(for: chainName)?.nativeSymbol ?? chainName
         appendChainOperationalEvent(
             failedCount == 0 ? .info : .warning, chainName: chainName,
             message: failedCount == 0
-                ? "\(abbrev) self-tests passed (\(r.count) checks)." : "\(abbrev) self-tests completed with \(failedCount) failure(s).")
-    }
-    func runBitcoinSelfTests() {
-        runSyncSelfTests(
-            running: \.isRunningBitcoinSelfTests, results: \.bitcoinSelfTestResults, lastRun: \.bitcoinSelfTestsLastRunAt,
-            suite: { ChainSelfTests.run("Bitcoin") }, chainName: "Bitcoin", abbrev: "BTC")
-    }
-    func runBitcoinCashSelfTests() {
-        runSyncSelfTests(
-            running: \.isRunningBitcoinCashSelfTests, results: \.bitcoinCashSelfTestResults, lastRun: \.bitcoinCashSelfTestsLastRunAt,
-            suite: { ChainSelfTests.run("Bitcoin Cash") }, chainName: "Bitcoin Cash", abbrev: "BCH")
-    }
-    func runBitcoinSVSelfTests() {
-        runSyncSelfTests(
-            running: \.isRunningBitcoinSVSelfTests, results: \.bitcoinSVSelfTestResults, lastRun: \.bitcoinSVSelfTestsLastRunAt,
-            suite: { ChainSelfTests.run("Bitcoin SV") }, chainName: "Bitcoin SV", abbrev: "BSV")
-    }
-    func runLitecoinSelfTests() {
-        runSyncSelfTests(
-            running: \.isRunningLitecoinSelfTests, results: \.litecoinSelfTestResults, lastRun: \.litecoinSelfTestsLastRunAt,
-            suite: { ChainSelfTests.run("Litecoin") }, chainName: "Litecoin", abbrev: "LTC")
-    }
-    func runDogecoinSelfTests() {
-        runSyncSelfTests(
-            running: \.isRunningDogecoinSelfTests, results: \.dogecoinSelfTestResults, lastRun: \.dogecoinSelfTestsLastRunAt,
-            suite: { ChainSelfTests.run("Dogecoin") }, chainName: "Dogecoin", abbrev: "DOGE")
+                ? "\(abbrev) self-tests passed (\(results.count) checks)."
+                : "\(abbrev) self-tests completed with \(failedCount) failure(s).")
     }
     func runEthereumSelfTests() async {
-        guard !isRunningEthereumSelfTests else { return }
-        isRunningEthereumSelfTests = true; defer { isRunningEthereumSelfTests = false }
+        guard !selfTests(for: "Ethereum").isRunning else { return }
+        selfTests["Ethereum", default: .init()].isRunning = true
+        defer { selfTests["Ethereum", default: .init()].isRunning = false }
         var results = ChainSelfTests.run("Ethereum")
         let rpcURL = configuredEthereumRPCEndpointURL()?.absoluteString ?? "https://ethereum.publicnode.com"
         let rpcLabel = configuredEthereumRPCEndpointURL()?.absoluteString ?? "default RPC pool"
@@ -536,8 +516,7 @@ extension AppState {
                     text: diagnosticsOK
                         ? "Diagnostics JSON contains expected top-level keys."
                         : "Diagnostics JSON missing expected keys (history/endpoints).")))
-        ethereumSelfTestResults = results
-        ethereumSelfTestsLastRunAt = Date()
+        selfTests["Ethereum"] = .init(results: results, isRunning: true, lastRunAt: Date())
         let failedCount = results.filter { !$0.passed }.count
         appendChainOperationalEvent(
             failedCount == 0 ? .info : .warning, chainName: "Ethereum",
@@ -625,13 +604,13 @@ extension AppState {
             refreshPending: { await self.refreshPendingLitecoinTransactions() })
     }
     func runDogecoinHistoryDiagnostics() async {
-        guard !isRunningDogecoinHistoryDiagnostics else { return }
-        isRunningDogecoinHistoryDiagnostics = true; defer { isRunningDogecoinHistoryDiagnostics = false }
+        guard !self[historyRunFor: "Dogecoin"].isRunning else { return }
+        self[historyRunFor: "Dogecoin"].isRunning = true; defer { self[historyRunFor: "Dogecoin"].isRunning = false }
         let walletsToRefresh = wallets.compactMap { w -> (ImportedWallet, String)? in
             guard w.selectedChain == "Dogecoin", let address = resolvedDogecoinAddress(for: w) else { return nil }
             return (w, address)
         }
-        guard !walletsToRefresh.isEmpty else { dogecoinHistoryDiagnosticsLastUpdatedAt = Date(); return }
+        guard !walletsToRefresh.isEmpty else { self[historyRunFor: "Dogecoin"].lastUpdatedAt = Date(); return }
         for (wallet, address) in walletsToRefresh {
             do {
                 let count = try await withTimeout(seconds: 20) {
@@ -645,16 +624,16 @@ extension AppState {
                     walletId: wallet.id, identifier: address, sourceUsed: "none", transactionCount: 0, nextCursor: nil,
                     error: error.localizedDescription)
             }
-            dogecoinHistoryDiagnosticsLastUpdatedAt = Date()
+            self[historyRunFor: "Dogecoin"].lastUpdatedAt = Date()
         }
     }
     func runDogecoinEndpointReachabilityDiagnostics() async {
-        guard !isCheckingDogecoinEndpointHealth else { return }
-        isCheckingDogecoinEndpointHealth = true; defer { isCheckingDogecoinEndpointHealth = false }
+        guard !self[endpointHealthFor: "Dogecoin"].isChecking else { return }
+        self[endpointHealthFor: "Dogecoin"].isChecking = true; defer { self[endpointHealthFor: "Dogecoin"].isChecking = false }
         await runSimpleEndpointReachabilityDiagnostics(
             checks: DogecoinBalanceService.diagnosticsChecks(), profile: .diagnostics,
-            setResults: { [weak self] in self?.dogecoinEndpointHealthResults = $0 },
-            markUpdated: { [weak self] in self?.dogecoinEndpointHealthLastUpdatedAt = Date() })
+            setResults: { [weak self] in self?[endpointHealthFor: "Dogecoin"].results = $0 },
+            markUpdated: { [weak self] in self?[endpointHealthFor: "Dogecoin"].lastUpdatedAt = Date() })
     }
     func startNetworkPathMonitorIfNeeded() {
         #if canImport(Network)

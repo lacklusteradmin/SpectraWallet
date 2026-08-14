@@ -108,6 +108,11 @@ enum WalletRustDerivationBridge {
     // MARK: — Per-chain dispatch
 
     // swiftlint:disable:next function_body_length cyclomatic_complexity
+    /// One call, whatever the chain.
+    ///
+    /// This was a 212-line switch with an arm per chain, each calling a
+    /// `derive<Chain>` export that existed only to be called from that arm.
+    /// Core has dispatched by chain name since before any of them were written.
     private static func dispatch(
         chain: SeedDerivationChain,
         seedPhrase: String, path: String,
@@ -115,210 +120,10 @@ enum WalletRustDerivationBridge {
         scriptType: BitcoinScriptType,
         wa: Bool, wp: Bool, wk: Bool
     ) throws -> DerivationResult {
-        switch chain {
-
-        // ── Bitcoin family (script-type aware) ──────────────────────────────
-        case .bitcoin:
-            return try deriveBitcoin(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .bitcoinTestnet:
-            return try deriveBitcoinTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .bitcoinTestnet4:
-            return try deriveBitcoinTestnet4(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .bitcoinSignet:
-            return try deriveBitcoinSignet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Bitcoin Cash ─────────────────────────────────────────────────────
-        case .bitcoinCash:
-            return try deriveBitcoinCash(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .bitcoinCashTestnet:
-            return try deriveBitcoinCashTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Bitcoin SV ───────────────────────────────────────────────────────
-        case .bitcoinSV:
-            return try deriveBitcoinSv(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .bitcoinSVTestnet:
-            return try deriveBitcoinSvTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Litecoin ─────────────────────────────────────────────────────────
-        case .litecoin:
-            return try deriveLitecoin(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .litecoinTestnet:
-            return try deriveLitecoinTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Dogecoin ─────────────────────────────────────────────────────────
-        case .dogecoin:
-            return try deriveDogecoin(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .dogecoinTestnet:
-            return try deriveDogecoinTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Dash ─────────────────────────────────────────────────────────────
-        case .dash:
-            return try deriveDash(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .dashTestnet:
-            return try deriveDashTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Bitcoin Gold ─────────────────────────────────────────────────────
-        case .bitcoinGold:
-            return try deriveBitcoinGold(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, scriptType: scriptType, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Zcash ────────────────────────────────────────────────────────────
-        case .zcash:
-            return try deriveZcash(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .zcashTestnet:
-            return try deriveZcashTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Decred ───────────────────────────────────────────────────────────
-        case .decred:
-            return try deriveDecred(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .decredTestnet:
-            return try deriveDecredTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Kaspa ────────────────────────────────────────────────────────────
-        case .kaspa:
-            return try deriveKaspa(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .kaspaTestnet:
-            return try deriveKaspaTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── EVM mainnets ─────────────────────────────────────────────────────
-        case .ethereum:
-            return try deriveEthereum(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .ethereumClassic:
-            return try deriveEthereumClassic(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .arbitrum:
-            return try deriveArbitrum(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .optimism:
-            return try deriveOptimism(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .avalanche:
-            return try deriveAvalanche(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .base:
-            return try deriveBase(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .polygon:
-            return try derivePolygon(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .hyperliquid:
-            return try deriveHyperliquid(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .linea:
-            return try deriveLinea(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .scroll:
-            return try deriveScroll(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .blast:
-            return try deriveBlast(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .mantle:
-            return try deriveMantle(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .sei:
-            return try deriveSei(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .celo:
-            return try deriveCelo(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .cronos:
-            return try deriveCronos(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .opBNB:
-            return try deriveOpBnb(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .zkSyncEra:
-            return try deriveZksyncEra(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .sonic:
-            return try deriveSonic(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .berachain:
-            return try deriveBerachain(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .unichain:
-            return try deriveUnichain(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .ink:
-            return try deriveInk(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .xLayer:
-            return try deriveXLayer(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── EVM testnets ─────────────────────────────────────────────────────
-        case .ethereumSepolia:
-            return try deriveEthereumSepolia(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .ethereumHoodi:
-            return try deriveEthereumHoodi(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .ethereumClassicMordor:
-            return try deriveEthereumClassicMordor(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .arbitrumSepolia:
-            return try deriveArbitrumSepolia(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .optimismSepolia:
-            return try deriveOptimismSepolia(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .baseSepolia:
-            return try deriveBaseSepolia(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .bnbChainTestnet:
-            return try deriveBnbTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .avalancheFuji:
-            return try deriveAvalancheFuji(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .polygonAmoy:
-            return try derivePolygonAmoy(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .hyperliquidTestnet:
-            return try deriveHyperliquidTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Tron ─────────────────────────────────────────────────────────────
-        case .tron:
-            return try deriveTron(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .tronNile:
-            return try deriveTronNile(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Solana ───────────────────────────────────────────────────────────
-        case .solana:
-            return try deriveSolana(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, hmacKey: hmacKey, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .solanaDevnet:
-            return try deriveSolanaDevnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, hmacKey: hmacKey, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Stellar ──────────────────────────────────────────────────────────
-        case .stellar:
-            return try deriveStellar(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, hmacKey: hmacKey, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .stellarTestnet:
-            return try deriveStellarTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, hmacKey: hmacKey, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── XRP ──────────────────────────────────────────────────────────────
-        case .xrp:
-            return try deriveXrp(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .xrpTestnet:
-            return try deriveXrpTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Cardano ──────────────────────────────────────────────────────────
-        case .cardano:
-            return try deriveCardano(seedPhrase: seedPhrase, derivationPath: path.isEmpty ? nil : path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .cardanoPreprod:
-            return try deriveCardanoPreprod(seedPhrase: seedPhrase, derivationPath: path.isEmpty ? nil : path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Sui ──────────────────────────────────────────────────────────────
-        case .sui:
-            return try deriveSui(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .suiTestnet:
-            return try deriveSuiTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Aptos ────────────────────────────────────────────────────────────
-        case .aptos:
-            return try deriveAptos(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .aptosTestnet:
-            return try deriveAptosTestnet(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── TON (no derivation path) ─────────────────────────────────────────
-        case .ton:
-            return try deriveTon(seedPhrase: seedPhrase, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .tonTestnet:
-            return try deriveTonTestnet(seedPhrase: seedPhrase, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Internet Computer ────────────────────────────────────────────────
-        case .internetComputer:
-            return try deriveIcp(seedPhrase: seedPhrase, derivationPath: path, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── NEAR (no derivation path) ────────────────────────────────────────
-        case .near:
-            return try deriveNear(seedPhrase: seedPhrase, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .nearTestnet:
-            return try deriveNearTestnet(seedPhrase: seedPhrase, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Polkadot / Westend (no derivation path) ──────────────────────────
-        case .polkadot:
-            return try derivePolkadot(seedPhrase: seedPhrase, passphrase: passphrase, hmacKey: hmacKey, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        case .polkadotWestend:
-            return try derivePolkadotWestend(seedPhrase: seedPhrase, passphrase: passphrase, hmacKey: hmacKey, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Bittensor (no derivation path) ──────────────────────────────────
-        case .bittensor:
-            return try deriveBittensor(seedPhrase: seedPhrase, passphrase: passphrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-
-        // ── Monero Stagenet (no derivation path) ─────────────────────────────
-        case .moneroStagenet:
-            return try deriveMoneroStagenet(seedPhrase: seedPhrase, wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
-        }
+        try coreDeriveForChain(
+            chainName: chain.rawValue, seedPhrase: seedPhrase, derivationPath: path,
+            passphrase: passphrase, hmacKey: hmacKey, scriptType: scriptType,
+            wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
     }
 }
 

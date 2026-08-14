@@ -6,74 +6,16 @@ import Foundation
 // `DiagnosticsBundlePayload` and `DiagnosticsEnvironmentMetadata` are UniFFI
 // records — Swift sees them as plain structs via the generated bindings.
 
-private protocol SimpleAddressHistoryDiag {
-    var address: String { get }
-    var sourceUsed: String { get }
-    var transactionCount: Int32 { get }
-    var error: String? { get }
-}
-extension CardanoHistoryDiagnostics: SimpleAddressHistoryDiag {}
-extension XrpHistoryDiagnostics: SimpleAddressHistoryDiag {}
-extension StellarHistoryDiagnostics: SimpleAddressHistoryDiag {}
-extension MoneroHistoryDiagnostics: SimpleAddressHistoryDiag {}
-extension SuiHistoryDiagnostics: SimpleAddressHistoryDiag {}
-extension AptosHistoryDiagnostics: SimpleAddressHistoryDiag {}
-extension TonHistoryDiagnostics: SimpleAddressHistoryDiag {}
-extension IcpHistoryDiagnostics: SimpleAddressHistoryDiag {}
-extension NearHistoryDiagnostics: SimpleAddressHistoryDiag {}
-extension PolkadotHistoryDiagnostics: SimpleAddressHistoryDiag {}
+// The `SimpleAddressHistoryDiag` protocol and its ten conformances stood here.
+// It existed to treat ten identically-shaped records as one type; core stamped
+// those out with a macro from a single field list, so there is one record now
+// and nothing left for the protocol to unify.
 
-
-private func simpleEntries<T: SimpleAddressHistoryDiag>(_ dict: [String: T]) -> [SimpleAddressHistoryEntry] {
-    dict.map {
-        SimpleAddressHistoryEntry(
-            walletId: $0.key, address: $0.value.address, sourceUsed: $0.value.sourceUsed,
-            transactionCount: $0.value.transactionCount, error: $0.value.error)
-    }
-}
+// `simpleEntries`, `utxoJSON`, `evmJSON` and `simpleJSON` stood here: three
+// wrappers that read history out of core's registry and handed it straight back
+// so core could build JSON from it. `coreDiagnosticsJson` reads its own store.
 
 extension AppState {
-
-    // MARK: Per-chain JSON helpers (used by DiagnosticsViews)
-
-    private func utxoJSON(
-        history: [String: BitcoinHistoryDiagnostics],
-        endpoints: [EndpointHealthRow],
-        historyUpdatedAt: Date?,
-        endpointsUpdatedAt: Date?,
-        mode: String? = nil
-    ) -> String? {
-        diagnosticsBuildUtxoJson(
-            history: Array(history.values), endpoints: endpoints,
-            historyLastUpdatedAtUnix: historyUpdatedAt?.timeIntervalSince1970,
-            endpointsLastUpdatedAtUnix: endpointsUpdatedAt?.timeIntervalSince1970,
-            extraNetworkMode: mode)
-    }
-    private func evmJSON(
-        history: [String: EthereumTokenTransferHistoryDiagnostics],
-        endpoints: [EvmEndpointHealthRow],
-        historyUpdatedAt: Date?,
-        endpointsUpdatedAt: Date?
-    ) -> String? {
-        diagnosticsBuildEvmJson(
-            history: history.map { EvmHistoryEntry(walletId: $0.key, diagnostics: $0.value) },
-            endpoints: endpoints,
-            historyLastUpdatedAtUnix: historyUpdatedAt?.timeIntervalSince1970,
-            endpointsLastUpdatedAtUnix: endpointsUpdatedAt?.timeIntervalSince1970)
-    }
-    private func simpleJSON<T: SimpleAddressHistoryDiag>(
-        history: [String: T],
-        endpoints: [EndpointHealthRow],
-        historyUpdatedAt: Date?,
-        endpointsUpdatedAt: Date?
-    ) -> String? {
-        diagnosticsBuildSimpleAddressJson(
-            history: simpleEntries(history), endpoints: endpoints,
-            historyLastUpdatedAtUnix: historyUpdatedAt?.timeIntervalSince1970,
-            endpointsLastUpdatedAtUnix: endpointsUpdatedAt?.timeIntervalSince1970)
-    }
-
-    /// Chains the diagnostics bundle reports on.
     static let diagnosticsBundleChainNames = [
         "Bitcoin",
         "Dogecoin",
@@ -101,148 +43,25 @@ extension AppState {
         "Polkadot",
     ]
 
-    /// Diagnostics JSON for one chain, keyed by display name.
+    /// Diagnostics JSON for one chain.
     ///
-    /// This was 23 near-identical wrapper functions, each naming a chain and
-    /// forwarding to one of the three shared builders — and then a 24-row table
-    /// below calling all 23, plus 24 closures in `DiagnosticsViews` calling
-    /// them again. Three copies of the same list.
-    ///
-    /// The switch stays because the per-chain *state* is still 163 separate
-    /// stored properties on `WalletChainDiagnosticsState`; until those are
-    /// keyed by chain there is nothing to look this up in. That is the next
-    /// slice, and it is what actually makes adding a chain free here.
+    /// Was a 24-case switch over five builders, each fed history this side had
+    /// just read out of core's registry and handed straight back across the
+    /// FFI. Core owns that storage and `Chain::diagnostics_shape` says which
+    /// document to build, so the chain name is the whole input.
     func diagnosticsJSON(for chainName: String) -> String? {
-        switch chainName {
-        case "Bitcoin":
-            return utxoJSON(
-            history: bitcoinHistoryDiagnosticsByWallet, endpoints: bitcoinEndpointHealthResults,
-            historyUpdatedAt: bitcoinHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: bitcoinEndpointHealthLastUpdatedAt, mode: bitcoinNetworkMode.rawValue)
-        case "Dogecoin":
-            return utxoJSON(
-            history: dogecoinHistoryDiagnosticsByWallet, endpoints: dogecoinEndpointHealthResults,
-            historyUpdatedAt: dogecoinHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: dogecoinEndpointHealthLastUpdatedAt)
-        case "Bitcoin Cash":
-            return utxoJSON(
-            history: bitcoinCashHistoryDiagnosticsByWallet, endpoints: bitcoinCashEndpointHealthResults,
-            historyUpdatedAt: bitcoinCashHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: bitcoinCashEndpointHealthLastUpdatedAt)
-        case "Bitcoin SV":
-            return utxoJSON(
-            history: bitcoinSVHistoryDiagnosticsByWallet, endpoints: bitcoinSVEndpointHealthResults,
-            historyUpdatedAt: bitcoinSVHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: bitcoinSVEndpointHealthLastUpdatedAt)
-        case "Litecoin":
-            return utxoJSON(
-            history: litecoinHistoryDiagnosticsByWallet, endpoints: litecoinEndpointHealthResults,
-            historyUpdatedAt: litecoinHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: litecoinEndpointHealthLastUpdatedAt)
-        case "Ethereum":
-            return evmJSON(
-            history: ethereumHistoryDiagnosticsByWallet, endpoints: ethereumEndpointHealthResults,
-            historyUpdatedAt: ethereumHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: ethereumEndpointHealthLastUpdatedAt)
-        case "Ethereum Classic":
-            return evmJSON(
-            history: etcHistoryDiagnosticsByWallet, endpoints: etcEndpointHealthResults,
-            historyUpdatedAt: etcHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: etcEndpointHealthLastUpdatedAt)
-        case "Arbitrum":
-            return evmJSON(
-            history: arbitrumHistoryDiagnosticsByWallet, endpoints: arbitrumEndpointHealthResults,
-            historyUpdatedAt: arbitrumHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: arbitrumEndpointHealthLastUpdatedAt)
-        case "Optimism":
-            return evmJSON(
-            history: optimismHistoryDiagnosticsByWallet, endpoints: optimismEndpointHealthResults,
-            historyUpdatedAt: optimismHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: optimismEndpointHealthLastUpdatedAt)
-        case "BNB Chain":
-            return evmJSON(
-            history: bnbHistoryDiagnosticsByWallet, endpoints: bnbEndpointHealthResults,
-            historyUpdatedAt: bnbHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: bnbEndpointHealthLastUpdatedAt)
-        case "Avalanche":
-            return evmJSON(
-            history: avalancheHistoryDiagnosticsByWallet, endpoints: avalancheEndpointHealthResults,
-            historyUpdatedAt: avalancheHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: avalancheEndpointHealthLastUpdatedAt)
-        case "Hyperliquid":
-            return evmJSON(
-            history: hyperliquidHistoryDiagnosticsByWallet, endpoints: hyperliquidEndpointHealthResults,
-            historyUpdatedAt: hyperliquidHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: hyperliquidEndpointHealthLastUpdatedAt)
-        case "Stellar":
-            return simpleJSON(
-            history: stellarHistoryDiagnosticsByWallet, endpoints: stellarEndpointHealthResults,
-            historyUpdatedAt: stellarHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: stellarEndpointHealthLastUpdatedAt)
-        case "Cardano":
-            return simpleJSON(
-            history: cardanoHistoryDiagnosticsByWallet, endpoints: cardanoEndpointHealthResults,
-            historyUpdatedAt: cardanoHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: cardanoEndpointHealthLastUpdatedAt)
-        case "XRP Ledger":
-            return simpleJSON(
-            history: xrpHistoryDiagnosticsByWallet, endpoints: xrpEndpointHealthResults,
-            historyUpdatedAt: xrpHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: xrpEndpointHealthLastUpdatedAt)
-        case "Monero":
-            return simpleJSON(
-            history: moneroHistoryDiagnosticsByWallet, endpoints: moneroEndpointHealthResults,
-            historyUpdatedAt: moneroHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: moneroEndpointHealthLastUpdatedAt)
-        case "Sui":
-            return simpleJSON(
-            history: suiHistoryDiagnosticsByWallet, endpoints: suiEndpointHealthResults,
-            historyUpdatedAt: suiHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: suiEndpointHealthLastUpdatedAt)
-        case "Aptos":
-            return simpleJSON(
-            history: aptosHistoryDiagnosticsByWallet, endpoints: aptosEndpointHealthResults,
-            historyUpdatedAt: aptosHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: aptosEndpointHealthLastUpdatedAt)
-        case "TON":
-            return simpleJSON(
-            history: tonHistoryDiagnosticsByWallet, endpoints: tonEndpointHealthResults,
-            historyUpdatedAt: tonHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: tonEndpointHealthLastUpdatedAt)
-        case "Internet Computer":
-            return simpleJSON(
-            history: icpHistoryDiagnosticsByWallet, endpoints: icpEndpointHealthResults,
-            historyUpdatedAt: icpHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: icpEndpointHealthLastUpdatedAt)
-        case "NEAR":
-            return simpleJSON(
-            history: nearHistoryDiagnosticsByWallet, endpoints: nearEndpointHealthResults,
-            historyUpdatedAt: nearHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: nearEndpointHealthLastUpdatedAt)
-        case "Polkadot":
-            return simpleJSON(
-            history: polkadotHistoryDiagnosticsByWallet, endpoints: polkadotEndpointHealthResults,
-            historyUpdatedAt: polkadotHistoryDiagnosticsLastUpdatedAt,
-            endpointsUpdatedAt: polkadotEndpointHealthLastUpdatedAt)
-        case "Tron":
-            return diagnosticsBuildTronJson(
-                history: tronHistoryDiagnosticsByWallet.map { TronHistoryEntry(walletId: $0.key, diagnostics: $0.value) },
-                endpoints: tronEndpointHealthResults,
-                historyLastUpdatedAtUnix: tronHistoryDiagnosticsLastUpdatedAt?.timeIntervalSince1970,
-                endpointsLastUpdatedAtUnix: tronEndpointHealthLastUpdatedAt?.timeIntervalSince1970,
-                lastSendErrorAtUnix: tronLastSendErrorAt?.timeIntervalSince1970,
-                lastSendErrorDetails: tronLastSendErrorDetails)
-        case "Solana":
-            return diagnosticsBuildSolanaJson(
-                history: solanaHistoryDiagnosticsByWallet.map { SolanaHistoryEntry(walletId: $0.key, diagnostics: $0.value) },
-                endpoints: solanaEndpointHealthResults,
-                historyLastUpdatedAtUnix: solanaHistoryDiagnosticsLastUpdatedAt?.timeIntervalSince1970,
-                endpointsLastUpdatedAtUnix: solanaEndpointHealthLastUpdatedAt?.timeIntervalSince1970)
-        default: return nil
-        }
+        coreDiagnosticsJson(
+            chainName: chainName,
+            endpoints: self[endpointHealthFor: chainName].results,
+            historyLastUpdatedAtUnix: self[historyRunFor: chainName].lastUpdatedAt?
+                .timeIntervalSince1970,
+            endpointsLastUpdatedAtUnix: self[endpointHealthFor: chainName].lastUpdatedAt?
+                .timeIntervalSince1970,
+            extraNetworkMode: chainName == "Bitcoin" ? bitcoinNetworkMode.rawValue : nil,
+            lastSendErrorAtUnix: chainName == "Tron"
+                ? tronLastSendErrorAt?.timeIntervalSince1970 : nil,
+            lastSendErrorDetails: chainName == "Tron" ? tronLastSendErrorDetails : nil)
     }
-
-    // MARK: Bundle construction (Rust-owned struct, Swift fills it in)
 
     private func buildDiagnosticsBundle() -> DiagnosticsBundlePayload {
         let info = Bundle.main.infoDictionary ?? [:]

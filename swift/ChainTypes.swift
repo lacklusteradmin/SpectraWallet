@@ -108,14 +108,14 @@ enum TronBalanceService {
 }
 
 // MARK: - Stellar
-// StellarHistoryDiagnostics moved to Rust core.
+// SimpleHistoryDiagnostics moved to Rust core.
 enum StellarBalanceService {
     static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Stellar") }
     static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] { AppEndpointDirectory.diagnosticsChecks(for: "Stellar") }
 }
 
 // MARK: - ICP
-// ICPHistoryDiagnostics moved to Rust core.
+// SimpleHistoryDiagnostics moved to Rust core.
 enum ICPBalanceService {
     static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Internet Computer") }
     static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] {
@@ -124,7 +124,7 @@ enum ICPBalanceService {
 }
 
 // MARK: - XRP
-// XRPHistoryDiagnostics moved to Rust core.
+// SimpleHistoryDiagnostics moved to Rust core.
 enum XRPBalanceService {
     static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "XRP Ledger") }
     static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] {
@@ -133,14 +133,14 @@ enum XRPBalanceService {
 }
 
 // MARK: - Cardano
-// CardanoHistoryDiagnostics moved to Rust core.
+// SimpleHistoryDiagnostics moved to Rust core.
 enum CardanoBalanceService {
     static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Cardano") }
     static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] { AppEndpointDirectory.diagnosticsChecks(for: "Cardano") }
 }
 
 // MARK: - Polkadot
-// PolkadotHistoryDiagnostics moved to Rust core.
+// SimpleHistoryDiagnostics moved to Rust core.
 enum PolkadotBalanceService {
     static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Polkadot") }
     static func sidecarEndpointCatalog() -> [String] { AppEndpointDirectory.endpoints(for: ["polkadot.sidecar.parity"]) }
@@ -148,7 +148,7 @@ enum PolkadotBalanceService {
 }
 
 // MARK: - Monero
-// MoneroHistoryDiagnostics moved to Rust core.
+// SimpleHistoryDiagnostics moved to Rust core.
 enum MoneroBalanceService {
     struct TrustedBackend: Identifiable, Hashable {
         let id: String
@@ -230,7 +230,7 @@ enum SolanaBalanceService {
 }
 
 // MARK: - NEAR
-// NearHistoryDiagnostics moved to Rust core.
+// SimpleHistoryDiagnostics moved to Rust core.
 enum NearBalanceService {
     struct KnownTokenMetadata: Equatable {
         let symbol: String
@@ -251,7 +251,7 @@ enum NearBalanceService {
 }
 
 // MARK: - Aptos
-// AptosHistoryDiagnostics moved to Rust core.
+// SimpleHistoryDiagnostics moved to Rust core.
 enum AptosBalanceService {
     static let aptosCoinType = "0x1::aptos_coin::aptoscoin"
     struct KnownTokenMetadata: Equatable {
@@ -266,7 +266,7 @@ enum AptosBalanceService {
 }
 
 // MARK: - Sui
-// SuiHistoryDiagnostics moved to Rust core.
+// SimpleHistoryDiagnostics moved to Rust core.
 enum SuiBalanceService {
     static let suiCoinType = "0x2::sui::SUI"
     struct KnownTokenMetadata: Equatable {
@@ -281,7 +281,7 @@ enum SuiBalanceService {
 }
 
 // MARK: - TON
-// TONHistoryDiagnostics moved to Rust core.
+// SimpleHistoryDiagnostics moved to Rust core.
 enum TONBalanceService {
     struct KnownTokenMetadata: Equatable {
         let symbol: String
