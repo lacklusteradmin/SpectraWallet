@@ -3,6 +3,24 @@ import KeychainAccess
 enum KeychainStoreError: Error, Equatable {
     case missingValue
     case invalidEncoding
+    /// The seed master key could not be read, created, or persisted. No seed
+    /// may be written while this is true: an envelope sealed under a key that
+    /// never reached the Keychain cannot be opened again after a relaunch.
+    case masterKeyUnavailable(String)
+    /// Envelope encryption failed. Storing the seed regardless would mean
+    /// storing it in plaintext.
+    case sealFailed(String)
+}
+
+extension KeychainStoreError: LocalizedError {
+    var errorDescription: String? {
+        switch self {
+        case .missingValue: return "No value is stored for this item."
+        case .invalidEncoding: return "The stored value is not valid UTF-8."
+        case .masterKeyUnavailable(let detail): return "The seed encryption key is unavailable: \(detail)"
+        case .sealFailed(let detail): return "The seed could not be encrypted: \(detail)"
+        }
+    }
 }
 
 private struct KeychainBackedSecureStore: @unchecked Sendable {
@@ -32,8 +50,13 @@ private enum SecureRandom {
 }
 enum SecureStore {
     private static let storage = KeychainBackedSecureStore(service: "com.spectra.pricing")
-    static func save(_ value: String, for account: String) { try? storage.save(value, for: account) }
-    static func saveData(_ data: Data, for account: String) { try? storage.saveData(data, for: account) }
+    // Writes throw so a caller cannot be told a value was stored when it was
+    // not. Only `SpectraSecretStoreAdapter` reaches these, and core does not
+    // drive the adapter's generic bucket today — core's `wallet_secrets`
+    // sealing path, which is what puts a salt and verifier in it, is the CLI's
+    // alone. Throwing is what keeps that true if core ever does.
+    static func save(_ value: String, for account: String) throws { try storage.save(value, for: account) }
+    static func saveData(_ data: Data, for account: String) throws { try storage.saveData(data, for: account) }
     static func loadValue(for account: String) -> String { (try? storage.loadValue(for: account)) ?? "" }
     static func loadData(for account: String) -> Data? { try? storage.loadData(for: account) }
     static func deleteValue(for account: String) { try? storage.deleteValue(for: account) }
@@ -42,19 +65,50 @@ enum SecureStore {
 private enum SeedMaterialEnvelope {
     private static let storage = KeychainBackedSecureStore(service: "com.spectra.seed.masterkey")
     private static let masterKeyAccount = "seed.material.masterkey"
-    private static func masterKeyBytes() -> Data {
-        if let storedData = (try? storage.loadData(for: masterKeyAccount)) ?? nil, storedData.count == 32 { return storedData }
-        let generated = SecureRandom.data(length: 32)
-        try? storage.saveData(generated, for: masterKeyAccount)
+    private static let masterKeyLength = 32
+    /// The stored master key, or nil when the Keychain holds none yet.
+    ///
+    /// A read *failure* throws rather than reporting "absent". Callers create a
+    /// key when one is absent, so answering "absent" for a key that is merely
+    /// unreadable right now would overwrite the key every existing seed is
+    /// sealed under. Stored bytes of the wrong length are corruption, and are
+    /// reported as such for the same reason.
+    private static func storedMasterKey() throws -> Data? {
+        let stored: Data?
+        do { stored = try storage.loadData(for: masterKeyAccount) } catch {
+            throw KeychainStoreError.masterKeyUnavailable(String(describing: error))
+        }
+        guard let stored else { return nil }
+        guard stored.count == masterKeyLength else {
+            throw KeychainStoreError.masterKeyUnavailable("stored key is \(stored.count) bytes, expected \(masterKeyLength)")
+        }
+        return stored
+    }
+    /// The master key to seal with, creating and persisting one on first use.
+    ///
+    /// Throws rather than handing back a key that was not written: a seed
+    /// sealed under an unpersisted key is unreadable on the next launch, so the
+    /// seed must not be stored at all in that case.
+    private static func masterKeyForSealing() throws -> Data {
+        if let existing = try storedMasterKey() { return existing }
+        let generated = SecureRandom.data(length: masterKeyLength)
+        do { try storage.saveData(generated, for: masterKeyAccount) } catch {
+            throw KeychainStoreError.masterKeyUnavailable(String(describing: error))
+        }
         return generated
     }
-    static func encode(_ seedPhrase: String) -> Data {
-        let key = masterKeyBytes()
-        guard let encrypted = try? encryptSeedEnvelope(plaintext: seedPhrase, masterKeyBytes: key) else { return Data(seedPhrase.utf8) }
-        return encrypted
+    /// Seals `seedPhrase` for storage. Failing to encrypt is a failure to
+    /// store — there is no plaintext fallback.
+    static func encode(_ seedPhrase: String) throws -> Data {
+        let key = try masterKeyForSealing()
+        do { return try encryptSeedEnvelope(plaintext: seedPhrase, masterKeyBytes: key) } catch {
+            throw KeychainStoreError.sealFailed(String(describing: error))
+        }
     }
+    /// Opens a stored envelope. Unlike `encode`, this never creates a master
+    /// key: no key means nothing was ever sealed, and a read must not write.
     static func decode(_ data: Data) -> String? {
-        let key = masterKeyBytes()
+        guard let key = (try? storedMasterKey()) ?? nil else { return nil }
         return try? decryptSeedEnvelope(data: data, masterKeyBytes: key)
     }
 }
@@ -82,7 +136,12 @@ enum SecureSeedPasswordStore {
         let verifierData = try createPasswordVerifier(password: normalized)
         try storage.saveData(verifierData, for: account)
     }
-    static func hasPassword(for account: String) -> Bool { (try? storage.loadData(for: account)) != nil }
+    /// A read failure answers "yes" on purpose. Callers use this to decide
+    /// whether to demand a password before revealing a seed, and answering "no"
+    /// because the Keychain happened to be unreadable would drop that check.
+    static func hasPassword(for account: String) -> Bool {
+        do { return try storage.loadData(for: account) != nil } catch { return true }
+    }
     static func verify(_ password: String, for account: String) -> Bool {
         let normalized = password.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalized.isEmpty, let data = try? storage.loadData(for: account) else { return false }
@@ -93,10 +152,10 @@ enum SecureSeedPasswordStore {
 }
 enum SecurePrivateKeyStore {
     private static let storage = KeychainBackedSecureStore(service: "com.spectra.privatekey")
-    static func save(_ value: String, for account: String) { try? storage.save(value, for: account) }
+    static func save(_ value: String, for account: String) throws { try storage.save(value, for: account) }
     static func loadValue(for account: String) -> String { (try? storage.loadValue(for: account)) ?? "" }
-    static func deleteValue(for account: String) { try? storage.deleteValue(for: account) }
-    static func deleteAllValues() { try? storage.deleteAllValues() }
+    static func deleteValue(for account: String) throws { try storage.deleteValue(for: account) }
+    static func deleteAllValues() throws { try storage.deleteAllValues() }
 }
 
 final class SpectraSecretStoreAdapter: SecretStore, @unchecked Sendable {
@@ -129,24 +188,26 @@ final class SpectraSecretStoreAdapter: SecretStore, @unchecked Sendable {
     }
 
     func saveSecret(kind: SecretClass, key: String, value: String) throws {
-        switch kind {
-        case .seed:
-            do { try SecureSeedStore.save(value, for: key) } catch { throw SecretStoreError.Backend(message: String(describing: error)) }
-        case .privateKey:
-            SecurePrivateKeyStore.save(value, for: key)
-        case .generic:
-            SecureStore.save(value, for: key)
+        do {
+            switch kind {
+            case .seed: try SecureSeedStore.save(value, for: key)
+            case .privateKey: try SecurePrivateKeyStore.save(value, for: key)
+            case .generic: try SecureStore.save(value, for: key)
+            }
+        } catch {
+            throw SecretStoreError.Backend(message: String(describing: error))
         }
     }
 
     func deleteSecret(kind: SecretClass, key: String) throws {
-        switch kind {
-        case .seed:
-            do { try SecureSeedStore.deleteValue(for: key) } catch { throw SecretStoreError.Backend(message: String(describing: error)) }
-        case .privateKey:
-            SecurePrivateKeyStore.deleteValue(for: key)
-        case .generic:
-            SecureStore.deleteValue(for: key)
+        do {
+            switch kind {
+            case .seed: try SecureSeedStore.deleteValue(for: key)
+            case .privateKey: try SecurePrivateKeyStore.deleteValue(for: key)
+            case .generic: SecureStore.deleteValue(for: key)
+            }
+        } catch {
+            throw SecretStoreError.Backend(message: String(describing: error))
         }
     }
 

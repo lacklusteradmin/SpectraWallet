@@ -205,32 +205,14 @@ extension AppState {
         let draft = importDraft
         func tr(_ s: String) -> String { s.trimmingCharacters(in: .whitespacesAndNewlines) }
         func entries(_ s: String) -> [String] { draft.watchOnlyEntries(from: s) }
-        let bitcoinAddressEntries = entries(draft.bitcoinAddressInput); let trimmedBitcoinAddress = tr(draft.bitcoinAddressInput);
+        // The trimmed per-chain inputs, from the one table `ImportDraft`
+        // keeps. This was 24 pairs of `let typedXAddress = tr(draft.xInput)`
+        // and `let xAddressEntries = entries(draft.xInput)` — the same table
+        // written out twice, by hand, in a file that already had two more
+        // copies of it further down.
+        let typedByChainName = draft.watchOnlyInputsByChainName.mapValues(tr)
+        func typed(_ chainName: String) -> String { typedByChainName[chainName] ?? "" }
         let trimmedBitcoinXPub = tr(draft.bitcoinXpubInput)
-        let bitcoinCashAddressEntries = entries(draft.bitcoinCashAddressInput);
-        let typedBitcoinCashAddress = tr(draft.bitcoinCashAddressInput)
-        let bitcoinSvAddressEntries = entries(draft.bitcoinSvAddressInput); let typedBitcoinSVAddress = tr(draft.bitcoinSvAddressInput)
-        let litecoinAddressEntries = entries(draft.litecoinAddressInput); let typedLitecoinAddress = tr(draft.litecoinAddressInput)
-        let dogecoinAddressEntries = entries(draft.dogecoinAddressInput); let typedDogecoinAddress = tr(draft.dogecoinAddressInput)
-        let ethereumAddressEntries = entries(draft.ethereumAddressInput); let typedEthereumAddress = tr(draft.ethereumAddressInput)
-        let tronAddressEntries = entries(draft.tronAddressInput); let typedTronAddress = tr(draft.tronAddressInput)
-        let solanaAddressEntries = entries(draft.solanaAddressInput); let typedSolanaAddress = tr(draft.solanaAddressInput)
-        let xrpAddressEntries = entries(draft.xrpAddressInput); let typedXRPAddress = tr(draft.xrpAddressInput)
-        let stellarAddressEntries = entries(draft.stellarAddressInput); let typedStellarAddress = tr(draft.stellarAddressInput)
-        let typedMoneroAddress = tr(draft.moneroAddressInput)
-        let cardanoAddressEntries = entries(draft.cardanoAddressInput); let typedCardanoAddress = tr(draft.cardanoAddressInput)
-        let suiAddressEntries = entries(draft.suiAddressInput); let typedSuiAddress = tr(draft.suiAddressInput)
-        let aptosAddressEntries = entries(draft.aptosAddressInput); let typedAptosAddress = tr(draft.aptosAddressInput)
-        let tonAddressEntries = entries(draft.tonAddressInput); let typedTonAddress = tr(draft.tonAddressInput)
-        let icpAddressEntries = entries(draft.icpAddressInput); let typedICPAddress = tr(draft.icpAddressInput)
-        let nearAddressEntries = entries(draft.nearAddressInput); let typedNearAddress = tr(draft.nearAddressInput)
-        let polkadotAddressEntries = entries(draft.polkadotAddressInput); let typedPolkadotAddress = tr(draft.polkadotAddressInput)
-        let zcashAddressEntries = entries(draft.zcashAddressInput); let typedZcashAddress = tr(draft.zcashAddressInput)
-        let bitcoinGoldAddressEntries = entries(draft.bitcoinGoldAddressInput); let typedBitcoinGoldAddress = tr(draft.bitcoinGoldAddressInput)
-        let decredAddressEntries = entries(draft.decredAddressInput); let typedDecredAddress = tr(draft.decredAddressInput)
-        let kaspaAddressEntries = entries(draft.kaspaAddressInput); let typedKaspaAddress = tr(draft.kaspaAddressInput)
-        let dashAddressEntries = entries(draft.dashAddressInput); let typedDashAddress = tr(draft.dashAddressInput)
-        let bittensorAddressEntries = entries(draft.bittensorAddressInput); let typedBittensorAddress = tr(draft.bittensorAddressInput)
         let selectedChains = Set(draft.selectedChainNames)
         let selectedDerivationPreset = importDraft.seedDerivationPreset
         let selectedDerivationPaths: SeedDerivationPaths = {
@@ -248,32 +230,11 @@ extension AppState {
             return
         }
         let requiresSeedPhrase = !selectedChains.isEmpty && !isWatchOnlyImport && !isPrivateKeyImport
-        // Per-chain "resolved" optional: keep the typed value only when the chain
-        // is selected for import AND the value is non-empty.
-        func res(_ wants: Bool, _ v: String) -> String? { (wants && !v.isEmpty) ? v : nil }
-        let resolvedBitcoinAddress = res(selectedChains.contains("Bitcoin"), trimmedBitcoinAddress)
-        let resolvedBitcoinXPub = res(selectedChains.contains("Bitcoin"), trimmedBitcoinXPub)
-        let resolvedBitcoinCashAddress = res(selectedChains.contains("Bitcoin Cash"), typedBitcoinCashAddress)
-        let resolvedBitcoinSVAddress = res(selectedChains.contains("Bitcoin SV"), typedBitcoinSVAddress)
-        let resolvedLitecoinAddress = res(selectedChains.contains("Litecoin"), typedLitecoinAddress)
-        let resolvedTronAddress = res(selectedChains.contains("Tron"), typedTronAddress)
-        let resolvedSolanaAddress = res(selectedChains.contains("Solana"), typedSolanaAddress)
-        let resolvedXRPAddress = res(selectedChains.contains("XRP Ledger"), typedXRPAddress)
-        let resolvedStellarAddress = res(selectedChains.contains("Stellar"), typedStellarAddress)
-        let resolvedMoneroAddress = res(selectedChains.contains("Monero"), typedMoneroAddress)
-        let resolvedCardanoAddress = res(selectedChains.contains("Cardano"), typedCardanoAddress)
-        let resolvedSuiAddress = res(selectedChains.contains("Sui"), typedSuiAddress)
-        let resolvedAptosAddress = res(selectedChains.contains("Aptos"), typedAptosAddress)
-        let resolvedTONAddress = res(selectedChains.contains("TON"), typedTonAddress)
-        let resolvedICPAddress = res(selectedChains.contains("Internet Computer"), typedICPAddress)
-        let resolvedNearAddress = res(selectedChains.contains("NEAR"), typedNearAddress)
-        let resolvedPolkadotAddress = res(selectedChains.contains("Polkadot"), typedPolkadotAddress)
-        let resolvedZcashAddress = res(selectedChains.contains("Zcash"), typedZcashAddress)
-        let resolvedBitcoinGoldAddress = res(selectedChains.contains("Bitcoin Gold"), typedBitcoinGoldAddress)
-        let resolvedDecredAddress = res(selectedChains.contains("Decred"), typedDecredAddress)
-        let resolvedKaspaAddress = res(selectedChains.contains("Kaspa"), typedKaspaAddress)
-        let resolvedDashAddress = res(selectedChains.contains("Dash"), typedDashAddress)
-        let resolvedBittensorAddress = res(selectedChains.contains("Bittensor"), typedBittensorAddress)
+        // Bitcoin's account xpub is not an address and has no derived
+        // counterpart, so it stays a typed value. Every other chain's address
+        // comes from derivation or validation below — see the slot map.
+        let resolvedBitcoinXPub =
+            (selectedChains.contains("Bitcoin") && !trimmedBitcoinXPub.isEmpty) ? trimmedBitcoinXPub : nil
         if isPrivateKeyImport {
             guard CachedCoreHelpers.privateKeyHexIsLikely(rawValue: trimmedPrivateKey) else {
                 importError = "Enter a valid 32-byte hex key."
@@ -296,20 +257,8 @@ extension AppState {
                 return
             }
         }
-        if isWatchOnlyImport && selectedChains.contains("Bitcoin") {
-            let hasValidAddress =
-                !bitcoinAddressEntries.isEmpty
-                && bitcoinAddressEntries.allSatisfy {
-                    AddressValidation.isValid($0, kind: "bitcoin", networkMode: self.bitcoinNetworkMode.rawValue)
-                }
-            let hasValidXPub = resolvedBitcoinXPub.map { $0.hasPrefix("xpub") || $0.hasPrefix("ypub") || $0.hasPrefix("zpub") } ?? false
-            if !hasValidAddress && !hasValidXPub {
-                importError = "Enter one valid Bitcoin address per line or a valid xpub/zpub for watched addresses."
-                return
-            }
-        }
         if selectedChains.contains("Monero") {
-            if (resolvedMoneroAddress?.isEmpty ?? true) || !AddressValidation.isValid(resolvedMoneroAddress ?? "", kind: "monero") {
+            if typed("Monero").isEmpty || !AddressValidation.isValid(typed("Monero"), kind: "monero") {
                 importError = localizedStoreString("Enter a valid Monero address.")
                 return
             }
@@ -319,78 +268,33 @@ extension AppState {
             }
         }
         if selectedChains.contains("Cardano") && !isWatchOnlyImport {
-            if let resolvedCardanoAddress, !resolvedCardanoAddress.isEmpty,
-                !AddressValidation.isValid(resolvedCardanoAddress, kind: "cardano")
+            if !typed("Cardano").isEmpty,
+                !AddressValidation.isValid(typed("Cardano"), kind: "cardano")
             {
                 importError = localizedStoreString("Enter a valid Cardano address.")
                 return
             }
         }
-        if isWatchOnlyImport {
-            let watchOnlyValidations: [(Bool, [String], (String) -> Bool, String)] = [
-                (
-                    selectedChains.contains("Bitcoin Cash"), bitcoinCashAddressEntries, { AddressValidation.isValid($0, kind: "bitcoinCash") },
-                    "Bitcoin Cash address"
-                ),
-                (selectedChains.contains("Bitcoin SV"), bitcoinSvAddressEntries, { AddressValidation.isValid($0, kind: "bitcoinSV") }, "Bitcoin SV address"),
-                (selectedChains.contains("Litecoin"), litecoinAddressEntries, { AddressValidation.isValid($0, kind: "litecoin") }, "Litecoin address"),
-                (selectedChains.contains("Dogecoin"), dogecoinAddressEntries, { self.isValidDogecoinAddressForPolicy($0) }, "Dogecoin address"),
-                (selectedChains.contains("Tron"), tronAddressEntries, { AddressValidation.isValid($0, kind: "tron") }, "Tron address"),
-                (selectedChains.contains("Solana"), solanaAddressEntries, { AddressValidation.isValid($0, kind: "solana") }, "Solana address"),
-                (selectedChains.contains("XRP Ledger"), xrpAddressEntries, { AddressValidation.isValid($0, kind: "xrp") }, "XRP address"),
-                (selectedChains.contains("Stellar"), stellarAddressEntries, { AddressValidation.isValid($0, kind: "stellar") }, "Stellar address"),
-                (selectedChains.contains("Cardano"), cardanoAddressEntries, { AddressValidation.isValid($0, kind: "cardano") }, "Cardano address"),
-                (selectedChains.contains("Sui"), suiAddressEntries, { AddressValidation.isValid($0, kind: "sui") }, "Sui address"),
-                (selectedChains.contains("Aptos"), aptosAddressEntries, { AddressValidation.isValid($0, kind: "aptos") }, "Aptos address"),
-                (selectedChains.contains("TON"), tonAddressEntries, { AddressValidation.isValid($0, kind: "ton") }, "TON address"),
-                (
-                    selectedChains.contains("Internet Computer"), icpAddressEntries, { AddressValidation.isValid($0, kind: "internetComputer") },
-                    "Internet Computer account identifier"
-                ), (selectedChains.contains("NEAR"), nearAddressEntries, { AddressValidation.isValid($0, kind: "near") }, "NEAR address"),
-                (selectedChains.contains("Polkadot"), polkadotAddressEntries, { AddressValidation.isValid($0, kind: "polkadot") }, "Polkadot address"),
-            ]
-            for (wantsImport, entries, validator, name) in watchOnlyValidations where wantsImport {
-                if entries.isEmpty || !entries.allSatisfy(validator) {
-                    importError = "Enter one valid \(name) per line for watched addresses."
-                    return
-                }
-            }
-        }
-        if isWatchOnlyImport
-            && (selectedChains.contains("Ethereum") || selectedChains.contains("Ethereum Classic") || selectedChains.contains("Arbitrum") || selectedChains.contains("Optimism") || selectedChains.contains("BNB Chain")
-                || selectedChains.contains("Avalanche") || selectedChains.contains("Hyperliquid"))
-        {
-            if ethereumAddressEntries.isEmpty || !ethereumAddressEntries.allSatisfy({ AddressValidation.isValid($0, kind: "evm") }) {
-                importError = "Enter one valid EVM address per line for watched addresses."
-                return
-            }
-        }
+        // The 16-row watch-only validation table, the Bitcoin address/xpub
+        // guard and the seven-chain EVM guard that used to sit here are gone.
+        // All three restated per-chain address formats the registry already
+        // holds, and core applies the same rule on the way in — including the
+        // network mode, which `ImportNetworks` now carries so a testnet watch
+        // address is still judged as testnet.
+        //
+        // What changes: core keeps the valid entries and reports the rest in
+        // `rejectedAddresses` instead of refusing the whole import on one bad
+        // line. An import with nothing left still fails.
         if editingWalletID == nil {
-            let bitcoinCashAddress: String?
-            let bitcoinSvAddress: String?
-            let litecoinAddress: String?
-            let dogecoinAddress: String?
-            let ethereumAddress: String?
-            let ethereumClassicAddress: String?
-            let tronAddress: String?
-            let solanaAddress: String?
-            let xrpAddress: String?
-            let stellarAddress: String?
-            let moneroAddress: String?
-            let cardanoAddress: String?
-            let suiAddress: String?
-            let aptosAddress: String?
-            let tonAddress: String?
-            let icpAddress: String?
-            let nearAddress: String?
-            let polkadotAddress: String?
-            let zcashAddress: String?
-            let bitcoinGoldAddress: String?
-            let decredAddress: String?
-            let kaspaAddress: String?
-            let dashAddress: String?
-            let bittensorAddress: String?
-            let derivedBitcoinAddress: String?
+            // One table keyed by chain display name, not 25 optionals and a
+            // 25-row slot map restating them. Both branches below fill it and
+            // `WalletImportAddresses.slotMap` turns it into slots, so adding a
+            // chain touches neither.
+            var addressByChainName: [String: String] = [:]
+            func record(_ chainName: String, _ address: String?) {
+                guard let address, !address.isEmpty else { return }
+                addressByChainName[chainName] = address
+            }
             let createdWalletIDs = selectedChainNames.map { _ in UUID() }
             let bitcoinWalletID = zip(selectedChainNames, createdWalletIDs).first(where: { $0.0 == "Bitcoin" })?.1
             if requiresSeedPhrase {
@@ -443,21 +347,14 @@ extension AppState {
                         }
                         _ = bitcoinWalletID
                     }
-                    derivedBitcoinAddress = derived["Bitcoin"]; bitcoinCashAddress = derived["Bitcoin Cash"];
-                    bitcoinSvAddress = derived["Bitcoin SV"]
-                    litecoinAddress = derived["Litecoin"]; dogecoinAddress = derived["Dogecoin"]
-                    ethereumAddress = derived["Ethereum"]; ethereumClassicAddress = derived["Ethereum Classic"]
-                    tronAddress = derived["Tron"]; solanaAddress = derived["Solana"]; cardanoAddress = derived["Cardano"]
-                    xrpAddress = derived["XRP Ledger"]; stellarAddress = derived["Stellar"]
-                    suiAddress = derived["Sui"]; aptosAddress = derived["Aptos"]; tonAddress = derived["TON"]
-                    icpAddress = derived["Internet Computer"]; nearAddress = derived["NEAR"]; polkadotAddress = derived["Polkadot"]
-                    zcashAddress = derived["Zcash"]
-                    bitcoinGoldAddress = derived["Bitcoin Gold"]
-                    decredAddress = derived["Decred"]
-                    kaspaAddress = derived["Kaspa"]
-                    dashAddress = derived["Dash"]
-                    bittensorAddress = derived["Bittensor"]
-                    moneroAddress = resolvedMoneroAddress
+                    // `derived` is already keyed by chain display name, so
+                    // unpacking it into 24 locals and repacking it was pure
+                    // transcription.
+                    addressByChainName = derived
+                    // Monero is not in the batch derivation, so the address the
+                    // user supplied is its only source. The guard above has
+                    // already refused an invalid one.
+                    record("Monero", typed("Monero"))
                 } catch {
                     let resolvedMessage =
                         (error as? LocalizedError)?.errorDescription
@@ -476,99 +373,50 @@ extension AppState {
                     : PrivateKeyImportAddressResolution(
                         bitcoin: nil, bitcoinCash: nil, bitcoinSV: nil, litecoin: nil, dogecoin: nil, evm: nil, tron: nil, solana: nil,
                         xrp: nil, stellar: nil, cardano: nil, sui: nil, aptos: nil, ton: nil, icp: nil, near: nil, polkadot: nil)
-                derivedBitcoinAddress = derivedPrivateKeyAddress.bitcoin
-                bitcoinCashAddress =
-                    derivedPrivateKeyAddress.bitcoinCash
-                    ?? (AddressValidation.isValid(typedBitcoinCashAddress, kind: "bitcoinCash") ? typedBitcoinCashAddress : nil)
-                bitcoinSvAddress =
-                    derivedPrivateKeyAddress.bitcoinSV
-                    ?? (AddressValidation.isValid(typedBitcoinSVAddress, kind: "bitcoinSV") ? typedBitcoinSVAddress : nil)
-                litecoinAddress =
-                    derivedPrivateKeyAddress.litecoin
-                    ?? (AddressValidation.isValid(typedLitecoinAddress, kind: "litecoin") ? typedLitecoinAddress : nil)
-                dogecoinAddress =
-                    derivedPrivateKeyAddress.dogecoin
-                    ?? (isValidDogecoinAddressForPolicy(typedDogecoinAddress) ? typedDogecoinAddress : nil)
-                ethereumAddress =
-                    derivedPrivateKeyAddress.evm
-                    ?? (AddressValidation.isValid(typedEthereumAddress, kind: "evm") ? normalizeEVMAddress(typedEthereumAddress) : nil)
-                ethereumClassicAddress = ethereumAddress
-                tronAddress =
-                    derivedPrivateKeyAddress.tron ?? (AddressValidation.isValid(typedTronAddress, kind: "tron") ? typedTronAddress : nil)
-                solanaAddress =
-                    derivedPrivateKeyAddress.solana
-                    ?? (AddressValidation.isValid(typedSolanaAddress, kind: "solana") ? typedSolanaAddress : nil)
-                xrpAddress =
-                    derivedPrivateKeyAddress.xrp ?? (AddressValidation.isValid(typedXRPAddress, kind: "xrp") ? typedXRPAddress : nil)
-                stellarAddress =
-                    derivedPrivateKeyAddress.stellar
-                    ?? (AddressValidation.isValid(typedStellarAddress, kind: "stellar") ? typedStellarAddress : nil)
-                moneroAddress = AddressValidation.isValid(typedMoneroAddress, kind: "monero") ? typedMoneroAddress : nil
-                cardanoAddress =
-                    derivedPrivateKeyAddress.cardano
-                    ?? (AddressValidation.isValid(typedCardanoAddress, kind: "cardano") ? typedCardanoAddress : nil)
-                suiAddress =
-                    derivedPrivateKeyAddress.sui
-                    ?? (AddressValidation.isValid(typedSuiAddress, kind: "sui") ? typedSuiAddress.lowercased() : nil)
-                aptosAddress =
-                    derivedPrivateKeyAddress.aptos
-                    ?? (AddressValidation.isValid(typedAptosAddress, kind: "aptos")
-                        ? normalizedAddress(typedAptosAddress, for: "Aptos") : nil)
-                tonAddress =
-                    derivedPrivateKeyAddress.ton
-                    ?? (AddressValidation.isValid(typedTonAddress, kind: "ton") ? normalizedAddress(typedTonAddress, for: "TON") : nil)
-                icpAddress =
-                    derivedPrivateKeyAddress.icp
-                    ?? (AddressValidation.isValid(typedICPAddress, kind: "internetComputer")
-                        ? normalizedAddress(typedICPAddress, for: "Internet Computer") : nil)
-                nearAddress =
-                    derivedPrivateKeyAddress.near
-                    ?? (AddressValidation.isValid(typedNearAddress, kind: "near") ? typedNearAddress.lowercased() : nil)
-                polkadotAddress =
-                    derivedPrivateKeyAddress.polkadot
-                    ?? (AddressValidation.isValid(typedPolkadotAddress, kind: "polkadot") ? typedPolkadotAddress : nil)
-                zcashAddress = AddressValidation.isValid(typedZcashAddress, kind: "zcash") ? typedZcashAddress : nil
-                bitcoinGoldAddress =
-                    AddressValidation.isValid(typedBitcoinGoldAddress, kind: "bitcoinGold")
-                        ? typedBitcoinGoldAddress : nil
-                decredAddress =
-                    AddressValidation.isValid(typedDecredAddress, kind: "decred")
-                        ? typedDecredAddress : nil
-                kaspaAddress =
-                    AddressValidation.isValid(typedKaspaAddress, kind: "kaspa")
-                        ? typedKaspaAddress.lowercased() : nil
-                dashAddress =
-                    AddressValidation.isValid(typedDashAddress, kind: "dash")
-                        ? typedDashAddress : nil
-                bittensorAddress =
-                    AddressValidation.isValid(typedBittensorAddress, kind: "bittensor")
-                        ? typedBittensorAddress : nil
+                // The typed values are no longer filtered here: core drops
+                // what does not validate and reports it, so a second copy of
+                // the format rules on this side only risks disagreeing with it.
+                record("Bitcoin", derivedPrivateKeyAddress.bitcoin)
+                record("Bitcoin Cash", derivedPrivateKeyAddress.bitcoinCash ?? typed("Bitcoin Cash"))
+                record("Bitcoin SV", derivedPrivateKeyAddress.bitcoinSV ?? typed("Bitcoin SV"))
+                record("Litecoin", derivedPrivateKeyAddress.litecoin ?? typed("Litecoin"))
+                record("Dogecoin", derivedPrivateKeyAddress.dogecoin ?? typed("Dogecoin"))
+                let evmAddress = derivedPrivateKeyAddress.evm ?? typed("Ethereum")
+                record("Ethereum", evmAddress)
+                // Ethereum Classic has its own slot but the same key material.
+                record("Ethereum Classic", evmAddress)
+                record("Tron", derivedPrivateKeyAddress.tron ?? typed("Tron"))
+                record("Solana", derivedPrivateKeyAddress.solana ?? typed("Solana"))
+                record("XRP Ledger", derivedPrivateKeyAddress.xrp ?? typed("XRP Ledger"))
+                record("Stellar", derivedPrivateKeyAddress.stellar ?? typed("Stellar"))
+                record("Monero", typed("Monero"))
+                record("Cardano", derivedPrivateKeyAddress.cardano ?? typed("Cardano"))
+                record("Sui", derivedPrivateKeyAddress.sui ?? typed("Sui"))
+                record("Aptos", derivedPrivateKeyAddress.aptos ?? typed("Aptos"))
+                record("TON", derivedPrivateKeyAddress.ton ?? typed("TON"))
+                record("Internet Computer", derivedPrivateKeyAddress.icp ?? typed("Internet Computer"))
+                record("NEAR", derivedPrivateKeyAddress.near ?? typed("NEAR"))
+                record("Polkadot", derivedPrivateKeyAddress.polkadot ?? typed("Polkadot"))
+                record("Zcash", typed("Zcash"))
+                record("Bitcoin Gold", typed("Bitcoin Gold"))
+                record("Decred", typed("Decred"))
+                record("Kaspa", typed("Kaspa"))
+                record("Dash", typed("Dash"))
+                record("Bittensor", typed("Bittensor"))
             }
             let plannedWalletIDs: [UUID]
             if isWatchOnlyImport {
-                let watchOnlyEntriesByChain: [String: [String]] = [
-                    "Bitcoin": bitcoinAddressEntries, "Bitcoin Cash": bitcoinCashAddressEntries, "Bitcoin SV": bitcoinSvAddressEntries,
-                    "Litecoin": litecoinAddressEntries, "Dogecoin": dogecoinAddressEntries, "Tron": tronAddressEntries,
-                    "Solana": solanaAddressEntries, "XRP Ledger": xrpAddressEntries, "Stellar": stellarAddressEntries,
-                    "Cardano": cardanoAddressEntries, "Sui": suiAddressEntries, "Aptos": aptosAddressEntries, "TON": tonAddressEntries,
-                    "Internet Computer": icpAddressEntries, "NEAR": nearAddressEntries, "Polkadot": polkadotAddressEntries,
-                    "Zcash": zcashAddressEntries,
-                    "Bitcoin Gold": bitcoinGoldAddressEntries,
-                    "Decred": decredAddressEntries,
-                    "Kaspa": kaspaAddressEntries,
-                    "Dash": dashAddressEntries,
-                    "Bittensor": bittensorAddressEntries,
-                ]
-                let evmChains: Set<String> = [
-                    "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base",
-                    "Linea", "Scroll", "Blast", "Mantle",
-                    "Sei", "Celo", "Cronos", "opBNB", "zkSync Era", "Sonic", "Berachain", "Unichain", "Ink",
-                    "X Layer",
-                ]
+                // `ImportDraft` already keeps the inputs as one table, and
+                // `coreIsEvmChain` already answers EVM membership — the 22-row
+                // copy and the 23-name EVM set that used to be here restated
+                // both. An EVM chain's entries live under Ethereum because the
+                // whole family shares that address slot.
                 let watchOnlyWalletCount: Int = {
                     if primarySelectedChainName == "Bitcoin", let x = resolvedBitcoinXPub, !x.isEmpty { return 1 }
-                    if evmChains.contains(primarySelectedChainName) { return ethereumAddressEntries.count }
-                    return watchOnlyEntriesByChain[primarySelectedChainName]?.count ?? 0
+                    let sourceChain =
+                        coreIsEvmChain(chainName: primarySelectedChainName) ? "Ethereum" : primarySelectedChainName
+                    let input = draft.watchOnlyInputsByChainName[sourceChain] ?? ""
+                    return draft.watchOnlyEntries(from: input).count
                 }()
                 guard watchOnlyWalletCount > 0 else {
                     importError = "Enter at least one valid address to import."
@@ -584,61 +432,18 @@ extension AppState {
                 plannedWalletIds: plannedWalletIDs.map(\.uuidString), isWatchOnlyImport: isWatchOnlyImport,
                 isPrivateKeyImport: isPrivateKeyImport, hasWalletPassword: trimmedWalletPassword != nil,
                 resolvedAddresses: WalletImportAddresses(
-                    bySlot: WalletImportAddresses.slotMap([
-                        "Bitcoin": resolvedBitcoinAddress ?? derivedBitcoinAddress,
-                        "Bitcoin Cash": resolvedBitcoinCashAddress ?? bitcoinCashAddress,
-                        "Bitcoin SV": resolvedBitcoinSVAddress ?? bitcoinSvAddress,
-                        "Litecoin": resolvedLitecoinAddress ?? litecoinAddress,
-                        "Dogecoin": dogecoinAddress,
-                        "Ethereum": ethereumAddress,
-                        "Ethereum Classic": ethereumClassicAddress,
-                        "Tron": resolvedTronAddress ?? tronAddress,
-                        "Solana": resolvedSolanaAddress ?? solanaAddress,
-                        "XRP Ledger": resolvedXRPAddress ?? xrpAddress,
-                        "Stellar": resolvedStellarAddress ?? stellarAddress,
-                        "Monero": resolvedMoneroAddress ?? moneroAddress,
-                        "Cardano": resolvedCardanoAddress ?? cardanoAddress,
-                        "Sui": resolvedSuiAddress ?? suiAddress,
-                        "Aptos": resolvedAptosAddress ?? aptosAddress,
-                        "TON": resolvedTONAddress ?? tonAddress,
-                        "Internet Computer": resolvedICPAddress ?? icpAddress,
-                        "NEAR": resolvedNearAddress ?? nearAddress,
-                        "Polkadot": resolvedPolkadotAddress ?? polkadotAddress,
-                        "Zcash": resolvedZcashAddress ?? zcashAddress,
-                        "Bitcoin Gold": resolvedBitcoinGoldAddress ?? bitcoinGoldAddress,
-                        "Decred": resolvedDecredAddress ?? decredAddress,
-                        "Kaspa": resolvedKaspaAddress ?? kaspaAddress,
-                        "Dash": resolvedDashAddress ?? dashAddress,
-                        "Bittensor": resolvedBittensorAddress ?? bittensorAddress,
-                    ]),
+                    bySlot: WalletImportAddresses.slotMap(addressByChainName),
                     bitcoinXpub: resolvedBitcoinXPub
                 ),
+                // `ImportDraft` already keeps the per-chain inputs as one
+                // table and maps it to slots, so this restated all 23 rows for
+                // nothing. The per-chain normalising that came with them is
+                // gone too: core normalises every address it accepts, and
+                // `the_send_normaliser_and_the_import_normaliser_agree` pins
+                // that its answer matches the `normalizedSendAddress` these
+                // call sites were using.
                 watchOnlyEntries: WalletImportWatchOnlyEntries(
-                    bySlot: WalletImportWatchOnlyEntries.slotMap([
-                        "Bitcoin": bitcoinAddressEntries,
-                        "Bitcoin Cash": bitcoinCashAddressEntries,
-                        "Bitcoin SV": bitcoinSvAddressEntries,
-                        "Litecoin": litecoinAddressEntries,
-                        "Dogecoin": dogecoinAddressEntries,
-                        "Ethereum": ethereumAddressEntries.map { normalizeEVMAddress($0) },
-                        "Tron": tronAddressEntries,
-                        "Solana": solanaAddressEntries,
-                        "XRP Ledger": xrpAddressEntries,
-                        "Stellar": stellarAddressEntries,
-                        "Cardano": cardanoAddressEntries,
-                        "Sui": suiAddressEntries.map { $0.lowercased() },
-                        "Aptos": aptosAddressEntries.map { normalizedAddress($0, for: "Aptos") },
-                        "TON": tonAddressEntries.map { normalizedAddress($0, for: "TON") },
-                        "Internet Computer": icpAddressEntries.map { normalizedAddress($0, for: "Internet Computer") },
-                        "NEAR": nearAddressEntries.map { $0.lowercased() },
-                        "Polkadot": polkadotAddressEntries,
-                        "Zcash": zcashAddressEntries,
-                        "Bitcoin Gold": bitcoinGoldAddressEntries,
-                        "Decred": decredAddressEntries,
-                        "Kaspa": kaspaAddressEntries.map { $0.lowercased() },
-                        "Dash": dashAddressEntries,
-                        "Bittensor": bittensorAddressEntries,
-                    ]),
+                    bySlot: draft.watchOnlyEntriesBySlot,
                     bitcoinXpub: resolvedBitcoinXPub
                 )
             )
@@ -662,32 +467,63 @@ extension AppState {
                 importError = error.localizedDescription
                 return
             }
+            // Core refuses addresses that do not parse for their chain. Wallets
+            // it did create are already stored, so this is a notice rather than
+            // a failure — but it has to be shown. Dropping it silently is how a
+            // typo becomes a wallet whose receive address is missing.
+            if !outcome.rejectedAddresses.isEmpty {
+                // Interpolation rather than a `+` chain: a multi-line `+`
+                // concatenation in this function is enough to time out the
+                // type-checker and produce phantom errors elsewhere in the file.
+                let refused = outcome.rejectedAddresses.joined(separator: ", ")
+                importError = "These addresses were not valid and were not imported: \(refused)"
+            }
             let createdWallets = outcome.wallets
+            // The Keychain writes are the one part of an import that can fail
+            // after core has already committed the wallets. A failure here is
+            // reported, never swallowed: a wallet that looks imported but whose
+            // seed was never stored is worse than a visible error.
+            var secretStorageFailure: Error? = nil
             for instruction in outcome.secretInstructions {
                 let walletID = instruction.walletId
                 let account = resolvedSeedPhraseAccount(for: walletID)
                 let passwordAccount = resolvedSeedPhrasePasswordAccount(for: walletID)
                 let privateKeyAccount = resolvedPrivateKeyAccount(for: walletID)
-                if instruction.shouldStoreSeedPhrase {
-                    try? SecureSeedStore.save(trimmedSeedPhrase, for: account)
-                } else {
-                    try? SecureSeedStore.deleteValue(for: account)
-                }
-                if instruction.shouldStorePasswordVerifier, let trimmedWalletPassword {
-                    try? SecureSeedPasswordStore.save(trimmedWalletPassword, for: passwordAccount)
-                } else {
-                    try? SecureSeedPasswordStore.deleteValue(for: passwordAccount)
-                }
-                if instruction.shouldStorePrivateKey {
-                    SecurePrivateKeyStore.save(trimmedPrivateKey, for: privateKeyAccount)
-                } else {
-                    SecurePrivateKeyStore.deleteValue(for: privateKeyAccount)
+                do {
+                    if instruction.shouldStoreSeedPhrase {
+                        try SecureSeedStore.save(trimmedSeedPhrase, for: account)
+                    } else {
+                        try SecureSeedStore.deleteValue(for: account)
+                    }
+                    if instruction.shouldStorePasswordVerifier, let trimmedWalletPassword {
+                        try SecureSeedPasswordStore.save(trimmedWalletPassword, for: passwordAccount)
+                    } else {
+                        try SecureSeedPasswordStore.deleteValue(for: passwordAccount)
+                    }
+                    if instruction.shouldStorePrivateKey {
+                        try SecurePrivateKeyStore.save(trimmedPrivateKey, for: privateKeyAccount)
+                    } else {
+                        try SecurePrivateKeyStore.deleteValue(for: privateKeyAccount)
+                    }
+                } catch {
+                    secretStorageFailure = error
+                    break
                 }
             }
             // Core already stored them; re-read the projection from core rather
-            // than appending locally, so the two cannot disagree.
+            // than appending locally, so the two cannot disagree. This runs even
+            // when the Keychain writes failed, so the list the user is looking
+            // at matches what core actually holds.
             if let stored = try? await WalletServiceBridge.shared.storedWallets() {
                 setWalletProjection(stored)
+            }
+            if let secretStorageFailure {
+                let detail = secretStorageFailure.localizedDescription
+                importError = """
+                    The wallet was created, but its signing secret could not be saved to the Keychain, so it cannot sign \
+                    transactions and the seed phrase cannot be revealed. Delete the wallet and import it again. (\(detail))
+                    """
+                return
             }
             importedWalletsForRefresh = createdWallets
         }

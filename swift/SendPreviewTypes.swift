@@ -1,100 +1,79 @@
 import Foundation
 
-enum EVMChainContext: Equatable {
-    case ethereum
-    case ethereumSepolia
-    case ethereumHoodi
-    case ethereumClassic
-    case arbitrum
-    case optimism
-    case bnb
-    case avalanche
-    case hyperliquid
-    case polygon
-    case base
-    case linea
-    case scroll
-    case blast
-    case mantle
-    var displayName: String {
-        switch self {
-        case .ethereum: return "Ethereum"
-        case .ethereumSepolia: return "Ethereum Sepolia"
-        case .ethereumHoodi: return "Ethereum Hoodi"
-        case .ethereumClassic: return "Ethereum Classic"
-        case .arbitrum: return "Arbitrum"
-        case .optimism: return "Optimism"
-        case .bnb: return "BNB Chain"
-        case .avalanche: return "Avalanche"
-        case .hyperliquid: return "Hyperliquid"
-        case .polygon: return "Polygon"
-        case .base: return "Base"
-        case .linea: return "Linea"
-        case .scroll: return "Scroll"
-        case .blast: return "Blast"
-        case .mantle: return "Mantle"
-        }
+/// The per-chain facts an EVM send needs, sourced from the registry.
+///
+/// This was an enum with a case per chain and five switches over it —
+/// `displayName`, `tokenTrackingChain`, `expectedChainID`, the derivation path
+/// and `isEthereumFamily`. It covered 15 of the 23 EVM mainnets, so
+/// `isEVMChain` answered *false* for Sei, Celo, Cronos, opBNB, zkSync Era,
+/// Sonic, Berachain, Unichain, Ink and X Layer, and every EVM path skipped
+/// them without saying so.
+///
+/// It is a struct now, built from `coreEvmChainContext`. Adding an EVM chain is
+/// a registry edit and nothing here changes. The named statics are kept so the
+/// existing `EVMChainContext.arbitrum` call sites read the same.
+struct EVMChainContext: Equatable {
+    let displayName: String
+    /// EIP-155 chain id, checked against what the RPC reports before signing.
+    let expectedChainID: Int
+    /// BIP-44 coin type: 60 for the Ethereum family, 61 for Ethereum Classic.
+    let coinType: UInt32
+    let isEthereumFamily: Bool
+    let isEthereumMainnet: Bool
+
+    /// `nil` when the chain is not an EVM chain the registry knows.
+    init?(chainName: String) {
+        guard let info = coreEvmChainContext(chainName: chainName) else { return nil }
+        displayName = info.displayName
+        expectedChainID = Int(info.chainId)
+        coinType = info.coinType
+        isEthereumFamily = info.isEthereumFamily
+        isEthereumMainnet = info.isEthereumMainnet
     }
-    var tokenTrackingChain: TokenTrackingChain? {
-        switch self {
-        case .ethereum: return .ethereum
-        case .ethereumSepolia, .ethereumHoodi, .ethereumClassic: return nil
-        case .arbitrum: return .arbitrum
-        case .optimism: return .optimism
-        case .bnb: return .bnb
-        case .avalanche: return .avalanche
-        case .hyperliquid: return .hyperliquid
-        case .polygon: return .polygon
-        case .base: return .base
-        case .linea: return .linea
-        case .scroll: return .scroll
-        case .blast: return .blast
-        case .mantle: return .mantle
-        }
+
+    /// A chain the app names directly. Falls back to a context with chain id 0
+    /// rather than trapping: a mismatched id fails the pre-signing check
+    /// loudly, where a `fatalError` here would take the app down at launch.
+    /// Resolving a derivation path used to `fatalError` on exactly this kind of
+    /// miss, and it crashed every testnet.
+    private static func known(_ chainName: String) -> EVMChainContext {
+        EVMChainContext(chainName: chainName)
+            ?? EVMChainContext(
+                displayName: chainName, expectedChainID: 0, coinType: 60,
+                isEthereumFamily: false, isEthereumMainnet: false)
     }
-    var expectedChainID: Int {
-        switch self {
-        case .ethereum: return 1
-        case .ethereumSepolia: return 11_155_111
-        case .ethereumHoodi: return 560_048
-        case .ethereumClassic: return 61
-        case .arbitrum: return 42161
-        case .optimism: return 10
-        case .bnb: return 56
-        case .avalanche: return 43114
-        case .hyperliquid: return 999
-        case .polygon: return 137
-        case .base: return 8453
-        case .linea: return 59144
-        case .scroll: return 534352
-        case .blast: return 81457
-        case .mantle: return 5000
-        }
+
+    private init(
+        displayName: String, expectedChainID: Int, coinType: UInt32, isEthereumFamily: Bool,
+        isEthereumMainnet: Bool
+    ) {
+        self.displayName = displayName
+        self.expectedChainID = expectedChainID
+        self.coinType = coinType
+        self.isEthereumFamily = isEthereumFamily
+        self.isEthereumMainnet = isEthereumMainnet
     }
-    var defaultDerivationPath: String {
-        switch self {
-        case .ethereum, .ethereumSepolia, .ethereumHoodi, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .polygon, .base,
-            .linea, .scroll, .blast, .mantle:
-            return "m/44'/60'/0'/0/0"
-        case .ethereumClassic: return "m/44'/61'/0'/0/0"
-        }
-    }
-    func derivationPath(account: UInt32) -> String {
-        switch self {
-        case .ethereum, .ethereumSepolia, .ethereumHoodi, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .polygon, .base,
-            .linea, .scroll, .blast, .mantle:
-            return "m/44'/60'/\(account)'/0/0"
-        case .ethereumClassic: return "m/44'/61'/\(account)'/0/0"
-        }
-    }
+
+    static var ethereum: EVMChainContext { known("Ethereum") }
+    static var ethereumSepolia: EVMChainContext { known("Ethereum Sepolia") }
+    static var ethereumHoodi: EVMChainContext { known("Ethereum Hoodi") }
+    static var ethereumClassic: EVMChainContext { known("Ethereum Classic") }
+    static var arbitrum: EVMChainContext { known("Arbitrum") }
+    static var optimism: EVMChainContext { known("Optimism") }
+    static var bnb: EVMChainContext { known("BNB Chain") }
+    static var avalanche: EVMChainContext { known("Avalanche") }
+    static var hyperliquid: EVMChainContext { known("Hyperliquid") }
+    static var polygon: EVMChainContext { known("Polygon") }
+    static var base: EVMChainContext { known("Base") }
+    static var linea: EVMChainContext { known("Linea") }
+    static var scroll: EVMChainContext { known("Scroll") }
+    static var blast: EVMChainContext { known("Blast") }
+    static var mantle: EVMChainContext { known("Mantle") }
+
+    var tokenTrackingChain: TokenTrackingChain? { TokenTrackingChain.forChainName(displayName) }
+    var defaultDerivationPath: String { derivationPath(account: 0) }
+    func derivationPath(account: UInt32) -> String { "m/44\'/\(coinType)\'/\(account)\'/0/0" }
     var defaultRPCEndpoints: [String] { AppEndpointDirectory.evmRPCEndpoints(for: displayName) }
-    var isEthereumFamily: Bool {
-        switch self {
-        case .ethereum, .ethereumSepolia, .ethereumHoodi: return true
-        default: return false
-        }
-    }
-    var isEthereumMainnet: Bool { self == .ethereum }
 }
 
 // Send preview types are now UniFFI-generated from Rust (core/src/wallet_core.rs).

@@ -6,37 +6,60 @@ final class SecureSeedStoreTests: XCTestCase {
         try? SecureSeedStore.deleteValue(for: account)
         XCTAssertThrowsError(try SecureSeedStore.loadValue(for: account))
     }
-    func testSaveThenLoadRoundTripsSeed() {
+    // Writes use `try`, not `try?`: a store that fails to write must fail the
+    // test rather than let the assertions below pass on stale or absent data.
+    func testSaveThenLoadRoundTripsSeed() throws {
         let account = "test.seed.roundtrip.1"
         let seed = "abandon ability able about above absent absorb abstract absurd abuse access accident"
-        try? SecureSeedStore.save(seed, for: account)
+        try SecureSeedStore.save(seed, for: account)
         defer { try? SecureSeedStore.deleteValue(for: account) }
-        XCTAssertEqual((try? SecureSeedStore.loadValue(for: account)), seed)
+        XCTAssertEqual(try SecureSeedStore.loadValue(for: account), seed)
     }
-    func testSeedStorageDoesNotPersistPlaintextUTF8Payload() {
+    func testSeedStorageDoesNotPersistPlaintextUTF8Payload() throws {
         let account = "test.seed.encrypted.1"
         let seed = "abandon ability able about above absent absorb abstract absurd abuse access accident"
-        try? SecureSeedStore.save(seed, for: account)
+        try SecureSeedStore.save(seed, for: account)
         defer { try? SecureSeedStore.deleteValue(for: account) }
-        let storedData = try? SecureSeedStore.loadData(for: account)
-        XCTAssertNotNil(storedData)
+        let storedData = try XCTUnwrap(SecureSeedStore.loadData(for: account))
         XCTAssertNotEqual(storedData, Data(seed.utf8))
-        XCTAssertFalse(String(data: storedData ?? Data(), encoding: .utf8) == seed)
+        XCTAssertFalse(String(data: storedData, encoding: .utf8) == seed)
+        // A plaintext fallback would put every seed word in the stored bytes.
+        // Assert on the words themselves, not just on inequality with the exact
+        // UTF-8 payload, so a partial downgrade cannot pass either.
+        for word in seed.split(separator: " ") {
+            XCTAssertFalse(storedData.range(of: Data(word.utf8)) != nil, "seed word \(word) appears in stored bytes")
+        }
     }
-    func testSavingPasswordVerifierAllowsVerification() {
+    func testSavingPasswordVerifierAllowsVerification() throws {
         let account = "test.seed.password.1"
         let password = "correct horse battery staple"
-        try? SecureSeedPasswordStore.deleteValue(for: account)
-        try? SecureSeedPasswordStore.save(password, for: account)
+        try SecureSeedPasswordStore.deleteValue(for: account)
+        try SecureSeedPasswordStore.save(password, for: account)
         defer { try? SecureSeedPasswordStore.deleteValue(for: account) }
         XCTAssertTrue(SecureSeedPasswordStore.hasPassword(for: account))
         XCTAssertTrue(SecureSeedPasswordStore.verify(password, for: account))
         XCTAssertFalse(SecureSeedPasswordStore.verify("wrong password", for: account))
     }
-    func testEmptyPasswordDeletesPasswordVerifier() {
+    func testEmptyPasswordDeletesPasswordVerifier() throws {
         let account = "test.seed.password.2"
-        try? SecureSeedPasswordStore.save("temporary", for: account)
-        try? SecureSeedPasswordStore.save("", for: account)
+        try SecureSeedPasswordStore.save("temporary", for: account)
+        try SecureSeedPasswordStore.save("", for: account)
         XCTAssertFalse(SecureSeedPasswordStore.hasPassword(for: account))
+    }
+    func testPrivateKeySaveThenLoadRoundTrips() throws {
+        let account = "test.privatekey.roundtrip.1"
+        let key = String(repeating: "ab", count: 32)
+        try SecurePrivateKeyStore.save(key, for: account)
+        defer { try? SecurePrivateKeyStore.deleteValue(for: account) }
+        XCTAssertEqual(SecurePrivateKeyStore.loadValue(for: account), key)
+    }
+    func testDeletedSeedIsNotReadableAndReportsMissing() throws {
+        let account = "test.seed.deleted.1"
+        try SecureSeedStore.save("abandon abandon abandon abandon abandon about", for: account)
+        try SecureSeedStore.deleteValue(for: account)
+        XCTAssertNil(try SecureSeedStore.loadData(for: account))
+        XCTAssertThrowsError(try SecureSeedStore.loadValue(for: account)) { error in
+            XCTAssertEqual(error as? KeychainStoreError, .missingValue)
+        }
     }
 }

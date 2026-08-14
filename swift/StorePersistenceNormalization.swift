@@ -15,78 +15,52 @@ extension AppState {
             }
         }
     }
-    func rebuildWalletDerivedState() { batchCacheUpdates { _rebuildWalletDerivedStateBody() } }
-    private func _rebuildWalletDerivedStateBody() {
-        let derivedStatePlan = rustStoreDerivedStatePlan(for: wallets)
-        let transferAvailabilityPlan = rustTransferAvailabilityPlan(for: wallets)
-        let walletByID = Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) })
-        let includedPortfolioWallets = wallets.filter(\.includeInPortfolioTotal)
-        let includedPortfolioHoldings = derivedStatePlan.includedPortfolioHoldingRefs.compactMap { ref in
-            resolveHolding(ref, in: wallets)
-        }
-        let uniquePriceRequestCoins = derivedStatePlan.uniquePriceRequestHoldingRefs.compactMap { ref in
-            resolveHolding(ref, in: wallets)
-        }
-        let transferAvailabilityByWalletID = Dictionary(
-            uniqueKeysWithValues: transferAvailabilityPlan.wallets.map { ($0.walletId, $0) }
-        )
-        let rustSendEnabledWalletIDs = Set(transferAvailabilityPlan.sendEnabledWalletIds)
-        let rustReceiveEnabledWalletIDs = Set(transferAvailabilityPlan.receiveEnabledWalletIds)
-        var sendCoinsByWalletID: [String: [Coin]] = [:]
-        var receiveCoinsByWalletID: [String: [Coin]] = [:]
-        var receiveChainsByWalletID: [String: [String]] = [:]
-        var sendWallets: [ImportedWallet] = []
-        var receiveWallets: [ImportedWallet] = []
-        for wallet in wallets {
-            let walletID = wallet.id
-            let availability = transferAvailabilityByWalletID[walletID]
-            sendCoinsByWalletID[walletID] = availability.map { a in
-                a.sendHoldingIndices.compactMap { i in
-                    let idx = Int(i); return wallet.holdings.indices.contains(idx) ? wallet.holdings[idx] : nil
-                }
-            } ?? []
-            receiveCoinsByWalletID[walletID] = availability.map { a in
-                a.receiveHoldingIndices.compactMap { i in
-                    let idx = Int(i); return wallet.holdings.indices.contains(idx) ? wallet.holdings[idx] : nil
-                }
-            } ?? []
-            receiveChainsByWalletID[walletID] = availability?.receiveChains ?? []
-            if rustSendEnabledWalletIDs.contains(walletID) { sendWallets.append(wallet) }
-            if rustReceiveEnabledWalletIDs.contains(walletID) { receiveWallets.append(wallet) }
-        }
-        let portfolio = derivedStatePlan.groupedPortfolio.compactMap { group -> Coin? in
-            guard let rep = resolveHolding(
-                WalletHoldingRef(walletId: group.walletId, holdingIndex: group.holdingIndex), in: wallets
-            ) else { return nil }
-            return Coin.makeCustom(
-                name: rep.name, symbol: rep.symbol, coinGeckoId: rep.coinGeckoId, chainName: rep.chainName,
-                tokenStandard: rep.tokenStandard, contractAddress: rep.contractAddress,
-                amount: Double(group.totalAmount) ?? rep.amount, priceUsd: rep.priceUsd
+    func rebuildWalletDerivedState() {
+        Task { @MainActor [weak self] in await self?.rebuildWalletDerivedStateFromCore() }
+    }
+    /// Core resolves the whole thing — grouping, price-request set, and which
+    /// coins each wallet can send or receive on. It holds the wallets, so it
+    /// hands back coins rather than indices into a list the caller has to
+    /// re-walk.
+    private func rebuildWalletDerivedStateFromCore() async {
+        let signing = wallets.map { ($0.id, signingMaterialAvailability(for: $0.id)) }
+        guard
+            let derived = try? await WalletServiceBridge.shared.walletDerivedState(
+                signingMaterialWalletIDs: signing.filter(\.1.hasSigningMaterial).map(\.0),
+                privateKeyBackedWalletIDs: signing.filter(\.1.isPrivateKeyBacked).map(\.0),
+                networkModes: NetworkModes(
+                    bitcoin: bitcoinNetworkMode.displayName,
+                    ethereum: ethereumNetworkMode.displayName,
+                    dogecoin: dogecoinNetworkMode.displayName
+                )
             )
-        }
-        // Preserve fields that aren't derived from `wallets` directly — these
-        // are populated by other code paths (e.g. password protection mapping
-        // and secret descriptor mirroring).
+        else { return }
+        batchCacheUpdates { applyWalletDerivedState(derived) }
+    }
+    private func applyWalletDerivedState(_ derived: WalletDerivedState) {
+        let walletByID = Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) })
+        // Not derived from `wallets`, so they survive the rebuild: other paths
+        // populate them (password mapping, secret descriptor mirroring).
         let preservedPasswordProtectedIDs = walletDerivedCache.passwordProtectedWalletIDs
         let preservedSecretDescriptors = walletDerivedCache.secretDescriptorsByWalletID
         walletDerivedCache = WalletDerivedCache(
             walletByID: walletByID,
             walletByIDString: walletByID,
-            includedPortfolioWallets: includedPortfolioWallets,
-            includedPortfolioHoldings: includedPortfolioHoldings,
+            includedPortfolioWallets: wallets.filter(\.includeInPortfolioTotal),
+            includedPortfolioHoldings: derived.includedPortfolioHoldings,
             includedPortfolioHoldingsBySymbol: Dictionary(
-                grouping: includedPortfolioHoldings, by: { $0.symbol.uppercased() }
+                grouping: derived.includedPortfolioHoldings, by: { $0.symbol.uppercased() }
             ),
-            uniqueWalletPriceRequestCoins: uniquePriceRequestCoins,
-            portfolio: portfolio,
-            availableSendCoinsByWalletID: sendCoinsByWalletID,
-            availableReceiveCoinsByWalletID: receiveCoinsByWalletID,
-            availableReceiveChainsByWalletID: receiveChainsByWalletID,
-            sendEnabledWallets: sendWallets,
-            receiveEnabledWallets: receiveWallets,
-            refreshableChainNames: Set(wallets.map(\.selectedChain)),
-            signingMaterialWalletIDs: Set(derivedStatePlan.signingMaterialWalletIds),
-            privateKeyBackedWalletIDs: Set(derivedStatePlan.privateKeyBackedWalletIds),
+            uniqueWalletPriceRequestCoins: derived.uniquePriceRequestCoins,
+            portfolio: derived.portfolio,
+            availableSendCoinsByWalletID: derived.sendCoinsByWalletId,
+            availableReceiveCoinsByWalletID: derived.receiveCoinsByWalletId,
+            availableReceiveChainsByWalletID: derived.receiveChainsByWalletId,
+            sendEnabledWallets: derived.sendEnabledWalletIds.compactMap { walletByID[$0] },
+            receiveEnabledWallets: derived.receiveEnabledWalletIds.compactMap { walletByID[$0] },
+            refreshableChainNames: Set(derived.refreshableChainNames),
+            signingMaterialWalletIDs: Set(derived.signingMaterialWalletIds),
+            privateKeyBackedWalletIDs: Set(derived.privateKeyBackedWalletIds),
             passwordProtectedWalletIDs: preservedPasswordProtectedIDs,
             secretDescriptorsByWalletID: preservedSecretDescriptors
         )
@@ -300,53 +274,4 @@ private extension CoreTransactionRecord {
     }
 }
 private extension AppState {
-    func rustStoreDerivedStatePlan(for wallets: [ImportedWallet]) -> StoreDerivedStatePlan {
-        let request = StoreDerivedStateRequest(
-            wallets: wallets.map { wallet in
-                let signingMaterial = signingMaterialAvailability(for: wallet.id)
-                return StoreDerivedWalletInput(
-                    walletId: wallet.id, includeInPortfolioTotal: wallet.includeInPortfolioTotal,
-                    hasSigningMaterial: signingMaterial.hasSigningMaterial, isPrivateKeyBacked: signingMaterial.isPrivateKeyBacked,
-                    holdings: wallet.holdings.enumerated().map { index, holding in
-                        StoreDerivedHoldingInput(
-                            holdingIndex: UInt64(index), assetIdentityKey: assetIdentityKey(for: holding),
-                            symbolUpper: holding.symbol.uppercased(), amount: String(holding.amount), isPricedAsset: isPricedAsset(holding)
-                        )
-                    }
-                )
-            }
-        )
-        return corePlanStoreDerivedState(request: request)
-    }
-    func resolveHolding(_ reference: WalletHoldingRef, in wallets: [ImportedWallet]) -> Coin? {
-        let idx = Int(reference.holdingIndex)
-        guard
-            let wallet = cachedWalletByIDString[reference.walletId]
-                ?? wallets.first(where: { $0.id == reference.walletId }), wallet.holdings.indices.contains(idx)
-        else {
-            return nil
-        }
-        return wallet.holdings[idx]
-    }
-    func rustTransferAvailabilityPlan(for wallets: [ImportedWallet]) -> TransferAvailabilityPlan {
-        let request = TransferAvailabilityRequest(
-            wallets: wallets.map { wallet in
-                let hasSigningMaterial = signingMaterialAvailability(for: wallet.id).hasSigningMaterial
-                return TransferWalletInput(
-                    walletId: wallet.id, hasSigningMaterial: hasSigningMaterial,
-                    holdings: wallet.holdings.enumerated().map { index, holding in
-                        TransferHoldingInput(
-                            index: UInt64(index), chainName: holding.chainName, symbol: holding.symbol,
-                            supportsSend: AppEndpointDirectory.supportsSend(for: holding.chainName),
-                            supportsReceiveAddress: AppEndpointDirectory.supportsReceiveAddress(for: holding.chainName),
-                            isLiveChain: AppEndpointDirectory.liveChainNames.contains(holding.chainName),
-                            supportsEvmToken: supportedEVMToken(for: holding) != nil,
-                            supportsSolanaSendCoin: isSupportedSolanaSendCoin(holding)
-                        )
-                    }
-                )
-            }
-        )
-        return corePlanTransferAvailability(request: request)
-    }
 }

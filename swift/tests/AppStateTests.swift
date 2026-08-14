@@ -356,3 +356,34 @@ import Foundation
         }
     }
 #endif
+
+@MainActor
+final class DiagnosticsBundleCoverageTests: XCTestCase {
+    /// Every chain the bundle reports on must be a chain the registry knows.
+    ///
+    /// The bundle list and the `diagnosticsJSON(for:)` switch are two lists
+    /// that have to agree. Collapsing the old 23 wrapper functions onto them
+    /// silently dropped Tron and Solana — they have their own JSON builders and
+    /// did not match the shape the other 22 shared — and nothing failed,
+    /// because a missing case just returns nil. This is the check that would
+    /// have caught it.
+    func testEveryBundledChainResolvesAndProducesADistinctEntry() {
+        let names = AppState.diagnosticsBundleChainNames
+        XCTAssertEqual(Set(names).count, names.count, "duplicate chain in the bundle list")
+        for name in names {
+            XCTAssertTrue(
+                coreIsEvmChain(chainName: name) || !coreAddressSlot(chainName: name).isEmpty,
+                "\(name) is not a chain the registry knows")
+        }
+    }
+
+    func testEveryBundledChainHasACaseInTheSwitch() {
+        let store = AppState()
+        // With no wallets every chain yields an empty-but-present document, so
+        // a `nil` here means the switch has no case for that chain at all.
+        for name in AppState.diagnosticsBundleChainNames {
+            XCTAssertNotNil(
+                store.diagnosticsJSON(for: name), "no diagnosticsJSON case for \(name)")
+        }
+    }
+}

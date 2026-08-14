@@ -202,27 +202,13 @@ extension AppState {
             return message
         }
     }
+    /// The registry's answer, not a 15-case switch over a tag string. The tag
+    /// was produced for every EVM chain; it was this switch that dropped ten of
+    /// them on the floor.
     func evmChainContext(for chainName: String) -> EVMChainContext? {
-        switch CachedCoreHelpers.evmChainContextTag(chainName: chainName, ethereumNetworkMode: ethereumNetworkMode.rawValue) {
-        case "ethereum": return .ethereum
-        case "ethereum_sepolia": return .ethereumSepolia
-        case "ethereum_hoodi": return .ethereumHoodi
-        case "ethereum_classic": return .ethereumClassic
-        case "arbitrum": return .arbitrum
-        case "optimism": return .optimism
-        case "bnb": return .bnb
-        case "avalanche": return .avalanche
-        case "hyperliquid": return .hyperliquid
-        case "polygon": return .polygon
-        case "base": return .base
-        case "linea": return .linea
-        case "scroll": return .scroll
-        case "blast": return .blast
-        case "mantle": return .mantle
-        default: return nil
-        }
+        EVMChainContext(chainName: chainName)
     }
-    func isEVMChain(_ chainName: String) -> Bool { evmChainContext(for: chainName) != nil }
+    func isEVMChain(_ chainName: String) -> Bool { coreIsEvmChain(chainName: chainName) }
     func configuredEVMRPCEndpointURL(for chainName: String) -> URL? { chainName == "Ethereum" ? configuredEthereumRPCEndpointURL() : nil }
     func supportedEVMToken(for coin: Coin) -> ChainTokenRegistryEntry? {
         guard evmChainContext(for: coin.chainName) != nil else { return nil }
@@ -542,7 +528,7 @@ extension AppState {
                     name: "ETH Portfolio Probe", passed: true, chainLabel: "Ethereum",
                     outcome: .custom(text: "Skipped: no imported wallet with Ethereum enabled.")))
         }
-        let diagnosticsOK = ethereumDiagnosticsJSON().map { coreDiagnosticsEvmJsonShapeOk(json: $0) } ?? false
+        let diagnosticsOK = diagnosticsJSON(for: "Ethereum").map { coreDiagnosticsEvmJsonShapeOk(json: $0) } ?? false
         results.append(
             ChainSelfTestResult(
                 name: "ETH Diagnostics JSON Shape", passed: diagnosticsOK, chainLabel: "Ethereum",

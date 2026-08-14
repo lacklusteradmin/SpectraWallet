@@ -249,6 +249,17 @@ extension WalletServiceBridge {
 
     func clearStatusTrackers() async throws { try await service().clearStatusTrackers() }
 
+    /// Everything the wallet list implies, with holdings already resolved.
+    func walletDerivedState(
+        signingMaterialWalletIDs: [String], privateKeyBackedWalletIDs: [String],
+        networkModes: NetworkModes
+    ) async throws -> WalletDerivedState {
+        try await service().walletDerivedState(
+            signingMaterialWalletIds: signingMaterialWalletIDs,
+            privateKeyBackedWalletIds: privateKeyBackedWalletIDs,
+            networkModes: networkModes)
+    }
+
     // ── Keypool ───────────────────────────────────────────────────────────
     // Reservation is read-modify-write, so it happens inside core under one
     // lock. Swift supplies the baseline and takes back the index.

@@ -844,7 +844,7 @@ final class AppState {
         let privateKeyAccount = resolvedPrivateKeyAccount(for: walletID)
         try? SecureSeedStore.deleteValue(for: seedAccount)
         try? SecureSeedPasswordStore.deleteValue(for: seedPasswordAccount)
-        SecurePrivateKeyStore.deleteValue(for: privateKeyAccount)
+        try? SecurePrivateKeyStore.deleteValue(for: privateKeyAccount)
         cachedSigningMaterialWalletIDs.remove(walletID)
         cachedPrivateKeyBackedWalletIDs.remove(walletID)
         cachedPasswordProtectedWalletIDs.remove(walletID)

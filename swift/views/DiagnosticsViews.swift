@@ -78,7 +78,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .bitcoin: .init(
             isRunningHistory: { $0.isRunningBitcoinHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingBitcoinEndpointHealth },
-            diagnosticsJSON: { $0.bitcoinDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Bitcoin") },
             historyLastUpdatedAt: { $0.bitcoinHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.bitcoinHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.bitcoinEndpointHealthLastUpdatedAt },
@@ -90,7 +90,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .bitcoinCash: .init(
             isRunningHistory: { $0.isRunningBitcoinCashHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingBitcoinCashEndpointHealth },
-            diagnosticsJSON: { $0.bitcoinCashDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Bitcoin Cash") },
             historyLastUpdatedAt: { $0.bitcoinCashHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.bitcoinCashHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.bitcoinCashEndpointHealthLastUpdatedAt },
@@ -102,7 +102,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .bitcoinSV: .init(
             isRunningHistory: { $0.isRunningBitcoinSVHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingBitcoinSVEndpointHealth },
-            diagnosticsJSON: { $0.bitcoinSVDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Bitcoin SV") },
             historyLastUpdatedAt: { $0.bitcoinSVHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.bitcoinSVHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.bitcoinSVEndpointHealthLastUpdatedAt },
@@ -114,7 +114,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .litecoin: .init(
             isRunningHistory: { $0.isRunningLitecoinHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingLitecoinEndpointHealth },
-            diagnosticsJSON: { $0.litecoinDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Litecoin") },
             historyLastUpdatedAt: { $0.litecoinHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.litecoinHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.litecoinEndpointHealthLastUpdatedAt },
@@ -126,7 +126,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .dogecoin: .init(
             isRunningHistory: { $0.isRunningDogecoinHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingDogecoinEndpointHealth },
-            diagnosticsJSON: { $0.dogecoinDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Dogecoin") },
             historyLastUpdatedAt: { $0.dogecoinHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.dogecoinHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.dogecoinEndpointHealthLastUpdatedAt },
@@ -138,7 +138,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .ethereum: .init(
             isRunningHistory: { $0.isRunningEthereumHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingEthereumEndpointHealth },
-            diagnosticsJSON: { $0.ethereumDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Ethereum") },
             historyLastUpdatedAt: { $0.ethereumHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.ethereumHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.ethereumEndpointHealthLastUpdatedAt },
@@ -150,7 +150,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .ethereumClassic: .init(
             isRunningHistory: { $0.isRunningETCHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingETCEndpointHealth },
-            diagnosticsJSON: { $0.etcDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Ethereum Classic") },
             historyLastUpdatedAt: { $0.etcHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.etcHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.etcEndpointHealthLastUpdatedAt },
@@ -162,7 +162,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .arbitrum: .init(
             isRunningHistory: { $0.isRunningArbitrumHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingArbitrumEndpointHealth },
-            diagnosticsJSON: { $0.arbitrumDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Arbitrum") },
             historyLastUpdatedAt: { $0.arbitrumHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.arbitrumHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.arbitrumEndpointHealthLastUpdatedAt },
@@ -174,7 +174,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .optimism: .init(
             isRunningHistory: { $0.isRunningOptimismHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingOptimismEndpointHealth },
-            diagnosticsJSON: { $0.optimismDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Optimism") },
             historyLastUpdatedAt: { $0.optimismHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.optimismHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.optimismEndpointHealthLastUpdatedAt },
@@ -186,7 +186,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .bnb: .init(
             isRunningHistory: { $0.isRunningBNBHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingBNBEndpointHealth },
-            diagnosticsJSON: { $0.bnbDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "BNB Chain") },
             historyLastUpdatedAt: { $0.bnbHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.bnbHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.bnbEndpointHealthLastUpdatedAt },
@@ -198,7 +198,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .avalanche: .init(
             isRunningHistory: { $0.isRunningAvalancheHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingAvalancheEndpointHealth },
-            diagnosticsJSON: { $0.avalancheDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Avalanche") },
             historyLastUpdatedAt: { $0.avalancheHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.avalancheHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.avalancheEndpointHealthLastUpdatedAt },
@@ -210,7 +210,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .hyperliquid: .init(
             isRunningHistory: { $0.isRunningHyperliquidHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingHyperliquidEndpointHealth },
-            diagnosticsJSON: { $0.hyperliquidDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Hyperliquid") },
             historyLastUpdatedAt: { $0.hyperliquidHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.hyperliquidHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.hyperliquidEndpointHealthLastUpdatedAt },
@@ -222,7 +222,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .tron: .init(
             isRunningHistory: { $0.isRunningTronHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingTronEndpointHealth },
-            diagnosticsJSON: { $0.tronDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Tron") },
             historyLastUpdatedAt: { $0.tronHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.tronHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.tronEndpointHealthLastUpdatedAt },
@@ -234,7 +234,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .solana: .init(
             isRunningHistory: { $0.isRunningSolanaHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingSolanaEndpointHealth },
-            diagnosticsJSON: { $0.solanaDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Solana") },
             historyLastUpdatedAt: { $0.solanaHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.solanaHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.solanaEndpointHealthLastUpdatedAt },
@@ -246,7 +246,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .cardano: .init(
             isRunningHistory: { $0.isRunningCardanoHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingCardanoEndpointHealth },
-            diagnosticsJSON: { $0.cardanoDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Cardano") },
             historyLastUpdatedAt: { $0.cardanoHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.cardanoHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.cardanoEndpointHealthLastUpdatedAt },
@@ -258,7 +258,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .xrp: .init(
             isRunningHistory: { $0.isRunningXRPHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingXRPEndpointHealth },
-            diagnosticsJSON: { $0.xrpDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "XRP Ledger") },
             historyLastUpdatedAt: { $0.xrpHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.xrpHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.xrpEndpointHealthLastUpdatedAt },
@@ -270,7 +270,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .stellar: .init(
             isRunningHistory: { $0.isRunningStellarHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingStellarEndpointHealth },
-            diagnosticsJSON: { $0.stellarDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Stellar") },
             historyLastUpdatedAt: { $0.stellarHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.stellarHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.stellarEndpointHealthLastUpdatedAt },
@@ -282,7 +282,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .monero: .init(
             isRunningHistory: { $0.isRunningMoneroHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingMoneroEndpointHealth },
-            diagnosticsJSON: { $0.moneroDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Monero") },
             historyLastUpdatedAt: { $0.moneroHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.moneroHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.moneroEndpointHealthLastUpdatedAt },
@@ -294,7 +294,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .sui: .init(
             isRunningHistory: { $0.isRunningSuiHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingSuiEndpointHealth },
-            diagnosticsJSON: { $0.suiDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Sui") },
             historyLastUpdatedAt: { $0.suiHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.suiHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.suiEndpointHealthLastUpdatedAt },
@@ -306,7 +306,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .aptos: .init(
             isRunningHistory: { $0.isRunningAptosHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingAptosEndpointHealth },
-            diagnosticsJSON: { $0.aptosDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Aptos") },
             historyLastUpdatedAt: { $0.aptosHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.aptosHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.aptosEndpointHealthLastUpdatedAt },
@@ -318,7 +318,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .ton: .init(
             isRunningHistory: { $0.isRunningTONHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingTONEndpointHealth },
-            diagnosticsJSON: { $0.tonDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "TON") },
             historyLastUpdatedAt: { $0.tonHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.tonHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.tonEndpointHealthLastUpdatedAt },
@@ -330,7 +330,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .icp: .init(
             isRunningHistory: { $0.isRunningICPHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingICPEndpointHealth },
-            diagnosticsJSON: { $0.icpDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Internet Computer") },
             historyLastUpdatedAt: { $0.icpHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.icpHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.icpEndpointHealthLastUpdatedAt },
@@ -342,7 +342,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .near: .init(
             isRunningHistory: { $0.isRunningNearHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingNearEndpointHealth },
-            diagnosticsJSON: { $0.nearDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "NEAR") },
             historyLastUpdatedAt: { $0.nearHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.nearHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.nearEndpointHealthLastUpdatedAt },
@@ -354,7 +354,7 @@ enum StandardDiagnosticsChain: String, Hashable {
         .polkadot: .init(
             isRunningHistory: { $0.isRunningPolkadotHistoryDiagnostics },
             isCheckingEndpoints: { $0.isCheckingPolkadotEndpointHealth },
-            diagnosticsJSON: { $0.polkadotDiagnosticsJSON() },
+            diagnosticsJSON: { $0.diagnosticsJSON(for: "Polkadot") },
             historyLastUpdatedAt: { $0.polkadotHistoryDiagnosticsLastUpdatedAt },
             historyWalletCount: { $0.polkadotHistoryDiagnosticsByWallet.count },
             endpointLastUpdatedAt: { $0.polkadotEndpointHealthLastUpdatedAt },

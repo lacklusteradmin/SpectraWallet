@@ -142,7 +142,7 @@ extension AppState {
         return Dictionary(uniqueKeysWithValues: all.map { ($0.chain, $0) })
     }()
 
-    private func resolvedChainAddress(for wallet: ImportedWallet, chain: SeedDerivationChain) -> String? {
+    func resolvedChainAddress(for wallet: ImportedWallet, chain: SeedDerivationChain) -> String? {
         guard let desc = Self.addressDescriptors[chain] else { return nil }
         let derivationPath =
             desc.usesConfiguredSeedPath
@@ -198,34 +198,25 @@ extension AppState {
     }
 
     func resolvedAddress(for wallet: ImportedWallet, chainName: String) -> String? {
+        // These four do not resolve like the rest and must stay explicit:
+        // Bitcoin and Dogecoin pick their derivation chain from the selected
+        // network mode, Cardano tries the stored address before deriving, and
+        // Monero only ever uses a stored address — routing it through the
+        // generic path would make it attempt a derivation it has no key for.
         switch chainName {
         case "Bitcoin": return resolvedBitcoinAddress(for: wallet)
-        case "Bitcoin Cash": return resolvedBitcoinCashAddress(for: wallet)
-        case "Bitcoin SV": return resolvedBitcoinSVAddress(for: wallet)
-        case "Litecoin": return resolvedLitecoinAddress(for: wallet)
         case "Dogecoin": return resolvedDogecoinAddress(for: wallet)
-        case "Tron": return resolvedTronAddress(for: wallet)
-        case "Solana": return resolvedSolanaAddress(for: wallet)
-        case "Stellar": return resolvedStellarAddress(for: wallet)
-        case "XRP Ledger": return resolvedXRPAddress(for: wallet)
-        case "Monero": return resolvedMoneroAddress(for: wallet)
         case "Cardano": return resolvedCardanoAddress(for: wallet)
-        case "Sui": return resolvedSuiAddress(for: wallet)
-        case "Aptos": return resolvedAptosAddress(for: wallet)
-        case "TON": return resolvedTONAddress(for: wallet)
-        case "Internet Computer": return resolvedICPAddress(for: wallet)
-        case "NEAR": return resolvedNearAddress(for: wallet)
-        case "Polkadot": return resolvedPolkadotAddress(for: wallet)
-        case "Zcash": return resolvedZcashAddress(for: wallet)
-        case "Bitcoin Gold": return resolvedBitcoinGoldAddress(for: wallet)
-        case "Decred": return resolvedDecredAddress(for: wallet)
-        case "Kaspa": return resolvedKaspaAddress(for: wallet)
-        case "Dash": return resolvedDashAddress(for: wallet)
-        case "Bittensor": return resolvedBittensorAddress(for: wallet)
-        default:
-            if isEVMChain(chainName) { return resolvedEVMAddress(for: wallet, chainName: chainName) }
-            return nil
+        case "Monero": return resolvedMoneroAddress(for: wallet)
+        default: break
         }
+        // Everything else is the same lookup with a different slot, and the
+        // chain-name → derivation-chain mapping already comes from core.
+        if let chain = seedDerivationChain(for: chainName) {
+            return resolvedChainAddress(for: wallet, chain: chain)
+        }
+        if isEVMChain(chainName) { return resolvedEVMAddress(for: wallet, chainName: chainName) }
+        return nil
     }
 
     func walletWithResolvedDogecoinAddress(_ wallet: ImportedWallet) -> ImportedWallet {
