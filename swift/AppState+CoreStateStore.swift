@@ -1,11 +1,14 @@
 // MARK: - Wallet/transactions/address-book mutation helpers
 //
-// Swift's `@Observable` arrays on AppState are the canonical store. These
-// helpers exist only to centralise mutation patterns (replace, append, upsert,
-// remove) and keep call sites readable. There is no Rust round-trip — direct
-// assignment to `self.wallets`, `self.transactions`, `self.addressBook` is
-// fine, but going through these helpers preserves the existing call-site
-// style.
+// Core is the canonical store for all three collections; the `@Observable`
+// arrays on AppState are projections of it, with one writer each. These helpers
+// send the `StateCommand` and update the projection, so direct assignment to
+// `self.wallets`, `self.transactions` or `self.addressBook` is a bug — it
+// desynchronises the projection from the store rather than failing loudly.
+//
+// This comment used to say the opposite ("Swift's arrays are the canonical
+// store … There is no Rust round-trip"), and `docs/ARCHITECTURE.md` quoted it
+// as evidence for a claim that had also stopped being true.
 
 import Foundation
 
