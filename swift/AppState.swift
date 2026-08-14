@@ -27,35 +27,6 @@ import UIKit
 // block at the top for the catalog. New work that doesn't make a choice
 // is a bug surface (silent over-invalidation).
 
-// MARK: - Task capture convention
-//
-// `Task { … }` closures inside `AppState` and its extensions follow
-// this rule: **always capture `[weak self]` unless a comment on the
-// preceding line explains the strong capture.**
-//
-// Strong capture means the closure pins this `AppState` alive until the
-// task completes. That's correct when the work *should* finish even if
-// SwiftUI tears down the view tree (e.g. a fire-and-forget persist that
-// must not be cancelled). It's incorrect for routine "check something
-// later" work — those tasks should release `self` if the app is torn
-// down mid-await, and `[weak self]` makes that explicit.
-//
-// Examples of legitimate strong capture (must include the comment):
-//   Task { /* strong self: persist must complete past view teardown */
-//       await self.persistAppSettings()
-//   }
-//
-// Examples that should be `[weak self]`:
-//   Task { @MainActor [weak self] in
-//       try? await Task.sleep(nanoseconds: 100_000_000)
-//       guard let self else { return }
-//       self.doDeferredWork()
-//   }
-//
-// Code review: any new `Task` block without `[weak self]` should be
-// challenged — the author should either add `[weak self]` or land the
-// strong-capture comment.
-
 // MARK: - AppState architecture
 //
 // `AppState` is the app's central `@Observable` store. To keep this file
