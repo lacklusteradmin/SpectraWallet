@@ -394,3 +394,45 @@ extension CorePriceAlertCondition: RawRepresentable, CaseIterable, Codable, Iden
         var c = encoder.singleValueContainer(); try c.encode(rawValue)
     }
 }
+
+// MARK: - Network selection
+
+/// The one place a network-mode enum meets the chain it stands for.
+///
+/// The three mode enums predate testnets being first-class `Chain` variants,
+/// so they are a second model of `Chain::{Bitcoin, BitcoinTestnet, …}`. Core
+/// owns the *selection* now — `SelectNetworkChain`, stored as a chain id — and
+/// this table is what is left of the duplication. Collapsing the enums into
+/// chain ids outright is the follow-on; until then, everything converts here
+/// rather than in each of the sixty-odd call sites.
+enum NetworkSelection {
+    static let bitcoin: [(BitcoinNetworkMode, String)] = [
+        (.mainnet, "bitcoin"), (.testnet, "bitcoin-testnet"),
+        (.testnet4, "bitcoin-testnet-4"), (.signet, "bitcoin-signet"),
+    ]
+    static let ethereum: [(EthereumNetworkMode, String)] = [
+        (.mainnet, "ethereum"), (.sepolia, "ethereum-sepolia"), (.hoodi, "ethereum-hoodi"),
+    ]
+    static let dogecoin: [(DogecoinNetworkMode, String)] = [
+        (.mainnet, "dogecoin"), (.testnet, "dogecoin-testnet"),
+    ]
+
+    static func chainID(for mode: BitcoinNetworkMode) -> String {
+        bitcoin.first { $0.0 == mode }?.1 ?? "bitcoin"
+    }
+    static func chainID(for mode: EthereumNetworkMode) -> String {
+        ethereum.first { $0.0 == mode }?.1 ?? "ethereum"
+    }
+    static func chainID(for mode: DogecoinNetworkMode) -> String {
+        dogecoin.first { $0.0 == mode }?.1 ?? "dogecoin"
+    }
+    static func bitcoinMode(forChainID id: String?) -> BitcoinNetworkMode {
+        bitcoin.first { $0.1 == id }?.0 ?? .mainnet
+    }
+    static func ethereumMode(forChainID id: String?) -> EthereumNetworkMode {
+        ethereum.first { $0.1 == id }?.0 ?? .mainnet
+    }
+    static func dogecoinMode(forChainID id: String?) -> DogecoinNetworkMode {
+        dogecoin.first { $0.1 == id }?.0 ?? .mainnet
+    }
+}

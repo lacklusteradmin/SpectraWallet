@@ -36,7 +36,7 @@ extension AppState {
         } catch {
             quoteRefreshError = localizedStoreFormat("%@ pricing unavailable", pricingProvider.rawValue)
         }
-        if didUpdatePrices { evaluatePriceAlerts() }
+        if didUpdatePrices { await evaluatePriceAlerts() }
         return didUpdatePrices
     }
     func refreshFiatExchangeRatesIfNeeded(force: Bool = false) async {

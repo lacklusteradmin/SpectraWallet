@@ -70,11 +70,7 @@ extension AppState {
         clearDeletedWalletDiagnostics(
             walletID: deletedWalletID, chainName: deletedChainName, hasRemainingWalletsOnChain: hasRemainingWalletsOnDeletedChain
         )
-        for chainName in chainOwnedAddressMapByChain.keys {
-            chainOwnedAddressMapByChain[chainName] = chainOwnedAddressMapByChain[chainName]?.filter { _, value in
-                value.walletID != walletPendingDeletion.id
-            }
-        }
+        // Core drops the wallet's owned addresses in `deleteWalletRelationalData`.
         if receiveWalletID == deletedWalletIDString {
             receiveWalletID = ""
             receiveChainName = ""
@@ -92,7 +88,7 @@ extension AppState {
         if wallets.isEmpty { cancelWalletImport() }
     }
     func wallet(for walletID: String) -> ImportedWallet? { cachedWalletByIDString[walletID] }
-    func knownOwnedAddresses(for walletID: String) -> [String] {
+    func knownOwnedAddresses(for walletID: String) async -> [String] {
         guard let wallet = cachedWalletByID[walletID] else { return [] }
         var candidateAddresses: [String] = []
         func appendAddress(_ candidate: String?) {
@@ -137,8 +133,8 @@ extension AppState {
             appendAddress(transaction.sourceAddress)
             appendAddress(transaction.changeAddress)
         }
-        for addresses in chainOwnedAddressMapByChain.values {
-            for value in addresses.values where value.walletID == walletID { appendAddress(value.address) }
+        for address in await WalletServiceBridge.shared.ownedAddresses(walletID: walletID) {
+            appendAddress(address)
         }
         let request = OwnedAddressAggregationRequest(candidateAddresses: candidateAddresses)
         return coreAggregateOwnedAddresses(request: request)

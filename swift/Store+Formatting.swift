@@ -153,18 +153,12 @@ extension AppState {
     }
     func runtimeChainIdentity(for chainName: String) -> String { displayChainTitle(for: chainName) }
     func assetIdentityKey(for coin: Coin) -> String { "\(runtimeChainIdentity(for: coin.chainName))|\(coin.symbol)" }
+    /// Hot path — called per coin during portfolio totals and per row in the
+    /// dashboard. Core hands over the whole unpriced set when the selection
+    /// changes, so this is a set lookup rather than a memoized FFI call whose
+    /// key had to carry every network mode that could affect the answer.
     func isPricedChain(_ chainName: String) -> Bool {
-        // Hot path: called per-coin during portfolio totals and per-row in
-        // the dashboard. Memoize the Rust result on a composite key; the
-        // network-mode `didSet`s drop the cache when the inputs can change.
-        let key = "\(chainName)|\(bitcoinNetworkMode.rawValue)|\(ethereumNetworkMode.rawValue)"
-        if let cached = cachedPricedChainByKey[key] { return cached }
-        let result = corePricedChain(
-            chainName: chainName, bitcoinNetworkModeRaw: bitcoinNetworkMode.rawValue,
-            ethereumNetworkModeRaw: ethereumNetworkMode.rawValue
-        )
-        cachedPricedChainByKey[key] = result
-        return result
+        !unpricedChainNames.contains(chainName)
     }
     func isPricedAsset(_ coin: Coin) -> Bool { isPricedChain(coin.chainName) }
     private func walletChainInputs(from walletByID: [String: ImportedWallet]) -> [WalletChainInput] {

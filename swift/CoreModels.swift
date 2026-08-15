@@ -583,29 +583,23 @@ struct NormalizedHistoryEntry: Identifiable {
 extension PriceAlertCondition {
     var displayName: String { AppLocalization.string(rawValue) }
 }
-struct PriceAlertRule: Identifiable {
-    let id: UUID
-    let holdingKey: String
-    let assetName: String
-    let symbol: String
-    let chainName: String
-    let targetPrice: Double
-    let condition: PriceAlertCondition
-    var isEnabled: Bool
-    var hasTriggered: Bool
+/// The alert rule core stores. Not a Swift copy of it — core owns the list,
+/// the rule that a target must be positive, and the persistence.
+typealias PriceAlertRule = PriceAlertEvaluationAlert
+
+/// `id` is an opaque core-assigned string, not a platform-minted `UUID`.
+extension PriceAlertRule: Identifiable {}
+
+extension PriceAlertRule {
     init(
-        id: UUID = UUID(), holdingKey: String, assetName: String, symbol: String, chainName: String, targetPrice: Double,
-        condition: PriceAlertCondition, isEnabled: Bool = true, hasTriggered: Bool = false
+        holdingKey: String, assetName: String, symbol: String, chainName: String, targetPrice: Double,
+        condition: PriceAlertCondition
     ) {
-        self.id = id
-        self.holdingKey = holdingKey
-        self.assetName = assetName
-        self.symbol = symbol
-        self.chainName = chainName
-        self.targetPrice = targetPrice
-        self.condition = condition
-        self.isEnabled = isEnabled
-        self.hasTriggered = hasTriggered
+        self.init(
+            id: UUID().uuidString, holdingKey: holdingKey, assetName: assetName, symbol: symbol,
+            chainName: chainName, targetPrice: targetPrice, condition: condition, isEnabled: true,
+            hasTriggered: false
+        )
     }
     var titleText: String { String(format: CommonLocalizationContent.current.priceAlertTitleFormat, assetName, chainName) }
     var conditionText: String { "\(condition.rawValue) $\(String(format: "%.2f", targetPrice))" }
@@ -954,20 +948,4 @@ extension TransactionRecord {
         return nil
     }
     var supportsSignedRebroadcast: Bool { kind == .send && rebroadcastPayload != nil && rebroadcastPayloadFormat != nil }
-}
-extension PriceAlertRule {
-    init?(snapshot: CorePersistedPriceAlertRule) {
-        guard let resolvedID = UUID(uuidString: snapshot.id) else { return nil }
-        self.init(
-            id: resolvedID, holdingKey: snapshot.holdingKey, assetName: snapshot.assetName, symbol: snapshot.symbol,
-            chainName: snapshot.chainName, targetPrice: snapshot.targetPrice, condition: snapshot.condition, isEnabled: snapshot.isEnabled,
-            hasTriggered: snapshot.hasTriggered
-        )
-    }
-    var persistedSnapshot: CorePersistedPriceAlertRule {
-        CorePersistedPriceAlertRule(
-            id: id.uuidString, holdingKey: holdingKey, assetName: assetName, symbol: symbol, chainName: chainName, targetPrice: targetPrice,
-            condition: condition, isEnabled: isEnabled, hasTriggered: hasTriggered
-        )
-    }
 }

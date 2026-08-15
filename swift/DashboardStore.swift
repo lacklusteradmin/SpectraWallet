@@ -121,12 +121,9 @@ extension AppState {
         )
         cachedDashboardPinOptionBySymbol = optionBySymbol
         cachedAvailableDashboardPinOptions = availableSymbols.compactMap { optionBySymbol[$0] }
-        cachedDashboardRelevantPriceKeys = Set(
-            includedHoldings.filter(isPricedAsset).map(assetIdentityKey)
-        )
         cachedDashboardSupportedTokenEntriesBySymbol = Dictionary(
             uniqueKeysWithValues: trackedEntriesBySymbol.map { symbol, entries in
-                (symbol, corePlanDashboardSupportedTokenEntries(entries: entries))
+                (symbol, coreDashboardSupportedTokenEntries(entries: entries))
             }
         )
         let positiveCoins = includedHoldings.filter { $0.amount > 0 }

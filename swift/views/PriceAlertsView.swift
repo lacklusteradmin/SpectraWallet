@@ -7,7 +7,7 @@ struct PriceAlertsView: View {
     @State private var selectedCondition: PriceAlertCondition = .above
     @State private var targetPriceText: String = ""
     @State private var formMessage: String?
-    @State private var removingAlertID: UUID?
+    @State private var removingAlertID: String?
     private var alertableHoldingKeys: Set<String> { Set(store.alertableCoins.map(\.holdingKey)) }
     private var selectedCoin: Coin? {
         store.alertableCoins.first(where: { $0.holdingKey == selectedHoldingKey })

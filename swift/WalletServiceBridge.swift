@@ -197,6 +197,31 @@ extension WalletServiceBridge {
 
     /// Current snapshot of the owned state.
     func appState() async throws -> CoreAppState { try await service().appState() }
+    /// Core evaluates its own alerts and returns only what to notify about.
+    func evaluatePriceAlerts(prices: [PriceAlertEvaluationPrice]) async throws
+        -> [PriceAlertNotification]
+    {
+        try await service().evaluatePriceAlerts(prices: prices)
+    }
+    /// Record something that happened on a chain. Core stamps and caps it.
+    func appendChainOperationalEvent(
+        chainName: String, level: ChainOperationalEventLevel, message: String, transactionHash: String?
+    ) async throws {
+        try await service().appendChainOperationalEvent(
+            chainName: chainName, level: level, message: message, transactionHash: transactionHash)
+    }
+    func operationalEvents(chainName: String) async -> [ChainOperationalEventRecord] {
+        guard let service = try? service() else { return [] }
+        return await service.operationalEvents(chainName: chainName)
+    }
+    /// Pass `nil` to clear every chain.
+    func clearOperationalEvents(chainName: String?) async throws {
+        try await service().clearOperationalEvents(chainName: chainName)
+    }
+    /// Fold this build's built-in token catalog into the stored preferences.
+    func mergeBuiltInTokenPreferences() async throws -> CoreAppState {
+        try await service().mergeBuiltInTokenPreferences()
+    }
 
     /// Change the core-owned transaction store. Returns which ids changed.
     @discardableResult
@@ -252,38 +277,36 @@ extension WalletServiceBridge {
     /// Everything the wallet list implies, with holdings already resolved.
     func walletDerivedState(
         signingMaterialWalletIDs: [String], privateKeyBackedWalletIDs: [String],
-        networkModes: NetworkModes
     ) async throws -> WalletDerivedState {
         try await service().walletDerivedState(
             signingMaterialWalletIds: signingMaterialWalletIDs,
-            privateKeyBackedWalletIds: privateKeyBackedWalletIDs,
-            networkModes: networkModes)
+            privateKeyBackedWalletIds: privateKeyBackedWalletIDs)
     }
 
     // ── Keypool ───────────────────────────────────────────────────────────
     // Reservation is read-modify-write, so it happens inside core under one
-    // lock. Swift supplies the baseline and takes back the index.
+    // lock, over a baseline it computes from its own tables.
 
-    func keypoolState(walletID: String, chainName: String, baseline: ChainKeypoolStateRecord)
-        async throws -> KeypoolState
+    func keypoolState(walletID: String, chainName: String) async throws -> KeypoolState {
+        try await service().keypoolState(walletId: walletID, chainName: chainName)
+    }
+
+    func keypoolStateForDisplay(walletID: String, chainName: String) async -> KeypoolState {
+        guard let service = try? service() else {
+            return KeypoolState(nextExternalIndex: 0, nextChangeIndex: 0, reservedReceiveIndex: nil)
+        }
+        return await service.keypoolStateForDisplay(walletId: walletID, chainName: chainName)
+    }
+
+    func reserveReceiveIndex(walletID: String, chainName: String, minimumIndex: Int64) async throws
+        -> Int64
     {
-        try await service().keypoolState(
-            walletId: walletID, chainName: chainName, baseline: baseline)
-    }
-
-    func reserveReceiveIndex(
-        walletID: String, chainName: String, baseline: ChainKeypoolStateRecord, minimumIndex: Int64
-    ) async throws -> Int64 {
         try await service().reserveReceiveIndex(
-            walletId: walletID, chainName: chainName, baseline: baseline,
-            minimumIndex: minimumIndex)
+            walletId: walletID, chainName: chainName, minimumIndex: minimumIndex)
     }
 
-    func reserveChangeIndex(
-        walletID: String, chainName: String, baseline: ChainKeypoolStateRecord
-    ) async throws -> Int64 {
-        try await service().reserveChangeIndex(
-            walletId: walletID, chainName: chainName, baseline: baseline)
+    func reserveChangeIndex(walletID: String, chainName: String) async throws -> Int64 {
+        try await service().reserveChangeIndex(walletId: walletID, chainName: chainName)
     }
 
     func clearReservedReceiveIndex(walletID: String, chainName: String) async throws {
@@ -319,14 +342,6 @@ extension WalletServiceBridge {
     func saveState(key: String, stateJSON: String) async throws {
         try await service().saveState(dbPath: sqliteDbPath(), key: key, stateJson: stateJSON)
     }
-    /// Typed price-alert store load — returns nil if no value or decode fails.
-    /// Replaces the loadState→decodePersistedPriceAlertStoreJson roundtrip.
-    func loadPriceAlertStore(key: String) async throws -> CorePersistedPriceAlertStore? {
-        try await service().loadPriceAlertStore(dbPath: sqliteDbPath(), key: key)
-    }
-    func savePriceAlertStore(key: String, value: CorePersistedPriceAlertStore) async throws {
-        try await service().savePriceAlertStore(dbPath: sqliteDbPath(), key: key, value: value)
-    }
     func fetchNormalizedHistory(chainId: String, address: String) async throws -> [NormalizedHistoryItem] {
         try await service().fetchNormalizedHistory(chainId: chainId, address: address)
     }
@@ -346,12 +361,21 @@ extension WalletServiceBridge {
     func deleteKeypoolForChain(chainName: String) async throws {
         try await service().deleteKeypoolForChain(dbPath: sqliteDbPath(), chainName: chainName)
     }
-    func saveOwnedAddressTyped(record: OwnedAddressRecord) async throws {
-        try await service().saveOwnedAddressTyped(dbPath: sqliteDbPath(), record: record)
+    func registerOwnedAddress(
+        walletID: String, chainName: String, address: String, derivationPath: String?,
+        branch: String?, branchIndex: Int64?
+    ) async throws {
+        try await service().registerOwnedAddress(
+            walletId: walletID, chainName: chainName, address: address,
+            derivationPath: derivationPath, branch: branch, branchIndex: branchIndex)
     }
-    func loadAllOwnedAddressesTyped() async throws -> [OwnedAddressRecord] { try await service().loadAllOwnedAddressesTyped(dbPath: sqliteDbPath()) }
+    /// Omit `chainName` for every chain.
+    func ownedAddresses(walletID: String, chainName: String? = nil) async -> [String] {
+        guard let service = try? service() else { return [] }
+        return await service.ownedAddressesForWallet(walletId: walletID, chainName: chainName)
+    }
     func deleteOwnedAddressesForChain(chainName: String) async throws {
-        try await service().deleteOwnedAddressesForChain(dbPath: sqliteDbPath(), chainName: chainName)
+        try await service().deleteOwnedAddressesForChain(chainName: chainName)
     }
     func deleteWalletRelationalData(walletId: String) async throws {
         try await service().deleteWalletRelationalData(dbPath: sqliteDbPath(), walletId: walletId)

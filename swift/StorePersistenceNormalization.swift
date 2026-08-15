@@ -27,12 +27,7 @@ extension AppState {
         guard
             let derived = try? await WalletServiceBridge.shared.walletDerivedState(
                 signingMaterialWalletIDs: signing.filter(\.1.hasSigningMaterial).map(\.0),
-                privateKeyBackedWalletIDs: signing.filter(\.1.isPrivateKeyBacked).map(\.0),
-                networkModes: NetworkModes(
-                    bitcoin: bitcoinNetworkMode.displayName,
-                    ethereum: ethereumNetworkMode.displayName,
-                    dogecoin: dogecoinNetworkMode.displayName
-                )
+                privateKeyBackedWalletIDs: signing.filter(\.1.isPrivateKeyBacked).map(\.0)
             )
         else { return }
         batchCacheUpdates { applyWalletDerivedState(derived) }
@@ -156,7 +151,7 @@ extension AppState {
         }
         guard !hasRemainingWalletsOnChain else { return }
         markChainHealthy(chainName)
-        chainOperationalEventsByChain[chainName] = nil
+        Task { try? await WalletServiceBridge.shared.clearOperationalEvents(chainName: chainName) }
         lastHistoryRefreshAtByChain[chainName] = nil
     }
     func clearHistoryTracking(for walletID: String) {
@@ -193,39 +188,6 @@ extension AppState {
         adoptTransactionsFromCore(stored.compactMap(TransactionRecord.init(snapshot:)))
         pruneTransactionsForActiveWallets()
         rebuildTransactionDerivedState()
-    }
-    func persistChainOwnedAddressMap() {
-        for (chainName, addressMap) in chainOwnedAddressMapByChain {
-            for (_, record) in addressMap {
-                persistOwnedAddressToRust(
-                    walletId: record.walletID, chainName: chainName, address: record.address ?? "", derivationPath: record.derivationPath,
-                    branch: record.branch, branchIndex: record.index
-                )
-            }
-        }
-    }
-    func persistOwnedAddressesForChain(_ chainName: String) {
-        guard let addressMap = chainOwnedAddressMapByChain[chainName] else { return }
-        for (_, record) in addressMap {
-            persistOwnedAddressToRust(
-                walletId: record.walletID, chainName: chainName, address: record.address ?? "", derivationPath: record.derivationPath,
-                branch: record.branch, branchIndex: record.index
-            )
-        }
-    }
-    private func persistOwnedAddressToRust(
-        walletId: String, chainName: String, address: String, derivationPath: String?, branch: String?, branchIndex: Int?
-    ) {
-        guard !address.isEmpty else { return }
-        let record = OwnedAddressRecord(
-            walletId: walletId,
-            chainName: chainName,
-            address: address,
-            derivationPath: derivationPath,
-            branch: branch,
-            branchIndex: branchIndex.map { Int64($0) }
-        )
-        Task { try? await WalletServiceBridge.shared.saveOwnedAddressTyped(record: record) }
     }
 }
 private extension TransactionRecord {

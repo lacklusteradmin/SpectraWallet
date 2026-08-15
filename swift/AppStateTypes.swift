@@ -9,67 +9,28 @@
 
 import Foundation
 
-struct ChainOperationalEvent: Identifiable, Sendable {
-    enum Level: String, Codable, Sendable { case info, warning, error }
-    let id: UUID
-    let timestamp: Date
-    let chainName: String
-    let level: Level
-    let message: String
-    let transactionHash: String?
+/// Something that happened on a chain. Core records these, caps the list and
+/// persists it — this is core's record, not a Swift copy of it.
+typealias ChainOperationalEvent = ChainOperationalEventRecord
+
+nonisolated extension ChainOperationalEvent: Identifiable {}
+
+nonisolated extension ChainOperationalEvent {
+    typealias Level = ChainOperationalEventLevel
+    var timestamp: Date { Date(timeIntervalSince1970: timestampUnix) }
 }
 
-extension ChainOperationalEvent {
-    var coreRecord: ChainOperationalEventRecord {
-        let coreLevel: ChainOperationalEventLevel
-        switch level {
-        case .info: coreLevel = .info
-        case .warning: coreLevel = .warning
-        case .error: coreLevel = .error
+nonisolated extension ChainOperationalEventLevel {
+    /// The generated enum carries no raw value — the Swift enum it replaced was
+    /// `String`-backed and one display site relied on that.
+    var displayName: String {
+        switch self {
+        case .info: return "Info"
+        case .warning: return "Warning"
+        case .error: return "Error"
         }
-        return ChainOperationalEventRecord(
-            id: id.uuidString, timestampUnix: timestamp.timeIntervalSince1970, chainName: chainName,
-            level: coreLevel, message: message, transactionHash: transactionHash
-        )
-    }
-    init?(coreRecord: ChainOperationalEventRecord) {
-        guard let id = UUID(uuidString: coreRecord.id) else { return nil }
-        let level: Level
-        switch coreRecord.level {
-        case .info: level = .info
-        case .warning: level = .warning
-        case .error: level = .error
-        }
-        self.init(
-            id: id, timestamp: Date(timeIntervalSince1970: coreRecord.timestampUnix),
-            chainName: coreRecord.chainName, level: level, message: coreRecord.message,
-            transactionHash: coreRecord.transactionHash
-        )
     }
 }
-
-nonisolated extension ChainOperationalEvent: Codable {
-    private enum CodingKeys: String, CodingKey { case id, timestamp, chainName, level, message, transactionHash }
-    nonisolated init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.id = try c.decode(UUID.self, forKey: .id)
-        self.timestamp = try c.decode(Date.self, forKey: .timestamp)
-        self.chainName = try c.decode(String.self, forKey: .chainName)
-        self.level = try c.decode(Level.self, forKey: .level)
-        self.message = try c.decode(String.self, forKey: .message)
-        self.transactionHash = try c.decodeIfPresent(String.self, forKey: .transactionHash)
-    }
-    nonisolated func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(id, forKey: .id)
-        try c.encode(timestamp, forKey: .timestamp)
-        try c.encode(chainName, forKey: .chainName)
-        try c.encode(level, forKey: .level)
-        try c.encode(message, forKey: .message)
-        try c.encodeIfPresent(transactionHash, forKey: .transactionHash)
-    }
-}
-
 enum MainAppTab: Hashable {
     case home
     case history

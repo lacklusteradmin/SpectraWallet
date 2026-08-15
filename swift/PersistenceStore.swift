@@ -24,27 +24,15 @@ extension AppState {
         if let prices = await loadCodableFromSQLite([String: Double].self, key: Self.livePricesDefaultsKey), !prices.isEmpty {
             livePrices = prices
         }
-        // `loadCoreOwnedState()` above already set `tokenPreferences` from core.
-        // Folding in the built-ins catches tokens this build added; the didSet
-        // commits the merged list straight back.
-        tokenPreferences = mergeBuiltInTokenPreferences(with: tokenPreferences)
-        if let alertsPayload = try? await WalletServiceBridge.shared.loadPriceAlertStore(key: Self.priceAlertsDefaultsKey),
-            alertsPayload.version == 1
-        {
-            priceAlerts = alertsPayload.alerts.compactMap(PriceAlertRule.init(snapshot:))
+        // Folding in the built-ins catches tokens this build added. Core does
+        // the merge and stores it, so this only adopts the answer — assigning
+        // through the `didSet` would send it straight back.
+        if let merged = try? await WalletServiceBridge.shared.mergeBuiltInTokenPreferences() {
+            applyCoreState(merged, epoch: beginCoreStateRead())
         }
-        if let allRecords = try? await WalletServiceBridge.shared.loadAllOwnedAddressesTyped(), !allRecords.isEmpty {
-            var chainMap: [String: [String: ChainOwnedAddressRecord]] = [:]
-            for rec in allRecords {
-                guard !rec.address.isEmpty else { continue }
-                let chainRecord = ChainOwnedAddressRecord(
-                    chainName: rec.chainName, address: rec.address, walletID: rec.walletId, derivationPath: rec.derivationPath,
-                    index: rec.branchIndex.map { Int($0) }, branch: rec.branch
-                )
-                chainMap[rec.chainName, default: [:]][rec.address] = chainRecord
-            }
-            if !chainMap.isEmpty { chainOwnedAddressMapByChain = chainMap }
-        }
+        // Price alerts arrive with the rest of the state — `loadCoreOwnedState()`
+        // above already set them.
+        // Owned addresses load with the rest of core's state in `open_state`.
         // Reserves receive indices, so it runs only after core's keypool is in
         // memory — reserving against an unloaded table would reissue addresses.
         await syncChainOwnedAddressManagementState()
@@ -57,11 +45,6 @@ extension AppState {
         {
             assetDisplayDecimalsByChain = decimals
         }
-        if let events = await loadCodableFromSQLite([String: [ChainOperationalEvent]].self, key: Self.chainOperationalEventsDefaultsKey),
-            !events.isEmpty
-        {
-            chainOperationalEventsByChain = events
-        }
         if let feePrios = await loadCodableFromSQLite([String: String].self, key: Self.selectedFeePriorityOptionsByChainDefaultsKey),
             !feePrios.isEmpty
         {
@@ -71,9 +54,6 @@ extension AppState {
         if let settings = try? await WalletServiceBridge.shared.loadAppSettingsTyped() {
             if let v = PricingProvider(rawValue: settings.pricingProvider) { pricingProvider = v }
             if let v = FiatRateProvider(rawValue: settings.fiatRateProvider) { fiatRateProvider = v }
-            if let v = EthereumNetworkMode(rawValue: settings.ethereumNetworkMode) { ethereumNetworkMode = v }
-            if let v = BitcoinNetworkMode(rawValue: settings.bitcoinNetworkMode) { bitcoinNetworkMode = v }
-            if let v = DogecoinNetworkMode(rawValue: settings.dogecoinNetworkMode) { dogecoinNetworkMode = v }
             if let v = BitcoinFeePriority(rawValue: settings.bitcoinFeePriority) { bitcoinFeePriority = v }
             if let v = DogecoinFeePriority(rawValue: settings.dogecoinFeePriority) { dogecoinFeePriority = v }
             if let v = BackgroundSyncProfile(rawValue: settings.backgroundSyncProfile) { backgroundSyncProfile = v }
@@ -122,25 +102,51 @@ extension AppState {
     func loadPersistedLivePrices() -> [String: Double] {
         loadCodableFromUserDefaults([String: Double].self, key: Self.livePricesDefaultsKey) ?? [:]
     }
-    func persistPriceAlerts() {
-        let payload = CorePersistedPriceAlertStore(
-            version: 1, alerts: priceAlerts.map(\.persistedSnapshot)
-        )
-        Task {
-            try? await WalletServiceBridge.shared.savePriceAlertStore(
-                key: Self.priceAlertsDefaultsKey, value: payload)
+    /// Send the alert list to core, which drops what could never fire and
+    /// stores the rest.
+    func commitPriceAlerts() {
+        let alerts = priceAlerts
+        let epoch = beginCoreStateRead()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard
+                let transition = try? await WalletServiceBridge.shared.applyStateCommand(
+                    .setPriceAlerts(alerts: alerts))
+            else {
+                self.finishCoreStateRead(epoch)
+                return
+            }
+            self.applyCoreState(transition.state, epoch: epoch)
+        }
+    }
+    /// Tell core which network of a family the user picked.
+    func commitNetworkChain(_ chainID: String) {
+        let epoch = beginCoreStateRead()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            guard
+                let transition = try? await WalletServiceBridge.shared.applyStateCommand(
+                    .selectNetworkChain(chainId: chainID))
+            else {
+                self.finishCoreStateRead(epoch)
+                return
+            }
+            self.applyCoreState(transition.state, epoch: epoch)
         }
     }
     /// Send the tracked-token list to core, which clamps it and stores it.
     func commitTokenPreferences() {
         let entries = tokenPreferences
+        let epoch = beginCoreStateRead()
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let epoch = self.beginCoreStateRead()
             guard
                 let transition = try? await WalletServiceBridge.shared.applyStateCommand(
                     .setTokenPreferences(entries: entries))
-            else { return }
+            else {
+                self.finishCoreStateRead(epoch)
+                return
+            }
             self.applyCoreState(transition.state, epoch: epoch)
         }
     }
@@ -157,12 +163,9 @@ extension AppState {
             selectedFiatCurrency: coreFiatCurrency.rawValue,
             fiatRateProvider: fiatRateProvider.rawValue,
             ethereumRpcEndpoint: ethereumRPCEndpoint,
-            ethereumNetworkMode: ethereumNetworkMode.rawValue,
             etherscanApiKey: etherscanAPIKey,
             moneroBackendBaseUrl: moneroBackendBaseURL,
             moneroBackendApiKey: moneroBackendAPIKey,
-            bitcoinNetworkMode: bitcoinNetworkMode.rawValue,
-            dogecoinNetworkMode: dogecoinNetworkMode.rawValue,
             bitcoinEsploraEndpoints: bitcoinEsploraEndpoints,
             bitcoinStopGap: Int32(bitcoinStopGap),
             bitcoinFeePriority: bitcoinFeePriority.rawValue,

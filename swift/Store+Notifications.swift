@@ -2,39 +2,27 @@ import Foundation
 import UserNotifications
 @MainActor
 extension AppState {
-    func mergeBuiltInTokenPreferences(with persisted: [TokenPreferenceEntry]) -> [TokenPreferenceEntry] {
-        let builtIns = ChainTokenRegistryEntry.builtIn.map(\.tokenPreferenceEntry)
-        return corePlanMergeBuiltInTokenPreferences(builtIns: builtIns, persisted: persisted)
-    }
-    func evaluatePriceAlerts() {
+    /// Hand core the live prices; it records which alerts changed state and
+    /// returns only the ones to notify about.
+    ///
+    /// The alert list itself never crosses — core owns it. Only the prices go
+    /// out, because a live price is the one input core does not have.
+    func evaluatePriceAlerts() async {
         guard preferences.usePriceAlerts, !priceAlerts.isEmpty else { return }
-        let alertsByID = Dictionary(uniqueKeysWithValues: priceAlerts.map { ($0.id.uuidString, $0) })
-        let ffiAlerts: [PriceAlertEvaluationAlert] = priceAlerts.map { alert in
-            PriceAlertEvaluationAlert(
-                id: alert.id.uuidString, holdingKey: alert.holdingKey, assetName: alert.assetName,
-                symbol: alert.symbol, chainName: alert.chainName, targetPrice: alert.targetPrice,
-                condition: alert.condition, isEnabled: alert.isEnabled, hasTriggered: alert.hasTriggered
-            )
-        }
-        let ffiPrices: [PriceAlertEvaluationPrice] = priceAlerts.compactMap { alert in
+        let prices: [PriceAlertEvaluationPrice] = priceAlerts.compactMap { alert in
             guard let coin = portfolio.first(where: { $0.holdingKey == alert.holdingKey }),
                 let livePrice = currentPriceIfAvailable(for: coin)
             else { return nil }
             return PriceAlertEvaluationPrice(holdingKey: alert.holdingKey, livePrice: livePrice)
         }
-        let plan = corePlanPriceAlertEvaluation(alerts: ffiAlerts, prices: ffiPrices)
-        if !plan.updates.isEmpty {
-            var updated = priceAlerts
-            let idxByID = Dictionary(uniqueKeysWithValues: updated.enumerated().map { ($0.element.id.uuidString, $0.offset) })
-            for update in plan.updates {
-                guard let idx = idxByID[update.id] else { continue }
-                updated[idx].hasTriggered = update.hasTriggered
-            }
-            priceAlerts = updated
+        let epoch = beginCoreStateRead()
+        guard let notifications = try? await WalletServiceBridge.shared.evaluatePriceAlerts(prices: prices)
+        else { return }
+        if let state = try? await WalletServiceBridge.shared.appState() {
+            applyCoreState(state, epoch: epoch)
         }
-        for notif in plan.notifications {
-            guard let alert = alertsByID[notif.id] else { continue }
-            sendPriceAlertNotification(for: alert, livePrice: notif.livePrice)
+        for notification in notifications {
+            sendPriceAlertNotification(for: notification)
         }
     }
     private func requestStandardNotificationPermission() {
@@ -55,29 +43,14 @@ extension AppState {
         guard preferences.useTransactionStatusNotifications || preferences.useLargeMovementNotifications else { return }
         requestNotificationPermissionIfNeeded()
     }
-    func shouldRebuildDashboardForLivePriceChange(from oldPrices: [String: Double], to newPrices: [String: Double]) -> Bool {
-        let pinnedPrototypeKeys =
-            selectedMainTab == .home
-            ? Array(Set(dashboardPinnedAssetPricingPrototypes.filter(isPricedAsset).map(assetIdentityKey)))
-            : []
-        return corePlanDashboardRebuildForLivePriceChange(
-            request: DashboardRebuildDecisionRequest(
-                oldPrices: oldPrices.map { PriceAlertEvaluationPrice(holdingKey: $0.key, livePrice: $0.value) },
-                newPrices: newPrices.map { PriceAlertEvaluationPrice(holdingKey: $0.key, livePrice: $0.value) },
-                cachedRelevantPriceKeys: Array(cachedDashboardRelevantPriceKeys),
-                pinnedPrototypeKeys: pinnedPrototypeKeys,
-                selectedMainTabIsHome: selectedMainTab == .home
-            )
-        )
-    }
-    private func sendPriceAlertNotification(for alert: PriceAlertRule, livePrice: Double) {
+    private func sendPriceAlertNotification(for notification: PriceAlertNotification) {
         postNotification(
-            identifier: "price-alert-\(alert.id.uuidString)-\(UUID().uuidString)",
-            title: localizedStoreFormat("%@ price alert", alert.symbol),
+            identifier: "price-alert-\(notification.id)-\(UUID().uuidString)",
+            title: localizedStoreFormat("%@ price alert", notification.symbol),
             body: localizedStoreFormat(
-                "%@ on %@ is now %@, which is %@ your target of %@.", alert.assetName, alert.chainName,
-                formattedFiatAmount(fromUSD: livePrice), alert.condition.rawValue.lowercased(),
-                formattedFiatAmount(fromUSD: alert.targetPrice)
+                "%@ on %@ is now %@, which is %@ your target of %@.", notification.assetName, notification.chainName,
+                formattedFiatAmount(fromUSD: notification.livePrice), notification.condition.rawValue.lowercased(),
+                formattedFiatAmount(fromUSD: notification.targetPrice)
             )
         )
     }

@@ -523,7 +523,9 @@ extension AppState {
             message: failedCount == 0
                 ? "ETH diagnostics passed (\(results.count) checks)." : "ETH diagnostics completed with \(failedCount) failure(s).")
     }
-    func operationalEvents(for chainName: String) -> [ChainOperationalEvent] { chainOperationalEventsByChain[chainName] ?? [] }
+    func operationalEvents(for chainName: String) async -> [ChainOperationalEvent] {
+        await WalletServiceBridge.shared.operationalEvents(chainName: chainName)
+    }
     func feePriorityOption(for chainName: String) -> ChainFeePriorityOption {
         if chainName == "Bitcoin" { return mapBitcoinFeePriorityToChainOption(bitcoinFeePriority) }
         if chainName == "Dogecoin" { return mapDogecoinFeePriorityToChainOption(dogecoinFeePriority) }
@@ -927,19 +929,6 @@ extension AppState {
         return coreDerivationPathReplacingLastTwo(
             rawPath: rawPath, branch: UInt32(branch.rawValue), index: UInt32(max(0, index)), fallback: rawPath)
     }
-    func parseUTXODiscoveryIndex(path: String?, chainName: String, branch: WalletDerivationBranch) -> Int? {
-        guard let path, let derivationChain = seedDerivationChain(for: chainName),
-            let pathSegments = coreParseDerivationPath(rawPath: path),
-            var walletSegments = coreParseDerivationPath(rawPath: derivationChain.defaultPath), pathSegments.count == walletSegments.count,
-            pathSegments.count >= 5
-        else { return nil }
-        walletSegments[walletSegments.count - 2] = DerivationPathSegment(value: UInt32(branch.rawValue), isHardened: false)
-        walletSegments[walletSegments.count - 1] = DerivationPathSegment(value: pathSegments.last?.value ?? 0, isHardened: false)
-        let candidatePrefix = coreDerivationPathString(segments: Array(walletSegments.dropLast()))
-        let pathPrefix = coreDerivationPathString(segments: Array(pathSegments.dropLast()))
-        guard candidatePrefix == pathPrefix, pathSegments[pathSegments.count - 2].value == UInt32(branch.rawValue) else { return nil }
-        return Int(pathSegments.last?.value ?? 0)
-    }
     func deriveUTXOAddress(for wallet: ImportedWallet, chainName: String, branch: WalletDerivationBranch, index: Int) -> String? {
         guard let seedPhrase = storedSeedPhrase(for: wallet.id), supportsDeepUTXODiscovery(chainName: chainName),
             let derivationPath = utxoDiscoveryDerivationPath(for: wallet, chainName: chainName, branch: branch, index: index),
@@ -1006,7 +995,7 @@ extension AppState {
             appendAddress(transaction.changeAddress)
         }
         for discoveredAddress in discoveredUTXOAddressesByChain[chainName]?[wallet.id] ?? [] { appendAddress(discoveredAddress) }
-        for ownedAddress in ownedAddresses(for: wallet.id, chainName: chainName) { appendAddress(ownedAddress) }
+        for ownedAddress in await ownedAddresses(for: wallet.id, chainName: chainName) { appendAddress(ownedAddress) }
         return ordered
     }
     func discoverUTXOAddresses(for wallet: ImportedWallet, chainName: String) async -> [String] {
@@ -1014,14 +1003,13 @@ extension AppState {
         var seen = Set(ordered.map { $0.lowercased() })
         guard supportsDeepUTXODiscovery(chainName: chainName), storedSeedPhrase(for: wallet.id) != nil else { return ordered }
         let state = await keypoolState(for: wallet, chainName: chainName)
-        let highestOwnedExternal =
-            (chainOwnedAddressMapByChain[chainName] ?? [:]).values.filter { $0.walletID == wallet.id && $0.branch == "external" }.map(
-                \.index
-            ).compactMap { $0 }.max() ?? 0
+        // `nextExternalIndex` already clears the highest owned external index —
+        // core folds it into the baseline — so this only has to also clear the
+        // reservation.
         let reserved = state.reservedReceiveIndex ?? 0
         let scanUpperBound = min(
             Self.utxoDiscoveryMaxIndex,
-            max(state.nextExternalIndex, max(highestOwnedExternal + 1, reserved + 1)) + Self.utxoDiscoveryGapLimit
+            max(state.nextExternalIndex, reserved + 1) + Self.utxoDiscoveryGapLimit
         )
         guard scanUpperBound >= 0 else { return ordered }
         for index in 0...scanUpperBound {
@@ -1116,54 +1104,23 @@ extension AppState {
     func normalizedOwnedAddressKey(chainName: String, address: String) -> String {
         address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
+    /// Record an address this wallet owns. Core holds the table — the keypool
+    /// baseline is derived from it, so a second copy here could go stale and
+    /// reissue an address.
     func registerOwnedAddress(
         chainName: String, address: String?, walletID: String?, derivationPath: String?, index: Int?, branch: String?
     ) {
-        guard let address, let walletID else { return }
-        let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        let key = normalizedOwnedAddressKey(chainName: chainName, address: trimmed)
-        var addresses = chainOwnedAddressMapByChain[chainName] ?? [:]
-        addresses[key] = ChainOwnedAddressRecord(
-            chainName: chainName, address: trimmed, walletID: walletID, derivationPath: derivationPath, index: index, branch: branch
-        )
-        chainOwnedAddressMapByChain[chainName] = addresses
-    }
-    func ownedAddresses(for walletID: String, chainName: String) -> [String] {
-        (chainOwnedAddressMapByChain[chainName] ?? [:]).compactMap { key, value in
-            guard value.walletID == walletID else { return nil }
-            return value.address ?? key
+        guard let address, let walletID, !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return }
+        Task {
+            try? await WalletServiceBridge.shared.registerOwnedAddress(
+                walletID: walletID, chainName: chainName, address: address,
+                derivationPath: derivationPath, branch: branch,
+                branchIndex: index.map(Int64.init))
         }
     }
-    func baselineChainKeypoolState(for wallet: ImportedWallet, chainName: String) -> ChainKeypoolState {
-        let supportsDeep = supportsDeepUTXODiscovery(chainName: chainName)
-        var input = ChainKeypoolBaselineInput(
-            supportsDeepUtxoDiscovery: supportsDeep,
-            maxTransactionExternalIndex: nil,
-            maxTransactionChangeIndex: nil,
-            maxOwnedExternalIndex: nil,
-            maxOwnedChangeIndex: nil,
-            hasResolvedAddress: false
-        )
-        if supportsDeep {
-            let chainTransactions = transactions.filter { $0.walletID == wallet.id && $0.chainName == chainName }
-            let maxExternalIndex = chainTransactions.compactMap {
-                parseUTXODiscoveryIndex(path: $0.sourceDerivationPath, chainName: chainName, branch: .external)
-            }.max()
-            let maxChangeIndex = chainTransactions.compactMap {
-                parseUTXODiscoveryIndex(path: $0.changeDerivationPath, chainName: chainName, branch: .change)
-            }.max()
-            let ownedForWallet = (chainOwnedAddressMapByChain[chainName] ?? [:]).values.filter { $0.walletID == wallet.id }
-            let maxOwnedExternalIndex = ownedForWallet.filter { $0.branch == "external" }.compactMap(\.index).max()
-            let maxOwnedChangeIndex = ownedForWallet.filter { $0.branch == "change" }.compactMap(\.index).max()
-            input.maxTransactionExternalIndex = maxExternalIndex.map { Int32($0) }
-            input.maxTransactionChangeIndex = maxChangeIndex.map { Int32($0) }
-            input.maxOwnedExternalIndex = maxOwnedExternalIndex.map { Int32($0) }
-            input.maxOwnedChangeIndex = maxOwnedChangeIndex.map { Int32($0) }
-        } else {
-            input.hasResolvedAddress = resolvedAddress(for: wallet, chainName: chainName) != nil
-        }
-        return ChainKeypoolState(coreRecord: corePlanBaselineChainKeypoolState(input: input))
+    func ownedAddresses(for walletID: String, chainName: String) async -> [String] {
+        await WalletServiceBridge.shared.ownedAddresses(walletID: walletID, chainName: chainName)
     }
     /// The wallet's keypool state for this chain, merged with the baseline.
     ///
@@ -1171,10 +1128,9 @@ extension AppState {
     /// supplies the baseline, which depends on transaction and owned-address
     /// history it still computes.
     func keypoolState(for wallet: ImportedWallet, chainName: String) async -> ChainKeypoolState {
-        let baseline = baselineChainKeypoolState(for: wallet, chainName: chainName)
         guard let state = try? await WalletServiceBridge.shared.keypoolState(
-            walletID: wallet.id, chainName: chainName, baseline: baseline.coreRecord)
-        else { return baseline }
+            walletID: wallet.id, chainName: chainName)
+        else { return ChainKeypoolState(keypool: KeypoolState(nextExternalIndex: 0, nextChangeIndex: 0, reservedReceiveIndex: nil)) }
         return ChainKeypoolState(keypool: state)
     }
     /// Reserve the next receive index, or return the one already reserved.
@@ -1186,16 +1142,13 @@ extension AppState {
     func reserveReceiveIndex(for wallet: ImportedWallet, chainName: String, minimumIndex: Int = 0)
         async -> Int?
     {
-        let baseline = baselineChainKeypoolState(for: wallet, chainName: chainName)
         let reserved = try? await WalletServiceBridge.shared.reserveReceiveIndex(
-            walletID: wallet.id, chainName: chainName, baseline: baseline.coreRecord,
-            minimumIndex: Int64(minimumIndex))
+            walletID: wallet.id, chainName: chainName, minimumIndex: Int64(minimumIndex))
         return reserved.map(Int.init)
     }
     func reserveChangeIndex(for wallet: ImportedWallet, chainName: String) async -> Int? {
-        let baseline = baselineChainKeypoolState(for: wallet, chainName: chainName)
         let reserved = try? await WalletServiceBridge.shared.reserveChangeIndex(
-            walletID: wallet.id, chainName: chainName, baseline: baseline.coreRecord)
+            walletID: wallet.id, chainName: chainName)
         return reserved.map(Int.init)
     }
     func reservedReceiveDerivationPath(for wallet: ImportedWallet, chainName: String, index: Int?) -> String? {
@@ -1206,35 +1159,23 @@ extension AppState {
         guard seedDerivationChain(for: chainName) != nil else { return nil }
         return seedDerivationChain(for: chainName).map { walletDerivationPath(for: wallet, chain: $0) }
     }
-    /// The reserved receive address as it currently stands, recording nothing.
+    /// The keypool as it currently stands, recording nothing.
     ///
     /// The `reserveIfMissing: false` path of `reservedReceiveAddress` still
     /// wrote — through `keypoolState` and `registerOwnedAddress`, both of which
     /// touch observed state. This is the variant a SwiftUI `body` can call.
-    /// Merge a stored keypool row with the baseline without recording anything.
-    /// `snapshot` comes from `WalletServiceBridge.keypoolSnapshot()`.
-    func keypoolStateForDisplay(
-        for wallet: ImportedWallet, chainName: String,
-        snapshot: [String: [String: KeypoolState]]
-    ) -> ChainKeypoolState {
-        let baseline = baselineChainKeypoolState(for: wallet, chainName: chainName)
-        let existing = snapshot[chainName]?[wallet.id].map {
-            ChainKeypoolStateRecord(
-                nextExternalIndex: Int32($0.nextExternalIndex),
-                nextChangeIndex: Int32($0.nextChangeIndex),
-                reservedReceiveIndex: $0.reservedReceiveIndex.map { Int32($0) }
-            )
-        }
-        return ChainKeypoolState(
-            coreRecord: corePlanChainKeypoolState(baseline: baseline.coreRecord, existing: existing))
+    func keypoolStateForDisplay(for wallet: ImportedWallet, chainName: String) async
+        -> ChainKeypoolState
+    {
+        ChainKeypoolState(
+            keypool: await WalletServiceBridge.shared.keypoolStateForDisplay(
+                walletID: wallet.id, chainName: chainName))
     }
-    func reservedReceiveAddressForDisplay(
-        for wallet: ImportedWallet, chainName: String,
-        snapshot: [String: [String: KeypoolState]]
-    ) -> String? {
+    func reservedReceiveAddressForDisplay(for wallet: ImportedWallet, chainName: String) async
+        -> String?
+    {
         if supportsDeepUTXODiscovery(chainName: chainName) {
-            let state = keypoolStateForDisplay(
-                for: wallet, chainName: chainName, snapshot: snapshot)
+            let state = await keypoolStateForDisplay(for: wallet, chainName: chainName)
             guard let reservedIndex = state.reservedReceiveIndex,
                 let address = deriveUTXOAddress(
                     for: wallet, chainName: chainName, branch: .external, index: reservedIndex)

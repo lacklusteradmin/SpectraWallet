@@ -8,6 +8,10 @@ struct HistoryDetailView: View {
     @State private var ethereumReplacementMessage: String?
     @State private var liveTransaction: TransactionRecord?
     @State private var liveOwnedAddresses: Set<String> = []
+    /// Core answers the owned-address question asynchronously, so the view
+    /// caches the one value its body needs. View state: losing it on restart
+    /// costs a redraw and nothing else.
+    @State private var liveFirstOwnedAddress: String?
     init(store: AppState, transaction: TransactionRecord) {
         self.store = store
         self.transaction = transaction
@@ -39,10 +43,7 @@ struct HistoryDetailView: View {
         }
         return nil
     }
-    private var firstOwnedAddress: String? {
-        guard let walletID = displayedTransaction.walletID else { return nil }
-        return store.knownOwnedAddresses(for: walletID).first
-    }
+    private var firstOwnedAddress: String? { liveFirstOwnedAddress }
     var body: some View {
         ZStack {
             ScrollView(showsIndicators: false) {
@@ -200,12 +201,12 @@ struct HistoryDetailView: View {
                     }
                 }.padding(20)
             }
-        }.navigationTitle(AppLocalization.string("Transaction")).navigationBarTitleDisplayMode(.inline).onAppear {
-            rebuildDisplayedTransactionState()
+        }.navigationTitle(AppLocalization.string("Transaction")).navigationBarTitleDisplayMode(.inline).task {
+            await rebuildDisplayedTransactionState()
         }.onChange(of: store.transactionRevision) { _, _ in
-            rebuildDisplayedTransactionState()
+            Task { await rebuildDisplayedTransactionState() }
         }.onChange(of: store.walletsRevision) { _, _ in
-            rebuildDisplayedTransactionState()
+            Task { await rebuildDisplayedTransactionState() }
         }
     }
     private var statusChip: some View {
@@ -407,14 +408,17 @@ struct HistoryDetailView: View {
         guard let normalized = normalizedAddress(value) else { return false }
         return ownedAddresses.contains(normalized)
     }
-    private func rebuildDisplayedTransactionState() {
+    private func rebuildDisplayedTransactionState() async {
         let resolvedTransaction = store.transactions.first(where: { $0.id == transaction.id }) ?? transaction
         liveTransaction = resolvedTransaction
         guard let walletID = resolvedTransaction.walletID else {
             liveOwnedAddresses = []
+            liveFirstOwnedAddress = nil
             return
         }
-        liveOwnedAddresses = Set(store.knownOwnedAddresses(for: walletID).compactMap { normalizedAddress($0) })
+        let owned = await store.knownOwnedAddresses(for: walletID)
+        liveOwnedAddresses = Set(owned.compactMap { normalizedAddress($0) })
+        liveFirstOwnedAddress = owned.first
     }
     private struct TransactionTimelineItem: Identifiable {
         let id: String

@@ -400,6 +400,9 @@ struct StandardChainDiagnosticsView: View {
     /// Keypool state now lives in core, so it is loaded rather than read
     /// synchronously — see `.task` below.
     @State private var cachedKeypoolDiagnostics: [AppState.ChainKeypoolDiagnostic] = []
+    /// Operational events live in core now, so they load rather than read
+    /// synchronously — same `.task` as the keypool rows.
+    @State private var cachedOperationalEvents: [ChainOperationalEvent] = []
     private let moneroCustomBackendID = "custom"
     private var chainDiagnosticsState: WalletChainDiagnosticsState { store.chainDiagnosticsState }
     private var displayChainTitle: String { store.displayChainTitle(for: chain.descriptor.chainName) }
@@ -548,6 +551,7 @@ struct StandardChainDiagnosticsView: View {
             rebuildCachedRows()
         }.task(id: chain.title) {
             cachedKeypoolDiagnostics = await store.chainKeypoolDiagnostics(for: chain.title)
+            cachedOperationalEvents = await store.operationalEvents(for: chain.title)
         }.onChange(of: copiedDiagnosticsNotice) { _, newValue in
             guard newValue != nil else { return }
             Task {
@@ -752,14 +756,14 @@ struct StandardChainDiagnosticsView: View {
             }
         }
         Section(AppLocalization.string("Operational Events")) {
-            let events = store.operationalEvents(for: chain.title)
+            let events = cachedOperationalEvents
             if events.isEmpty {
                 Text(AppLocalization.string("No operational events recorded yet.")).font(.caption).foregroundStyle(.secondary)
             } else {
                 ForEach(events.prefix(20)) { event in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(event.message).font(.subheadline)
-                        Text(event.level.rawValue.capitalized).font(.caption.weight(.semibold)).foregroundStyle(
+                        Text(event.level.displayName).font(.caption.weight(.semibold)).foregroundStyle(
                             event.level == .error ? .red : (event.level == .warning ? .orange : .secondary))
                         if let transactionHash = event.transactionHash, !transactionHash.isEmpty {
                             Text(transactionHash).font(.caption.monospaced()).foregroundStyle(.secondary)

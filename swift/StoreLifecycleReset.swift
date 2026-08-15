@@ -151,7 +151,7 @@ extension AppState {
         else {
             return
         }
-        let plan = corePlanResetDispatch(scopes: scopes.map(\.rawValue))
+        let plan = coreResetDispatch(scopes: scopes.map(\.rawValue))
         if plan.resetWalletsAndSecrets { resetWalletsAndSecretsState() }
         if plan.resetHistoryAndCache { resetHistoryAndCacheState() }
         if plan.resetAlertsAndContacts { resetAlertsAndContactsState() }
@@ -169,7 +169,6 @@ extension AppState {
         UserDefaults.standard.removeObject(forKey: Self.walletsAccount)
         clearWalletSecretIndex()
         clearAllWalletsDetached()
-        chainOwnedAddressMapByChain = [:]
         discoveredUTXOAddressesByChain = [:]
         receiveWalletID = ""
         receiveChainName = ""
@@ -313,7 +312,7 @@ extension AppState {
         self[endpointHealthFor: "Litecoin"].lastUpdatedAt = nil
         diagnostics.chainDegradedMessages = [:]
         diagnostics.lastGoodChainSyncByName = [:]
-        chainOperationalEventsByChain = [:]
+        Task { try? await WalletServiceBridge.shared.clearOperationalEvents(chainName: nil) }
         selfTests = [:]
         diagnostics.clearOperationalLogs()
         for kp: ReferenceWritableKeyPath<AppState, Bool> in [
@@ -360,7 +359,7 @@ extension AppState {
         rebuildNormalizedHistoryIndex()
     }
     private func resetAlertsAndContactsState() {
-        UserDefaults.standard.removeObject(forKey: Self.priceAlertsDefaultsKey)
+        // Core-owned: assigning sends `SetPriceAlerts`, which clears the store.
         priceAlerts = []
         // Core-owned: clear by command so the store and the mirror agree.
         let contactIDs = addressBook.map(\.id)

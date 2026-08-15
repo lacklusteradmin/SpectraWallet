@@ -26,15 +26,12 @@ extension AppState {
     func appendChainOperationalEvent(
         _ level: ChainOperationalEvent.Level, chainName: String, message: String, transactionHash: String? = nil
     ) {
-        let event = ChainOperationalEvent(
-            id: UUID(), timestamp: Date(), chainName: chainName, level: level, message: message,
-            transactionHash: transactionHash?.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-        let existing = chainOperationalEventsByChain[chainName] ?? []
-        let updatedRecords = corePlanAppendChainOperationalEvent(
-            existingEvents: existing.map(\.coreRecord), newEvent: event.coreRecord
-        )
-        chainOperationalEventsByChain[chainName] = updatedRecords.compactMap(ChainOperationalEvent.init(coreRecord:))
+        // Core stamps the id and the time, applies the cap and persists.
+        Task {
+            try? await WalletServiceBridge.shared.appendChainOperationalEvent(
+                chainName: chainName, level: level, message: message,
+                transactionHash: transactionHash?.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
         let mappedLevel: OperationalLogEvent.Level
         switch level {
         case .info: mappedLevel = .info
@@ -44,9 +41,6 @@ extension AppState {
         appendOperationalLog(
             mappedLevel, category: "\(chainName) Broadcast", message: message, chainName: chainName, transactionHash: transactionHash
         )
-    }
-    func persistChainOperationalEvents() {
-        persistCodableToSQLite(chainOperationalEventsByChain, key: Self.chainOperationalEventsDefaultsKey)
     }
     func noteSendBroadcastQueued(for transaction: TransactionRecord) {
         appendChainOperationalEvent(
@@ -121,7 +115,7 @@ extension AppState {
         if holding.chainName == "Dogecoin" {
             ownAddresses = await knownUTXOAddresses(for: wallet, chainName: "Dogecoin")
         } else {
-            ownAddresses = knownOwnedAddresses(for: wallet.id)
+            ownAddresses = await knownOwnedAddresses(for: wallet.id)
         }
         let plan = rustSelfSendConfirmationPlan(
             walletID: wallet.id, chainName: holding.chainName, symbol: holding.symbol, destinationAddress: destinationAddress,
@@ -426,12 +420,12 @@ extension AppState {
         priceAlerts.insert(alert, at: 0)
         requestPriceAlertNotificationPermission()
     }
-    func togglePriceAlertEnabled(id: UUID) {
+    func togglePriceAlertEnabled(id: String) {
         guard let index = priceAlerts.firstIndex(where: { $0.id == id }) else { return }
         priceAlerts[index].isEnabled.toggle()
         if !priceAlerts[index].isEnabled { priceAlerts[index].hasTriggered = false }
     }
-    func removePriceAlert(id: UUID) {
+    func removePriceAlert(id: String) {
         priceAlerts.removeAll { $0.id == id }
     }
 }

@@ -28,6 +28,13 @@ import Foundation
                 _ = try await WalletServiceBridge.shared.applyStateCommand(
                     .removeWallet(walletId: wallet.id))
             }
+            // The selected network is core-owned and persists, so a test that
+            // switches to a testnet would otherwise leave every later test on
+            // it. Selecting a family's mainnet clears the entry.
+            for chainID in ["bitcoin", "ethereum", "dogecoin"] {
+                _ = try await WalletServiceBridge.shared.applyStateCommand(
+                    .selectNetworkChain(chainId: chainID))
+            }
             _ = try await WalletServiceBridge.shared.applyTransactionCommand(.clear)
         }
 
@@ -101,9 +108,15 @@ import Foundation
             XCTAssertEqual(store.displayNetworkName(for: wallet), "Testnet4")
             XCTAssertEqual(store.displayChainTitle(for: wallet), "Bitcoin Testnet4")
         }
-        func testBitcoinTestnet4AssetsAreUnpriced() {
+        /// Async because the selection round-trips through core: assigning the
+        /// mirror sends `SelectNetworkChain` and the unpriced set is adopted
+        /// when the new state comes back. Deriving it in Swift instead would
+        /// put a second copy of the rule here, which is what this whole slice
+        /// removed.
+        func testBitcoinTestnet4AssetsAreUnpriced() async {
             let store = AppState()
             store.bitcoinNetworkMode = .testnet4
+            await store.awaitPendingCoreStateWrites()
             let coin = Coin.makeCustom(
                 name: "Bitcoin", symbol: "BTC", coinGeckoId: "bitcoin", chainName: "Bitcoin", tokenStandard: "Native",
                 contractAddress: nil, amount: 1.25, priceUsd: 64000

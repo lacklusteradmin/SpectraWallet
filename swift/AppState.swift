@@ -293,25 +293,23 @@ final class AppState {
     var isShowingFundsFinder: Bool = false
     /// Read-only view of the keypool for the diagnostics screen.
     ///
-    /// Takes one snapshot and merges locally, so reporting the state never
-    /// records or reserves anything.
+    /// Core answers without recording, so reporting the state never reserves
+    /// anything.
     func chainKeypoolDiagnostics(for chainName: String) async -> [ChainKeypoolDiagnostic] {
-        let snapshot = (try? await WalletServiceBridge.shared.keypoolSnapshot()) ?? [:]
-        return wallets.filter { wallet in
-            wallet.selectedChain == chainName || walletHasAddress(for: wallet, chainName: chainName)
-        }
-        .compactMap { wallet in
-            let state = keypoolStateForDisplay(
-                for: wallet, chainName: chainName, snapshot: snapshot)
+        var rows: [ChainKeypoolDiagnostic] = []
+        for wallet in wallets where wallet.selectedChain == chainName || walletHasAddress(for: wallet, chainName: chainName) {
+            let state = await keypoolStateForDisplay(for: wallet, chainName: chainName)
             let reservedIndex = state.reservedReceiveIndex
-            return ChainKeypoolDiagnostic(
-                walletID: wallet.id, walletName: wallet.name, chainName: chainName, reservedReceiveIndex: reservedIndex,
-                reservedReceivePath: reservedReceiveDerivationPath(for: wallet, chainName: chainName, index: reservedIndex),
-                reservedReceiveAddress: reservedReceiveAddressForDisplay(
-                    for: wallet, chainName: chainName, snapshot: snapshot),
-                nextExternalIndex: state.nextExternalIndex, nextChangeIndex: state.nextChangeIndex
-            )
+            rows.append(
+                ChainKeypoolDiagnostic(
+                    walletID: wallet.id, walletName: wallet.name, chainName: chainName, reservedReceiveIndex: reservedIndex,
+                    reservedReceivePath: reservedReceiveDerivationPath(for: wallet, chainName: chainName, index: reservedIndex),
+                    reservedReceiveAddress: await reservedReceiveAddressForDisplay(
+                        for: wallet, chainName: chainName),
+                    nextExternalIndex: state.nextExternalIndex, nextChangeIndex: state.nextChangeIndex
+                ))
         }
+        return rows
         .sorted { $0.walletName.localizedCaseInsensitiveCompare($1.walletName) == .orderedAscending }
     }
     var pricingProvider: PricingProvider = .coinGecko {
@@ -351,6 +349,24 @@ final class AppState {
         return coreStateEpoch
     }
 
+    /// Mark an epoch settled without adopting a state — the command failed.
+    /// Without this a failed write would leave `awaitPendingCoreStateWrites`
+    /// waiting forever.
+    func finishCoreStateRead(_ epoch: UInt64) {
+        if epoch > appliedCoreStateEpoch { appliedCoreStateEpoch = epoch }
+    }
+
+    /// Wait until every command sent so far has come back and been applied.
+    ///
+    /// Mirrors settle a runloop hop after the assignment that sends them, which
+    /// is fine for a UI and awkward for a test asserting the effect. Tests
+    /// await this rather than each deriving the rule locally.
+    func awaitPendingCoreStateWrites() async {
+        while appliedCoreStateEpoch < coreStateEpoch {
+            await Task.yield()
+        }
+    }
+
     /// The only place the core-owned mirrors are written. Everything else goes
     /// through a `StateCommand` and lands back here.
     func applyCoreState(_ state: CoreAppState, epoch: UInt64) {
@@ -359,6 +375,18 @@ final class AppState {
         coreFiatCurrency = FiatCurrency(rawValue: state.settings.fiatCurrencyCode) ?? .usd
         coreAddressBook = state.addressBook
         if state.tokenPreferences != tokenPreferences { tokenPreferences = state.tokenPreferences }
+        if state.priceAlerts != priceAlerts { priceAlerts = state.priceAlerts }
+        // Synchronous on purpose: the render path reads this, and adopting it a
+        // tick later quotes a testnet at mainnet prices in between.
+        let unpriced = Set(coreUnpricedChainNames(settings: state.settings))
+        if unpriced != unpricedChainNames { unpricedChainNames = unpriced }
+        let byFamily = state.settings.networkChainByFamily
+        let bitcoin = NetworkSelection.bitcoinMode(forChainID: byFamily["bitcoin"])
+        if bitcoin != bitcoinNetworkMode { bitcoinNetworkMode = bitcoin }
+        let ethereum = NetworkSelection.ethereumMode(forChainID: byFamily["ethereum"])
+        if ethereum != ethereumNetworkMode { ethereumNetworkMode = ethereum }
+        let dogecoin = NetworkSelection.dogecoinMode(forChainID: byFamily["dogecoin"])
+        if dogecoin != dogecoinNetworkMode { dogecoinNetworkMode = dogecoin }
         let pins = state.settings.pinnedDashboardAssetSymbols
         if pins != cachedPinnedDashboardAssetSymbols {
             cachedPinnedDashboardAssetSymbols = pins
@@ -378,11 +406,12 @@ final class AppState {
             persistAppSettings()
         }
     }
+    /// Core owns the selection (`SelectNetworkChain`); this is the mirror the
+    /// UI binds to, same shape as `tokenPreferences`.
     var ethereumNetworkMode: EthereumNetworkMode = .mainnet {
         didSet {
             guard ethereumNetworkMode != oldValue else { return }
-            persistAppSettings()
-            cachedPricedChainByKey = [:]  // Rust `isPricedChain` answer depends on this
+            commitNetworkChain(NetworkSelection.chainID(for: ethereumNetworkMode))
             WalletServiceBridge.shared.resetHistoryForChain(chainId: SpectraChainID.ethereum)
         }
     }
@@ -406,8 +435,17 @@ final class AppState {
         }
     }
     var isUserInitiatedRefreshInProgress: Bool = false
+    /// Price alerts.
+    ///
+    /// Domain state: core owns the list, the rule that a target must be
+    /// positive, and the persistence. Same mirror shape as `tokenPreferences`
+    /// — assigning sends `SetPriceAlerts` and the stored list lands back here
+    /// through `applyCoreState`, where the guard stops the second pass.
     var priceAlerts: [PriceAlertRule] = [] {
-        didSet { priceAlertsPersist.fire { [weak self] in self?.persistPriceAlerts() } }
+        didSet {
+            guard priceAlerts != oldValue else { return }
+            priceAlertsPersist.fire { [weak self] in self?.commitPriceAlerts() }
+        }
     }
     /// Saved recipients.
     ///
@@ -441,7 +479,9 @@ final class AppState {
         didSet {
             guard livePrices != oldValue else { return }
             livePricesPersist.fire { [weak self] in self?.persistLivePrices() }
-            if shouldRebuildDashboardForLivePriceChange(from: oldValue, to: livePrices) { rebuildDashboardDerivedState() }
+            // Prices only change on a refresh cycle and the rebuild is an
+            // in-memory pass, so it is cheaper to do than to decide about.
+            rebuildDashboardDerivedState()
         }
     }
     var fiatRatesFromUSD: [String: Double] = [:]
@@ -455,7 +495,6 @@ final class AppState {
     var cachedDashboardPinOptionBySymbol: [String: DashboardPinOption] = [:] { didSet { bumpCachesRevision() } }
     var cachedAvailableDashboardPinOptions: [DashboardPinOption] = [] { didSet { bumpCachesRevision() } }
     var cachedDashboardAssetGroups: [DashboardAssetGroup] = [] { didSet { bumpCachesRevision() } }
-    var cachedDashboardRelevantPriceKeys: Set<String> = [] { didSet { bumpCachesRevision() } }
     var cachedDashboardSupportedTokenEntriesBySymbol: [String: [TokenPreferenceEntry]] = [:] { didSet { bumpCachesRevision() } }
     private var _cachedResolvedTokenPreferences: [TokenPreferenceEntry] = [] { didSet { bumpCachesRevision() } }
     var cachedResolvedTokenPreferences: [TokenPreferenceEntry] {
@@ -480,11 +519,10 @@ final class AppState {
     @ObservationIgnored var cachedFiatAmountRules: [String: FiatAmountRules] = [:]
     @ObservationIgnored var cachedAssetMinimumVisibleAmounts: [UInt32: Double] = [:]
     @ObservationIgnored var cachedAssetDecimalsResolutions: [String: (supported: UInt32, display: UInt32)] = [:]
-    /// Memoizes `corePricedChain`. Called once per coin per body render
-    /// via `isPricedAsset` (portfolio totals, asset rows, wallet cards). Key
-    /// composes chain name + both network modes because the Rust answer
-    /// depends on all three. Invalidated from the network-mode `didSet`s.
-    @ObservationIgnored var cachedPricedChainByKey: [String: Bool] = [:]
+/// Chains whose selected network is a testnet, so their coins are not quoted.
+    ///
+    /// Core decides; this is the projection the render path reads.
+    private(set) var unpricedChainNames: Set<String> = []
     /// Memoizes `formattingTokenPreferenceLookupKey`. Keyed by
     /// `chainName|symbol`; the Rust side is a pure function of those two
     /// inputs, so the cache is good for the app lifetime.
@@ -501,24 +539,23 @@ final class AppState {
     var ethereumManualNonce: String = ""
     var bitcoinNetworkMode: BitcoinNetworkMode = .mainnet {
         didSet {
-            persistAppSettings()
-            cachedPricedChainByKey = [:]  // Rust `isPricedChain` answer depends on this
+            guard bitcoinNetworkMode != oldValue else { return }
+            commitNetworkChain(NetworkSelection.chainID(for: bitcoinNetworkMode))
             WalletServiceBridge.shared.resetHistoryForChain(chainId: SpectraChainID.bitcoin)
             Task {
                 try? await WalletServiceBridge.shared.deleteKeypoolForChain(chainName: "Bitcoin")
                 try? await WalletServiceBridge.shared.deleteOwnedAddressesForChain(chainName: "Bitcoin")
             }
-            chainOwnedAddressMapByChain.removeValue(forKey: "Bitcoin")
         }
     }
     var dogecoinNetworkMode: DogecoinNetworkMode = .mainnet {
         didSet {
-            persistAppSettings()
+            guard dogecoinNetworkMode != oldValue else { return }
+            commitNetworkChain(NetworkSelection.chainID(for: dogecoinNetworkMode))
             Task {
                 try? await WalletServiceBridge.shared.deleteKeypoolForChain(chainName: "Dogecoin")
                 try? await WalletServiceBridge.shared.deleteOwnedAddressesForChain(chainName: "Dogecoin")
             }
-            chainOwnedAddressMapByChain["Dogecoin"] = [:]
         }
     }
     var bitcoinEsploraEndpoints: String = "" {
@@ -571,21 +608,10 @@ final class AppState {
             persistAppSettings()
         }
     }
-    var chainOwnedAddressMapByChain: [String: [String: ChainOwnedAddressRecord]] = [:] {
-        didSet {
-            let changedChains = chainOwnedAddressMapByChain.keys.filter { chainOwnedAddressMapByChain[$0] != oldValue[$0] }
-            for chainName in changedChains { persistOwnedAddressesForChain(chainName) }
-        }
-    }
     @ObservationIgnored var pendingSendPreviewRefreshChains: Set<String> = []
     var discoveredUTXOAddressesByChain: [String: [String: [String]]] = [:]
     var isLoadingMoreOnChainHistory: Bool = false
     let diagnostics = WalletDiagnosticsState()
-    var chainOperationalEventsByChain: [String: [ChainOperationalEvent]] = [:] {
-        didSet {
-            persistChainOperationalEvents()
-        }
-    }
     var selectedFeePriorityOptionRawByChain: [String: String] = [:] {
         didSet {
             guard selectedFeePriorityOptionRawByChain != oldValue else { return }
@@ -698,7 +724,6 @@ final class AppState {
     static let fiatRateProviderDefaultsKey = "pricing.fiatRateProvider"
     static let fiatRatesFromUSDDefaultsKey = "pricing.fiatRatesFromUSD.v1"
     static let livePricesDefaultsKey = "pricing.livePrices.v1"
-    static let priceAlertsDefaultsKey = "priceAlerts.snapshot"
 
     static let walletsAccount = "wallets.snapshot"
     static let walletsCoreSnapshotAccount = "wallets.core.snapshot.v1"
@@ -734,7 +759,6 @@ final class AppState {
     static let torCustomProxyAddressDefaultsKey = "tor.customProxyAddress"
     static let torKillSwitchDefaultsKey = "tor.killSwitch"
 
-    static let chainOperationalEventsDefaultsKey = "chain.operational.events.v1"
     static let operationalLogsDefaultsKey = "operational.logs.v1"
     static let chainKeypoolDefaultsKey = "chain.keypool.snapshot.v1"
     static let chainOwnedAddressMapDefaultsKey = "chain.ownedAddressMap.snapshot.v1"
