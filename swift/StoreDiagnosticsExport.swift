@@ -57,7 +57,7 @@ extension AppState {
                 .timeIntervalSince1970,
             endpointsLastUpdatedAtUnix: self[endpointHealthFor: chainName].lastUpdatedAt?
                 .timeIntervalSince1970,
-            extraNetworkMode: chainName == "Bitcoin" ? bitcoinNetworkMode.rawValue : nil,
+            extraNetworkMode: chainName == "Bitcoin" ? networkChainID(forFamily: "bitcoin") : nil,
             lastSendErrorAtUnix: chainName == "Tron"
                 ? tronLastSendErrorAt?.timeIntervalSince1970 : nil,
             lastSendErrorDetails: chainName == "Tron" ? tronLastSendErrorDetails : nil)

@@ -1063,24 +1063,20 @@ struct SendView: View {
         return candidates
     }
 
-    private static let addressValidationKindByChain: [String: String] = [
-        "Bitcoin Cash": "bitcoinCash", "Bitcoin SV": "bitcoinSV", "Litecoin": "litecoin",
-        "Ethereum": "evm", "Ethereum Classic": "evm", "Arbitrum": "evm", "Optimism": "evm",
-        "BNB Chain": "evm", "Avalanche": "evm", "Hyperliquid": "evm",
-        "Tron": "tron", "Solana": "solana", "Cardano": "cardano", "XRP Ledger": "xrp",
-        "Monero": "monero", "Sui": "sui", "Aptos": "aptos", "TON": "ton",
-        "Internet Computer": "internetComputer", "NEAR": "near",
-    ]
-
+    /// A scanned address is judged against the network the wallet is actually
+    /// on — which is a chain, so the registry answers both halves.
+    ///
+    /// This replaced a twenty-row chain-to-kind table plus two hand-written
+    /// network-mode cases. `Chain::address_validation_kind` had all of it.
     private func isValidScannedAddress(_ address: String, for chainName: String) -> Bool {
-        if chainName == "Bitcoin" {
-            return AddressValidation.isValid(address, kind: "bitcoin", networkMode: store.bitcoinNetworkMode.rawValue)
-        }
-        if chainName == "Dogecoin" {
-            let mode = (store.wallet(for: store.sendWalletID)?.dogecoinNetworkMode ?? store.dogecoinNetworkMode).rawValue
-            return AddressValidation.isValid(address, kind: "dogecoin", networkMode: mode)
-        }
-        guard let kind = Self.addressValidationKindByChain[chainName] else { return false }
+        let family = coreChainStrIdForName(name: chainName) ?? ""
+        guard !family.isEmpty else { return false }
+        let selected =
+            store.wallet(for: store.sendWalletID).map {
+                store.walletNetworkChainID(for: $0, family: family)
+            } ?? store.networkChainID(forFamily: family)
+        let kind = coreAddressValidationKind(chainId: selected)
+        guard !kind.isEmpty else { return false }
         return AddressValidation.isValid(address, kind: kind)
     }
 

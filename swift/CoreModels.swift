@@ -168,8 +168,7 @@ extension CoreImportedWallet {
     init(
         id: UUID = UUID(),
         name: String,
-        bitcoinNetworkMode: CoreBitcoinNetworkMode = .mainnet,
-        dogecoinNetworkMode: CoreDogecoinNetworkMode = .mainnet,
+        networkChainID: String? = nil,
         bitcoinAddress: String? = nil,
         bitcoinXpub: String? = nil,
         bitcoinCashAddress: String? = nil,
@@ -203,8 +202,7 @@ extension CoreImportedWallet {
         includeInPortfolioTotal: Bool = true
     ) {
         self.init(
-            id: id.uuidString, name: name, bitcoinNetworkMode: bitcoinNetworkMode,
-            dogecoinNetworkMode: dogecoinNetworkMode,
+            id: id.uuidString, name: name, networkChainId: networkChainID,
             addresses: CoreImportedWallet.addressMap([
                 "Bitcoin": bitcoinAddress,
                 "Bitcoin Cash": bitcoinCashAddress,

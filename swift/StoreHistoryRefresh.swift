@@ -58,16 +58,19 @@ extension AppState {
         defer { isLoadingMoreOnChainHistory = false }
         let eligibleWalletIDs = Set(walletIDs.filter(canLoadMoreHistory(for:)))
         let limit = AppState.HistoryPaging.endpointBatchSize
-        // UTXO chains share `refresh<Chain>Transactions(limit:loadMore:targetWalletIDs:)`.
-        let utxoChains: [(name: String, refresh: (Int?, Bool, Set<String>?) async -> Void)] = [
-            ("Bitcoin",      refreshBitcoinTransactions),
-            ("Bitcoin Cash", refreshBitcoinCashTransactions),
-            ("Bitcoin SV",   refreshBitcoinSVTransactions),
-            ("Litecoin",     refreshLitecoinTransactions),
-            ("Dogecoin",     refreshDogecoinTransactions),
-        ]
-        for (name, refresh) in utxoChains where hasWalletForChain(name) {
-            await refresh(limit, true, eligibleWalletIDs)
+        // Bitcoin and Dogecoin keep their own fetch (HD xpub expansion, and a
+        // confirmed-fee path); the rest go through the normalized one.
+        for name in ["Bitcoin", "Bitcoin Cash", "Bitcoin SV", "Litecoin", "Dogecoin"]
+        where hasWalletForChain(name) {
+            switch name {
+            case "Bitcoin":
+                await refreshBitcoinTransactions(limit: limit, loadMore: true, targetWalletIDs: eligibleWalletIDs)
+            case "Dogecoin":
+                await refreshDogecoinTransactions(limit: limit, loadMore: true, targetWalletIDs: eligibleWalletIDs)
+            default:
+                await refreshNormalizedTransactions(
+                    chainName: name, loadMore: true, targetWalletIDs: eligibleWalletIDs)
+            }
         }
         // EVM chains all dispatch through `refreshEVMTokenTransactions(chainName:...)`.
         let evmChainNames = [
@@ -78,7 +81,7 @@ extension AppState {
             await refreshEVMTokenTransactions(
                 chainName: chainName, maxResults: limit, loadMore: true, targetWalletIDs: eligibleWalletIDs)
         }
-        if hasWalletForChain("Tron") { await refreshTronTransactions(loadMore: true, targetWalletIDs: eligibleWalletIDs) }
+        if hasWalletForChain("Tron") { await refreshNormalizedTransactions(chainName: "Tron", loadMore: true, targetWalletIDs: eligibleWalletIDs) }
     }
 
     // ── Generic normalized refresh (covers BCH, BSV, LTC, XRP, XLM, ADA, DOT,
@@ -153,68 +156,24 @@ extension AppState {
         }
     }
 
-    // ── Per-chain refresh methods (thin wrappers over the generic above)
-    func refreshBitcoinCashTransactions(limit: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil) async {
+    /// Fetch one chain's history through the normalized path.
+    ///
+    /// Fifteen wrappers used to state this, each naming a chain, its id and a
+    /// `resolved<Chain>Address` function — all three of which the callee can
+    /// look up. Bitcoin, Dogecoin and the EVM family keep their own entry
+    /// points below because their fetch genuinely differs.
+    func refreshNormalizedTransactions(
+        chainName: String, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil
+    ) async {
+        let chainID = coreChainStrIdForName(name: chainName) ?? ""
+        guard !chainID.isEmpty else { return }
         await refreshNormalizedChainTransactions(
-            chainName: "Bitcoin Cash", chainId: SpectraChainID.bitcoinCash, resolveAddress: { resolvedBitcoinCashAddress(for: $0) }, loadMore: loadMore, targetWalletIDs: targetWalletIDs)
-    }
-    func refreshBitcoinSVTransactions(limit: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil) async {
-        await refreshNormalizedChainTransactions(
-            chainName: "Bitcoin SV", chainId: SpectraChainID.bitcoinSv, resolveAddress: { resolvedBitcoinSVAddress(for: $0) }, loadMore: loadMore, targetWalletIDs: targetWalletIDs)
-    }
-    func refreshLitecoinTransactions(limit: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil) async {
-        await refreshNormalizedChainTransactions(
-            chainName: "Litecoin", chainId: SpectraChainID.litecoin, resolveAddress: { resolvedLitecoinAddress(for: $0) }, loadMore: loadMore, targetWalletIDs: targetWalletIDs)
-    }
-    func refreshCardanoTransactions(loadMore: Bool = false) async {
-        await refreshNormalizedChainTransactions(
-            chainName: "Cardano", chainId: SpectraChainID.cardano, resolveAddress: { resolvedCardanoAddress(for: $0) })
-    }
-    func refreshXRPTransactions(loadMore: Bool = false) async {
-        await refreshNormalizedChainTransactions(
-            chainName: "XRP Ledger", chainId: SpectraChainID.xrp, resolveAddress: { resolvedXRPAddress(for: $0) })
-    }
-    func refreshStellarTransactions(loadMore: Bool = false) async {
-        await refreshNormalizedChainTransactions(
-            chainName: "Stellar", chainId: SpectraChainID.stellar, resolveAddress: { resolvedStellarAddress(for: $0) })
-    }
-    func refreshMoneroTransactions(loadMore: Bool = false) async {
-        await refreshNormalizedChainTransactions(
-            chainName: "Monero", chainId: SpectraChainID.monero, resolveAddress: { resolvedMoneroAddress(for: $0) })
-    }
-    func refreshSuiTransactions(loadMore: Bool = false) async {
-        await refreshNormalizedChainTransactions(
-            chainName: "Sui", chainId: SpectraChainID.sui, resolveAddress: { resolvedSuiAddress(for: $0) })
-    }
-    func refreshICPTransactions(loadMore: Bool = false) async {
-        await refreshNormalizedChainTransactions(
-            chainName: "Internet Computer", chainId: SpectraChainID.icp, resolveAddress: { resolvedICPAddress(for: $0) })
-    }
-    func refreshAptosTransactions(loadMore: Bool = false) async {
-        await refreshNormalizedChainTransactions(
-            chainName: "Aptos", chainId: SpectraChainID.aptos, resolveAddress: { resolvedAptosAddress(for: $0) })
-    }
-    func refreshTONTransactions(loadMore: Bool = false) async {
-        await refreshNormalizedChainTransactions(
-            chainName: "TON", chainId: SpectraChainID.ton, resolveAddress: { resolvedTONAddress(for: $0) })
-    }
-    func refreshNearTransactions(loadMore: Bool = false) async {
-        await refreshNormalizedChainTransactions(
-            chainName: "NEAR", chainId: SpectraChainID.near, resolveAddress: { resolvedNearAddress(for: $0) })
-    }
-    func refreshPolkadotTransactions(loadMore: Bool = false) async {
-        await refreshNormalizedChainTransactions(
-            chainName: "Polkadot", chainId: SpectraChainID.polkadot, resolveAddress: { resolvedPolkadotAddress(for: $0) })
-    }
-    func refreshSolanaTransactions(loadMore: Bool = false) async {
-        await refreshNormalizedChainTransactions(
-            chainName: "Solana", chainId: SpectraChainID.solana, resolveAddress: { resolvedSolanaAddress(for: $0) })
-    }
-    func refreshTronTransactions(loadMore: Bool = false, targetWalletIDs: Set<String>? = nil) async {
-        await refreshNormalizedChainTransactions(
-            chainName: "Tron", chainId: SpectraChainID.tron, resolveAddress: { resolvedTronAddress(for: $0) }, loadMore: loadMore, targetWalletIDs: targetWalletIDs)
+            chainName: chainName, chainId: chainID,
+            resolveAddress: { [self] in resolvedAddress(for: $0, chainName: chainName) },
+            loadMore: loadMore, targetWalletIDs: targetWalletIDs)
     }
 }
+
 
 // ────────────────────────────────────────────────────────────────────────────
 // Bitcoin (special: HD xpub address expansion + single-address fallback)

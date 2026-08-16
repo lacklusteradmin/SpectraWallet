@@ -76,9 +76,20 @@ import Foundation
             XCTAssertNotNil(store.wallets.first?.bitcoinAddress)
             XCTAssertFalse(store.wallets.first?.bitcoinAddress?.isEmpty ?? true)
         }
-        func testImportingBitcoinWalletPersistsDerivedAddressOnTestnet4() async {
+        /// Import derives against the *mainnet* chain whatever network is
+        /// selected, and the testnet address is re-derived for display — see
+        /// `PLAN.md`. So the stored address is mainnet-format and the resolved
+        /// one is not.
+        ///
+        /// This test used to assert the stored address was valid *testnet4*,
+        /// and passed — because it said so through the validator's
+        /// `networkMode` argument, which nothing read. The `kind` had always
+        /// been what decided, and it said `"bitcoin"`. Deleting the dead
+        /// argument is what exposed it.
+        func testImportingBitcoinWalletOnTestnet4StoresTheMainnetDerivedAddress() async {
             let store = AppState()
-            store.bitcoinNetworkMode = .testnet4
+            store.selectNetworkChain("bitcoin-testnet-4")
+            await store.awaitPendingCoreStateWrites()
             store.importDraft.walletName = "Primary BTC Testnet4"
             store.importDraft.setSeedPhraseForTesting("test test test test test test test test test test test junk")
             store.importDraft.selectedChainNamesStorage = ["Bitcoin"]
@@ -86,24 +97,33 @@ import Foundation
             XCTAssertNil(store.importError)
             XCTAssertEqual(store.wallets.count, 1)
             XCTAssertEqual(store.wallets.first?.selectedChain, "Bitcoin")
-            XCTAssertNotNil(store.wallets.first?.bitcoinAddress)
+            let stored = store.wallets.first?.bitcoinAddress ?? ""
+            XCTAssertTrue(
+                AddressValidation.isValid(stored, kind: coreAddressValidationKind(chainId: "bitcoin")),
+                "storage holds the mainnet-derived address"
+            )
+            // What the user is shown is derived for the selected network.
+            let shown = store.wallets.first.flatMap { store.resolvedBitcoinAddress(for: $0) } ?? ""
             XCTAssertTrue(
                 AddressValidation.isValid(
-                    store.wallets.first?.bitcoinAddress ?? "", kind: "bitcoin", networkMode: BitcoinNetworkMode.testnet4.rawValue)
+                    shown, kind: coreAddressValidationKind(chainId: "bitcoin-testnet-4")),
+                "the displayed address is testnet4, got \(shown)"
             )
         }
-        func testBitcoinDisplayNetworkNameUsesSelectedMode() {
+        func testBitcoinDisplayNetworkNameUsesSelectedMode() async {
             let store = AppState()
-            store.bitcoinNetworkMode = .testnet4
+            store.selectNetworkChain("bitcoin-testnet-4")
+            await store.awaitPendingCoreStateWrites()
             XCTAssertEqual(store.displayNetworkName(for: "Bitcoin"), "Testnet4")
             XCTAssertEqual(store.displayChainTitle(for: "Bitcoin"), "Bitcoin Testnet4")
             XCTAssertEqual(store.displayNetworkName(for: "Ethereum"), "Mainnet")
         }
-        func testBitcoinWalletDisplayTitleUsesWalletSpecificNetworkMode() {
+        /// A wallet carries its own network, so it can differ from the app's.
+        func testBitcoinWalletDisplayTitleUsesWalletSpecificNetwork() {
             let store = AppState()
-            store.bitcoinNetworkMode = .mainnet
             let wallet = ImportedWallet(
-                name: "BTC Testnet4", bitcoinNetworkMode: .testnet4, bitcoinAddress: "tb1qexample", selectedChain: "Bitcoin", holdings: []
+                name: "BTC Testnet4", networkChainID: "bitcoin-testnet-4", bitcoinAddress: "tb1qexample",
+                selectedChain: "Bitcoin", holdings: []
             )
             XCTAssertEqual(store.displayNetworkName(for: wallet), "Testnet4")
             XCTAssertEqual(store.displayChainTitle(for: wallet), "Bitcoin Testnet4")
@@ -115,7 +135,7 @@ import Foundation
         /// removed.
         func testBitcoinTestnet4AssetsAreUnpriced() async {
             let store = AppState()
-            store.bitcoinNetworkMode = .testnet4
+            store.selectNetworkChain("bitcoin-testnet-4")
             await store.awaitPendingCoreStateWrites()
             let coin = Coin.makeCustom(
                 name: "Bitcoin", symbol: "BTC", coinGeckoId: "bitcoin", chainName: "Bitcoin", tokenStandard: "Native",
@@ -128,15 +148,18 @@ import Foundation
         }
         func testBitcoinTestnet4EndpointsAreAvailable() {
             XCTAssertEqual(
-                AppEndpointDirectory.bitcoinEsploraBaseURLs(for: .testnet4), ["https://mempool.space/testnet4/api"]
+                AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: "bitcoin-testnet-4"),
+                ["https://mempool.space/testnet4/api"]
             )
             XCTAssertEqual(
-                AppEndpointDirectory.bitcoinWalletStoreDefaultBaseURLs(for: .testnet4), ["https://mempool.space/testnet4/api"]
+                AppEndpointDirectory.bitcoinWalletStoreDefaultBaseURLs(forChainID: "bitcoin-testnet-4"),
+                ["https://mempool.space/testnet4/api"]
             )
         }
-        func testEthereumDisplayNetworkNameUsesSelectedMode() {
+        func testEthereumDisplayNetworkNameUsesSelectedMode() async {
             let store = AppState()
-            store.ethereumNetworkMode = .hoodi
+            store.selectNetworkChain("ethereum-hoodi")
+            await store.awaitPendingCoreStateWrites()
             XCTAssertEqual(store.displayNetworkName(for: "Ethereum"), "Hoodi")
             XCTAssertEqual(store.displayChainTitle(for: "Ethereum"), "Ethereum Hoodi")
         }

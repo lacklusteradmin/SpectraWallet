@@ -76,45 +76,27 @@ extension AppState {
     }
 
     func resolvedBitcoinAddress(for wallet: ImportedWallet) -> String? {
-        let networkMode = bitcoinNetworkMode(for: wallet)
-        let chain: SeedDerivationChain = bitcoinDerivationChain(for: networkMode)
+        let chainID = walletNetworkChainID(for: wallet, family: "bitcoin")
+        let chain = seedDerivationChain(forChainID: chainID) ?? .bitcoin
         return resolveDerivedOrStoredAddress(
             for: wallet, chain: chain,
             derivationPath: walletDerivationPath(for: wallet, chain: chain),
             storedAddress: wallet.bitcoinAddress,
-            validationKind: bitcoinValidationKind(for: networkMode), validationNetworkMode: nil
+            validationKind: coreAddressValidationKind(chainId: chainID)
         )
     }
 
     func resolvedDogecoinAddress(for wallet: ImportedWallet) -> String? {
-        let networkMode = dogecoinNetworkMode(for: wallet)
-        let chain: SeedDerivationChain = networkMode == .testnet ? .dogecoinTestnet : .dogecoin
+        let chainID = walletNetworkChainID(for: wallet, family: "dogecoin")
+        let chain = seedDerivationChain(forChainID: chainID) ?? .dogecoin
         let derivationPath = WalletDerivationPath.dogecoin(
             account: derivationAccount(for: wallet, chain: chain), branch: .external, index: 0
         )
         return resolveDerivedOrStoredAddress(
             for: wallet, chain: chain,
             derivationPath: derivationPath, storedAddress: wallet.dogecoinAddress,
-            validationKind: networkMode == .testnet ? "dogecoinTestnet" : "dogecoin", validationNetworkMode: nil
+            validationKind: coreAddressValidationKind(chainId: chainID)
         )
-    }
-
-    private func bitcoinDerivationChain(for mode: BitcoinNetworkMode) -> SeedDerivationChain {
-        switch mode {
-        case .mainnet: return .bitcoin
-        case .testnet: return .bitcoinTestnet
-        case .testnet4: return .bitcoinTestnet4
-        case .signet: return .bitcoinSignet
-        }
-    }
-
-    private func bitcoinValidationKind(for mode: BitcoinNetworkMode) -> String {
-        switch mode {
-        case .mainnet: return "bitcoin"
-        case .testnet: return "bitcoinTestnet"
-        case .testnet4: return "bitcoinTestnet4"
-        case .signet: return "bitcoinSignet"
-        }
     }
 
     private static let addressDescriptors: [SeedDerivationChain: ChainAddressDescriptor] = {
@@ -230,7 +212,6 @@ extension AppState {
         derivationPath: String,
         storedAddress: String?,
         validationKind: String,
-        validationNetworkMode: String? = nil,
         derivedPostProcess: DerivedAddressPostProcess = .none,
         normalizeStored: Bool = false
     ) -> String? {
@@ -242,7 +223,7 @@ extension AppState {
         }()
         return coreResolveDerivedOrStoredAddress(
             derived: derived, stored: storedAddress, validationKind: validationKind,
-            validationNetworkMode: validationNetworkMode, derivedPostProcess: derivedPostProcess,
+            derivedPostProcess: derivedPostProcess,
             normalizeStored: normalizeStored
         )
     }
@@ -262,12 +243,12 @@ private final class AddressValidationCache: @unchecked Sendable {
     private var stringCache: [String: StringValidationResult] = [:]
     private static let maxEntries = 512
     private init() {}
-    func address(_ address: String, kind: String, networkMode: String?) -> AddressValidationResult {
-        let key = "\(kind)|\(networkMode ?? "")|\(address)"
+    func address(_ address: String, kind: String) -> AddressValidationResult {
+        let key = "\(kind)|\(address)"
         lock.lock()
         if let cached = addressCache[key] { lock.unlock(); return cached }
         lock.unlock()
-        let result = coreValidateAddress(request: AddressValidationRequest(kind: kind, value: address, networkMode: networkMode))
+        let result = coreValidateAddress(request: AddressValidationRequest(kind: kind, value: address))
         lock.lock()
         defer { lock.unlock() }
         if addressCache.count > Self.maxEntries {
@@ -293,11 +274,11 @@ private final class AddressValidationCache: @unchecked Sendable {
 }
 
 enum AddressValidation {
-    static func isValid(_ address: String, kind: String, networkMode: String? = nil) -> Bool {
-        AddressValidationCache.shared.address(address, kind: kind, networkMode: networkMode).isValid
+    static func isValid(_ address: String, kind: String) -> Bool {
+        AddressValidationCache.shared.address(address, kind: kind).isValid
     }
-    static func normalized(_ address: String, kind: String, networkMode: String? = nil) -> String? {
-        AddressValidationCache.shared.address(address, kind: kind, networkMode: networkMode).normalizedValue
+    static func normalized(_ address: String, kind: String) -> String? {
+        AddressValidationCache.shared.address(address, kind: kind).normalizedValue
     }
     static func isValidAptosTokenType(_ value: String) -> Bool {
         AddressValidationCache.shared.string(value, kind: "aptosTokenType").isValid

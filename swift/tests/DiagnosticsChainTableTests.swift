@@ -16,15 +16,34 @@ import XCTest
 /// they are meant to fail loudly the moment one of them is edited alone.
 @MainActor
 final class DiagnosticsChainTableTests: XCTestCase {
-    func testEveryDiagnosticsChainHasARunDescriptor() {
-        for chain in StandardDiagnosticsChain.allCases {
-            XCTAssertNotNil(
-                AppState.chainDiagDescriptors[chain],
-                "\(chain.rawValue) has no entry in chainDiagDescriptors")
+    /// Every chain is covered, but not every chain needs a row.
+    ///
+    /// This used to assert one descriptor per chain and that the counts
+    /// matched. Eight rows were byte-identical but for the chain name, so a
+    /// chain with no row now falls through to the shared path — which means
+    /// "has a row" stopped being the thing worth checking. What still matters
+    /// is that no descriptor names a chain the enum has dropped, which is the
+    /// direction that actually goes stale.
+    func testNoRunDescriptorNamesAnUnknownChain() {
+        let known = Set(StandardDiagnosticsChain.allCases)
+        for chain in AppState.chainDiagDescriptors.keys {
+            XCTAssertTrue(
+                known.contains(chain),
+                "chainDiagDescriptors has an entry for \(chain.rawValue), which the enum does not list")
         }
-        XCTAssertEqual(
-            AppState.chainDiagDescriptors.count, StandardDiagnosticsChain.allCases.count,
-            "chainDiagDescriptors has entries for chains the enum does not list")
+    }
+
+    /// A chain without its own descriptor must still resolve a title, because
+    /// the shared path looks its chain id up by that name.
+    func testEveryChainWithoutADescriptorResolvesByTitle() {
+        for chain in StandardDiagnosticsChain.allCases
+        where AppState.chainDiagDescriptors[chain] == nil {
+            let id = coreChainStrIdForName(name: chain.chainName) ?? ""
+            XCTAssertFalse(
+                id.isEmpty,
+                "\(chain.rawValue) falls through to the shared diagnostics path, but its "
+                    + "name \"\(chain.chainName)\" does not resolve to a registry chain")
+        }
     }
 
     func testEveryDiagnosticsChainHasAViewDispatchEntry() {

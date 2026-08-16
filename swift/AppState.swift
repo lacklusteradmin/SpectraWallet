@@ -380,13 +380,9 @@ final class AppState {
         // tick later quotes a testnet at mainnet prices in between.
         let unpriced = Set(coreUnpricedChainNames(settings: state.settings))
         if unpriced != unpricedChainNames { unpricedChainNames = unpriced }
-        let byFamily = state.settings.networkChainByFamily
-        let bitcoin = NetworkSelection.bitcoinMode(forChainID: byFamily["bitcoin"])
-        if bitcoin != bitcoinNetworkMode { bitcoinNetworkMode = bitcoin }
-        let ethereum = NetworkSelection.ethereumMode(forChainID: byFamily["ethereum"])
-        if ethereum != ethereumNetworkMode { ethereumNetworkMode = ethereum }
-        let dogecoin = NetworkSelection.dogecoinMode(forChainID: byFamily["dogecoin"])
-        if dogecoin != dogecoinNetworkMode { dogecoinNetworkMode = dogecoin }
+        if state.settings.networkChainByFamily != networkChainByFamily {
+            networkChainByFamily = state.settings.networkChainByFamily
+        }
         let pins = state.settings.pinnedDashboardAssetSymbols
         if pins != cachedPinnedDashboardAssetSymbols {
             cachedPinnedDashboardAssetSymbols = pins
@@ -406,13 +402,40 @@ final class AppState {
             persistAppSettings()
         }
     }
-    /// Core owns the selection (`SelectNetworkChain`); this is the mirror the
-    /// UI binds to, same shape as `tokenPreferences`.
-    var ethereumNetworkMode: EthereumNetworkMode = .mainnet {
+    /// Which network each chain family is on, as `mainnet id -> selected id`.
+    ///
+    /// Core owns it; this is the mirror the UI binds to, same shape as
+    /// `tokenPreferences`. Absent means mainnet. It replaced three typed
+    /// properties, each with its own enum and its own `didSet` — so adding a
+    /// fourth family meant a fourth of each.
+    private(set) var networkChainByFamily: [String: String] = [:] {
         didSet {
-            guard ethereumNetworkMode != oldValue else { return }
-            commitNetworkChain(NetworkSelection.chainID(for: ethereumNetworkMode))
-            WalletServiceBridge.shared.resetHistoryForChain(chainId: SpectraChainID.ethereum)
+            guard networkChainByFamily != oldValue else { return }
+            for family in Set(networkChainByFamily.keys).union(oldValue.keys)
+            where networkChainByFamily[family] != oldValue[family] {
+                onNetworkChainChanged(family: family)
+            }
+        }
+    }
+
+    /// The chain id this family is on.
+    func networkChainID(forFamily family: String) -> NetworkChainID {
+        networkChainByFamily[family] ?? family
+    }
+
+    /// Switch a family's network. Core stores it and hands the list back.
+    func selectNetworkChain(_ chainID: NetworkChainID) {
+        commitNetworkChain(chainID)
+    }
+
+    /// The chain-scoped work a network switch implies. Reserved indices and
+    /// discovered addresses belong to the network they were derived on.
+    private func onNetworkChainChanged(family: String) {
+        let name = coreChainDisplayName(chainId: family)
+        WalletServiceBridge.shared.resetHistoryForChain(chainId: family)
+        Task {
+            try? await WalletServiceBridge.shared.deleteKeypoolForChain(chainName: name)
+            try? await WalletServiceBridge.shared.deleteOwnedAddressesForChain(chainName: name)
         }
     }
     var etherscanAPIKey: String = "" {
@@ -537,27 +560,6 @@ final class AppState {
     var sendLitecoinChangeStrategy: LitecoinChangeStrategy = .derivedChange
     var ethereumManualNonceEnabled: Bool = false
     var ethereumManualNonce: String = ""
-    var bitcoinNetworkMode: BitcoinNetworkMode = .mainnet {
-        didSet {
-            guard bitcoinNetworkMode != oldValue else { return }
-            commitNetworkChain(NetworkSelection.chainID(for: bitcoinNetworkMode))
-            WalletServiceBridge.shared.resetHistoryForChain(chainId: SpectraChainID.bitcoin)
-            Task {
-                try? await WalletServiceBridge.shared.deleteKeypoolForChain(chainName: "Bitcoin")
-                try? await WalletServiceBridge.shared.deleteOwnedAddressesForChain(chainName: "Bitcoin")
-            }
-        }
-    }
-    var dogecoinNetworkMode: DogecoinNetworkMode = .mainnet {
-        didSet {
-            guard dogecoinNetworkMode != oldValue else { return }
-            commitNetworkChain(NetworkSelection.chainID(for: dogecoinNetworkMode))
-            Task {
-                try? await WalletServiceBridge.shared.deleteKeypoolForChain(chainName: "Dogecoin")
-                try? await WalletServiceBridge.shared.deleteOwnedAddressesForChain(chainName: "Dogecoin")
-            }
-        }
-    }
     var bitcoinEsploraEndpoints: String = "" {
         didSet {
             persistAppSettings()
@@ -730,9 +732,6 @@ final class AppState {
 
     static let ethereumRPCEndpointDefaultsKey = "ethereum.rpc.endpoint"
     static let etherscanAPIKeyDefaultsKey = "ethereum.etherscan.apiKey"
-    static let ethereumNetworkModeDefaultsKey = "ethereum.network.mode"
-    static let bitcoinNetworkModeDefaultsKey = "bitcoin.network.mode"
-    static let dogecoinNetworkModeDefaultsKey = "dogecoin.network.mode"
     static let bitcoinEsploraEndpointsDefaultsKey = "bitcoin.esplora.endpoints"
     static let bitcoinStopGapDefaultsKey = "bitcoin.stopGap"
     static let bitcoinFeePriorityDefaultsKey = "bitcoin.feePriority"
@@ -849,7 +848,7 @@ final class AppState {
     func effectiveBitcoinEsploraEndpoints() -> [String] {
         let configured = parsedBitcoinEsploraEndpoints()
         if !configured.isEmpty { return configured }
-        return AppEndpointDirectory.bitcoinWalletStoreDefaultBaseURLs(for: bitcoinNetworkMode)
+        return AppEndpointDirectory.bitcoinWalletStoreDefaultBaseURLs(forChainID: networkChainID(forFamily: "bitcoin"))
     }
     var bitcoinEsploraEndpointsValidationError: String? {
         Spectra.bitcoinEsploraEndpointsValidationError(raw: bitcoinEsploraEndpoints)

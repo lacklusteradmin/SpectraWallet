@@ -25,7 +25,6 @@ enum CachedCoreHelpers {
     private static var allChainsResult: [ChainEntry]?
     private static var allTokensResult: [TokenEntry]?
     private static var supportedPrivateKeyChainNamesResult: [String]?
-    private static var dashboardAssetGroupingKeys: [String: String] = [:]
     private static var nativeAssetDisplaySettingsKeys: [String: String] = [:]
     private static var defaultAssetDisplayDecimalsByChainResult: [String: UInt32]?
     private static var stablecoinFallbackPriceUsdBySymbol: [String: Double] = [:]
@@ -75,11 +74,6 @@ enum CachedCoreHelpers {
     }
 
     // ── formatting.* ───────────────────────────────────────────────────
-    static func dashboardAssetGroupingKey(chainIdentity: String, coinGeckoId: String, symbol: String) -> String {
-        cached(in: &dashboardAssetGroupingKeys, key: "\(chainIdentity)|\(coinGeckoId)|\(symbol)") {
-            formattingDashboardAssetGroupingKey(chainIdentity: chainIdentity, coinGeckoId: coinGeckoId, symbol: symbol)
-        }
-    }
     static func nativeAssetDisplaySettingsKey(chainName: String) -> String {
         cached(in: &nativeAssetDisplaySettingsKeys, key: chainName) {
             formattingNativeAssetDisplaySettingsKey(chainName: chainName)

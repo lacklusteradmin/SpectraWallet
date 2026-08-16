@@ -122,7 +122,10 @@ extension AppState {
             let hasSeedPhrase: Bool = (storedSeedPhrase(for: wallet.id)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
             let bitcoinAddressIsValid: Bool =
                 wallet.bitcoinAddress.map {
-                    AddressValidation.isValid($0, kind: "bitcoin", networkMode: wallet.bitcoinNetworkMode.rawValue)
+                    AddressValidation.isValid(
+                        $0,
+                        kind: coreAddressValidationKind(
+                            chainId: walletNetworkChainID(for: wallet, family: "bitcoin")))
                 } ?? false
             return WalletChainEligibilityInput(
                 walletId: wallet.id, selectedChain: wallet.selectedChain, hasSeedPhrase: hasSeedPhrase,

@@ -72,7 +72,11 @@ enum StandardDiagnosticsChain: String, Hashable, CaseIterable {
     var chainID: AppChainID { AppChainID(rawValue: rawValue) ?? .bitcoin }
     init?(chainID: AppChainID) { self.init(rawValue: chainID.rawValue) }
     var descriptor: AppChainDescriptor { AppEndpointDirectory.appChain(for: chainID) }
+    /// "Bitcoin Diagnostics" — a screen heading, not a chain name.
     var title: String { descriptor.title }
+    /// The chain itself. `title` reads like this but is not: passing it where
+    /// a chain name belongs silently resolves to nothing.
+    var chainName: String { descriptor.chainName }
 
     @MainActor static let dispatchTable: [StandardDiagnosticsChain: StandardChainDiagnosticsDispatch] = [
         .bitcoin: .init(
@@ -621,7 +625,7 @@ struct StandardChainDiagnosticsView: View {
             }
             .filter { !$0.isEmpty }
             let trimmed = parsedCustom.filter { !$0.isEmpty }
-            return trimmed.isEmpty ? AppEndpointDirectory.bitcoinEsploraBaseURLs(for: store.bitcoinNetworkMode) : trimmed
+            return trimmed.isEmpty ? AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: store.networkChainID(forFamily: "bitcoin")) : trimmed
         case .bitcoinCash: return BitcoinCashBalanceService.endpointCatalog()
         case .bitcoinSV: return BitcoinSVBalanceService.endpointCatalog()
         case .litecoin: return LitecoinBalanceService.endpointCatalog()

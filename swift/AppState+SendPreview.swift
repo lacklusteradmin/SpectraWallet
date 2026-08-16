@@ -126,7 +126,7 @@ extension AppState {
             return
         }
         let trimmedDestination = sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedDestination.isEmpty, !isValidDogecoinAddressForPolicy(trimmedDestination, networkMode: dogecoinNetworkMode(for: wallet))
+        if !trimmedDestination.isEmpty, !isValidDogecoinAddressForPolicy(trimmedDestination, wallet: wallet)
         {
             sendPreviewStore.dogecoinSendPreview = nil
             preparingChains.remove("Dogecoin")

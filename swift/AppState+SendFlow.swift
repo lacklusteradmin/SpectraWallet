@@ -225,21 +225,19 @@ extension AppState {
         }
         return chainTokens.first { $0.symbol == coin.symbol }
     }
-    func isValidDogecoinAddressForPolicy(_ address: String, networkMode: DogecoinNetworkMode? = nil) -> Bool {
-        AddressValidation.isValid(address, kind: "dogecoin", networkMode: (networkMode ?? dogecoinNetworkMode).rawValue)
+    func isValidDogecoinAddressForPolicy(_ address: String, wallet: ImportedWallet? = nil) -> Bool {
+        let chainID =
+            wallet.map { walletNetworkChainID(for: $0, family: "dogecoin") }
+            ?? networkChainID(forFamily: "dogecoin")
+        return AddressValidation.isValid(address, kind: coreAddressValidationKind(chainId: chainID))
     }
+
+    /// The address is judged against the network the family is on.
+    ///
+    /// This used to pick a mode string from a four-chain switch and hand it to
+    /// a validator that ignored it — the `kind` had always been what decided.
     func isValidAddress(_ address: String, for chainName: String) -> Bool {
-        let mode: String? = {
-            switch chainName {
-            case "Bitcoin", "Bitcoin Cash", "Bitcoin SV", "Litecoin":
-                return bitcoinNetworkMode.rawValue
-            case "Dogecoin":
-                return dogecoinNetworkMode.rawValue
-            default:
-                return nil
-            }
-        }()
-        return isValidSendAddress(chainName: chainName, address: address, networkMode: mode)
+        isValidSendAddress(chainName: chainName, address: address)
     }
     func normalizedAddress(_ address: String, for chainName: String) -> String {
         normalizedSendAddress(chainName: chainName, address: address)
@@ -578,32 +576,32 @@ extension AppState {
                 await self.refreshUTXOReceiveReservationState(chainName: "Dogecoin")
             },
             refreshHistory: { await self.refreshDogecoinTransactions(limit: HistoryPaging.endpointBatchSize) },
-            refreshPending: { await self.refreshPendingDogecoinTransactions() }
+            refreshPending: { await self.refreshPendingTransactions(chainName: "Dogecoin") }
         )
     }
     func runBitcoinRescan() async {
         await runUTXORescan(
             running: \.isRunningBitcoinRescan, lastRun: \.bitcoinRescanLastRunAt, chainName: "Bitcoin", abbrev: "BTC",
             refreshHistory: { await self.refreshBitcoinTransactions(limit: HistoryPaging.endpointBatchSize) },
-            refreshPending: { await self.refreshPendingBitcoinTransactions() })
+            refreshPending: { await self.refreshPendingTransactions(chainName: "Bitcoin") })
     }
     func runBitcoinCashRescan() async {
         await runUTXORescan(
             running: \.isRunningBitcoinCashRescan, lastRun: \.bitcoinCashRescanLastRunAt, chainName: "Bitcoin Cash", abbrev: "BCH",
-            refreshHistory: { await self.refreshBitcoinCashTransactions(limit: HistoryPaging.endpointBatchSize) },
-            refreshPending: { await self.refreshPendingBitcoinCashTransactions() })
+            refreshHistory: { await self.refreshNormalizedTransactions(chainName: "Bitcoin Cash") },
+            refreshPending: { await self.refreshPendingTransactions(chainName: "Bitcoin Cash") })
     }
     func runBitcoinSVRescan() async {
         await runUTXORescan(
             running: \.isRunningBitcoinSVRescan, lastRun: \.bitcoinSVRescanLastRunAt, chainName: "Bitcoin SV", abbrev: "BSV",
-            refreshHistory: { await self.refreshBitcoinSVTransactions(limit: HistoryPaging.endpointBatchSize) },
-            refreshPending: { await self.refreshPendingBitcoinSVTransactions() })
+            refreshHistory: { await self.refreshNormalizedTransactions(chainName: "Bitcoin SV") },
+            refreshPending: { await self.refreshPendingTransactions(chainName: "Bitcoin SV") })
     }
     func runLitecoinRescan() async {
         await runUTXORescan(
             running: \.isRunningLitecoinRescan, lastRun: \.litecoinRescanLastRunAt, chainName: "Litecoin", abbrev: "LTC",
-            refreshHistory: { await self.refreshLitecoinTransactions(limit: HistoryPaging.endpointBatchSize) },
-            refreshPending: { await self.refreshPendingLitecoinTransactions() })
+            refreshHistory: { await self.refreshNormalizedTransactions(chainName: "Litecoin") },
+            refreshPending: { await self.refreshPendingTransactions(chainName: "Litecoin") })
     }
     func runDogecoinHistoryDiagnostics() async {
         guard !self[historyRunFor: "Dogecoin"].isRunning else { return }
@@ -760,11 +758,11 @@ extension AppState {
             id: transactionID.uuidString, now: Date(),
             clearFinality: transaction.chainName == "Dogecoin")
         switch transaction.chainName {
-        case "Bitcoin": await refreshPendingBitcoinTransactions()
-        case "Bitcoin Cash": await refreshPendingBitcoinCashTransactions()
-        case "Bitcoin SV": await refreshPendingBitcoinSVTransactions()
-        case "Litecoin": await refreshPendingLitecoinTransactions()
-        case "Dogecoin": await refreshPendingDogecoinTransactions()
+        case "Bitcoin": await refreshPendingTransactions(chainName: "Bitcoin")
+        case "Bitcoin Cash": await refreshPendingTransactions(chainName: "Bitcoin Cash")
+        case "Bitcoin SV": await refreshPendingTransactions(chainName: "Bitcoin SV")
+        case "Litecoin": await refreshPendingTransactions(chainName: "Litecoin")
+        case "Dogecoin": await refreshPendingTransactions(chainName: "Dogecoin")
         default: break
         }
         guard let updated = transactions.first(where: { $0.id == transactionID }) else { return "Transaction status refresh completed." }
@@ -794,7 +792,7 @@ extension AppState {
             if let index = transactions.firstIndex(where: { $0.id == transactionID }) {
                 recordTransaction(transactions[index].withRebroadcastUpdate(status: .pending, transactionHash: result.transactionHash))
             }
-            await refreshPendingDogecoinTransactions()
+            await refreshPendingTransactions(chainName: "Dogecoin")
             switch result.verificationStatus {
             case .verified:
                 appendChainOperationalEvent(
@@ -834,7 +832,7 @@ extension AppState {
             if let index = transactions.firstIndex(where: { $0.id == transactionID }) {
                 recordTransaction(transactions[index].withRebroadcastUpdate(status: .pending, transactionHash: transactionHash))
             }
-            if transaction.chainName == "Dogecoin" { await refreshPendingDogecoinTransactions() }
+            if transaction.chainName == "Dogecoin" { await refreshPendingTransactions(chainName: "Dogecoin") }
             switch verificationStatus {
             case .verified: return "Transaction rebroadcasted and observed on the network."
             case .deferred: return "Transaction rebroadcasted. Network indexers may take a moment to reflect it."
@@ -871,29 +869,48 @@ extension AppState {
     func derivationResolution(for wallet: ImportedWallet, chain: SeedDerivationChain) -> SeedDerivationResolution {
         chain.resolve(path: wallet.seedDerivationPaths.path(for: chain))
     }
-    func bitcoinNetworkMode(for wallet: ImportedWallet) -> BitcoinNetworkMode { wallet.bitcoinNetworkMode }
-    func dogecoinNetworkMode(for wallet: ImportedWallet) -> DogecoinNetworkMode { wallet.dogecoinNetworkMode }
-    func displayNetworkName(for chainName: String) -> String {
-        switch chainName {
-        case "Bitcoin": return bitcoinNetworkMode.displayName
-        case "Ethereum": return ethereumNetworkMode.displayName
-        case "Dogecoin": return dogecoinNetworkMode.displayName
-        default: return chainName
+    /// The network this wallet is on for a family: its own if it has one,
+    /// otherwise whatever the app is set to.
+    func walletNetworkChainID(for wallet: ImportedWallet, family: String) -> NetworkChainID {
+        if let own = wallet.networkChainId,
+            coreResolveChainId(input: own) == own,
+            coreNetworkChoices(chainId: family).contains(where: { $0.chainId == own })
+        {
+            return own
         }
+        return networkChainID(forFamily: family)
     }
+
+    /// The derivation chain for a network, by id.
+    func seedDerivationChain(forChainID chainID: String) -> SeedDerivationChain? {
+        SeedDerivationChain(rawValue: coreChainDisplayName(chainId: chainID))
+    }
+    /// The title of the network a chain family is on — "Bitcoin",
+    /// "Bitcoin Testnet4". The registry names chains, so this is a lookup
+    /// rather than a family switch plus string surgery on a mode name.
     func displayChainTitle(for chainName: String) -> String {
-        let network = displayNetworkName(for: chainName)
-        return (network == chainName || network == "Mainnet") ? chainName : "\(chainName) \(network)"
+        guard let family = coreChainStrIdForName(name: chainName), !family.isEmpty else {
+            return chainName
+        }
+        return coreChainDisplayName(chainId: networkChainID(forFamily: family))
     }
-    func displayNetworkName(for wallet: ImportedWallet) -> String {
-        if wallet.selectedChain == "Bitcoin" { return bitcoinNetworkMode(for: wallet).displayName }
-        if wallet.selectedChain == "Dogecoin" { return dogecoinNetworkMode(for: wallet).displayName }
-        return displayNetworkName(for: wallet.selectedChain)
+    /// The part after the chain — "Testnet4" — for screens that show it alone.
+    func displayNetworkName(for chainName: String) -> String {
+        let title = displayChainTitle(for: chainName)
+        guard title != chainName else { return "Mainnet" }
+        return String(title.dropFirst(chainName.count)).trimmingCharacters(in: .whitespaces)
     }
     func displayChainTitle(for wallet: ImportedWallet) -> String {
+        guard let family = coreChainStrIdForName(name: wallet.selectedChain), !family.isEmpty else {
+            return wallet.selectedChain
+        }
+        return coreChainDisplayName(chainId: walletNetworkChainID(for: wallet, family: family))
+    }
+    func displayNetworkName(for wallet: ImportedWallet) -> String {
         let chain = wallet.selectedChain
-        let network = displayNetworkName(for: wallet)
-        return (network == chain || network == "Mainnet") ? chain : "\(chain) \(network)"
+        let title = displayChainTitle(for: wallet)
+        guard title != chain else { return "Mainnet" }
+        return String(title.dropFirst(chain.count)).trimmingCharacters(in: .whitespaces)
     }
     func displayNetworkName(for transaction: TransactionRecord) -> String {
         if (transaction.chainName == "Bitcoin" || transaction.chainName == "Dogecoin"), let walletID = transaction.walletID,
@@ -912,15 +929,15 @@ extension AppState {
         return displayChainTitle(for: transaction.chainName)
     }
     func supportsDeepUTXODiscovery(chainName: String) -> Bool { coreSupportsDeepUtxoDiscovery(chainName: chainName) }
+    /// Judged against the network the family is on, which is a chain — so the
+    /// registry supplies the kind. Five hand-written cases before, two of them
+    /// passing a mode the validator ignored.
     func isValidUTXOAddressForPolicy(_ address: String, chainName: String) -> Bool {
-        switch chainName {
-        case "Bitcoin": return AddressValidation.isValid(address, kind: "bitcoin", networkMode: bitcoinNetworkMode.rawValue)
-        case "Bitcoin Cash": return AddressValidation.isValid(address, kind: "bitcoinCash")
-        case "Bitcoin SV": return AddressValidation.isValid(address, kind: "bitcoinSV")
-        case "Litecoin": return AddressValidation.isValid(address, kind: "litecoin")
-        case "Dogecoin": return AddressValidation.isValid(address, kind: "dogecoin", networkMode: dogecoinNetworkMode.rawValue)
-        default: return false
-        }
+        guard supportsDeepUTXODiscovery(chainName: chainName),
+            let family = coreChainStrIdForName(name: chainName), !family.isEmpty
+        else { return false }
+        let kind = coreAddressValidationKind(chainId: networkChainID(forFamily: family))
+        return !kind.isEmpty && AddressValidation.isValid(address, kind: kind)
     }
     func utxoDiscoveryDerivationPath(for wallet: ImportedWallet, chainName: String, branch: WalletDerivationBranch, index: Int) -> String? {
         guard let derivationChain = seedDerivationChain(for: chainName) else { return nil }

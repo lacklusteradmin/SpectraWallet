@@ -264,7 +264,7 @@ extension AppState {
                 sendError = "Enter a valid DOGE amount with up to 8 decimal places."
                 return
             }
-            guard isValidDogecoinAddressForPolicy(destinationAddress, networkMode: dogecoinNetworkMode(for: wallet)) else {
+            guard isValidDogecoinAddressForPolicy(destinationAddress, wallet: wallet) else {
                 sendError = CommonLocalization.invalidDestinationAddressPrompt("Dogecoin")
                 return
             }
@@ -317,7 +317,7 @@ extension AppState {
                 appendChainOperationalEvent(
                     .info, chainName: "Dogecoin", message: "DOGE send broadcast.", transactionHash: result.transactionHash)
                 await refreshDogecoinTransactions()
-                await refreshPendingDogecoinTransactions()
+                await refreshPendingTransactions(chainName: "Dogecoin")
                 updateSendVerificationNoticeForLastSentTransaction()
                 resetSendComposerState {
                     self.sendPreviewStore.dogecoinSendPreview = nil

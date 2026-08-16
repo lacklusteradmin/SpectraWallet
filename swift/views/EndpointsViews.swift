@@ -10,34 +10,35 @@ struct EndpointCatalogSettingsView: View {
         }
         .filter { !$0.isEmpty }
     }
+    /// Core lists the networks and titles them; this only decides whose custom
+    /// endpoints to fold in.
     private var bitcoinEndpointsByNetwork: [AppEndpointGroupedSettingsEntry] {
-        BitcoinNetworkMode.allCases.map { mode in
-            let custom = mode == store.bitcoinNetworkMode ? parsedBitcoinCustomEndpoints : []
-            let title = mode == .mainnet ? "Bitcoin" : "Bitcoin \(mode.displayName)"
-            return AppEndpointGroupedSettingsEntry(title: title, endpoints: Self.esploraRuntimeBaseURLs(for: mode, custom: custom))
+        let selected = store.networkChainID(forFamily: "bitcoin")
+        return coreNetworkChoices(chainId: "bitcoin").map { choice in
+            let custom = choice.chainId == selected ? parsedBitcoinCustomEndpoints : []
+            return AppEndpointGroupedSettingsEntry(
+                title: choice.title,
+                endpoints: Self.esploraRuntimeBaseURLs(forChainID: choice.chainId, custom: custom))
         }
     }
     private var ethereumEndpointsByNetwork: [AppEndpointGroupedSettingsEntry] {
-        EthereumNetworkMode.allCases.map { mode in
+        let selected = store.networkChainID(forFamily: "ethereum")
+        return coreNetworkChoices(chainId: "ethereum").map { choice in
             var endpoints: [String] = []
-            if mode == store.ethereumNetworkMode {
+            if choice.chainId == selected {
                 let custom = store.ethereumRPCEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
                 if !custom.isEmpty { endpoints.append(custom) }
             }
-            let context: EVMChainContext =
-                switch mode {
-                case .mainnet: .ethereum
-                case .sepolia: .ethereumSepolia
-                case .hoodi: .ethereumHoodi
-                }
+            guard let context = EVMChainContext(chainName: choice.title) else {
+                return AppEndpointGroupedSettingsEntry(title: choice.title, endpoints: endpoints)
+            }
             for endpoint in context.defaultRPCEndpoints where !endpoints.contains(endpoint) { endpoints.append(endpoint) }
-            if mode == .mainnet {
+            if !choice.isTestnet {
                 for endpoint in AppEndpointDirectory.explorerSupplementalEndpoints(for: "Ethereum") where !endpoints.contains(endpoint) {
                     endpoints.append(endpoint)
                 }
             }
-            let title = mode == .mainnet ? "Ethereum" : "Ethereum \(mode.displayName)"
-            return AppEndpointGroupedSettingsEntry(title: title, endpoints: endpoints)
+            return AppEndpointGroupedSettingsEntry(title: choice.title, endpoints: endpoints)
         }
     }
     private var bnbEndpoints: [String] {
@@ -65,10 +66,10 @@ struct EndpointCatalogSettingsView: View {
         store.bitcoinEsploraEndpoints = endpoints.joined(separator: "\n")
         newBitcoinEndpoint = ""
     }
-    private static func esploraRuntimeBaseURLs(for networkMode: BitcoinNetworkMode, custom: [String] = []) -> [String] {
+    private static func esploraRuntimeBaseURLs(forChainID chainID: String, custom: [String] = []) -> [String] {
         let trimmed = custom.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         if !trimmed.isEmpty { return trimmed }
-        return AppEndpointDirectory.bitcoinEsploraBaseURLs(for: networkMode)
+        return AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: chainID)
     }
     @ViewBuilder
     private func endpointRows(_ endpoints: [String]) -> some View {

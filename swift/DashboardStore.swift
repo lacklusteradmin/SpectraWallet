@@ -57,13 +57,6 @@ extension AppState {
     func resetPinnedDashboardAssets() {
         setPinnedDashboardAssets([])
     }
-    private func dashboardAssetGroupingKey(for coin: Coin) -> String {
-        CachedCoreHelpers.dashboardAssetGroupingKey(
-            chainIdentity: runtimeChainIdentity(for: coin.chainName),
-            coinGeckoId: coin.coinGeckoId,
-            symbol: coin.symbol
-        )
-    }
     private func prototypeCoinForTrackedEntry(_ entry: TokenPreferenceEntry) -> Coin {
         let price: Double = CachedCoreHelpers.stablecoinFallbackPriceUsd(symbol: entry.symbol)
         return CoreCoin(
@@ -126,84 +119,18 @@ extension AppState {
                 (symbol, coreDashboardSupportedTokenEntries(entries: entries))
             }
         )
-        let positiveCoins = includedHoldings.filter { $0.amount > 0 }
-        var grouped: [String: [Coin]] = [:]
-        var order: [String] = []
-        for coin in positiveCoins {
-            let key = dashboardAssetGroupingKey(for: coin)
-            if grouped[key] == nil { order.append(key) }
-            grouped[key, default: []].append(coin)
-        }
-        var groups: [DashboardAssetGroup] = order.compactMap { key -> DashboardAssetGroup? in
-            guard let coins = grouped[key], !coins.isEmpty else { return nil }
-            var chainGrouped: [String: Coin] = [:]
-            for coin in coins {
-                let normalizedContract =
-                    normalizeDashboardContractAddress(
-                        contractAddress: coin.contractAddress, chainName: coin.chainName, tokenStandard: coin.tokenStandard
-                    ) ?? "native"
-                let chainKey =
-                    "\(runtimeChainIdentity(for: coin.chainName).lowercased())|\(coin.tokenStandard.lowercased())|\(normalizedContract)"
-                if let existing = chainGrouped[chainKey] {
-                    chainGrouped[chainKey] = CoreCoin(
-                        id: existing.id,
-                        name: existing.name,
-                        symbol: existing.symbol,
-                        coinGeckoId: existing.coinGeckoId,
-                        chainName: existing.chainName,
-                        tokenStandard: existing.tokenStandard,
-                        contractAddress: existing.contractAddress,
-                        amount: existing.amount + coin.amount,
-                        priceUsd: coin.priceUsd
-                    )
-                } else {
-                    chainGrouped[chainKey] = coin
-                }
-            }
-            let chainEntries = chainGrouped.values.map { DashboardAssetChainEntry(coin: $0, valueUSD: currentValueIfAvailable(for: $0)) }
-                .sorted {
-                    let lhsValue = $0.valueUSD ?? -1
-                    let rhsValue = $1.valueUSD ?? -1
-                    if abs(lhsValue - rhsValue) > 0.000001 { return lhsValue > rhsValue }
-                    return $0.coin.chainName.localizedCaseInsensitiveCompare($1.coin.chainName) == .orderedAscending
-                }
-            guard let representativeCoin = chainEntries.first?.coin else { return nil }
-            let totalAmount = coins.reduce(0) { $0 + $1.amount }
-            let totalValueUSD: Double? =
-                chainEntries.allSatisfy({ $0.valueUSD != nil }) ? chainEntries.compactMap(\.valueUSD).reduce(0, +) : nil
-            let isPinned = storedPinnedSymbols.contains(representativeCoin.symbol.uppercased())
-            return DashboardAssetGroup(
-                id: key, representativeCoin: representativeCoin, totalAmount: totalAmount, totalValueUSD: totalValueUSD,
-                chainEntries: chainEntries, isPinned: isPinned
-            )
-        }
-        let existingPinnedSymbols = Set(groups.map { $0.symbol.uppercased() })
-        for symbol in storedPinnedSymbols where !existingPinnedSymbols.contains(symbol) {
-            var prototype: Coin? = holdingsBySymbol[symbol]?.first
-            if prototype == nil, let entry = trackedEntriesBySymbol[symbol]?.first {
-                prototype = prototypeCoinForTrackedEntry(entry)
-            }
-            if prototype == nil { prototype = prototypeBySymbol[symbol] }
-            guard let prototype else { continue }
-            groups.append(
-                DashboardAssetGroup(
-                    id: "pinned:\(symbol.lowercased())", representativeCoin: prototype, totalAmount: 0, totalValueUSD: 0, chainEntries: [],
-                    isPinned: true
-                )
-            )
-        }
-        let pinnedOrder = Dictionary(uniqueKeysWithValues: storedPinnedSymbols.enumerated().map { ($1, $0) })
-        cachedDashboardAssetGroups = groups.sorted { lhs, rhs in
-            if lhs.isPinned != rhs.isPinned { return lhs.isPinned && !rhs.isPinned }
-            if lhs.isPinned, rhs.isPinned {
-                return (pinnedOrder[lhs.symbol.uppercased()] ?? Int.max) < (pinnedOrder[rhs.symbol.uppercased()] ?? Int.max)
-            }
-            let lhsValue = lhs.totalValueUSD ?? -1
-            let rhsValue = rhs.totalValueUSD ?? -1
-            if abs(lhsValue - rhsValue) > 0.000001 { return lhsValue > rhsValue }
-            return lhs.symbol.localizedCaseInsensitiveCompare(rhs.symbol) == .orderedAscending
+        // The rows themselves are core's: grouping the same asset, ordering by
+        // value, and putting pinned symbols first are domain rules, and core
+        // holds every input but the live prices.
+        let prices = livePrices
+        Task { @MainActor [weak self] in
+            guard let self,
+                let groups = try? await WalletServiceBridge.shared.dashboardAssetGroups(prices: prices)
+            else { return }
+            if groups != self.cachedDashboardAssetGroups { self.cachedDashboardAssetGroups = groups }
         }
     }
+
     private func dashboardPinOptionUncached(
         for symbol: String, portfolioCoins: [Coin], trackedEntries: [TokenPreferenceEntry], prototype: Coin?
     ) -> DashboardPinOption? {

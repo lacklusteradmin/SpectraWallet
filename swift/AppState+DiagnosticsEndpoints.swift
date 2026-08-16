@@ -138,51 +138,6 @@ extension AppState {
                 isCheckingKP: \.self[endpointHealthFor: "Solana"].isChecking, checks: SolanaBalanceService.diagnosticsChecks(),
                 resultsKP: \.self[endpointHealthFor: "Solana"].results, tsKP: \.self[endpointHealthFor: "Solana"].lastUpdatedAt) }
         ),
-        .cardano: .init(
-            runHistory: { store in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainId: SpectraChainID.cardano, isRunningKP: \.[historyRunFor: "Cardano"].isRunning, chainName: "Cardano",
-                resolveAddress: { store.resolvedCardanoAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "Cardano"], tsKP: \.[historyRunFor: "Cardano"].lastUpdatedAt) },
-            runHistoryForWallet: { store, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainId: SpectraChainID.cardano, isRunningKP: \.[historyRunFor: "Cardano"].isRunning, chainName: "Cardano",
-                resolveAddress: { store.resolvedCardanoAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "Cardano"], tsKP: \.[historyRunFor: "Cardano"].lastUpdatedAt) },
-            runEndpoints: { await $0.runSimpleEndpointDiagnostics(
-                isCheckingKP: \.self[endpointHealthFor: "Cardano"].isChecking, checks: CardanoBalanceService.diagnosticsChecks(),
-                resultsKP: \.self[endpointHealthFor: "Cardano"].results, tsKP: \.self[endpointHealthFor: "Cardano"].lastUpdatedAt) }
-        ),
-        .xrp: .init(
-            runHistory: { store in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainId: SpectraChainID.xrp, isRunningKP: \.[historyRunFor: "XRP Ledger"].isRunning, chainName: "XRP Ledger",
-                resolveAddress: { store.resolvedXRPAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "XRP Ledger"], tsKP: \.[historyRunFor: "XRP Ledger"].lastUpdatedAt) },
-            runHistoryForWallet: { store, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainId: SpectraChainID.xrp, isRunningKP: \.[historyRunFor: "XRP Ledger"].isRunning, chainName: "XRP Ledger",
-                resolveAddress: { store.resolvedXRPAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "XRP Ledger"], tsKP: \.[historyRunFor: "XRP Ledger"].lastUpdatedAt) },
-            runEndpoints: { await $0.runSimpleEndpointDiagnostics(
-                isCheckingKP: \.self[endpointHealthFor: "XRP Ledger"].isChecking, checks: XRPBalanceService.diagnosticsChecks(),
-                resultsKP: \.self[endpointHealthFor: "XRP Ledger"].results, tsKP: \.self[endpointHealthFor: "XRP Ledger"].lastUpdatedAt) }
-        ),
-        .stellar: .init(
-            runHistory: { store in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainId: SpectraChainID.stellar, isRunningKP: \.[historyRunFor: "Stellar"].isRunning, chainName: "Stellar",
-                resolveAddress: { store.resolvedStellarAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "Stellar"], tsKP: \.[historyRunFor: "Stellar"].lastUpdatedAt) },
-            runHistoryForWallet: { store, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainId: SpectraChainID.stellar, isRunningKP: \.[historyRunFor: "Stellar"].isRunning, chainName: "Stellar",
-                resolveAddress: { store.resolvedStellarAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "Stellar"], tsKP: \.[historyRunFor: "Stellar"].lastUpdatedAt) },
-            runEndpoints: { await $0.runSimpleEndpointDiagnostics(
-                isCheckingKP: \.self[endpointHealthFor: "Stellar"].isChecking, checks: StellarBalanceService.diagnosticsChecks(),
-                resultsKP: \.self[endpointHealthFor: "Stellar"].results, tsKP: \.self[endpointHealthFor: "Stellar"].lastUpdatedAt) }
-        ),
         .monero: .init(
             runHistory: { store in await store.runRustHistoryDiagnosticsForAllWallets(
                 chainId: SpectraChainID.monero, isRunningKP: \.[historyRunFor: "Monero"].isRunning, chainName: "Monero",
@@ -196,66 +151,6 @@ extension AppState {
                 diagsKP: \.[simpleHistoryFor: "Monero"], tsKP: \.[historyRunFor: "Monero"].lastUpdatedAt) },
             runEndpoints: { await $0.runMoneroEndpointReachabilityDiagnostics() }
         ),
-        .sui: .init(
-            runHistory: { store in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainId: SpectraChainID.sui, isRunningKP: \.[historyRunFor: "Sui"].isRunning, chainName: "Sui",
-                resolveAddress: { store.resolvedSuiAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "Sui"], tsKP: \.[historyRunFor: "Sui"].lastUpdatedAt) },
-            runHistoryForWallet: { store, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainId: SpectraChainID.sui, isRunningKP: \.[historyRunFor: "Sui"].isRunning, chainName: "Sui",
-                resolveAddress: { store.resolvedSuiAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "Sui"], tsKP: \.[historyRunFor: "Sui"].lastUpdatedAt) },
-            runEndpoints: { await $0.runSimpleEndpointDiagnostics(
-                isCheckingKP: \.self[endpointHealthFor: "Sui"].isChecking, checks: SuiBalanceService.diagnosticsChecks(),
-                resultsKP: \.self[endpointHealthFor: "Sui"].results, tsKP: \.self[endpointHealthFor: "Sui"].lastUpdatedAt) }
-        ),
-        .aptos: .init(
-            runHistory: { store in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainId: SpectraChainID.aptos, isRunningKP: \.[historyRunFor: "Aptos"].isRunning, chainName: "Aptos",
-                resolveAddress: { store.resolvedAptosAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "Aptos"], tsKP: \.[historyRunFor: "Aptos"].lastUpdatedAt) },
-            runHistoryForWallet: { store, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainId: SpectraChainID.aptos, isRunningKP: \.[historyRunFor: "Aptos"].isRunning, chainName: "Aptos",
-                resolveAddress: { store.resolvedAptosAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "Aptos"], tsKP: \.[historyRunFor: "Aptos"].lastUpdatedAt) },
-            runEndpoints: { await $0.runSimpleEndpointDiagnostics(
-                isCheckingKP: \.self[endpointHealthFor: "Aptos"].isChecking, checks: AptosBalanceService.diagnosticsChecks(),
-                resultsKP: \.self[endpointHealthFor: "Aptos"].results, tsKP: \.self[endpointHealthFor: "Aptos"].lastUpdatedAt) }
-        ),
-        .ton: .init(
-            runHistory: { store in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainId: SpectraChainID.ton, isRunningKP: \.[historyRunFor: "TON"].isRunning, chainName: "TON",
-                resolveAddress: { store.resolvedTONAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "TON"], tsKP: \.[historyRunFor: "TON"].lastUpdatedAt) },
-            runHistoryForWallet: { store, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainId: SpectraChainID.ton, isRunningKP: \.[historyRunFor: "TON"].isRunning, chainName: "TON",
-                resolveAddress: { store.resolvedTONAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "TON"], tsKP: \.[historyRunFor: "TON"].lastUpdatedAt) },
-            runEndpoints: { await $0.runSimpleEndpointDiagnostics(
-                isCheckingKP: \.self[endpointHealthFor: "TON"].isChecking, checks: TONBalanceService.diagnosticsChecks(),
-                resultsKP: \.self[endpointHealthFor: "TON"].results, tsKP: \.self[endpointHealthFor: "TON"].lastUpdatedAt) }
-        ),
-        .icp: .init(
-            runHistory: { store in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainId: SpectraChainID.icp, isRunningKP: \.[historyRunFor: "Internet Computer"].isRunning, chainName: "Internet Computer",
-                resolveAddress: { store.resolvedICPAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "Internet Computer"], tsKP: \.[historyRunFor: "Internet Computer"].lastUpdatedAt) },
-            runHistoryForWallet: { store, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainId: SpectraChainID.icp, isRunningKP: \.[historyRunFor: "Internet Computer"].isRunning, chainName: "Internet Computer",
-                resolveAddress: { store.resolvedICPAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "Internet Computer"], tsKP: \.[historyRunFor: "Internet Computer"].lastUpdatedAt) },
-            runEndpoints: { await $0.runSimpleEndpointDiagnostics(
-                isCheckingKP: \.self[endpointHealthFor: "Internet Computer"].isChecking, checks: ICPBalanceService.diagnosticsChecks(),
-                resultsKP: \.self[endpointHealthFor: "Internet Computer"].results, tsKP: \.self[endpointHealthFor: "Internet Computer"].lastUpdatedAt) }
-        ),
         .near: .init(
             runHistory: { store in await store.runRustHistoryDiagnosticsForAllWallets(
                 chainId: SpectraChainID.near, isRunningKP: \.[historyRunFor: "NEAR"].isRunning, chainName: "NEAR",
@@ -268,19 +163,6 @@ extension AppState {
                 make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
                 diagsKP: \.[simpleHistoryFor: "NEAR"], tsKP: \.[historyRunFor: "NEAR"].lastUpdatedAt) },
             runEndpoints: { await $0.runNearEndpointReachabilityDiagnostics() }
-        ),
-        .polkadot: .init(
-            runHistory: { store in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainId: SpectraChainID.polkadot, isRunningKP: \.[historyRunFor: "Polkadot"].isRunning, chainName: "Polkadot",
-                resolveAddress: { store.resolvedPolkadotAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "Polkadot"], tsKP: \.[historyRunFor: "Polkadot"].lastUpdatedAt) },
-            runHistoryForWallet: { store, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainId: SpectraChainID.polkadot, isRunningKP: \.[historyRunFor: "Polkadot"].isRunning, chainName: "Polkadot",
-                resolveAddress: { store.resolvedPolkadotAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                diagsKP: \.[simpleHistoryFor: "Polkadot"], tsKP: \.[historyRunFor: "Polkadot"].lastUpdatedAt) },
-            runEndpoints: { await $0.runPolkadotEndpointReachabilityDiagnostics() }
         ),
         .ethereum: .init(
             runHistory: { store in await store.runEVMHistoryDiagnosticsForAllWallets(
@@ -350,14 +232,59 @@ extension AppState {
                 resultsKP: \.self[endpointHealthFor: "Hyperliquid"].results, tsKP: \.self[endpointHealthFor: "Hyperliquid"].lastUpdatedAt) }
         ),
     ]
+    /// Chains whose diagnostics are the shared shape: fetch the history count
+    /// for each wallet's address, and probe the endpoints the catalog lists.
+    ///
+    /// Eight rows of the descriptor table said this, byte-identical but for
+    /// the chain name. A chain lands here unless it has a descriptor of its
+    /// own, so adding one costs nothing.
+    private func runSimpleChainDiagnostics(chainName: String, walletID: String? = nil) async {
+        let chainID = coreChainStrIdForName(name: chainName) ?? ""
+        guard !chainID.isEmpty else { return }
+        let make: (String, String, Int, String?) -> SimpleHistoryDiagnostics = {
+            SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3)
+        }
+        if let walletID {
+            await runRustHistoryDiagnosticsForWallet(
+                walletID: walletID, chainId: chainID,
+                isRunningKP: \.[historyRunFor: chainName].isRunning, chainName: chainName,
+                resolveAddress: { [self] in resolvedAddress(for: $0, chainName: chainName) },
+                make: make, diagsKP: \.[simpleHistoryFor: chainName],
+                tsKP: \.[historyRunFor: chainName].lastUpdatedAt)
+        } else {
+            await runRustHistoryDiagnosticsForAllWallets(
+                chainId: chainID, isRunningKP: \.[historyRunFor: chainName].isRunning,
+                chainName: chainName,
+                resolveAddress: { [self] in resolvedAddress(for: $0, chainName: chainName) },
+                make: make, diagsKP: \.[simpleHistoryFor: chainName],
+                tsKP: \.[historyRunFor: chainName].lastUpdatedAt)
+        }
+    }
+    private func runSimpleChainEndpointDiagnostics(chainName: String) async {
+        await runSimpleEndpointDiagnostics(
+            isCheckingKP: \.self[endpointHealthFor: chainName].isChecking,
+            checks: AppEndpointDirectory.diagnosticsChecks(for: chainName),
+            resultsKP: \.self[endpointHealthFor: chainName].results,
+            tsKP: \.self[endpointHealthFor: chainName].lastUpdatedAt)
+    }
+
     func runHistoryDiagnostics(for chain: StandardDiagnosticsChain) async {
-        await Self.chainDiagDescriptors[chain]?.runHistory(self)
+        guard let descriptor = Self.chainDiagDescriptors[chain] else {
+            return await runSimpleChainDiagnostics(chainName: chain.chainName)
+        }
+        await descriptor.runHistory(self)
     }
     func runHistoryDiagnostics(for chain: StandardDiagnosticsChain, walletID: String) async {
-        await Self.chainDiagDescriptors[chain]?.runHistoryForWallet?(self, walletID)
+        guard let descriptor = Self.chainDiagDescriptors[chain] else {
+            return await runSimpleChainDiagnostics(chainName: chain.chainName, walletID: walletID)
+        }
+        await descriptor.runHistoryForWallet?(self, walletID)
     }
     func runEndpointDiagnostics(for chain: StandardDiagnosticsChain) async {
-        await Self.chainDiagDescriptors[chain]?.runEndpoints(self)
+        guard let descriptor = Self.chainDiagDescriptors[chain] else {
+            return await runSimpleChainEndpointDiagnostics(chainName: chain.chainName)
+        }
+        await descriptor.runEndpoints(self)
     }
 
     // MARK: Generic history-diagnostic drivers
@@ -680,18 +607,28 @@ extension AppState {
 
     // MARK: Pending transaction refresh (AppState mutation; Swift-native)
 
-    func refreshPendingBitcoinTransactions() async {
-        await refreshPendingUTXOChainTransactions(chainName: "Bitcoin", chainId: SpectraChainID.bitcoin)
+    /// Poll one chain's pending transactions for a final status.
+    ///
+    /// How a chain reaches finality is a registry fact — eighteen wrappers
+    /// used to state it, each naming a chain, a chain id, an address resolver
+    /// and up to two flags. Adding a chain is a registry edit now.
+    func refreshPendingTransactions(chainName: String) async {
+        let chainID = coreChainStrIdForName(name: chainName) ?? ""
+        guard !chainID.isEmpty else { return }
+        switch corePendingStatusPoll(chainName: chainName) {
+        case .utxo(let tracksFinality, let requireSendKind):
+            await refreshPendingUTXOChainTransactions(
+                chainName: chainName, chainId: chainID,
+                requireSendKind: requireSendKind, tracksFinality: tracksFinality)
+        case .historyTxids:
+            await refreshPendingRustHistoryChainTransactions(chainName: chainName, chainId: chainID)
+        case .evmReceipt:
+            await refreshPendingTransactions(chainName: chainName)
+        case .none:
+            break
+        }
     }
-    func refreshPendingBitcoinCashTransactions() async {
-        await refreshPendingUTXOChainTransactions(chainName: "Bitcoin Cash", chainId: SpectraChainID.bitcoinCash)
-    }
-    func refreshPendingBitcoinSVTransactions() async {
-        await refreshPendingUTXOChainTransactions(chainName: "Bitcoin SV", chainId: SpectraChainID.bitcoinSv)
-    }
-    func refreshPendingLitecoinTransactions() async {
-        await refreshPendingUTXOChainTransactions(chainName: "Litecoin", chainId: SpectraChainID.litecoin, requireSendKind: false)
-    }
+
     private func refreshPendingUTXOChainTransactions(
         chainName: String, chainId: String, requireSendKind: Bool = true, tracksFinality: Bool = false
     ) async {
@@ -730,61 +667,14 @@ extension AppState {
         await applyResolvedPendingTransactionStatuses(resolved, staleFailureIDs: await stalePendingFailureIDs(from: tracked, now: now), now: now)
     }
 
-    func refreshPendingDogecoinTransactions() async {
-        await refreshPendingUTXOChainTransactions(chainName: "Dogecoin", chainId: SpectraChainID.dogecoin, tracksFinality: true)
-    }
-
-    func refreshPendingTronTransactions() async {
-        await refreshPendingRustHistoryChainTransactions(
-            chainName: "Tron", chainId: SpectraChainID.tron, addressResolver: resolvedTronAddress)
-    }
-    func refreshPendingSolanaTransactions() async {
-        await refreshPendingRustHistoryChainTransactions(
-            chainName: "Solana", chainId: SpectraChainID.solana, addressResolver: resolvedSolanaAddress)
-    }
-    func refreshPendingCardanoTransactions() async {
-        await refreshPendingRustHistoryChainTransactions(
-            chainName: "Cardano", chainId: SpectraChainID.cardano, addressResolver: resolvedCardanoAddress)
-    }
-    func refreshPendingXRPTransactions() async {
-        await refreshPendingRustHistoryChainTransactions(
-            chainName: "XRP Ledger", chainId: SpectraChainID.xrp, addressResolver: resolvedXRPAddress)
-    }
-    func refreshPendingStellarTransactions() async {
-        await refreshPendingRustHistoryChainTransactions(
-            chainName: "Stellar", chainId: SpectraChainID.stellar, addressResolver: resolvedStellarAddress)
-    }
-    func refreshPendingMoneroTransactions() async {
-        await refreshPendingRustHistoryChainTransactions(
-            chainName: "Monero", chainId: SpectraChainID.monero, addressResolver: resolvedMoneroAddress)
-    }
-    func refreshPendingSuiTransactions() async {
-        await refreshPendingRustHistoryChainTransactions(chainName: "Sui", chainId: SpectraChainID.sui, addressResolver: resolvedSuiAddress)
-    }
-    func refreshPendingAptosTransactions() async {
-        await refreshPendingRustHistoryChainTransactions(
-            chainName: "Aptos", chainId: SpectraChainID.aptos, addressResolver: resolvedAptosAddress)
-    }
-    func refreshPendingTONTransactions() async {
-        await refreshPendingRustHistoryChainTransactions(chainName: "TON", chainId: SpectraChainID.ton, addressResolver: resolvedTONAddress)
-    }
-    func refreshPendingICPTransactions() async {
-        await refreshPendingRustHistoryChainTransactions(
-            chainName: "Internet Computer", chainId: SpectraChainID.icp, addressResolver: resolvedICPAddress)
-    }
-    func refreshPendingNearTransactions() async {
-        await refreshPendingRustHistoryChainTransactions(
-            chainName: "NEAR", chainId: SpectraChainID.near, addressResolver: resolvedNearAddress)
-    }
-    func refreshPendingPolkadotTransactions() async {
-        await refreshPendingRustHistoryChainTransactions(
-            chainName: "Polkadot", chainId: SpectraChainID.polkadot, addressResolver: resolvedPolkadotAddress)
-    }
-
-    private func refreshPendingRustHistoryChainTransactions(
-        chainName: String, chainId: String, addressResolver: (ImportedWallet) -> String?
-    ) async {
-        await refreshPendingHistoryBackedTransactions(chainName: chainName, addressResolver: addressResolver) { address in
+    private func refreshPendingRustHistoryChainTransactions(chainName: String, chainId: String) async {
+        // `resolvedAddress(for:chainName:)` already dispatches per chain, so the
+        // twelve `resolved<Chain>Address` arguments these wrappers threaded
+        // through were naming a function the callee could look up itself.
+        await refreshPendingHistoryBackedTransactions(
+            chainName: chainName,
+            addressResolver: { [self] in resolvedAddress(for: $0, chainName: chainName) }
+        ) { address in
             guard let confirmed = try? await WalletServiceBridge.shared.fetchHistoryConfirmedTxids(chainId: chainId, address: address) else {
                 return ([:], true)
             }

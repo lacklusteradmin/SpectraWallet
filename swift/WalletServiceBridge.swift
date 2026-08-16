@@ -203,6 +203,11 @@ extension WalletServiceBridge {
     {
         try await service().evaluatePriceAlerts(prices: prices)
     }
+    /// The dashboard's rows. Only the live prices go out — core holds the
+    /// holdings, the tracked tokens, the pins and the selected networks.
+    func dashboardAssetGroups(prices: [String: Double]) async throws -> [CoreDashboardAssetGroup] {
+        try await service().dashboardAssetGroups(prices: prices)
+    }
     /// Record something that happened on a chain. Core stamps and caps it.
     func appendChainOperationalEvent(
         chainName: String, level: ChainOperationalEventLevel, message: String, transactionHash: String?

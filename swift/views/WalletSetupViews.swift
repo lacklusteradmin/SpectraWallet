@@ -684,7 +684,7 @@ struct SetupView: View {
                 validator: { AddressValidation.isValid($0, kind: "bitcoinSV") })
             conditionalWatchedAddressSection(
                 condition: draft.isSelected("Dogecoin"), title: "Dogecoin", text: $draft.dogecoinAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "dogecoin", networkMode: store.dogecoinNetworkMode.rawValue) })
+                validator: { store.isValidDogecoinAddressForPolicy($0) })
             conditionalWatchedAddressSection(
                 condition: draft.isSelected("Litecoin"), title: "Litecoin", text: $draft.litecoinAddressInput,
                 validator: { AddressValidation.isValid($0, kind: "litecoin") })
@@ -732,9 +732,10 @@ struct SetupView: View {
     private var watchAddressBitcoinSection: some View {
         if draft.isSelected("Bitcoin") {
             let bitcoinAddressEntries = draft.watchOnlyEntries(from: draft.bitcoinAddressInput)
+            let bitcoinKind = coreAddressValidationKind(chainId: store.networkChainID(forFamily: "bitcoin"))
             let bitcoinValidation = watchedAddressValidationMessage(
                 entries: bitcoinAddressEntries, assetName: "Bitcoin",
-                validator: { AddressValidation.isValid($0, kind: "bitcoin", networkMode: store.bitcoinNetworkMode.rawValue) }
+                validator: { AddressValidation.isValid($0, kind: bitcoinKind) }
             )
             watchedAddressSection(
                 title: "Bitcoin", text: $draft.bitcoinAddressInput, caption: copy.bitcoinWatchCaption,

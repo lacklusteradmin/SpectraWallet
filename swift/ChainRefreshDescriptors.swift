@@ -16,44 +16,42 @@ struct WalletChainRefreshDescriptor: Sendable {
         self.executeHistoryOnly = executeHistoryOnly
         self.executePendingOnly = executePendingOnly
     }
-    @MainActor static func evm(_ chainName: String) -> WalletChainRefreshDescriptor {
-        WalletChainRefreshDescriptor(
-            chainID: WalletChainID(chainName)!,
+    /// The refresh steps a chain needs, decided from the registry.
+    ///
+    /// There were three constructors and a 24-row table naming every chain
+    /// twice more — once for its history fetch and once for its pending poll.
+    /// Both of those dispatch on a chain name now, and whether a chain needs
+    /// UTXO address discovery is `supportsDeepUtxoDiscovery`. So the row is
+    /// the chain name, and the list comes from core.
+    @MainActor static func forChain(_ chainName: String) -> WalletChainRefreshDescriptor? {
+        guard let chainID = WalletChainID(chainName) else { return nil }
+        let isUTXO = coreSupportsDeepUtxoDiscovery(chainName: chainName)
+        let isEVM = coreIsEvmChain(chainName: chainName)
+
+        // Bitcoin and Dogecoin keep their own history fetch: HD xpub expansion
+        // and a confirmed-fee path respectively.
+        let history: @Sendable (AppState) async -> Void = { store in
+            switch chainName {
+            case "Bitcoin": await store.refreshBitcoinTransactions(loadMore: false)
+            case "Dogecoin": await store.refreshDogecoinTransactions(loadMore: false)
+            default:
+                if isEVM {
+                    await store.refreshEVMTokenTransactions(chainName: chainName, loadMore: false)
+                } else {
+                    await store.refreshNormalizedTransactions(chainName: chainName, loadMore: false)
+                }
+            }
+        }
+        let pending: @Sendable (AppState) async -> Void = { store in
+            await store.refreshPendingTransactions(chainName: chainName)
+        }
+        return WalletChainRefreshDescriptor(
+            chainID: chainID,
             executeRefresh: { store, refreshHistory in
-                await store.refreshBalances()
-                if refreshHistory { await store.refreshEVMTokenTransactions(chainName: chainName, loadMore: false) }
-                await store.refreshPendingEVMTransactions(chainName: chainName)
-            },
-            executeHistoryOnly: { await $0.refreshEVMTokenTransactions(chainName: chainName) },
-            executePendingOnly: { await $0.refreshPendingEVMTransactions(chainName: chainName) }
-        )
-    }
-    @MainActor static func standard(
-        _ chainName: String,
-        history: @escaping @Sendable (AppState) async -> Void,
-        pending: @escaping @Sendable (AppState) async -> Void
-    ) -> WalletChainRefreshDescriptor {
-        WalletChainRefreshDescriptor(
-            chainID: WalletChainID(chainName)!,
-            executeRefresh: { store, refreshHistory in
-                await store.refreshBalances()
-                if refreshHistory { await history(store) }
-                await pending(store)
-            },
-            executeHistoryOnly: history,
-            executePendingOnly: pending
-        )
-    }
-    @MainActor static func utxo(
-        _ chainName: String,
-        history: @escaping @Sendable (AppState) async -> Void,
-        pending: @escaping @Sendable (AppState) async -> Void
-    ) -> WalletChainRefreshDescriptor {
-        WalletChainRefreshDescriptor(
-            chainID: WalletChainID(chainName)!,
-            executeRefresh: { store, refreshHistory in
-                await store.refreshUTXOAddressDiscovery(chainName: chainName)
-                await store.refreshUTXOReceiveReservationState(chainName: chainName)
+                if isUTXO {
+                    await store.refreshUTXOAddressDiscovery(chainName: chainName)
+                    await store.refreshUTXOReceiveReservationState(chainName: chainName)
+                }
                 await store.refreshBalances()
                 if refreshHistory { await history(store) }
                 await pending(store)
@@ -63,67 +61,16 @@ struct WalletChainRefreshDescriptor: Sendable {
         )
     }
 }
+
 extension WalletChainRefreshDescriptor {
+    /// Every chain the app refreshes, in the order core lists them. Adding a
+    /// chain to the catalog adds it here.
     @MainActor static let all: OrderedDictionary<WalletChainID, WalletChainRefreshDescriptor> = {
-        let descriptors: [WalletChainRefreshDescriptor] = [
-            .utxo("Bitcoin",
-                history: { await $0.refreshBitcoinTransactions(limit: 20, loadMore: false) },
-                pending: { await $0.refreshPendingBitcoinTransactions() }),
-            .utxo("Bitcoin Cash",
-                history: { await $0.refreshBitcoinCashTransactions(limit: 20, loadMore: false) },
-                pending: { await $0.refreshPendingBitcoinCashTransactions() }),
-            .utxo("Bitcoin SV",
-                history: { await $0.refreshBitcoinSVTransactions(limit: 20, loadMore: false) },
-                pending: { await $0.refreshPendingBitcoinSVTransactions() }),
-            .utxo("Litecoin",
-                history: { await $0.refreshLitecoinTransactions(limit: 20, loadMore: false) },
-                pending: { await $0.refreshPendingLitecoinTransactions() }),
-            .utxo("Dogecoin",
-                history: { await $0.refreshDogecoinTransactions(loadMore: false) },
-                pending: { await $0.refreshPendingDogecoinTransactions() }),
-            .evm("Ethereum"), .evm("Arbitrum"), .evm("Optimism"), .evm("Ethereum Classic"),
-            .evm("BNB Chain"), .evm("Avalanche"), .evm("Hyperliquid"), .evm("Polygon"), .evm("Base"),
-            .evm("Linea"), .evm("Scroll"), .evm("Blast"), .evm("Mantle"),
-            .standard("Tron",
-                history: { await $0.refreshTronTransactions(loadMore: false) },
-                pending: { await $0.refreshPendingTronTransactions() }),
-            .standard("Solana",
-                history: { await $0.refreshSolanaTransactions(loadMore: false) },
-                pending: { await $0.refreshPendingSolanaTransactions() }),
-            .standard("Cardano",
-                history: { await $0.refreshCardanoTransactions(loadMore: false) },
-                pending: { await $0.refreshPendingCardanoTransactions() }),
-            .standard("XRP Ledger",
-                history: { await $0.refreshXRPTransactions(loadMore: false) },
-                pending: { await $0.refreshPendingXRPTransactions() }),
-            .standard("Stellar",
-                history: { await $0.refreshStellarTransactions(loadMore: false) },
-                pending: { await $0.refreshPendingStellarTransactions() }),
-            .standard("Monero",
-                history: { await $0.refreshMoneroTransactions(loadMore: false) },
-                pending: { await $0.refreshPendingMoneroTransactions() }),
-            .standard("Sui",
-                history: { await $0.refreshSuiTransactions(loadMore: false) },
-                pending: { await $0.refreshPendingSuiTransactions() }),
-            .standard("Aptos",
-                history: { await $0.refreshAptosTransactions(loadMore: false) },
-                pending: { await $0.refreshPendingAptosTransactions() }),
-            .standard("TON",
-                history: { await $0.refreshTONTransactions(loadMore: false) },
-                pending: { await $0.refreshPendingTONTransactions() }),
-            .standard("Internet Computer",
-                history: { await $0.refreshICPTransactions(loadMore: false) },
-                pending: { await $0.refreshPendingICPTransactions() }),
-            .standard("NEAR",
-                history: { await $0.refreshNearTransactions(loadMore: false) },
-                pending: { await $0.refreshPendingNearTransactions() }),
-            .standard("Polkadot",
-                history: { await $0.refreshPolkadotTransactions(loadMore: false) },
-                pending: { await $0.refreshPendingPolkadotTransactions() }),
-        ]
+        let descriptors = AppEndpointDirectory.liveChainNames.compactMap { WalletChainRefreshDescriptor.forChain($0) }
         return OrderedDictionary(uniqueKeysWithValues: descriptors.map { ($0.chainID, $0) })
     }()
 }
+
 extension AppState {
     static var chainRefreshDescriptors: OrderedDictionary<WalletChainID, WalletChainRefreshDescriptor> {
         WalletChainRefreshDescriptor.all

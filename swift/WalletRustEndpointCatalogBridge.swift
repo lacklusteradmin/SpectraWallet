@@ -29,8 +29,8 @@ enum WalletRustEndpointCatalogBridge {
     static func transactionExplorerEntry(for chainName: String) throws -> AppEndpointExplorerEntry? {
         try appCoreTransactionExplorerEntry(chainName: chainName)
     }
-    static func bitcoinEsploraBaseURLs(for networkMode: BitcoinNetworkMode) throws -> [String] { try appCoreBitcoinEsploraBaseUrls(network: networkMode.rawValue) }
-    static func bitcoinWalletStoreDefaultBaseURLs(for networkMode: BitcoinNetworkMode) throws -> [String] { try appCoreBitcoinWalletStoreDefaultBaseUrls(network: networkMode.rawValue) }
+    static func bitcoinEsploraBaseURLs(forChainID chainID: String) throws -> [String] { try appCoreBitcoinEsploraBaseUrls(chainId: chainID) }
+    static func bitcoinWalletStoreDefaultBaseURLs(forChainID chainID: String) throws -> [String] { try appCoreBitcoinWalletStoreDefaultBaseUrls(chainId: chainID) }
     static func evmRPCEndpoints(for chainName: String) throws -> [String] { try appCoreEvmRpcEndpoints(chainName: chainName) }
     static func explorerSupplementalEndpoints(for chainName: String) throws -> [String] { try appCoreExplorerSupplementalEndpoints(chainName: chainName) }
     static func broadcastProviderOptions(for chainName: String) -> [ChainBroadcastProviderOption] {
@@ -106,11 +106,11 @@ enum AppEndpointDirectory {
     static func transactionExplorerLabel(for chainName: String) -> String? {
         required("transaction explorer label lookup for \(chainName)") { try WalletRustEndpointCatalogBridge.transactionExplorerEntry(for: chainName)?.label }
     }
-    static func bitcoinEsploraBaseURLs(for networkMode: BitcoinNetworkMode) -> [String] {
-        required("Bitcoin Esplora lookup for \(networkMode.rawValue)") { try WalletRustEndpointCatalogBridge.bitcoinEsploraBaseURLs(for: networkMode) }
+    static func bitcoinEsploraBaseURLs(forChainID chainID: String) -> [String] {
+        required("Bitcoin Esplora lookup for \(chainID)") { try WalletRustEndpointCatalogBridge.bitcoinEsploraBaseURLs(forChainID: chainID) }
     }
-    static func bitcoinWalletStoreDefaultBaseURLs(for networkMode: BitcoinNetworkMode) -> [String] {
-        required("Bitcoin wallet-store lookup for \(networkMode.rawValue)") { try WalletRustEndpointCatalogBridge.bitcoinWalletStoreDefaultBaseURLs(for: networkMode) }
+    static func bitcoinWalletStoreDefaultBaseURLs(forChainID chainID: String) -> [String] {
+        required("Bitcoin wallet-store lookup for \(chainID)") { try WalletRustEndpointCatalogBridge.bitcoinWalletStoreDefaultBaseURLs(forChainID: chainID) }
     }
     static func transactionExplorerURL(for chainName: String, transactionHash: String) -> URL? {
         guard let urlString = (try? coreTransactionExplorerUrl(chainName: chainName, transactionHash: transactionHash)) ?? nil else { return nil }

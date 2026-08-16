@@ -459,8 +459,7 @@ extension AppState {
                         seedDerivationPreset: selectedDerivationPreset,
                         seedDerivationPaths: selectedDerivationPaths,
                         derivationOverrides: draft.resolvedDerivationOverrides ?? .empty,
-                        bitcoinNetworkMode: bitcoinNetworkMode,
-                        dogecoinNetworkMode: dogecoinNetworkMode
+                        networkChainByFamily: networkChainByFamily
                     )
                 )
             } catch {

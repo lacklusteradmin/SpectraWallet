@@ -7,21 +7,7 @@ extension AppState {
         {
             self.pricingProvider = pricingProvider
         }
-        if let storedBitcoinNetworkMode = UserDefaults.standard.string(forKey: Self.bitcoinNetworkModeDefaultsKey),
-            let bitcoinNetworkMode = BitcoinNetworkMode(rawValue: storedBitcoinNetworkMode)
-        {
-            self.bitcoinNetworkMode = bitcoinNetworkMode
-        }
-        if let storedDogecoinNetworkMode = UserDefaults.standard.string(forKey: Self.dogecoinNetworkModeDefaultsKey),
-            let dogecoinNetworkMode = DogecoinNetworkMode(rawValue: storedDogecoinNetworkMode)
-        {
-            self.dogecoinNetworkMode = dogecoinNetworkMode
-        }
-        if let storedEthereumNetworkMode = UserDefaults.standard.string(forKey: Self.ethereumNetworkModeDefaultsKey),
-            let ethereumNetworkMode = EthereumNetworkMode(rawValue: storedEthereumNetworkMode)
-        {
-            self.ethereumNetworkMode = ethereumNetworkMode
-        }
+        // The selected network is core-owned and arrives with `open_state`.
         if let storedBitcoinFeePriority = UserDefaults.standard.string(forKey: Self.bitcoinFeePriorityDefaultsKey),
             let bitcoinFeePriority = BitcoinFeePriority(rawValue: storedBitcoinFeePriority)
         {
@@ -376,10 +362,8 @@ extension AppState {
         UserDefaults.standard.removeObject(forKey: Self.livePricesDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.ethereumRPCEndpointDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.etherscanAPIKeyDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.ethereumNetworkModeDefaultsKey)
         UserDefaults.standard.removeObject(forKey: MoneroBalanceService.backendBaseURLDefaultsKey)
         UserDefaults.standard.removeObject(forKey: MoneroBalanceService.backendAPIKeyDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.bitcoinNetworkModeDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.bitcoinEsploraEndpointsDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.bitcoinStopGapDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.bitcoinFeePriorityDefaultsKey)
@@ -413,10 +397,9 @@ extension AppState {
         assetDisplayDecimalsByChain = defaultAssetDisplayDecimalsByChain()
         ethereumRPCEndpoint = ""
         etherscanAPIKey = ""
-        ethereumNetworkMode = .mainnet
         moneroBackendBaseURL = ""
         moneroBackendAPIKey = ""
-        bitcoinNetworkMode = .mainnet
+        for family in ["bitcoin", "ethereum", "dogecoin"] { selectNetworkChain(family) }
         bitcoinEsploraEndpoints = ""
         bitcoinStopGap = 10
         bitcoinFeePriority = .normal
