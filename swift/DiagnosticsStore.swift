@@ -35,45 +35,21 @@ extension AppState {
             chainDiagnosticsState.diagnosticsRevision &+= 1
         }
     }
-    subscript(historyRunFor chainName: String) -> WalletChainDiagnosticsState.HistoryRun {
-        get { chainDiagnosticsState.historyRunByChain[chainName] ?? .init() }
-        set { chainDiagnosticsState.historyRunByChain[chainName] = newValue }
+    /// Per-wallet history for the UTXO chains, which share one record shape.
+    subscript(utxoHistoryFor chainName: String) -> [String: BitcoinHistoryDiagnostics] {
+        get { diagnosticsAllUtxo(chainName: chainName) }
+        set {
+            diagnosticsReplaceUtxo(chainName: chainName, entries: newValue)
+            chainDiagnosticsState.diagnosticsRevision &+= 1
+        }
     }
-    subscript(endpointHealthFor chainName: String) -> WalletChainDiagnosticsState.EndpointHealth {
-        get { chainDiagnosticsState.endpointHealthByChain[chainName] ?? .init() }
-        set { chainDiagnosticsState.endpointHealthByChain[chainName] = newValue }
-    }
-    var dogecoinHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { chainDiagnosticsState.dogecoinHistoryDiagnosticsByWallet }
-        set { chainDiagnosticsState.dogecoinHistoryDiagnosticsByWallet = newValue }
-    }
-    var ethereumHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { chainDiagnosticsState.ethereumHistoryDiagnosticsByWallet }
-        set { chainDiagnosticsState.ethereumHistoryDiagnosticsByWallet = newValue }
-    }
-    var etcHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { chainDiagnosticsState.etcHistoryDiagnosticsByWallet }
-        set { chainDiagnosticsState.etcHistoryDiagnosticsByWallet = newValue }
-    }
-    var arbitrumHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { chainDiagnosticsState.arbitrumHistoryDiagnosticsByWallet }
-        set { chainDiagnosticsState.arbitrumHistoryDiagnosticsByWallet = newValue }
-    }
-    var optimismHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { chainDiagnosticsState.optimismHistoryDiagnosticsByWallet }
-        set { chainDiagnosticsState.optimismHistoryDiagnosticsByWallet = newValue }
-    }
-    var bnbHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { chainDiagnosticsState.bnbHistoryDiagnosticsByWallet }
-        set { chainDiagnosticsState.bnbHistoryDiagnosticsByWallet = newValue }
-    }
-    var avalancheHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { chainDiagnosticsState.avalancheHistoryDiagnosticsByWallet }
-        set { chainDiagnosticsState.avalancheHistoryDiagnosticsByWallet = newValue }
-    }
-    var hyperliquidHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { chainDiagnosticsState.hyperliquidHistoryDiagnosticsByWallet }
-        set { chainDiagnosticsState.hyperliquidHistoryDiagnosticsByWallet = newValue }
+    /// Per-wallet history for the EVM family, which shares one record shape.
+    subscript(evmHistoryFor chainName: String) -> [String: EthereumTokenTransferHistoryDiagnostics] {
+        get { diagnosticsAllEvm(chainName: chainName) }
+        set {
+            diagnosticsReplaceEvm(chainName: chainName, entries: newValue)
+            chainDiagnosticsState.diagnosticsRevision &+= 1
+        }
     }
     var tronHistoryDiagnosticsByWallet: [String: TronHistoryDiagnostics] {
         get { chainDiagnosticsState.tronHistoryDiagnosticsByWallet }
@@ -83,21 +59,13 @@ extension AppState {
         get { chainDiagnosticsState.solanaHistoryDiagnosticsByWallet }
         set { chainDiagnosticsState.solanaHistoryDiagnosticsByWallet = newValue }
     }
-    var bitcoinHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { chainDiagnosticsState.bitcoinHistoryDiagnosticsByWallet }
-        set { chainDiagnosticsState.bitcoinHistoryDiagnosticsByWallet = newValue }
+    subscript(historyRunFor chainName: String) -> WalletChainDiagnosticsState.HistoryRun {
+        get { chainDiagnosticsState.historyRunByChain[chainName] ?? .init() }
+        set { chainDiagnosticsState.historyRunByChain[chainName] = newValue }
     }
-    var bitcoinCashHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { chainDiagnosticsState.bitcoinCashHistoryDiagnosticsByWallet }
-        set { chainDiagnosticsState.bitcoinCashHistoryDiagnosticsByWallet = newValue }
-    }
-    var bitcoinSVHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { chainDiagnosticsState.bitcoinSVHistoryDiagnosticsByWallet }
-        set { chainDiagnosticsState.bitcoinSVHistoryDiagnosticsByWallet = newValue }
-    }
-    var litecoinHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { chainDiagnosticsState.litecoinHistoryDiagnosticsByWallet }
-        set { chainDiagnosticsState.litecoinHistoryDiagnosticsByWallet = newValue }
+    subscript(endpointHealthFor chainName: String) -> WalletChainDiagnosticsState.EndpointHealth {
+        get { chainDiagnosticsState.endpointHealthByChain[chainName] ?? .init() }
+        set { chainDiagnosticsState.endpointHealthByChain[chainName] = newValue }
     }
     var lastImportedDiagnosticsBundle: DiagnosticsBundlePayload? {
         get { chainDiagnosticsState.lastImportedDiagnosticsBundle }

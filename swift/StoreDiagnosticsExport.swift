@@ -16,32 +16,10 @@ import Foundation
 // so core could build JSON from it. `coreDiagnosticsJson` reads its own store.
 
 extension AppState {
-    static let diagnosticsBundleChainNames = [
-        "Bitcoin",
-        "Dogecoin",
-        "Bitcoin Cash",
-        "Bitcoin SV",
-        "Litecoin",
-        "Ethereum",
-        "Ethereum Classic",
-        "Arbitrum",
-        "Optimism",
-        "BNB Chain",
-        "Avalanche",
-        "Hyperliquid",
-        "Tron",
-        "Solana",
-        "Stellar",
-        "Cardano",
-        "XRP Ledger",
-        "Monero",
-        "Sui",
-        "Aptos",
-        "TON",
-        "Internet Computer",
-        "NEAR",
-        "Polkadot",
-    ]
+    /// Every mainnet — the same set the diagnostics hub offers a screen for.
+    /// Was a hand-typed list of twenty-four display names, the fifth copy of
+    /// the chain list in the diagnostics code.
+    static let diagnosticsBundleChainNames = Chain.mainnets.map(\.displayName)
 
     /// Diagnostics JSON for one chain.
     ///

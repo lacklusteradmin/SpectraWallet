@@ -10,7 +10,7 @@ private func evmSendOverrides(nonce: Int?, customFees: EthereumCustomFeeConfigur
 
 private func ethereumSendResult(from typed: EvmSendResultDecoded) -> EthereumSendResult {
     let preview = EthereumSendPreview(
-        nonce: typed.nonce, gasLimit: typed.gasLimit, maxFeePerGasGwei: 0, maxPriorityFeePerGasGwei: 0, estimatedNetworkFeeEth: 0,
+        nonce: typed.nonce, gasLimit: typed.gasLimit, maxFeePerGasGwei: 0, maxPriorityFeePerGasGwei: 0, estimatedNetworkFee: 0,
         spendableBalance: nil, feeRateDescription: nil, estimatedTransactionBytes: nil, selectedInputCount: nil, usesChangeOutput: nil,
         maxSendable: nil
     )
@@ -59,48 +59,29 @@ extension AppState {
         var usedENSResolution = false
         let amount = preflight.amount
         let amountStr = preflight.amountStr
-        if holding.chainName == "Sui", holding.symbol == "SUI" {
-            await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
-                chainId: SpectraChainID.sui, chainName: "Sui", symbol: "SUI",
-                feeDecimals: 6, checkSelfSend: true, supportsPrivateKey: false, gasBudgetFromFee: true,
-                resolveAddress: { self.resolvedSuiAddress(for: $0) },
-                derivationPath: { self.walletDerivationPath(for: $0, chain: .sui) },
-                getPreviewFee: { self.sendPreviewStore.suiSendPreview?.estimatedNetworkFeeSui },
-                refreshPreview: { await self.refreshSuiSendPreview() },
-                clearPreview: { self.sendPreviewStore.suiSendPreview = nil }
-            )
+        // Every chain whose send is the plain shape — one native asset, a fee
+        // the preview supplies, an address and path the generic resolvers know
+        // — goes through one call. Ten arms used to state this, each carrying
+        // the same four constants that are now `Chain::send_execution_shape`.
+        if ["Sui", "Aptos", "TON", "XRP Ledger", "Stellar", "Cardano", "NEAR", "Polkadot"].contains(holding.chainName),
+            holding.symbol == Chain(displayName: holding.chainName)?.gasTokenSymbol
+        {
+            await submitNativeChainSend(
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress,
+                amount: amount, amountStr: amountStr, checkSelfSend: true)
             return
         }
-        if holding.chainName == "Aptos", holding.symbol == "APT" {
-            await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
-                chainId: SpectraChainID.aptos, chainName: "Aptos", symbol: "APT",
-                feeDecimals: 6, checkSelfSend: true, supportsPrivateKey: false,
-                resolveAddress: { self.resolvedAptosAddress(for: $0) },
-                derivationPath: { self.walletDerivationPath(for: $0, chain: .aptos) },
-                getPreviewFee: { self.sendPreviewStore.aptosSendPreview?.estimatedNetworkFeeApt },
-                refreshPreview: { await self.refreshAptosSendPreview() },
-                clearPreview: { self.sendPreviewStore.aptosSendPreview = nil }
-            )
-            return
-        }
-        if holding.chainName == "TON", holding.symbol == "TON" {
-            await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
-                chainId: SpectraChainID.ton, chainName: "TON", symbol: "TON",
-                feeDecimals: 6, checkSelfSend: true, supportsPrivateKey: false,
-                resolveAddress: { self.resolvedTONAddress(for: $0) },
-                derivationPath: { self.walletDerivationPath(for: $0, chain: .ton) },
-                getPreviewFee: { self.sendPreviewStore.tonSendPreview?.estimatedNetworkFeeTon },
-                refreshPreview: { await self.refreshTonSendPreview() },
-                clearPreview: { self.sendPreviewStore.tonSendPreview = nil }
-            )
+        if ["Bitcoin Cash", "Bitcoin SV", "Litecoin"].contains(holding.chainName),
+            holding.symbol == Chain(displayName: holding.chainName)?.gasTokenSymbol
+        {
+            await submitNativeChainSend(
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress,
+                amount: amount, amountStr: amountStr)
             return
         }
         if holding.chainName == "Internet Computer", holding.symbol == "ICP" {
             guard !sendingChains.contains("Internet Computer") else { return }
-            if sendPreviewStore.icpSendPreview == nil { await refreshIcpSendPreview() }
+            if sendPreviewStore.icpSendPreview == nil { await refreshSendPreview(forChainNamed: "Internet Computer") }
             guard let walletIndex = wallets.firstIndex(where: { $0.id == wallet.id }), let sourceAddress = resolvedICPAddress(for: wallet)
             else {
                 sendError = "Unable to resolve this wallet's ICP address."
@@ -122,8 +103,8 @@ extension AppState {
             do {
                 let result = try await WalletServiceBridge.shared.executeSend(
                     SendExecutionRequest(
-                        chainId: SpectraChainID.icp, chainName: "Internet Computer",
-                        derivationPath: wallet.seedDerivationPaths.path(for: .internetComputer),
+                        chainId: Chain.icp.id, chainName: "Internet Computer",
+                        derivationPath: wallet.seedDerivationPaths.path(for: .icp),
                         seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
                         amount: amount, amountStr: amountStr,
                         contractAddress: nil, tokenDecimals: nil, feeRateSvb: nil, feeSat: nil, gasBudget: nil, feeAmount: nil,
@@ -205,7 +186,7 @@ extension AppState {
                 let feeRateSvB: Double = Double(sendPreviewStore.bitcoinSendPreview?.estimatedFeeRateSatVb ?? 10)
                 let result = try await WalletServiceBridge.shared.executeSend(
                     SendExecutionRequest(
-                        chainId: SpectraChainID.bitcoin, chainName: "Bitcoin",
+                        chainId: Chain.bitcoin.id, chainName: "Bitcoin",
                         derivationPath: walletDerivationPath(for: wallet, chain: .bitcoin),
                         seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
                         amount: amount, amountStr: amountStr,
@@ -228,34 +209,6 @@ extension AppState {
                 sendError = error.localizedDescription
                 noteSendBroadcastFailure(for: holding.chainName, message: sendError ?? error.localizedDescription)
             }
-            return
-        }
-        if holding.symbol == "BCH", holding.chainName == "Bitcoin Cash" {
-            await submitUTXOSatChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
-                chainId: SpectraChainID.bitcoinCash, chainName: "Bitcoin Cash", chain: .bitcoinCash,
-                symbol: "BCH", feeFallback: 0.00001, resolveAddress: { self.resolvedBitcoinCashAddress(for: $0) },
-                getPreview: { self.sendPreviewStore.bitcoinCashSendPreview }, refreshPreview: { await self.refreshBitcoinCashSendPreview() },
-                clearPreview: { self.sendPreviewStore.bitcoinCashSendPreview = nil }
-            )
-            return
-        }
-        if holding.symbol == "BSV", holding.chainName == "Bitcoin SV" {
-            await submitUTXOSatChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
-                chainId: SpectraChainID.bitcoinSv, chainName: "Bitcoin SV", chain: .bitcoinSV, symbol: "BSV", feeFallback: 0.00001,
-                resolveAddress: { self.resolvedBitcoinSVAddress(for: $0) }, getPreview: { self.sendPreviewStore.bitcoinSVSendPreview },
-                refreshPreview: { await self.refreshBitcoinSVSendPreview() }, clearPreview: { self.sendPreviewStore.bitcoinSVSendPreview = nil }
-            )
-            return
-        }
-        if holding.symbol == "LTC", holding.chainName == "Litecoin" {
-            await submitUTXOSatChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
-                chainId: SpectraChainID.litecoin, chainName: "Litecoin", chain: .litecoin, symbol: "LTC", feeFallback: 0.0001,
-                resolveAddress: { self.resolvedLitecoinAddress(for: $0) }, getPreview: { self.sendPreviewStore.litecoinSendPreview },
-                refreshPreview: { await self.refreshLitecoinSendPreview() }, clearPreview: { self.sendPreviewStore.litecoinSendPreview = nil }
-            )
             return
         }
         if holding.symbol == "DOGE", holding.chainName == "Dogecoin" {
@@ -293,7 +246,7 @@ extension AppState {
                 let feeRateDogePerKb = sendPreviewStore.dogecoinSendPreview?.estimatedFeeRateDogePerKb ?? 0.01
                 let result = try await WalletServiceBridge.shared.executeSend(
                     SendExecutionRequest(
-                        chainId: SpectraChainID.dogecoin, chainName: "Dogecoin",
+                        chainId: Chain.dogecoin.id, chainName: "Dogecoin",
                         derivationPath: walletDerivationPath(for: wallet, chain: .dogecoin),
                         seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
                         amount: dogecoinAmount, amountStr: sendAmount,
@@ -347,7 +300,7 @@ extension AppState {
                 return
             }
             if let err = validateSendBalance(
-                amount: amount, networkFee: preview.estimatedNetworkFeeTrx, holdingBalance: holding.amount,
+                amount: amount, networkFee: preview.estimatedNetworkFee, holdingBalance: holding.amount,
                 isNativeAsset: holding.symbol == "TRX", symbol: holding.symbol,
                 nativeSymbol: "TRX", nativeBalance: wallet.holdings.first(where: { $0.chainName == "Tron" && $0.symbol == "TRX" })?.amount,
                 feeDecimals: 6, chainLabel: "Tron"
@@ -361,7 +314,7 @@ extension AppState {
                 let tokenDecimals: UInt32? = (contractAddress != nil) ? 6 : nil
                 let result = try await WalletServiceBridge.shared.executeSend(
                     SendExecutionRequest(
-                        chainId: SpectraChainID.tron, chainName: "Tron", derivationPath: wallet.seedDerivationPaths.path(for: .tron),
+                        chainId: Chain.tron.id, chainName: "Tron", derivationPath: wallet.seedDerivationPaths.path(for: .tron),
                         seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
                         amount: amount, amountStr: amountStr,
                         contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
@@ -399,13 +352,13 @@ extension AppState {
                 sendError = "Unable to resolve this wallet's Solana signing address from the seed phrase."
                 return
             }
-            if sendPreviewStore.solanaSendPreview == nil { await refreshSolanaSendPreview() }
+            if sendPreviewStore.solanaSendPreview == nil { await refreshSendPreview(forChainNamed: "Solana") }
             guard let preview = sendPreviewStore.solanaSendPreview else {
                 sendError = sendError ?? "Unable to estimate Solana network fee."
                 return
             }
             if let err = validateSendBalance(
-                amount: amount, networkFee: preview.estimatedNetworkFeeSol, holdingBalance: holding.amount,
+                amount: amount, networkFee: preview.estimatedNetworkFee, holdingBalance: holding.amount,
                 isNativeAsset: holding.symbol == "SOL", symbol: holding.symbol,
                 nativeSymbol: "SOL",
                 nativeBalance: wallet.holdings.first(where: { $0.chainName == "Solana" && $0.symbol == "SOL" })?.amount,
@@ -434,7 +387,7 @@ extension AppState {
                 }
                 let result = try await WalletServiceBridge.shared.executeSend(
                     SendExecutionRequest(
-                        chainId: SpectraChainID.solana, chainName: "Solana",
+                        chainId: Chain.solana.id, chainName: "Solana",
                         derivationPath: walletDerivationPath(for: wallet, chain: .solana),
                         seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
                         amount: amount, amountStr: amountStr,
@@ -459,69 +412,12 @@ extension AppState {
             }
             return
         }
-        if holding.chainName == "XRP Ledger", holding.symbol == "XRP" {
-            await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
-                chainId: SpectraChainID.xrp, chainName: "XRP Ledger", symbol: "XRP",
-                feeDecimals: 6, supportsPrivateKey: true,
-                resolveAddress: { self.resolvedXRPAddress(for: $0) },
-                derivationPath: { self.walletDerivationPath(for: $0, chain: .xrp) },
-                getPreviewFee: { self.sendPreviewStore.xrpSendPreview?.estimatedNetworkFeeXrp },
-                refreshPreview: { await self.refreshXrpSendPreview() },
-                clearPreview: { self.sendPreviewStore.xrpSendPreview = nil }
-            )
-            return
-        }
-        if holding.chainName == "Stellar", holding.symbol == "XLM" {
-            await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
-                chainId: SpectraChainID.stellar, chainName: "Stellar", symbol: "XLM",
-                feeDecimals: 7, supportsPrivateKey: true,
-                resolveAddress: { self.resolvedStellarAddress(for: $0) },
-                derivationPath: { $0.seedDerivationPaths.path(for: .stellar) },
-                getPreviewFee: { self.sendPreviewStore.stellarSendPreview?.estimatedNetworkFeeXlm },
-                refreshPreview: { await self.refreshStellarSendPreview() },
-                clearPreview: { self.sendPreviewStore.stellarSendPreview = nil }
-            )
-            return
-        }
+        // Monero is the plain shape plus a priority, and it signs from a
+        // stored view key rather than a derivation path.
         if holding.chainName == "Monero", holding.symbol == "XMR" {
-            await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
-                chainId: SpectraChainID.monero, chainName: "Monero", symbol: "XMR",
-                feeDecimals: 6, supportsPrivateKey: false, moneroPriority: 2,
-                resolveAddress: { self.resolvedMoneroAddress(for: $0) },
-                derivationPath: { _ in "" },
-                getPreviewFee: { self.sendPreviewStore.moneroSendPreview?.estimatedNetworkFeeXmr },
-                refreshPreview: { await self.refreshMoneroSendPreview() },
-                clearPreview: { self.sendPreviewStore.moneroSendPreview = nil }
-            )
-            return
-        }
-        if holding.chainName == "Cardano", holding.symbol == "ADA" {
-            await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
-                chainId: SpectraChainID.cardano, chainName: "Cardano", symbol: "ADA",
-                feeDecimals: 6, supportsPrivateKey: false, feeAmountFromFee: true,
-                resolveAddress: { self.resolvedCardanoAddress(for: $0) },
-                derivationPath: { self.walletDerivationPath(for: $0, chain: .cardano) },
-                getPreviewFee: { self.sendPreviewStore.cardanoSendPreview?.estimatedNetworkFeeAda },
-                refreshPreview: { await self.refreshCardanoSendPreview() },
-                clearPreview: { self.sendPreviewStore.cardanoSendPreview = nil }
-            )
-            return
-        }
-        if holding.chainName == "NEAR", holding.symbol == "NEAR" {
-            await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
-                chainId: SpectraChainID.near, chainName: "NEAR", symbol: "NEAR",
-                feeDecimals: 6, checkSelfSend: true, supportsPrivateKey: false,
-                resolveAddress: { self.resolvedNearAddress(for: $0) },
-                derivationPath: { self.walletDerivationPath(for: $0, chain: .near) },
-                getPreviewFee: { self.sendPreviewStore.nearSendPreview?.estimatedNetworkFeeNear },
-                refreshPreview: { await self.refreshNearSendPreview() },
-                clearPreview: { self.sendPreviewStore.nearSendPreview = nil }
-            )
+            await submitNativeChainSend(
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress,
+                amount: amount, amountStr: amountStr, moneroPriority: 2)
             return
         }
         if holding.chainName == "NEAR", holding.tokenStandard == "NEP-141", let contractAddress = holding.contractAddress {
@@ -545,7 +441,7 @@ extension AppState {
             do {
                 let result = try await WalletServiceBridge.shared.executeSend(
                     SendExecutionRequest(
-                        chainId: SpectraChainID.near, chainName: "NEAR", derivationPath: walletDerivationPath(for: wallet, chain: .near),
+                        chainId: Chain.near.id, chainName: "NEAR", derivationPath: walletDerivationPath(for: wallet, chain: .near),
                         seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
                         amount: amount, amountStr: amountStr,
                         contractAddress: contractAddress, tokenDecimals: UInt32(decimals), feeRateSvb: nil, feeSat: nil, gasBudget: nil,
@@ -567,19 +463,6 @@ extension AppState {
                 sendError = error.localizedDescription
                 noteSendBroadcastFailure(for: holding.chainName, message: sendError ?? error.localizedDescription)
             }
-            return
-        }
-        if holding.chainName == "Polkadot", holding.symbol == "DOT" {
-            await submitSimpleNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount, amountStr: amountStr,
-                chainId: SpectraChainID.polkadot, chainName: "Polkadot", symbol: "DOT",
-                feeDecimals: 6, supportsPrivateKey: false,
-                resolveAddress: { self.resolvedPolkadotAddress(for: $0) },
-                derivationPath: { $0.seedDerivationPaths.path(for: .polkadot) },
-                getPreviewFee: { self.sendPreviewStore.polkadotSendPreview?.estimatedNetworkFeeDot },
-                refreshPreview: { await self.refreshPolkadotSendPreview() },
-                clearPreview: { self.sendPreviewStore.polkadotSendPreview = nil }
-            )
             return
         }
         if isEVMChain(holding.chainName) {
@@ -615,7 +498,7 @@ extension AppState {
                 return
             }
             if let err = validateSendBalance(
-                amount: amount, networkFee: preview.estimatedNetworkFeeEth,
+                amount: amount, networkFee: preview.estimatedNetworkFee,
                 holdingBalance: preflight.isNativeEvmAsset ? nativeBalance : holding.amount,
                 isNativeAsset: preflight.isNativeEvmAsset, symbol: preflight.isNativeEvmAsset ? nativeSymbol : holding.symbol,
                 nativeSymbol: nativeSymbol, nativeBalance: nativeBalance,
@@ -637,7 +520,7 @@ extension AppState {
                 let customFees = customEthereumFeeConfiguration()
                 let explicitNonce = explicitEthereumNonce()
                 let evmDerivationChain = WalletDerivationLayer.evmSeedDerivationChain(for: holding.chainName) ?? .ethereum
-                let spectraEvmChainId = SpectraChainID.id(for: holding.chainName)
+                let spectraEvmChainId = Chain(displayName: holding.chainName)?.id
                 let evmOverrides = evmSendOverrides(nonce: explicitNonce, customFees: customFees)
                 let rustSupportsChain = spectraEvmChainId != nil
                 guard rustSupportsChain, let chainId = spectraEvmChainId else {
@@ -691,44 +574,73 @@ extension AppState {
         sendError = "\(holding.chainName) native sending is not enabled yet."
     }
 
-    private func submitSimpleNativeChainSend(
+    /// Sign and broadcast a native send on a chain whose request is the plain
+    /// shape: one asset, one fee, an address and path the generic resolvers
+    /// know.
+    ///
+    /// This merges `submitSimpleNativeChainSend` and `submitUTXOSatChainSend`,
+    /// which differed only in how the fee entered the request and in three
+    /// per-chain constants. Those are `Chain::send_execution_shape` now, so
+    /// the ten call sites that carried them inline are one dispatch.
+    private func submitNativeChainSend(
         holding: Coin, wallet: ImportedWallet, destinationAddress: String, amount: Double, amountStr: String,
-        chainId: String, chainName: String, symbol: String,
-        feeDecimals: UInt32, checkSelfSend: Bool = false, supportsPrivateKey: Bool,
-        gasBudgetFromFee: Bool = false, feeAmountFromFee: Bool = false, moneroPriority: UInt32? = nil,
-        resolveAddress: @escaping (ImportedWallet) -> String?,
-        derivationPath: @escaping (ImportedWallet) -> String,
-        getPreviewFee: @escaping () -> Double?,
-        refreshPreview: @escaping () async -> Void,
-        clearPreview: @escaping () -> Void
+        checkSelfSend: Bool = false, moneroPriority: UInt32? = nil
     ) async {
+        let chainName = holding.chainName
+        let symbol = holding.symbol
+        let shape = coreSendExecutionShape(chainName: chainName)
+        guard amount > 0 else { sendError = "Enter a valid amount"; return }
         guard !sendingChains.contains(chainName) else { return }
-        let isMonero = moneroPriority != nil
-        let seedPhrase = isMonero ? nil : storedSeedPhrase(for: wallet.id)
-        let privateKey = supportsPrivateKey ? storedPrivateKey(for: wallet.id) : (isMonero ? "unused" : nil)
+        guard let chainID = coreChainStrIdForName(name: chainName), !chainID.isEmpty else { return }
+
+        let seedPhrase = storedSeedPhrase(for: wallet.id)
+        let privateKey = shape.supportsPrivateKey ? storedPrivateKey(for: wallet.id) : nil
+        let isMonero = chainName == "Monero"
         if !isMonero {
-            if supportsPrivateKey {
-                guard seedPhrase != nil || privateKey != nil else { sendError = "This wallet's signing key is unavailable."; return }
+            if shape.supportsPrivateKey {
+                guard seedPhrase != nil || privateKey != nil else {
+                    sendError = "This wallet's signing key is unavailable."
+                    return
+                }
             } else {
                 guard seedPhrase != nil else { sendError = "This wallet's seed phrase is unavailable."; return }
             }
         }
-        guard let sourceAddress = resolveAddress(wallet) else {
+        guard let sourceAddress = resolvedAddress(for: wallet, chainName: chainName) else {
             sendError = "Unable to resolve this wallet's \(symbol) signing address."
             return
         }
-        if getPreviewFee() == nil { await refreshPreview() }
-        guard let fee = getPreviewFee() else { sendError = sendError ?? "Unable to estimate \(chainName) network fee."; return }
+        if sendPreviewStore.estimatedFee(forChainNamed: chainName) == nil {
+            await refreshSendPreview(forChainNamed: chainName)
+        }
+        let previewFee = sendPreviewStore.estimatedFee(forChainNamed: chainName)
+        guard let fee = previewFee ?? (shape.feeFallback > 0 ? shape.feeFallback : nil) else {
+            sendError = sendError ?? "Unable to estimate \(chainName) network fee."
+            return
+        }
         if let err = validateSendBalance(
             amount: amount, networkFee: fee, holdingBalance: holding.amount,
             isNativeAsset: true, symbol: symbol, nativeSymbol: nil, nativeBalance: nil,
-            feeDecimals: Int(feeDecimals), chainLabel: nil
+            feeDecimals: Int(shape.feeDecimals), chainLabel: nil
         ) {
-            sendError = err; return
+            sendError = err
+            return
         }
         if checkSelfSend,
-            await requiresSelfSendConfirmation(wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount)
+            await requiresSelfSendConfirmation(
+                wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount)
         {
+            return
+        }
+        // Monero has no derivation chain: it signs from stored key material,
+        // not a path, and the arm this replaced passed an empty string. Every
+        // other routed chain resolves one, so a missing path there is a real
+        // failure rather than something to send blank.
+        let derivationPath =
+            seedDerivationChain(for: chainName)
+            .map { walletDerivationPath(for: wallet, chain: $0) }
+        guard let derivationPath = derivationPath ?? (isMonero ? "" : nil) else {
+            sendError = "Unable to resolve this wallet's \(symbol) derivation path."
             return
         }
         sendingChains.insert(chainName)
@@ -736,12 +648,16 @@ extension AppState {
         do {
             let result = try await WalletServiceBridge.shared.executeSend(
                 SendExecutionRequest(
-                    chainId: chainId, chainName: chainName, derivationPath: derivationPath(wallet),
-                    seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
-                    amount: amount, amountStr: amountStr,
-                    contractAddress: nil, tokenDecimals: nil, feeRateSvb: nil, feeSat: nil,
-                    gasBudget: gasBudgetFromFee ? fee : nil, feeAmount: feeAmountFromFee ? fee : nil,
-                    evmOverrides: nil, moneroPriority: moneroPriority, derivationOverrides: wallet.derivationOverrides
+                    chainId: chainID, chainName: chainName,
+                    derivationPath: derivationPath,
+                    seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress,
+                    toAddress: destinationAddress, amount: amount, amountStr: amountStr,
+                    contractAddress: nil, tokenDecimals: nil, feeRateSvb: nil,
+                    feeSat: shape.feeField == .feeSats ? UInt64(fee * 1e8) : nil,
+                    gasBudget: shape.feeField == .gasBudget ? fee : nil,
+                    feeAmount: shape.feeField == .feeAmount ? fee : nil,
+                    evmOverrides: nil, moneroPriority: moneroPriority,
+                    derivationOverrides: wallet.derivationOverrides
                 ))
             let transaction = decoratePendingSendTransaction(
                 TransactionRecord(
@@ -752,57 +668,7 @@ extension AppState {
                 ), holding: holding)
             recordPendingSentTransaction(transaction)
             await runPostSendRefreshActions(for: holding.chainName, verificationStatus: .verified)
-            resetSendComposerState { clearPreview() }
-        } catch {
-            sendError = error.localizedDescription
-            noteSendBroadcastFailure(for: holding.chainName, message: sendError ?? error.localizedDescription)
-        }
-    }
-
-    private func submitUTXOSatChainSend(
-        holding: Coin, wallet: ImportedWallet, destinationAddress: String, amount: Double, amountStr: String, chainId: String, chainName: String,
-        chain: SeedDerivationChain, symbol: String, feeFallback: Double,
-        resolveAddress: @escaping (ImportedWallet) -> String?, getPreview: @escaping () -> BitcoinSendPreview?,
-        refreshPreview: @escaping () async -> Void, clearPreview: @escaping () -> Void
-    ) async {
-        guard amount > 0 else { sendError = "Enter a valid amount"; return }
-        guard !sendingChains.contains(chainName) else { return }
-        sendingChains.insert(chainName)
-        defer { sendingChains.remove(chainName) }
-        do {
-            guard let seedPhrase = storedSeedPhrase(for: wallet.id) else { sendError = "This wallet's seed phrase is unavailable."; return }
-            guard let sourceAddress = resolveAddress(wallet) else {
-                sendError = "Unable to resolve this wallet's \(symbol) address from the seed phrase."; return
-            }
-            if getPreview() == nil { await refreshPreview() }
-            if let preview = getPreview() {
-                if let err = validateSendBalance(
-                    amount: amount, networkFee: preview.estimatedNetworkFeeBtc, holdingBalance: holding.amount,
-                    isNativeAsset: true, symbol: symbol, nativeSymbol: nil, nativeBalance: nil,
-                    feeDecimals: 8, chainLabel: nil
-                ) {
-                    sendError = err; return
-                }
-            }
-            let feeSat = UInt64((getPreview()?.estimatedNetworkFeeBtc ?? feeFallback) * 1e8)
-            let result = try await WalletServiceBridge.shared.executeSend(
-                SendExecutionRequest(
-                    chainId: chainId, chainName: chainName, derivationPath: walletDerivationPath(for: wallet, chain: chain),
-                    seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
-                    amount: amount, amountStr: amountStr,
-                    contractAddress: nil, tokenDecimals: nil, feeRateSvb: nil, feeSat: feeSat, gasBudget: nil, feeAmount: nil,
-                    evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
-                ))
-            let transaction = decoratePendingSendTransaction(
-                TransactionRecord(
-                    walletID: wallet.id, kind: .send, status: .pending, walletName: wallet.name, assetName: holding.name,
-                    symbol: holding.symbol, chainName: holding.chainName, amount: amount, address: destinationAddress,
-                    transactionHash: result.transactionHash, signedTransactionPayload: result.rebroadcastPayload,
-                    signedTransactionPayloadFormat: result.payloadFormat
-                ), holding: holding)
-            recordPendingSentTransaction(transaction)
-            await runPostSendRefreshActions(for: holding.chainName, verificationStatus: .verified)
-            resetSendComposerState { clearPreview() }
+            resetSendComposerState { self.sendPreviewStore.clearPreview(forChainNamed: chainName) }
         } catch {
             sendError = error.localizedDescription
             noteSendBroadcastFailure(for: holding.chainName, message: sendError ?? error.localizedDescription)

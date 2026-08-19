@@ -314,10 +314,19 @@ import Foundation
         /// polls rather than sleeping for a guessed interval.
         func testTransactionStatusChangeIsPersisted() async throws {
             let store = AppState()
+            // The transaction needs a wallet that exists. `loadPersistedState`
+            // ends by pruning transactions whose wallet is not active, so one
+            // recorded against a made-up id survives only while no load runs —
+            // which is why this passed against a `walletID` of "w1" until the
+            // load started doing real work.
+            let wallet = ImportedWallet(
+                id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!, name: "W",
+                bitcoinAddress: "bc1qexample", selectedChain: "Bitcoin")
+            await store.recordWallet(wallet)
             let tx = TransactionRecord(
-                walletID: "w1", kind: .send, status: .pending, walletName: "W", assetName: "Bitcoin",
-                symbol: "BTC", chainName: "Bitcoin", amount: 0.1, address: "bc1qexample",
-                transactionHash: "0xhash-status-test")
+                walletID: wallet.id, kind: .send, status: .pending, walletName: "W",
+                assetName: "Bitcoin", symbol: "BTC", chainName: "Bitcoin", amount: 0.1,
+                address: "bc1qexample", transactionHash: "0xhash-status-test")
 
             store.recordTransaction(tx)
             _ = await storedStatus(for: tx.id, expecting: .pending)
@@ -329,6 +338,7 @@ import Foundation
 
             store.removeTransactions(withIDs: [tx.id])
             _ = await storedStatus(for: tx.id, expecting: nil)
+            await store.removeWallet(id: wallet.id)
         }
 
         /// Poll the history store until `id` reads as `expecting`, or give up.

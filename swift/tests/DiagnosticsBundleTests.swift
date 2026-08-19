@@ -17,6 +17,8 @@ final class DiagnosticsBundleTests: XCTestCase {
         // Keys are canonical chain ids, not display names.
         XCTAssertNotNil(imported.chainDiagnosticsJson["bitcoin-cash"])
         XCTAssertNotNil(imported.chainDiagnosticsJson["internet-computer"])
-        XCTAssertEqual(imported.chainDiagnosticsJson.count, 24)
+        // One entry per mainnet. It was twenty-four while a Swift enum decided
+        // which chains had diagnostics; the catalog decides now.
+        XCTAssertEqual(imported.chainDiagnosticsJson.count, Chain.mainnets.count)
     }
 }

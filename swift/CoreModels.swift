@@ -72,17 +72,14 @@ extension CoreCoin: Identifiable {
         default: return ["+", "+", "+"]
         }
     }
-    var chainID: AppChainID? { AppEndpointDirectory.appChain(for: chainName)?.id }
-    var isUTXOChain: Bool {
-        switch chainID {
-        case .bitcoin, .bitcoinCash, .bitcoinSV, .litecoin, .dogecoin: return true
-        default: return false
-        }
-    }
-    var isEVMChain: Bool { AppEndpointDirectory.appChain(for: chainName)?.isEVM ?? false }
+    var chain: Chain? { Chain(displayName: chainName) }
+    var isUTXOChain: Bool { coreSupportsDeepUtxoDiscovery(chainName: chainName) }
+    var isEVMChain: Bool { chain?.isEVM ?? false }
+    /// A holding is the chain's own asset when its symbol is the one fees are
+    /// paid in — `ETH` on Arbitrum, not `ARB`.
     var isNativeCoin: Bool {
-        guard let descriptor = AppEndpointDirectory.appChain(for: chainName) else { return false }
-        return symbol == descriptor.nativeSymbol
+        guard let chain else { return false }
+        return symbol == chain.gasTokenSymbol
     }
 }
 typealias ImportedWallet = CoreImportedWallet
@@ -366,96 +363,6 @@ extension CoreSeedDerivationPreset: RawRepresentable, CaseIterable, Codable, Ide
         }
     }
 }
-enum SeedDerivationChain: String, CaseIterable, Codable, Identifiable {
-    case bitcoin = "Bitcoin"
-    case bitcoinCash = "Bitcoin Cash"
-    case bitcoinSV = "Bitcoin SV"
-    case litecoin = "Litecoin"
-    case dogecoin = "Dogecoin"
-    case ethereum = "Ethereum"
-    case ethereumClassic = "Ethereum Classic"
-    case arbitrum = "Arbitrum"
-    case optimism = "Optimism"
-    case avalanche = "Avalanche"
-    case hyperliquid = "Hyperliquid"
-    case polygon = "Polygon"
-    case base = "Base"
-    case linea = "Linea"
-    case scroll = "Scroll"
-    case blast = "Blast"
-    case mantle = "Mantle"
-    case tron = "Tron"
-    case solana = "Solana"
-    case stellar = "Stellar"
-    case xrp = "XRP Ledger"
-    case cardano = "Cardano"
-    case sui = "Sui"
-    case aptos = "Aptos"
-    case ton = "TON"
-    case internetComputer = "Internet Computer"
-    case near = "NEAR"
-    case polkadot = "Polkadot"
-    case zcash = "Zcash"
-    case bitcoinGold = "Bitcoin Gold"
-    case sei = "Sei"
-    case celo = "Celo"
-    case cronos = "Cronos"
-    case opBNB = "opBNB"
-    case zkSyncEra = "zkSync Era"
-    case sonic = "Sonic"
-    case berachain = "Berachain"
-    case unichain = "Unichain"
-    case ink = "Ink"
-    case decred = "Decred"
-    case kaspa = "Kaspa"
-    case dash = "Dash"
-    case xLayer = "X Layer"
-    case bittensor = "Bittensor"
-    // Testnets — each is a first-class chain in core/data/chains.toml.
-    // The chain identity alone encodes
-    // mainnet vs testnet; there is no separate network parameter.
-    case bitcoinTestnet = "Bitcoin Testnet"
-    case bitcoinTestnet4 = "Bitcoin Testnet4"
-    case bitcoinSignet = "Bitcoin Signet"
-    case litecoinTestnet = "Litecoin Testnet"
-    case bitcoinCashTestnet = "Bitcoin Cash Testnet"
-    case bitcoinSVTestnet = "Bitcoin SV Testnet"
-    case dogecoinTestnet = "Dogecoin Testnet"
-    case zcashTestnet = "Zcash Testnet"
-    case decredTestnet = "Decred Testnet"
-    case kaspaTestnet = "Kaspa Testnet"
-    case dashTestnet = "Dash Testnet"
-    case ethereumSepolia = "Ethereum Sepolia"
-    case ethereumHoodi = "Ethereum Hoodi"
-    case arbitrumSepolia = "Arbitrum Sepolia"
-    case optimismSepolia = "Optimism Sepolia"
-    case baseSepolia = "Base Sepolia"
-    case bnbChainTestnet = "BNB Chain Testnet"
-    case avalancheFuji = "Avalanche Fuji"
-    case polygonAmoy = "Polygon Amoy"
-    case hyperliquidTestnet = "Hyperliquid Testnet"
-    case ethereumClassicMordor = "Ethereum Classic Mordor"
-    case tronNile = "Tron Nile"
-    case solanaDevnet = "Solana Devnet"
-    case xrpTestnet = "XRP Ledger Testnet"
-    case stellarTestnet = "Stellar Testnet"
-    case cardanoPreprod = "Cardano Preprod"
-    case suiTestnet = "Sui Testnet"
-    case aptosTestnet = "Aptos Testnet"
-    case tonTestnet = "TON Testnet"
-    case nearTestnet = "NEAR Testnet"
-    case polkadotWestend = "Polkadot Westend"
-    case moneroStagenet = "Monero Stagenet"
-    var id: String { rawValue }
-    var defaultPath: String { CachedCoreHelpers.chainDerivationPath(chainName: rawValue) }
-    var presetOptions: [SeedDerivationPathPreset] { [] }
-}
-struct SeedDerivationPathPreset: Identifiable, Equatable {
-    let title: String
-    let detail: String
-    let path: String
-    var id: String { "\(title)|\(path)" }
-}
 enum SeedDerivationFlavor: String, Equatable {
     case standard
     case legacy
@@ -465,23 +372,26 @@ enum SeedDerivationFlavor: String, Equatable {
     case electrumLegacy
 }
 struct SeedDerivationResolution: Equatable {
-    let chain: SeedDerivationChain
+    let chain: Chain
     let normalizedPath: String
     let accountIndex: UInt32
     let flavor: SeedDerivationFlavor
 }
-extension SeedDerivationChain {
+extension Chain {
     func resolve(path rawPath: String) -> SeedDerivationResolution {
         do {
-            let raw = try appCoreResolveDerivationPath(chain: rawValue, derivationPath: rawPath)
+            let raw = try appCoreResolveDerivationPath(
+                chain: displayName, derivationPath: rawPath)
             return SeedDerivationResolution(
-                chain: SeedDerivationChain(rawValue: raw.chain) ?? self,
+                chain: Chain(displayName: raw.chain) ?? self,
                 normalizedPath: raw.normalizedPath,
                 accountIndex: raw.accountIndex,
                 flavor: SeedDerivationFlavor(rawValue: raw.flavor) ?? .standard
             )
         } catch {
-            fatalError("Rust derivation path resolution failed for \(rawValue): \(error.localizedDescription)")
+            fatalError(
+                "Rust derivation path resolution failed for \(displayName): "
+                    + error.localizedDescription)
         }
     }
 }
@@ -490,17 +400,17 @@ extension CoreSeedDerivationPaths {
     /// Storage key for a chain. Testnets share their mainnet counterpart's
     /// slot — the derivation recipe is identical and only the address encoding
     /// differs — and the registry decides which is which.
-    private static func storageKey(for chain: SeedDerivationChain) -> String {
-        CachedCoreHelpers.seedDerivationPathKey(chainName: chain.rawValue)
+    private static func storageKey(for chain: Chain) -> String {
+        CachedCoreHelpers.seedDerivationPathKey(chainName: chain.displayName)
     }
 
     /// Configured derivation path for a chain, or `""` when the chain has no
     /// BIP-32 path (Monero) or is not in the catalog.
-    func path(for chain: SeedDerivationChain) -> String {
+    func path(for chain: Chain) -> String {
         byChain[Self.storageKey(for: chain)] ?? ""
     }
 
-    mutating func setPath(_ path: String, for chain: SeedDerivationChain) {
+    mutating func setPath(_ path: String, for chain: Chain) {
         let key = Self.storageKey(for: chain)
         guard !key.isEmpty else { return }
         byChain[key] = path
@@ -529,7 +439,7 @@ extension CoreSeedDerivationPaths {
     /// Paths keyed by chain display name, for the UI and for diagnostics.
     func toDictionary() -> [String: String] {
         var d: [String: String] = [:]
-        for chain in SeedDerivationChain.allCases { d[chain.rawValue] = path(for: chain) }
+        for chain in Chain.all { d[chain.displayName] = path(for: chain) }
         return d
     }
 }

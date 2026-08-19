@@ -44,12 +44,6 @@ enum WalletRustEndpointCatalogBridge {
         }
     }
     static func liveChainNames() -> [String] { appCoreLiveChainNames() }
-    static func appChainDescriptors() -> [AppChainDescriptor] {
-        appCoreAppChainDescriptors().compactMap {
-            guard let chainID = AppChainID(rawValue: $0.id) else { return nil }
-            return AppChainDescriptor(id: chainID, chainName: $0.chainName, nativeSymbol: $0.nativeSymbol, searchKeywords: $0.searchKeywords, supportsDiagnostics: $0.supportsDiagnostics, supportsEndpointCatalog: $0.supportsEndpointCatalog, isEVM: $0.isEvm)
-        }
-    }
     private static func roleMask(for roles: Set<AppEndpointRole>) -> UInt32 {
         coreEndpointRoleMask(roles: roles.map(\.rawValue))
     }
@@ -118,19 +112,11 @@ enum AppEndpointDirectory {
     }
     static let liveChainNames = WalletRustEndpointCatalogBridge.liveChainNames()
     static let allBackends: [ChainBackendRecord] = loadChainBackends()
-    static let appChains: [AppChainDescriptor] = loadAppChains()
     static func backend(for chainName: String) -> ChainBackendRecord? { allBackends.first { $0.chainName == chainName } }
     static func supportsBalanceRefresh(for chainName: String) -> Bool { backend(for: chainName)?.supportsBalanceRefresh ?? false }
     static func supportsReceiveAddress(for chainName: String) -> Bool { backend(for: chainName)?.supportsReceiveAddress ?? false }
     static func supportsSend(for chainName: String) -> Bool { backend(for: chainName)?.supportsSend ?? false }
-    static func appChain(for chainName: String) -> AppChainDescriptor? { appChains.first { $0.chainName == chainName } }
-    static func appChain(for id: AppChainID) -> AppChainDescriptor { appChains.first(where: { $0.id == id })! }
-    static var diagnosticsChains: [AppChainDescriptor] { appChains.filter(\.supportsDiagnostics) }
-    static var endpointCatalogChains: [AppChainDescriptor] { appChains.filter(\.supportsEndpointCatalog) }
     private static func loadChainBackends() -> [ChainBackendRecord] {
         WalletRustEndpointCatalogBridge.chainBackends()
-    }
-    private static func loadAppChains() -> [AppChainDescriptor] {
-        WalletRustEndpointCatalogBridge.appChainDescriptors()
     }
 }

@@ -194,7 +194,7 @@ extension AppState {
         }
         if let bitcoinAddress = wallet.bitcoinAddress?.trimmingCharacters(in: .whitespacesAndNewlines), !bitcoinAddress.isEmpty {
             let entries = try await WalletServiceBridge.shared.fetchNormalizedHistory(
-                chainId: SpectraChainID.bitcoin, address: bitcoinAddress)
+                chainId: Chain.bitcoin.id, address: bitcoinAddress)
             return decodeBitcoinNormalizedPage(entries: entries, limit: limit)
         }
         if let bitcoinXpub = wallet.bitcoinXpub?.trimmingCharacters(in: .whitespacesAndNewlines), !bitcoinXpub.isEmpty {
@@ -228,18 +228,18 @@ extension AppState {
         guard !bitcoinWallets.isEmpty else { return }
         let requestedLimit = max(10, min(limit ?? HistoryPaging.endpointBatchSize, 100))
         if !loadMore {
-            for walletID in Set(bitcoinWallets.map(\.id)) { resetHistoryPagination(chainId: SpectraChainID.bitcoin, walletId: walletID) }
+            for walletID in Set(bitcoinWallets.map(\.id)) { resetHistoryPagination(chainId: Chain.bitcoin.id, walletId: walletID) }
         }
         var discoveredTransactions: [TransactionRecord] = []
         var encounteredErrors = false
         for wallet in bitcoinWallets {
-            if loadMore && historyPaginationExhausted(chainId: SpectraChainID.bitcoin, walletId: wallet.id) { continue }
-            let cursor = loadMore ? historyPaginationCursor(chainId: SpectraChainID.bitcoin, walletId: wallet.id) : nil
+            if loadMore && historyPaginationExhausted(chainId: Chain.bitcoin.id, walletId: wallet.id) { continue }
+            let cursor = loadMore ? historyPaginationCursor(chainId: Chain.bitcoin.id, walletId: wallet.id) : nil
             do {
                 let page = try await fetchBitcoinHistoryPage(for: wallet, limit: requestedLimit, cursor: cursor)
                 let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? wallet.name
-                setHistoryCursor(chainId: SpectraChainID.bitcoin, walletId: wallet.id, cursor: page.nextCursor)
-                bitcoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
+                setHistoryCursor(chainId: Chain.bitcoin.id, walletId: wallet.id, cursor: page.nextCursor)
+                self[utxoHistoryFor: "Bitcoin"][wallet.id] = BitcoinHistoryDiagnostics(
                     walletId: wallet.id, identifier: identifier, sourceUsed: page.sourceUsed, transactionCount: Int32(page.snapshots.count),
                     nextCursor: page.nextCursor, error: nil
                 )
@@ -257,9 +257,9 @@ extension AppState {
                 )
             } catch {
                 encounteredErrors = true
-                setHistoryCursor(chainId: SpectraChainID.bitcoin, walletId: wallet.id, cursor: nil)
+                setHistoryCursor(chainId: Chain.bitcoin.id, walletId: wallet.id, cursor: nil)
                 let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? ""
-                bitcoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
+                self[utxoHistoryFor: "Bitcoin"][wallet.id] = BitcoinHistoryDiagnostics(
                     walletId: wallet.id, identifier: identifier, sourceUsed: "none", transactionCount: 0, nextCursor: nil,
                     error: error.localizedDescription
                 )
@@ -301,20 +301,20 @@ extension AppState {
         guard !walletsToRefresh.isEmpty else { return }
         if !loadMore {
             for walletID in Set(walletsToRefresh.map { $0.0.id }) {
-                resetHistoryPagination(chainId: SpectraChainID.dogecoin, walletId: walletID)
+                resetHistoryPagination(chainId: Chain.dogecoin.id, walletId: walletID)
             }
         }
         var syncedTransactions: [TransactionRecord] = []
         var encounteredErrors = false
         for (wallet, dogecoinAddresses) in walletsToRefresh {
-            if loadMore && historyPaginationExhausted(chainId: SpectraChainID.dogecoin, walletId: wallet.id) { continue }
+            if loadMore && historyPaginationExhausted(chainId: Chain.dogecoin.id, walletId: wallet.id) { continue }
             var collected: [NormalizedHistoryItem] = []
             for dogecoinAddress in dogecoinAddresses {
                 do {
                     let entries = try await WalletServiceBridge.shared.fetchNormalizedHistory(
-                        chainId: SpectraChainID.dogecoin, address: dogecoinAddress)
+                        chainId: Chain.dogecoin.id, address: dogecoinAddress)
                     collected.append(contentsOf: entries)
-                    markHistoryExhausted(chainId: SpectraChainID.dogecoin, walletId: wallet.id)
+                    markHistoryExhausted(chainId: Chain.dogecoin.id, walletId: wallet.id)
                 } catch { encounteredErrors = true; continue }
             }
             let aggregates = historyAggregateDogecoin(input: DogecoinAggregateInput(ownAddresses: dogecoinAddresses, entries: collected))
@@ -410,7 +410,7 @@ extension AppState {
         var encounteredErrors = false
         let unknownTimestamp = Date.distantPast
         let requestedPageSize = max(20, min(maxResults ?? HistoryPaging.endpointBatchSize, 500))
-        let evmChainId: String = historyPaginationChainId(chainName: chainName) ?? SpectraChainID.bsc
+        let evmChainId: String = historyPaginationChainId(chainName: chainName) ?? Chain.bnbChain.id
         if !loadMore {
             for walletID in Set(walletsToRefresh.map { $0.0.id }) {
                 resetHistoryPagination(chainId: evmChainId, walletId: walletID)
@@ -427,7 +427,7 @@ extension AppState {
             var decodedPage = EvmHistoryPageDecoded(tokens: [], native: [])
             var tokenDiagnostics: EthereumTokenTransferHistoryDiagnostics?
             var tokenHistoryError: Error?
-            guard let chainId = SpectraChainID.id(for: chainName) else {
+            guard let chainId = Chain(displayName: chainName)?.id else {
                 encounteredErrors = true
                 continue
             }
@@ -450,11 +450,11 @@ extension AppState {
             typealias DiagsByWallet = [String: EthereumTokenTransferHistoryDiagnostics]
             let diagsKP: ReferenceWritableKeyPath<AppState, DiagsByWallet>? =
                 chain.isEthereumFamily
-                ? \.ethereumHistoryDiagnosticsByWallet
+                ? \.[evmHistoryFor: "Ethereum"]
                 : chain == .arbitrum
-                    ? \.arbitrumHistoryDiagnosticsByWallet
+                    ? \.[evmHistoryFor: "Arbitrum"]
                     : chain == .optimism
-                        ? \.optimismHistoryDiagnosticsByWallet
+                        ? \.[evmHistoryFor: "Optimism"]
                         : nil
             // The timestamp is keyed by chain now, so it needs a name rather
             // than a key path. A `?:` chain ending in `nil` also infers a

@@ -27,7 +27,7 @@ func classifySolanaDerivationPreference(
 }
 
 private struct ChainAddressDescriptor {
-    let chain: SeedDerivationChain
+    let chain: Chain
     let storedAddressKP: KeyPath<ImportedWallet, String?>
     let validationKind: String
     /// Whether this chain derives from the wallet's configured seed path
@@ -38,7 +38,7 @@ private struct ChainAddressDescriptor {
     let derivedPostProcess: DerivedAddressPostProcess
     let normalizeStored: Bool
     init(
-        _ chain: SeedDerivationChain, _ addressKP: KeyPath<ImportedWallet, String?>, _ kind: String,
+        _ chain: Chain, _ addressKP: KeyPath<ImportedWallet, String?>, _ kind: String,
         usesConfiguredSeedPath: Bool = false,
         post: DerivedAddressPostProcess = .none, normalize: Bool = false
     ) {
@@ -99,14 +99,14 @@ extension AppState {
         )
     }
 
-    private static let addressDescriptors: [SeedDerivationChain: ChainAddressDescriptor] = {
+    private static let addressDescriptors: [Chain: ChainAddressDescriptor] = {
         let all: [ChainAddressDescriptor] = [
             .init(.tron,            \.tronAddress,        "tron",            usesConfiguredSeedPath: true),
             .init(.solana,          \.solanaAddress,       "solana"),
             .init(.sui,             \.suiAddress,          "sui",             normalize: true),
             .init(.aptos,           \.aptosAddress,        "aptos",           normalize: true),
             .init(.ton,             \.tonAddress,          "ton",             normalize: true),
-            .init(.internetComputer,\.icpAddress,          "internetComputer",usesConfiguredSeedPath: true, normalize: true),
+            .init(.icp,\.icpAddress,          "internetComputer",usesConfiguredSeedPath: true, normalize: true),
             .init(.near,            \.nearAddress,         "near",            post: .lowercase, normalize: true),
             .init(.polkadot,        \.polkadotAddress,     "polkadot",        usesConfiguredSeedPath: true, post: .trim),
             .init(.zcash,           \.zcashAddress,        "zcash",           usesConfiguredSeedPath: true),
@@ -119,12 +119,12 @@ extension AppState {
             .init(.xrp,             \.xrpAddress,          "xrp"),
             .init(.litecoin,        \.litecoinAddress,     "litecoin"),
             .init(.bitcoinCash,     \.bitcoinCashAddress,  "bitcoinCash"),
-            .init(.bitcoinSV,       \.bitcoinSvAddress,    "bitcoinSV"),
+            .init(.bitcoinSv,       \.bitcoinSvAddress,    "bitcoinSV"),
         ]
         return Dictionary(uniqueKeysWithValues: all.map { ($0.chain, $0) })
     }()
 
-    func resolvedChainAddress(for wallet: ImportedWallet, chain: SeedDerivationChain) -> String? {
+    func resolvedChainAddress(for wallet: ImportedWallet, chain: Chain) -> String? {
         guard let desc = Self.addressDescriptors[chain] else { return nil }
         let derivationPath =
             desc.usesConfiguredSeedPath
@@ -144,7 +144,7 @@ extension AppState {
     func resolvedSuiAddress(for wallet: ImportedWallet) -> String?        { resolvedChainAddress(for: wallet, chain: .sui) }
     func resolvedAptosAddress(for wallet: ImportedWallet) -> String?      { resolvedChainAddress(for: wallet, chain: .aptos) }
     func resolvedTONAddress(for wallet: ImportedWallet) -> String?        { resolvedChainAddress(for: wallet, chain: .ton) }
-    func resolvedICPAddress(for wallet: ImportedWallet) -> String?        { resolvedChainAddress(for: wallet, chain: .internetComputer) }
+    func resolvedICPAddress(for wallet: ImportedWallet) -> String?        { resolvedChainAddress(for: wallet, chain: .icp) }
     func resolvedNearAddress(for wallet: ImportedWallet) -> String?       { resolvedChainAddress(for: wallet, chain: .near) }
     func resolvedPolkadotAddress(for wallet: ImportedWallet) -> String?   { resolvedChainAddress(for: wallet, chain: .polkadot) }
     func resolvedZcashAddress(for wallet: ImportedWallet) -> String?      { resolvedChainAddress(for: wallet, chain: .zcash) }
@@ -157,7 +157,7 @@ extension AppState {
     func resolvedXRPAddress(for wallet: ImportedWallet) -> String?        { resolvedChainAddress(for: wallet, chain: .xrp) }
     func resolvedLitecoinAddress(for wallet: ImportedWallet) -> String?   { resolvedChainAddress(for: wallet, chain: .litecoin) }
     func resolvedBitcoinCashAddress(for wallet: ImportedWallet) -> String?{ resolvedChainAddress(for: wallet, chain: .bitcoinCash) }
-    func resolvedBitcoinSVAddress(for wallet: ImportedWallet) -> String?  { resolvedChainAddress(for: wallet, chain: .bitcoinSV) }
+    func resolvedBitcoinSVAddress(for wallet: ImportedWallet) -> String?  { resolvedChainAddress(for: wallet, chain: .bitcoinSv) }
 
     func resolvedCardanoAddress(for wallet: ImportedWallet) -> String? {
         if let addr = wallet.cardanoAddress, AddressValidation.isValid(addr, kind: "cardano") {
@@ -208,7 +208,7 @@ extension AppState {
 
     private func resolveDerivedOrStoredAddress(
         for wallet: ImportedWallet,
-        chain: SeedDerivationChain,
+        chain: Chain,
         derivationPath: String,
         storedAddress: String?,
         validationKind: String,

@@ -30,6 +30,7 @@
 		90F002000000000000000012 /* CachedCoreHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000012 /* CachedCoreHelpers.swift */; };
 		90F002000000000000000015 /* ChainRefreshDescriptors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000015 /* ChainRefreshDescriptors.swift */; };
 		90F002000000000000000016 /* ChainTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000016 /* ChainTypes.swift */; };
+		90F002000000000000000100 /* Chain+Registry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000100 /* Chain+Registry.swift */; };
 		90F002000000000000000017 /* CoreModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000017 /* CoreModels.swift */; };
 		90F002000000000000000018 /* DashboardStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000018 /* DashboardStore.swift */; };
 		90F002000000000000000019 /* DebouncedAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000019 /* DebouncedAction.swift */; };
@@ -120,6 +121,7 @@
 		90F001000000000000000012 /* CachedCoreHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedCoreHelpers.swift; sourceTree = "<group>"; };
 		90F001000000000000000015 /* ChainRefreshDescriptors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChainRefreshDescriptors.swift; sourceTree = "<group>"; };
 		90F001000000000000000016 /* ChainTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChainTypes.swift; sourceTree = "<group>"; };
+		90F001000000000000000100 /* Chain+Registry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Chain+Registry.swift"; sourceTree = "<group>"; };
 		90F001000000000000000017 /* CoreModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreModels.swift; sourceTree = "<group>"; };
 		90F001000000000000000018 /* DashboardStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardStore.swift; sourceTree = "<group>"; };
 		90F001000000000000000019 /* DebouncedAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebouncedAction.swift; sourceTree = "<group>"; };
@@ -247,6 +249,7 @@
 				90F00100000000000000000F /* AppStateTypes.swift */,
 				90F001000000000000000010 /* AppUserPreferences.swift */,
 				90F001000000000000000012 /* CachedCoreHelpers.swift */,
+				90F001000000000000000100 /* Chain+Registry.swift */,
 				90F001000000000000000015 /* ChainRefreshDescriptors.swift */,
 				90F001000000000000000016 /* ChainTypes.swift */,
 				90F001000000000000000017 /* CoreModels.swift */,
@@ -498,6 +501,7 @@
 				90F002000000000000000012 /* CachedCoreHelpers.swift in Sources */,
 				90F002000000000000000015 /* ChainRefreshDescriptors.swift in Sources */,
 				90F002000000000000000016 /* ChainTypes.swift in Sources */,
+				90F002000000000000000100 /* Chain+Registry.swift in Sources */,
 				90F002000000000000000017 /* CoreModels.swift in Sources */,
 				90F002000000000000000018 /* DashboardStore.swift in Sources */,
 				90F002000000000000000019 /* DebouncedAction.swift in Sources */,

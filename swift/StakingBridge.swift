@@ -143,13 +143,13 @@ import Foundation
 private extension StakingBridge {
     static func buildEndpoints() -> [ChainEndpoints] {
         var payloads: [ChainEndpoints] = []
-        payloads += rpcPayloads(chainId: SpectraChainID.solana,   chainName: "Solana")
-        payloads += rpcPayloads(chainId: SpectraChainID.cardano,  chainName: "Cardano")
-        payloads += rpcPayloads(chainId: SpectraChainID.polkadot, chainName: "Polkadot")
-        payloads += rpcPayloads(chainId: SpectraChainID.sui,      chainName: "Sui")
-        payloads += rpcPayloads(chainId: SpectraChainID.aptos,    chainName: "Aptos")
-        payloads += rpcPayloads(chainId: SpectraChainID.near,     chainName: "NEAR")
-        payloads += rpcPayloads(chainId: SpectraChainID.icp,      chainName: "Internet Computer")
+        payloads += rpcPayloads(chainId: Chain.solana.id,   chainName: "Solana")
+        payloads += rpcPayloads(chainId: Chain.cardano.id,  chainName: "Cardano")
+        payloads += rpcPayloads(chainId: Chain.polkadot.id, chainName: "Polkadot")
+        payloads += rpcPayloads(chainId: Chain.sui.id,      chainName: "Sui")
+        payloads += rpcPayloads(chainId: Chain.aptos.id,    chainName: "Aptos")
+        payloads += rpcPayloads(chainId: Chain.near.id,     chainName: "NEAR")
+        payloads += rpcPayloads(chainId: Chain.icp.id,      chainName: "Internet Computer")
         return payloads
     }
 

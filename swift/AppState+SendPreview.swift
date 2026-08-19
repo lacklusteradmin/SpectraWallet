@@ -77,7 +77,7 @@ extension AppState {
                 Task { @MainActor in await self.refreshEthereumSendPreview() }
             }
         }
-        guard let chainId = SpectraChainID.id(for: selectedSendCoin.chainName) else {
+        guard let chainId = Chain(displayName: selectedSendCoin.chainName)?.id else {
             sendPreviewStore.ethereumSendPreview = nil
             preparingChains.remove("Ethereum")
             return
@@ -186,7 +186,7 @@ extension AppState {
                 sendPreviewStore.bitcoinSendPreview = try await WalletServiceBridge.shared.fetchBitcoinHdSendPreviewTyped(xpub: xpub)
             } else if let address = resolvedBitcoinAddress(for: wallet) {
                 sendPreviewStore.bitcoinSendPreview = try await decodedUTXOFeePreview(
-                    chainId: SpectraChainID.bitcoin, address: address, satPerCoin: 100_000_000
+                    chainId: Chain.bitcoin.id, address: address, satPerCoin: 100_000_000
                 )
             } else {
                 sendPreviewStore.bitcoinSendPreview = nil
@@ -217,12 +217,12 @@ extension AppState {
     }
     func refreshBitcoinCashSendPreview() async {
         await refreshUTXOSatChainPreview(
-            chainName: "Bitcoin Cash", symbol: "BCH", chainId: SpectraChainID.bitcoinCash,
+            chainName: "Bitcoin Cash", symbol: "BCH", chainId: Chain.bitcoinCash.id,
             resolveAddress: { self.resolvedBitcoinCashAddress(for: $0) }, setPreview: { self.sendPreviewStore.bitcoinCashSendPreview = $0 })
     }
     func refreshBitcoinSVSendPreview() async {
         await refreshUTXOSatChainPreview(
-            chainName: "Bitcoin SV", symbol: "BSV", chainId: SpectraChainID.bitcoinSv,
+            chainName: "Bitcoin SV", symbol: "BSV", chainId: Chain.bitcoinSv.id,
             resolveAddress: { self.resolvedBitcoinSVAddress(for: $0) }, setPreview: { self.sendPreviewStore.bitcoinSVSendPreview = $0 })
     }
     func refreshLitecoinSendPreview() async {
@@ -234,14 +234,14 @@ extension AppState {
         else { sendPreviewStore.litecoinSendPreview = nil; return }
         let isMweb = sendAddress.hasPrefix("ltcmweb1") || sendAddress.hasPrefix("tmweb1")
         do {
-            var preview = try await decodedUTXOFeePreview(chainId: SpectraChainID.litecoin, address: sourceAddress, satPerCoin: 100_000_000)
+            var preview = try await decodedUTXOFeePreview(chainId: Chain.litecoin.id, address: sourceAddress, satPerCoin: 100_000_000)
             if isMweb {
                 let mwebOverhead: Int64 = 1017
                 let adjustedBytes = (preview.estimatedTransactionBytes ?? 0) + mwebOverhead
                 let additionalFeeBtc = Double(mwebOverhead) * Double(preview.estimatedFeeRateSatVb) / 100_000_000.0
                 preview = BitcoinSendPreview(
                     estimatedFeeRateSatVb: preview.estimatedFeeRateSatVb,
-                    estimatedNetworkFeeBtc: preview.estimatedNetworkFeeBtc + additionalFeeBtc,
+                    estimatedNetworkFee: preview.estimatedNetworkFee + additionalFeeBtc,
                     feeRateDescription: preview.feeRateDescription,
                     spendableBalance: preview.spendableBalance,
                     estimatedTransactionBytes: adjustedBytes,
@@ -317,115 +317,42 @@ extension AppState {
             sendError = cfg.errorMessage
         }
     }
-    func refreshSolanaSendPreview() async {
+    /// Which `SimpleChain` a chain name is, for chains whose preview core
+    /// fetches through one entry point.
+    private static let simplePreviewChains: [String: SimpleChain] = [
+        "Solana": .solana, "XRP Ledger": .xrp, "Stellar": .stellar, "Monero": .monero,
+        "Cardano": .cardano, "Sui": .sui, "Aptos": .aptos, "TON": .ton,
+        "Internet Computer": .icp, "NEAR": .near, "Polkadot": .polkadot,
+    ]
+
+    /// Refresh the send preview for a chain core estimates through the shared
+    /// path.
+    ///
+    /// Eleven near-identical functions used to do this, differing in a chain
+    /// name, a symbol, an address resolver and a message. Two differences were
+    /// real and are stated here: Solana's sendable-coin rule is its own, and
+    /// Polkadot refuses to preview without a seed phrase.
+    func refreshSendPreview(forChainNamed chainName: String) async {
+        guard let rustChain = Self.simplePreviewChains[chainName],
+            let chainID = coreChainStrIdForName(name: chainName), !chainID.isEmpty
+        else { return }
+        let symbol = Chain(displayName: chainName)?.gasTokenSymbol ?? ""
         await refreshSimpleChain(
             .init(
-                chainId: SpectraChainID.solana, rustChain: .solana,
-                coinCheck: { s, c in s.isSupportedSolanaSendCoin(c) },
-                resolveAddress: { s, w in s.resolvedSolanaAddress(for: w) },
-                chainName: "Solana",
-                applyPreview: { s, p in if case .solana(let pv)? = p { s.sendPreviewStore.solanaSendPreview = pv } else { s.sendPreviewStore.solanaSendPreview = nil } },
-                errorMessage: "Unable to estimate Solana fee right now. Check provider health and retry."))
-    }
-    func refreshXrpSendPreview() async {
-        await refreshSimpleChain(
-            .init(
-                chainId: SpectraChainID.xrp, rustChain: .xrp,
-                coinCheck: { _, c in c.chainName == "XRP Ledger" && c.symbol == "XRP" },
-                resolveAddress: { s, w in s.resolvedXRPAddress(for: w) },
-                chainName: "XRP Ledger",
-                applyPreview: { s, p in if case .xrp(let pv)? = p { s.sendPreviewStore.xrpSendPreview = pv } else { s.sendPreviewStore.xrpSendPreview = nil } },
-                errorMessage: "Unable to estimate XRP fee right now. Check provider health and retry."))
-    }
-    func refreshStellarSendPreview() async {
-        await refreshSimpleChain(
-            .init(
-                chainId: SpectraChainID.stellar, rustChain: .stellar,
-                coinCheck: { _, c in c.chainName == "Stellar" && c.symbol == "XLM" },
-                resolveAddress: { s, w in s.resolvedStellarAddress(for: w) },
-                chainName: "Stellar",
-                applyPreview: { s, p in if case .stellar(let pv)? = p { s.sendPreviewStore.stellarSendPreview = pv } else { s.sendPreviewStore.stellarSendPreview = nil } },
-                errorMessage: "Unable to estimate Stellar fee right now. Check provider health and retry."))
-    }
-    func refreshMoneroSendPreview() async {
-        await refreshSimpleChain(
-            .init(
-                chainId: SpectraChainID.monero, rustChain: .monero,
-                coinCheck: { _, c in c.chainName == "Monero" && c.symbol == "XMR" },
-                resolveAddress: { s, w in s.resolvedMoneroAddress(for: w) },
-                chainName: "Monero",
-                applyPreview: { s, p in if case .monero(let pv)? = p { s.sendPreviewStore.moneroSendPreview = pv } else { s.sendPreviewStore.moneroSendPreview = nil } },
-                errorMessage: "Unable to estimate Monero fee right now. Check provider health and retry."))
-    }
-    func refreshCardanoSendPreview() async {
-        await refreshSimpleChain(
-            .init(
-                chainId: SpectraChainID.cardano, rustChain: .cardano,
-                coinCheck: { _, c in c.chainName == "Cardano" && c.symbol == "ADA" },
-                resolveAddress: { s, w in s.resolvedCardanoAddress(for: w) },
-                chainName: "Cardano",
-                applyPreview: { s, p in if case .cardano(let pv)? = p { s.sendPreviewStore.cardanoSendPreview = pv } else { s.sendPreviewStore.cardanoSendPreview = nil } },
-                errorMessage: "Unable to estimate Cardano fee right now. Check provider health and retry."))
-    }
-    func refreshSuiSendPreview() async {
-        await refreshSimpleChain(
-            .init(
-                chainId: SpectraChainID.sui, rustChain: .sui,
-                coinCheck: { _, c in c.chainName == "Sui" && c.symbol == "SUI" },
-                resolveAddress: { s, w in s.resolvedSuiAddress(for: w) },
-                chainName: "Sui",
-                applyPreview: { s, p in if case .sui(let pv)? = p { s.sendPreviewStore.suiSendPreview = pv } else { s.sendPreviewStore.suiSendPreview = nil } },
-                errorMessage: "Unable to estimate Sui fee right now. Check provider health and retry."))
-    }
-    func refreshAptosSendPreview() async {
-        await refreshSimpleChain(
-            .init(
-                chainId: SpectraChainID.aptos, rustChain: .aptos,
-                coinCheck: { _, c in c.chainName == "Aptos" && c.symbol == "APT" },
-                resolveAddress: { s, w in s.resolvedAptosAddress(for: w) },
-                chainName: "Aptos",
-                applyPreview: { s, p in if case .aptos(let pv)? = p { s.sendPreviewStore.aptosSendPreview = pv } else { s.sendPreviewStore.aptosSendPreview = nil } },
-                errorMessage: "Unable to estimate Aptos fee right now. Check provider health and retry."))
-    }
-    func refreshTonSendPreview() async {
-        await refreshSimpleChain(
-            .init(
-                chainId: SpectraChainID.ton, rustChain: .ton,
-                coinCheck: { _, c in c.chainName == "TON" && c.symbol == "TON" },
-                resolveAddress: { s, w in s.resolvedTONAddress(for: w) },
-                chainName: "TON",
-                applyPreview: { s, p in if case .ton(let pv)? = p { s.sendPreviewStore.tonSendPreview = pv } else { s.sendPreviewStore.tonSendPreview = nil } },
-                errorMessage: "Unable to estimate TON fee right now. Check provider health and retry."))
-    }
-    func refreshIcpSendPreview() async {
-        await refreshSimpleChain(
-            .init(
-                chainId: SpectraChainID.icp, rustChain: .icp,
-                coinCheck: { _, c in c.chainName == "Internet Computer" && c.symbol == "ICP" },
-                resolveAddress: { s, w in s.resolvedICPAddress(for: w) },
-                chainName: "Internet Computer",
-                applyPreview: { s, p in if case .icp(let pv)? = p { s.sendPreviewStore.icpSendPreview = pv } else { s.sendPreviewStore.icpSendPreview = nil } },
-                errorMessage: "Unable to estimate ICP fee right now. Check provider health and retry."))
-    }
-    func refreshNearSendPreview() async {
-        await refreshSimpleChain(
-            .init(
-                chainId: SpectraChainID.near, rustChain: .near,
-                coinCheck: { _, c in c.chainName == "NEAR" && c.symbol == "NEAR" },
-                resolveAddress: { s, w in s.resolvedNearAddress(for: w) },
-                chainName: "NEAR",
-                applyPreview: { s, p in if case .near(let pv)? = p { s.sendPreviewStore.nearSendPreview = pv } else { s.sendPreviewStore.nearSendPreview = nil } },
-                errorMessage: "Unable to estimate NEAR fee right now. Check provider health and retry."))
-    }
-    func refreshPolkadotSendPreview() async {
-        await refreshSimpleChain(
-            .init(
-                chainId: SpectraChainID.polkadot, rustChain: .polkadot,
-                coinCheck: { _, c in c.chainName == "Polkadot" && c.symbol == "DOT" },
-                resolveAddress: { s, w in s.storedSeedPhrase(for: w.id) != nil ? s.resolvedPolkadotAddress(for: w) : nil },
-                chainName: "Polkadot",
-                applyPreview: { s, p in if case .polkadot(let pv)? = p { s.sendPreviewStore.polkadotSendPreview = pv } else { s.sendPreviewStore.polkadotSendPreview = nil }
+                chainId: chainID, rustChain: rustChain,
+                coinCheck: { s, c in
+                    chainName == "Solana"
+                        ? s.isSupportedSolanaSendCoin(c)
+                        : (c.chainName == chainName && c.symbol == symbol)
                 },
-                errorMessage: "Unable to estimate Polkadot fee right now. Check provider health and retry."))
+                resolveAddress: { s, w in
+                    // Polkadot's estimate needs the account, which it derives
+                    // from the seed; a watch-only wallet gets no preview.
+                    if chainName == "Polkadot", s.storedSeedPhrase(for: w.id) == nil { return nil }
+                    return s.resolvedAddress(for: w, chainName: chainName)
+                },
+                chainName: chainName,
+                applyPreview: { s, p in s.sendPreviewStore.apply(p, forChainNamed: chainName) },
+                errorMessage: "Unable to estimate \(chainName) fee right now. Check provider health and retry."))
     }
 }

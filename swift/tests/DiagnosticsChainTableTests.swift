@@ -3,86 +3,38 @@ import XCTest
 
 @testable import Spectra
 
-/// The same 24 chains are written down six times in the diagnostics code:
-/// `StandardDiagnosticsChain`, `chainDiagDescriptors`, `dispatchTable`,
-/// `diagnosticsBundleChainNames`, the `diagnosticsJSON(for:)` switch, and the
-/// 163 per-chain stored properties behind them.
+/// The diagnostics code used to write the same twenty-four chains down six
+/// times: `StandardDiagnosticsChain`, `chainDiagDescriptors`, `dispatchTable`,
+/// `utxoActions`, `diagnosticsBundleChainNames` and the `diagnosticsJSON(for:)`
+/// switch. Five of those are gone — the chain list is `Chain.mainnets` and the
+/// per-chain differences (`diagnosticsShape`, the native ticker, the display
+/// name) are registry columns — so the tests that pinned the copies together
+/// have nothing left to pin.
 ///
-/// Collapsing those tables is the largest remaining piece of Stage 3, and the
-/// failure mode it invites is a chain quietly falling out of one list while the
-/// others keep it — which is exactly what happened when the 23 JSON wrappers
-/// were collapsed and Tron and Solana were dropped. These tests are the net for
-/// that work: they say nothing about behaviour, only that the lists agree, and
-/// they are meant to fail loudly the moment one of them is edited alone.
+/// What survives is the one table that is still hand-written:
+/// `chainDiagDescriptors`, which overrides the generic drivers for the chains
+/// whose history diagnostics are not generic. It is keyed by `Chain`, so it
+/// cannot name a chain that does not exist; it can still name one no screen
+/// ever reaches.
 @MainActor
 final class DiagnosticsChainTableTests: XCTestCase {
-    /// Every chain is covered, but not every chain needs a row.
-    ///
-    /// This used to assert one descriptor per chain and that the counts
-    /// matched. Eight rows were byte-identical but for the chain name, so a
-    /// chain with no row now falls through to the shared path — which means
-    /// "has a row" stopped being the thing worth checking. What still matters
-    /// is that no descriptor names a chain the enum has dropped, which is the
-    /// direction that actually goes stale.
-    func testNoRunDescriptorNamesAnUnknownChain() {
-        let known = Set(StandardDiagnosticsChain.allCases)
+    func testEveryRunDescriptorNamesAChainTheHubOffers() {
+        let offered = Set(Chain.mainnets)
         for chain in AppState.chainDiagDescriptors.keys {
             XCTAssertTrue(
-                known.contains(chain),
-                "chainDiagDescriptors has an entry for \(chain.rawValue), which the enum does not list")
+                offered.contains(chain),
+                "chainDiagDescriptors overrides \(chain.displayName), which has no screen")
         }
     }
 
-    /// A chain without its own descriptor must still resolve a title, because
-    /// the shared path looks its chain id up by that name.
-    func testEveryChainWithoutADescriptorResolvesByTitle() {
-        for chain in StandardDiagnosticsChain.allCases
-        where AppState.chainDiagDescriptors[chain] == nil {
-            let id = coreChainStrIdForName(name: chain.chainName) ?? ""
-            XCTAssertFalse(
-                id.isEmpty,
-                "\(chain.rawValue) falls through to the shared diagnostics path, but its "
-                    + "name \"\(chain.chainName)\" does not resolve to a registry chain")
-        }
-    }
-
-    func testEveryDiagnosticsChainHasAViewDispatchEntry() {
-        for chain in StandardDiagnosticsChain.allCases {
-            XCTAssertNotNil(
-                StandardDiagnosticsChain.dispatchTable[chain],
-                "\(chain.rawValue) has no entry in dispatchTable")
-        }
+    /// The hub, the export bundle and the per-chain screens have to be reading
+    /// the same list. They are the same expression now; this fails if one of
+    /// them is edited back into a copy.
+    func testTheBundleListIsTheChainsTheHubOffers() {
+        XCTAssertEqual(AppState.diagnosticsBundleChainNames, Chain.mainnets.map(\.displayName))
         XCTAssertEqual(
-            StandardDiagnosticsChain.dispatchTable.count,
-            StandardDiagnosticsChain.allCases.count,
-            "dispatchTable has entries for chains the enum does not list")
-    }
-
-    /// The bundle names chains by display name and the enum by registry id.
-    /// `title` is neither — it is the UI heading ("Bitcoin Diagnostics") — so
-    /// the two lists are compared on the id, which is the only spelling both
-    /// sides can agree on.
-    func testTheBundleListAndTheChainEnumDescribeTheSameSet() {
-        let bundleIds = Set(AppState.diagnosticsBundleChainNames.map { coreChainStrIdForName(name: $0) })
-        let enumIds = Set(StandardDiagnosticsChain.allCases.map(\.rawValue))
-        XCTAssertEqual(
-            bundleIds.count, StandardDiagnosticsChain.allCases.count,
-            "the bundle list and the chain enum are different sizes")
-        XCTAssertEqual(
-            bundleIds.symmetricDifference(enumIds), [],
-            "the bundle list and the chain enum disagree")
-    }
-
-    /// Every id the enum carries has to be a chain the registry knows, so a
-    /// registry rename cannot leave a diagnostics entry pointing at nothing.
-    func testEveryDiagnosticsChainIdResolvesInTheRegistry() {
-        for chain in StandardDiagnosticsChain.allCases {
-            XCTAssertFalse(chain.title.isEmpty, "\(chain.rawValue) has no title")
-            XCTAssertTrue(
-                AppState.diagnosticsBundleChainNames.contains {
-                    coreChainStrIdForName(name: $0) == chain.rawValue
-                },
-                "\(chain.rawValue) is not a chain the bundle reports on")
-        }
+            Set(AppState.diagnosticsBundleChainNames).count,
+            AppState.diagnosticsBundleChainNames.count,
+            "duplicate chain in the bundle list")
     }
 }

@@ -213,9 +213,10 @@ final class WalletImportDraft {
             scriptType: nilIfBlank(overrideScriptType)
         )
     }
-    var selectableDerivationChains: [SeedDerivationChain] {
-        let selectedChainNameSet = Set(selectedChainNames)
-        return SeedDerivationChain.allCases.filter { selectedChainNameSet.contains($0.rawValue) }
+    /// The selected chains, in catalog order rather than selection order.
+    var selectableDerivationChains: [Chain] {
+        let selected = Set(selectedChainNames)
+        return Chain.all.filter { selected.contains($0.displayName) }
     }
     func applyDerivationPreset(_ preset: SeedDerivationPreset, keepCustomEnabled: Bool? = nil) {
         seedDerivationPreset = preset

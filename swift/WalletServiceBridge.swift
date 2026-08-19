@@ -1,37 +1,4 @@
 import Foundation
-enum SpectraChainID: Sendable {
-    static let bitcoin:          String = "bitcoin"
-    static let ethereum:         String = "ethereum"
-    static let solana:           String = "solana"
-    static let dogecoin:         String = "dogecoin"
-    static let xrp:              String = "xrp"
-    static let litecoin:         String = "litecoin"
-    static let bitcoinCash:      String = "bitcoin-cash"
-    static let tron:             String = "tron"
-    static let stellar:          String = "stellar"
-    static let cardano:          String = "cardano"
-    static let polkadot:         String = "polkadot"
-    static let arbitrum:         String = "arbitrum"
-    static let optimism:         String = "optimism"
-    static let avalanche:        String = "avalanche"
-    static let sui:              String = "sui"
-    static let aptos:            String = "aptos"
-    static let ton:              String = "ton"
-    static let near:             String = "near"
-    static let icp:              String = "internet-computer"
-    static let monero:           String = "monero"
-    static let base:             String = "base"
-    static let ethereumClassic:  String = "ethereum-classic"
-    static let bitcoinSv:        String = "bitcoin-sv"
-    static let bsc:              String = "bnb"
-    static let hyperliquid:      String = "hyperliquid"
-    static let polygon:          String = "polygon"
-    static let linea:            String = "linea"
-    static let scroll:           String = "scroll"
-    static let blast:            String = "blast"
-    static let mantle:           String = "mantle"
-    nonisolated static func id(for chainName: String) -> String? { MainActor.assumeIsolated { coreChainStrIdForName(name: chainName) } }
-}
 /// Test seam: tests that don't want to talk to a real Rust service can
 /// inject a stub conforming to `WalletServiceBridgeProtocol`. Existing
 /// production call sites continue to use `WalletServiceBridge.shared`.
@@ -430,63 +397,41 @@ enum WalletServiceBridgeError: LocalizedError {
 private extension WalletServiceBridge {
     static func buildEndpoints() -> [ChainEndpoints] {
         var payloads: [ChainEndpoints] = []
-        payloads += rpcPayloads(chainId: SpectraChainID.bitcoin,         chainName: "Bitcoin")
-        payloads += evmPayloads(chainId: SpectraChainID.ethereum,        chainName: "Ethereum")
-        payloads += rpcPayloads(chainId: SpectraChainID.solana,          chainName: "Solana")
-        payloads += rpcPayloads(chainId: SpectraChainID.dogecoin,        chainName: "Dogecoin")
-        payloads += rpcPayloads(chainId: SpectraChainID.xrp,             chainName: "XRP Ledger")
-        payloads += rpcPayloads(chainId: SpectraChainID.litecoin,        chainName: "Litecoin")
-        payloads += rpcPayloads(chainId: SpectraChainID.bitcoinCash,     chainName: "Bitcoin Cash")
-        payloads += rpcPayloads(chainId: SpectraChainID.tron,            chainName: "Tron")
-        payloads += rpcPayloads(chainId: SpectraChainID.stellar,         chainName: "Stellar")
-        payloads += rpcPayloads(chainId: SpectraChainID.cardano,         chainName: "Cardano")
-        payloads += rpcPayloads(chainId: SpectraChainID.polkadot,        chainName: "Polkadot")
-        payloads += evmPayloads(chainId: SpectraChainID.arbitrum,        chainName: "Arbitrum")
-        payloads += evmPayloads(chainId: SpectraChainID.optimism,        chainName: "Optimism")
-        payloads += evmPayloads(chainId: SpectraChainID.avalanche,       chainName: "Avalanche")
-        payloads += rpcPayloads(chainId: SpectraChainID.sui,             chainName: "Sui")
-        payloads += rpcPayloads(chainId: SpectraChainID.aptos,           chainName: "Aptos")
-        payloads += rpcPayloads(chainId: SpectraChainID.ton,             chainName: "TON")
-        payloads += rpcPayloads(chainId: SpectraChainID.near,            chainName: "NEAR")
-        payloads += rpcPayloads(chainId: SpectraChainID.icp,             chainName: "Internet Computer")
-        payloads += rpcPayloads(chainId: SpectraChainID.monero,          chainName: "Monero")
-        payloads += evmPayloads(chainId: SpectraChainID.base,            chainName: "Base")
-        payloads += evmPayloads(chainId: SpectraChainID.ethereumClassic, chainName: "Ethereum Classic")
-        payloads += rpcPayloads(chainId: SpectraChainID.bitcoinSv,       chainName: "Bitcoin SV")
-        payloads += evmPayloads(chainId: SpectraChainID.bsc,             chainName: "BNB Chain")
-        payloads += evmPayloads(chainId: SpectraChainID.hyperliquid,     chainName: "Hyperliquid")
-        payloads += evmPayloads(chainId: SpectraChainID.polygon,         chainName: "Polygon")
-        payloads += evmPayloads(chainId: SpectraChainID.linea,           chainName: "Linea")
-        payloads += evmPayloads(chainId: SpectraChainID.scroll,          chainName: "Scroll")
-        payloads += evmPayloads(chainId: SpectraChainID.blast,           chainName: "Blast")
-        payloads += evmPayloads(chainId: SpectraChainID.mantle,          chainName: "Mantle")
-        payloads += explorerPayloads(chainId: endpointSlotId(SpectraChainID.polkadot, .secondary), chainName: "Polkadot")
-        payloads += explorerPayloads(chainId: endpointSlotId(SpectraChainID.icp, .secondary), chainName: "Internet Computer")
+        // A chain's id is its name, resolved by the registry — stating both was
+        // 30 rows of `chainId: <id>, chainName: "X"`. Whether its endpoints come
+        // from the EVM list or the generic record list is `coreIsEvmChain`.
+        for chainName in AppEndpointDirectory.liveChainNames {
+            payloads +=
+                coreIsEvmChain(chainName: chainName)
+                ? evmPayloads(chainName: chainName) : rpcPayloads(chainName: chainName)
+        }
+        // Supplemental explorer endpoints, and the slot each chain writes them
+        // into. Which slot is a per-chain fact that still lives in Swift rather
+        // than on `registry::Chain` — see PLAN.md "Known open items".
+        let supplemental: [(chain: Chain, slot: AppCoreEndpointSlot)] =
+            [(.polkadot, .secondary), (.icp, .secondary)]
+            + [Chain.ethereum, .tron, .arbitrum, .optimism, .avalanche, .near, .base,
+               .ethereumClassic, .bnbChain, .polygon, .linea, .scroll, .blast, .mantle]
+                .map { ($0, .explorer) }
+        for (chain, slot) in supplemental {
+            payloads += explorerPayloads(
+                chainId: endpointSlotId(chain.id, slot), chainName: chain.displayName)
+        }
         let tonV3URLs = AppEndpointDirectory.endpoints(for: ["ton.api.v3"])
-        if !tonV3URLs.isEmpty { payloads.append(ChainEndpoints(chainId: endpointSlotId(SpectraChainID.ton, .secondary), endpoints: tonV3URLs, apiKey: nil)) }
-        let explorerChains: [(String, String)] = [
-            (SpectraChainID.ethereum,        "Ethereum"),
-            (SpectraChainID.tron,            "Tron"),
-            (SpectraChainID.arbitrum,        "Arbitrum"),
-            (SpectraChainID.optimism,        "Optimism"),
-            (SpectraChainID.avalanche,       "Avalanche"),
-            (SpectraChainID.near,            "NEAR"),
-            (SpectraChainID.base,            "Base"),
-            (SpectraChainID.ethereumClassic, "Ethereum Classic"),
-            (SpectraChainID.bsc,             "BNB Chain"),
-            (SpectraChainID.polygon,         "Polygon"),
-            (SpectraChainID.linea,           "Linea"),
-            (SpectraChainID.scroll,          "Scroll"),
-            (SpectraChainID.blast,           "Blast"),
-            (SpectraChainID.mantle,          "Mantle"),
-        ]
-        for (primaryId, chainName) in explorerChains { payloads += explorerPayloads(chainId: endpointSlotId(primaryId, .explorer), chainName: chainName) }
+        if !tonV3URLs.isEmpty {
+            payloads.append(
+                ChainEndpoints(
+                    chainId: endpointSlotId(Chain.ton.id, .secondary), endpoints: tonV3URLs,
+                    apiKey: nil))
+        }
         return payloads
     }
     static func endpointSlotId(_ chainId: String, _ slot: AppCoreEndpointSlot) -> String {
         coreEndpointStrId(chainId: chainId, slot: slot) ?? chainId
     }
-    static func rpcPayloads(chainId: String, chainName: String) -> [ChainEndpoints] {
+    static func rpcPayloads(chainName: String) -> [ChainEndpoints] {
+        let chainId = coreChainStrIdForName(name: chainName) ?? ""
+        guard !chainId.isEmpty else { return [] }
         let endpoints = (
             try? WalletRustEndpointCatalogBridge.endpointRecords(
                 for: chainName, roles: [.rpc, .balance, .backend], settingsVisibleOnly: false
@@ -495,7 +440,9 @@ private extension WalletServiceBridge {
         guard !endpoints.isEmpty else { return [] }
         return [ChainEndpoints(chainId: chainId, endpoints: endpoints, apiKey: nil)]
     }
-    static func evmPayloads(chainId: String, chainName: String) -> [ChainEndpoints] {
+    static func evmPayloads(chainName: String) -> [ChainEndpoints] {
+        let chainId = coreChainStrIdForName(name: chainName) ?? ""
+        guard !chainId.isEmpty else { return [] }
         let endpoints = (try? WalletRustEndpointCatalogBridge.evmRPCEndpoints(for: chainName)) ?? []
         guard !endpoints.isEmpty else { return [] }
         return [ChainEndpoints(chainId: chainId, endpoints: endpoints, apiKey: nil)]

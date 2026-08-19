@@ -401,7 +401,7 @@ struct HistoryDetailView: View {
     }
     private func normalizedAddress(_ value: String?) -> String? {
         guard let trimmed = nonEmptyAddress(value) else { return nil }
-        let isEVM = AppEndpointDirectory.appChain(for: displayedTransaction.chainName)?.isEVM ?? false
+        let isEVM = Chain(displayName: displayedTransaction.chainName)?.isEVM ?? false
         return isEVM ? trimmed.lowercased() : trimmed
     }
     private func isOwnedAddress(_ value: String?) -> Bool {

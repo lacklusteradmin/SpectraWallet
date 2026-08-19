@@ -1,0 +1,89 @@
+import Foundation
+
+/// The app's one chain type.
+///
+/// `Chain` is generated from `registry::Chain`, which is declared in the order
+/// of `core/data/chains.toml`. Everything a call site used to read off a
+/// hand-written Swift enum — the string id, the display name, the native
+/// symbol, whether the chain is EVM — is a column of that catalog and is read
+/// from it here.
+///
+/// Four Swift enums used to state this list: `SpectraChainID` (30 ids),
+/// `SeedDerivationChain` (76 display names), `AppChainID` (30) and
+/// `StandardDiagnosticsChain` (24). None of them agreed with the catalog or
+/// with each other. Add a chain to `chains.toml` and it appears here; there is
+/// no second place to remember.
+extension Chain: Identifiable {
+    /// Every chain, in catalog order.
+    static let all: [Chain] = identities.map(\.chain)
+
+    /// Only the chains that are not testnets. Ordered as the catalog is.
+    static let mainnets: [Chain] = identities.filter { !$0.isTestnet }.map(\.chain)
+
+    private static let identities: [ChainIdentity] = coreChainIdentities()
+    private static let identityByChain: [Chain: ChainIdentity] = Dictionary(
+        uniqueKeysWithValues: identities.map { ($0.chain, $0) })
+    private static let chainByID: [String: Chain] = Dictionary(
+        uniqueKeysWithValues: identities.map { ($0.id, $0.chain) })
+    private static let chainByName: [String: Chain] = Dictionary(
+        uniqueKeysWithValues: identities.map { ($0.name, $0.chain) })
+    private static let entryByChain: [Chain: ChainEntry] = {
+        let byID = Dictionary(uniqueKeysWithValues: listAllChains().map { ($0.id, $0) })
+        return identities.reduce(into: [:]) { out, identity in
+            if let entry = byID[identity.id] { out[identity.chain] = entry }
+        }
+    }()
+
+    private var identity: ChainIdentity? { Self.identityByChain[self] }
+
+    /// The catalog's stable `id` — `"bitcoin"`, `"bitcoin-cash"`, `"bnb"`.
+    /// This is what crosses the FFI boundary and what endpoint tables key on.
+    public var id: String { identity?.id ?? "" }
+
+    /// The catalog's `name` — `"Bitcoin Cash"`, `"XRP Ledger"`, `"BNB Chain"`.
+    /// One spelling per chain: the registry has a test that says so.
+    var displayName: String { identity?.name ?? "" }
+
+    var isTestnet: Bool { identity?.isTestnet ?? false }
+
+    /// This chain's catalog row. `nil` only if the enum and the catalog have
+    /// drifted, which core's `chain_order_matches_the_catalog` fails on.
+    var entry: ChainEntry? { Self.entryByChain[self] }
+
+    /// The chain's own ticker — `ARB` on Arbitrum.
+    var symbol: String { entry?.symbol ?? "" }
+    /// The asset fees are paid in — `ETH` on Arbitrum. Distinct from `symbol`
+    /// on every L2, and it is this one that says whether a holding is native.
+    var gasTokenSymbol: String { entry?.gasTokenSymbol ?? "" }
+    var isEVM: Bool { entry?.isEvm ?? false }
+    var supportsDiagnostics: Bool { entry?.supportsDiagnostics ?? false }
+    var supportsEndpointCatalog: Bool { entry?.supportsEndpointCatalog ?? false }
+    var searchKeywords: [String] { entry?.searchKeywords ?? [] }
+
+    /// The catalog's default BIP-32 path for account 0. Empty for chains that
+    /// have no path at all — Monero derives from the seed directly.
+    @MainActor var defaultDerivationPath: String {
+        CachedCoreHelpers.chainDerivationPath(chainName: displayName)
+    }
+
+    /// Whether this chain's addresses are its own rather than another chain's.
+    ///
+    /// The EVM family shares one derived address, filed under Ethereum's slot,
+    /// so `Arbitrum` answers `false` here while `Ethereum` and
+    /// `Ethereum Classic` answer `true`. Anything that indexes addresses per
+    /// chain — keypools, owned-address registration — wants the owners.
+    var ownsItsAddressSlot: Bool { coreAddressSlot(chainName: displayName) == id }
+
+    /// Which history-record shape this chain's diagnostics screen reads.
+    var diagnosticsShape: DiagnosticsShape { identity?.diagnosticsShape ?? .simple }
+
+    init?(id: String) {
+        guard let chain = Self.chainByID[id] else { return nil }
+        self = chain
+    }
+
+    init?(displayName: String) {
+        guard let chain = Self.chainByName[displayName] else { return nil }
+        self = chain
+    }
+}

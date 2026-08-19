@@ -88,7 +88,7 @@ extension AppState {
         for wallet in wallets {
             guard isEVMChain(wallet.selectedChain),
                   let tokenChain = TokenTrackingChain.forChainName(wallet.selectedChain),
-                  let chainId = SpectraChainID.id(for: wallet.selectedChain),
+                  let chainId = Chain(displayName: wallet.selectedChain)?.id,
                   let address = resolvedAddress(for: wallet, chainName: wallet.selectedChain)
             else { continue }
             let trackedTokens = enabledEVMTrackedTokens(for: tokenChain)
@@ -146,7 +146,7 @@ extension AppState {
                   let address = resolvedAddress(for: wallet, chainName: "Solana")
             else { continue }
             guard let results = try? await WalletServiceBridge.shared.fetchTokenBalances(
-                chainId: SpectraChainID.solana, address: address, tokens: descriptors
+                chainId: Chain.solana.id, address: address, tokens: descriptors
             ) else { continue }
             guard let currentIdx = wallets.firstIndex(where: { $0.id == wallet.id }) else { continue }
             var holdings = wallets[currentIdx].holdings
@@ -185,10 +185,10 @@ extension AppState {
 
     func updateRefreshEngineEntries() {
         let entries: [RefreshEntry] = wallets.compactMap { wallet in
-            guard let chainId = SpectraChainID.id(for: wallet.selectedChain),
+            guard let chainId = Chain(displayName: wallet.selectedChain)?.id,
                 let address = resolvedRefreshAddress(for: wallet)
             else {
-                print("[BalanceRefresh] dropped wallet '\(wallet.name)' chain=\(wallet.selectedChain) chainId=\(SpectraChainID.id(for: wallet.selectedChain) ?? "nil") addr=\(resolvedRefreshAddress(for: wallet) ?? "nil")")
+                print("[BalanceRefresh] dropped wallet '\(wallet.name)' chain=\(wallet.selectedChain) chainId=\(Chain(displayName: wallet.selectedChain)?.id ?? "nil") addr=\(resolvedRefreshAddress(for: wallet) ?? "nil")")
                 return nil
             }
             return RefreshEntry(chainId: chainId, walletId: wallet.id, address: address)
@@ -263,12 +263,12 @@ extension AppState {
     }
     func fetchEthereumPortfolio(for address: String) async throws -> (nativeBalance: Double, tokenBalances: [TokenBalanceResult]) {
         let ethereumContext = evmChainContext(for: "Ethereum") ?? .ethereum
-        let summary = try await WalletServiceBridge.shared.fetchNativeBalanceSummary(chainId: SpectraChainID.ethereum, address: address)
+        let summary = try await WalletServiceBridge.shared.fetchNativeBalanceSummary(chainId: Chain.ethereum.id, address: address)
         let nativeBalance = Double(summary.amountDisplay) ?? 0
         let tokenBalances =
             ethereumContext.isEthereumMainnet
             ? ((try? await WalletServiceBridge.shared.fetchEVMTokenBalancesBatch(
-                chainId: SpectraChainID.ethereum, address: address,
+                chainId: Chain.ethereum.id, address: address,
                 tokens: enabledEVMTrackedTokens(for: .ethereum).map { TokenDescriptor(contract: $0.contractAddress, symbol: $0.symbol, decimals: UInt8($0.decimals), name: nil) }
             )) ?? [])
             : []
@@ -276,7 +276,7 @@ extension AppState {
     }
     func refreshPendingEVMTransactions(chainName: String) async {
         let now = Date()
-        guard let chainId = SpectraChainID.id(for: chainName) else { return }
+        guard let chainId = Chain(displayName: chainName)?.id else { return }
         let pendingTransactions = transactions.filter { transaction in
             transaction.kind == .send
                 && transaction.chainName == chainName

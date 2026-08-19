@@ -156,18 +156,18 @@ extension AppState {
     }
     func clearHistoryTracking(for walletID: String) {
         resetHistoryPaginationForWallet(walletID)
-        dogecoinHistoryDiagnosticsByWallet[walletID] = nil
-        bitcoinHistoryDiagnosticsByWallet[walletID] = nil
-        bitcoinCashHistoryDiagnosticsByWallet[walletID] = nil
-        bitcoinSVHistoryDiagnosticsByWallet[walletID] = nil
-        litecoinHistoryDiagnosticsByWallet[walletID] = nil
-        ethereumHistoryDiagnosticsByWallet[walletID] = nil
-        arbitrumHistoryDiagnosticsByWallet[walletID] = nil
-        optimismHistoryDiagnosticsByWallet[walletID] = nil
-        etcHistoryDiagnosticsByWallet[walletID] = nil
-        bnbHistoryDiagnosticsByWallet[walletID] = nil
-        avalancheHistoryDiagnosticsByWallet[walletID] = nil
-        hyperliquidHistoryDiagnosticsByWallet[walletID] = nil
+        self[utxoHistoryFor: "Dogecoin"][walletID] = nil
+        self[utxoHistoryFor: "Bitcoin"][walletID] = nil
+        self[utxoHistoryFor: "Bitcoin Cash"][walletID] = nil
+        self[utxoHistoryFor: "Bitcoin SV"][walletID] = nil
+        self[utxoHistoryFor: "Litecoin"][walletID] = nil
+        self[evmHistoryFor: "Ethereum"][walletID] = nil
+        self[evmHistoryFor: "Arbitrum"][walletID] = nil
+        self[evmHistoryFor: "Optimism"][walletID] = nil
+        self[evmHistoryFor: "Ethereum Classic"][walletID] = nil
+        self[evmHistoryFor: "BNB Chain"][walletID] = nil
+        self[evmHistoryFor: "Avalanche"][walletID] = nil
+        self[evmHistoryFor: "Hyperliquid"][walletID] = nil
         tronHistoryDiagnosticsByWallet[walletID] = nil
         solanaHistoryDiagnosticsByWallet[walletID] = nil
         // The ten chains sharing one record shape, over one keyed store.

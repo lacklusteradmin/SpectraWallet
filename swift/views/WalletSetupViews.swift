@@ -854,10 +854,10 @@ struct SetupView: View {
             VStack(alignment: .leading, spacing: 16) {
                 ForEach(draft.selectableDerivationChains) { chain in
                     SeedPathSlotEditor(
-                        title: chain.rawValue,
+                        title: chain.displayName,
                         path: Binding(
                             get: { draft.seedDerivationPaths.path(for: chain) }, set: { draft.seedDerivationPaths.setPath($0, for: chain) }
-                        ), defaultPath: chain.defaultPath, presetOptions: chain.presetOptions
+                        ), defaultPath: chain.defaultDerivationPath
                     )
                 }
                 powerUserOverridesSection

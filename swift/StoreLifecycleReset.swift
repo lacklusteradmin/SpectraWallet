@@ -214,88 +214,16 @@ extension AppState {
         UserDefaults.standard.removeObject(forKey: Self.chainOwnedAddressMapDefaultsKey)
         clearAllTransactions()
         resetAllHistoryPagination()
-        dogecoinHistoryDiagnosticsByWallet = [:]
-        self[historyRunFor: "Dogecoin"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Dogecoin"].results = []
-        self[endpointHealthFor: "Dogecoin"].lastUpdatedAt = nil
-        ethereumHistoryDiagnosticsByWallet = [:]
-        self[historyRunFor: "Ethereum"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Ethereum"].results = []
-        self[endpointHealthFor: "Ethereum"].lastUpdatedAt = nil
-        arbitrumHistoryDiagnosticsByWallet = [:]
-        self[historyRunFor: "Arbitrum"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Arbitrum"].results = []
-        self[endpointHealthFor: "Arbitrum"].lastUpdatedAt = nil
-        optimismHistoryDiagnosticsByWallet = [:]
-        self[historyRunFor: "Optimism"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Optimism"].results = []
-        self[endpointHealthFor: "Optimism"].lastUpdatedAt = nil
-        etcHistoryDiagnosticsByWallet = [:]
-        self[historyRunFor: "Ethereum Classic"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Ethereum Classic"].results = []
-        self[endpointHealthFor: "Ethereum Classic"].lastUpdatedAt = nil
-        bnbHistoryDiagnosticsByWallet = [:]
-        self[historyRunFor: "BNB Chain"].lastUpdatedAt = nil
-        self[endpointHealthFor: "BNB Chain"].results = []
-        self[endpointHealthFor: "BNB Chain"].lastUpdatedAt = nil
-        avalancheHistoryDiagnosticsByWallet = [:]
-        self[historyRunFor: "Avalanche"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Avalanche"].results = []
-        self[endpointHealthFor: "Avalanche"].lastUpdatedAt = nil
-        hyperliquidHistoryDiagnosticsByWallet = [:]
-        self[historyRunFor: "Hyperliquid"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Hyperliquid"].results = []
-        self[endpointHealthFor: "Hyperliquid"].lastUpdatedAt = nil
-        tronHistoryDiagnosticsByWallet = [:]
-        self[historyRunFor: "Tron"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Tron"].results = []
-        self[endpointHealthFor: "Tron"].lastUpdatedAt = nil
-        solanaHistoryDiagnosticsByWallet = [:]
-        self[historyRunFor: "Solana"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Solana"].results = []
-        self[endpointHealthFor: "Solana"].lastUpdatedAt = nil
-        self[simpleHistoryFor: "XRP Ledger"] = [:]
-        self[historyRunFor: "XRP Ledger"].lastUpdatedAt = nil
-        self[endpointHealthFor: "XRP Ledger"].results = []
-        self[endpointHealthFor: "XRP Ledger"].lastUpdatedAt = nil
-        self[simpleHistoryFor: "Monero"] = [:]
-        self[historyRunFor: "Monero"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Monero"].results = []
-        self[endpointHealthFor: "Monero"].lastUpdatedAt = nil
-        self[simpleHistoryFor: "Sui"] = [:]
-        self[historyRunFor: "Sui"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Sui"].results = []
-        self[endpointHealthFor: "Sui"].lastUpdatedAt = nil
-        self[simpleHistoryFor: "NEAR"] = [:]
-        self[historyRunFor: "NEAR"].lastUpdatedAt = nil
-        self[endpointHealthFor: "NEAR"].results = []
-        self[endpointHealthFor: "NEAR"].lastUpdatedAt = nil
-        self[simpleHistoryFor: "Polkadot"] = [:]
-        self[historyRunFor: "Polkadot"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Polkadot"].results = []
-        self[endpointHealthFor: "Polkadot"].lastUpdatedAt = nil
-        self[simpleHistoryFor: "Cardano"] = [:]
-        self[historyRunFor: "Cardano"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Cardano"].results = []
-        self[endpointHealthFor: "Cardano"].lastUpdatedAt = nil
-        bitcoinCashHistoryDiagnosticsByWallet = [:]
-        self[historyRunFor: "Bitcoin Cash"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Bitcoin Cash"].results = []
-        self[endpointHealthFor: "Bitcoin Cash"].lastUpdatedAt = nil
-        bitcoinSVHistoryDiagnosticsByWallet = [:]
-        self[historyRunFor: "Bitcoin SV"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Bitcoin SV"].results = []
-        self[endpointHealthFor: "Bitcoin SV"].lastUpdatedAt = nil
-        bitcoinHistoryDiagnosticsByWallet = [:]
-        self[historyRunFor: "Bitcoin"].lastUpdatedAt = nil
-        self[endpointHealthFor: "Bitcoin"].results = []
-        self[endpointHealthFor: "Bitcoin"].lastUpdatedAt = nil
-        litecoinHistoryDiagnosticsByWallet = [:]
-        self[historyRunFor: "Litecoin"].lastUpdatedAt = nil
-        // Belt-and-suspenders: drop the entire Rust-owned diagnostics registry.
+        // `diagnosticsClearAll` empties the whole Rust-owned registry, so the
+        // per-chain history clears this used to spell out — twenty-two chains
+        // times four lines, described in a comment as belt-and-suspenders over
+        // exactly this call — said nothing it does not. The two Swift-held
+        // tables are cleared whole rather than key by key.
         diagnosticsClearAll()
-        self[endpointHealthFor: "Litecoin"].results = []
-        self[endpointHealthFor: "Litecoin"].lastUpdatedAt = nil
+        tronHistoryDiagnosticsByWallet = [:]
+        solanaHistoryDiagnosticsByWallet = [:]
+        chainDiagnosticsState.historyRunByChain = [:]
+        chainDiagnosticsState.endpointHealthByChain = [:]
         diagnostics.chainDegradedMessages = [:]
         diagnostics.lastGoodChainSyncByName = [:]
         Task { try? await WalletServiceBridge.shared.clearOperationalEvents(chainName: nil) }
@@ -332,16 +260,16 @@ extension AppState {
         lastChainBalanceRefreshAt = nil
         lastHistoryRefreshAtByChain = [:]
         lastObservedPortfolioTotalUSD = nil
-        isRunningBitcoinRescan = false
-        bitcoinRescanLastRunAt = nil
-        isRunningBitcoinCashRescan = false
-        bitcoinCashRescanLastRunAt = nil
-        isRunningBitcoinSVRescan = false
-        bitcoinSVRescanLastRunAt = nil
-        isRunningLitecoinRescan = false
-        litecoinRescanLastRunAt = nil
-        isRunningDogecoinRescan = false
-        dogecoinRescanLastRunAt = nil
+        self[rescanFor: "Bitcoin"].isRunning = false
+        self[rescanFor: "Bitcoin"].lastRunAt = nil
+        self[rescanFor: "Bitcoin Cash"].isRunning = false
+        self[rescanFor: "Bitcoin Cash"].lastRunAt = nil
+        self[rescanFor: "Bitcoin SV"].isRunning = false
+        self[rescanFor: "Bitcoin SV"].lastRunAt = nil
+        self[rescanFor: "Litecoin"].isRunning = false
+        self[rescanFor: "Litecoin"].lastRunAt = nil
+        self[rescanFor: "Dogecoin"].isRunning = false
+        self[rescanFor: "Dogecoin"].lastRunAt = nil
         rebuildNormalizedHistoryIndex()
     }
     private func resetAlertsAndContactsState() {

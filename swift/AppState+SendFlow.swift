@@ -155,7 +155,7 @@ extension AppState {
         }
         isPreparingEthereumReplacementContext = true; defer { isPreparingEthereumReplacementContext = false }
         do {
-            let nonce = try await WalletServiceBridge.shared.fetchEVMTxNonce(chainId: SpectraChainID.ethereum, txHash: txHash)
+            let nonce = try await WalletServiceBridge.shared.fetchEVMTxNonce(chainId: Chain.ethereum.id, txHash: txHash)
             guard let walletID = pendingTransaction.walletID, let wallet = wallets.first(where: { $0.id == walletID }) else {
                 sendError = localizedStoreString("Select a wallet first."); return
             }
@@ -215,7 +215,7 @@ extension AppState {
         // A chain's native asset is never one of its tokens. This used to be
         // six hand-written chain/symbol pairs covering a fraction of the EVM
         // chains; the registry has the full table.
-        if AppEndpointDirectory.appChain(for: coin.chainName)?.nativeSymbol == coin.symbol {
+        if Chain(displayName: coin.chainName)?.gasTokenSymbol == coin.symbol {
             return nil
         }
         let chainTokens = TokenTrackingChain.forChainName(coin.chainName).map { enabledEVMTrackedTokens(for: $0) } ?? []
@@ -259,7 +259,7 @@ extension AppState {
         return (resolved, true)
     }
     func evmRecipientPreflightReasons(holding: Coin, chain: EVMChainContext, destinationAddress: String) async -> [String] {
-        guard let chainId = SpectraChainID.id(for: holding.chainName) else { return [] }
+        guard let chainId = Chain(displayName: holding.chainName)?.id else { return [] }
         let recipientHasCode: Bool?
         do {
             recipientHasCode = try await WalletServiceBridge.shared.fetchEvmHasContractCode(chainId: chainId, address: destinationAddress)
@@ -470,7 +470,7 @@ extension AppState {
         selfTests[chainName] = .init(results: results, isRunning: false, lastRunAt: Date())
 
         let failedCount = results.filter { !$0.passed }.count
-        let abbrev = AppEndpointDirectory.appChain(for: chainName)?.nativeSymbol ?? chainName
+        let abbrev = Chain(displayName: chainName)?.gasTokenSymbol ?? chainName
         appendChainOperationalEvent(
             failedCount == 0 ? .info : .warning, chainName: chainName,
             message: failedCount == 0
@@ -553,56 +553,51 @@ extension AppState {
         persistCodableToSQLite(selectedFeePriorityOptionRawByChain, key: Self.selectedFeePriorityOptionsByChainDefaultsKey)
     }
     private func runUTXORescan(
-        running: ReferenceWritableKeyPath<AppState, Bool>, lastRun: ReferenceWritableKeyPath<AppState, Date?>, chainName: String,
-        abbrev: String, preWork: (() async -> Void)? = nil, refreshHistory: @Sendable () async -> Void, refreshPending: @Sendable () async -> Void
+        chainName: String, abbrev: String, preWork: (() async -> Void)? = nil,
+        refreshHistory: @Sendable () async -> Void, refreshPending: @Sendable () async -> Void
     ) async {
-        guard !self[keyPath: running] else { return }
-        self[keyPath: running] = true; defer { self[keyPath: running] = false }
+        guard !self[rescanFor: chainName].isRunning else { return }
+        self[rescanFor: chainName].isRunning = true
+        defer { self[rescanFor: chainName].isRunning = false }
         appendChainOperationalEvent(.info, chainName: chainName, message: "\(abbrev) rescan started.")
         await preWork?()
         async let balanceTask: () = refreshBalances()
         async let historyTask: () = refreshHistory()
         async let pendingTask: () = refreshPending()
         _ = await (balanceTask, historyTask, pendingTask)
-        self[keyPath: lastRun] = Date()
+        self[rescanFor: chainName].lastRunAt = Date()
         appendChainOperationalEvent(.info, chainName: chainName, message: "\(abbrev) rescan completed.")
     }
-    func runDogecoinRescan() async {
+    /// Deep-rescan one UTXO chain: rediscover addresses, then refetch
+    /// balances, history and pending status together.
+    ///
+    /// Five wrappers used to state this, each naming a chain, two key paths
+    /// and its ticker. The ticker is on the chain descriptor, the running
+    /// state is keyed, and both refreshes take a chain name — so the wrapper
+    /// had nothing left to say. Bitcoin and Dogecoin keep their own history
+    /// fetch: HD xpub expansion and a confirmed-fee path.
+    func runUTXORescan(chainName: String) async {
+        guard coreSupportsDeepUtxoDiscovery(chainName: chainName) else { return }
+        let abbrev = Chain(displayName: chainName)?.gasTokenSymbol ?? chainName
         await runUTXORescan(
-            running: \.isRunningDogecoinRescan, lastRun: \.dogecoinRescanLastRunAt,
-            chainName: "Dogecoin", abbrev: "DOGE",
+            chainName: chainName, abbrev: abbrev,
             preWork: {
-                await self.refreshUTXOAddressDiscovery(chainName: "Dogecoin")
-                await self.refreshUTXOReceiveReservationState(chainName: "Dogecoin")
+                await self.refreshUTXOAddressDiscovery(chainName: chainName)
+                await self.refreshUTXOReceiveReservationState(chainName: chainName)
             },
-            refreshHistory: { await self.refreshDogecoinTransactions(limit: HistoryPaging.endpointBatchSize) },
-            refreshPending: { await self.refreshPendingTransactions(chainName: "Dogecoin") }
-        )
+            refreshHistory: {
+                switch chainName {
+                case "Bitcoin":
+                    await self.refreshBitcoinTransactions(limit: HistoryPaging.endpointBatchSize)
+                case "Dogecoin":
+                    await self.refreshDogecoinTransactions(limit: HistoryPaging.endpointBatchSize)
+                default:
+                    await self.refreshNormalizedTransactions(chainName: chainName)
+                }
+            },
+            refreshPending: { await self.refreshPendingTransactions(chainName: chainName) })
     }
-    func runBitcoinRescan() async {
-        await runUTXORescan(
-            running: \.isRunningBitcoinRescan, lastRun: \.bitcoinRescanLastRunAt, chainName: "Bitcoin", abbrev: "BTC",
-            refreshHistory: { await self.refreshBitcoinTransactions(limit: HistoryPaging.endpointBatchSize) },
-            refreshPending: { await self.refreshPendingTransactions(chainName: "Bitcoin") })
-    }
-    func runBitcoinCashRescan() async {
-        await runUTXORescan(
-            running: \.isRunningBitcoinCashRescan, lastRun: \.bitcoinCashRescanLastRunAt, chainName: "Bitcoin Cash", abbrev: "BCH",
-            refreshHistory: { await self.refreshNormalizedTransactions(chainName: "Bitcoin Cash") },
-            refreshPending: { await self.refreshPendingTransactions(chainName: "Bitcoin Cash") })
-    }
-    func runBitcoinSVRescan() async {
-        await runUTXORescan(
-            running: \.isRunningBitcoinSVRescan, lastRun: \.bitcoinSVRescanLastRunAt, chainName: "Bitcoin SV", abbrev: "BSV",
-            refreshHistory: { await self.refreshNormalizedTransactions(chainName: "Bitcoin SV") },
-            refreshPending: { await self.refreshPendingTransactions(chainName: "Bitcoin SV") })
-    }
-    func runLitecoinRescan() async {
-        await runUTXORescan(
-            running: \.isRunningLitecoinRescan, lastRun: \.litecoinRescanLastRunAt, chainName: "Litecoin", abbrev: "LTC",
-            refreshHistory: { await self.refreshNormalizedTransactions(chainName: "Litecoin") },
-            refreshPending: { await self.refreshPendingTransactions(chainName: "Litecoin") })
-    }
+
     func runDogecoinHistoryDiagnostics() async {
         guard !self[historyRunFor: "Dogecoin"].isRunning else { return }
         self[historyRunFor: "Dogecoin"].isRunning = true; defer { self[historyRunFor: "Dogecoin"].isRunning = false }
@@ -614,13 +609,13 @@ extension AppState {
         for (wallet, address) in walletsToRefresh {
             do {
                 let count = try await withTimeout(seconds: 20) {
-                    try await WalletServiceBridge.shared.fetchHistoryEntryCount(chainId: SpectraChainID.dogecoin, address: address)
+                    try await WalletServiceBridge.shared.fetchHistoryEntryCount(chainId: Chain.dogecoin.id, address: address)
                 }
-                dogecoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
+                self[utxoHistoryFor: "Dogecoin"][wallet.id] = BitcoinHistoryDiagnostics(
                     walletId: wallet.id, identifier: address, sourceUsed: "rust",
                     transactionCount: Int32(count), nextCursor: nil, error: nil)
             } catch {
-                dogecoinHistoryDiagnosticsByWallet[wallet.id] = BitcoinHistoryDiagnostics(
+                self[utxoHistoryFor: "Dogecoin"][wallet.id] = BitcoinHistoryDiagnostics(
                     walletId: wallet.id, identifier: address, sourceUsed: "none", transactionCount: 0, nextCursor: nil,
                     error: error.localizedDescription)
             }
@@ -786,7 +781,7 @@ extension AppState {
             .info, chainName: "Dogecoin", message: "DOGE rebroadcast requested.", transactionHash: transaction.transactionHash)
         do {
             let txidFromJSON = try await WalletServiceBridge.shared.broadcastRawExtract(
-                chainId: SpectraChainID.dogecoin, payload: rawTransactionHex, resultField: "txid")
+                chainId: Chain.dogecoin.id, payload: rawTransactionHex, resultField: "txid")
             let txHash = txidFromJSON.isEmpty ? (transaction.transactionHash ?? "") : txidFromJSON
             let result = (transactionHash: txHash, verificationStatus: SendBroadcastVerificationStatus.deferred)
             if let index = transactions.firstIndex(where: { $0.id == transactionID }) {
@@ -848,7 +843,7 @@ extension AppState {
         let existing = transaction.transactionHash ?? ""
         if format == "icp.signed_hex" || format == "icp.rust_json" || format == "monero.rust_json" { return (existing, .deferred) }
         if format == "evm.raw_hex" || format == "evm.rust_json" {
-            guard let chainId = SpectraChainID.id(for: transaction.chainName) else {
+            guard let chainId = Chain(displayName: transaction.chainName)?.id else {
                 throw NSError(domain: "Spectra", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unsupported EVM chain for rebroadcast."])
             }
             let txid = try await WalletServiceBridge.shared.broadcastRawExtract(
@@ -860,13 +855,13 @@ extension AppState {
             chainId: prepared.chainId, payload: prepared.broadcastPayload, resultField: prepared.resultField)
         return (resultValue.isEmpty ? existing : resultValue, .deferred)
     }
-    func walletDerivationPath(for wallet: ImportedWallet, chain: SeedDerivationChain) -> String {
+    func walletDerivationPath(for wallet: ImportedWallet, chain: Chain) -> String {
         derivationResolution(for: wallet, chain: chain).normalizedPath
     }
-    func derivationAccount(for wallet: ImportedWallet, chain: SeedDerivationChain) -> UInt32 {
+    func derivationAccount(for wallet: ImportedWallet, chain: Chain) -> UInt32 {
         derivationResolution(for: wallet, chain: chain).accountIndex
     }
-    func derivationResolution(for wallet: ImportedWallet, chain: SeedDerivationChain) -> SeedDerivationResolution {
+    func derivationResolution(for wallet: ImportedWallet, chain: Chain) -> SeedDerivationResolution {
         chain.resolve(path: wallet.seedDerivationPaths.path(for: chain))
     }
     /// The network this wallet is on for a family: its own if it has one,
@@ -882,8 +877,8 @@ extension AppState {
     }
 
     /// The derivation chain for a network, by id.
-    func seedDerivationChain(forChainID chainID: String) -> SeedDerivationChain? {
-        SeedDerivationChain(rawValue: coreChainDisplayName(chainId: chainID))
+    func seedDerivationChain(forChainID chainID: String) -> Chain? {
+        Chain(id: chainID)
     }
     /// The title of the network a chain family is on — "Bitcoin",
     /// "Bitcoin Testnet4". The registry names chains, so this is a lookup
@@ -962,12 +957,12 @@ extension AppState {
     func hasUTXOOnChainActivity(address: String, chainName: String) async -> Bool {
         switch chainName {
         case "Bitcoin":
-            if let summary = try? await WalletServiceBridge.shared.fetchNativeBalanceSummary(chainId: SpectraChainID.bitcoin, address: address) {
+            if let summary = try? await WalletServiceBridge.shared.fetchNativeBalanceSummary(chainId: Chain.bitcoin.id, address: address) {
                 let confirmedSats = UInt64(summary.smallestUnit) ?? 0
                 if summary.utxoCount > 0 || confirmedSats > 0 { return true }
             }
         case "Bitcoin Cash", "Bitcoin SV", "Litecoin":
-            guard let chainId = SpectraChainID.id(for: chainName) else { return false }
+            guard let chainId = Chain(displayName: chainName)?.id else { return false }
             if let summary = try? await WalletServiceBridge.shared.fetchNativeBalanceSummary(chainId: chainId, address: address),
                 let sat = UInt64(summary.smallestUnit), sat > 0
             {
@@ -977,12 +972,12 @@ extension AppState {
                 return true
             }
         case "Dogecoin":
-            if let summary = try? await WalletServiceBridge.shared.fetchNativeBalanceSummary(chainId: SpectraChainID.dogecoin, address: address),
+            if let summary = try? await WalletServiceBridge.shared.fetchNativeBalanceSummary(chainId: Chain.dogecoin.id, address: address),
                 let koin = UInt64(summary.smallestUnit), koin > 0
             {
                 return true
             }
-            if (try? await WalletServiceBridge.shared.fetchHistoryHasActivity(chainId: SpectraChainID.dogecoin, address: address)) == true {
+            if (try? await WalletServiceBridge.shared.fetchHistoryHasActivity(chainId: Chain.dogecoin.id, address: address)) == true {
                 return true
             }
         default: return false
@@ -1112,8 +1107,8 @@ extension AppState {
             }
         }
     }
-    func seedDerivationChain(for chainName: String) -> SeedDerivationChain? {
-        CachedCoreHelpers.seedDerivationChainRaw(chainName: chainName).flatMap(SeedDerivationChain.init(rawValue:))
+    func seedDerivationChain(for chainName: String) -> Chain? {
+        CachedCoreHelpers.seedDerivationChainRaw(chainName: chainName).flatMap(Chain.init(displayName:))
     }
     func walletHasAddress(for wallet: ImportedWallet, chainName: String) -> Bool {
         resolvedAddress(for: wallet, chainName: chainName) != nil
@@ -1243,14 +1238,32 @@ extension AppState {
         )
         return trimmed
     }
+    /// Tell core which receive addresses each wallet owns.
+    ///
+    /// This looped over `diagnosticsChains.map(\.title)` — "Bitcoin
+    /// Diagnostics" and twenty-three others — so `resolvedAddress` missed on
+    /// every one and the whole thing was a no-op.
+    ///
+    /// Fixing the name made it real work, and real work here is not free:
+    /// reserving is a write. Two things bound it. Only chains that own their
+    /// address slot are visited, because the EVM family shares one address and
+    /// filing it under twenty-five chain names tells the keypool nothing it
+    /// does not already know from Ethereum's row. And an address core already
+    /// has is skipped, so the remaining cost falls on the first load after an
+    /// import rather than on every launch.
     func syncChainOwnedAddressManagementState() async {
         for wallet in wallets {
-            for chainName in AppEndpointDirectory.diagnosticsChains.map(\.title) {
+            for chain in Chain.mainnets where chain.ownsItsAddressSlot {
+                let chainName = chain.displayName
                 guard let address = resolvedAddress(for: wallet, chainName: chainName) else { continue }
+                let known = await WalletServiceBridge.shared.ownedAddresses(
+                    walletID: wallet.id, chainName: chainName)
+                guard !known.contains(address) else { continue }
                 let reservedIndex = await reserveReceiveIndex(for: wallet, chainName: chainName)
                 registerOwnedAddress(
                     chainName: chainName, address: address, walletID: wallet.id,
-                    derivationPath: reservedReceiveDerivationPath(for: wallet, chainName: chainName, index: reservedIndex),
+                    derivationPath: reservedReceiveDerivationPath(
+                        for: wallet, chainName: chainName, index: reservedIndex),
                     index: reservedIndex, branch: "external"
                 )
             }
@@ -1299,14 +1312,14 @@ extension AppState {
             switch coin.chainName {
             case "Bitcoin":
                 let btcSummary = try await WalletServiceBridge.shared.fetchNativeBalanceSummary(
-                    chainId: SpectraChainID.bitcoin, address: destinationForProbe)
+                    chainId: Chain.bitcoin.id, address: destinationForProbe)
                 let btcBalance = UInt64(btcSummary.smallestUnit) ?? 0
                 let m = chainRiskProbeMessages(
                     chainName: "Bitcoin", balanceLabel: "balance", balanceNonPositive: btcBalance <= 0, hasHistory: btcSummary.utxoCount > 0)
                 warning = m.warning; infoMessage = m.info
             case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base",
             "Linea", "Scroll", "Blast", "Mantle":
-                guard let chainId = SpectraChainID.id(for: coin.chainName) else {
+                guard let chainId = Chain(displayName: coin.chainName)?.id else {
                     warning = nil
                     infoMessage = nil
                     break
@@ -1340,17 +1353,17 @@ extension AppState {
             case "Tron":
                 if coin.symbol == "TRX" || coin.symbol == "USDT" {
                     let tronSummary = try await WalletServiceBridge.shared.fetchNativeBalanceSummary(
-                        chainId: SpectraChainID.tron, address: destinationForProbe)
+                        chainId: Chain.tron.id, address: destinationForProbe)
                     let tronSun = UInt64(tronSummary.smallestUnit) ?? 0
                     let hasHistory =
                         (try? await WalletServiceBridge.shared.fetchHistoryHasActivity(
-                            chainId: SpectraChainID.tron, address: destinationForProbe)) ?? false
+                            chainId: Chain.tron.id, address: destinationForProbe)) ?? false
                     let balance: Double
                     if coin.symbol == "TRX" {
                         balance = Double(tronSun) / 1e6
                     } else {
                         let usdtResults = try await WalletServiceBridge.shared.fetchTokenBalances(
-                            chainId: SpectraChainID.tron, address: destinationForProbe,
+                            chainId: Chain.tron.id, address: destinationForProbe,
                             tokens: [TokenDescriptor(contract: TronBalanceService.usdtTronContract, symbol: "USDT", decimals: 6, name: nil)])
                         balance = usdtResults.first.flatMap { Double($0.balanceDisplay) } ?? 0
                     }
@@ -1366,7 +1379,7 @@ extension AppState {
                 }
             case "Litecoin", "Dogecoin", "Solana", "XRP Ledger", "Monero", "Sui", "Aptos":
                 if let cfg = coreSimpleChainRiskProbeConfig(chainName: coin.chainName, symbol: coin.symbol),
-                    let chainId = SpectraChainID.id(for: coin.chainName)
+                    let chainId = Chain(displayName: coin.chainName)?.id
                 {
                     (warning, infoMessage) = await fetchChainRiskWarning(
                         chainId: chainId, address: destinationForProbe,
@@ -1377,7 +1390,7 @@ extension AppState {
             case "NEAR":
                 let nearBalance: Double
                 if let nearSummary = try? await WalletServiceBridge.shared.fetchNativeBalanceSummary(
-                    chainId: SpectraChainID.near, address: destinationForProbe)
+                    chainId: Chain.near.id, address: destinationForProbe)
                 {
                     nearBalance = Double(nearSummary.amountDisplay) ?? 0
                 } else {
@@ -1385,7 +1398,7 @@ extension AppState {
                 }
                 let nearHasHistory =
                     (try? await WalletServiceBridge.shared.fetchHistoryHasActivity(
-                        chainId: SpectraChainID.near, address: destinationForProbe)) ?? false
+                        chainId: Chain.near.id, address: destinationForProbe)) ?? false
                 let m = chainRiskProbeMessages(
                     chainName: "NEAR", balanceLabel: "NEAR balance", balanceNonPositive: nearBalance <= 0, hasHistory: nearHasHistory)
                 warning = m.warning; infoMessage = m.info

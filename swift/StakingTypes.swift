@@ -68,13 +68,13 @@ enum StakingSupportedChain: String, CaseIterable, Identifiable {
     }
     var chainId: String {
         switch self {
-        case .solana:   return SpectraChainID.solana
-        case .cardano:  return SpectraChainID.cardano
-        case .sui:      return SpectraChainID.sui
-        case .aptos:    return SpectraChainID.aptos
-        case .near:     return SpectraChainID.near
-        case .polkadot: return SpectraChainID.polkadot
-        case .icp:      return SpectraChainID.icp
+        case .solana:   return Chain.solana.id
+        case .cardano:  return Chain.cardano.id
+        case .sui:      return Chain.sui.id
+        case .aptos:    return Chain.aptos.id
+        case .near:     return Chain.near.id
+        case .polkadot: return Chain.polkadot.id
+        case .icp:      return Chain.icp.id
         }
     }
 }

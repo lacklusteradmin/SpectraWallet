@@ -15,7 +15,7 @@ enum WalletRustDerivationBridge {
     // MARK: — Seed-phrase derive
 
     static func derive(
-        chain: SeedDerivationChain,
+        chain: Chain,
         seedPhrase: String,
         derivationPath: String?,
         passphrase: String?,
@@ -25,7 +25,7 @@ enum WalletRustDerivationBridge {
         wantPublicKey: Bool,
         wantPrivateKey: Bool
     ) throws -> WalletRustDerivationResponseModel {
-        let path = derivationPath ?? CachedCoreHelpers.chainDerivationPath(chainName: chain.rawValue)
+        let path = derivationPath ?? CachedCoreHelpers.chainDerivationPath(chainName: chain.displayName)
         let result = try dispatch(
             chain: chain, seedPhrase: seedPhrase, path: path,
             passphrase: passphrase?.nonEmpty, hmacKey: hmacKey?.nonEmpty,
@@ -36,42 +36,20 @@ enum WalletRustDerivationBridge {
             address: result.address, publicKeyHex: result.publicKeyHex, privateKeyHex: result.privateKeyHex)
     }
 
-    // MARK: — Private-key derive (EVM + UTXO chains that have Rust helpers)
+    // MARK: — Private-key derive
 
+    /// Was a thirty-arm switch naming which chains derive by which algorithm,
+    /// calling six per-chain exports. Core dispatches that by chain now, so the
+    /// list of families lives with the registry that defines them.
     static func deriveFromPrivateKey(
-        chain: SeedDerivationChain, privateKeyHex: String
+        chain: Chain, privateKeyHex: String
     ) throws -> WalletRustDerivationResponseModel {
-        let result: DerivationResult
-        switch chain {
-        case .ethereum, .arbitrum, .optimism, .avalanche, .base, .polygon, .hyperliquid,
-             .linea, .scroll, .blast, .mantle, .sei, .celo, .cronos, .opBNB, .zkSyncEra,
-             .sonic, .berachain, .unichain, .ink, .xLayer,
-             .ethereumClassic, .ethereumSepolia, .ethereumHoodi, .arbitrumSepolia,
-             .optimismSepolia, .baseSepolia, .bnbChainTestnet, .avalancheFuji, .polygonAmoy,
-             .hyperliquidTestnet, .ethereumClassicMordor:
-            result = try deriveEvmFromPrivateKey(privateKeyHex: privateKeyHex, wantAddress: true, wantPublicKey: false)
-        case .bitcoin, .bitcoinTestnet, .bitcoinTestnet4, .bitcoinSignet:
-            result = try deriveBitcoinFromPrivateKey(
-                privateKeyHex: privateKeyHex, scriptType: .p2wpkh, wantAddress: true, wantPublicKey: false)
-        case .bitcoinCash, .bitcoinCashTestnet:
-            result = try deriveBitcoinCashFromPrivateKey(
-                privateKeyHex: privateKeyHex, wantAddress: true, wantPublicKey: false)
-        case .bitcoinSV, .bitcoinSVTestnet:
-            return WalletRustDerivationResponseModel(address: nil, publicKeyHex: nil, privateKeyHex: nil)
-        case .litecoin, .litecoinTestnet:
-            result = try deriveLitecoinFromPrivateKey(
-                privateKeyHex: privateKeyHex, wantAddress: true, wantPublicKey: false)
-        case .dogecoin, .dogecoinTestnet:
-            result = try deriveDogecoinFromPrivateKey(
-                privateKeyHex: privateKeyHex, wantAddress: true, wantPublicKey: false)
-        case .decred, .decredTestnet:
-            result = try deriveDecredFromPrivateKey(
-                privateKeyHex: privateKeyHex, wantAddress: true, wantPublicKey: false)
-        default:
-            return WalletRustDerivationResponseModel(address: nil, publicKeyHex: nil, privateKeyHex: nil)
-        }
+        let result = try coreDeriveFromPrivateKey(
+            chainName: chain.displayName, privateKeyHex: privateKeyHex,
+            wantAddress: true, wantPublicKey: false)
         return WalletRustDerivationResponseModel(
-            address: result.address, publicKeyHex: result.publicKeyHex, privateKeyHex: result.privateKeyHex)
+            address: result?.address, publicKeyHex: result?.publicKeyHex,
+            privateKeyHex: result?.privateKeyHex)
     }
 
     // MARK: — Batch derive (all selected chains)
@@ -79,7 +57,7 @@ enum WalletRustDerivationBridge {
     static func deriveAllAddresses(seedPhrase: String, chainPaths: [String: String]) throws -> [String: String] {
         var result: [String: String] = [:]
         for (chainName, path) in chainPaths {
-            guard let chain = SeedDerivationChain(rawValue: chainName) else { continue }
+            guard let chain = Chain(displayName: chainName) else { continue }
             if let address = try? derive(
                 chain: chain, seedPhrase: seedPhrase, derivationPath: path,
                 passphrase: nil, hmacKey: nil,
@@ -114,14 +92,14 @@ enum WalletRustDerivationBridge {
     /// `derive<Chain>` export that existed only to be called from that arm.
     /// Core has dispatched by chain name since before any of them were written.
     private static func dispatch(
-        chain: SeedDerivationChain,
+        chain: Chain,
         seedPhrase: String, path: String,
         passphrase: String?, hmacKey: String?,
         scriptType: BitcoinScriptType,
         wa: Bool, wp: Bool, wk: Bool
     ) throws -> DerivationResult {
         try coreDeriveForChain(
-            chainName: chain.rawValue, seedPhrase: seedPhrase, derivationPath: path,
+            chainName: chain.displayName, seedPhrase: seedPhrase, derivationPath: path,
             passphrase: passphrase, hmacKey: hmacKey, scriptType: scriptType,
             wantAddress: wa, wantPublicKey: wp, wantPrivateKey: wk)
     }

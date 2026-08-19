@@ -297,39 +297,13 @@ final class WalletChainDiagnosticsState {
     var lastImportedDiagnosticsBundle: DiagnosticsBundlePayload?
 
     // MARK: Per-wallet diagnostic dicts (Rust-owned; computed delegates)
+    //
+    // Only Tron and Solana are named here. The other twenty-two shared one of
+    // three record shapes, so they read through `[utxoHistoryFor:]`,
+    // `[evmHistoryFor:]` and `[simpleHistoryFor:]` instead — twenty-two
+    // four-line accessors and their twenty-two forwards in `DiagnosticsStore`.
+    // These two keep theirs because their records genuinely differ.
 
-    var dogecoinHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { diagnosticsAllUtxo(chainName: "Dogecoin") }
-        set { diagnosticsReplaceUtxo(chainName: "Dogecoin", entries: newValue); bump() }
-    }
-    var ethereumHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllEvm(chainName: "Ethereum") }
-        set { diagnosticsReplaceEvm(chainName: "Ethereum", entries: newValue); bump() }
-    }
-    var etcHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllEvm(chainName: "Ethereum Classic") }
-        set { diagnosticsReplaceEvm(chainName: "Ethereum Classic", entries: newValue); bump() }
-    }
-    var arbitrumHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllEvm(chainName: "Arbitrum") }
-        set { diagnosticsReplaceEvm(chainName: "Arbitrum", entries: newValue); bump() }
-    }
-    var optimismHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllEvm(chainName: "Optimism") }
-        set { diagnosticsReplaceEvm(chainName: "Optimism", entries: newValue); bump() }
-    }
-    var bnbHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllEvm(chainName: "BNB Chain") }
-        set { diagnosticsReplaceEvm(chainName: "BNB Chain", entries: newValue); bump() }
-    }
-    var avalancheHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllEvm(chainName: "Avalanche") }
-        set { diagnosticsReplaceEvm(chainName: "Avalanche", entries: newValue); bump() }
-    }
-    var hyperliquidHistoryDiagnosticsByWallet: [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllEvm(chainName: "Hyperliquid") }
-        set { diagnosticsReplaceEvm(chainName: "Hyperliquid", entries: newValue); bump() }
-    }
     var tronHistoryDiagnosticsByWallet: [String: TronHistoryDiagnostics] {
         get { diagnosticsAllTron() }
         set { diagnosticsReplaceTron(entries: newValue); bump() }
@@ -338,60 +312,5 @@ final class WalletChainDiagnosticsState {
         get { diagnosticsAllSolana() }
         set { diagnosticsReplaceSolana(entries: newValue); bump() }
     }
-    var xrpHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
-        get { diagnosticsAllSimple(chainName: "XRP Ledger") }
-        set { diagnosticsReplaceSimple(chainName: "XRP Ledger", entries: newValue); bump() }
-    }
-    var stellarHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
-        get { diagnosticsAllSimple(chainName: "Stellar") }
-        set { diagnosticsReplaceSimple(chainName: "Stellar", entries: newValue); bump() }
-    }
-    var moneroHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
-        get { diagnosticsAllSimple(chainName: "Monero") }
-        set { diagnosticsReplaceSimple(chainName: "Monero", entries: newValue); bump() }
-    }
-    var suiHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
-        get { diagnosticsAllSimple(chainName: "Sui") }
-        set { diagnosticsReplaceSimple(chainName: "Sui", entries: newValue); bump() }
-    }
-    var aptosHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
-        get { diagnosticsAllSimple(chainName: "Aptos") }
-        set { diagnosticsReplaceSimple(chainName: "Aptos", entries: newValue); bump() }
-    }
-    var tonHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
-        get { diagnosticsAllSimple(chainName: "TON") }
-        set { diagnosticsReplaceSimple(chainName: "TON", entries: newValue); bump() }
-    }
-    var icpHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
-        get { diagnosticsAllSimple(chainName: "Internet Computer") }
-        set { diagnosticsReplaceSimple(chainName: "Internet Computer", entries: newValue); bump() }
-    }
-    var nearHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
-        get { diagnosticsAllSimple(chainName: "NEAR") }
-        set { diagnosticsReplaceSimple(chainName: "NEAR", entries: newValue); bump() }
-    }
-    var polkadotHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
-        get { diagnosticsAllSimple(chainName: "Polkadot") }
-        set { diagnosticsReplaceSimple(chainName: "Polkadot", entries: newValue); bump() }
-    }
-    var cardanoHistoryDiagnosticsByWallet: [String: SimpleHistoryDiagnostics] {
-        get { diagnosticsAllSimple(chainName: "Cardano") }
-        set { diagnosticsReplaceSimple(chainName: "Cardano", entries: newValue); bump() }
-    }
-    var bitcoinHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { diagnosticsAllUtxo(chainName: "Bitcoin") }
-        set { diagnosticsReplaceUtxo(chainName: "Bitcoin", entries: newValue); bump() }
-    }
-    var bitcoinCashHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { diagnosticsAllUtxo(chainName: "Bitcoin Cash") }
-        set { diagnosticsReplaceUtxo(chainName: "Bitcoin Cash", entries: newValue); bump() }
-    }
-    var bitcoinSVHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { diagnosticsAllUtxo(chainName: "Bitcoin SV") }
-        set { diagnosticsReplaceUtxo(chainName: "Bitcoin SV", entries: newValue); bump() }
-    }
-    var litecoinHistoryDiagnosticsByWallet: [String: BitcoinHistoryDiagnostics] {
-        get { diagnosticsAllUtxo(chainName: "Litecoin") }
-        set { diagnosticsReplaceUtxo(chainName: "Litecoin", entries: newValue); bump() }
-    }
+
 }

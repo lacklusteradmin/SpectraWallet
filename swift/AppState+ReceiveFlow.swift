@@ -305,7 +305,7 @@ extension AppState {
                 // 30-entry table of (isSelected, chainName, path) triples.
                 var chainPaths: [String: String] = [:]
                 for chainName in selectedChains {
-                    guard let chain = SeedDerivationChain(rawValue: chainName) else { continue }
+                    guard let chain = Chain(displayName: chainName) else { continue }
                     let path = selectedDerivationPaths.path(for: chain)
                     guard !path.isEmpty else { continue }
                     chainPaths[chainName] = path
@@ -330,7 +330,7 @@ extension AppState {
                         // overrides) actually affect the produced addresses.
                         var perChain: [String: String] = [:]
                         for (chainName, path) in chainPaths {
-                            guard let chain = SeedDerivationChain(rawValue: chainName) else { continue }
+                            guard let chain = Chain(displayName: chainName) else { continue }
                             if let address = try? WalletDerivationLayer.deriveAddress(
                                 seedPhrase: trimmedSeedPhrase, chain: chain,
                                 derivationPath: path, overrides: overrides
@@ -570,13 +570,13 @@ extension AppState {
     }
     func derivePrivateKeyImportAddress(privateKeyHex: String, chainName: String?) -> PrivateKeyImportAddressResolution {
         guard let chainName else { return .only() }
-        func derive(_ chain: SeedDerivationChain) -> String? {
+        func derive(_ chain: Chain) -> String? {
             try? WalletRustDerivationBridge.deriveFromPrivateKey(chain: chain, privateKeyHex: privateKeyHex).address
         }
         switch chainName {
         case "Bitcoin": return .only(bitcoin: derive(.bitcoin))
         case "Bitcoin Cash": return .only(bitcoinCash: derive(.bitcoinCash))
-        case "Bitcoin SV": return .only(bitcoinSV: derive(.bitcoinSV))
+        case "Bitcoin SV": return .only(bitcoinSV: derive(.bitcoinSv))
         case "Litecoin": return .only(litecoin: derive(.litecoin))
         case "Dogecoin": return .only(dogecoin: derive(.dogecoin))
         case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base",
@@ -590,23 +590,23 @@ extension AppState {
         case "Sui": return .only(sui: derive(.sui))
         case "Aptos": return .only(aptos: derive(.aptos))
         case "TON": return .only(ton: derive(.ton))
-        case "Internet Computer": return .only(icp: derive(.internetComputer))
+        case "Internet Computer": return .only(icp: derive(.icp))
         case "NEAR": return .only(near: derive(.near))
         case "Polkadot": return .only(polkadot: derive(.polkadot))
         default: return .only()
         }
     }
     static func deriveSeedPhraseAddress(
-        seedPhrase: String, chain: SeedDerivationChain, derivationPath: String
+        seedPhrase: String, chain: Chain, derivationPath: String
     ) throws -> String {
         try WalletDerivationLayer.deriveAddress(seedPhrase: seedPhrase, chain: chain, derivationPath: derivationPath)
     }
-    func deriveSeedPhraseAddress(seedPhrase: String, chain: SeedDerivationChain, derivationPath: String)
+    func deriveSeedPhraseAddress(seedPhrase: String, chain: Chain, derivationPath: String)
         throws -> String
     { try Self.deriveSeedPhraseAddress(seedPhrase: seedPhrase, chain: chain, derivationPath: derivationPath) }
-    func utxoDiscoveryDerivationChain(for chainName: String) -> SeedDerivationChain? {
+    func utxoDiscoveryDerivationChain(for chainName: String) -> Chain? {
         [
-            "Bitcoin": SeedDerivationChain.bitcoin, "Bitcoin Cash": .bitcoinCash, "Bitcoin SV": .bitcoinSV, "Litecoin": .litecoin,
+            "Bitcoin": Chain.bitcoin, "Bitcoin Cash": .bitcoinCash, "Bitcoin SV": .bitcoinSv, "Litecoin": .litecoin,
             "Dogecoin": .dogecoin,
         ][chainName]
     }

@@ -3,7 +3,7 @@ struct EndpointCatalogSettingsView: View {
     @Bindable var store: AppState
     @State private var newBitcoinEndpoint: String = ""
     private let copy = EndpointsContentCopy.current
-    private var endpointSections: [AppChainDescriptor] { AppEndpointDirectory.endpointCatalogChains }
+    private var endpointSections: [Chain] { Chain.mainnets.filter(\.supportsEndpointCatalog) }
     private var parsedBitcoinCustomEndpoints: [String] {
         store.bitcoinEsploraEndpoints.components(separatedBy: CharacterSet(charactersIn: ",;\n")).map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -41,10 +41,15 @@ struct EndpointCatalogSettingsView: View {
             return AppEndpointGroupedSettingsEntry(title: choice.title, endpoints: endpoints)
         }
     }
-    private var bnbEndpoints: [String] {
-        var endpoints = EVMChainContext.bnb.defaultRPCEndpoints
-        for endpoint in AppEndpointDirectory.explorerSupplementalEndpoints(for: "BNB Chain") {
-            if !endpoints.contains(endpoint) { endpoints.append(endpoint) }
+    /// An EVM chain's RPC list plus the explorer endpoints the catalog
+    /// supplements it with. Only BNB Chain used to be given the supplement; the
+    /// list is empty for chains that have none, so asking for every chain costs
+    /// nothing and removes the case.
+    private func evmEndpoints(for name: String) -> [String] {
+        var endpoints = AppEndpointDirectory.evmRPCEndpoints(for: name)
+        for endpoint in AppEndpointDirectory.explorerSupplementalEndpoints(for: name)
+        where !endpoints.contains(endpoint) {
+            endpoints.append(endpoint)
         }
         return endpoints
     }
@@ -124,42 +129,29 @@ struct EndpointCatalogSettingsView: View {
         readOnlyFootnote
     }
     @ViewBuilder
-    private func endpointSection(_ descriptor: AppChainDescriptor) -> some View {
-        Section(descriptor.chainName) {
-            switch descriptor.id {
+    /// One section per chain the catalog says has endpoints worth showing.
+    ///
+    /// Was a thirty-case switch, of which twenty-two arms were
+    /// `endpointRows(XBalanceService.endpointCatalog())` or
+    /// `readOnlyEVMSection(EVMChainContext.x.defaultRPCEndpoints)` — both of
+    /// which only restate the chain's own name. What is left is the four chains
+    /// whose section is genuinely its own screen.
+    private func endpointSection(_ chain: Chain) -> some View {
+        Section(chain.displayName) {
+            switch chain {
             case .bitcoin: bitcoinSectionBody
-            case .bitcoinCash: endpointRows(BitcoinCashBalanceService.endpointCatalog())
-            case .litecoin: endpointRows(LitecoinBalanceService.endpointCatalog())
+            case .ethereum: ethereumSectionBody
+            case .monero: moneroSectionBody
             case .dogecoin:
                 ForEach(dogecoinEndpointsByNetwork, id: \.title) { group in
                     namedEndpointGroup(title: group.title, endpoints: group.endpoints)
                 }
-            case .ethereum: ethereumSectionBody
-            case .ethereumClassic: readOnlyEVMSection(EVMChainContext.ethereumClassic.defaultRPCEndpoints)
-            case .arbitrum: readOnlyEVMSection(EVMChainContext.arbitrum.defaultRPCEndpoints)
-            case .optimism: readOnlyEVMSection(EVMChainContext.optimism.defaultRPCEndpoints)
-            case .bnb: readOnlyEVMSection(bnbEndpoints)
-            case .avalanche: readOnlyEVMSection(EVMChainContext.avalanche.defaultRPCEndpoints)
-            case .hyperliquid: readOnlyEVMSection(EVMChainContext.hyperliquid.defaultRPCEndpoints)
-            case .polygon: readOnlyEVMSection(EVMChainContext.polygon.defaultRPCEndpoints)
-            case .base: readOnlyEVMSection(EVMChainContext.base.defaultRPCEndpoints)
-            case .linea: readOnlyEVMSection(EVMChainContext.linea.defaultRPCEndpoints)
-            case .scroll: readOnlyEVMSection(EVMChainContext.scroll.defaultRPCEndpoints)
-            case .blast: readOnlyEVMSection(EVMChainContext.blast.defaultRPCEndpoints)
-            case .mantle: readOnlyEVMSection(EVMChainContext.mantle.defaultRPCEndpoints)
-            case .tron: endpointRows(TronBalanceService.endpointCatalog())
-            case .solana: endpointRows(SolanaBalanceService.endpointCatalog())
-            case .cardano: endpointRows(CardanoBalanceService.endpointCatalog())
-            case .xrp: endpointRows(XRPBalanceService.endpointCatalog())
-            case .stellar: endpointRows(StellarBalanceService.endpointCatalog())
-            case .monero: moneroSectionBody
-            case .sui: endpointRows(SuiBalanceService.endpointCatalog())
-            case .aptos: endpointRows(AptosBalanceService.endpointCatalog())
-            case .ton: endpointRows(TONBalanceService.endpointCatalog())
-            case .icp: endpointRows(ICPBalanceService.endpointCatalog())
-            case .near: endpointRows(NearBalanceService.endpointCatalog())
-            case .polkadot: endpointRows(PolkadotBalanceService.endpointCatalog())
-            case .bitcoinSV: endpointRows(BitcoinSVBalanceService.endpointCatalog())
+            default:
+                if chain.isEVM {
+                    readOnlyEVMSection(evmEndpoints(for: chain.displayName))
+                } else {
+                    endpointRows(AppEndpointDirectory.settingsEndpoints(for: chain.displayName))
+                }
             }
         }
     }
@@ -171,7 +163,7 @@ struct EndpointCatalogSettingsView: View {
             Section {
                 Text(copy.intro).font(.caption).foregroundStyle(.secondary)
             }
-            ForEach(endpointSections) { descriptor in endpointSection(descriptor) }
+            ForEach(endpointSections) { chain in endpointSection(chain) }
         }.navigationTitle(copy.navigationTitle)
     }
 }

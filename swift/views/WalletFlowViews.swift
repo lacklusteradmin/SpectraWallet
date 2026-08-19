@@ -251,20 +251,19 @@ struct WalletDetailView: View {
                 ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: store.currentTotalIfAvailable(for: wallet))
         )
     }
+    /// The wallet's configured derivation path, when it has one.
+    ///
+    /// Was a twenty-nine row `[String: SeedDerivationChain]` map whose entries
+    /// were all the identity but one — BNB Chain, which read Ethereum's path.
+    /// Folding EVM chains onto Ethereum's slot is what `path(for:)` already
+    /// does, via the registry.
     private func derivationPathsText(for wallet: ImportedWallet) -> String? {
-        guard !isWatchOnly, !isPrivateKeyWallet else { return nil }
-        let chainMappings: [String: SeedDerivationChain] = [
-            "Bitcoin": .bitcoin, "Bitcoin Cash": .bitcoinCash, "Bitcoin SV": .bitcoinSV, "Litecoin": .litecoin, "Dogecoin": .dogecoin,
-            "Ethereum": .ethereum, "Ethereum Classic": .ethereumClassic, "Arbitrum": .arbitrum, "Optimism": .optimism,
-            "BNB Chain": .ethereum, "Avalanche": .avalanche, "Hyperliquid": .hyperliquid, "Polygon": .polygon,
-            "Base": .base, "Linea": .linea, "Scroll": .scroll, "Blast": .blast, "Mantle": .mantle,
-            "Tron": .tron, "Solana": .solana,
-            "Cardano": .cardano, "XRP Ledger": .xrp, "Sui": .sui, "Aptos": .aptos, "TON": .ton, "Internet Computer": .internetComputer,
-            "NEAR": .near, "Polkadot": .polkadot, "Stellar": .stellar,
-        ]
-        guard let derivationChain = chainMappings[wallet.selectedChain] else { return nil }
-        return walletFlowLocalizedFormat(
-            "wallet.detail.chainPath", wallet.selectedChain, wallet.seedDerivationPaths.path(for: derivationChain))
+        guard !isWatchOnly, !isPrivateKeyWallet,
+            let chain = Chain(displayName: wallet.selectedChain)
+        else { return nil }
+        let path = wallet.seedDerivationPaths.path(for: chain)
+        guard !path.isEmpty else { return nil }
+        return walletFlowLocalizedFormat("wallet.detail.chainPath", wallet.selectedChain, path)
     }
     private var watchOnlyBadge: some View {
         Label(localizedWalletFlowString("Watching"), systemImage: "eye").font(.caption.weight(.semibold)).foregroundStyle(.orange).padding(
@@ -650,7 +649,6 @@ struct SeedPathSlotEditor: View {
     let title: String
     @Binding var path: String
     let defaultPath: String
-    let presetOptions: [SeedDerivationPathPreset]
     private var segments: [DerivationPathSegment] {
         coreParseDerivationPath(rawPath: path) ?? coreParseDerivationPath(rawPath: defaultPath) ?? []
     }
@@ -684,35 +682,7 @@ struct SeedPathSlotEditor: View {
                     }
                 }
             }
-            if !presetOptions.isEmpty {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(localizedWalletFlowString("Derivation Paths")).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                    VStack(spacing: 8) {
-                        ForEach(presetOptions) { preset in
-                            Button {
-                                path = preset.path
-                            } label: {
-                                HStack(alignment: .firstTextBaseline, spacing: 12) {
-                                    Text(preset.title).font(.caption.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
-                                    Spacer(minLength: 0)
-                                    Text(preset.detail).font(.caption2.monospaced()).foregroundStyle(.secondary).lineLimit(
-                                        1
-                                    ).truncationMode(.middle)
-                                }.padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
-                                    .background(
-                                        RoundedRectangle(cornerRadius: 12, style: .continuous).fill(
-                                            preset.path == path ? Color.orange.opacity(0.16) : Color.white.opacity(0.04))
-                                    ).overlay(
-                                        RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(
-                                            preset.path == path ? Color.orange.opacity(0.65) : Color.white.opacity(0.08), lineWidth: 1
-                                        )
-                                    )
-                            }.buttonStyle(.plain)
-                        }
-                    }
-                }
-            }
-        }
+}
     }
     private func updateSegment(at index: Int, value: String) {
         guard var resolvedSegments = coreParseDerivationPath(rawPath: path) ?? coreParseDerivationPath(rawPath: defaultPath),

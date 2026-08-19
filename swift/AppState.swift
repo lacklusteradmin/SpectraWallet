@@ -563,7 +563,7 @@ final class AppState {
     var bitcoinEsploraEndpoints: String = "" {
         didSet {
             persistAppSettings()
-            WalletServiceBridge.shared.resetHistoryForChain(chainId: SpectraChainID.bitcoin)
+            WalletServiceBridge.shared.resetHistoryForChain(chainId: Chain.bitcoin.id)
         }
     }
     var bitcoinStopGap: Int = 10 {
@@ -620,47 +620,15 @@ final class AppState {
             persistSelectedFeePriorityOptions()
         }
     }
-    private struct UTXORescanState { var isRunning: Bool = false; var lastRunAt: Date? = nil }
-    private var utxoRescanStateByChain: [String: UTXORescanState] = [:]
-    var isRunningBitcoinRescan: Bool {
-        get { utxoRescanStateByChain["Bitcoin"]?.isRunning ?? false }
-        set { utxoRescanStateByChain["Bitcoin", default: UTXORescanState()].isRunning = newValue }
-    }
-    var bitcoinRescanLastRunAt: Date? {
-        get { utxoRescanStateByChain["Bitcoin"]?.lastRunAt }
-        set { utxoRescanStateByChain["Bitcoin", default: UTXORescanState()].lastRunAt = newValue }
-    }
-    var isRunningBitcoinCashRescan: Bool {
-        get { utxoRescanStateByChain["Bitcoin Cash"]?.isRunning ?? false }
-        set { utxoRescanStateByChain["Bitcoin Cash", default: UTXORescanState()].isRunning = newValue }
-    }
-    var bitcoinCashRescanLastRunAt: Date? {
-        get { utxoRescanStateByChain["Bitcoin Cash"]?.lastRunAt }
-        set { utxoRescanStateByChain["Bitcoin Cash", default: UTXORescanState()].lastRunAt = newValue }
-    }
-    var isRunningBitcoinSVRescan: Bool {
-        get { utxoRescanStateByChain["Bitcoin SV"]?.isRunning ?? false }
-        set { utxoRescanStateByChain["Bitcoin SV", default: UTXORescanState()].isRunning = newValue }
-    }
-    var bitcoinSVRescanLastRunAt: Date? {
-        get { utxoRescanStateByChain["Bitcoin SV"]?.lastRunAt }
-        set { utxoRescanStateByChain["Bitcoin SV", default: UTXORescanState()].lastRunAt = newValue }
-    }
-    var isRunningLitecoinRescan: Bool {
-        get { utxoRescanStateByChain["Litecoin"]?.isRunning ?? false }
-        set { utxoRescanStateByChain["Litecoin", default: UTXORescanState()].isRunning = newValue }
-    }
-    var litecoinRescanLastRunAt: Date? {
-        get { utxoRescanStateByChain["Litecoin"]?.lastRunAt }
-        set { utxoRescanStateByChain["Litecoin", default: UTXORescanState()].lastRunAt = newValue }
-    }
-    var isRunningDogecoinRescan: Bool {
-        get { utxoRescanStateByChain["Dogecoin"]?.isRunning ?? false }
-        set { utxoRescanStateByChain["Dogecoin", default: UTXORescanState()].isRunning = newValue }
-    }
-    var dogecoinRescanLastRunAt: Date? {
-        get { utxoRescanStateByChain["Dogecoin"]?.lastRunAt }
-        set { utxoRescanStateByChain["Dogecoin", default: UTXORescanState()].lastRunAt = newValue }
+    /// Whether a chain's deep rescan is running, and when it last finished.
+    ///
+    /// Ten forwarding accessors used to name five chains twice each, over this
+    /// same keyed table.
+    struct UTXORescanState { var isRunning: Bool = false; var lastRunAt: Date? = nil }
+    var utxoRescanStateByChain: [String: UTXORescanState] = [:]
+    subscript(rescanFor chainName: String) -> UTXORescanState {
+        get { utxoRescanStateByChain[chainName] ?? .init() }
+        set { utxoRescanStateByChain[chainName] = newValue }
     }
     @ObservationIgnored var suppressWalletSideEffects = false
     @ObservationIgnored var userInitiatedRefreshTask: Task<Void, Never>?

@@ -182,6 +182,80 @@ final class SendPreviewStore {
     var nearSendPreview: NearSendPreview?
     var polkadotSendPreview: PolkadotSendPreview?
 
+    /// Store a freshly fetched preview under its chain, or clear it.
+    ///
+    /// The per-chain `applyPreview` closures each did this for one chain, with
+    /// an `if case` that had to match the tag by hand.
+    func apply(_ preview: SendPreview?, forChainNamed chainName: String) {
+        switch chainName {
+        case "Bitcoin": bitcoinSendPreview = preview.flatMap { if case .utxo(let p) = $0 { p } else { nil } }
+        case "Bitcoin Cash": bitcoinCashSendPreview = preview.flatMap { if case .utxo(let p) = $0 { p } else { nil } }
+        case "Bitcoin SV": bitcoinSVSendPreview = preview.flatMap { if case .utxo(let p) = $0 { p } else { nil } }
+        case "Litecoin": litecoinSendPreview = preview.flatMap { if case .utxo(let p) = $0 { p } else { nil } }
+        case "Dogecoin": dogecoinSendPreview = preview.flatMap { if case .dogecoin(let p) = $0 { p } else { nil } }
+        case "Tron": tronSendPreview = preview.flatMap { if case .tron(let p) = $0 { p } else { nil } }
+        case "Solana": solanaSendPreview = preview.flatMap { if case .solana(let p) = $0 { p } else { nil } }
+        case "XRP Ledger": xrpSendPreview = preview.flatMap { if case .xrp(let p) = $0 { p } else { nil } }
+        case "Stellar": stellarSendPreview = preview.flatMap { if case .stellar(let p) = $0 { p } else { nil } }
+        case "Monero": moneroSendPreview = preview.flatMap { if case .monero(let p) = $0 { p } else { nil } }
+        case "Cardano": cardanoSendPreview = preview.flatMap { if case .cardano(let p) = $0 { p } else { nil } }
+        case "Sui": suiSendPreview = preview.flatMap { if case .sui(let p) = $0 { p } else { nil } }
+        case "Aptos": aptosSendPreview = preview.flatMap { if case .aptos(let p) = $0 { p } else { nil } }
+        case "TON": tonSendPreview = preview.flatMap { if case .ton(let p) = $0 { p } else { nil } }
+        case "Internet Computer": icpSendPreview = preview.flatMap { if case .icp(let p) = $0 { p } else { nil } }
+        case "NEAR": nearSendPreview = preview.flatMap { if case .near(let p) = $0 { p } else { nil } }
+        case "Polkadot": polkadotSendPreview = preview.flatMap { if case .polkadot(let p) = $0 { p } else { nil } }
+        default:
+            guard coreIsEvmChain(chainName: chainName) else { return }
+            ethereumSendPreview = preview.flatMap { if case .ethereum(let p) = $0 { p } else { nil } }
+        }
+    }
+    /// Same, for the narrower enum the simple-chain refresher returns.
+    func apply(_ preview: SimpleChainPreview?, forChainNamed chainName: String) {
+        switch preview {
+        case .solana(let p): solanaSendPreview = p
+        case .xrp(let p): xrpSendPreview = p
+        case .stellar(let p): stellarSendPreview = p
+        case .monero(let p): moneroSendPreview = p
+        case .cardano(let p): cardanoSendPreview = p
+        case .sui(let p): suiSendPreview = p
+        case .aptos(let p): aptosSendPreview = p
+        case .ton(let p): tonSendPreview = p
+        case .icp(let p): icpSendPreview = p
+        case .near(let p): nearSendPreview = p
+        case .polkadot(let p): polkadotSendPreview = p
+        case .none: clearPreview(forChainNamed: chainName)
+        }
+    }
+    func clearPreview(forChainNamed chainName: String) { apply(nil as SendPreview?, forChainNamed: chainName) }
+
+    /// The estimated network fee a chain's preview reports, in its own units.
+    ///
+    /// Every preview record carries one; they used to spell it
+    /// `estimatedNetworkFeeSui`, `…Apt`, `…Ton` and so on, so a caller that
+    /// only wanted "the fee" had to know which chain it was asking about.
+    /// The field is `estimatedNetworkFee` on all of them now.
+    func estimatedFee(forChainNamed chainName: String) -> Double? {
+        switch taggedPreview(forChainNamed: chainName) {
+        case .utxo(let p): return p.estimatedNetworkFee
+        case .dogecoin(let p): return p.estimatedNetworkFee
+        case .tron(let p): return p.estimatedNetworkFee
+        case .solana(let p): return p.estimatedNetworkFee
+        case .xrp(let p): return p.estimatedNetworkFee
+        case .stellar(let p): return p.estimatedNetworkFee
+        case .monero(let p): return p.estimatedNetworkFee
+        case .cardano(let p): return p.estimatedNetworkFee
+        case .sui(let p): return p.estimatedNetworkFee
+        case .aptos(let p): return p.estimatedNetworkFee
+        case .ton(let p): return p.estimatedNetworkFee
+        case .icp(let p): return p.estimatedNetworkFee
+        case .near(let p): return p.estimatedNetworkFee
+        case .polkadot(let p): return p.estimatedNetworkFee
+        case .ethereum(let p): return p.estimatedNetworkFee
+        case .none: return nil
+        }
+    }
+
     /// The preview to hand Rust for `chainName`, tagged with its shape.
     ///
     /// Rust used to receive all eighteen previews and select one by matching on

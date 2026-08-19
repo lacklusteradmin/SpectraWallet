@@ -23,7 +23,7 @@ enum WalletDerivationError: LocalizedError {
 }
 enum WalletDerivationLayer {
     static func derive(
-        seedPhrase: String, chain: SeedDerivationChain,
+        seedPhrase: String, chain: Chain,
         derivationPath: String? = nil, requestedOutputs: WalletDerivationRequestedOutputs = .all,
         overrides: CoreWalletDerivationOverrides? = nil
     ) throws -> WalletRustDerivationResponseModel {
@@ -37,7 +37,7 @@ enum WalletDerivationLayer {
         )
     }
     static func deriveAddress(
-        seedPhrase: String, chain: SeedDerivationChain, derivationPath: String,
+        seedPhrase: String, chain: Chain, derivationPath: String,
         overrides: CoreWalletDerivationOverrides? = nil
     ) throws -> String
     {
@@ -47,8 +47,8 @@ enum WalletDerivationLayer {
         guard let address = result.address else { throw WalletDerivationError.emptyRequestedOutputs }
         return address
     }
-    @MainActor static func evmSeedDerivationChain(for chainName: String) -> SeedDerivationChain? {
-        CachedCoreHelpers.evmSeedDerivationChainName(chainName: chainName).flatMap(SeedDerivationChain.init(rawValue:))
+    @MainActor static func evmSeedDerivationChain(for chainName: String) -> Chain? {
+        CachedCoreHelpers.evmSeedDerivationChainName(chainName: chainName).flatMap(Chain.init(displayName:))
     }
 }
 
