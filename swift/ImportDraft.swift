@@ -93,31 +93,17 @@ final class WalletImportDraft {
     var isWatchOnlyMode: Bool = false {
         didSet { refreshSelectionState() }
     }
-    var bitcoinAddressInput: String = ""
+    /// The watch-only address text, keyed by chain display name.
+    ///
+    /// Was twenty-three `var <chain>AddressInput` properties and a twenty-three
+    /// row table transcribing them — which is how Monero came to have a field
+    /// nothing read and six chains came to have none at all. A plain text field
+    /// with no derivation invariant, so it binds directly; see the mutation
+    /// contract above.
+    var watchOnlyInputsByChainName: [String: String] = [:]
+    /// Not an address, so not in the table above: Bitcoin's account xpub stands
+    /// in for the whole account and plans one wallet rather than one per line.
     var bitcoinXpubInput: String = ""
-    var bitcoinCashAddressInput: String = ""
-    var bitcoinSvAddressInput: String = ""
-    var litecoinAddressInput: String = ""
-    var dogecoinAddressInput: String = ""
-    var ethereumAddressInput: String = ""
-    var tronAddressInput: String = ""
-    var solanaAddressInput: String = ""
-    var stellarAddressInput: String = ""
-    var xrpAddressInput: String = ""
-    var moneroAddressInput: String = ""
-    var cardanoAddressInput: String = ""
-    var suiAddressInput: String = ""
-    var aptosAddressInput: String = ""
-    var tonAddressInput: String = ""
-    var icpAddressInput: String = ""
-    var nearAddressInput: String = ""
-    var polkadotAddressInput: String = ""
-    var zcashAddressInput: String = ""
-    var bitcoinGoldAddressInput: String = ""
-    var decredAddressInput: String = ""
-    var kaspaAddressInput: String = ""
-    var dashAddressInput: String = ""
-    var bittensorAddressInput: String = ""
     var selectedChainNamesStorage: [String] = [] {
         didSet { refreshSelectionState() }
     }
@@ -237,37 +223,6 @@ final class WalletImportDraft {
         seedPhrase = words.joined(separator: " ")
     }
 
-    /// The draft's per-chain watch-only text fields, keyed by chain display
-    /// name. One table instead of one constructor argument per chain; the
-    /// mapping to storage slots is Rust's job (`coreAddressSlot`).
-    var watchOnlyInputsByChainName: [String: String] {
-        [
-            "Bitcoin": bitcoinAddressInput,
-            "Bitcoin Cash": bitcoinCashAddressInput,
-            "Bitcoin SV": bitcoinSvAddressInput,
-            "Litecoin": litecoinAddressInput,
-            "Dogecoin": dogecoinAddressInput,
-            "Ethereum": ethereumAddressInput,
-            "Tron": tronAddressInput,
-            "Solana": solanaAddressInput,
-            "XRP Ledger": xrpAddressInput,
-            "Stellar": stellarAddressInput,
-            "Cardano": cardanoAddressInput,
-            "Sui": suiAddressInput,
-            "Aptos": aptosAddressInput,
-            "TON": tonAddressInput,
-            "Internet Computer": icpAddressInput,
-            "NEAR": nearAddressInput,
-            "Polkadot": polkadotAddressInput,
-            "Zcash": zcashAddressInput,
-            "Bitcoin Gold": bitcoinGoldAddressInput,
-            "Decred": decredAddressInput,
-            "Kaspa": kaspaAddressInput,
-            "Dash": dashAddressInput,
-            "Bittensor": bittensorAddressInput,
-        ]
-    }
-
     /// Watch-only entries keyed by the storage slot Rust expects. Empty when
     /// the draft is not in watch-only mode.
     var watchOnlyEntriesBySlot: [String: [String]] {
@@ -378,25 +333,12 @@ final class WalletImportDraft {
         seedPhraseEntries = Array(repeating: "", count: 12)
         selectedSeedPhraseWordCount = 12
         isWatchOnlyMode = false
-        bitcoinAddressInput = ""
+        // One line, and it clears every chain. The eighteen assignments it
+        // replaces were five short of the twenty-three fields that existed —
+        // Zcash, Bitcoin Gold, Decred, Kaspa, Dash and Bittensor were never
+        // cleared, which a table cannot get wrong.
+        watchOnlyInputsByChainName = [:]
         bitcoinXpubInput = ""
-        bitcoinCashAddressInput = ""
-        bitcoinSvAddressInput = ""
-        litecoinAddressInput = ""
-        dogecoinAddressInput = ""
-        ethereumAddressInput = ""
-        tronAddressInput = ""
-        solanaAddressInput = ""
-        stellarAddressInput = ""
-        xrpAddressInput = ""
-        moneroAddressInput = ""
-        cardanoAddressInput = ""
-        suiAddressInput = ""
-        aptosAddressInput = ""
-        tonAddressInput = ""
-        icpAddressInput = ""
-        nearAddressInput = ""
-        polkadotAddressInput = ""
         selectedChainNamesStorage = []
         backupVerificationWordIndices = []
         backupVerificationEntries = []

@@ -90,12 +90,10 @@ extension AppState {
     }
     func rebuildDashboardDerivedState() { batchCacheUpdates { _rebuildDashboardDerivedStateBody() } }
     private func _rebuildDashboardDerivedStateBody() {
-        let includedHoldings = cachedIncludedPortfolioHoldings
         let holdingsBySymbol = cachedIncludedPortfolioHoldingsBySymbol
         let trackedEntriesBySymbol = cachedResolvedTokenPreferencesBySymbol
         let prototypeBySymbol = Dictionary(
             dashboardPinPrototypes.map { ($0.symbol.uppercased(), $0) }, uniquingKeysWith: { first, _ in first })
-        let storedPinnedSymbols = pinnedDashboardAssetSymbols
         let availableSymbols = Array(
             Set(
                 defaultPinnedDashboardAssetSymbols

@@ -29,27 +29,6 @@ fileprivate struct SendComposerPresentation {
 }
 
 @MainActor
-struct SendPrimarySectionsView: View {
-    @Bindable var store: AppState
-    @Binding var selectedAddressBookEntryID: String
-    @Binding var isShowingQRScanner: Bool
-    @Binding var qrScannerErrorMessage: String?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            SendFromPage(store: store)
-            SendRecipientPage(
-                store: store,
-                selectedAddressBookEntryID: $selectedAddressBookEntryID,
-                isShowingQRScanner: $isShowingQRScanner,
-                qrScannerErrorMessage: $qrScannerErrorMessage
-            )
-            SendAmountPage(store: store)
-        }
-    }
-}
-
-@MainActor
 struct SendFromPage: View {
     @Bindable var store: AppState
 

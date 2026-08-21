@@ -340,9 +340,11 @@ extension AppState {
             switch chainName {
             case "Bitcoin": return localizedStoreString("Enter a Bitcoin address valid for the selected Bitcoin network mode.")
             case "Dogecoin": return localizedStoreString("Dogecoin addresses usually start with D, A, or 9.")
-            case "Ethereum": return localizedStoreString("Ethereum addresses must start with 0x and include 40 hex characters.")
-            case "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base",
-                "Linea", "Scroll", "Blast", "Mantle":
+            // One arm for the whole family. Thirteen names stood here and the
+            // other ten EVM mainnets got "Enter an address for the selected
+            // chain." Ethereum had a message of its own; the `%@` form says the
+            // same thing and says it for every chain in the family.
+            case let name where Chain(displayName: name)?.isEVM == true:
                 return localizedStoreFormat("%@ addresses use EVM format (0x + 40 hex characters).", chainName)
             case "Tron": return localizedStoreString("Tron addresses usually start with T and are Base58 encoded.")
             case "Solana": return localizedStoreString("Solana addresses are Base58 encoded and typically 32-44 characters.")
@@ -363,8 +365,7 @@ extension AppState {
         switch chainName {
         case "Bitcoin": return localizedStoreString("Enter a valid Bitcoin address for the selected Bitcoin network mode.")
         case "Dogecoin": return localizedStoreString("Enter a valid Dogecoin address beginning with D, A, or 9.")
-        case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base",
-            "Linea", "Scroll", "Blast", "Mantle":
+        case let name where Chain(displayName: name)?.isEVM == true:
             return localizedStoreFormat("Enter a valid %@ address (0x + 40 hex characters).", chainName)
         case "Tron": return localizedStoreString("Enter a valid Tron address (starts with T).")
         case "Solana": return localizedStoreString("Enter a valid Solana address (Base58 format).")
@@ -612,14 +613,6 @@ extension AppState {
             self[historyRunFor: "Dogecoin"].lastUpdatedAt = Date()
         }
     }
-    func runDogecoinEndpointReachabilityDiagnostics() async {
-        guard !self[endpointHealthFor: "Dogecoin"].isChecking else { return }
-        self[endpointHealthFor: "Dogecoin"].isChecking = true; defer { self[endpointHealthFor: "Dogecoin"].isChecking = false }
-        await runSimpleEndpointReachabilityDiagnostics(
-            checks: AppEndpointDirectory.diagnosticsChecks(for: "Dogecoin"), profile: .diagnostics,
-            setResults: { [weak self] in self?[endpointHealthFor: "Dogecoin"].results = $0 },
-            markUpdated: { [weak self] in self?[endpointHealthFor: "Dogecoin"].lastUpdatedAt = Date() })
-    }
     func startNetworkPathMonitorIfNeeded() {
         #if canImport(Network)
             networkPathMonitor.pathUpdateHandler = { [weak self] path in
@@ -722,22 +715,24 @@ extension AppState {
     }
     func retryUTXOTransactionStatus(for transactionID: UUID) async -> String {
         guard let transaction = transactions.first(where: { $0.id == transactionID }) else { return "Transaction not found." }
-        guard ["Bitcoin", "Bitcoin Cash", "Bitcoin SV", "Litecoin", "Dogecoin"].contains(transaction.chainName), transaction.kind == .send
-        else { return "Status recheck is only supported for UTXO send transactions." }
+        // Three facts, all of them `Chain::pending_status_poll`: which chains
+        // are polled this way, whether a chain keeps counting after
+        // confirmation, and whether receives are tracked too. They were a
+        // five-name list, a `== "Dogecoin"` and a blanket `kind == .send`, and
+        // the last one disagreed with the registry — Litecoin is
+        // `require_send_kind: false` because its explorer confirms receives on
+        // its own cadence, and a received Litecoin transaction could not be
+        // rechecked.
+        guard let chain = Chain(displayName: transaction.chainName),
+            case .utxo(let tracksFinality, let requireSendKind) = chain.pendingStatusPoll,
+            !requireSendKind || transaction.kind == .send
+        else { return "Status recheck is not available for this transaction." }
         guard transaction.transactionHash != nil else { return "This transaction has no hash to recheck." }
-        // Dogecoin tracks finality, so a manual recheck must also re-open a
-        // transaction already considered final.
         try? await WalletServiceBridge.shared.resetStatusTracker(
-            id: transactionID.uuidString,
-            clearFinality: transaction.chainName == "Dogecoin")
-        switch transaction.chainName {
-        case "Bitcoin": await refreshPendingTransactions(chainName: "Bitcoin")
-        case "Bitcoin Cash": await refreshPendingTransactions(chainName: "Bitcoin Cash")
-        case "Bitcoin SV": await refreshPendingTransactions(chainName: "Bitcoin SV")
-        case "Litecoin": await refreshPendingTransactions(chainName: "Litecoin")
-        case "Dogecoin": await refreshPendingTransactions(chainName: "Dogecoin")
-        default: break
-        }
+            id: transactionID.uuidString, clearFinality: tracksFinality)
+        // The switch this replaces had five arms and every one of them was
+        // `refreshPendingTransactions(chainName: <the same name>)`.
+        await refreshPendingTransactions(chainName: transaction.chainName)
         guard let updated = transactions.first(where: { $0.id == transactionID }) else { return "Transaction status refresh completed." }
         if updated.status != transaction.status { return "Status updated: \(updated.statusText)." }
         if updated.status == .pending { return "No confirmation yet. Spectra will keep retrying automatically." }
@@ -1257,12 +1252,11 @@ extension AppState {
         var destinationForProbe = trimmedDestination
         var ensResolutionInfo: String?
         if !isValidAddress(trimmedDestination, for: coin.chainName) {
-            if (coin.chainName == "Ethereum" || coin.chainName == "Arbitrum" || coin.chainName == "Optimism"
-                || coin.chainName == "BNB Chain" || coin.chainName == "Avalanche" || coin.chainName == "Hyperliquid"
-                || coin.chainName == "Polygon" || coin.chainName == "Base"
-                || coin.chainName == "Linea" || coin.chainName == "Scroll" || coin.chainName == "Blast" || coin.chainName == "Mantle"),
-                isENSNameCandidate(trimmedDestination)
-            {
+            // ENS resolves on Ethereum and nowhere else — `resolveEVMRecipientAddress`
+            // refuses any other chain — so the twelve-name EVM list that stood
+            // here was routing eleven chains into a call that throws and lands
+            // in the same `clearProbe()` the `else` does. Say the rule instead.
+            if coin.chainName == "Ethereum", isENSNameCandidate(trimmedDestination) {
                 do {
                     let resolved = try await resolveEVMRecipientAddress(input: trimmedDestination, for: coin.chainName)
                     destinationForProbe = resolved.address
@@ -1297,8 +1291,12 @@ extension AppState {
                 let m = chainRiskProbeMessages(
                     chainName: "Bitcoin", balanceLabel: "balance", balanceNonPositive: btcBalance <= 0, hasHistory: btcSummary.utxoCount > 0)
                 warning = m.warning; infoMessage = m.info
-            case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base",
-            "Linea", "Scroll", "Blast", "Mantle":
+            // Thirteen names stood here, and the ten EVM mainnets outside them —
+            // Sei, Celo, Cronos, opBNB, zkSync Era, Sonic, Berachain, Unichain,
+            // Ink and X Layer — fell to `default`, which is "no warning". The
+            // probe is the same call for every EVM chain; membership is the
+            // registry's.
+            case let name where Chain(displayName: name)?.isEVM == true:
                 guard let chainId = Chain(displayName: coin.chainName)?.id else {
                     warning = nil
                     infoMessage = nil
@@ -1357,16 +1355,6 @@ extension AppState {
                 } else {
                     warning = nil; infoMessage = nil
                 }
-            case "Litecoin", "Dogecoin", "Solana", "XRP Ledger", "Monero", "Sui", "Aptos":
-                if let cfg = coreSimpleChainRiskProbeConfig(chainName: coin.chainName, symbol: coin.symbol),
-                    let chainId = Chain(displayName: coin.chainName)?.id
-                {
-                    (warning, infoMessage) = await fetchChainRiskWarning(
-                        chainId: chainId, address: destinationForProbe,
-                        chainName: cfg.displayChainName, balanceLabel: cfg.balanceLabel)
-                } else {
-                    warning = nil; infoMessage = nil
-                }
             case "NEAR":
                 let nearBalance: Double
                 if let nearSummary = try? await WalletServiceBridge.shared.fetchNativeBalanceSummary(
@@ -1382,9 +1370,23 @@ extension AppState {
                 let m = chainRiskProbeMessages(
                     chainName: "NEAR", balanceLabel: "NEAR balance", balanceNonPositive: nearBalance <= 0, hasHistory: nearHasHistory)
                 warning = m.warning; infoMessage = m.info
+            // No chain list on the way out either. The seven names that used to
+            // gate this arm — Litecoin, Dogecoin, Solana, XRP Ledger, Monero,
+            // Sui, Aptos — were a copy of the seven `core_simple_chain_risk_probe_config`
+            // matches, and it already answers `nil` for a chain it has no probe
+            // for. Two answers to one question, and the copy could only ever be
+            // the staler of the two.
             default:
-                warning = nil
-                infoMessage = nil
+                if let cfg = coreSimpleChainRiskProbeConfig(chainName: coin.chainName, symbol: coin.symbol),
+                    let chainId = Chain(displayName: coin.chainName)?.id
+                {
+                    (warning, infoMessage) = await fetchChainRiskWarning(
+                        chainId: chainId, address: destinationForProbe,
+                        chainName: cfg.displayChainName, balanceLabel: cfg.balanceLabel)
+                } else {
+                    warning = nil
+                    infoMessage = nil
+                }
             }
             guard probeID == "\(sendWalletID)|\(sendHoldingKey)|\(sendAddress)" else { return }
             sendDestinationRiskWarning = warning

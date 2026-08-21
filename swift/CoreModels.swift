@@ -466,11 +466,6 @@ enum HistorySortOrder: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var localizedTitle: String { AppLocalization.string(rawValue) }
 }
-struct HistorySection: Identifiable {
-    let title: String
-    let transactions: [TransactionRecord]
-    var id: String { title }
-}
 struct NormalizedHistoryEntry: Identifiable {
     let id: String
     let transactionID: UUID
@@ -515,13 +510,6 @@ extension PriceAlertRule {
         if !isEnabled { return AppLocalization.string("Paused") }
         return hasTriggered ? AppLocalization.string("Triggered") : AppLocalization.string("Watching")
     }
-}
-struct DonationDestination: Identifiable {
-    let id = UUID()
-    let title: String
-    let address: String
-    let assetIdentifier: String?
-    let color: Color
 }
 // `AddressBookEntry` is the Rust record — core owns saved recipients, including
 // the rules about which ones are acceptable. Only display helpers live here.

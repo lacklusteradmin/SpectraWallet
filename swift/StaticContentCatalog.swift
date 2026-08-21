@@ -415,9 +415,6 @@ extension ChainTokenRegistryEntry {
         }
     }()
 }
-enum BIP39EnglishWordList {
-    static let words: Set<String> = BIP39WordList.words(for: "en")
-}
 enum BIP39WordList {
     private static let cache = LockedValue<[String: Set<String>]>([:])
     static func words(for language: String) -> Set<String> {

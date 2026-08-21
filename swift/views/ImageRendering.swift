@@ -7,20 +7,6 @@ import SwiftUI
 
 /// A SwiftUI view that renders a token image from Assets.xcassets.
 /// Falls back to `nil` content when the image is unavailable so callers can provide their own fallback.
-struct BundleTokenImage: View {
-    let name: String
-    var size: CGFloat = 40
-
-    var body: some View {
-        if let uiImage = UIImage(named: name) {
-            Image(uiImage: uiImage)
-                .resizable()
-                .interpolation(.high)
-                .scaledToFit()
-                .frame(width: size, height: size)
-        }
-    }
-}
 
 // MARK: ─ (merged from views/IconUIHelpers.swift)
 
@@ -60,21 +46,6 @@ struct CoinBadge: View {
             LinearGradient(colors: [color, color.opacity(0.75)], startPoint: .topLeading, endPoint: .bottomTrailing)
         ).frame(width: size, height: size).overlay {
             Text(letter).font(.system(size: size * 0.5, weight: .semibold, design: .rounded)).foregroundStyle(.white)
-        }
-    }
-}
-struct ChainToggleLabel: View {
-    let title: String
-    let symbol: String
-    var assetIdentifier: String? = nil
-    let color: Color
-    var body: some View {
-        HStack(spacing: 10) {
-            CoinBadge(assetIdentifier: assetIdentifier, fallbackText: symbol, color: color, size: 28)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title)
-                Text(symbol).font(.caption).foregroundStyle(.secondary)
-            }
         }
     }
 }

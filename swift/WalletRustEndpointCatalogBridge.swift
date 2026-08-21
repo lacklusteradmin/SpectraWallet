@@ -1,13 +1,4 @@
 import Foundation
-enum WalletRustEndpointCatalogBridgeError: LocalizedError {
-    case rustCoreReturnedNullResponse
-    case rustCoreFailed(String)
-    var errorDescription: String? {
-        switch self {
-        case .rustCoreReturnedNullResponse: return "The Rust endpoint catalog returned an empty response."
-        case .rustCoreFailed(let message): return message
-        }}
-}
 typealias AppEndpointGroupedSettingsEntry = AppCoreGroupedSettingsEntry
 typealias AppEndpointDiagnosticsCheck = AppCoreDiagnosticsCheck
 typealias AppEndpointExplorerEntry = AppCoreExplorerEntry

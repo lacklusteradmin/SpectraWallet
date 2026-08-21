@@ -36,7 +36,6 @@
 		90F002000000000000000019 /* DebouncedAction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000019 /* DebouncedAction.swift */; };
 		90F00200000000000000001A /* DiagnosticsState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000001A /* DiagnosticsState.swift */; };
 		90F00200000000000000001B /* DiagnosticsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000001B /* DiagnosticsStore.swift */; };
-		90F00200000000000000001D /* Identifiers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000001D /* Identifiers.swift */; };
 		90F00200000000000000001E /* LoadingTaskRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000001E /* LoadingTaskRegistry.swift */; };
 		90F00200000000000000001F /* MaintenanceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000001F /* MaintenanceStore.swift */; };
 		90F002000000000000000022 /* PersistenceStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000022 /* PersistenceStore.swift */; };
@@ -128,7 +127,6 @@
 		90F001000000000000000019 /* DebouncedAction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebouncedAction.swift; sourceTree = "<group>"; };
 		90F00100000000000000001A /* DiagnosticsState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsState.swift; sourceTree = "<group>"; };
 		90F00100000000000000001B /* DiagnosticsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DiagnosticsStore.swift; sourceTree = "<group>"; };
-		90F00100000000000000001D /* Identifiers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Identifiers.swift; sourceTree = "<group>"; };
 		90F00100000000000000001E /* LoadingTaskRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LoadingTaskRegistry.swift; sourceTree = "<group>"; };
 		90F00100000000000000001F /* MaintenanceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MaintenanceStore.swift; sourceTree = "<group>"; };
 		90F001000000000000000022 /* PersistenceStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersistenceStore.swift; sourceTree = "<group>"; };
@@ -259,7 +257,6 @@
 				90F001000000000000000019 /* DebouncedAction.swift */,
 				90F00100000000000000001A /* DiagnosticsState.swift */,
 				90F00100000000000000001B /* DiagnosticsStore.swift */,
-				90F00100000000000000001D /* Identifiers.swift */,
 				90F00100000000000000001E /* LoadingTaskRegistry.swift */,
 				90F00100000000000000001F /* MaintenanceStore.swift */,
 				90F001000000000000000022 /* PersistenceStore.swift */,
@@ -511,7 +508,6 @@
 				90F002000000000000000019 /* DebouncedAction.swift in Sources */,
 				90F00200000000000000001A /* DiagnosticsState.swift in Sources */,
 				90F00200000000000000001B /* DiagnosticsStore.swift in Sources */,
-				90F00200000000000000001D /* Identifiers.swift in Sources */,
 				90F00200000000000000001E /* LoadingTaskRegistry.swift in Sources */,
 				90F00200000000000000001F /* MaintenanceStore.swift in Sources */,
 				90F002000000000000000022 /* PersistenceStore.swift in Sources */,

@@ -457,12 +457,15 @@ extension AppState {
                 tokenHistoryError = error
                 encounteredErrors = true
             }
-            // Only these three report token-transfer diagnostics; the rest of
-            // the EVM family refreshes history without them.
-            let diagnosticsChainName: String? =
-                chain.isEthereumFamily
-                ? "Ethereum"
-                : chain == .arbitrum ? "Arbitrum" : chain == .optimism ? "Optimism" : nil
+            // The record above is built for *every* EVM chain, and this used to
+            // decide where it went: Ethereum and its testnets to Ethereum,
+            // Arbitrum to Arbitrum, Optimism to Optimism, and the other twenty
+            // EVM mainnets nowhere — computed, then dropped. The diagnostics
+            // registry is keyed by chain and takes any of them, so a chain's
+            // token-transfer diagnostics go under its own mainnet. That is the
+            // rule the Ethereum-family arm was already applying; it just had
+            // two hand-written exceptions and no general case.
+            let diagnosticsChainName: String? = Chain(displayName: chainName)?.mainnetCounterpart.displayName
             if let diagnosticsChainName {
                 let entry =
                     tokenDiagnostics

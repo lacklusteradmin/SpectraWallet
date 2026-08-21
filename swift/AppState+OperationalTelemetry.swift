@@ -324,7 +324,6 @@ extension AppState {
         chainName: String, addressResolver: (ImportedWallet) -> String?,
         fetchStatuses: @escaping (String) async -> ([String: TransactionStatus], Bool)
     ) async {
-        let now = Date()
         let trackedTransactions = transactions.filter { transaction in
             transaction.kind == .send
                 && transaction.chainName == chainName

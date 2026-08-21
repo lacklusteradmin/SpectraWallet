@@ -262,11 +262,15 @@ extension AppState {
         return URL(string: trimmed)
     }
     func fetchEthereumPortfolio(for address: String) async throws -> (nativeBalance: Double, tokenBalances: [TokenBalanceResult]) {
-        let ethereumContext = evmChainContext(for: "Ethereum") ?? .ethereum
+        // Was `?? .ethereum`, which resolved to a *fabricated* context with
+        // chain id 0 when the registry lookup missed — a fallback that can only
+        // fire when the registry has no Ethereum, and then reports mainnet as
+        // not-mainnet. `false` says the same thing without inventing a chain.
+        let isEthereumMainnet = evmChainContext(for: "Ethereum")?.isEthereumMainnet ?? false
         let summary = try await WalletServiceBridge.shared.fetchNativeBalanceSummary(chainId: Chain.ethereum.id, address: address)
         let nativeBalance = Double(summary.amountDisplay) ?? 0
         let tokenBalances =
-            ethereumContext.isEthereumMainnet
+            isEthereumMainnet
             ? ((try? await WalletServiceBridge.shared.fetchTokenBalances(
                 chainId: Chain.ethereum.id, address: address,
                 tokens: enabledEVMTrackedTokens(for: .ethereum).map { TokenDescriptor(contract: $0.contractAddress, symbol: $0.symbol, decimals: UInt8($0.decimals), name: nil) }
@@ -275,7 +279,6 @@ extension AppState {
         return (nativeBalance, tokenBalances)
     }
     func refreshPendingEVMTransactions(chainName: String) async {
-        let now = Date()
         guard let chainId = Chain(displayName: chainName)?.id else { return }
         let pendingTransactions = transactions.filter { transaction in
             transaction.kind == .send

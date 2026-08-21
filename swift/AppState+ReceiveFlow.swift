@@ -203,16 +203,11 @@ extension AppState {
         let trimmedPrivateKey = corePrivateKeyHexNormalized(rawValue: importDraft.privateKeyInput)
         let trimmedWalletPassword = importDraft.normalizedWalletPassword
         let draft = importDraft
-        func tr(_ s: String) -> String { s.trimmingCharacters(in: .whitespacesAndNewlines) }
-        func entries(_ s: String) -> [String] { draft.watchOnlyEntries(from: s) }
-        // The trimmed per-chain inputs, from the one table `ImportDraft`
-        // keeps. This was 24 pairs of `let typedXAddress = tr(draft.xInput)`
-        // and `let xAddressEntries = entries(draft.xInput)` — the same table
-        // written out twice, by hand, in a file that already had two more
-        // copies of it further down.
-        let typedByChainName = draft.watchOnlyInputsByChainName.mapValues(tr)
-        func typed(_ chainName: String) -> String { typedByChainName[chainName] ?? "" }
-        let trimmedBitcoinXPub = tr(draft.bitcoinXpubInput)
+        // Bitcoin's account xpub is the one typed value this flow still reads:
+        // it is not an address and has no derived counterpart. The two helpers
+        // that stood beside it — a trimmer and an entry splitter — served the
+        // per-chain address fields, and those are core's input now.
+        let trimmedBitcoinXPub = draft.bitcoinXpubInput.trimmingCharacters(in: .whitespacesAndNewlines)
         let selectedChains = Set(draft.selectedChainNames)
         let selectedDerivationPreset = importDraft.seedDerivationPreset
         let selectedDerivationPaths: SeedDerivationPaths = {
@@ -262,24 +257,20 @@ extension AppState {
             }
             privateKeyAddress = address
         }
-        if selectedChains.contains("Monero") {
-            if typed("Monero").isEmpty || !AddressValidation.isValid(typed("Monero"), kind: "monero") {
-                importError = localizedStoreString("Enter a valid Monero address.")
-                return
-            }
-            if isWatchOnlyImport {
-                importError = "Monero watched addresses are not supported in this build."
-                return
-            }
+        // Monero derives from the seed like every other chain; what it does not
+        // have is a *watched* form, which is what `supports_watch_only_import`
+        // says and what this refuses.
+        if selectedChains.contains("Monero"), isWatchOnlyImport {
+            importError = "Monero watched addresses are not supported in this build."
+            return
         }
-        if selectedChains.contains("Cardano") && !isWatchOnlyImport {
-            if !typed("Cardano").isEmpty,
-                !AddressValidation.isValid(typed("Cardano"), kind: "cardano")
-            {
-                importError = localizedStoreString("Enter a valid Cardano address.")
-                return
-            }
-        }
+        // The Cardano guard that stood here validated `typed("Cardano")` on the
+        // *non*-watch-only path, where that value is always empty: the per-chain
+        // address fields exist only on the watch-addresses page, and all three
+        // writers of `isWatchOnlyMode` call `reset()` first, which clears them.
+        // So the guard could not fire, and Cardano's address comes from
+        // derivation like every other chain's. Watch-only entries are validated
+        // by core on the way in.
         // The 16-row watch-only validation table, the Bitcoin address/xpub
         // guard and the seven-chain EVM guard that used to sit here are gone.
         // All three restated per-chain address formats the registry already
@@ -308,12 +299,17 @@ extension AppState {
                 // path, which is what `coreSeedDerivationPathKey` already
                 // encodes — so this is a loop over the selection rather than a
                 // 30-entry table of (isSelected, chainName, path) triples.
+                //
+                // An empty path is not a reason to skip a chain. Monero has
+                // none — its keys come from the seed — and skipping it here is
+                // what made a Monero import impossible: the batch produced no
+                // address for it, so the guard below demanded a typed one, and
+                // the only field to type it into was on the watch-only page a
+                // seed import never sees.
                 var chainPaths: [String: String] = [:]
                 for chainName in selectedChains {
                     guard let chain = Chain(displayName: chainName) else { continue }
-                    let path = selectedDerivationPaths.path(for: chain)
-                    guard !path.isEmpty else { continue }
-                    chainPaths[chainName] = path
+                    chainPaths[chainName] = selectedDerivationPaths.path(for: chain)
                 }
                 // EVM chains share one derived address, produced under the
                 // Ethereum entry, so ensure it is present whenever any EVM
@@ -356,10 +352,6 @@ extension AppState {
                     // unpacking it into 24 locals and repacking it was pure
                     // transcription.
                     addressByChainName = derived
-                    // Monero is not in the batch derivation, so the address the
-                    // user supplied is its only source. The guard above has
-                    // already refused an invalid one.
-                    record("Monero", typed("Monero"))
                 } catch {
                     let resolvedMessage =
                         (error as? LocalizedError)?.errorDescription
@@ -439,7 +431,7 @@ extension AppState {
                         holdings: coins,
                         seedDerivationPreset: selectedDerivationPreset,
                         seedDerivationPaths: selectedDerivationPaths,
-                        derivationOverrides: draft.resolvedDerivationOverrides ?? .empty,
+                        derivationOverrides: draft.resolvedDerivationOverrides,
                         networkChainByFamily: networkChainByFamily
                     )
                 )

@@ -290,7 +290,6 @@ extension AppState {
     // applies the tagged-enum result to the right AppState field.
     private struct SimpleChainConfig {
         let chainId: String
-        let rustChain: SimpleChain
         let coinCheck: (AppState, Coin) async -> Bool
         let resolveAddress: (AppState, ImportedWallet) -> String?
         let chainName: String
@@ -308,7 +307,7 @@ extension AppState {
         preparingChains.insert(cfg.chainName); defer { preparingChains.remove(cfg.chainName) }
         do {
             let preview = try await WalletServiceBridge.shared.fetchSimpleChainSendPreviewTyped(
-                chainId: cfg.chainId, address: src, chain: cfg.rustChain)
+                chainId: cfg.chainId, address: src)
             cfg.applyPreview(self, preview)
             sendError = nil
         } catch {
@@ -317,14 +316,6 @@ extension AppState {
             sendError = cfg.errorMessage
         }
     }
-    /// Which `SimpleChain` a chain name is, for chains whose preview core
-    /// fetches through one entry point.
-    private static let simplePreviewChains: [String: SimpleChain] = [
-        "Solana": .solana, "XRP Ledger": .xrp, "Stellar": .stellar, "Monero": .monero,
-        "Cardano": .cardano, "Sui": .sui, "Aptos": .aptos, "TON": .ton,
-        "Internet Computer": .icp, "NEAR": .near, "Polkadot": .polkadot,
-    ]
-
     /// Refresh the send preview for a chain core estimates through the shared
     /// path.
     ///
@@ -333,13 +324,17 @@ extension AppState {
     /// real and are stated here: Solana's sendable-coin rule is its own, and
     /// Polkadot refuses to preview without a seed phrase.
     func refreshSendPreview(forChainNamed chainName: String) async {
-        guard let rustChain = Self.simplePreviewChains[chainName],
-            let chainID = Chain(displayName: chainName)?.id, !chainID.isEmpty
-        else { return }
-        let symbol = Chain(displayName: chainName)?.gasTokenSymbol ?? ""
+        // The eleven-entry `[String: SimpleChain]` table that used to gate this
+        // is gone: core derives the decode shape from the chain id it is given,
+        // and refuses a chain that has no shared-path preview. Which chains
+        // reach here is `route_send_asset`'s answer, so a second gate could
+        // only disagree with it.
+        guard let chain = Chain(displayName: chainName), !chain.id.isEmpty else { return }
+        let chainID = chain.id
+        let symbol = chain.gasTokenSymbol
         await refreshSimpleChain(
             .init(
-                chainId: chainID, rustChain: rustChain,
+                chainId: chainID,
                 coinCheck: { s, c in
                     // Solana's rule is core's: SOL, or a token whose mint the
                     // user tracks. Asking core rather than repeating it here is

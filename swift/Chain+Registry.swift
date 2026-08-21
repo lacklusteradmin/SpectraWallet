@@ -20,6 +20,13 @@ extension Chain: Identifiable {
     /// Only the chains that are not testnets. Ordered as the catalog is.
     static let mainnets: [Chain] = identities.filter { !$0.isTestnet }.map(\.chain)
 
+    /// The chains the staking tab lists. Was `StakingSupportedChain`, a
+    /// seven-case enum with a display-name switch and an id switch over facts
+    /// this table already held — the fifth Swift enum to restate the chain
+    /// list, and the one the earlier sweep missed because it is scoped to one
+    /// tab rather than to the app.
+    static let stakingChains: [Chain] = identities.filter(\.supportsStaking).map(\.chain)
+
     private static let identities: [ChainIdentity] = coreChainIdentities()
     private static let identityByChain: [Chain: ChainIdentity] = Dictionary(
         uniqueKeysWithValues: identities.map { ($0.chain, $0) })
@@ -59,14 +66,21 @@ extension Chain: Identifiable {
     var addressValidationKind: String { identity?.addressValidationKind ?? "" }
     /// HD discovery walks this chain's addresses past the last used one.
     var supportsDeepUTXODiscovery: Bool { identity?.supportsDeepUtxoDiscovery ?? false }
+    /// A watch-only import can carry addresses for this chain.
+    var supportsWatchOnlyImport: Bool { identity?.supportsWatchOnlyImport ?? false }
+    /// The chain has protocol-native staking the staking tab can drive.
+    var supportsStaking: Bool { identity?.supportsStaking ?? false }
     var sendExecutionShape: SendExecutionShape? { identity?.sendExecutionShape }
     var pendingStatusPoll: PendingStatusPoll? { identity?.pendingStatusPoll }
     /// Which chain's derivation path this chain reuses, as a display name.
     var seedDerivationChain: String? { identity?.seedDerivationChain }
     /// The EVM chain whose derivation this chain reuses.
     var evmSeedDerivationChain: String? { identity?.evmSeedDerivationChain }
-    /// Where a configured derivation path for this chain is stored.
-    var seedDerivationPathKey: String { identity?.seedDerivationPathKey ?? "" }
+    /// The mainnet this chain belongs to, or itself.
+    var mainnetCounterpart: Chain { identity?.mainnetCounterpart ?? self }
+    /// Where a configured derivation path for this chain is stored. Testnets
+    /// share their mainnet's slot, which is what that says.
+    var seedDerivationPathKey: String { mainnetCounterpart.id }
     /// The networks this chain's family offers, mainnet first.
     var networkChoices: [NetworkChoice] { identity?.networkChoices ?? [] }
 

@@ -1,7 +1,7 @@
 import Foundation
 
 @MainActor @Observable final class StakingViewModel {
-    let chain: StakingSupportedChain
+    let chain: Chain
 
     var validators: [StakingValidator] = []
     var positions: [StakingPosition] = []
@@ -10,7 +10,7 @@ import Foundation
     var error: Error?
     var preview: StakingActionPreview?
 
-    init(chain: StakingSupportedChain) {
+    init(chain: Chain) {
         self.chain = chain
     }
 
@@ -20,7 +20,7 @@ import Foundation
         isLoading = true
         error = nil
         do {
-            validators = try await StakingBridge.shared.fetchValidators(chainId: chain.chainId)
+            validators = try await StakingBridge.shared.fetchValidators(chainId: chain.id)
             if chain == .polkadot {
                 nominationPools = try await StakingBridge.shared.polkadotFetchNominationPools()
             }
@@ -33,7 +33,7 @@ import Foundation
     func loadPositions(walletAddress: String) async {
         do {
             positions = try await StakingBridge.shared.fetchPositions(
-                chainId: chain.chainId, walletAddress: walletAddress)
+                chainId: chain.id, walletAddress: walletAddress)
         } catch {
             self.error = error
         }

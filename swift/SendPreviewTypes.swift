@@ -31,44 +31,12 @@ struct EVMChainContext: Equatable {
         isEthereumMainnet = info.isEthereumMainnet
     }
 
-    /// A chain the app names directly. Falls back to a context with chain id 0
-    /// rather than trapping: a mismatched id fails the pre-signing check
-    /// loudly, where a `fatalError` here would take the app down at launch.
-    /// Resolving a derivation path used to `fatalError` on exactly this kind of
-    /// miss, and it crashed every testnet.
-    private static func known(_ chainName: String) -> EVMChainContext {
-        EVMChainContext(chainName: chainName)
-            ?? EVMChainContext(
-                displayName: chainName, expectedChainID: 0, coinType: 60,
-                isEthereumFamily: false, isEthereumMainnet: false)
-    }
-
-    private init(
-        displayName: String, expectedChainID: Int, coinType: UInt32, isEthereumFamily: Bool,
-        isEthereumMainnet: Bool
-    ) {
-        self.displayName = displayName
-        self.expectedChainID = expectedChainID
-        self.coinType = coinType
-        self.isEthereumFamily = isEthereumFamily
-        self.isEthereumMainnet = isEthereumMainnet
-    }
-
-    static var ethereum: EVMChainContext { known("Ethereum") }
-    static var ethereumSepolia: EVMChainContext { known("Ethereum Sepolia") }
-    static var ethereumHoodi: EVMChainContext { known("Ethereum Hoodi") }
-    static var ethereumClassic: EVMChainContext { known("Ethereum Classic") }
-    static var arbitrum: EVMChainContext { known("Arbitrum") }
-    static var optimism: EVMChainContext { known("Optimism") }
-    static var bnb: EVMChainContext { known("BNB Chain") }
-    static var avalanche: EVMChainContext { known("Avalanche") }
-    static var hyperliquid: EVMChainContext { known("Hyperliquid") }
-    static var polygon: EVMChainContext { known("Polygon") }
-    static var base: EVMChainContext { known("Base") }
-    static var linea: EVMChainContext { known("Linea") }
-    static var scroll: EVMChainContext { known("Scroll") }
-    static var blast: EVMChainContext { known("Blast") }
-    static var mantle: EVMChainContext { known("Mantle") }
+    // Fifteen `static var <chain>: EVMChainContext` accessors stood here,
+    // "kept so the existing `EVMChainContext.arbitrum` call sites read the
+    // same". Those call sites are gone — two test assertions were the only
+    // readers left, and they name the chain themselves now. A per-chain
+    // accessor on a type whose whole point is that it is built from the
+    // registry is the shape this file's own header describes as the bug.
 
     var tokenTrackingChain: TokenTrackingChain? { TokenTrackingChain.forChainName(displayName) }
     var defaultDerivationPath: String { derivationPath(account: 0) }
@@ -87,19 +55,6 @@ struct EthereumSendResult: Equatable {
     let verificationStatus: SendBroadcastVerificationStatus
 }
 
-enum EthereumNetworkMode: String, CaseIterable, Identifiable {
-    case mainnet
-    case sepolia
-    case hoodi
-    var id: String { rawValue }
-    var displayName: String {
-        switch self {
-        case .mainnet: return "Mainnet"
-        case .sepolia: return "Sepolia"
-        case .hoodi: return "Hoodi"
-        }
-    }
-}
 enum BitcoinFeePriority: String, CaseIterable, Identifiable {
     case economy
     case normal
@@ -289,6 +244,28 @@ final class SendPreviewStore {
             guard (Chain(displayName: chainName)?.isEVM ?? false) else { return nil }
             return ethereumSendPreview.map { .ethereum(preview: $0) }
         }
+    }
+
+    /// Which chain's preview slot `chainName` writes to — itself, or Ethereum
+    /// for the EVM family, which shares one. The same rule `apply` and
+    /// `taggedPreview` dispatch on, named so callers can ask for it.
+    static func previewSlot(forChainNamed chainName: String) -> String? {
+        guard let chain = Chain(displayName: chainName) else { return nil }
+        return chain.isEVM ? "Ethereum" : chainName
+    }
+
+    /// Clear every chain's preview but one.
+    ///
+    /// Was eighteen `if activePreview != .x { store.xSendPreview = nil }` blocks
+    /// in `AppState+SendRouting`, which is this store's field list written out a
+    /// second time — and written in terms of a preview *kind* while the store
+    /// keys on a chain, so the EVM family's shared slot had to be reasoned
+    /// about at every site. Keeping one and resetting the rest is the same
+    /// thing said once.
+    func resetAll(exceptChainNamed chainName: String?) {
+        let kept = chainName.flatMap { taggedPreview(forChainNamed: $0) }
+        resetAll()
+        if let kept, let chainName { apply(kept, forChainNamed: chainName) }
     }
 
     func resetAll() {

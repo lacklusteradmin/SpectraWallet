@@ -534,20 +534,6 @@ struct SetupView: View {
         )
     }
     @ViewBuilder
-    private func conditionalWatchedAddressSection(
-        condition: Bool, title: String, text: Binding<String>, assetName: String? = nil, validator: ((String) -> Bool)? = nil
-    ) -> some View {
-        if condition {
-            if let validator {
-                let entries = draft.watchOnlyEntries(from: text.wrappedValue)
-                let v = watchedAddressValidationMessage(entries: entries, assetName: assetName ?? title, validator: validator)
-                watchedAddressSection(title: title, text: text, validationMessage: v.message, validationColor: v.color)
-            } else {
-                watchedAddressSection(title: title, text: text)
-            }
-        }
-    }
-    @ViewBuilder
     private var setupHeader: some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(setupTitle).font(.largeTitle.weight(.bold)).foregroundStyle(Color.primary)
@@ -654,7 +640,16 @@ struct SetupView: View {
     private var chainSelectionFooterNote: some View {
         if isEditingWallet {
             Text(copy.watchOnlyFixedMessage).font(.caption).foregroundStyle(.secondary)
-        } else if draft.isSelected("Monero") {
+        } else if draft.isWatchOnlyMode,
+            draft.selectedChainNames.contains(where: { Chain(displayName: $0)?.supportsWatchOnlyImport == false })
+        {
+            // Shown on the watch-only path only. It used to fire on any import
+            // naming Monero, which was merely noise while a Monero import was
+            // impossible and is actively wrong now that one derives: the note
+            // says watched addresses are unsupported, and a seed import is not
+            // asking for one. The chain comes from the registry rather than the
+            // name; `only_monero_is_excluded_from_watch_only_import` is what
+            // keeps the copy — which does name Monero — accurate.
             Text(copy.moneroWatchUnsupportedMessage).font(.caption).foregroundStyle(.orange.opacity(0.9))
         }
     }
@@ -672,96 +667,101 @@ struct SetupView: View {
             }
         }
     }
-    @ViewBuilder
-    private var watchAddressesInputsGroup: some View {
-        Group {
-            watchAddressBitcoinSection
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("Bitcoin Cash"), title: "Bitcoin Cash", text: $draft.bitcoinCashAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "bitcoinCash") })
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("Bitcoin SV"), title: "Bitcoin SV", text: $draft.bitcoinSvAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "bitcoinSV") })
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("Dogecoin"), title: "Dogecoin", text: $draft.dogecoinAddressInput,
-                validator: { store.isValidDogecoinAddressForPolicy($0) })
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("Litecoin"), title: "Litecoin", text: $draft.litecoinAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "litecoin") })
-            watchAddressEvmSection
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("Tron"), title: "Tron", text: $draft.tronAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "tron") })
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("Solana"), title: "Solana", text: $draft.solanaAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "solana") })
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("XRP Ledger"), title: "XRP Ledger", text: $draft.xrpAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "xrp") })
-        }
-        Group {
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("Monero"), title: "Monero", text: $draft.moneroAddressInput)
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("Cardano"), title: "Cardano", text: $draft.cardanoAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "cardano") })
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("Sui"), title: "Sui", text: $draft.suiAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "sui") })
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("Aptos"), title: "Aptos", text: $draft.aptosAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "aptos") })
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("TON"), title: "TON", text: $draft.tonAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "ton") })
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("Internet Computer"), title: "Internet Computer", text: $draft.icpAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "internetComputer") })
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("NEAR"), title: "NEAR", text: $draft.nearAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "near") })
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("Polkadot"), title: "Polkadot", text: $draft.polkadotAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "polkadot") })
-            conditionalWatchedAddressSection(
-                condition: draft.isSelected("Stellar"), title: "Stellar", text: $draft.stellarAddressInput,
-                validator: { AddressValidation.isValid($0, kind: "stellar") })
+    /// One watch-address field per storage slot, from the registry.
+    ///
+    /// Was eighteen hand-written sections and a seven-name EVM condition. The
+    /// list had drifted in both directions: Zcash, Bitcoin Gold, Decred,
+    /// Kaspa, Dash and Bittensor support watch-only import and had no field at
+    /// all, sixteen EVM mainnets fell outside the seven the EVM section named,
+    /// Ethereum Classic was folded into the shared EVM field although its
+    /// address slot is its own, and Monero had a field although the registry
+    /// excludes it. Eleven of the twenty-eight watchable chains worked.
+    ///
+    /// Keyed by slot rather than by chain because that is what core reads: the
+    /// EVM family shares Ethereum's, so one field serves all of them, and the
+    /// first chain in catalog order owns the row.
+    private var watchOnlyInputChains: [Chain] {
+        var seenSlots = Set<String>()
+        return Chain.mainnets.filter { chain in
+            chain.supportsWatchOnlyImport && seenSlots.insert(chain.addressSlot).inserted
         }
     }
+
+    /// Whether anything the user selected lands in this chain's slot.
+    private func isSlotSelected(_ chain: Chain) -> Bool {
+        draft.selectedChainNames.contains { Chain(displayName: $0)?.addressSlot == chain.addressSlot }
+    }
+
+    /// The chains sharing one slot, for the label on a field that serves more
+    /// than one of them.
+    private func chainsSharingSlot(with chain: Chain) -> [Chain] {
+        Chain.mainnets.filter { $0.supportsWatchOnlyImport && $0.addressSlot == chain.addressSlot }
+    }
+
+    /// The address format to judge entries by, on the network the family is on.
+    ///
+    /// Bitcoin and Dogecoin each had this written out by hand, one with an
+    /// inline lookup and one through `isValidDogecoinAddressForPolicy`, and the
+    /// other sixteen chains judged against mainnet regardless of the selected
+    /// network. It is the same rule for every chain.
+    private func watchedAddressKind(for chain: Chain) -> String {
+        Chain(id: store.networkChainID(forFamily: chain.id))?.addressValidationKind
+            ?? chain.addressValidationKind
+    }
+
     @ViewBuilder
-    private var watchAddressBitcoinSection: some View {
-        if draft.isSelected("Bitcoin") {
-            let bitcoinAddressEntries = draft.watchOnlyEntries(from: draft.bitcoinAddressInput)
-            let bitcoinKind = Chain(id: store.networkChainID(forFamily: "bitcoin"))?.addressValidationKind ?? ""
-            let bitcoinValidation = watchedAddressValidationMessage(
-                entries: bitcoinAddressEntries, assetName: "Bitcoin",
-                validator: { AddressValidation.isValid($0, kind: bitcoinKind) }
-            )
-            watchedAddressSection(
-                title: "Bitcoin", text: $draft.bitcoinAddressInput, caption: copy.bitcoinWatchCaption,
-                validationMessage: bitcoinValidation.message, validationColor: bitcoinValidation.color
-            )
+    private var watchAddressesInputsGroup: some View {
+        ForEach(watchOnlyInputChains, id: \.self) { chain in
+            if isSlotSelected(chain) {
+                watchedAddressSlotSection(chain)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func watchedAddressSlotSection(_ chain: Chain) -> some View {
+        let sharing = chainsSharingSlot(with: chain)
+        // Only the EVM family shares a slot — `address_slots_are_shared_across_the_evm_family_only`
+        // is the test — so a shared row is an EVM row and says so rather than
+        // listing twenty-two names in a title.
+        let title = sharing.count > 1 ? "EVM" : chain.displayName
+        let text = watchOnlyInputBinding(for: chain)
+        let kind = watchedAddressKind(for: chain)
+        let validation = watchedAddressValidationMessage(
+            entries: draft.watchOnlyEntries(from: text.wrappedValue),
+            assetName: title,
+            validator: { AddressValidation.isValid($0, kind: kind) }
+        )
+        watchedAddressSection(
+            title: title, text: text,
+            caption: watchedAddressCaption(for: chain, sharing: sharing),
+            validationMessage: validation.message, validationColor: validation.color
+        )
+        // Bitcoin has a second form: one account xpub instead of a list of
+        // addresses. It is not an address, so it is not in the table.
+        if chain == .bitcoin {
             TextField("xpub... / zpub...", text: $draft.bitcoinXpubInput).textInputAutocapitalization(.never)
                 .autocorrectionDisabled().padding(14).spectraInputFieldStyle().foregroundStyle(Color.primary)
         }
     }
-    @ViewBuilder
-    private var watchAddressEvmSection: some View {
-        if draft.isSelected("Ethereum") || draft.isSelected("Ethereum Classic") || draft.isSelected("Arbitrum") || draft.isSelected("Optimism")
-            || draft.isSelected("BNB Chain") || draft.isSelected("Avalanche") || draft.isSelected("Hyperliquid")
-        {
-            let ethereumAddressEntries = draft.watchOnlyEntries(from: draft.ethereumAddressInput)
-            let evmValidation = watchedAddressValidationMessage(
-                entries: ethereumAddressEntries, assetName: "EVM",
-                validator: { AddressValidation.isValid($0, kind: "evm") }
-            )
-            watchedAddressSection(
-                title: "EVM (Ethereum / ETC / Arbitrum / Optimism / BNB Chain / Avalanche / Hyperliquid)",
-                text: $draft.ethereumAddressInput, validationMessage: evmValidation.message,
-                validationColor: evmValidation.color
-            )
-        }
+
+    /// What a shared or special row needs to say beyond its title.
+    private func watchedAddressCaption(for chain: Chain, sharing: [Chain]) -> String? {
+        if chain == .bitcoin { return copy.bitcoinWatchCaption }
+        guard sharing.count > 1 else { return nil }
+        let selected = sharing.filter { draft.isSelected($0.displayName) }.map(\.displayName)
+        guard !selected.isEmpty else { return nil }
+        return walletFlowLocalizedFormat("One address covers: %@.", selected.joined(separator: ", "))
     }
+
+    private func watchOnlyInputBinding(for chain: Chain) -> Binding<String> {
+        let name = chain.displayName
+        return Binding(
+            get: { self.draft.watchOnlyInputsByChainName[name] ?? "" },
+            set: { self.draft.watchOnlyInputsByChainName[name] = $0 }
+        )
+    }
+
     @ViewBuilder
     private var watchAddressesEmptyNote: some View {
         if draft.selectedChainNames.isEmpty {

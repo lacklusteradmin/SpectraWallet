@@ -43,38 +43,3 @@ extension StakingPositionStatus {
         }
     }
 }
-
-/// Canonical list of chains that expose protocol-native staking. Drives the
-/// staking tab's chain picker and conditional UI surfaces.
-enum StakingSupportedChain: String, CaseIterable, Identifiable {
-    case solana
-    case cardano
-    case sui
-    case aptos
-    case near
-    case polkadot
-    case icp
-    var id: String { rawValue }
-    var chainName: String {
-        switch self {
-        case .solana: return "Solana"
-        case .cardano: return "Cardano"
-        case .sui: return "Sui"
-        case .aptos: return "Aptos"
-        case .near: return "NEAR"
-        case .polkadot: return "Polkadot"
-        case .icp: return "Internet Computer"
-        }
-    }
-    var chainId: String {
-        switch self {
-        case .solana:   return Chain.solana.id
-        case .cardano:  return Chain.cardano.id
-        case .sui:      return Chain.sui.id
-        case .aptos:    return Chain.aptos.id
-        case .near:     return Chain.near.id
-        case .polkadot: return Chain.polkadot.id
-        case .icp:      return Chain.icp.id
-        }
-    }
-}

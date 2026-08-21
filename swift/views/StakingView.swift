@@ -35,32 +35,37 @@ struct StakingView: View {
             HStack(spacing: 8) {
                 Text(AppLocalization.string("Supported Chains")).font(.headline)
                 Spacer()
-                Text("\(StakingSupportedChain.allCases.count)").font(.caption.weight(.bold)).foregroundStyle(.orange).padding(
+                Text("\(Chain.stakingChains.count)").font(.caption.weight(.bold)).foregroundStyle(.orange).padding(
                     .horizontal, 8
                 ).padding(.vertical, 3).background(Capsule(style: .continuous).fill(Color.orange.opacity(0.14)))
             }
             VStack(spacing: 8) {
-                ForEach(StakingSupportedChain.allCases) { chain in
+                ForEach(Chain.stakingChains, id: \.self) { chain in
                     NavigationLink(value: chain) { chainTile(chain) }.buttonStyle(.plain)
                         .spectraPressable()
                 }
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
-            .navigationDestination(for: StakingSupportedChain.self) { chain in
+            .navigationDestination(for: Chain.self) { chain in
                 ChainStakingDetailView(chain: chain)
             }
     }
     @ViewBuilder
-    private func chainTile(_ chain: StakingSupportedChain) -> some View {
-        let descriptor = chain.descriptor
+    private func chainTile(_ chain: Chain) -> some View {
+        if let descriptor = chain.stakingDescriptor {
+            chainTile(chain, descriptor)
+        }
+    }
+    @ViewBuilder
+    private func chainTile(_ chain: Chain, _ descriptor: StakingChainDescriptor) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 CoinBadge(
-                    assetIdentifier: Coin.iconIdentifier(symbol: descriptor.symbol, chainName: descriptor.chainName),
-                    fallbackText: descriptor.symbol, color: descriptor.tint, size: 36)
+                    assetIdentifier: Coin.iconIdentifier(symbol: chain.symbol, chainName: chain.displayName),
+                    fallbackText: chain.symbol, color: descriptor.tint, size: 36)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(descriptor.chainName).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
+                    Text(chain.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
                     Text(descriptor.apyEstimate).font(.caption.weight(.semibold)).foregroundStyle(.green)
                 }
                 Spacer()
@@ -95,9 +100,15 @@ struct StakingView: View {
     }
 }
 
-private struct StakingChainDescriptor {
-    let chainName: String
-    let symbol: String
+/// Editorial copy for one chain's staking page.
+///
+/// Not registry facts — an APY estimate, an unbonding period and a paragraph
+/// describing the protocol are what this chain *does*, written for a reader —
+/// so they stay in the view. `chainName` and `symbol` came out with
+/// `StakingSupportedChain`: the registry already answers both, and having them
+/// here meant a display name could disagree with the one every other screen
+/// uses.
+struct StakingChainDescriptor {
     let tint: Color
     let apyEstimate: String
     let shortMechanic: String
@@ -125,12 +136,15 @@ private enum StakingDetailSection: String, CaseIterable, Identifiable {
     }
 }
 
-extension StakingSupportedChain {
-    fileprivate var descriptor: StakingChainDescriptor {
+extension Chain {
+    /// `nil` for a chain that does not stake, which `Chain.stakingChains`
+    /// already filters out — `everyStakingChainHasADescriptor` is what keeps the
+    /// two in step.
+    var stakingDescriptor: StakingChainDescriptor? {
         switch self {
         case .solana:
             return StakingChainDescriptor(
-                chainName: "Solana", symbol: "SOL", tint: .purple, apyEstimate: "~6–7% APY",
+                tint: .purple, apyEstimate: "~6–7% APY",
                 shortMechanic: "Delegate to a vote account; rewards each epoch (~2 days).",
                 unbondingPeriod: "2–3 days deactivation", minimumStake: "≥ 0.001 SOL recommended",
                 actions: [.stake, .unstake, .withdraw],
@@ -139,7 +153,7 @@ extension StakingSupportedChain {
             )
         case .cardano:
             return StakingChainDescriptor(
-                chainName: "Cardano", symbol: "ADA", tint: .indigo, apyEstimate: "~3% APY",
+                tint: .indigo, apyEstimate: "~3% APY",
                 shortMechanic: "Delegate to a stake pool; rewards every 5-day epoch.",
                 unbondingPeriod: "No unbonding (instant)", minimumStake: "2 ADA registration deposit",
                 actions: [.stake, .restake, .claimRewards, .unstake],
@@ -148,7 +162,7 @@ extension StakingSupportedChain {
             )
         case .sui:
             return StakingChainDescriptor(
-                chainName: "Sui", symbol: "SUI", tint: .mint, apyEstimate: "~3% APY",
+                tint: .mint, apyEstimate: "~3% APY",
                 shortMechanic: "Move call `request_add_stake` to a validator; epoch ~24h.",
                 unbondingPeriod: "Until end of current epoch", minimumStake: "1 SUI",
                 actions: [.stake, .unstake],
@@ -157,7 +171,7 @@ extension StakingSupportedChain {
             )
         case .aptos:
             return StakingChainDescriptor(
-                chainName: "Aptos", symbol: "APT", tint: .cyan, apyEstimate: "~7% APY",
+                tint: .cyan, apyEstimate: "~7% APY",
                 shortMechanic: "Add stake to a delegation pool; epoch ~2h.",
                 unbondingPeriod: "~30-day lockup cycle", minimumStake: "11 APT to a delegation pool",
                 actions: [.stake, .unstake, .withdraw],
@@ -166,7 +180,7 @@ extension StakingSupportedChain {
             )
         case .near:
             return StakingChainDescriptor(
-                chainName: "NEAR", symbol: "NEAR", tint: .indigo, apyEstimate: "~9% APY",
+                tint: .indigo, apyEstimate: "~9% APY",
                 shortMechanic: "`deposit_and_stake` on a `*.poolv1.near` contract.",
                 unbondingPeriod: "~52h (4 epochs)", minimumStake: "Pool-dependent",
                 actions: [.stake, .unstake, .withdraw],
@@ -175,7 +189,7 @@ extension StakingSupportedChain {
             )
         case .polkadot:
             return StakingChainDescriptor(
-                chainName: "Polkadot", symbol: "DOT", tint: .pink, apyEstimate: "~14% APY",
+                tint: .pink, apyEstimate: "~14% APY",
                 shortMechanic: "Bond + nominate up to 16 validators, OR join a nomination pool.",
                 unbondingPeriod: "28 days", minimumStake: "Direct: 250 DOT · Pool: 1 DOT",
                 actions: [.stake, .unstake, .withdraw, .restake],
@@ -184,30 +198,42 @@ extension StakingSupportedChain {
             )
         case .icp:
             return StakingChainDescriptor(
-                chainName: "Internet Computer", symbol: "ICP", tint: .indigo, apyEstimate: "Up to ~14% APY",
+                tint: .indigo, apyEstimate: "Up to ~14% APY",
                 shortMechanic: "Lock ICP into a neuron; rewards scale with dissolve delay.",
                 unbondingPeriod: "Dissolve delay (6 months – 8 years)", minimumStake: "1 ICP",
                 actions: [.stake, .restake, .claimRewards, .unstake, .withdraw],
                 detailedExplanation:
                     "Staking on ICP means creating an NNS neuron with a chosen dissolve delay (≥ 6 months for rewards eligibility, up to 8 years for max maturity bonus). Voting on proposals — directly or via followees — drives the reward rate."
             )
+        default:
+            return nil
         }
     }
 }
 
 struct ChainStakingDetailView: View {
-    let chain: StakingSupportedChain
+    let chain: Chain
     @State private var vm: StakingViewModel
     @State private var selectedSection: StakingDetailSection = .overview
     @Environment(\.colorScheme) private var colorScheme
 
-    init(chain: StakingSupportedChain) {
+    init(chain: Chain) {
         self.chain = chain
         self._vm = State(wrappedValue: StakingViewModel(chain: chain))
     }
 
+    @ViewBuilder
     var body: some View {
-        let descriptor = chain.descriptor
+        // `Chain.stakingChains` is the only way in, so a missing descriptor
+        // means the registry gained a staking chain and this file did not.
+        // `everyStakingChainHasADescriptor` fails before a user sees a blank
+        // page.
+        if let descriptor = chain.stakingDescriptor {
+            content(descriptor: descriptor)
+        }
+    }
+
+    private func content(descriptor: StakingChainDescriptor) -> some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: 18) {
                 heroCard(descriptor: descriptor)
@@ -219,7 +245,7 @@ struct ChainStakingDetailView: View {
             }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
         }
         .background(SpectraBackdrop().ignoresSafeArea())
-        .navigationTitle(descriptor.chainName)
+        .navigationTitle(chain.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .task { await vm.loadValidators() }
@@ -277,10 +303,10 @@ struct ChainStakingDetailView: View {
     private func heroCard(descriptor: StakingChainDescriptor) -> some View {
         HStack(spacing: 14) {
             CoinBadge(
-                assetIdentifier: Coin.iconIdentifier(symbol: descriptor.symbol, chainName: descriptor.chainName),
-                fallbackText: descriptor.symbol, color: descriptor.tint, size: 56)
+                assetIdentifier: Coin.iconIdentifier(symbol: chain.symbol, chainName: chain.displayName),
+                fallbackText: chain.symbol, color: descriptor.tint, size: 56)
             VStack(alignment: .leading, spacing: 4) {
-                Text(descriptor.chainName).font(.title3.weight(.bold)).foregroundStyle(Color.primary)
+                Text(chain.displayName).font(.title3.weight(.bold)).foregroundStyle(Color.primary)
                 Text(descriptor.apyEstimate).font(.subheadline.weight(.semibold)).foregroundStyle(.green)
                 Text(descriptor.shortMechanic).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }

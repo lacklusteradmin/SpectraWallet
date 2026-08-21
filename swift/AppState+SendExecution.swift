@@ -28,9 +28,6 @@ extension AppState {
         let holdingIndex = walletIndex.flatMap { index in
             wallets[index].holdings.firstIndex(where: { $0.holdingKey == sendHoldingKey })
         }
-        let selectedCoin = holdingIndex.flatMap { holdingIndex in
-            walletIndex.map { wallets[$0].holdings[holdingIndex] }
-        }
         // Core reads the wallet, the holding, the registry and the token
         // preferences itself. This used to hand it `walletFound`, `assetFound`,
         // the balance, whether the chain is EVM and whether the asset is
@@ -100,8 +97,7 @@ extension AppState {
         // Which chain a send is for is `preflight.submitKind`, which core
         // decided above. Two lists of chain names stood here re-deciding it,
         // and a third for the UTXO family below.
-        if ["sui", "aptos", "ton", "xrp", "stellar", "cardano", "polkadot"].contains(
-            preflight.submitKind ?? "")
+        if ["sui", "aptos", "ton", "xrp", "stellar", "cardano", "polkadot"].contains(preflight.submitKind)
             || (preflight.submitKind == "near" && holding.symbol == "NEAR")
         {
             await submitNativeChainSend(
@@ -109,7 +105,7 @@ extension AppState {
                 amount: amount, amountStr: amountStr)
             return
         }
-        if ["bitcoinCash", "bitcoinSV", "litecoin"].contains(preflight.submitKind ?? "") {
+        if ["bitcoinCash", "bitcoinSV", "litecoin"].contains(preflight.submitKind) {
             await submitNativeChainSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress,
                 amount: amount, amountStr: amountStr)
@@ -118,7 +114,7 @@ extension AppState {
         if preflight.submitKind == "icp" {
             guard !sendingChains.contains("Internet Computer") else { return }
             if sendPreviewStore.icpSendPreview == nil { await refreshSendPreview(forChainNamed: "Internet Computer") }
-            guard let walletIndex = wallets.firstIndex(where: { $0.id == wallet.id }), let sourceAddress = resolvedICPAddress(for: wallet)
+            guard wallets.contains(where: { $0.id == wallet.id }), let sourceAddress = resolvedICPAddress(for: wallet)
             else {
                 sendError = "Unable to resolve this wallet's ICP address."
                 return

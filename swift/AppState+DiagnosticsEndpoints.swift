@@ -75,84 +75,79 @@ extension AppState {
         ),
         .dogecoin: .init(
             runHistory: { await $0.runDogecoinHistoryDiagnostics() },
-            runEndpoints: { await $0.runDogecoinEndpointReachabilityDiagnostics() }
+            // Dogecoin's probe was a copy of the shared one under its own name.
+            runEndpoints: { await $0.runSimpleEndpointDiagnostics(chainName: "Dogecoin") }
         ),
         .tron: .init(
             runHistory: { store in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainId: Chain.tron.id, isRunningKP: \.[historyRunFor: "Tron"].isRunning, chainName: "Tron",
+                chainName: "Tron",
                 resolveAddress: { store.resolvedTronAddress(for: $0) },
                 make: { TronHistoryDiagnostics(address: $0, tronScanTxCount: Int32($2), tronScanTrc20Count: 0, sourceUsed: $1, error: $3) },
-                record: { diagnosticsRecordTron(walletId: $0, entry: $1) }, tsKP: \.[historyRunFor: "Tron"].lastUpdatedAt) },
+                record: { diagnosticsRecordTron(walletId: $0, entry: $1) }) },
             runHistoryForWallet: { store, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainId: Chain.tron.id, isRunningKP: \.[historyRunFor: "Tron"].isRunning, chainName: "Tron",
+                walletID: id, chainName: "Tron",
                 resolveAddress: { store.resolvedTronAddress(for: $0) },
                 make: { TronHistoryDiagnostics(address: $0, tronScanTxCount: Int32($2), tronScanTrc20Count: 0, sourceUsed: $1, error: $3) },
-                record: { diagnosticsRecordTron(walletId: $0, entry: $1) }, tsKP: \.[historyRunFor: "Tron"].lastUpdatedAt) },
+                record: { diagnosticsRecordTron(walletId: $0, entry: $1) }) },
             runEndpoints: { await $0.runSimpleEndpointDiagnostics(
-                isCheckingKP: \.self[endpointHealthFor: "Tron"].isChecking, checks: AppEndpointDirectory.diagnosticsChecks(for: "Tron"),
-                resultsKP: \.self[endpointHealthFor: "Tron"].results, tsKP: \.self[endpointHealthFor: "Tron"].lastUpdatedAt) }
+                chainName: "Tron") }
         ),
         .solana: .init(
             runHistory: { store in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainId: Chain.solana.id, isRunningKP: \.[historyRunFor: "Solana"].isRunning, chainName: "Solana",
+                chainName: "Solana",
                 resolveAddress: { store.resolvedSolanaAddress(for: $0) },
                 make: { SolanaHistoryDiagnostics(address: $0, rpcCount: Int32($2), sourceUsed: $1, error: $3) },
-                record: { diagnosticsRecordSolana(walletId: $0, entry: $1) }, tsKP: \.[historyRunFor: "Solana"].lastUpdatedAt) },
+                record: { diagnosticsRecordSolana(walletId: $0, entry: $1) }) },
             runHistoryForWallet: { store, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainId: Chain.solana.id, isRunningKP: \.[historyRunFor: "Solana"].isRunning, chainName: "Solana",
+                walletID: id, chainName: "Solana",
                 resolveAddress: { store.resolvedSolanaAddress(for: $0) },
                 make: { SolanaHistoryDiagnostics(address: $0, rpcCount: Int32($2), sourceUsed: $1, error: $3) },
-                record: { diagnosticsRecordSolana(walletId: $0, entry: $1) }, tsKP: \.[historyRunFor: "Solana"].lastUpdatedAt) },
+                record: { diagnosticsRecordSolana(walletId: $0, entry: $1) }) },
             runEndpoints: { await $0.runSimpleEndpointDiagnostics(
-                isCheckingKP: \.self[endpointHealthFor: "Solana"].isChecking, checks: AppEndpointDirectory.diagnosticsChecks(for: "Solana"),
-                resultsKP: \.self[endpointHealthFor: "Solana"].results, tsKP: \.self[endpointHealthFor: "Solana"].lastUpdatedAt) }
+                chainName: "Solana") }
         ),
         .monero: .init(
             runHistory: { store in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainId: Chain.monero.id, isRunningKP: \.[historyRunFor: "Monero"].isRunning, chainName: "Monero",
+                chainName: "Monero",
                 resolveAddress: { store.resolvedMoneroAddress(for: $0) },
                 make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                record: { diagnosticsRecordSimple(chainName: "Monero", walletId: $0, entry: $1) }, tsKP: \.[historyRunFor: "Monero"].lastUpdatedAt) },
+                record: { diagnosticsRecordSimple(chainName: "Monero", walletId: $0, entry: $1) }) },
             runHistoryForWallet: { store, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainId: Chain.monero.id, isRunningKP: \.[historyRunFor: "Monero"].isRunning, chainName: "Monero",
+                walletID: id, chainName: "Monero",
                 resolveAddress: { store.resolvedMoneroAddress(for: $0) },
                 make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                record: { diagnosticsRecordSimple(chainName: "Monero", walletId: $0, entry: $1) }, tsKP: \.[historyRunFor: "Monero"].lastUpdatedAt) },
+                record: { diagnosticsRecordSimple(chainName: "Monero", walletId: $0, entry: $1) }) },
             runEndpoints: { await $0.runMoneroEndpointReachabilityDiagnostics() }
         ),
         .near: .init(
             runHistory: { store in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainId: Chain.near.id, isRunningKP: \.[historyRunFor: "NEAR"].isRunning, chainName: "NEAR",
+                chainName: "NEAR",
                 resolveAddress: { store.resolvedNearAddress(for: $0) },
                 make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                record: { diagnosticsRecordSimple(chainName: "NEAR", walletId: $0, entry: $1) }, tsKP: \.[historyRunFor: "NEAR"].lastUpdatedAt) },
+                record: { diagnosticsRecordSimple(chainName: "NEAR", walletId: $0, entry: $1) }) },
             runHistoryForWallet: { store, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainId: Chain.near.id, isRunningKP: \.[historyRunFor: "NEAR"].isRunning, chainName: "NEAR",
+                walletID: id, chainName: "NEAR",
                 resolveAddress: { store.resolvedNearAddress(for: $0) },
                 make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                record: { diagnosticsRecordSimple(chainName: "NEAR", walletId: $0, entry: $1) }, tsKP: \.[historyRunFor: "NEAR"].lastUpdatedAt) },
+                record: { diagnosticsRecordSimple(chainName: "NEAR", walletId: $0, entry: $1) }) },
             runEndpoints: { await $0.runNearEndpointReachabilityDiagnostics() }
         ),
         .ethereum: .init(
             runHistory: { store in await store.runEVMHistoryDiagnosticsForAllWallets(
-                chainName: "Ethereum", runningPath: \.[historyRunFor: "Ethereum"].isRunning,
-                resolveAddress: { store.resolvedEthereumAddress(for: $0) },
-                tsPath: \.[historyRunFor: "Ethereum"].lastUpdatedAt) },
+                chainName: "Ethereum",
+                resolveAddress: { store.resolvedEthereumAddress(for: $0) }) },
             runHistoryForWallet: { store, id in await store.runEVMHistoryDiagnosticsForWallet(
-                walletID: id, chainName: "Ethereum", runningPath: \.[historyRunFor: "Ethereum"].isRunning,
-                resolveAddress: { store.resolvedEthereumAddress(for: $0) },
-                tsPath: \.[historyRunFor: "Ethereum"].lastUpdatedAt) },
+                walletID: id, chainName: "Ethereum",
+                resolveAddress: { store.resolvedEthereumAddress(for: $0) }) },
             runEndpoints: { await $0.runEthereumEndpointReachabilityDiagnostics() }
         ),
         .bnbChain: .init(
             runHistory: { store in await store.runEVMHistoryDiagnosticsForAllWallets(
-                chainName: "BNB Chain", runningPath: \.[historyRunFor: "BNB Chain"].isRunning,
-                resolveAddress: { store.resolvedEVMAddress(for: $0, chainName: "BNB Chain") },
-                tsPath: \.[historyRunFor: "BNB Chain"].lastUpdatedAt) },
+                chainName: "BNB Chain",
+                resolveAddress: { store.resolvedEVMAddress(for: $0, chainName: "BNB Chain") }) },
             runHistoryForWallet: { store, id in await store.runEVMHistoryDiagnosticsForWallet(
-                walletID: id, chainName: "BNB Chain", runningPath: \.[historyRunFor: "BNB Chain"].isRunning,
-                resolveAddress: { store.resolvedEVMAddress(for: $0, chainName: "BNB Chain") },
-                tsPath: \.[historyRunFor: "BNB Chain"].lastUpdatedAt) },
+                walletID: id, chainName: "BNB Chain",
+                resolveAddress: { store.resolvedEVMAddress(for: $0, chainName: "BNB Chain") }) },
             runEndpoints: { await $0.runBNBEndpointReachabilityDiagnostics() }
         ),
     ]
@@ -163,25 +158,19 @@ extension AppState {
     /// the chain name. A chain lands here unless it has a descriptor of its
     /// own, so adding one costs nothing.
     private func runSimpleChainDiagnostics(chainName: String, walletID: String? = nil) async {
-        let chainID = Chain(displayName: chainName)?.id ?? ""
-        guard !chainID.isEmpty else { return }
         let make: (String, String, Int, String?) -> SimpleHistoryDiagnostics = {
             SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3)
         }
+        let resolve: (ImportedWallet) -> String? = { [self] in resolvedAddress(for: $0, chainName: chainName) }
+        let record: @MainActor (String, SimpleHistoryDiagnostics) -> Void = { [self] in
+            recordSimpleHistoryDiagnostics(chainName: chainName, walletID: $0, $1)
+        }
         if let walletID {
             await runRustHistoryDiagnosticsForWallet(
-                walletID: walletID, chainId: chainID,
-                isRunningKP: \.[historyRunFor: chainName].isRunning, chainName: chainName,
-                resolveAddress: { [self] in resolvedAddress(for: $0, chainName: chainName) },
-                make: make, record: { [self] in recordSimpleHistoryDiagnostics(chainName: chainName, walletID: $0, $1) },
-                tsKP: \.[historyRunFor: chainName].lastUpdatedAt)
+                walletID: walletID, chainName: chainName, resolveAddress: resolve, make: make, record: record)
         } else {
             await runRustHistoryDiagnosticsForAllWallets(
-                chainId: chainID, isRunningKP: \.[historyRunFor: chainName].isRunning,
-                chainName: chainName,
-                resolveAddress: { [self] in resolvedAddress(for: $0, chainName: chainName) },
-                make: make, record: { [self] in recordSimpleHistoryDiagnostics(chainName: chainName, walletID: $0, $1) },
-                tsKP: \.[historyRunFor: chainName].lastUpdatedAt)
+                chainName: chainName, resolveAddress: resolve, make: make, record: record)
         }
     }
     /// The EVM family's diagnostics, for chains without a descriptor of their
@@ -189,17 +178,12 @@ extension AppState {
     /// Ethereum and BNB Chain keep theirs because their endpoint probes parse
     /// JSON-RPC inline rather than just reaching the host.
     private func runEVMChainDiagnostics(chainName: String, walletID: String? = nil) async {
+        let resolve: (ImportedWallet) -> String? = { [self] in resolvedEVMAddress(for: $0, chainName: chainName) }
         if let walletID {
             await runEVMHistoryDiagnosticsForWallet(
-                walletID: walletID, chainName: chainName,
-                runningPath: \.[historyRunFor: chainName].isRunning,
-                resolveAddress: { [self] in resolvedEVMAddress(for: $0, chainName: chainName) },
-                tsPath: \.[historyRunFor: chainName].lastUpdatedAt)
+                walletID: walletID, chainName: chainName, resolveAddress: resolve)
         } else {
-            await runEVMHistoryDiagnosticsForAllWallets(
-                chainName: chainName, runningPath: \.[historyRunFor: chainName].isRunning,
-                resolveAddress: { [self] in resolvedEVMAddress(for: $0, chainName: chainName) },
-                tsPath: \.[historyRunFor: chainName].lastUpdatedAt)
+            await runEVMHistoryDiagnosticsForAllWallets(chainName: chainName, resolveAddress: resolve)
         }
     }
     /// The UTXO chains' diagnostics. Three rows said this — Litecoin, Bitcoin
@@ -207,36 +191,20 @@ extension AppState {
     /// Dogecoin keep theirs: Bitcoin's walks an xpub, Dogecoin's counts
     /// history entries directly.
     private func runUTXOChainDiagnostics(chainName: String, walletID: String? = nil) async {
-        let chainID = Chain(displayName: chainName)?.id ?? ""
-        guard !chainID.isEmpty else { return }
+        let resolve: (ImportedWallet) -> String? = { [self] in resolvedAddress(for: $0, chainName: chainName) }
         if let walletID {
             await runUTXOStyleHistoryDiagnosticsForWallet(
-                walletID: walletID, chainId: chainID,
-                isRunningKP: \.[historyRunFor: chainName].isRunning, chainName: chainName,
-                resolveAddress: { [self] in resolvedAddress(for: $0, chainName: chainName) },
-                tsKP: \.[historyRunFor: chainName].lastUpdatedAt)
+                walletID: walletID, chainName: chainName, resolveAddress: resolve)
         } else {
-            await runUTXOStyleHistoryDiagnostics(
-                chainId: chainID, isRunningKP: \.[historyRunFor: chainName].isRunning,
-                chainName: chainName,
-                resolveAddress: { [self] in resolvedAddress(for: $0, chainName: chainName) },
-                tsKP: \.[historyRunFor: chainName].lastUpdatedAt)
+            await runUTXOStyleHistoryDiagnostics(chainName: chainName, resolveAddress: resolve)
         }
     }
     private func runEVMChainEndpointDiagnostics(chainName: String) async {
         guard let context = EVMChainContext(chainName: chainName) else { return }
-        await runPureEVMEndpointDiagnostics(
-            isCheckingKP: \.self[endpointHealthFor: chainName].isChecking, chainName: chainName,
-            context: context,
-            resultsKP: \.self[endpointHealthFor: chainName].results,
-            tsKP: \.self[endpointHealthFor: chainName].lastUpdatedAt)
+        await runPureEVMEndpointDiagnostics(chainName: chainName, context: context)
     }
     private func runSimpleChainEndpointDiagnostics(chainName: String) async {
-        await runSimpleEndpointDiagnostics(
-            isCheckingKP: \.self[endpointHealthFor: chainName].isChecking,
-            checks: AppEndpointDirectory.diagnosticsChecks(for: chainName),
-            resultsKP: \.self[endpointHealthFor: chainName].results,
-            tsKP: \.self[endpointHealthFor: chainName].lastUpdatedAt)
+        await runSimpleEndpointDiagnostics(chainName: chainName)
     }
 
     func runHistoryDiagnostics(for chain: Chain) async {
@@ -274,12 +242,17 @@ extension AppState {
 
     // MARK: Generic history-diagnostic drivers
 
+    /// The run flag and the "last updated" stamp are both `self[historyRunFor:
+    /// chainName]`, so neither is a parameter: passing a key path built from an
+    /// argument the same call already carries is the argument passed twice.
     private func runAddressHistoryDiagnosticsForAllWallets<Diagnostics>(
-        isRunningKP: ReferenceWritableKeyPath<AppState, Bool>, chainName: String, resolveAddress: (ImportedWallet) -> String?,
-        fetchDiagnostics: (String) async -> Diagnostics, storeDiagnostics: (String, Diagnostics) -> Void, markUpdated: () -> Void
+        chainName: String, resolveAddress: (ImportedWallet) -> String?,
+        fetchDiagnostics: (String) async -> Diagnostics, storeDiagnostics: (String, Diagnostics) -> Void
     ) async {
-        guard !self[keyPath: isRunningKP] else { return }
-        self[keyPath: isRunningKP] = true; defer { self[keyPath: isRunningKP] = false }
+        let markUpdated = { self[historyRunFor: chainName].lastUpdatedAt = Date() }
+        guard !self[historyRunFor: chainName].isRunning else { return }
+        self[historyRunFor: chainName].isRunning = true
+        defer { self[historyRunFor: chainName].isRunning = false }
         let walletsToRefresh = wallets.compactMap { wallet -> (ImportedWallet, String)? in
             guard wallet.selectedChain == chainName, let address = resolveAddress(wallet) else { return nil }
             return (wallet, address)
@@ -289,29 +262,44 @@ extension AppState {
         markUpdated()
     }
     private func runAddressHistoryDiagnosticsForWallet<Diagnostics>(
-        walletID: String, isRunningKP: ReferenceWritableKeyPath<AppState, Bool>, chainName: String,
+        walletID: String, chainName: String,
         resolveAddress: (ImportedWallet) -> String?,
-        fetchDiagnostics: (String) async -> Diagnostics, storeDiagnostics: (String, Diagnostics) -> Void, markUpdated: () -> Void
+        fetchDiagnostics: (String) async -> Diagnostics, storeDiagnostics: (String, Diagnostics) -> Void
     ) async {
-        guard !self[keyPath: isRunningKP] else { return }
+        guard !self[historyRunFor: chainName].isRunning else { return }
         guard let wallet = wallets.first(where: { $0.id == walletID }), wallet.selectedChain == chainName,
             let address = resolveAddress(wallet)
         else { return }
-        self[keyPath: isRunningKP] = true; defer { self[keyPath: isRunningKP] = false }
-        storeDiagnostics(wallet.id, await fetchDiagnostics(address)); markUpdated()
+        self[historyRunFor: chainName].isRunning = true
+        defer { self[historyRunFor: chainName].isRunning = false }
+        storeDiagnostics(wallet.id, await fetchDiagnostics(address))
+        self[historyRunFor: chainName].lastUpdatedAt = Date()
     }
 
     // MARK: Custom reachability probes that need inline JSON-RPC parsing
 
+    /// Run one chain's endpoint probe, holding its "checking" flag and owning
+    /// the write-back.
+    ///
+    /// Each of the six probes below used to name its chain four to eight times
+    /// — once for the flag, once per `results =`, once per `lastUpdatedAt =` —
+    /// because the caller did the bookkeeping. `publish` takes the rows and
+    /// stamps the time, and it can be called repeatedly: Bitcoin publishes
+    /// after every endpoint so the rows appear as they arrive, which is a
+    /// property of that probe rather than something to normalise away.
     private func withEndpointCheck(
-        _ isCheckingKP: ReferenceWritableKeyPath<AppState, Bool>, operation: () async -> Void
+        for chainName: String, operation: (_ publish: @MainActor ([EndpointHealthRow]) -> Void) async -> Void
     ) async {
-        guard !self[keyPath: isCheckingKP] else { return }
-        self[keyPath: isCheckingKP] = true; defer { self[keyPath: isCheckingKP] = false }
-        await operation()
+        guard !self[endpointHealthFor: chainName].isChecking else { return }
+        self[endpointHealthFor: chainName].isChecking = true
+        defer { self[endpointHealthFor: chainName].isChecking = false }
+        await operation { rows in
+            self[endpointHealthFor: chainName].results = rows
+            self[endpointHealthFor: chainName].lastUpdatedAt = Date()
+        }
     }
     func runBitcoinEndpointReachabilityDiagnostics() async {
-        await withEndpointCheck(\.self[endpointHealthFor: "Bitcoin"].isChecking) {
+        await withEndpointCheck(for: "Bitcoin") { publish in
             var results: [EndpointHealthRow] = []
             for endpoint in self.effectiveBitcoinEsploraEndpoints() {
                 guard let url = URL(string: endpoint) else {
@@ -322,32 +310,30 @@ extension AppState {
                 results.append(
                     EndpointHealthRow(
                         label: "", endpoint: endpoint, reachable: probe.reachable, statusCode: probe.statusCode, detail: probe.detail))
-                self[endpointHealthFor: "Bitcoin"].results = results
-                self[endpointHealthFor: "Bitcoin"].lastUpdatedAt = Date()
+                publish(results)
             }
         }
     }
     func runMoneroEndpointReachabilityDiagnostics() async {
-        await withEndpointCheck(\.self[endpointHealthFor: "Monero"].isChecking) {
+        await withEndpointCheck(for: "Monero") { publish in
             let trimmedBackendURL = self.moneroBackendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
             let resolvedBackendURL = trimmedBackendURL.isEmpty ? MoneroBalanceService.defaultPublicBackend.baseURL : trimmedBackendURL
             guard let baseURL = URL(string: resolvedBackendURL) else {
-                self[endpointHealthFor: "Monero"].results = [
+                publish([
                     EndpointHealthRow(
                         label: "", endpoint: "monero.backend.baseURL", reachable: false, statusCode: nil, detail: "Monero backend is not configured.")
-                ]
-                self[endpointHealthFor: "Monero"].lastUpdatedAt = Date(); return
+                ])
+                return
             }
             let probe = await self.probeHTTP(baseURL.appendingPathComponent("v1/monero/balance"), profile: .diagnostics)
-            self[endpointHealthFor: "Monero"].results = [
+            publish([
                 EndpointHealthRow(
                     label: "", endpoint: baseURL.absoluteString, reachable: probe.reachable, statusCode: probe.statusCode, detail: probe.detail)
-            ]
-            self[endpointHealthFor: "Monero"].lastUpdatedAt = Date()
+            ])
         }
     }
     func runNearEndpointReachabilityDiagnostics() async {
-        await withEndpointCheck(\.self[endpointHealthFor: "NEAR"].isChecking) {
+        await withEndpointCheck(for: "NEAR") { publish in
             var results: [EndpointHealthRow] = []
             let rpcEndpoints = Set(NearBalanceService.rpcEndpointCatalog())
             for check in AppEndpointDirectory.diagnosticsChecks(for: "NEAR") {
@@ -364,11 +350,11 @@ extension AppState {
                     results.append(EndpointHealthRow(label: "", endpoint: endpoint, reachable: false, statusCode: nil, detail: "Invalid URL"))
                 }
             }
-            self[endpointHealthFor: "NEAR"].results = results; self[endpointHealthFor: "NEAR"].lastUpdatedAt = Date()
+            publish(results)
         }
     }
     func runPolkadotEndpointReachabilityDiagnostics() async {
-        await withEndpointCheck(\.self[endpointHealthFor: "Polkadot"].isChecking) {
+        await withEndpointCheck(for: "Polkadot") { publish in
             var results: [EndpointHealthRow] = []
             for check in AppEndpointDirectory.diagnosticsChecks(for: "Polkadot") {
                 let endpoint = check.endpoint
@@ -396,7 +382,7 @@ extension AppState {
                 }
                 results.append(await self.probeJSONRPC(endpoint: endpoint, urlString: endpoint, rpcMethod: "chain_getHeader"))
             }
-            self[endpointHealthFor: "Polkadot"].results = results; self[endpointHealthFor: "Polkadot"].lastUpdatedAt = Date()
+            publish(results)
         }
     }
     /// Send a JSON-RPC request to `urlString` with method `rpcMethod` and an
@@ -417,40 +403,39 @@ extension AppState {
     // MARK: EVM history diagnostics
 
     private func runEVMHistoryDiagnosticsForAllWallets(
-        chainName: String, runningPath: ReferenceWritableKeyPath<AppState, Bool>, resolveAddress: (ImportedWallet) -> String?,
-        tsPath: ReferenceWritableKeyPath<AppState, Date?>
+        chainName: String, resolveAddress: (ImportedWallet) -> String?
     ) async {
-        guard !self[keyPath: runningPath] else { return }
-        self[keyPath: runningPath] = true; defer { self[keyPath: runningPath] = false }
+        guard !self[historyRunFor: chainName].isRunning else { return }
+        self[historyRunFor: chainName].isRunning = true
+        defer { self[historyRunFor: chainName].isRunning = false }
         let walletsToRefresh = wallets.compactMap { w -> (ImportedWallet, String)? in
             guard w.selectedChain == chainName, let a = resolveAddress(w) else { return nil }; return (w, a)
         }
-        guard !walletsToRefresh.isEmpty else { self[keyPath: tsPath] = Date(); return }
+        guard !walletsToRefresh.isEmpty else { self[historyRunFor: chainName].lastUpdatedAt = Date(); return }
         for (wallet, address) in walletsToRefresh {
             recordEVMHistoryDiagnostics(chainName: chainName, walletID: wallet.id, diagnosticsMakeEvmRunning(address: address))
-            self[keyPath: tsPath] = Date()
+            self[historyRunFor: chainName].lastUpdatedAt = Date()
             recordEVMHistoryDiagnostics(
             chainName: chainName, walletID: wallet.id,
             await rustEVMHistoryDiagnostics(chainName: chainName, address: address))
         }
-        self[keyPath: tsPath] = Date()
+        self[historyRunFor: chainName].lastUpdatedAt = Date()
     }
     private func runEVMHistoryDiagnosticsForWallet(
-        walletID: String, chainName: String, runningPath: ReferenceWritableKeyPath<AppState, Bool>,
-        resolveAddress: (ImportedWallet) -> String?,
-        tsPath: ReferenceWritableKeyPath<AppState, Date?>
+        walletID: String, chainName: String, resolveAddress: (ImportedWallet) -> String?
     ) async {
-        guard !self[keyPath: runningPath] else { return }
+        guard !self[historyRunFor: chainName].isRunning else { return }
         guard let wallet = wallets.first(where: { $0.id == walletID }), wallet.selectedChain == chainName,
             let address = resolveAddress(wallet)
         else { return }
-        self[keyPath: runningPath] = true; defer { self[keyPath: runningPath] = false }
+        self[historyRunFor: chainName].isRunning = true
+        defer { self[historyRunFor: chainName].isRunning = false }
         recordEVMHistoryDiagnostics(chainName: chainName, walletID: wallet.id, diagnosticsMakeEvmRunning(address: address))
-        self[keyPath: tsPath] = Date()
+        self[historyRunFor: chainName].lastUpdatedAt = Date()
         recordEVMHistoryDiagnostics(
             chainName: chainName, walletID: wallet.id,
             await rustEVMHistoryDiagnostics(chainName: chainName, address: address))
-        self[keyPath: tsPath] = Date()
+        self[historyRunFor: chainName].lastUpdatedAt = Date()
     }
     /// Bridge to Rust: fused history-fetch-then-build call. Rust owns both
     /// the HTTP fetch and the diagnostics record construction so Swift never
@@ -469,31 +454,29 @@ extension AppState {
         ("Ethplorer API", "https://api.ethplorer.io/getAddressInfo/0x0000000000000000000000000000000000000000?apiKey=freekey"),
     ]
     func runEthereumEndpointReachabilityDiagnostics() async {
-        guard !self[endpointHealthFor: "Ethereum"].isChecking else { return }
-        self[endpointHealthFor: "Ethereum"].isChecking = true; defer { self[endpointHealthFor: "Ethereum"].isChecking = false }
-        var checks = evmEndpointChecks(chainName: "Ethereum", context: evmChainContext(for: "Ethereum") ?? .ethereum)
-        checks.append(
-            contentsOf: Self.ethereumExplorerProbeChecks.compactMap { entry in
-                URL(string: entry.urlString).map { (entry.label, $0, false) }
-            })
-        await runLabeledEVMEndpointDiagnostics(
-            checks: checks, setResults: { self[endpointHealthFor: "Ethereum"].results = $0 },
-            markUpdated: { self[endpointHealthFor: "Ethereum"].lastUpdatedAt = Date() })
+        guard let context = evmChainContext(for: "Ethereum") else { return }
+        await withEndpointCheck(for: "Ethereum") { publish in
+            var checks = self.evmEndpointChecks(chainName: "Ethereum", context: context)
+            checks.append(
+                contentsOf: Self.ethereumExplorerProbeChecks.compactMap { entry in
+                    URL(string: entry.urlString).map { (entry.label, $0, false) }
+                })
+            await self.runLabeledEVMEndpointDiagnostics(checks: checks, publish: publish)
+        }
     }
     private static let bnbExplorerProbeChecks: [(label: String, urlString: String)] = [
         ("BscScan API", "https://api.bscscan.com/api?module=stats&action=bnbprice")
     ]
     func runBNBEndpointReachabilityDiagnostics() async {
-        guard !self[endpointHealthFor: "BNB Chain"].isChecking else { return }
-        self[endpointHealthFor: "BNB Chain"].isChecking = true; defer { self[endpointHealthFor: "BNB Chain"].isChecking = false }
-        var checks = evmEndpointChecks(chainName: "BNB Chain", context: .bnb)
-        checks.append(
-            contentsOf: Self.bnbExplorerProbeChecks.compactMap { entry in
-                URL(string: entry.urlString).map { (entry.label, $0, false) }
-            })
-        await runLabeledEVMEndpointDiagnostics(
-            checks: checks, setResults: { self[endpointHealthFor: "BNB Chain"].results = $0 },
-            markUpdated: { self[endpointHealthFor: "BNB Chain"].lastUpdatedAt = Date() })
+        guard let context = evmChainContext(for: "BNB Chain") else { return }
+        await withEndpointCheck(for: "BNB Chain") { publish in
+            var checks = self.evmEndpointChecks(chainName: "BNB Chain", context: context)
+            checks.append(
+                contentsOf: Self.bnbExplorerProbeChecks.compactMap { entry in
+                    URL(string: entry.urlString).map { (entry.label, $0, false) }
+                })
+            await self.runLabeledEVMEndpointDiagnostics(checks: checks, publish: publish)
+        }
     }
     func evmEndpointChecks(chainName: String, context: EVMChainContext) -> [(label: String, endpoint: URL, isRPC: Bool)] {
         var checks: [(label: String, endpoint: URL, isRPC: Bool)] = []
@@ -504,9 +487,11 @@ extension AppState {
         }
         return checks
     }
+    /// `setResults` and `markUpdated` were two closures called one after the
+    /// other, at the one call site each caller had — a pair, so the pair is one
+    /// argument, and it is the same `publish` `withEndpointCheck` hands out.
     func runSimpleEndpointReachabilityDiagnostics(
-        checks: [AppEndpointDiagnosticsCheck], profile: HttpRetryProfile, setResults: ([EndpointHealthRow]) -> Void,
-        markUpdated: () -> Void
+        checks: [AppEndpointDiagnosticsCheck], profile: HttpRetryProfile, publish: ([EndpointHealthRow]) -> Void
     ) async {
         var results: [EndpointHealthRow] = []
         for check in checks {
@@ -520,10 +505,10 @@ extension AppState {
                 EndpointHealthRow(
                     label: "", endpoint: check.endpoint, reachable: probe.reachable, statusCode: probe.statusCode, detail: probe.detail))
         }
-        setResults(results); markUpdated()
+        publish(results)
     }
     func runLabeledEVMEndpointDiagnostics(
-        checks: [(label: String, endpoint: URL, isRPC: Bool)], setResults: ([EndpointHealthRow]) -> Void, markUpdated: () -> Void
+        checks: [(label: String, endpoint: URL, isRPC: Bool)], publish: ([EndpointHealthRow]) -> Void
     ) async {
         var results: [EndpointHealthRow] = []
         for check in checks {
@@ -533,27 +518,29 @@ extension AppState {
                     label: check.label, endpoint: check.endpoint.absoluteString, reachable: probe.reachable, statusCode: probe.statusCode,
                     detail: probe.detail))
         }
-        setResults(results); markUpdated()
+        publish(results)
     }
-    private func runSimpleEndpointDiagnostics(
-        isCheckingKP: ReferenceWritableKeyPath<AppState, Bool>, checks: [AppEndpointDiagnosticsCheck],
-        resultsKP: ReferenceWritableKeyPath<AppState, [EndpointHealthRow]>, tsKP: ReferenceWritableKeyPath<AppState, Date?>
-    ) async {
-        guard !self[keyPath: isCheckingKP] else { return }
-        self[keyPath: isCheckingKP] = true; defer { self[keyPath: isCheckingKP] = false }
+    private func runSimpleEndpointDiagnostics(chainName: String) async {
+        guard !self[endpointHealthFor: chainName].isChecking else { return }
+        self[endpointHealthFor: chainName].isChecking = true
+        defer { self[endpointHealthFor: chainName].isChecking = false }
         await runSimpleEndpointReachabilityDiagnostics(
-            checks: checks, profile: .diagnostics, setResults: { self[keyPath: resultsKP] = $0 },
-            markUpdated: { self[keyPath: tsKP] = Date() })
+            checks: AppEndpointDirectory.diagnosticsChecks(for: chainName), profile: .diagnostics,
+            publish: {
+                self[endpointHealthFor: chainName].results = $0
+                self[endpointHealthFor: chainName].lastUpdatedAt = Date()
+            })
     }
-    private func runPureEVMEndpointDiagnostics(
-        isCheckingKP: ReferenceWritableKeyPath<AppState, Bool>, chainName: String, context: EVMChainContext,
-        resultsKP: ReferenceWritableKeyPath<AppState, [EndpointHealthRow]>, tsKP: ReferenceWritableKeyPath<AppState, Date?>
-    ) async {
-        guard !self[keyPath: isCheckingKP] else { return }
-        self[keyPath: isCheckingKP] = true; defer { self[keyPath: isCheckingKP] = false }
+    private func runPureEVMEndpointDiagnostics(chainName: String, context: EVMChainContext) async {
+        guard !self[endpointHealthFor: chainName].isChecking else { return }
+        self[endpointHealthFor: chainName].isChecking = true
+        defer { self[endpointHealthFor: chainName].isChecking = false }
         await runLabeledEVMEndpointDiagnostics(
-            checks: evmEndpointChecks(chainName: chainName, context: context), setResults: { self[keyPath: resultsKP] = $0 },
-            markUpdated: { self[keyPath: tsKP] = Date() })
+            checks: evmEndpointChecks(chainName: chainName, context: context),
+            publish: {
+                self[endpointHealthFor: chainName].results = $0
+                self[endpointHealthFor: chainName].lastUpdatedAt = Date()
+            })
     }
 
     // MARK: HTTP probes + timeout helper
@@ -619,7 +606,6 @@ extension AppState {
     private func refreshPendingUTXOChainTransactions(
         chainName: String, chainId: String, requireSendKind: Bool = true, tracksFinality: Bool = false
     ) async {
-        let now = Date()
         let tracked = transactions.filter {
             guard requireSendKind ? $0.kind == .send : true,
                 $0.chainName == chainName, $0.transactionHash != nil else { return false }
@@ -673,33 +659,41 @@ extension AppState {
 
     // MARK: Rust-history-fetch bridges (generic)
 
+    /// The chain id and the two key paths used to be parameters, and all three
+    /// were functions of `chainName`: `Chain(displayName:)?.id`,
+    /// `\.[historyRunFor: chainName].isRunning` and `.lastUpdatedAt`. Passing
+    /// them alongside the name they are built from is the name passed four
+    /// times, and every descriptor row paid it twice.
     private func runRustHistoryDiagnosticsForAllWallets<D>(
-        chainId: String, isRunningKP: ReferenceWritableKeyPath<AppState, Bool>, chainName: String,
+        chainName: String,
         resolveAddress: @escaping (ImportedWallet) -> String?, make: @escaping (String, String, Int, String?) -> D,
-        record: @escaping @MainActor (String, D) -> Void, tsKP: ReferenceWritableKeyPath<AppState, Date?>
+        record: @escaping @MainActor (String, D) -> Void
     ) async {
+        guard let chainId = Chain(displayName: chainName)?.id else { return }
         await runAddressHistoryDiagnosticsForAllWallets(
-            isRunningKP: isRunningKP, chainName: chainName, resolveAddress: resolveAddress,
+            chainName: chainName, resolveAddress: resolveAddress,
             fetchDiagnostics: { await self.rustHistoryFetch(chainId: chainId, address: $0, make: make) },
-            storeDiagnostics: record, markUpdated: { self[keyPath: tsKP] = Date() })
+            storeDiagnostics: record)
     }
     private func runRustHistoryDiagnosticsForWallet<D>(
-        walletID: String, chainId: String, isRunningKP: ReferenceWritableKeyPath<AppState, Bool>, chainName: String,
+        walletID: String, chainName: String,
         resolveAddress: @escaping (ImportedWallet) -> String?, make: @escaping (String, String, Int, String?) -> D,
-        record: @escaping @MainActor (String, D) -> Void, tsKP: ReferenceWritableKeyPath<AppState, Date?>
+        record: @escaping @MainActor (String, D) -> Void
     ) async {
+        guard let chainId = Chain(displayName: chainName)?.id else { return }
         await runAddressHistoryDiagnosticsForWallet(
-            walletID: walletID, isRunningKP: isRunningKP, chainName: chainName, resolveAddress: resolveAddress,
+            walletID: walletID, chainName: chainName,
+            resolveAddress: resolveAddress,
             fetchDiagnostics: { await self.rustHistoryFetch(chainId: chainId, address: $0, make: make) },
-            storeDiagnostics: record, markUpdated: { self[keyPath: tsKP] = Date() })
+            storeDiagnostics: record)
     }
     private func runUTXOStyleHistoryDiagnostics(
-        chainId: String, isRunningKP: ReferenceWritableKeyPath<AppState, Bool>, chainName: String,
-        resolveAddress: @escaping (ImportedWallet) -> String?,
-        tsKP: ReferenceWritableKeyPath<AppState, Date?>
+        chainName: String,
+        resolveAddress: @escaping (ImportedWallet) -> String?
     ) async {
+        guard let chainId = Chain(displayName: chainName)?.id else { return }
         await runAddressHistoryDiagnosticsForAllWallets(
-            isRunningKP: isRunningKP, chainName: chainName, resolveAddress: resolveAddress,
+            chainName: chainName, resolveAddress: resolveAddress,
             fetchDiagnostics: { address in
                 let count = Int((try? await WalletServiceBridge.shared.fetchHistoryEntryCount(chainId: chainId, address: address)) ?? 0)
                 return BitcoinHistoryDiagnostics(
@@ -711,15 +705,15 @@ extension AppState {
                     BitcoinHistoryDiagnostics(
                         walletId: walletID, identifier: d.identifier, sourceUsed: d.sourceUsed,
                         transactionCount: d.transactionCount, nextCursor: d.nextCursor, error: d.error))
-            }, markUpdated: { self[keyPath: tsKP] = Date() })
+            })
     }
     private func runUTXOStyleHistoryDiagnosticsForWallet(
-        walletID: String, chainId: String, isRunningKP: ReferenceWritableKeyPath<AppState, Bool>, chainName: String,
-        resolveAddress: @escaping (ImportedWallet) -> String?,
-        tsKP: ReferenceWritableKeyPath<AppState, Date?>
+        walletID: String, chainName: String,
+        resolveAddress: @escaping (ImportedWallet) -> String?
     ) async {
+        guard let chainId = Chain(displayName: chainName)?.id else { return }
         await runAddressHistoryDiagnosticsForWallet(
-            walletID: walletID, isRunningKP: isRunningKP, chainName: chainName, resolveAddress: resolveAddress,
+            walletID: walletID, chainName: chainName, resolveAddress: resolveAddress,
             fetchDiagnostics: { address in
                 let count = Int((try? await WalletServiceBridge.shared.fetchHistoryEntryCount(chainId: chainId, address: address)) ?? 0)
                 return BitcoinHistoryDiagnostics(
@@ -728,7 +722,7 @@ extension AppState {
             },
             storeDiagnostics: { _, d in
                 self.recordUTXOHistoryDiagnostics(chainName: chainName, walletID: walletID, d)
-            }, markUpdated: { self[keyPath: tsKP] = Date() })
+            })
     }
     /// Fetch Rust history JSON and construct a per-chain diagnostics record.
     /// Counting is now delegated to Rust (`diagnosticsHistoryEntryCount`);

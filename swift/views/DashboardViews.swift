@@ -710,17 +710,6 @@ struct DashboardAssetRowPresentation: Identifiable, Equatable {
     let chainSummaryText: String
     var id: String { assetGroup.id }
 }
-struct DashboardDetailRow: View {
-    let label: String
-    let value: String
-    var body: some View {
-        HStack(alignment: .top) {
-            Text(label).foregroundStyle(.secondary)
-            Spacer(minLength: 16)
-            Text(value).multilineTextAlignment(.trailing)
-        }.font(.caption)
-    }
-}
 struct DashboardAssetRowView: View, Equatable {
     let presentation: DashboardAssetRowPresentation
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.presentation == rhs.presentation }

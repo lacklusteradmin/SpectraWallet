@@ -163,15 +163,39 @@ import Foundation
             XCTAssertEqual(store.displayNetworkName(for: "Ethereum"), "Hoodi")
             XCTAssertEqual(store.displayChainTitle(for: "Ethereum"), "Ethereum Hoodi")
         }
+        /// Every EVM chain gets the EVM address hint.
+        ///
+        /// Thirteen were named in the arm and the other ten mainnets — Sei,
+        /// Celo, Cronos, opBNB, zkSync Era, Sonic, Berachain, Unichain, Ink and
+        /// X Layer — fell to "Enter an address for the selected chain." The arm
+        /// reads `Chain.isEVM` now. Asserted against the generic fallback rather
+        /// than against the English text so the test does not depend on which
+        /// locale it runs in.
+        func testEveryEVMChainGetsAFormatSpecificAddressHint() {
+            let store = AppState()
+            // Kaspa has no arm of its own and never had one, so its message is
+            // the fallback by construction.
+            let generic = store.addressBookAddressValidationMessage(for: "", chainName: "Kaspa")
+            let evmMainnets = Chain.mainnets.filter(\.isEVM)
+            XCTAssertGreaterThan(evmMainnets.count, 13, "the arm used to name thirteen")
+            for chain in evmMainnets {
+                XCTAssertNotEqual(
+                    store.addressBookAddressValidationMessage(for: "", chainName: chain.displayName),
+                    generic,
+                    "\(chain.displayName) still gets the generic hint")
+                XCTAssertNotEqual(
+                    store.addressBookAddressValidationMessage(for: "nope", chainName: chain.displayName),
+                    store.addressBookAddressValidationMessage(for: "nope", chainName: "Kaspa"),
+                    "\(chain.displayName) still gets the generic invalid-address hint")
+            }
+        }
         func testEthereumTestNetworksExposeExpectedContextsAndEndpoints() {
-            XCTAssertEqual(EVMChainContext.ethereumSepolia.expectedChainID, 11_155_111)
-            XCTAssertEqual(EVMChainContext.ethereumHoodi.expectedChainID, 560_048)
-            XCTAssertEqual(
-                EVMChainContext.ethereumSepolia.defaultRPCEndpoints, ["https://ethereum-sepolia-rpc.publicnode.com"]
-            )
-            XCTAssertEqual(
-                EVMChainContext.ethereumHoodi.defaultRPCEndpoints, ["https://ethereum-hoodi-rpc.publicnode.com"]
-            )
+            let sepolia = EVMChainContext(chainName: "Ethereum Sepolia")
+            let hoodi = EVMChainContext(chainName: "Ethereum Hoodi")
+            XCTAssertEqual(sepolia?.expectedChainID, 11_155_111)
+            XCTAssertEqual(hoodi?.expectedChainID, 560_048)
+            XCTAssertEqual(sepolia?.defaultRPCEndpoints, ["https://ethereum-sepolia-rpc.publicnode.com"])
+            XCTAssertEqual(hoodi?.defaultRPCEndpoints, ["https://ethereum-hoodi-rpc.publicnode.com"])
         }
         /// A watch-only wallet on a chain outside the old hand-written
         /// 14-chain list was dropped from the store on load. Storage is now a

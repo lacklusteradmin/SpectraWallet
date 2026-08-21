@@ -30,7 +30,8 @@ extension AppState {
         }
         await refreshSendDestinationRiskWarning(for: selectedSendCoin)
         let activePreview = await plannedPreviewKind(for: selectedSendCoin)
-        resetInactiveSendPreviews(except: activePreview)
+        resetInactiveSendPreviews(
+            exceptChainNamed: activePreview == nil ? nil : selectedSendCoin.chainName)
         switch activePreview {
         case .bitcoin: await refreshBitcoinSendPreview()
         case .bitcoinCash: await refreshBitcoinCashSendPreview()
@@ -39,17 +40,10 @@ extension AppState {
         case .ethereum: await refreshEthereumSendPreview()
         case .dogecoin: await refreshDogecoinSendPreview()
         case .tron: await refreshTronSendPreview()
-        case .solana: await refreshSendPreview(forChainNamed: "Solana")
-        case .xrp: await refreshSendPreview(forChainNamed: "XRP Ledger")
-        case .stellar: await refreshSendPreview(forChainNamed: "Stellar")
-        case .monero: await refreshSendPreview(forChainNamed: "Monero")
-        case .cardano: await refreshSendPreview(forChainNamed: "Cardano")
-        case .sui: await refreshSendPreview(forChainNamed: "Sui")
-        case .aptos: await refreshSendPreview(forChainNamed: "Aptos")
-        case .ton: await refreshSendPreview(forChainNamed: "TON")
-        case .icp: await refreshSendPreview(forChainNamed: "Internet Computer")
-        case .near: await refreshSendPreview(forChainNamed: "NEAR")
-        case .polkadot: await refreshSendPreview(forChainNamed: "Polkadot")
+        // Eleven arms stood here and every one of them said "the chain this
+        // coin is on", spelled out. They are the chains core previews through
+        // one entry point, which is what `Chain::simple_preview_chain` names.
+        case .some: await refreshSendPreview(forChainNamed: selectedSendCoin.chainName)
         case nil: break
         }
     }
@@ -69,66 +63,16 @@ extension AppState {
         sendPreviewStore.resetAll()
         preparingChains = []
     }
-    private func resetInactiveSendPreviews(except activePreview: SendPreviewKind?) {
-        if activePreview != .bitcoin { sendPreviewStore.bitcoinSendPreview = nil }
-        if activePreview != .bitcoinCash { sendPreviewStore.bitcoinCashSendPreview = nil }
-        if activePreview != .bitcoinSV { sendPreviewStore.bitcoinSVSendPreview = nil }
-        if activePreview != .litecoin { sendPreviewStore.litecoinSendPreview = nil }
-        if activePreview != .ethereum {
-            sendPreviewStore.ethereumSendPreview = nil
-            preparingChains.remove("Ethereum")
-        }
-        if activePreview != .dogecoin {
-            sendPreviewStore.dogecoinSendPreview = nil
-            preparingChains.remove("Dogecoin")
-        }
-        if activePreview != .tron {
-            sendPreviewStore.tronSendPreview = nil
-            preparingChains.remove("Tron")
-        }
-        if activePreview != .solana {
-            sendPreviewStore.solanaSendPreview = nil
-            preparingChains.remove("Solana")
-        }
-        if activePreview != .xrp {
-            sendPreviewStore.xrpSendPreview = nil
-            preparingChains.remove("XRP Ledger")
-        }
-        if activePreview != .stellar {
-            sendPreviewStore.stellarSendPreview = nil
-            preparingChains.remove("Stellar")
-        }
-        if activePreview != .monero {
-            sendPreviewStore.moneroSendPreview = nil
-            preparingChains.remove("Monero")
-        }
-        if activePreview != .cardano {
-            sendPreviewStore.cardanoSendPreview = nil
-            preparingChains.remove("Cardano")
-        }
-        if activePreview != .sui {
-            sendPreviewStore.suiSendPreview = nil
-            preparingChains.remove("Sui")
-        }
-        if activePreview != .aptos {
-            sendPreviewStore.aptosSendPreview = nil
-            preparingChains.remove("Aptos")
-        }
-        if activePreview != .ton {
-            sendPreviewStore.tonSendPreview = nil
-            preparingChains.remove("TON")
-        }
-        if activePreview != .icp {
-            sendPreviewStore.icpSendPreview = nil
-            preparingChains.remove("Internet Computer")
-        }
-        if activePreview != .near {
-            sendPreviewStore.nearSendPreview = nil
-            preparingChains.remove("NEAR")
-        }
-        if activePreview != .polkadot {
-            sendPreviewStore.polkadotSendPreview = nil
-            preparingChains.remove("Polkadot")
-        }
+    /// Clear the previews and the "preparing" flags for every chain but the
+    /// one being previewed.
+    ///
+    /// Fifty-four lines and fourteen chain names before, which is
+    /// `SendPreviewStore`'s field list and `preparingChains`' contents written
+    /// out a second and third time. Both are keyed by the preview *slot* — the
+    /// EVM family shares Ethereum's — so that is what is kept.
+    private func resetInactiveSendPreviews(exceptChainNamed activeChainName: String?) {
+        let slot = activeChainName.flatMap { SendPreviewStore.previewSlot(forChainNamed: $0) }
+        sendPreviewStore.resetAll(exceptChainNamed: slot)
+        preparingChains = slot.map { preparingChains.intersection([$0]) } ?? []
     }
 }

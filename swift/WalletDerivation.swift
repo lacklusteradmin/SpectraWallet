@@ -9,10 +9,6 @@ struct WalletDerivationRequestedOutputs: OptionSet, Sendable {
     static let privateKey = WalletDerivationRequestedOutputs(rawValue: 1 << 2)
     static let all: WalletDerivationRequestedOutputs = [.address, .publicKey, .privateKey]
 }
-enum WalletDerivationCurve: String, Codable {
-    case secp256k1
-    case ed25519
-}
 enum WalletDerivationError: LocalizedError {
     case emptyRequestedOutputs
     var errorDescription: String? {

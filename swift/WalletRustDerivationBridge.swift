@@ -1,14 +1,5 @@
 import Foundation
 
-enum WalletRustDerivationBridgeError: LocalizedError {
-    case unsupportedChain(String)
-    var errorDescription: String? {
-        switch self {
-        case .unsupportedChain(let chain): return "Derivation is not yet available for \(chain)."
-        }
-    }
-}
-
 enum WalletRustDerivationBridge {
     static var isAvailable: Bool { true }
 
@@ -107,14 +98,6 @@ enum WalletRustDerivationBridge {
 
 // MARK: — Shared result types
 
-struct WalletRustSigningMaterialModel: Sendable {
-    let address: String
-    let privateKeyHex: String
-    let derivationPath: String
-    let account: UInt32
-    let branch: UInt32
-    let index: UInt32
-}
 
 struct WalletRustDerivationResponseModel: Sendable {
     let address: String?

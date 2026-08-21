@@ -102,8 +102,8 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func fetchBitcoinHdSendPreviewTyped(xpub: String, receiveCount: UInt32 = 20, changeCount: UInt32 = 20) async throws -> BitcoinSendPreview? {
         try await service().fetchBitcoinHdSendPreviewTyped(xpub: xpub, receiveCount: receiveCount, changeCount: changeCount)
     }
-    func fetchSimpleChainSendPreviewTyped(chainId: String, address: String, chain: SimpleChain) async throws -> SimpleChainPreview {
-        try await service().fetchSimpleChainSendPreviewTyped(chainId: chainId, address: address, chain: chain)
+    func fetchSimpleChainSendPreviewTyped(chainId: String, address: String) async throws -> SimpleChainPreview {
+        try await service().fetchSimpleChainSendPreviewTyped(chainId: chainId, address: address)
     }
     nonisolated func rustGenerateMnemonic(wordCount: Int) -> String { MainActor.assumeIsolated { generateMnemonic(wordCount: UInt32(wordCount)) } }
     nonisolated func rustValidateMnemonic(_ phrase: String) -> Bool { MainActor.assumeIsolated { validateMnemonic(phrase: phrase) } }
@@ -454,15 +454,6 @@ extension WalletServiceBridge {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? NSTemporaryDirectory()
         return "\(docs)/spectra_state.db"
     }
-}
-enum WalletServiceBridgeError: LocalizedError {
-    case unsupportedChain(String)
-    case serviceInit(String)
-    var errorDescription: String? {
-        switch self {
-        case .unsupportedChain(let name): return "WalletServiceBridge: chain '\(name)' has no Rust chain ID mapping."
-        case .serviceInit(let msg): return "WalletServiceBridge: failed to initialise WalletService — \(msg)"
-        }}
 }
 private extension WalletServiceBridge {
     static func buildEndpoints() -> [ChainEndpoints] {
