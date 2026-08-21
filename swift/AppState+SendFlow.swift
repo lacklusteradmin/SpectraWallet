@@ -208,7 +208,7 @@ extension AppState {
     func evmChainContext(for chainName: String) -> EVMChainContext? {
         EVMChainContext(chainName: chainName)
     }
-    func isEVMChain(_ chainName: String) -> Bool { coreIsEvmChain(chainName: chainName) }
+    func isEVMChain(_ chainName: String) -> Bool { (Chain(displayName: chainName)?.isEVM ?? false) }
     func configuredEVMRPCEndpointURL(for chainName: String) -> URL? { chainName == "Ethereum" ? configuredEthereumRPCEndpointURL() : nil }
     func supportedEVMToken(for coin: Coin) -> ChainTokenRegistryEntry? {
         guard evmChainContext(for: coin.chainName) != nil else { return nil }
@@ -229,7 +229,7 @@ extension AppState {
         let chainID =
             wallet.map { walletNetworkChainID(for: $0, family: "dogecoin") }
             ?? networkChainID(forFamily: "dogecoin")
-        return AddressValidation.isValid(address, kind: coreAddressValidationKind(chainId: chainID))
+        return AddressValidation.isValid(address, kind: (Chain(id: chainID)?.addressValidationKind ?? ""))
     }
 
     /// The address is judged against the network the family is on.
@@ -258,27 +258,16 @@ extension AppState {
         cachedResolvedENSAddresses[cacheKey] = resolved
         return (resolved, true)
     }
-    func evmRecipientPreflightReasons(holding: Coin, chain: EVMChainContext, destinationAddress: String) async -> [String] {
-        guard let chainId = Chain(displayName: holding.chainName)?.id else { return [] }
-        let recipientHasCode: Bool?
-        do {
-            recipientHasCode = try await WalletServiceBridge.shared.fetchEvmHasContractCode(chainId: chainId, address: destinationAddress)
-        } catch { recipientHasCode = nil }
-        let token = supportedEVMToken(for: holding)
-        let tokenHasCode: Bool?
-        if let token {
-            do {
-                tokenHasCode = try await WalletServiceBridge.shared.fetchEvmHasContractCode(chainId: chainId, address: token.contractAddress)
-            } catch { tokenHasCode = nil }
-        } else {
-            tokenHasCode = nil
-        }
-        let warnings = coreEvmRecipientPreflightWarnings(
-            request: EvmRecipientPreflightRequest(
-                chainName: holding.chainName, holdingSymbol: holding.symbol,
-                tokenSymbol: token?.symbol, recipientHasCode: recipientHasCode, tokenHasCode: tokenHasCode
-            )
-        )
+    /// Warnings about an EVM recipient, localized.
+    ///
+    /// Core makes the two contract-code probes itself and works out which
+    /// token the holding is from the token list it owns. This used to make
+    /// both network calls, swallow their errors, look the token up on this
+    /// side, and hand all three answers back for core to judge.
+    func evmRecipientPreflightReasons(holding: Coin, destinationAddress: String) async -> [String] {
+        let warnings = await WalletServiceBridge.shared.evmRecipientPreflight(
+            walletID: sendWalletID, holdingKey: holding.holdingKey,
+            destinationAddress: destinationAddress)
         return warnings.compactMap { w -> String? in
             switch w.code {
             case "recipient_is_contract":
@@ -298,20 +287,21 @@ extension AppState {
             }
         }
     }
+    /// Why this send looks risky, localized.
+    ///
+    /// The address book and every address this wallet has sent to on the chain
+    /// used to be assembled here and passed in — both are core's own store, so
+    /// "is this a first-time destination" was only as complete as this side's
+    /// copy of the history. What crosses now is what the user did: the
+    /// destination, what they typed, and whether an ENS name got them there.
     func evaluateHighRiskSendReasons(
-        wallet: ImportedWallet, holding: Coin, amount: Double, destinationAddress: String, destinationInput: String,
-        usedENSResolution: Bool = false
-    ) -> [String] {
-        let txAddrs = Set(transactions.compactMap { $0.chainName == holding.chainName ? $0.address : nil })
-        let warnings = coreEvaluateHighRiskSendReasons(
-            request: HighRiskSendRequest(
-                chainName: holding.chainName, symbol: holding.symbol,
-                amount: amount, holdingAmount: holding.amount,
-                destinationAddress: destinationAddress, destinationInput: destinationInput,
-                usedEnsResolution: usedENSResolution, walletSelectedChain: wallet.selectedChain,
-                addressBookEntries: addressBook.map { HighRiskChainAddress(chainName: $0.chainName, address: $0.address) },
-                txAddresses: txAddrs.map { HighRiskChainAddress(chainName: holding.chainName, address: $0) }
-            ))
+        wallet: ImportedWallet, holding: Coin, amount: Double, destinationAddress: String,
+        destinationInput: String, usedENSResolution: Bool = false
+    ) async -> [String] {
+        let warnings = await WalletServiceBridge.shared.highRiskSendReasons(
+            walletID: wallet.id, holdingKey: holding.holdingKey, amount: amount,
+            destinationAddress: destinationAddress, destinationInput: destinationInput,
+            usedENSResolution: usedENSResolution)
         return warnings.compactMap { w -> String? in
             switch w.code {
             case "invalid_format": return localizedStoreFormat("The destination address format does not match %@.", w.chain ?? "")
@@ -577,7 +567,7 @@ extension AppState {
     /// had nothing left to say. Bitcoin and Dogecoin keep their own history
     /// fetch: HD xpub expansion and a confirmed-fee path.
     func runUTXORescan(chainName: String) async {
-        guard coreSupportsDeepUtxoDiscovery(chainName: chainName) else { return }
+        guard (Chain(displayName: chainName)?.supportsDeepUTXODiscovery ?? false) else { return }
         let abbrev = Chain(displayName: chainName)?.gasTokenSymbol ?? chainName
         await runUTXORescan(
             chainName: chainName, abbrev: abbrev,
@@ -611,13 +601,13 @@ extension AppState {
                 let count = try await withTimeout(seconds: 20) {
                     try await WalletServiceBridge.shared.fetchHistoryEntryCount(chainId: Chain.dogecoin.id, address: address)
                 }
-                self[utxoHistoryFor: "Dogecoin"][wallet.id] = BitcoinHistoryDiagnostics(
-                    walletId: wallet.id, identifier: address, sourceUsed: "rust",
-                    transactionCount: Int32(count), nextCursor: nil, error: nil)
+                recordUTXOHistoryDiagnostics(
+                    chainName: "Dogecoin", walletID: wallet.id,
+                    BitcoinHistoryDiagnostics(walletId: wallet.id, identifier: address, sourceUsed: "rust", transactionCount: Int32(count), nextCursor: nil, error: nil))
             } catch {
-                self[utxoHistoryFor: "Dogecoin"][wallet.id] = BitcoinHistoryDiagnostics(
-                    walletId: wallet.id, identifier: address, sourceUsed: "none", transactionCount: 0, nextCursor: nil,
-                    error: error.localizedDescription)
+                recordUTXOHistoryDiagnostics(
+                    chainName: "Dogecoin", walletID: wallet.id,
+                    BitcoinHistoryDiagnostics(walletId: wallet.id, identifier: address, sourceUsed: "none", transactionCount: 0, nextCursor: nil, error: error.localizedDescription))
             }
             self[historyRunFor: "Dogecoin"].lastUpdatedAt = Date()
         }
@@ -626,7 +616,7 @@ extension AppState {
         guard !self[endpointHealthFor: "Dogecoin"].isChecking else { return }
         self[endpointHealthFor: "Dogecoin"].isChecking = true; defer { self[endpointHealthFor: "Dogecoin"].isChecking = false }
         await runSimpleEndpointReachabilityDiagnostics(
-            checks: DogecoinBalanceService.diagnosticsChecks(), profile: .diagnostics,
+            checks: AppEndpointDirectory.diagnosticsChecks(for: "Dogecoin"), profile: .diagnostics,
             setResults: { [weak self] in self?[endpointHealthFor: "Dogecoin"].results = $0 },
             markUpdated: { [weak self] in self?[endpointHealthFor: "Dogecoin"].lastUpdatedAt = Date() })
     }
@@ -679,35 +669,23 @@ extension AppState {
                     break
                 }
                 await self.runScheduledMaintenanceOnce()
-                // Adaptive poll: 30s only while there's pending-tx work to
-                // watch; otherwise sleep a full price-refresh interval. The
-                // loop used to spin every 30s regardless, waking the CPU
-                // twice a minute just to ask Rust "anything to do?". For an
-                // idle user that wake is pure heat and battery.
-                let pollSeconds: UInt64
-                if self.appIsActive {
-                    if self.hasPendingTransactionMaintenanceWork {
-                        pollSeconds = Self.activeMaintenancePollSeconds
-                    } else {
-                        pollSeconds = max(Self.activeMaintenancePollSeconds, UInt64(self.activePriceRefreshIntervalForProfile()))
-                    }
-                } else {
-                    pollSeconds = Self.inactiveMaintenancePollSeconds
-                }
-                try? await Task.sleep(nanoseconds: pollSeconds * 1_000_000_000)
+                // The cadence comes back with the plan: core knows whether
+                // anything is pending and what the sync profile allows.
+                try? await Task.sleep(
+                    nanoseconds: self.lastMaintenancePollSeconds * 1_000_000_000)
             }
         }
     }
-    func runScheduledMaintenanceOnce(now: Date = Date()) async {
-        if appIsActive { await runActiveScheduledMaintenance(now: now); return }
-        let interval = backgroundMaintenanceInterval(now: now)
-        guard
-            WalletRefreshPlanner.shouldRunBackgroundMaintenance(
-                now: now, isNetworkReachable: isNetworkReachable, lastBackgroundMaintenanceAt: lastBackgroundMaintenanceAt,
-                interval: interval)
-        else { return }
-        lastBackgroundMaintenanceAt = now
-        await performBackgroundMaintenanceTick()
+    /// One tick. Core decides what it is, from its own clock and this device's
+    /// conditions; four questions and a `Date?` on this side became one.
+    func runScheduledMaintenanceOnce() async {
+        let plan = await maintenancePlan()
+        lastMaintenancePollSeconds = plan.pollSeconds
+        if appIsActive { await runActiveScheduledMaintenance(plan: plan); return }
+        guard plan.runBackgroundTick else { return }
+        await WalletServiceBridge.shared.recordRefresh(kind: .backgroundTick)
+        await performBackgroundMaintenanceTick(
+            allowHeavyBackgroundWork: plan.allowHeavyBackgroundWork)
     }
     func authenticateForSensitiveAction(reason: String, allowWhenAuthenticationUnavailable: Bool = false) async -> Bool {
         guard preferences.useFaceID, preferences.requireBiometricForSendActions else { return true }
@@ -750,7 +728,7 @@ extension AppState {
         // Dogecoin tracks finality, so a manual recheck must also re-open a
         // transaction already considered final.
         try? await WalletServiceBridge.shared.resetStatusTracker(
-            id: transactionID.uuidString, now: Date(),
+            id: transactionID.uuidString,
             clearFinality: transaction.chainName == "Dogecoin")
         switch transaction.chainName {
         case "Bitcoin": await refreshPendingTransactions(chainName: "Bitcoin")
@@ -869,7 +847,7 @@ extension AppState {
     func walletNetworkChainID(for wallet: ImportedWallet, family: String) -> NetworkChainID {
         if let own = wallet.networkChainId,
             coreResolveChainId(input: own) == own,
-            coreNetworkChoices(chainId: family).contains(where: { $0.chainId == own })
+            (Chain(id: family)?.networkChoices ?? []).contains(where: { $0.chainId == own })
         {
             return own
         }
@@ -884,10 +862,11 @@ extension AppState {
     /// "Bitcoin Testnet4". The registry names chains, so this is a lookup
     /// rather than a family switch plus string surgery on a mode name.
     func displayChainTitle(for chainName: String) -> String {
-        guard let family = coreChainStrIdForName(name: chainName), !family.isEmpty else {
+        guard let family = Chain(displayName: chainName)?.id, !family.isEmpty else {
             return chainName
         }
-        return coreChainDisplayName(chainId: networkChainID(forFamily: family))
+        let chainID = networkChainID(forFamily: family)
+        return Chain(id: chainID)?.displayName ?? chainID
     }
     /// The part after the chain — "Testnet4" — for screens that show it alone.
     func displayNetworkName(for chainName: String) -> String {
@@ -896,10 +875,11 @@ extension AppState {
         return String(title.dropFirst(chainName.count)).trimmingCharacters(in: .whitespaces)
     }
     func displayChainTitle(for wallet: ImportedWallet) -> String {
-        guard let family = coreChainStrIdForName(name: wallet.selectedChain), !family.isEmpty else {
+        guard let family = Chain(displayName: wallet.selectedChain)?.id, !family.isEmpty else {
             return wallet.selectedChain
         }
-        return coreChainDisplayName(chainId: walletNetworkChainID(for: wallet, family: family))
+        let chainID = walletNetworkChainID(for: wallet, family: family)
+        return Chain(id: chainID)?.displayName ?? chainID
     }
     func displayNetworkName(for wallet: ImportedWallet) -> String {
         let chain = wallet.selectedChain
@@ -923,15 +903,15 @@ extension AppState {
         }
         return displayChainTitle(for: transaction.chainName)
     }
-    func supportsDeepUTXODiscovery(chainName: String) -> Bool { coreSupportsDeepUtxoDiscovery(chainName: chainName) }
+    func supportsDeepUTXODiscovery(chainName: String) -> Bool { (Chain(displayName: chainName)?.supportsDeepUTXODiscovery ?? false) }
     /// Judged against the network the family is on, which is a chain — so the
     /// registry supplies the kind. Five hand-written cases before, two of them
     /// passing a mode the validator ignored.
     func isValidUTXOAddressForPolicy(_ address: String, chainName: String) -> Bool {
         guard supportsDeepUTXODiscovery(chainName: chainName),
-            let family = coreChainStrIdForName(name: chainName), !family.isEmpty
+            let family = Chain(displayName: chainName)?.id, !family.isEmpty
         else { return false }
-        let kind = coreAddressValidationKind(chainId: networkChainID(forFamily: family))
+        let kind = Chain(id: networkChainID(forFamily: family))?.addressValidationKind ?? ""
         return !kind.isEmpty && AddressValidation.isValid(address, kind: kind)
     }
     func utxoDiscoveryDerivationPath(for wallet: ImportedWallet, chainName: String, branch: WalletDerivationBranch, index: Int) -> String? {
@@ -1336,7 +1316,7 @@ extension AppState {
                         hasHistory: hasHistory)
                     warning = m.warning; infoMessage = m.info
                 } else if let token = supportedEVMToken(for: coin) {
-                    let tokenBalances = try await WalletServiceBridge.shared.fetchEVMTokenBalancesBatch(
+                    let tokenBalances = try await WalletServiceBridge.shared.fetchTokenBalances(
                         chainId: chainId, address: normalizedAddress,
                         tokens: [TokenDescriptor(contract: token.contractAddress, symbol: token.symbol, decimals: UInt8(token.decimals), name: nil)])
                     let tokenBalance = Decimal(string: tokenBalances.first?.balanceDisplay ?? "0") ?? .zero

@@ -27,7 +27,7 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 @Observable
 final class AppUserPreferences {
     // ── UI ──────────────────────────────────────────────────────────────
-    var hideBalances: Bool = false { didSet { guard hideBalances != oldValue else { return }; persistHandler?() } }
+    var hideBalances: Bool = false { didSet { guard hideBalances != oldValue else { return }; platformPersistHandler?() } }
     var appearanceMode: AppearanceMode = {
         if let raw = UserDefaults.standard.string(forKey: "settings.appearanceMode"),
            let saved = AppearanceMode(rawValue: raw) { return saved }
@@ -43,14 +43,14 @@ final class AppUserPreferences {
     var useFaceID: Bool = true {
         didSet {
             guard useFaceID != oldValue else { return }
-            persistHandler?()
+            platformPersistHandler?()
             if !useFaceID { useFaceIDDisabledHandler?() }
         }
     }
-    var useAutoLock: Bool = false { didSet { guard useAutoLock != oldValue else { return }; persistHandler?() } }
+    var useAutoLock: Bool = false { didSet { guard useAutoLock != oldValue else { return }; platformPersistHandler?() } }
     var useStrictRPCOnly: Bool = false { didSet { guard useStrictRPCOnly != oldValue else { return }; persistHandler?() } }
     var requireBiometricForSendActions: Bool = true {
-        didSet { guard requireBiometricForSendActions != oldValue else { return }; persistHandler?() }
+        didSet { guard requireBiometricForSendActions != oldValue else { return }; platformPersistHandler?() }
     }
 
     // ── Notifications ───────────────────────────────────────────────────
@@ -71,10 +71,12 @@ final class AppUserPreferences {
     }
 
     // ── Refresh cadence + alert thresholds ──────────────────────────────
+    // No clamps here. The bounds are `apply_app_setting`'s, which is where the
+    // value is stored — this side re-clamping would be a second copy of a rule
+    // about someone else's state, and the copy that used to live here was the
+    // only one.
     var automaticRefreshFrequencyMinutes: Int = 5 {
         didSet {
-            let clamped = automaticRefreshFrequencyMinutes.clamped(to: 5...60)
-            guard clamped == automaticRefreshFrequencyMinutes else { automaticRefreshFrequencyMinutes = clamped; return }
             guard automaticRefreshFrequencyMinutes != oldValue else { return }
             persistHandler?()
             refreshFrequencyChangedHandler?()
@@ -82,15 +84,13 @@ final class AppUserPreferences {
     }
     var largeMovementAlertPercentThreshold: Double = 10.0 {
         didSet {
-            let clamped = largeMovementAlertPercentThreshold.clamped(to: 1.0...90.0)
-            guard clamped == largeMovementAlertPercentThreshold else { largeMovementAlertPercentThreshold = clamped; return }
+            guard largeMovementAlertPercentThreshold != oldValue else { return }
             persistHandler?()
         }
     }
     var largeMovementAlertUSDThreshold: Double = 50.0 {
         didSet {
-            let clamped = largeMovementAlertUSDThreshold.clamped(to: 1.0...100_000.0)
-            guard clamped == largeMovementAlertUSDThreshold else { largeMovementAlertUSDThreshold = clamped; return }
+            guard largeMovementAlertUSDThreshold != oldValue else { return }
             persistHandler?()
         }
     }
@@ -98,20 +98,42 @@ final class AppUserPreferences {
     // ── Side-effect hooks, wired by `AppState` in its init. Kept out of
     // `@Observable` tracking so closure assignment doesn't cause spurious
     // view invalidations.
+    /// Commit the settings core owns.
     @ObservationIgnored var persistHandler: (() -> Void)?
+    /// Persist the four this platform keeps.
+    @ObservationIgnored var platformPersistHandler: (() -> Void)?
     @ObservationIgnored var useFaceIDDisabledHandler: (() -> Void)?
     @ObservationIgnored var notificationPermissionRequestHandler: (() -> Void)?
     @ObservationIgnored var refreshFrequencyChangedHandler: (() -> Void)?
 
     nonisolated init() {}
 
+    /// The four this platform keeps, as one value to store and restore.
+    var platformSnapshot: PlatformPreferences {
+        PlatformPreferences(
+            hideBalances: hideBalances, useFaceID: useFaceID, useAutoLock: useAutoLock,
+            requireBiometricForSendActions: requireBiometricForSendActions)
+    }
+    /// Adopt stored platform preferences without writing them straight back.
+    func applyPlatform(_ stored: PlatformPreferences) {
+        let previous = platformPersistHandler
+        platformPersistHandler = nil
+        defer { platformPersistHandler = previous }
+        hideBalances = stored.hideBalances
+        useFaceID = stored.useFaceID
+        useAutoLock = stored.useAutoLock
+        requireBiometricForSendActions = stored.requireBiometricForSendActions
+    }
+
     /// Reset to factory defaults. Called from `StoreLifecycleReset.reset()`.
-    /// Does NOT trigger `persistHandler`; callers are responsible for
+    /// Does NOT trigger the persist handlers; callers are responsible for
     /// scheduling persistence once the whole reset pass is complete.
     func resetToDefaults() {
         let previousPersist = persistHandler
+        let previousPlatform = platformPersistHandler
         persistHandler = nil
-        defer { persistHandler = previousPersist }
+        platformPersistHandler = nil
+        defer { persistHandler = previousPersist; platformPersistHandler = previousPlatform }
         hideBalances = false
         appearanceMode = .dark
         useFaceID = true

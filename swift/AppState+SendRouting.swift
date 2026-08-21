@@ -29,7 +29,7 @@ extension AppState {
             return
         }
         await refreshSendDestinationRiskWarning(for: selectedSendCoin)
-        let activePreview = plannedPreviewKind(for: selectedSendCoin)
+        let activePreview = await plannedPreviewKind(for: selectedSendCoin)
         resetInactiveSendPreviews(except: activePreview)
         switch activePreview {
         case .bitcoin: await refreshBitcoinSendPreview()
@@ -53,19 +53,17 @@ extension AppState {
         case nil: break
         }
     }
-    private func plannedPreviewKind(for coin: Coin) -> SendPreviewKind? {
-        let request = SendPreviewRoutingRequest(
-            asset: rustSendAssetRoutingInput(for: coin)
-        )
-        let plan = coreSendPreviewRouting(request: request)
-        guard let activePreviewKind = plan.activePreviewKind else { return nil }
-        return SendPreviewKind(rawValue: activePreviewKind)
-    }
-    private func rustSendAssetRoutingInput(for coin: Coin) -> SendAssetRoutingInput {
-        SendAssetRoutingInput(
-            chainName: coin.chainName, symbol: coin.symbol, isEvmChain: isEVMChain(coin.chainName),
-            supportsSolanaSendCoin: isSupportedSolanaSendCoin(coin), supportsNearTokenSend: isSupportedNearTokenSend(coin)
-        )
+    /// Which preview this holding needs, as core routes it.
+    ///
+    /// This used to assemble a `SendAssetRoutingInput` — including whether the
+    /// asset is sendable on Solana or NEAR, which core decides from the token
+    /// list it owns — and hand it back for core to route. Two copies of that
+    /// rule, and the submit path had a third.
+    private func plannedPreviewKind(for coin: Coin) async -> SendPreviewKind? {
+        let plan = await WalletServiceBridge.shared.sendAssetRouting(
+            walletID: sendWalletID, holdingKey: coin.holdingKey)
+        guard let previewKind = plan?.previewKind else { return nil }
+        return SendPreviewKind(rawValue: previewKind)
     }
     private func resetAllSendPreviews() {
         sendPreviewStore.resetAll()

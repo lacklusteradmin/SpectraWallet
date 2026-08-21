@@ -104,16 +104,16 @@ enum CachedCoreHelpers {
     /// value type read from background contexts; the call is a pure registry
     /// lookup in Rust, so it needs no cache.
     nonisolated static func seedDerivationPathKey(chainName: String) -> String {
-        coreSeedDerivationPathKey(chainName: chainName)
+        (Chain(displayName: chainName)?.seedDerivationPathKey ?? "")
     }
     static func seedDerivationChainRaw(chainName: String) -> String? {
         cached(in: &seedDerivationChainRaws, key: chainName) {
-            coreSeedDerivationChainRaw(chainName: chainName)
+            Chain(displayName: chainName)?.seedDerivationChain
         }
     }
     static func evmSeedDerivationChainName(chainName: String) -> String? {
         cached(in: &evmSeedDerivationChainNames, key: chainName) {
-            coreEvmSeedDerivationChainName(chainName: chainName)
+            Chain(displayName: chainName)?.evmSeedDerivationChain
         }
     }
     static func receiveAddressResolver(symbol: String, chainName: String, isEvmChain: Bool) -> ReceiveAddressResolverKind {

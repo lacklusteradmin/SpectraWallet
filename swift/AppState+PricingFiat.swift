@@ -124,8 +124,8 @@ extension AppState {
                 wallet.bitcoinAddress.map {
                     AddressValidation.isValid(
                         $0,
-                        kind: coreAddressValidationKind(
-                            chainId: walletNetworkChainID(for: wallet, family: "bitcoin")))
+                        kind: Chain(id: walletNetworkChainID(for: wallet, family: "bitcoin"))?
+                            .addressValidationKind ?? "")
                 } ?? false
             return WalletChainEligibilityInput(
                 walletId: wallet.id, selectedChain: wallet.selectedChain, hasSeedPhrase: hasSeedPhrase,

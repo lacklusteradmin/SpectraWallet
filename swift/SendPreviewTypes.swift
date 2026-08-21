@@ -206,7 +206,7 @@ final class SendPreviewStore {
         case "NEAR": nearSendPreview = preview.flatMap { if case .near(let p) = $0 { p } else { nil } }
         case "Polkadot": polkadotSendPreview = preview.flatMap { if case .polkadot(let p) = $0 { p } else { nil } }
         default:
-            guard coreIsEvmChain(chainName: chainName) else { return }
+            guard (Chain(displayName: chainName)?.isEVM ?? false) else { return }
             ethereumSendPreview = preview.flatMap { if case .ethereum(let p) = $0 { p } else { nil } }
         }
     }
@@ -286,7 +286,7 @@ final class SendPreviewStore {
             // than listing them is what fixes Base, Polygon, Linea, Scroll,
             // Blast, Mantle and the newer rollups, which the old name match
             // never reached.
-            guard coreIsEvmChain(chainName: chainName) else { return nil }
+            guard (Chain(displayName: chainName)?.isEVM ?? false) else { return nil }
             return ethereumSendPreview.map { .ethereum(preview: $0) }
         }
     }

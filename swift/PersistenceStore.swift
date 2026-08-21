@@ -50,33 +50,14 @@ extension AppState {
         {
             selectedFeePriorityOptionRawByChain = feePrios
         }
-        // ── Load app settings from Rust SQLite ────────────────────────────────
-        if let settings = try? await WalletServiceBridge.shared.loadAppSettingsTyped() {
-            if let v = PricingProvider(rawValue: settings.pricingProvider) { pricingProvider = v }
-            if let v = FiatRateProvider(rawValue: settings.fiatRateProvider) { fiatRateProvider = v }
-            if let v = BitcoinFeePriority(rawValue: settings.bitcoinFeePriority) { bitcoinFeePriority = v }
-            if let v = DogecoinFeePriority(rawValue: settings.dogecoinFeePriority) { dogecoinFeePriority = v }
-            if let v = BackgroundSyncProfile(rawValue: settings.backgroundSyncProfile) { backgroundSyncProfile = v }
-            ethereumRPCEndpoint = settings.ethereumRpcEndpoint
-            etherscanAPIKey = settings.etherscanApiKey
-            moneroBackendBaseURL = settings.moneroBackendBaseUrl
-            moneroBackendAPIKey = settings.moneroBackendApiKey
-            bitcoinEsploraEndpoints = settings.bitcoinEsploraEndpoints
-            bitcoinStopGap = Int(settings.bitcoinStopGap)
-            preferences.hideBalances = settings.hideBalances
-            preferences.useFaceID = settings.useFaceId
-            preferences.useAutoLock = settings.useAutoLock
-            preferences.useStrictRPCOnly = settings.useStrictRpcOnly
-            preferences.requireBiometricForSendActions = settings.requireBiometricForSendActions
-            preferences.usePriceAlerts = settings.usePriceAlerts
-            preferences.useTransactionStatusNotifications = settings.useTransactionStatusNotifications
-            preferences.useLargeMovementNotifications = settings.useLargeMovementNotifications
-            preferences.automaticRefreshFrequencyMinutes = Int(settings.automaticRefreshFrequencyMinutes)
-            preferences.largeMovementAlertPercentThreshold = settings.largeMovementAlertPercentThreshold
-            preferences.largeMovementAlertUSDThreshold = settings.largeMovementAlertUsdThreshold
-        } else {
-            // No SQLite settings yet — persist current (UserDefaults-loaded) values to SQLite for future launches
-            persistAppSettings()
+        // The eighteen settings core owns arrive with `loadCoreOwnedState()`
+        // above, through `applyCoreState`. What is left here is the four this
+        // platform keeps: hiding balances, Face ID, auto-lock and
+        // biometric-gated sends, which no other front end has a use for.
+        if let platform = await loadCodableFromSQLite(
+            PlatformPreferences.self, key: Self.platformPreferencesDefaultsKey)
+        {
+            preferences.applyPlatform(platform)
         }
         // ── Wallet projection, from the store core owns ───────────────────────
         if let stored = try? await WalletServiceBridge.shared.storedWallets(), !stored.isEmpty {
@@ -84,12 +65,21 @@ extension AppState {
             rebuildWalletDerivedState()
         }
         // ── Transaction projection, from the store core owns ──────────────────
+        //
+        // No orphan prune here, unlike the two sites that follow a wallet
+        // mutation. This load reads the wallet list and the transaction list a
+        // moment apart, so a wallet recorded while it was in flight is missing
+        // from the first read and present in neither — and the prune deleted
+        // that wallet's transactions from the store, permanently, for having no
+        // wallet. Losing a record of a real send is the worse side; an orphan
+        // row shows an extra history entry until the next wallet mutation
+        // prunes it. The wallet-deletion path removes a wallet's transactions
+        // itself, so this was cleanup for a case that path already covers.
         if let stored = try? await WalletServiceBridge.shared.storedTransactions() {
             let records = stored.compactMap(TransactionRecord.init(snapshot:))
             if !records.isEmpty {
                 adoptTransactionsFromCore(records)
-                pruneTransactionsForActiveWallets()
-                rebuildTransactionDerivedState()
+                await rebuildTransactionDerivedState()
             }
         }
     }
@@ -150,40 +140,17 @@ extension AppState {
             self.applyCoreState(transition.state, epoch: epoch)
         }
     }
-    // ── App settings persistence (Rust SQLite) ─────────────────────────────────
-    /// Debounced — coalesces rapid-fire settings changes (e.g. slider drags,
-    /// multiple toggles in quick succession) into a single SQLite write.
-    func persistAppSettings() {
-        appSettingsPersist.fire { [weak self] in self?.persistAppSettingsNow() }
+    // ── Settings ──────────────────────────────────────────────────────────────
+    /// Debounced — a slider drag or a typed endpoint would otherwise be one
+    /// command per frame or per keystroke.
+    func commitAppSettingsSoon() {
+        if pendingAppSettingsEpoch == nil { pendingAppSettingsEpoch = beginCoreStateRead() }
+        appSettingsPersist.fire { [weak self] in self?.commitAppSettings() }
     }
-    private func persistAppSettingsNow() {
-        let settings = PersistedAppSettings(
-            pricingProvider: pricingProvider.rawValue,
-            // selectedFiatCurrency is core-owned; see AppState.selectedFiatCurrency.
-            selectedFiatCurrency: coreFiatCurrency.rawValue,
-            fiatRateProvider: fiatRateProvider.rawValue,
-            ethereumRpcEndpoint: ethereumRPCEndpoint,
-            etherscanApiKey: etherscanAPIKey,
-            moneroBackendBaseUrl: moneroBackendBaseURL,
-            moneroBackendApiKey: moneroBackendAPIKey,
-            bitcoinEsploraEndpoints: bitcoinEsploraEndpoints,
-            bitcoinStopGap: Int32(bitcoinStopGap),
-            bitcoinFeePriority: bitcoinFeePriority.rawValue,
-            dogecoinFeePriority: dogecoinFeePriority.rawValue,
-            hideBalances: preferences.hideBalances,
-            useFaceId: preferences.useFaceID,
-            useAutoLock: preferences.useAutoLock,
-            useStrictRpcOnly: preferences.useStrictRPCOnly,
-            requireBiometricForSendActions: preferences.requireBiometricForSendActions,
-            usePriceAlerts: preferences.usePriceAlerts,
-            useTransactionStatusNotifications: preferences.useTransactionStatusNotifications,
-            useLargeMovementNotifications: preferences.useLargeMovementNotifications,
-            automaticRefreshFrequencyMinutes: Int32(preferences.automaticRefreshFrequencyMinutes),
-            backgroundSyncProfile: backgroundSyncProfile.rawValue,
-            largeMovementAlertPercentThreshold: preferences.largeMovementAlertPercentThreshold,
-            largeMovementAlertUsdThreshold: preferences.largeMovementAlertUSDThreshold
-        )
-        Task { try? await WalletServiceBridge.shared.saveAppSettingsTyped(settings: settings) }
+    /// The four this platform keeps. A blob, because it is one front end's
+    /// preferences and nothing else reads it.
+    func persistPlatformPreferences() {
+        persistCodableToSQLite(preferences.platformSnapshot, key: Self.platformPreferencesDefaultsKey)
     }
 }
 struct PersistedCoin: Codable {

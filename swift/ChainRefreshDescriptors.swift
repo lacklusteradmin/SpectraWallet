@@ -25,8 +25,8 @@ struct WalletChainRefreshDescriptor: Sendable {
     /// the chain name, and the list comes from core.
     @MainActor static func forChain(_ chainName: String) -> WalletChainRefreshDescriptor? {
         guard let chainID = WalletChainID(chainName) else { return nil }
-        let isUTXO = coreSupportsDeepUtxoDiscovery(chainName: chainName)
-        let isEVM = coreIsEvmChain(chainName: chainName)
+        let isUTXO = (Chain(displayName: chainName)?.supportsDeepUTXODiscovery ?? false)
+        let isEVM = (Chain(displayName: chainName)?.isEVM ?? false)
 
         // Bitcoin and Dogecoin keep their own history fetch: HD xpub expansion
         // and a confirmed-fee path respectively.
@@ -97,12 +97,15 @@ extension AppState {
             }
         }
     }
+    /// Refresh the history of the chains that are due one.
+    ///
+    /// Which those are is core's answer, from core's clock. This used to pass
+    /// `lastHistoryRefreshAtByChainID` — a dictionary on this side — so the
+    /// answer was only as current as the caller's copy of it.
     func runHistoryRefreshes(for trackedChains: Set<WalletChainID>, interval: TimeInterval) async {
-        let plannedHistoryChains = Set(
-            WalletRefreshPlanner.historyPlans(
-                for: trackedChains, now: Date(), interval: interval, lastHistoryRefreshAtByChainID: lastHistoryRefreshAtByChainID
-            )
-        )
+        let due = await WalletServiceBridge.shared.historyRefreshPlans(
+            chainIDs: trackedChains.map(\.rawValue), intervalSecs: interval)
+        let plannedHistoryChains = Set(due.compactMap(WalletChainID.init))
         guard !plannedHistoryChains.isEmpty else { return }
         await withTaskGroup(of: Void.self) { group in
             for descriptor in Self.chainRefreshDescriptors.values {
@@ -112,6 +115,9 @@ extension AppState {
                 group.addTask { await executeHistoryOnly(self) }
             }
             await group.waitForAll()
+        }
+        for chainID in plannedHistoryChains {
+            await WalletServiceBridge.shared.recordHistoryRefresh(chainID: chainID.rawValue)
         }
     }
     func runPendingTransactionHistoryRefreshes(for trackedChains: Set<WalletChainID>, interval: TimeInterval) async {

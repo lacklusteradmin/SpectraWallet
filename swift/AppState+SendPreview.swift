@@ -291,15 +291,15 @@ extension AppState {
     private struct SimpleChainConfig {
         let chainId: String
         let rustChain: SimpleChain
-        let coinCheck: (AppState, Coin) -> Bool
+        let coinCheck: (AppState, Coin) async -> Bool
         let resolveAddress: (AppState, ImportedWallet) -> String?
         let chainName: String
         let applyPreview: (AppState, SimpleChainPreview?) -> Void
         let errorMessage: String
     }
     @MainActor private func refreshSimpleChain(_ cfg: SimpleChainConfig) async {
-        guard let wallet = wallet(for: sendWalletID),
-            let coin = selectedSendCoin, cfg.coinCheck(self, coin),
+        guard let wallet = wallet(for: sendWalletID), let coin = selectedSendCoin,
+            await cfg.coinCheck(self, coin),
             let amount = Double(sendAmount), amount > 0
         else { cfg.applyPreview(self, nil); preparingChains.remove(cfg.chainName); return }
         guard let src = cfg.resolveAddress(self, wallet)
@@ -334,16 +334,22 @@ extension AppState {
     /// Polkadot refuses to preview without a seed phrase.
     func refreshSendPreview(forChainNamed chainName: String) async {
         guard let rustChain = Self.simplePreviewChains[chainName],
-            let chainID = coreChainStrIdForName(name: chainName), !chainID.isEmpty
+            let chainID = Chain(displayName: chainName)?.id, !chainID.isEmpty
         else { return }
         let symbol = Chain(displayName: chainName)?.gasTokenSymbol ?? ""
         await refreshSimpleChain(
             .init(
                 chainId: chainID, rustChain: rustChain,
                 coinCheck: { s, c in
-                    chainName == "Solana"
-                        ? s.isSupportedSolanaSendCoin(c)
-                        : (c.chainName == chainName && c.symbol == symbol)
+                    // Solana's rule is core's: SOL, or a token whose mint the
+                    // user tracks. Asking core rather than repeating it here is
+                    // what let the Swift copy of that rule go.
+                    guard chainName == "Solana" else {
+                        return c.chainName == chainName && c.symbol == symbol
+                    }
+                    let plan = await WalletServiceBridge.shared.sendAssetRouting(
+                        walletID: s.sendWalletID, holdingKey: c.holdingKey)
+                    return plan?.previewKind == "solana"
                 },
                 resolveAddress: { s, w in
                     // Polkadot's estimate needs the account, which it derives

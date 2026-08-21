@@ -10,12 +10,14 @@ extension AppState {
     private var wsb: WalletServiceBridge { WalletServiceBridge.shared }
     private func notifyHistoryMutation() { bumpCachesRevision() }
     func historyPaginationExhausted(chainId: String, walletId: String) -> Bool {
-        wsb.isHistoryExhausted(chainId: chainId, walletId: walletId)
+        wsb.historyCursor(chainId: chainId, walletId: walletId).isExhausted
     }
     func historyPaginationCursor(chainId: String, walletId: String) -> String? {
-        wsb.historyNextCursor(chainId: chainId, walletId: walletId)
+        wsb.historyCursor(chainId: chainId, walletId: walletId).nextCursor
     }
-    func historyPaginationPage(chainId: String, walletId: String) -> Int { Int(wsb.historyNextPage(chainId: chainId, walletId: walletId)) }
+    func historyPaginationPage(chainId: String, walletId: String) -> Int {
+        Int(wsb.historyCursor(chainId: chainId, walletId: walletId).nextPage)
+    }
     func setHistoryCursor(chainId: String, walletId: String, cursor: String?) {
         wsb.advanceHistoryCursor(chainId: chainId, walletId: walletId, nextCursor: cursor); notifyHistoryMutation()
     }
@@ -29,10 +31,16 @@ extension AppState {
         wsb.setHistoryExhausted(chainId: chainId, walletId: walletId, exhausted: false); notifyHistoryMutation()
     }
     func resetHistoryPagination(chainId: String, walletId: String) {
-        wsb.resetHistory(chainId: chainId, walletId: walletId); notifyHistoryMutation()
+        wsb.resetHistory(.chainAndWallet(chainId: chainId, walletId: walletId))
+        notifyHistoryMutation()
     }
-    func resetHistoryPaginationForWallet(_ walletId: String) { wsb.resetHistoryForWallet(walletId: walletId); notifyHistoryMutation() }
-    func resetAllHistoryPagination() { wsb.resetAllHistory(); notifyHistoryMutation() }
+    func resetHistoryPaginationForWallet(_ walletId: String) {
+        wsb.resetHistory(.wallet(walletId: walletId)); notifyHistoryMutation()
+    }
+    func resetHistoryPaginationForChain(_ chainId: String) {
+        wsb.resetHistory(.chain(chainId: chainId)); notifyHistoryMutation()
+    }
+    func resetAllHistoryPagination() { wsb.resetHistory(.all); notifyHistoryMutation() }
 }
 // ────────────────────────────────────────────────────────────────────────────
 // Normalized history fetch: a single function replaces all per-chain
@@ -165,7 +173,7 @@ extension AppState {
     func refreshNormalizedTransactions(
         chainName: String, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil
     ) async {
-        let chainID = coreChainStrIdForName(name: chainName) ?? ""
+        let chainID = Chain(displayName: chainName)?.id ?? ""
         guard !chainID.isEmpty else { return }
         await refreshNormalizedChainTransactions(
             chainName: chainName, chainId: chainID,
@@ -239,10 +247,11 @@ extension AppState {
                 let page = try await fetchBitcoinHistoryPage(for: wallet, limit: requestedLimit, cursor: cursor)
                 let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? wallet.name
                 setHistoryCursor(chainId: Chain.bitcoin.id, walletId: wallet.id, cursor: page.nextCursor)
-                self[utxoHistoryFor: "Bitcoin"][wallet.id] = BitcoinHistoryDiagnostics(
-                    walletId: wallet.id, identifier: identifier, sourceUsed: page.sourceUsed, transactionCount: Int32(page.snapshots.count),
-                    nextCursor: page.nextCursor, error: nil
-                )
+                recordUTXOHistoryDiagnostics(
+                    chainName: "Bitcoin", walletID: wallet.id,
+                    BitcoinHistoryDiagnostics(
+                        walletId: wallet.id, identifier: identifier, sourceUsed: page.sourceUsed,
+                        transactionCount: Int32(page.snapshots.count), nextCursor: page.nextCursor, error: nil))
                 self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
                 discoveredTransactions.append(
                     contentsOf: page.snapshots.map { snapshot in
@@ -259,10 +268,11 @@ extension AppState {
                 encounteredErrors = true
                 setHistoryCursor(chainId: Chain.bitcoin.id, walletId: wallet.id, cursor: nil)
                 let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? ""
-                self[utxoHistoryFor: "Bitcoin"][wallet.id] = BitcoinHistoryDiagnostics(
-                    walletId: wallet.id, identifier: identifier, sourceUsed: "none", transactionCount: 0, nextCursor: nil,
-                    error: error.localizedDescription
-                )
+                recordUTXOHistoryDiagnostics(
+                    chainName: "Bitcoin", walletID: wallet.id,
+                    BitcoinHistoryDiagnostics(
+                        walletId: wallet.id, identifier: identifier, sourceUsed: "none", transactionCount: 0,
+                        nextCursor: nil, error: error.localizedDescription))
                 self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
             }
         }
@@ -447,39 +457,31 @@ extension AppState {
                 tokenHistoryError = error
                 encounteredErrors = true
             }
-            typealias DiagsByWallet = [String: EthereumTokenTransferHistoryDiagnostics]
-            let diagsKP: ReferenceWritableKeyPath<AppState, DiagsByWallet>? =
-                chain.isEthereumFamily
-                ? \.[evmHistoryFor: "Ethereum"]
-                : chain == .arbitrum
-                    ? \.[evmHistoryFor: "Arbitrum"]
-                    : chain == .optimism
-                        ? \.[evmHistoryFor: "Optimism"]
-                        : nil
-            // The timestamp is keyed by chain now, so it needs a name rather
-            // than a key path. A `?:` chain ending in `nil` also infers a
-            // read-only `KeyPath`, which a subscript-backed path cannot satisfy.
-            let historyRunChainName: String? =
+            // Only these three report token-transfer diagnostics; the rest of
+            // the EVM family refreshes history without them.
+            let diagnosticsChainName: String? =
                 chain.isEthereumFamily
                 ? "Ethereum"
                 : chain == .arbitrum ? "Arbitrum" : chain == .optimism ? "Optimism" : nil
-            if let diagsKP, let historyRunChainName {
-                if let tokenDiagnostics {
-                    var diags = self[keyPath: diagsKP]
-                    for wallet in targetWallets { diags[wallet.id] = tokenDiagnostics }
-                    self[keyPath: diagsKP] = diags
-                } else if let tokenHistoryError {
-                    let errDiag = EthereumTokenTransferHistoryDiagnostics(
-                        address: normalizedAddress, rpcTransferCount: 0, rpcError: tokenHistoryError.localizedDescription,
-                        blockscoutTransferCount: 0, blockscoutError: nil, etherscanTransferCount: 0, etherscanError: nil,
-                        ethplorerTransferCount: 0, ethplorerError: nil, sourceUsed: "none", transferScanCount: 0, decodedTransferCount: 0,
-                        unsupportedTransferDropCount: 0, decodingCompletenessRatio: 0
-                    )
-                    var diags = self[keyPath: diagsKP]
-                    for wallet in targetWallets { diags[wallet.id] = errDiag }
-                    self[keyPath: diagsKP] = diags
+            if let diagnosticsChainName {
+                let entry =
+                    tokenDiagnostics
+                    ?? tokenHistoryError.map { error in
+                        EthereumTokenTransferHistoryDiagnostics(
+                            address: normalizedAddress, rpcTransferCount: 0,
+                            rpcError: error.localizedDescription, blockscoutTransferCount: 0,
+                            blockscoutError: nil, etherscanTransferCount: 0, etherscanError: nil,
+                            ethplorerTransferCount: 0, ethplorerError: nil, sourceUsed: "none",
+                            transferScanCount: 0, decodedTransferCount: 0,
+                            unsupportedTransferDropCount: 0, decodingCompletenessRatio: 0)
+                    }
+                if let entry {
+                    for wallet in targetWallets {
+                        recordEVMHistoryDiagnostics(
+                            chainName: diagnosticsChainName, walletID: wallet.id, entry)
+                    }
                 }
-                self[historyRunFor: historyRunChainName].lastUpdatedAt = Date()
+                self[historyRunFor: diagnosticsChainName].lastUpdatedAt = Date()
             }
             let isLastPage = decodedPage.tokens.count < requestedPageSize && decodedPage.native.count < requestedPageSize
             for wallet in targetWallets {

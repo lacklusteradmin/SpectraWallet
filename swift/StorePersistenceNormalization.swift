@@ -97,7 +97,10 @@ extension AppState {
         // Wallets persist themselves: every mutation goes through a
         // `StateCommand` that core writes before it returns.
         updateRefreshEngineEntries()
-        pruneTransactionsForActiveWallets()
+        // Which transactions are orphaned is core's answer now, so this is a
+        // round trip rather than a local filter. It runs inside a debounce, so
+        // deferring it costs nothing this side was relying on.
+        Task { @MainActor [weak self] in await self?.pruneTransactionsForActiveWallets() }
     }
 
     /// Phase 3: start or stop the Rust-side balance-refresh engine and
@@ -154,27 +157,17 @@ extension AppState {
         Task { try? await WalletServiceBridge.shared.clearOperationalEvents(chainName: chainName) }
         lastHistoryRefreshAtByChain[chainName] = nil
     }
+    /// Drop a deleted wallet's history diagnostics.
+    ///
+    /// Was twenty-seven lines naming every chain on every record shape, each a
+    /// read-modify-write of a whole map across the boundary. Core owns the
+    /// registries and a wallet is gone from all of them or none.
     func clearHistoryTracking(for walletID: String) {
         resetHistoryPaginationForWallet(walletID)
-        self[utxoHistoryFor: "Dogecoin"][walletID] = nil
-        self[utxoHistoryFor: "Bitcoin"][walletID] = nil
-        self[utxoHistoryFor: "Bitcoin Cash"][walletID] = nil
-        self[utxoHistoryFor: "Bitcoin SV"][walletID] = nil
-        self[utxoHistoryFor: "Litecoin"][walletID] = nil
-        self[evmHistoryFor: "Ethereum"][walletID] = nil
-        self[evmHistoryFor: "Arbitrum"][walletID] = nil
-        self[evmHistoryFor: "Optimism"][walletID] = nil
-        self[evmHistoryFor: "Ethereum Classic"][walletID] = nil
-        self[evmHistoryFor: "BNB Chain"][walletID] = nil
-        self[evmHistoryFor: "Avalanche"][walletID] = nil
-        self[evmHistoryFor: "Hyperliquid"][walletID] = nil
-        tronHistoryDiagnosticsByWallet[walletID] = nil
-        solanaHistoryDiagnosticsByWallet[walletID] = nil
-        // The ten chains sharing one record shape, over one keyed store.
-        for chainName in ["Cardano", "XRP Ledger", "Stellar", "Monero", "Sui", "Aptos", "TON", "Internet Computer", "NEAR", "Polkadot"] {
-            self[simpleHistoryFor: chainName][walletID] = nil
-        }
+        diagnosticsForgetWallet(walletId: walletID)
+        chainDiagnosticsState.diagnosticsRevision &+= 1
     }
+
     /// Merge a fetched page into the store core owns, then adopt the result.
     ///
     /// Only the incoming page crosses the FFI. Core merges against its own
@@ -186,8 +179,8 @@ extension AppState {
     func refreshTransactionProjection() async {
         guard let stored = try? await WalletServiceBridge.shared.storedTransactions() else { return }
         adoptTransactionsFromCore(stored.compactMap(TransactionRecord.init(snapshot:)))
-        pruneTransactionsForActiveWallets()
-        rebuildTransactionDerivedState()
+        await pruneTransactionsForActiveWallets()
+        await rebuildTransactionDerivedState()
     }
 }
 private extension TransactionRecord {

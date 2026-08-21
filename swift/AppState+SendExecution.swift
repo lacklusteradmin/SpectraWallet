@@ -31,20 +31,16 @@ extension AppState {
         let selectedCoin = holdingIndex.flatMap { holdingIndex in
             walletIndex.map { wallets[$0].holdings[holdingIndex] }
         }
+        // Core reads the wallet, the holding, the registry and the token
+        // preferences itself. This used to hand it `walletFound`, `assetFound`,
+        // the balance, whether the chain is EVM and whether the asset is
+        // sendable on Solana or NEAR — five answers about core's own state,
+        // trusted on the funds path.
         let preflight: SendSubmitPreflightPlan
         do {
-            preflight = try coreSendSubmitPreflight(
-                request: SendSubmitPreflightRequest(
-                    walletFound: walletIndex != nil, assetFound: holdingIndex != nil, destinationAddress: destinationInput,
-                    amountInput: sendAmount, availableBalance: selectedCoin?.amount ?? 0,
-                    asset: selectedCoin.map {
-                        SendAssetRoutingInput(
-                            chainName: $0.chainName, symbol: $0.symbol, isEvmChain: isEVMChain($0.chainName),
-                            supportsSolanaSendCoin: isSupportedSolanaSendCoin($0), supportsNearTokenSend: isSupportedNearTokenSend($0)
-                        )
-                    }
-                )
-            )
+            preflight = try await WalletServiceBridge.shared.sendSubmitPreflight(
+                walletID: sendWalletID, holdingKey: sendHoldingKey,
+                destinationAddress: destinationInput, amountInput: sendAmount)
         } catch {
             sendError = error.localizedDescription
             return
@@ -59,27 +55,67 @@ extension AppState {
         var usedENSResolution = false
         let amount = preflight.amount
         let amountStr = preflight.amountStr
+        // Every holding on an EVM chain routes to "ethereum", token or not, so
+        // this is the same question `isEVMChain` used to ask — from the route.
+        if preflight.submitKind == "ethereum" {
+            do {
+                let resolvedDestination = try await resolveEVMRecipientAddress(input: destinationInput, for: holding.chainName)
+                destinationAddress = resolvedDestination.address
+                usedENSResolution = resolvedDestination.usedENS
+                if usedENSResolution { sendDestinationInfoMessage = "Resolved ENS \(destinationInput) to \(destinationAddress)." }
+            } catch {
+                sendError = (error as? LocalizedError)?.errorDescription ?? "Enter a valid \(holding.chainName) destination."
+                return
+            }
+        }
+        if !bypassHighRiskSendConfirmation {
+            var highRiskReasons = await evaluateHighRiskSendReasons(
+                wallet: wallet, holding: holding, amount: amount, destinationAddress: destinationAddress,
+                destinationInput: destinationInput, usedENSResolution: usedENSResolution
+            )
+            // Core returns nothing for a chain that is not EVM, so the caller
+            // no longer has to check first.
+            highRiskReasons += await evmRecipientPreflightReasons(
+                holding: holding, destinationAddress: destinationAddress)
+            if !highRiskReasons.isEmpty {
+                pendingHighRiskSendReasons = highRiskReasons
+                isShowingHighRiskSendConfirmation = true
+                sendError = nil
+                return
+            }
+        } else {
+            bypassHighRiskSendConfirmation = false
+        }
+        if await requiresSelfSendConfirmation(
+            wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount
+        ) {
+            return
+        }
+        guard await authenticateForSensitiveAction(reason: "Authorize transaction send") else { return }
         // Every chain whose send is the plain shape — one native asset, a fee
         // the preview supplies, an address and path the generic resolvers know
         // — goes through one call. Ten arms used to state this, each carrying
         // the same four constants that are now `Chain::send_execution_shape`.
-        if ["Sui", "Aptos", "TON", "XRP Ledger", "Stellar", "Cardano", "NEAR", "Polkadot"].contains(holding.chainName),
-            holding.symbol == Chain(displayName: holding.chainName)?.gasTokenSymbol
-        {
-            await submitNativeChainSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress,
-                amount: amount, amountStr: amountStr, checkSelfSend: true)
-            return
-        }
-        if ["Bitcoin Cash", "Bitcoin SV", "Litecoin"].contains(holding.chainName),
-            holding.symbol == Chain(displayName: holding.chainName)?.gasTokenSymbol
+        //
+        // Which chain a send is for is `preflight.submitKind`, which core
+        // decided above. Two lists of chain names stood here re-deciding it,
+        // and a third for the UTXO family below.
+        if ["sui", "aptos", "ton", "xrp", "stellar", "cardano", "polkadot"].contains(
+            preflight.submitKind ?? "")
+            || (preflight.submitKind == "near" && holding.symbol == "NEAR")
         {
             await submitNativeChainSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress,
                 amount: amount, amountStr: amountStr)
             return
         }
-        if holding.chainName == "Internet Computer", holding.symbol == "ICP" {
+        if ["bitcoinCash", "bitcoinSV", "litecoin"].contains(preflight.submitKind ?? "") {
+            await submitNativeChainSend(
+                holding: holding, wallet: wallet, destinationAddress: destinationAddress,
+                amount: amount, amountStr: amountStr)
+            return
+        }
+        if preflight.submitKind == "icp" {
             guard !sendingChains.contains("Internet Computer") else { return }
             if sendPreviewStore.icpSendPreview == nil { await refreshSendPreview(forChainNamed: "Internet Computer") }
             guard let walletIndex = wallets.firstIndex(where: { $0.id == wallet.id }), let sourceAddress = resolvedICPAddress(for: wallet)
@@ -91,11 +127,6 @@ extension AppState {
             let seedPhrase = storedSeedPhrase(for: wallet.id)
             guard privateKey != nil || seedPhrase != nil else {
                 sendError = "This wallet's signing secret is unavailable."
-                return
-            }
-            if await requiresSelfSendConfirmation(
-                wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount
-            ) {
                 return
             }
             sendingChains.insert("Internet Computer")
@@ -128,44 +159,7 @@ extension AppState {
             }
             return
         }
-        if isEVMChain(holding.chainName) {
-            do {
-                let resolvedDestination = try await resolveEVMRecipientAddress(input: destinationInput, for: holding.chainName)
-                destinationAddress = resolvedDestination.address
-                usedENSResolution = resolvedDestination.usedENS
-                if usedENSResolution { sendDestinationInfoMessage = "Resolved ENS \(destinationInput) to \(destinationAddress)." }
-            } catch {
-                sendError = (error as? LocalizedError)?.errorDescription ?? "Enter a valid \(holding.chainName) destination."
-                return
-            }
-        }
-        if !bypassHighRiskSendConfirmation {
-            var highRiskReasons = evaluateHighRiskSendReasons(
-                wallet: wallet, holding: holding, amount: amount, destinationAddress: destinationAddress,
-                destinationInput: destinationInput, usedENSResolution: usedENSResolution
-            )
-            if let chain = evmChainContext(for: holding.chainName) {
-                let preflightReasons = await evmRecipientPreflightReasons(
-                    holding: holding, chain: chain, destinationAddress: destinationAddress
-                )
-                highRiskReasons.append(contentsOf: preflightReasons)
-            }
-            if !highRiskReasons.isEmpty {
-                pendingHighRiskSendReasons = highRiskReasons
-                isShowingHighRiskSendConfirmation = true
-                sendError = nil
-                return
-            }
-        } else {
-            bypassHighRiskSendConfirmation = false
-        }
-        if await requiresSelfSendConfirmation(
-            wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount
-        ) {
-            return
-        }
-        guard await authenticateForSensitiveAction(reason: "Authorize transaction send") else { return }
-        if holding.symbol == "BTC" {
+        if preflight.submitKind == "bitcoin" {
             guard amount > 0 else {
                 sendError = "Enter a valid amount"
                 return
@@ -211,7 +205,7 @@ extension AppState {
             }
             return
         }
-        if holding.symbol == "DOGE", holding.chainName == "Dogecoin" {
+        if preflight.submitKind == "dogecoin" {
             guard !sendingChains.contains("Dogecoin") else { return }
             guard let dogecoinAmount = parseDogecoinAmountInput(sendAmount) else {
                 sendError = "Enter a valid DOGE amount with up to 8 decimal places."
@@ -282,7 +276,7 @@ extension AppState {
             }
             return
         }
-        if holding.chainName == "Tron", holding.symbol == "TRX" || holding.symbol == "USDT" {
+        if preflight.submitKind == "tron" {
             guard !sendingChains.contains("Tron") else { return }
             let seedPhrase = storedSeedPhrase(for: wallet.id)
             let privateKey = storedPrivateKey(for: wallet.id)
@@ -342,7 +336,9 @@ extension AppState {
             }
             return
         }
-        if isSupportedSolanaSendCoin(holding) {
+        // Core already routed this send in the preflight above; asking the
+        // question a second time on this side is how the two could disagree.
+        if preflight.submitKind == "solana" {
             guard !sendingChains.contains("Solana") else { return }
             guard let seedPhrase = storedSeedPhrase(for: wallet.id) else {
                 sendError = "This wallet's seed phrase is unavailable."
@@ -414,13 +410,19 @@ extension AppState {
         }
         // Monero is the plain shape plus a priority, and it signs from a
         // stored view key rather than a derivation path.
-        if holding.chainName == "Monero", holding.symbol == "XMR" {
+        if preflight.submitKind == "monero" {
             await submitNativeChainSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress,
                 amount: amount, amountStr: amountStr, moneroPriority: 2)
             return
         }
-        if holding.chainName == "NEAR", holding.tokenStandard == "NEP-141", let contractAddress = holding.contractAddress {
+        // A NEP-141 the user does not track routes nowhere, and core says so
+        // in `submitKind`. This used to check the chain, the standard and the
+        // contract on its own — so a token core had refused to route was sent
+        // anyway. Native NEAR is caught above, which is what `symbol` excludes.
+        if preflight.submitKind == "near", holding.symbol != "NEAR",
+            let contractAddress = holding.contractAddress
+        {
             guard !sendingChains.contains("NEAR") else { return }
             guard let seedPhrase = storedSeedPhrase(for: wallet.id) else {
                 sendError = "This wallet's seed phrase is unavailable."; return
@@ -465,7 +467,9 @@ extension AppState {
             }
             return
         }
-        if isEVMChain(holding.chainName) {
+        // `submitKind` is "ethereum" for every EVM chain and every token on
+        // one — the route core computed, not `isEVMChain` asked again.
+        if preflight.submitKind == "ethereum" {
             guard evmChainContext(for: holding.chainName) != nil else {
                 sendError = "\(holding.chainName) native sending is not enabled yet."
                 return
@@ -584,14 +588,19 @@ extension AppState {
     /// the ten call sites that carried them inline are one dispatch.
     private func submitNativeChainSend(
         holding: Coin, wallet: ImportedWallet, destinationAddress: String, amount: Double, amountStr: String,
-        checkSelfSend: Bool = false, moneroPriority: UInt32? = nil
+        moneroPriority: UInt32? = nil
     ) async {
         let chainName = holding.chainName
         let symbol = holding.symbol
-        let shape = coreSendExecutionShape(chainName: chainName)
+        // A chain with no registry row cannot be sent on; the guard below on the
+        // chain id would refuse it anyway, and this refuses it first.
+        guard let shape = Chain(displayName: chainName)?.sendExecutionShape else {
+            sendError = "\(chainName) native sending is not enabled yet."
+            return
+        }
         guard amount > 0 else { sendError = "Enter a valid amount"; return }
         guard !sendingChains.contains(chainName) else { return }
-        guard let chainID = coreChainStrIdForName(name: chainName), !chainID.isEmpty else { return }
+        guard let chainID = Chain(displayName: chainName)?.id, !chainID.isEmpty else { return }
 
         let seedPhrase = storedSeedPhrase(for: wallet.id)
         let privateKey = shape.supportsPrivateKey ? storedPrivateKey(for: wallet.id) : nil
@@ -624,12 +633,6 @@ extension AppState {
             feeDecimals: Int(shape.feeDecimals), chainLabel: nil
         ) {
             sendError = err
-            return
-        }
-        if checkSelfSend,
-            await requiresSelfSendConfirmation(
-                wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount)
-        {
             return
         }
         // Monero has no derivation chain: it signs from stored key material,

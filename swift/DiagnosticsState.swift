@@ -304,13 +304,4 @@ final class WalletChainDiagnosticsState {
     // four-line accessors and their twenty-two forwards in `DiagnosticsStore`.
     // These two keep theirs because their records genuinely differ.
 
-    var tronHistoryDiagnosticsByWallet: [String: TronHistoryDiagnostics] {
-        get { diagnosticsAllTron() }
-        set { diagnosticsReplaceTron(entries: newValue); bump() }
-    }
-    var solanaHistoryDiagnosticsByWallet: [String: SolanaHistoryDiagnostics] {
-        get { diagnosticsAllSolana() }
-        set { diagnosticsReplaceSolana(entries: newValue); bump() }
-    }
-
 }

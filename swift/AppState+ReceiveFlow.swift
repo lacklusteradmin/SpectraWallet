@@ -235,27 +235,32 @@ extension AppState {
         // comes from derivation or validation below — see the slot map.
         let resolvedBitcoinXPub =
             (selectedChains.contains("Bitcoin") && !trimmedBitcoinXPub.isEmpty) ? trimmedBitcoinXPub : nil
+        // A private-key import selects exactly one chain — core's
+        // `plan_signing_import` refuses more — so this is one address, derived
+        // once here and recorded below rather than derived twice.
+        var privateKeyAddress: String?
         if isPrivateKeyImport {
             guard CachedCoreHelpers.privateKeyHexIsLikely(rawValue: trimmedPrivateKey) else {
                 importError = "Enter a valid 32-byte hex key."
                 return
             }
-            guard selectedChainNames.allSatisfy({ chainSupportsPrivateKeyImport(chainName: $0) }) else {
-                importError = "Private key import currently supports every chain in this build except Monero."
+            // The picker is built from `coreSupportedPrivateKeyChainNames`, so
+            // this can only fire if a selection outlived the list it came from.
+            // Kept because it is a key path: refuse before deriving.
+            let unsupported = importDraft.unsupportedPrivateKeyChainNames
+            guard unsupported.isEmpty else {
+                importError = walletFlowLocalizedFormat(
+                    "Private key import is not available for: %@.", unsupported.joined(separator: ", "))
                 return
             }
-            let derivedAddress = derivePrivateKeyImportAddress(privateKeyHex: trimmedPrivateKey, chainName: primarySelectedChainName)
             guard
-                derivedAddress.bitcoin != nil || derivedAddress.bitcoinCash != nil || derivedAddress.bitcoinSV != nil
-                    || derivedAddress.litecoin != nil || derivedAddress.dogecoin != nil || derivedAddress.evm != nil
-                    || derivedAddress.tron != nil || derivedAddress.solana != nil || derivedAddress.xrp != nil
-                    || derivedAddress.stellar != nil || derivedAddress.cardano != nil || derivedAddress.sui != nil
-                    || derivedAddress.aptos != nil || derivedAddress.ton != nil || derivedAddress.icp != nil || derivedAddress.near != nil
-                    || derivedAddress.polkadot != nil
+                let primaryChain = Chain(displayName: primarySelectedChainName),
+                let address = derivePrivateKeyImportAddress(privateKeyHex: trimmedPrivateKey, chain: primaryChain)
             else {
                 importError = "Unable to derive an address from this key."
                 return
             }
+            privateKeyAddress = address
         }
         if selectedChains.contains("Monero") {
             if typed("Monero").isEmpty || !AddressValidation.isValid(typed("Monero"), kind: "monero") {
@@ -313,7 +318,7 @@ extension AppState {
                 // EVM chains share one derived address, produced under the
                 // Ethereum entry, so ensure it is present whenever any EVM
                 // chain is selected even if Ethereum itself is not.
-                if chainPaths["Ethereum"] == nil, selectedChains.contains(where: { coreIsEvmChain(chainName: $0) }) {
+                if chainPaths["Ethereum"] == nil, selectedChains.contains(where: { (Chain(displayName: $0)?.isEVM ?? false) }) {
                     let ethereumPath = selectedDerivationPaths.path(for: .ethereum)
                     if !ethereumPath.isEmpty { chainPaths["Ethereum"] = ethereumPath }
                 }
@@ -366,43 +371,19 @@ extension AppState {
                     }
                     return
                 }
-            } else {
-                let derivedPrivateKeyAddress =
-                    isPrivateKeyImport
-                    ? derivePrivateKeyImportAddress(privateKeyHex: trimmedPrivateKey, chainName: primarySelectedChainName)
-                    : PrivateKeyImportAddressResolution(
-                        bitcoin: nil, bitcoinCash: nil, bitcoinSV: nil, litecoin: nil, dogecoin: nil, evm: nil, tron: nil, solana: nil,
-                        xrp: nil, stellar: nil, cardano: nil, sui: nil, aptos: nil, ton: nil, icp: nil, near: nil, polkadot: nil)
-                // The typed values are no longer filtered here: core drops
-                // what does not validate and reports it, so a second copy of
-                // the format rules on this side only risks disagreeing with it.
-                record("Bitcoin", derivedPrivateKeyAddress.bitcoin)
-                record("Bitcoin Cash", derivedPrivateKeyAddress.bitcoinCash ?? typed("Bitcoin Cash"))
-                record("Bitcoin SV", derivedPrivateKeyAddress.bitcoinSV ?? typed("Bitcoin SV"))
-                record("Litecoin", derivedPrivateKeyAddress.litecoin ?? typed("Litecoin"))
-                record("Dogecoin", derivedPrivateKeyAddress.dogecoin ?? typed("Dogecoin"))
-                let evmAddress = derivedPrivateKeyAddress.evm ?? typed("Ethereum")
-                record("Ethereum", evmAddress)
-                // Ethereum Classic has its own slot but the same key material.
-                record("Ethereum Classic", evmAddress)
-                record("Tron", derivedPrivateKeyAddress.tron ?? typed("Tron"))
-                record("Solana", derivedPrivateKeyAddress.solana ?? typed("Solana"))
-                record("XRP Ledger", derivedPrivateKeyAddress.xrp ?? typed("XRP Ledger"))
-                record("Stellar", derivedPrivateKeyAddress.stellar ?? typed("Stellar"))
-                record("Monero", typed("Monero"))
-                record("Cardano", derivedPrivateKeyAddress.cardano ?? typed("Cardano"))
-                record("Sui", derivedPrivateKeyAddress.sui ?? typed("Sui"))
-                record("Aptos", derivedPrivateKeyAddress.aptos ?? typed("Aptos"))
-                record("TON", derivedPrivateKeyAddress.ton ?? typed("TON"))
-                record("Internet Computer", derivedPrivateKeyAddress.icp ?? typed("Internet Computer"))
-                record("NEAR", derivedPrivateKeyAddress.near ?? typed("NEAR"))
-                record("Polkadot", derivedPrivateKeyAddress.polkadot ?? typed("Polkadot"))
-                record("Zcash", typed("Zcash"))
-                record("Bitcoin Gold", typed("Bitcoin Gold"))
-                record("Decred", typed("Decred"))
-                record("Kaspa", typed("Kaspa"))
-                record("Dash", typed("Dash"))
-                record("Bittensor", typed("Bittensor"))
+            } else if let privateKeyAddress {
+                // Core dispatches private-key derivation by chain, so there is
+                // nothing to switch on: one address, for the one chain a
+                // private-key import may select.
+                record(primarySelectedChainName, privateKeyAddress)
+                // An EVM key is the same address on both EVM slots. Ethereum
+                // Classic has its own — `Chain::address_slot` says so — and
+                // `addresses_for_chain` reads whichever slot the planned
+                // wallet's chain names, so fill both and let core pick.
+                if Chain(displayName: primarySelectedChainName)?.isEVM == true {
+                    record("Ethereum", privateKeyAddress)
+                    record("Ethereum Classic", privateKeyAddress)
+                }
             }
             let plannedWalletIDs: [UUID]
             if isWatchOnlyImport {
@@ -414,7 +395,7 @@ extension AppState {
                 let watchOnlyWalletCount: Int = {
                     if primarySelectedChainName == "Bitcoin", let x = resolvedBitcoinXPub, !x.isEmpty { return 1 }
                     let sourceChain =
-                        coreIsEvmChain(chainName: primarySelectedChainName) ? "Ethereum" : primarySelectedChainName
+                        (Chain(displayName: primarySelectedChainName)?.isEVM ?? false) ? "Ethereum" : primarySelectedChainName
                     let input = draft.watchOnlyInputsByChainName[sourceChain] ?? ""
                     return draft.watchOnlyEntries(from: input).count
                 }()
@@ -549,52 +530,16 @@ extension AppState {
         // on the intermediate Add Wallet page after finishing.
         isShowingAddWalletEntry = false
     }
-    struct PrivateKeyImportAddressResolution {
-        var bitcoin: String? = nil; var bitcoinCash: String? = nil; var bitcoinSV: String? = nil
-        var litecoin: String? = nil; var dogecoin: String? = nil; var evm: String? = nil
-        var tron: String? = nil; var solana: String? = nil; var xrp: String? = nil
-        var stellar: String? = nil; var cardano: String? = nil; var sui: String? = nil
-        var aptos: String? = nil; var ton: String? = nil; var icp: String? = nil
-        var near: String? = nil; var polkadot: String? = nil
-        static func only(
-            bitcoin: String? = nil, bitcoinCash: String? = nil, bitcoinSV: String? = nil, litecoin: String? = nil, dogecoin: String? = nil,
-            evm: String? = nil, tron: String? = nil, solana: String? = nil, xrp: String? = nil, stellar: String? = nil,
-            cardano: String? = nil, sui: String? = nil, aptos: String? = nil, ton: String? = nil, icp: String? = nil, near: String? = nil,
-            polkadot: String? = nil
-        ) -> Self {
-            Self(
-                bitcoin: bitcoin, bitcoinCash: bitcoinCash, bitcoinSV: bitcoinSV, litecoin: litecoin, dogecoin: dogecoin, evm: evm,
-                tron: tron, solana: solana, xrp: xrp, stellar: stellar, cardano: cardano, sui: sui, aptos: aptos, ton: ton, icp: icp,
-                near: near, polkadot: polkadot)
-        }
-    }
-    func derivePrivateKeyImportAddress(privateKeyHex: String, chainName: String?) -> PrivateKeyImportAddressResolution {
-        guard let chainName else { return .only() }
-        func derive(_ chain: Chain) -> String? {
-            try? WalletRustDerivationBridge.deriveFromPrivateKey(chain: chain, privateKeyHex: privateKeyHex).address
-        }
-        switch chainName {
-        case "Bitcoin": return .only(bitcoin: derive(.bitcoin))
-        case "Bitcoin Cash": return .only(bitcoinCash: derive(.bitcoinCash))
-        case "Bitcoin SV": return .only(bitcoinSV: derive(.bitcoinSv))
-        case "Litecoin": return .only(litecoin: derive(.litecoin))
-        case "Dogecoin": return .only(dogecoin: derive(.dogecoin))
-        case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base",
-            "Linea", "Scroll", "Blast", "Mantle":
-            return .only(evm: derive(.ethereum))
-        case "Tron": return .only(tron: derive(.tron))
-        case "Solana": return .only(solana: derive(.solana))
-        case "XRP Ledger": return .only(xrp: derive(.xrp))
-        case "Stellar": return .only(stellar: derive(.stellar))
-        case "Cardano": return .only(cardano: derive(.cardano))
-        case "Sui": return .only(sui: derive(.sui))
-        case "Aptos": return .only(aptos: derive(.aptos))
-        case "TON": return .only(ton: derive(.ton))
-        case "Internet Computer": return .only(icp: derive(.icp))
-        case "NEAR": return .only(near: derive(.near))
-        case "Polkadot": return .only(polkadot: derive(.polkadot))
-        default: return .only()
-        }
+    /// The address a raw private key yields on `chain`, or `nil` when the key
+    /// does not produce one there.
+    ///
+    /// Was a seventeen-field record and a twenty-arm switch on chain names —
+    /// twelve of whose arms named chains core cannot derive from a key, and
+    /// which was missing Decred, which core can. `Chain::derives_from_private_key`
+    /// is the one answer now, and the picker is built from it, so a chain the
+    /// user can select is a chain this returns an address for.
+    func derivePrivateKeyImportAddress(privateKeyHex: String, chain: Chain) -> String? {
+        try? WalletRustDerivationBridge.deriveFromPrivateKey(chain: chain, privateKeyHex: privateKeyHex).address
     }
     static func deriveSeedPhraseAddress(
         seedPhrase: String, chain: Chain, derivationPath: String

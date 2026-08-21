@@ -732,7 +732,7 @@ struct SetupView: View {
     private var watchAddressBitcoinSection: some View {
         if draft.isSelected("Bitcoin") {
             let bitcoinAddressEntries = draft.watchOnlyEntries(from: draft.bitcoinAddressInput)
-            let bitcoinKind = coreAddressValidationKind(chainId: store.networkChainID(forFamily: "bitcoin"))
+            let bitcoinKind = Chain(id: store.networkChainID(forFamily: "bitcoin"))?.addressValidationKind ?? ""
             let bitcoinValidation = watchedAddressValidationMessage(
                 entries: bitcoinAddressEntries, assetName: "Bitcoin",
                 validator: { AddressValidation.isValid($0, kind: bitcoinKind) }

@@ -53,13 +53,10 @@ protocol WalletServiceBridgeProtocol: Sendable {}
         try await service().fetchEvmHistoryDiagnostics(chainId: chainId, address: address)
     }
     func executeSend(_ request: SendExecutionRequest) async throws -> SendExecutionResult { try await service().executeSend(request: request) }
-    func fetchEVMTokenBalancesBatch(
-        chainId: String, address: String, tokens: [TokenDescriptor]
-    ) async throws -> [TokenBalanceResult] {
-        guard !tokens.isEmpty else { return [] }
-        return try await service().fetchEvmTokenBalancesBatchTyped(
-            chainId: chainId, address: address, tokens: tokens)
-    }
+    /// Token balances for any chain that has them, EVM included.
+    ///
+    /// There were two of these with the same signature and complementary chain
+    /// sets, so a caller had to know which family it was holding.
     func fetchTokenBalances(
         chainId: String, address: String, tokens: [TokenDescriptor]
     ) async throws -> [TokenBalanceResult] {
@@ -151,6 +148,10 @@ extension WalletServiceBridge {
     // copy and mutate it. See PLAN.md.
 
     /// Bind the core to its state database and return what is stored.
+    ///
+    /// The only place this path crosses. Twelve other methods used to take it
+    /// as an argument, so a caller could aim a write at a file core was not
+    /// opened on — core reads its own binding now.
     @discardableResult
     func openState() async throws -> CoreAppState {
         try await service().openState(dbPath: sqliteDbPath())
@@ -182,6 +183,79 @@ extension WalletServiceBridge {
         try await service().appendChainOperationalEvent(
             chainName: chainName, level: level, message: message, transactionHash: transactionHash)
     }
+    func sendSubmitPreflight(
+        walletID: String, holdingKey: String, destinationAddress: String, amountInput: String
+    ) async throws -> SendSubmitPreflightPlan {
+        try await service().sendSubmitPreflight(
+            walletId: walletID, holdingKey: holdingKey, destinationAddress: destinationAddress,
+            amountInput: amountInput)
+    }
+
+    /// How core routes this holding's send and preview, or `nil` if it cannot
+    /// find the wallet or the holding.
+    func sendAssetRouting(walletID: String, holdingKey: String) async -> SendAssetRoutingPlan? {
+        guard let service = try? service() else { return nil }
+        return await service.sendAssetRouting(walletId: walletID, holdingKey: holdingKey)
+    }
+
+    /// Why this send looks risky, as codes to localize.
+    func highRiskSendReasons(
+        walletID: String, holdingKey: String, amount: Double, destinationAddress: String,
+        destinationInput: String, usedENSResolution: Bool
+    ) async -> [HighRiskSendWarning] {
+        guard let service = try? service() else { return [] }
+        return await service.highRiskSendReasons(
+            walletId: walletID, holdingKey: holdingKey, amount: amount,
+            destinationAddress: destinationAddress, destinationInput: destinationInput,
+            usedEnsResolution: usedENSResolution)
+    }
+    /// Warnings about an EVM recipient. Core makes the contract-code probes.
+    func evmRecipientPreflight(
+        walletID: String, holdingKey: String, destinationAddress: String
+    ) async -> [EvmRecipientPreflightWarning] {
+        guard let service = try? service() else { return [] }
+        return await service.evmRecipientPreflight(
+            walletId: walletID, holdingKey: holdingKey, destinationAddress: destinationAddress)
+    }
+
+    // ── Views of the transaction store, derived where the store is ────────
+    func normalizedHistory(unknownLabel: String) async -> [CoreNormalizedHistoryEntry] {
+        guard let service = try? service() else { return [] }
+        return await service.normalizedHistory(unknownLabel: unknownLabel)
+    }
+    func earliestTransactionDates() async -> [WalletEarliestTransactionDate] {
+        guard let service = try? service() else { return [] }
+        return await service.earliestTransactionDates()
+    }
+    func activeWalletTransactionIDs() async -> [String] {
+        guard let service = try? service() else { return [] }
+        return await service.activeWalletTransactionIds()
+    }
+
+    // ── Maintenance ───────────────────────────────────────────────────────
+    /// What core says should happen this tick. Returns a do-nothing plan if the
+    /// service will not start, which is the same answer as "no work".
+    func maintenancePlan(conditions: DeviceConditions) async -> MaintenancePlan {
+        guard let service = try? service() else {
+            return MaintenancePlan(
+                refreshPendingTransactions: false, refreshLivePrices: false,
+                runBackgroundTick: false, allowHeavyBackgroundWork: false, pollSeconds: 60)
+        }
+        return await service.maintenancePlan(conditions: conditions)
+    }
+    func recordRefresh(kind: RefreshKind) async {
+        guard let service = try? service() else { return }
+        await service.recordRefresh(kind: kind)
+    }
+    func historyRefreshPlans(chainIDs: [String], intervalSecs: Double) async -> [String] {
+        guard let service = try? service() else { return [] }
+        return await service.historyRefreshPlans(chainIds: chainIDs, intervalSecs: intervalSecs)
+    }
+    func recordHistoryRefresh(chainID: String) async {
+        guard let service = try? service() else { return }
+        await service.recordHistoryRefresh(chainId: chainID)
+    }
+
     func operationalEvents(chainName: String) async -> [ChainOperationalEventRecord] {
         guard let service = try? service() else { return [] }
         return await service.operationalEvents(chainName: chainName)
@@ -212,32 +286,30 @@ extension WalletServiceBridge {
     }
 
     // ── Confirmation-poll backoff ─────────────────────────────────────────
-    // Core owns the tracker table; these forward intent, not computed state.
+    // Core owns the tracker table, the schedule and the clock; these forward
+    // intent, not computed state. They used to carry `now` and a six-field
+    // `TransactionStatusPollConfig` on every call — how often to re-poll and
+    // when to give up, decided on this side and handed over each time.
 
-    func transactionsDueForStatusPoll(ids: [String], now: Date) async throws -> [String] {
-        try await service().transactionsDueForStatusPoll(
-            transactionIds: ids, nowUnix: now.timeIntervalSince1970)
+    func transactionsDueForStatusPoll(ids: [String]) async throws -> [String] {
+        try await service().transactionsDueForStatusPoll(transactionIds: ids)
     }
 
     func recordStatusPollSuccess(
-        id: String, confirmed: Bool, pending: Bool, confirmations: UInt32?, now: Date,
-        config: TransactionStatusPollConfig
+        id: String, confirmed: Bool, pending: Bool, confirmations: UInt32?
     ) async throws {
         try await service().recordStatusPollSuccess(
             transactionId: id, resolvedStatusConfirmed: confirmed, resolvedStatusPending: pending,
-            reportedConfirmations: confirmations, nowUnix: now.timeIntervalSince1970, config: config)
+            reportedConfirmations: confirmations)
     }
 
-    func recordStatusPollFailure(id: String, now: Date, config: TransactionStatusPollConfig)
-        async throws
-    {
-        try await service().recordStatusPollFailure(
-            transactionId: id, nowUnix: now.timeIntervalSince1970, config: config)
+    func recordStatusPollFailure(id: String) async throws {
+        try await service().recordStatusPollFailure(transactionId: id)
     }
 
-    func resetStatusTracker(id: String, now: Date, clearFinality: Bool) async throws {
+    func resetStatusTracker(id: String, clearFinality: Bool) async throws {
         try await service().resetStatusTracker(
-            transactionId: id, nowUnix: now.timeIntervalSince1970, clearFinality: clearFinality)
+            transactionId: id, clearFinality: clearFinality)
     }
 
     func retainStatusTrackers(ids: [String]) async throws {
@@ -296,42 +368,35 @@ extension WalletServiceBridge {
     }
 
     func applyResolvedPendingTransactionStatuses(
-        inputs: [ResolvedPendingTransactionInput], now: Date, config: TransactionStatusPollConfig
+        inputs: [ResolvedPendingTransactionInput]
     ) async throws -> [ResolvedPendingTransactionDecision] {
-        try await service().applyResolvedPendingTransactionStatuses(
-            inputs: inputs, nowUnix: now.timeIntervalSince1970, config: config)
+        try await service().applyResolvedPendingTransactionStatuses(inputs: inputs)
     }
 
     func stalePendingFailureIDs(
-        transactions: [StalePendingFailureTransactionInput], now: Date,
-        config: TransactionStatusPollConfig
+        transactions: [StalePendingFailureTransactionInput]
     ) async throws -> [String] {
-        try await service().stalePendingFailureIds(
-            transactions: transactions, nowUnix: now.timeIntervalSince1970, config: config)
+        try await service().stalePendingFailureIds(transactions: transactions)
     }
 
-    func loadState(key: String) async throws -> String { try await service().loadState(dbPath: sqliteDbPath(), key: key) }
+    func loadState(key: String) async throws -> String { try await service().loadState(key: key) }
     func saveState(key: String, stateJSON: String) async throws {
-        try await service().saveState(dbPath: sqliteDbPath(), key: key, stateJson: stateJSON)
+        try await service().saveState(key: key, stateJson: stateJSON)
     }
     func fetchNormalizedHistory(chainId: String, address: String) async throws -> [NormalizedHistoryItem] {
         try await service().fetchNormalizedHistory(chainId: chainId, address: address)
     }
-    func saveAppSettingsTyped(settings: PersistedAppSettings) async throws {
-        try await service().saveAppSettingsTyped(dbPath: sqliteDbPath(), settings: settings)
-    }
-    func loadAppSettingsTyped() async throws -> PersistedAppSettings? { try await service().loadAppSettingsTyped(dbPath: sqliteDbPath()) }
     func saveKeypoolStateTyped(walletId: String, chainName: String, state: KeypoolState) async throws {
         try await service().saveKeypoolStateTyped(
-            dbPath: sqliteDbPath(), walletId: walletId, chainName: chainName, state: state
+            walletId: walletId, chainName: chainName, state: state
         )
     }
-    func loadAllKeypoolStateTyped() async throws -> [String: [String: KeypoolState]] { try await service().loadAllKeypoolStateTyped(dbPath: sqliteDbPath()) }
+    func loadAllKeypoolStateTyped() async throws -> [String: [String: KeypoolState]] { try await service().loadAllKeypoolStateTyped() }
     func deleteKeypoolForWallet(walletId: String) async throws {
-        try await service().deleteKeypoolForWallet(dbPath: sqliteDbPath(), walletId: walletId)
+        try await service().deleteKeypoolForWallet(walletId: walletId)
     }
     func deleteKeypoolForChain(chainName: String) async throws {
-        try await service().deleteKeypoolForChain(dbPath: sqliteDbPath(), chainName: chainName)
+        try await service().deleteKeypoolForChain(chainName: chainName)
     }
     func registerOwnedAddress(
         walletID: String, chainName: String, address: String, derivationPath: String?,
@@ -350,33 +415,38 @@ extension WalletServiceBridge {
         try await service().deleteOwnedAddressesForChain(chainName: chainName)
     }
     func deleteWalletRelationalData(walletId: String) async throws {
-        try await service().deleteWalletRelationalData(dbPath: sqliteDbPath(), walletId: walletId)
+        try await service().deleteWalletRelationalData(walletId: walletId)
     }
     // ── Transaction history persistence (Rust SQLite) ──────────────────────────
     func upsertHistoryRecords(_ records: [HistoryRecord]) async throws {
-        try await service().upsertHistoryRecords(dbPath: sqliteDbPath(), records: records)
+        try await service().upsertHistoryRecords(records: records)
     }
-    func fetchAllHistoryRecordsTyped() async throws -> [HistoryRecord] { try await service().fetchAllHistoryRecordsTyped(dbPath: sqliteDbPath()) }
+    func fetchAllHistoryRecordsTyped() async throws -> [HistoryRecord] { try await service().fetchAllHistoryRecordsTyped() }
     func deleteHistoryRecords(ids: [String]) async throws {
-        try await service().deleteHistoryRecords(dbPath: sqliteDbPath(), ids: ids)
+        try await service().deleteHistoryRecords(ids: ids)
     }
     func replaceAllHistoryRecords(_ records: [HistoryRecord]) async throws {
-        try await service().replaceAllHistoryRecords(dbPath: sqliteDbPath(), records: records)
+        try await service().replaceAllHistoryRecords(records: records)
     }
     func clearAllHistoryRecords() async throws {
-        try await service().clearAllHistoryRecords(dbPath: sqliteDbPath())
+        try await service().clearAllHistoryRecords()
     }
-    nonisolated func historyNextCursor(chainId: String, walletId: String) -> String? { MainActor.assumeIsolated { WalletServiceBridge._syncService?.historyNextCursor(chainId: chainId, walletId: walletId) } }
-    nonisolated func historyNextPage(chainId: String, walletId: String) -> UInt32 { MainActor.assumeIsolated { WalletServiceBridge._syncService?.historyNextPage(chainId: chainId, walletId: walletId) ?? 0 } }
-    nonisolated func isHistoryExhausted(chainId: String, walletId: String) -> Bool { MainActor.assumeIsolated { WalletServiceBridge._syncService?.isHistoryExhausted(chainId: chainId, walletId: walletId) ?? false } }
+    /// Where the next history fetch for this (chain, wallet) starts.
+    ///
+    /// One call rather than three getters. `advanceHistoryPage` went with them:
+    /// it had a wrapper here and no caller anywhere.
+    nonisolated func historyCursor(chainId: String, walletId: String) -> HistoryCursor {
+        MainActor.assumeIsolated {
+            WalletServiceBridge._syncService?.historyCursor(chainId: chainId, walletId: walletId)
+                ?? HistoryCursor(nextCursor: nil, nextPage: 0, isExhausted: false)
+        }
+    }
     nonisolated func advanceHistoryCursor(chainId: String, walletId: String, nextCursor: String?) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.advanceHistoryCursor(chainId: chainId, walletId: walletId, nextCursor: nextCursor) } }
-    nonisolated func advanceHistoryPage(chainId: String, walletId: String, isLast: Bool) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.advanceHistoryPage(chainId: chainId, walletId: walletId, isLast: isLast) } }
     nonisolated func setHistoryPage(chainId: String, walletId: String, page: UInt32) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.setHistoryPage(chainId: chainId, walletId: walletId, page: page) } }
     nonisolated func setHistoryExhausted(chainId: String, walletId: String, exhausted: Bool) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.setHistoryExhausted(chainId: chainId, walletId: walletId, exhausted: exhausted) } }
-    nonisolated func resetHistory(chainId: String, walletId: String) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.resetHistory(chainId: chainId, walletId: walletId) } }
-    nonisolated func resetHistoryForWallet(walletId: String) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.resetHistoryForWallet(walletId: walletId) } }
-    nonisolated func resetHistoryForChain(chainId: String) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.resetHistoryForChain(chainId: chainId) } }
-    nonisolated func resetAllHistory() { MainActor.assumeIsolated { WalletServiceBridge._syncService?.resetAllHistory() } }
+    /// Forget history pagination, for as much of it as `scope` names. Four
+    /// methods stood for the four cases.
+    nonisolated func resetHistory(_ scope: HistoryScope) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.resetHistory(scope: scope) } }
     func fetchUtxoTxStatusTyped(chainId: String, txid: String) async throws -> UtxoTxStatus {
         try await service().fetchUtxoTxStatusTyped(chainId: chainId, txid: txid)
     }
@@ -402,7 +472,7 @@ private extension WalletServiceBridge {
         // from the EVM list or the generic record list is `coreIsEvmChain`.
         for chainName in AppEndpointDirectory.liveChainNames {
             payloads +=
-                coreIsEvmChain(chainName: chainName)
+                (Chain(displayName: chainName)?.isEVM ?? false)
                 ? evmPayloads(chainName: chainName) : rpcPayloads(chainName: chainName)
         }
         // Supplemental explorer endpoints, and the slot each chain writes them
@@ -430,7 +500,7 @@ private extension WalletServiceBridge {
         coreEndpointStrId(chainId: chainId, slot: slot) ?? chainId
     }
     static func rpcPayloads(chainName: String) -> [ChainEndpoints] {
-        let chainId = coreChainStrIdForName(name: chainName) ?? ""
+        let chainId = Chain(displayName: chainName)?.id ?? ""
         guard !chainId.isEmpty else { return [] }
         let endpoints = (
             try? WalletRustEndpointCatalogBridge.endpointRecords(
@@ -441,14 +511,14 @@ private extension WalletServiceBridge {
         return [ChainEndpoints(chainId: chainId, endpoints: endpoints, apiKey: nil)]
     }
     static func evmPayloads(chainName: String) -> [ChainEndpoints] {
-        let chainId = coreChainStrIdForName(name: chainName) ?? ""
+        let chainId = Chain(displayName: chainName)?.id ?? ""
         guard !chainId.isEmpty else { return [] }
-        let endpoints = (try? WalletRustEndpointCatalogBridge.evmRPCEndpoints(for: chainName)) ?? []
+        let endpoints = AppEndpointDirectory.evmRPCEndpoints(for: chainName)
         guard !endpoints.isEmpty else { return [] }
         return [ChainEndpoints(chainId: chainId, endpoints: endpoints, apiKey: nil)]
     }
     static func explorerPayloads(chainId: String, chainName: String) -> [ChainEndpoints] {
-        let endpoints = (try? WalletRustEndpointCatalogBridge.explorerSupplementalEndpoints(for: chainName)) ?? []
+        let endpoints = AppEndpointDirectory.explorerSupplementalEndpoints(for: chainName)
         guard !endpoints.isEmpty else { return [] }
         return [ChainEndpoints(chainId: chainId, endpoints: endpoints, apiKey: nil)]
     }

@@ -12,19 +12,12 @@ extension AppState {
     /// The networks this chain family offers, mainnet first. Core answers, so
     /// no front end enumerates them.
     nonisolated func networkChoices(forChainID chainID: String) -> [NetworkChoice] {
-        coreNetworkChoices(chainId: chainID)
+        (Chain(id: chainID)?.networkChoices ?? [])
     }
 }
 
 nonisolated extension NetworkChoice: Identifiable {
     public var id: String { chainId }
-}
-enum DogecoinBalanceService {
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Dogecoin") }
-    static func endpointCatalogByNetwork() -> [AppEndpointGroupedSettingsEntry] {
-        AppEndpointDirectory.groupedSettingsEntries(for: "Dogecoin")
-    }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] { AppEndpointDirectory.diagnosticsChecks(for: "Dogecoin") }
 }
 
 // MARK: - EVM
@@ -46,48 +39,24 @@ enum TronBalanceService {
         let contractAddress: String
         let decimals: Int
     }
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Tron") }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] { AppEndpointDirectory.diagnosticsChecks(for: "Tron") }
 }
 
 // MARK: - Stellar
 // SimpleHistoryDiagnostics moved to Rust core.
-enum StellarBalanceService {
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Stellar") }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] { AppEndpointDirectory.diagnosticsChecks(for: "Stellar") }
-}
 
 // MARK: - ICP
 // SimpleHistoryDiagnostics moved to Rust core.
-enum ICPBalanceService {
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Internet Computer") }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] {
-        AppEndpointDirectory.diagnosticsChecks(for: "Internet Computer")
-    }
-}
 
 // MARK: - XRP
 // SimpleHistoryDiagnostics moved to Rust core.
-enum XRPBalanceService {
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "XRP Ledger") }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] {
-        endpointCatalog().map { base in AppEndpointDiagnosticsCheck(endpoint: base, probeUrl: base) }
-    }
-}
 
 // MARK: - Cardano
 // SimpleHistoryDiagnostics moved to Rust core.
-enum CardanoBalanceService {
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Cardano") }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] { AppEndpointDirectory.diagnosticsChecks(for: "Cardano") }
-}
 
 // MARK: - Polkadot
 // SimpleHistoryDiagnostics moved to Rust core.
 enum PolkadotBalanceService {
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Polkadot") }
     static func sidecarEndpointCatalog() -> [String] { AppEndpointDirectory.endpoints(for: ["polkadot.sidecar.parity"]) }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] { AppEndpointDirectory.diagnosticsChecks(for: "Polkadot") }
 }
 
 // MARK: - Monero
@@ -116,33 +85,12 @@ enum MoneroBalanceService {
     ]
 }
 
-// MARK: - Bitcoin Cash
-enum BitcoinCashBalanceService {
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Bitcoin Cash") }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] {
-        AppEndpointDirectory.diagnosticsChecks(for: "Bitcoin Cash")
-    }
-}
 
-// MARK: - Bitcoin SV
-enum BitcoinSVBalanceService {
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Bitcoin SV") }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] { AppEndpointDirectory.diagnosticsChecks(for: "Bitcoin SV") }
-}
 
-// MARK: - Litecoin
-enum LitecoinBalanceService {
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Litecoin") }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] { AppEndpointDirectory.diagnosticsChecks(for: "Litecoin") }
-}
 
 // MARK: - Solana
 // SolanaHistoryDiagnostics moved to Rust core.
 enum SolanaBalanceService {
-    static func endpointCatalog() -> [String] {
-        AppEndpointDirectory.endpoints(for: ["solana.rpc.mainnet", "solana.rpc.ankr", "solana.rpc.publicnode"])
-    }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] { AppEndpointDirectory.diagnosticsChecks(for: "Solana") }
     struct KnownTokenMetadata {
         let symbol: String
         let name: String
@@ -182,11 +130,9 @@ enum NearBalanceService {
         let decimals: Int
         let coinGeckoId: String
     }
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "NEAR") }
     static func rpcEndpointCatalog() -> [String] {
         AppEndpointDirectory.endpoints(for: ["near.rpc.mainnet", "near.rpc.fastnear", "near.rpc.lava"])
     }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] { AppEndpointDirectory.diagnosticsChecks(for: "NEAR") }
     static func parseHistoryResponse(_ data: Data, ownerAddress: String) throws -> [NearHistoryParsedSnapshot] {
         let jsonString = String(data: data, encoding: .utf8) ?? ""
         return nearParseHistoryResponse(json: jsonString, ownerAddress: ownerAddress)
@@ -204,8 +150,6 @@ enum AptosBalanceService {
         let decimals: Int
         let coinGeckoId: String
     }
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Aptos") }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] { AppEndpointDirectory.diagnosticsChecks(for: "Aptos") }
 }
 
 // MARK: - Sui
@@ -219,8 +163,6 @@ enum SuiBalanceService {
         let decimals: Int
         let coinGeckoId: String
     }
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "Sui") }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] { AppEndpointDirectory.diagnosticsChecks(for: "Sui") }
 }
 
 // MARK: - TON
@@ -233,8 +175,6 @@ enum TONBalanceService {
         let decimals: Int
         let coinGeckoId: String
     }
-    static func endpointCatalog() -> [String] { AppEndpointDirectory.settingsEndpoints(for: "TON") }
-    static func diagnosticsChecks() -> [AppEndpointDiagnosticsCheck] { AppEndpointDirectory.diagnosticsChecks(for: "TON") }
     static func normalizeJettonMasterAddress(_ address: String) -> String { canonicalAddressIdentifier(address) }
     private static func canonicalAddressIdentifier(_ address: String?) -> String {
         address?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

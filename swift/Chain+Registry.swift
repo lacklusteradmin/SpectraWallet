@@ -46,6 +46,30 @@ extension Chain: Identifiable {
 
     var isTestnet: Bool { identity?.isTestnet ?? false }
 
+    // ── Columns of the identity table ─────────────────────────────────────
+    //
+    // Ten free functions used to answer these, each taking a chain name or id
+    // and re-deriving from the registry. They are columns of the one table
+    // this file already reads once.
+
+    /// Which chain's slot this chain's address is stored under. The EVM family
+    /// shares Ethereum's.
+    var addressSlot: String { identity?.addressSlot ?? "" }
+    /// The address format family validation dispatches on.
+    var addressValidationKind: String { identity?.addressValidationKind ?? "" }
+    /// HD discovery walks this chain's addresses past the last used one.
+    var supportsDeepUTXODiscovery: Bool { identity?.supportsDeepUtxoDiscovery ?? false }
+    var sendExecutionShape: SendExecutionShape? { identity?.sendExecutionShape }
+    var pendingStatusPoll: PendingStatusPoll? { identity?.pendingStatusPoll }
+    /// Which chain's derivation path this chain reuses, as a display name.
+    var seedDerivationChain: String? { identity?.seedDerivationChain }
+    /// The EVM chain whose derivation this chain reuses.
+    var evmSeedDerivationChain: String? { identity?.evmSeedDerivationChain }
+    /// Where a configured derivation path for this chain is stored.
+    var seedDerivationPathKey: String { identity?.seedDerivationPathKey ?? "" }
+    /// The networks this chain's family offers, mainnet first.
+    var networkChoices: [NetworkChoice] { identity?.networkChoices ?? [] }
+
     /// This chain's catalog row. `nil` only if the enum and the catalog have
     /// drifted, which core's `chain_order_matches_the_catalog` fails on.
     var entry: ChainEntry? { Self.entryByChain[self] }
@@ -55,7 +79,7 @@ extension Chain: Identifiable {
     /// The asset fees are paid in — `ETH` on Arbitrum. Distinct from `symbol`
     /// on every L2, and it is this one that says whether a holding is native.
     var gasTokenSymbol: String { entry?.gasTokenSymbol ?? "" }
-    var isEVM: Bool { entry?.isEvm ?? false }
+    var isEVM: Bool { identity?.isEvm ?? false }
     var supportsDiagnostics: Bool { entry?.supportsDiagnostics ?? false }
     var supportsEndpointCatalog: Bool { entry?.supportsEndpointCatalog ?? false }
     var searchKeywords: [String] { entry?.searchKeywords ?? [] }
@@ -72,7 +96,7 @@ extension Chain: Identifiable {
     /// so `Arbitrum` answers `false` here while `Ethereum` and
     /// `Ethereum Classic` answer `true`. Anything that indexes addresses per
     /// chain — keypools, owned-address registration — wants the owners.
-    var ownsItsAddressSlot: Bool { coreAddressSlot(chainName: displayName) == id }
+    var ownsItsAddressSlot: Bool { addressSlot == id }
 
     /// Which history-record shape this chain's diagnostics screen reads.
     var diagnosticsShape: DiagnosticsShape { identity?.diagnosticsShape ?? .simple }

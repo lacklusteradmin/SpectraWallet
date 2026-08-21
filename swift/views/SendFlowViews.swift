@@ -1069,13 +1069,13 @@ struct SendView: View {
     /// This replaced a twenty-row chain-to-kind table plus two hand-written
     /// network-mode cases. `Chain::address_validation_kind` had all of it.
     private func isValidScannedAddress(_ address: String, for chainName: String) -> Bool {
-        let family = coreChainStrIdForName(name: chainName) ?? ""
+        let family = Chain(displayName: chainName)?.id ?? ""
         guard !family.isEmpty else { return false }
         let selected =
             store.wallet(for: store.sendWalletID).map {
                 store.walletNetworkChainID(for: $0, family: family)
             } ?? store.networkChainID(forFamily: family)
-        let kind = coreAddressValidationKind(chainId: selected)
+        let kind = (Chain(id: selected)?.addressValidationKind ?? "")
         guard !kind.isEmpty else { return false }
         return AddressValidation.isValid(address, kind: kind)
     }

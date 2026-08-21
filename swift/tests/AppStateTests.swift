@@ -99,14 +99,14 @@ import Foundation
             XCTAssertEqual(store.wallets.first?.selectedChain, "Bitcoin")
             let stored = store.wallets.first?.bitcoinAddress ?? ""
             XCTAssertTrue(
-                AddressValidation.isValid(stored, kind: coreAddressValidationKind(chainId: "bitcoin")),
+                AddressValidation.isValid(stored, kind: (Chain(id: "bitcoin")?.addressValidationKind ?? "")),
                 "storage holds the mainnet-derived address"
             )
             // What the user is shown is derived for the selected network.
             let shown = store.wallets.first.flatMap { store.resolvedBitcoinAddress(for: $0) } ?? ""
             XCTAssertTrue(
                 AddressValidation.isValid(
-                    shown, kind: coreAddressValidationKind(chainId: "bitcoin-testnet-4")),
+                    shown, kind: Chain(id: "bitcoin-testnet-4")?.addressValidationKind ?? ""),
                 "the displayed address is testnet4, got \(shown)"
             )
         }
@@ -358,6 +358,33 @@ import Foundation
             return seen
         }
 
+        /// A setting survives into a fresh `AppState`, and core bounds it.
+        ///
+        /// Nothing covered the settings blob this replaces: it was written and
+        /// read by one file on one platform, so "does a setting persist" had no
+        /// assertion on either side of the boundary.
+        func testSettingsGoThroughCoreAndSurviveIntoAFreshAppState() async throws {
+            let store = AppState()
+            store.etherscanAPIKey = "  ABC123  "
+            store.bitcoinStopGap = 9_999
+            store.preferences.useLargeMovementNotifications = false
+            await store.awaitPendingCoreStateWrites()
+            await waitUntil("core to bound the stop gap") { store.bitcoinStopGap == 200 }
+
+            XCTAssertEqual(store.etherscanAPIKey, "ABC123", "core trims, and the mirror adopts")
+            XCTAssertEqual(store.bitcoinStopGap, 200, "9999 is outside 1...200")
+
+            let fresh = AppState()
+            await waitUntil("a fresh store to load the settings") { fresh.etherscanAPIKey == "ABC123" }
+            XCTAssertEqual(fresh.bitcoinStopGap, 200)
+            XCTAssertFalse(fresh.preferences.useLargeMovementNotifications)
+
+            store.etherscanAPIKey = ""
+            store.bitcoinStopGap = 10
+            store.preferences.useLargeMovementNotifications = true
+            await store.awaitPendingCoreStateWrites()
+        }
+
         func testExportsPlatformSnapshotEnvelopeWithStableFoundationModels() async throws {
             let store = AppState()
             let wallet = ImportedWallet(
@@ -418,7 +445,7 @@ final class DiagnosticsBundleCoverageTests: XCTestCase {
         XCTAssertEqual(Set(names).count, names.count, "duplicate chain in the bundle list")
         for name in names {
             XCTAssertTrue(
-                coreIsEvmChain(chainName: name) || !coreAddressSlot(chainName: name).isEmpty,
+                Chain(displayName: name).map { $0.isEVM || !$0.addressSlot.isEmpty } ?? false,
                 "\(name) is not a chain the registry knows")
         }
     }

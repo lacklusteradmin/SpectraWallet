@@ -2,39 +2,20 @@ import Foundation
 import UIKit
 extension AppState {
     func restorePersistedRuntimeConfigurationAndState() {
-        if let storedProvider = UserDefaults.standard.string(forKey: Self.pricingProviderDefaultsKey),
-            let pricingProvider = PricingProvider(rawValue: storedProvider)
-        {
-            self.pricingProvider = pricingProvider
-        }
-        // The selected network is core-owned and arrives with `open_state`.
-        if let storedBitcoinFeePriority = UserDefaults.standard.string(forKey: Self.bitcoinFeePriorityDefaultsKey),
-            let bitcoinFeePriority = BitcoinFeePriority(rawValue: storedBitcoinFeePriority)
-        {
-            self.bitcoinFeePriority = bitcoinFeePriority
-        }
-        if UserDefaults.standard.object(forKey: Self.bitcoinStopGapDefaultsKey) != nil {
-            self.bitcoinStopGap = UserDefaults.standard.integer(forKey: Self.bitcoinStopGapDefaultsKey)
-        }
-        self.bitcoinEsploraEndpoints = UserDefaults.standard.string(forKey: Self.bitcoinEsploraEndpointsDefaultsKey) ?? ""
-        if let storedFiatRateProvider = UserDefaults.standard.string(forKey: Self.fiatRateProviderDefaultsKey),
-            let fiatRateProvider = FiatRateProvider(rawValue: storedFiatRateProvider)
-        {
-            self.fiatRateProvider = fiatRateProvider
-        }
+        // The eighteen settings core owns are not seeded here. They arrive with
+        // `open_state`, through `applyCoreState`.
+        //
+        // What stood here was a `UserDefaults` read per setting — the provider,
+        // the fee priorities, the endpoints, the notification toggles and the
+        // thresholds — and *nothing has written those keys* since settings
+        // moved into SQLite. Harmless while the values only fed a blob this
+        // side also owned; not harmless once core owns them, because each read
+        // lands in a `didSet` that commits, so every launch would have sent
+        // core a stale seed before core's own state arrived.
         if let storedFiatRates = UserDefaults.standard.dictionary(forKey: Self.fiatRatesFromUSDDefaultsKey) as? [String: Double] {
             fiatRatesFromUSD = storedFiatRates
         }
         fiatRatesFromUSD[FiatCurrency.usd.rawValue] = 1.0
-        if let storedDogecoinFeePriority = UserDefaults.standard.string(forKey: Self.dogecoinFeePriorityDefaultsKey),
-            let dogecoinFeePriority = DogecoinFeePriority(rawValue: storedDogecoinFeePriority)
-        {
-            self.dogecoinFeePriority = dogecoinFeePriority
-        }
-        ethereumRPCEndpoint = UserDefaults.standard.string(forKey: Self.ethereumRPCEndpointDefaultsKey) ?? ""
-        etherscanAPIKey = UserDefaults.standard.string(forKey: Self.etherscanAPIKeyDefaultsKey) ?? ""
-        moneroBackendBaseURL = UserDefaults.standard.string(forKey: MoneroBalanceService.backendBaseURLDefaultsKey) ?? ""
-        moneroBackendAPIKey = UserDefaults.standard.string(forKey: MoneroBalanceService.backendAPIKeyDefaultsKey) ?? ""
         suppressWalletSideEffects = true
         // Price alerts + address book are loaded async via
         // `reloadPersistedStateFromSQLite()` from the typed Rust SQLite store.
@@ -53,34 +34,6 @@ extension AppState {
         // keypool or it would reserve against an empty table.
         if let storedAssetDisplayDecimalsByChain = loadAssetDisplayDecimalsByChain() {
             assetDisplayDecimalsByChain = storedAssetDisplayDecimalsByChain
-        }
-        restoreBoolPreference(Self.hideBalancesDefaultsKey, \.hideBalances)
-        restoreBoolPreference(Self.useFaceIDDefaultsKey, \.useFaceID)
-        restoreBoolPreference(Self.useAutoLockDefaultsKey, \.useAutoLock)
-        restoreBoolPreference(Self.useStrictRPCOnlyDefaultsKey, \.useStrictRPCOnly)
-        restoreBoolPreference(Self.requireBiometricForSendActionsDefaultsKey, \.requireBiometricForSendActions)
-        restoreBoolPreference(Self.usePriceAlertsDefaultsKey, \.usePriceAlerts)
-        restoreBoolPreference(Self.useTransactionStatusNotificationsDefaultsKey, \.useTransactionStatusNotifications)
-        restoreBoolPreference(Self.useLargeMovementNotificationsDefaultsKey, \.useLargeMovementNotifications)
-        if UserDefaults.standard.object(forKey: Self.automaticRefreshFrequencyMinutesDefaultsKey) != nil {
-            preferences.automaticRefreshFrequencyMinutes = UserDefaults.standard.integer(
-                forKey: Self.automaticRefreshFrequencyMinutesDefaultsKey)
-        } else if let rawSyncProfile = UserDefaults.standard.string(forKey: Self.backgroundSyncProfileDefaultsKey),
-            let profile = BackgroundSyncProfile(rawValue: rawSyncProfile)
-        {
-            backgroundSyncProfile = profile
-            switch profile {
-            case .conservative: preferences.automaticRefreshFrequencyMinutes = 10
-            case .balanced, .aggressive: preferences.automaticRefreshFrequencyMinutes = 5
-            }
-        }
-        if UserDefaults.standard.object(forKey: Self.largeMovementAlertPercentThresholdDefaultsKey) != nil {
-            preferences.largeMovementAlertPercentThreshold = UserDefaults.standard.double(
-                forKey: Self.largeMovementAlertPercentThresholdDefaultsKey)
-        }
-        if UserDefaults.standard.object(forKey: Self.largeMovementAlertUSDThresholdDefaultsKey) != nil {
-            preferences.largeMovementAlertUSDThreshold = UserDefaults.standard.double(
-                forKey: Self.largeMovementAlertUSDThresholdDefaultsKey)
         }
         if let storedFeePrioritySelections = UserDefaults.standard.dictionary(forKey: Self.selectedFeePriorityOptionsByChainDefaultsKey)
             as? [String: String]
@@ -114,10 +67,6 @@ extension AppState {
         }
         startTorIfEnabled()
     }
-    private func restoreBoolPreference(_ key: String, _ path: ReferenceWritableKeyPath<AppUserPreferences, Bool>) {
-        guard UserDefaults.standard.object(forKey: key) != nil else { return }
-        preferences[keyPath: path] = UserDefaults.standard.bool(forKey: key)
-    }
     func clearPersistedSecureDataOnFreshInstallIfNeeded() {
         if UserDefaults.standard.bool(forKey: Self.installMarkerDefaultsKey) { return }
         let persistedWalletIDs = wallets.map(\.id)
@@ -139,7 +88,7 @@ extension AppState {
         }
         let plan = coreResetDispatch(scopes: scopes.map(\.rawValue))
         if plan.resetWalletsAndSecrets { resetWalletsAndSecretsState() }
-        if plan.resetHistoryAndCache { resetHistoryAndCacheState() }
+        if plan.resetHistoryAndCache { await resetHistoryAndCacheState() }
         if plan.resetAlertsAndContacts { resetAlertsAndContactsState() }
         if plan.resetSettingsAndEndpoints { resetSettingsAndEndpointsState() }
         if plan.resetDashboardCustomization { resetDashboardCustomizationState() }
@@ -206,7 +155,7 @@ extension AppState {
         isImportingWallet = false
         cancelWalletImport()
     }
-    private func resetHistoryAndCacheState() {
+    private func resetHistoryAndCacheState() async {
         Task { try? await WalletServiceBridge.shared.clearAllHistoryRecords() }
         UserDefaults.standard.removeObject(forKey: Self.chainSyncStateDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.operationalLogsDefaultsKey)
@@ -217,11 +166,10 @@ extension AppState {
         // `diagnosticsClearAll` empties the whole Rust-owned registry, so the
         // per-chain history clears this used to spell out — twenty-two chains
         // times four lines, described in a comment as belt-and-suspenders over
-        // exactly this call — said nothing it does not. The two Swift-held
-        // tables are cleared whole rather than key by key.
+        // exactly this call — said nothing it does not. Nor did the two lines
+        // that followed it for Tron and Solana: those tables read and write
+        // through the same registry, so the call had already emptied them.
         diagnosticsClearAll()
-        tronHistoryDiagnosticsByWallet = [:]
-        solanaHistoryDiagnosticsByWallet = [:]
         chainDiagnosticsState.historyRunByChain = [:]
         chainDiagnosticsState.endpointHealthByChain = [:]
         diagnostics.chainDegradedMessages = [:]
@@ -270,7 +218,7 @@ extension AppState {
         self[rescanFor: "Litecoin"].lastRunAt = nil
         self[rescanFor: "Dogecoin"].isRunning = false
         self[rescanFor: "Dogecoin"].lastRunAt = nil
-        rebuildNormalizedHistoryIndex()
+        await rebuildNormalizedHistoryIndex()
     }
     private func resetAlertsAndContactsState() {
         // Core-owned: assigning sends `SetPriceAlerts`, which clears the store.
@@ -283,33 +231,15 @@ extension AppState {
     }
     private func resetDashboardCustomizationState() { resetPinnedDashboardAssets() }
     private func resetSettingsAndEndpointsState() {
+        // The settings core owns are reset by assigning the properties below,
+        // which commit. The `UserDefaults` keys that used to be cleared here —
+        // one per setting, twenty-two of them — have had no writer since
+        // settings moved into SQLite, so removing them removed nothing.
         UserDefaults.standard.removeObject(forKey: Self.tokenPreferencesDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.pricingProviderDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.fiatRateProviderDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.fiatRatesFromUSDDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.livePricesDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.ethereumRPCEndpointDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.etherscanAPIKeyDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: MoneroBalanceService.backendBaseURLDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: MoneroBalanceService.backendAPIKeyDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.bitcoinEsploraEndpointsDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.bitcoinStopGapDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.bitcoinFeePriorityDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.dogecoinFeePriorityDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.selectedFeePriorityOptionsByChainDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.hideBalancesDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.assetDisplayDecimalsByChainDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.useFaceIDDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.useAutoLockDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.useStrictRPCOnlyDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.requireBiometricForSendActionsDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.usePriceAlertsDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.useTransactionStatusNotificationsDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.useLargeMovementNotificationsDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.automaticRefreshFrequencyMinutesDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.backgroundSyncProfileDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.largeMovementAlertPercentThresholdDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.largeMovementAlertUSDThresholdDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.torEnabledDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.torUseCustomProxyDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.torCustomProxyAddressDefaultsKey)
@@ -334,6 +264,7 @@ extension AppState {
         dogecoinFeePriority = .normal
         selectedFeePriorityOptionRawByChain = [:]
         preferences.resetToDefaults()
+        persistPlatformPreferences()
         backgroundSyncProfile = .balanced
     }
     private func resetProviderState() async {

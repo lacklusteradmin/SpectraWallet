@@ -79,23 +79,20 @@ struct StandardChainDiagnosticsDispatch {
     {
         store[endpointHealthFor: name].results.map { ($0.endpoint, $0.reachable, $0.detail) }
     }
-    @MainActor func historyWalletCount(_ store: AppState) -> Int {
-        switch chain.diagnosticsShape {
-        case .utxo: store[utxoHistoryFor: name].count
-        case .evm: store[evmHistoryFor: name].count
-        case .simple: store[simpleHistoryFor: name].count
-        case .tron: store.tronHistoryDiagnosticsByWallet.count
-        case .solana: store.solanaHistoryDiagnosticsByWallet.count
-        }
-    }
-    @MainActor func historySources(_ store: AppState) -> [String] {
-        switch chain.diagnosticsShape {
-        case .utxo: store[utxoHistoryFor: name].values.map(\.sourceUsed)
-        case .evm: store[evmHistoryFor: name].values.map(\.sourceUsed)
-        case .simple: store[simpleHistoryFor: name].values.map(\.sourceUsed)
-        case .tron: store.tronHistoryDiagnosticsByWallet.values.map(\.sourceUsed)
-        case .solana: store.solanaHistoryDiagnosticsByWallet.values.map(\.sourceUsed)
-        }
+    /// How many wallets reported, and which source each used.
+    ///
+    /// Two five-way switches on `diagnosticsShape` stood here, reaching into
+    /// whichever of core's five registries matched the shape to take `.count`
+    /// and `.sourceUsed` — the two fields every shape has. Core knows the
+    /// shape and owns the records, so it answers with the two numbers and no
+    /// diagnostics record crosses the boundary to be counted.
+    ///
+    /// `revision` is unused, and is the point: reading it makes the summary
+    /// depend on the observable that changes when a run writes, so the screen
+    /// still refreshes when one finishes.
+    @MainActor func historySummary(_ store: AppState) -> DiagnosticsRunSummary {
+        _ = store.chainDiagnosticsState.diagnosticsRevision
+        return diagnosticsRunSummary(chainName: name)
     }
     func runHistoryDiagnostics(_ store: AppState) async {
         await store.runHistoryDiagnostics(for: chain)
@@ -288,7 +285,7 @@ struct StandardChainDiagnosticsView: View {
     private var isCheckingEndpoints: Bool { chain.dispatch.isCheckingEndpoints(store) }
     private var diagnosticsJSON: String? { chain.dispatch.diagnosticsJSON(store) }
     private var historyLastUpdatedAt: Date? { chain.dispatch.historyLastUpdatedAt(store) }
-    private var historyWalletCount: Int { chain.dispatch.historyWalletCount(store) }
+    private var historyWalletCount: Int { Int(chain.dispatch.historySummary(store).walletCount) }
     private var endpointLastUpdatedAt: Date? { chain.dispatch.endpointLastUpdatedAt(store) }
     private var endpointRows: [StandardEndpointRow] { cachedEndpointRows }
     private var historySourceRows: [StandardHistorySourceRow] { cachedHistorySourceRows }
@@ -366,7 +363,7 @@ struct StandardChainDiagnosticsView: View {
         return endpoints
     }
     private func rebuildHistorySourceRows() {
-        let sources = chain.dispatch.historySources(store)
+        let sources = chain.dispatch.historySummary(store).sources
         var counts: [String: Int] = [:]
         for source in sources {
             let normalized = source.trimmingCharacters(in: .whitespacesAndNewlines)

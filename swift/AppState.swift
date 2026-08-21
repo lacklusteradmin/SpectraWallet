@@ -65,6 +65,14 @@ final class AppState {
     // Nested enums (ResetScope, TimeoutError, SeedPhraseRevealError, BackgroundSyncProfile)
     // moved to Shell/AppStateTypes.swift via `extension AppState`.
     @ObservationIgnored let appSettingsPersist = DebouncedAction(intervalMilliseconds: 100)
+    /// Core's last word on the settings it owns, for `commitAppSettings` to
+    /// diff against. `nil` until the first state lands, which is what makes a
+    /// fresh install send everything once.
+    @ObservationIgnored var lastAppliedAppSettings: AppSettings?
+    /// Claimed when a settings edit is scheduled, cleared when it lands. Held
+    /// across the debounce so `awaitPendingCoreStateWrites` covers the wait,
+    /// and so an in-flight load cannot adopt over an edit not yet sent.
+    @ObservationIgnored var pendingAppSettingsEpoch: UInt64?
     // Each `DebouncedAction` captures its target's coalescing window at
     // construction so the interval is visible next to the field declaration
     // instead of being a magic number buried in an async closure.
@@ -84,7 +92,9 @@ final class AppState {
             transactionRevision &+= 1
             lastObservedTransactions = transactions
             if !suppressSideEffects {
-                transactionRebuild.fire { [weak self] in self?.rebuildTransactionDerivedState() }
+                transactionRebuild.fire { [weak self] in
+                    Task { @MainActor [weak self] in await self?.rebuildTransactionDerivedState() }
+                }
             }
         }
     }
@@ -102,7 +112,6 @@ final class AppState {
     private(set) var normalizedHistoryRevision: UInt64 = 0
     @ObservationIgnored var cachedTransactionByID: [UUID: TransactionRecord] = [:]
     @ObservationIgnored var cachedFirstActivityDateByWalletID: [String: Date] = [:]
-    @ObservationIgnored var lastNormalizedHistorySignature: Int?
     @ObservationIgnored var suppressSideEffects = false
     @ObservationIgnored var lastObservedTransactions: [TransactionRecord] = []
     // Nested value types (event records, persisted-store schemas, keypool / diagnostic
@@ -263,7 +272,10 @@ final class AppState {
     @ObservationIgnored var lastFiatRatesAttemptAt: Date?
     @ObservationIgnored var lastFullRefreshAt: Date?
     @ObservationIgnored var lastChainBalanceRefreshAt: Date?
-    @ObservationIgnored var lastBackgroundMaintenanceAt: Date?
+    /// How long the maintenance loop sleeps before asking core again. Core
+    /// answers it with the plan; the loop used to work it out from two
+    /// constants and a derived flag.
+    @ObservationIgnored var lastMaintenancePollSeconds: UInt64 = 30
     @ObservationIgnored var isNetworkReachable: Bool = true
     @ObservationIgnored var isConstrainedNetwork: Bool = false
     @ObservationIgnored var isExpensiveNetwork: Bool = false
@@ -315,7 +327,7 @@ final class AppState {
     var pricingProvider: PricingProvider = .coinGecko {
         didSet {
             guard pricingProvider != oldValue else { return }
-            persistAppSettings()
+            commitAppSettingsSoon()
         }
     }
     /// Display currency for prices and totals.
@@ -373,6 +385,7 @@ final class AppState {
         guard epoch >= appliedCoreStateEpoch else { return }
         appliedCoreStateEpoch = epoch
         coreFiatCurrency = FiatCurrency(rawValue: state.settings.fiatCurrencyCode) ?? .usd
+        adoptAppSettings(state.settings)
         coreAddressBook = state.addressBook
         if state.tokenPreferences != tokenPreferences { tokenPreferences = state.tokenPreferences }
         if state.priceAlerts != priceAlerts { priceAlerts = state.priceAlerts }
@@ -392,14 +405,14 @@ final class AppState {
     var fiatRateProvider: FiatRateProvider = .openER {
         didSet {
             guard fiatRateProvider != oldValue else { return }
-            persistAppSettings()
+            commitAppSettingsSoon()
             Task { @MainActor [weak self] in await self?.refreshFiatExchangeRatesIfNeeded(force: true) }
         }
     }
     var ethereumRPCEndpoint: String = "" {
         didSet {
             guard ethereumRPCEndpoint != oldValue else { return }
-            persistAppSettings()
+            commitAppSettingsSoon()
         }
     }
     /// Which network each chain family is on, as `mainnet id -> selected id`.
@@ -431,8 +444,8 @@ final class AppState {
     /// The chain-scoped work a network switch implies. Reserved indices and
     /// discovered addresses belong to the network they were derived on.
     private func onNetworkChainChanged(family: String) {
-        let name = coreChainDisplayName(chainId: family)
-        WalletServiceBridge.shared.resetHistoryForChain(chainId: family)
+        let name = (Chain(id: family)?.displayName ?? family)
+        resetHistoryPaginationForChain(family)
         Task {
             try? await WalletServiceBridge.shared.deleteKeypoolForChain(chainName: name)
             try? await WalletServiceBridge.shared.deleteOwnedAddressesForChain(chainName: name)
@@ -441,20 +454,20 @@ final class AppState {
     var etherscanAPIKey: String = "" {
         didSet {
             guard etherscanAPIKey != oldValue else { return }
-            persistAppSettings()
+            commitAppSettingsSoon()
             WalletServiceBridge.shared.setEtherscanAPIKey(etherscanAPIKey)
         }
     }
     var moneroBackendBaseURL: String = "" {
         didSet {
             guard moneroBackendBaseURL != oldValue else { return }
-            persistAppSettings()
+            commitAppSettingsSoon()
         }
     }
     var moneroBackendAPIKey: String = "" {
         didSet {
             guard moneroBackendAPIKey != oldValue else { return }
-            persistAppSettings()
+            commitAppSettingsSoon()
         }
     }
     var isUserInitiatedRefreshInProgress: Bool = false
@@ -562,30 +575,28 @@ final class AppState {
     var ethereumManualNonce: String = ""
     var bitcoinEsploraEndpoints: String = "" {
         didSet {
-            persistAppSettings()
-            WalletServiceBridge.shared.resetHistoryForChain(chainId: Chain.bitcoin.id)
+            commitAppSettingsSoon()
+            resetHistoryPaginationForChain(Chain.bitcoin.id)
         }
     }
+    /// Bounded by core, which refuses a gap outside 1...200 — a gap of zero
+    /// finds no addresses. The clamp used to be here, and only here.
     var bitcoinStopGap: Int = 10 {
         didSet {
-            let clamped = max(1, min(bitcoinStopGap, 200))
-            if clamped != bitcoinStopGap {
-                bitcoinStopGap = clamped
-                return
-            }
-            persistAppSettings()
+            guard bitcoinStopGap != oldValue else { return }
+            commitAppSettingsSoon()
         }
     }
     var bitcoinFeePriority: BitcoinFeePriority = .normal {
         didSet {
             guard bitcoinFeePriority != oldValue else { return }
-            persistAppSettings()
+            commitAppSettingsSoon()
         }
     }
     var dogecoinFeePriority: DogecoinFeePriority = .normal {
         didSet {
             guard dogecoinFeePriority != oldValue else { return }
-            persistAppSettings()
+            commitAppSettingsSoon()
         }
     }
     /// User-facing preferences (UI / security / notifications / refresh cadence).
@@ -607,7 +618,7 @@ final class AppState {
     var backgroundSyncProfile: BackgroundSyncProfile = .balanced {
         didSet {
             guard backgroundSyncProfile != oldValue else { return }
-            persistAppSettings()
+            commitAppSettingsSoon()
         }
     }
     @ObservationIgnored var pendingSendPreviewRefreshChains: Set<String> = []
@@ -690,35 +701,19 @@ final class AppState {
     // Versioned keys end in `.vN` and bump when the codable shape changes
     // incompatibly; the previous key is left here briefly for any
     // migration-read code that still references it.
-    static let pricingProviderDefaultsKey = "pricing.provider"
-    static let fiatRateProviderDefaultsKey = "pricing.fiatRateProvider"
     static let fiatRatesFromUSDDefaultsKey = "pricing.fiatRatesFromUSD.v1"
     static let livePricesDefaultsKey = "pricing.livePrices.v1"
 
     static let walletsAccount = "wallets.snapshot"
     static let walletsCoreSnapshotAccount = "wallets.core.snapshot.v1"
 
-    static let ethereumRPCEndpointDefaultsKey = "ethereum.rpc.endpoint"
-    static let etherscanAPIKeyDefaultsKey = "ethereum.etherscan.apiKey"
-    static let bitcoinEsploraEndpointsDefaultsKey = "bitcoin.esplora.endpoints"
-    static let bitcoinStopGapDefaultsKey = "bitcoin.stopGap"
-    static let bitcoinFeePriorityDefaultsKey = "bitcoin.feePriority"
-    static let dogecoinFeePriorityDefaultsKey = "settings.dogecoinFeePriority"
 
     static let tokenPreferencesDefaultsKey = "settings.tokenPreferences.v1"
-    static let hideBalancesDefaultsKey = "settings.hideBalances"
+    /// The four preferences this platform keeps for itself — see
+    /// `PlatformPreferences`. The twenty keys that stood beside it, one per
+    /// setting, went with the settings into core.
+    static let platformPreferencesDefaultsKey = "settings.platform.v1"
     static let assetDisplayDecimalsByChainDefaultsKey = "settings.assetDisplayDecimalsByChain.v1"
-    static let useFaceIDDefaultsKey = "settings.useFaceID"
-    static let useAutoLockDefaultsKey = "settings.useAutoLock"
-    static let useStrictRPCOnlyDefaultsKey = "settings.useStrictRPCOnly"
-    static let requireBiometricForSendActionsDefaultsKey = "settings.requireBiometricForSendActions"
-    static let usePriceAlertsDefaultsKey = "settings.usePriceAlerts"
-    static let useTransactionStatusNotificationsDefaultsKey = "settings.useTransactionStatusNotifications"
-    static let useLargeMovementNotificationsDefaultsKey = "settings.useLargeMovementNotifications"
-    static let automaticRefreshFrequencyMinutesDefaultsKey = "settings.automaticRefreshFrequencyMinutes"
-    static let backgroundSyncProfileDefaultsKey = "settings.backgroundSyncProfile"
-    static let largeMovementAlertPercentThresholdDefaultsKey = "settings.largeMovementAlertPercentThreshold"
-    static let largeMovementAlertUSDThresholdDefaultsKey = "settings.largeMovementAlertUSDThreshold"
     static let selectedFeePriorityOptionsByChainDefaultsKey = "settings.feePriorityOptionsByChain.v1"
 
     static let torEnabledDefaultsKey = "tor.enabled"
@@ -733,12 +728,6 @@ final class AppState {
     static let installMarkerDefaultsKey = "app.install.marker.v1"
     static let utxoDiscoveryGapLimit = 3
     static let utxoDiscoveryMaxIndex = 40
-    static let pendingStatusPollSeconds: TimeInterval = 20
-    static let confirmedStatusPollSeconds: TimeInterval = 300
-    static let statusPollBackoffMaxSeconds: TimeInterval = 600
-    static let standardFinalityConfirmations = 12
-    static let pendingFailureTimeoutSeconds: TimeInterval = 60 * 60
-    static let pendingFailureMinFailures = 6
     static let selfSendConfirmationWindowSeconds: TimeInterval = 20
     static let activeMaintenancePollSeconds: UInt64 = 30
     static let inactiveMaintenancePollSeconds: UInt64 = 60
@@ -911,7 +900,8 @@ final class AppState {
         // Wire preferences' side-effect closures back to AppState. Using
         // closures (rather than an observation loop) keeps the coupling
         // explicit and keeps the preferences class cleanly isolated.
-        preferences.persistHandler = { [weak self] in self?.persistAppSettings() }
+        preferences.persistHandler = { [weak self] in self?.commitAppSettingsSoon() }
+        preferences.platformPersistHandler = { [weak self] in self?.persistPlatformPreferences() }
         preferences.useFaceIDDisabledHandler = { [weak self] in
             self?.isAppLocked = false
             self?.appLockError = nil
@@ -946,7 +936,7 @@ final class AppState {
     /// position. New launch-only work belongs here; new per-interaction
     /// work belongs on the relevant `+*` extension.
     private func warmUpAfterLaunch() async {
-        rebuildTransactionDerivedState()
+        await rebuildTransactionDerivedState()
         startMaintenanceLoopIfNeeded()
         SpectraSecretStoreAdapter.registerWithBridge()
         setupRustRefreshEngine()
@@ -1192,21 +1182,6 @@ final class AppState {
                 )
             }
         )
-    }
-    func isSupportedSolanaSendCoin(_ coin: Coin) -> Bool {
-        guard coin.chainName == "Solana" else { return false }
-        if coin.symbol == "SOL" { return true }
-        guard coin.tokenStandard == TokenTrackingChain.solana.tokenStandard else { return false }
-        let trackedTokens = solanaTrackedTokens(includeDisabled: true)
-        guard let mintAddress = coin.contractAddress ?? SolanaBalanceService.mintAddress(for: coin.symbol) else { return false }
-        return trackedTokens[mintAddress] != nil
-    }
-    func isSupportedNearTokenSend(_ coin: Coin) -> Bool {
-        guard coin.chainName == "NEAR", coin.symbol != "NEAR" else { return false }
-        guard coin.tokenStandard == TokenTrackingChain.near.tokenStandard else { return false }
-        guard let contract = coin.contractAddress else { return false }
-        let prefs = cachedTokenPreferencesByChain[.near] ?? []
-        return prefs.contains { $0.contractAddress.lowercased() == contract.lowercased() }
     }
     var ethereumRPCEndpointValidationError: String? { ethereumRpcEndpointValidationError(endpoint: ethereumRPCEndpoint) }
     var moneroBackendBaseURLValidationError: String? { moneroBackendBaseUrlValidationError(endpoint: moneroBackendBaseURL) }

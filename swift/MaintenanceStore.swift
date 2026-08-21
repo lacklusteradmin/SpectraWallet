@@ -10,31 +10,24 @@ extension AppState {
         let level = UIDevice.current.batteryLevel
         return level < 0 ? 1.0 : level
     }
-    func activePendingRefreshIntervalForProfile() -> TimeInterval {
-        Spectra.activePendingRefreshIntervalForProfile(
-            backgroundSyncProfile: backgroundSyncProfile.rawValue, balancedInterval: Self.activePendingRefreshInterval
-        )
-    }
-    func activePriceRefreshIntervalForProfile() -> TimeInterval { max(60, TimeInterval(preferences.automaticRefreshFrequencyMinutes * 60)) }
-    func baseBackgroundMaintenanceInterval() -> TimeInterval { TimeInterval(backgroundBalanceRefreshFrequencyMinutes * 60) }
-    func backgroundMaintenanceInterval(now _: Date = Date()) -> TimeInterval {
-        computeBackgroundMaintenanceInterval(
-            baseIntervalSec: baseBackgroundMaintenanceInterval(),
-            isConstrainedNetwork: isConstrainedNetwork,
-            isExpensiveNetwork: isExpensiveNetwork,
-            isLowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled,
-            batteryLevel: currentBatteryLevel()
-        )
-    }
-    func canRunHeavyBackgroundRefresh() -> Bool {
-        evaluateHeavyRefreshGate(
-            backgroundSyncProfile: backgroundSyncProfile.rawValue,
+    /// What only this device can tell core.
+    ///
+    /// Everything else the plan needs — the sync profile, the refresh cadence,
+    /// when each thing last ran, whether a pending send is still worth
+    /// polling — is state core holds. This was five separate questions, each
+    /// taking the piece of `AppState` it needed as an argument.
+    private func deviceConditions() -> DeviceConditions {
+        DeviceConditions(
+            appIsActive: appIsActive,
             isNetworkReachable: isNetworkReachable,
             isConstrainedNetwork: isConstrainedNetwork,
             isExpensiveNetwork: isExpensiveNetwork,
             isLowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled,
-            batteryLevel: currentBatteryLevel()
-        )
+            batteryLevel: currentBatteryLevel(),
+            wantsPriceRefresh: shouldRunScheduledPriceRefresh)
+    }
+    func maintenancePlan() async -> MaintenancePlan {
+        await WalletServiceBridge.shared.maintenancePlan(conditions: deviceConditions())
     }
     func maybeSendLargeMovementNotification(previousTotalUSD: Double, currentTotalUSD: Double) {
         guard preferences.useLargeMovementNotifications else { return }
@@ -68,7 +61,7 @@ extension AppState {
         lastObservedPortfolioCompositionSignature = portfolioCompositionSignature()
     }
     func portfolioCompositionSignature() -> String { Spectra.portfolioCompositionSignature(holdingKeys: portfolio.map(\.holdingKey)) }
-    func performBackgroundMaintenanceTick() async {
+    func performBackgroundMaintenanceTick(allowHeavyBackgroundWork: Bool = true) async {
         let startedAt = CFAbsoluteTimeGetCurrent()
         logger.log("Running background maintenance tick")
         await refreshPendingTransactions(includeHistoryRefreshes: false, historyRefreshInterval: 300)
@@ -78,7 +71,7 @@ extension AppState {
             recordPerformanceSample("background_maintenance_tick", startedAt: startedAt, metadata: "mode=active")
             return
         }
-        guard canRunHeavyBackgroundRefresh() else { return }
+        guard allowHeavyBackgroundWork else { return }
         let previousTotal = lastObservedPortfolioTotalUSD ?? totalBalance
         await withBalanceRefreshWindow {
             await refreshChainBalances(includeHistoryRefreshes: false, historyRefreshInterval: 300, forceChainRefresh: false)
@@ -128,90 +121,15 @@ extension AppState {
         await refreshTask.value
         userInitiatedRefreshTask = nil
     }
-    func runActiveScheduledMaintenance(now: Date) async {
-        let plan = WalletRefreshPlanner.activeMaintenancePlan(
-            now: now, lastPendingTransactionRefreshAt: lastPendingTransactionRefreshAt, lastLivePriceRefreshAt: lastLivePriceRefreshAt,
-            hasPendingTransactionMaintenanceWork: hasPendingTransactionMaintenanceWork,
-            shouldRunScheduledPriceRefresh: shouldRunScheduledPriceRefresh,
-            pendingRefreshInterval: activePendingRefreshIntervalForProfile(), priceRefreshInterval: activePriceRefreshIntervalForProfile()
-        )
-        if plan.refreshPendingTransactions { await refreshPendingTransactions(includeHistoryRefreshes: false) }
-        if plan.refreshLivePrices { await refreshLivePrices() }
-        await refreshFiatExchangeRatesIfNeeded()
-    }
-}
-
-struct WalletRefreshChainPlan: Hashable {
-    let chainID: WalletChainID
-    let refreshHistory: Bool
-    var chainName: String { chainID.displayName }
-}
-struct WalletActiveMaintenancePlan {
-    let refreshPendingTransactions: Bool
-    let refreshLivePrices: Bool
-}
-struct WalletRefreshPlanner {
-    static func activeMaintenancePlan(
-        now: Date, lastPendingTransactionRefreshAt: Date?, lastLivePriceRefreshAt: Date?, hasPendingTransactionMaintenanceWork: Bool,
-        shouldRunScheduledPriceRefresh: Bool, pendingRefreshInterval: TimeInterval, priceRefreshInterval: TimeInterval
-    ) -> WalletActiveMaintenancePlan {
-        let plan = coreActiveMaintenancePlan(
-            request: ActiveMaintenancePlanRequest(
-                nowUnix: now.timeIntervalSince1970,
-                lastPendingTransactionRefreshAtUnix: lastPendingTransactionRefreshAt?.timeIntervalSince1970,
-                lastLivePriceRefreshAtUnix: lastLivePriceRefreshAt?.timeIntervalSince1970,
-                hasPendingTransactionMaintenanceWork: hasPendingTransactionMaintenanceWork,
-                shouldRunScheduledPriceRefresh: shouldRunScheduledPriceRefresh, pendingRefreshInterval: pendingRefreshInterval,
-                priceRefreshInterval: priceRefreshInterval
-            )
-        )
-        return WalletActiveMaintenancePlan(
-            refreshPendingTransactions: plan.refreshPendingTransactions, refreshLivePrices: plan.refreshLivePrices)
-    }
-    static func shouldRunBackgroundMaintenance(
-        now: Date, isNetworkReachable: Bool, lastBackgroundMaintenanceAt: Date?, interval: TimeInterval
-    ) -> Bool {
-        coreShouldRunBackgroundMaintenance(
-            request: BackgroundMaintenanceRequest(
-                nowUnix: now.timeIntervalSince1970, isNetworkReachable: isNetworkReachable,
-                lastBackgroundMaintenanceAtUnix: lastBackgroundMaintenanceAt?.timeIntervalSince1970, interval: interval
-            )
-        )
-    }
-    static func chainPlans(
-        for chainIDs: Set<WalletChainID>, now: Date, forceChainRefresh: Bool, includeHistoryRefreshes: Bool,
-        historyRefreshInterval: TimeInterval, pendingTransactionMaintenanceChains: Set<WalletChainID>, degradedChains: Set<WalletChainID>,
-        lastGoodChainSyncByID: [WalletChainID: Date], lastHistoryRefreshAtByChainID: [WalletChainID: Date],
-        automaticChainRefreshStalenessInterval: TimeInterval
-    ) -> [WalletRefreshChainPlan] {
-        let plans = coreChainRefreshPlans(
-            request: ChainRefreshPlanRequest(
-                chainIds: chainIDs.map(\.rawValue), nowUnix: now.timeIntervalSince1970, forceChainRefresh: forceChainRefresh,
-                includeHistoryRefreshes: includeHistoryRefreshes, historyRefreshInterval: historyRefreshInterval,
-                pendingTransactionMaintenanceChainIds: pendingTransactionMaintenanceChains.map(\.rawValue),
-                degradedChainIds: degradedChains.map(\.rawValue),
-                lastGoodChainSyncById: Dictionary(
-                    uniqueKeysWithValues: lastGoodChainSyncByID.map { ($0.key.rawValue, $0.value.timeIntervalSince1970) }),
-                lastHistoryRefreshAtByChainId: Dictionary(
-                    uniqueKeysWithValues: lastHistoryRefreshAtByChainID.map { ($0.key.rawValue, $0.value.timeIntervalSince1970) }),
-                automaticChainRefreshStalenessInterval: automaticChainRefreshStalenessInterval
-            )
-        )
-        return plans.compactMap { plan in
-            guard let chainID = WalletChainID(plan.chainId) else { return nil }
-            return WalletRefreshChainPlan(chainID: chainID, refreshHistory: plan.refreshHistory)
+    func runActiveScheduledMaintenance(plan: MaintenancePlan) async {
+        if plan.refreshPendingTransactions {
+            await refreshPendingTransactions(includeHistoryRefreshes: false)
+            await WalletServiceBridge.shared.recordRefresh(kind: .pendingTransactions)
         }
-    }
-    static func historyPlans(
-        for chainIDs: Set<WalletChainID>, now: Date, interval: TimeInterval, lastHistoryRefreshAtByChainID: [WalletChainID: Date]
-    ) -> [WalletChainID] {
-        let ids = coreHistoryRefreshPlans(
-            request: HistoryRefreshPlanRequest(
-                chainIds: chainIDs.map(\.rawValue), nowUnix: now.timeIntervalSince1970, interval: interval,
-                lastHistoryRefreshAtByChainId: Dictionary(
-                    uniqueKeysWithValues: lastHistoryRefreshAtByChainID.map { ($0.key.rawValue, $0.value.timeIntervalSince1970) })
-            )
-        )
-        return ids.compactMap { WalletChainID($0) }
+        if plan.refreshLivePrices {
+            await refreshLivePrices()
+            await WalletServiceBridge.shared.recordRefresh(kind: .livePrices)
+        }
+        await refreshFiatExchangeRatesIfNeeded()
     }
 }

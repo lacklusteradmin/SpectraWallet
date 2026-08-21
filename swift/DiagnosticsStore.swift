@@ -26,38 +26,31 @@ extension AppState {
         get { chainDiagnosticsState.historyRunByChain }
         set { chainDiagnosticsState.historyRunByChain = newValue }
     }
-    /// Per-wallet history for the ten chains sharing one record shape. The
-    /// storage is core's — this reads and replaces it by chain name.
-    subscript(simpleHistoryFor chainName: String) -> [String: SimpleHistoryDiagnostics] {
-        get { diagnosticsAllSimple(chainName: chainName) }
-        set {
-            diagnosticsReplaceSimple(chainName: chainName, entries: newValue)
-            chainDiagnosticsState.diagnosticsRevision &+= 1
-        }
+    /// Record one wallet's history diagnostics, on the registry its chain's
+    /// record shape belongs to.
+    ///
+    /// These were subscripts returning the whole per-chain map, so storing one
+    /// wallet's row read every row across the boundary, mutated the copy, and
+    /// sent all of them back — the read-modify-write that made two wallets
+    /// refreshing at once keep only the later one. Nothing read the map for
+    /// its own sake: the screen's counts come from `diagnosticsRunSummary`.
+    func recordSimpleHistoryDiagnostics(
+        chainName: String, walletID: String, _ entry: SimpleHistoryDiagnostics
+    ) {
+        diagnosticsRecordSimple(chainName: chainName, walletId: walletID, entry: entry)
+        chainDiagnosticsState.diagnosticsRevision &+= 1
     }
-    /// Per-wallet history for the UTXO chains, which share one record shape.
-    subscript(utxoHistoryFor chainName: String) -> [String: BitcoinHistoryDiagnostics] {
-        get { diagnosticsAllUtxo(chainName: chainName) }
-        set {
-            diagnosticsReplaceUtxo(chainName: chainName, entries: newValue)
-            chainDiagnosticsState.diagnosticsRevision &+= 1
-        }
+    func recordUTXOHistoryDiagnostics(
+        chainName: String, walletID: String, _ entry: BitcoinHistoryDiagnostics
+    ) {
+        diagnosticsRecordUtxo(chainName: chainName, walletId: walletID, entry: entry)
+        chainDiagnosticsState.diagnosticsRevision &+= 1
     }
-    /// Per-wallet history for the EVM family, which shares one record shape.
-    subscript(evmHistoryFor chainName: String) -> [String: EthereumTokenTransferHistoryDiagnostics] {
-        get { diagnosticsAllEvm(chainName: chainName) }
-        set {
-            diagnosticsReplaceEvm(chainName: chainName, entries: newValue)
-            chainDiagnosticsState.diagnosticsRevision &+= 1
-        }
-    }
-    var tronHistoryDiagnosticsByWallet: [String: TronHistoryDiagnostics] {
-        get { chainDiagnosticsState.tronHistoryDiagnosticsByWallet }
-        set { chainDiagnosticsState.tronHistoryDiagnosticsByWallet = newValue }
-    }
-    var solanaHistoryDiagnosticsByWallet: [String: SolanaHistoryDiagnostics] {
-        get { chainDiagnosticsState.solanaHistoryDiagnosticsByWallet }
-        set { chainDiagnosticsState.solanaHistoryDiagnosticsByWallet = newValue }
+    func recordEVMHistoryDiagnostics(
+        chainName: String, walletID: String, _ entry: EthereumTokenTransferHistoryDiagnostics
+    ) {
+        diagnosticsRecordEvm(chainName: chainName, walletId: walletID, entry: entry)
+        chainDiagnosticsState.diagnosticsRevision &+= 1
     }
     subscript(historyRunFor chainName: String) -> WalletChainDiagnosticsState.HistoryRun {
         get { chainDiagnosticsState.historyRunByChain[chainName] ?? .init() }

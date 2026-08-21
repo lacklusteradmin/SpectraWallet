@@ -161,61 +161,57 @@ extension AppState {
         !unpricedChainNames.contains(chainName)
     }
     func isPricedAsset(_ coin: Coin) -> Bool { isPricedChain(coin.chainName) }
-    private func walletChainInputs(from walletByID: [String: ImportedWallet]) -> [WalletChainInput] {
-        walletByID.map { WalletChainInput(walletId: $0.key, selectedChain: $0.value.selectedChain) }
-    }
-    func rebuildNormalizedHistoryIndex() {
-        // Fast path: with no transactions, there's nothing to normalize. Skip
-        // the Rust hash+FFI roundtrip and the perf-log that was flooding the
-        // console on every balance-refresh tick.
+    /// The history list the UI renders, as core normalizes it.
+    ///
+    /// This used to convert the projection into a `NormalizeHistoryRequest` —
+    /// core's own records, reshaped — and hand them back. It also hashed them
+    /// first, through a second FFI call, so this side could decide whether the
+    /// round trip was worth making. Core decides that where the data is.
+    func rebuildNormalizedHistoryIndex() async {
+        // Nothing to normalize, and no reason to read the store to find out.
         if transactions.isEmpty {
             if !normalizedHistoryIndex.isEmpty { normalizedHistoryIndex = [] }
-            lastNormalizedHistorySignature = 0
             return
         }
-        let walletByID = cachedWalletByID.isEmpty ? Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) }) : cachedWalletByID
-        let signatureInputs = transactions.map { transaction in
-            NormalizedHistorySignatureTransaction(
-                id: transaction.id.uuidString, walletId: transaction.walletID, kind: transaction.kind.rawValue,
-                status: transaction.status.rawValue, chainName: transaction.chainName, symbol: transaction.symbol,
-                transactionHash: transaction.transactionHash, createdAtUnix: transaction.createdAt.timeIntervalSince1970
-            )
-        }
-        let inputSignature = Int(
-            coreNormalizedHistorySignature(
-                transactions: signatureInputs, wallets: walletChainInputs(from: walletByID)
-            ))
-        guard lastNormalizedHistorySignature != inputSignature else { return }
         let startedAt = CFAbsoluteTimeGetCurrent()
-        let normalizedEntries = rebuildNormalizedHistoryIndexUsingRust(walletByID: walletByID)
-        normalizedHistoryIndex = normalizedEntries
-        lastNormalizedHistorySignature = inputSignature
+        let entries = await WalletServiceBridge.shared.normalizedHistory(
+            unknownLabel: localizedStoreString("Unknown"))
+        normalizedHistoryIndex = entries.compactMap { entry in
+            guard let transactionID = UUID(uuidString: entry.transactionId),
+                let kind = TransactionKind(rawValue: entry.kind),
+                let status = TransactionStatus(rawValue: entry.status)
+            else { return nil }
+            return NormalizedHistoryEntry(
+                id: entry.id, transactionID: transactionID, dedupeKey: entry.dedupeKey,
+                createdAt: Date(timeIntervalSince1970: entry.createdAtUnix), kind: kind,
+                status: status, walletName: entry.walletName, assetName: entry.assetName,
+                symbol: entry.symbol, chainName: entry.chainName, address: entry.address,
+                transactionHash: entry.transactionHash, sourceTag: entry.sourceTag,
+                providerCount: Int(entry.providerCount), searchIndex: entry.searchIndex)
+        }
         recordPerformanceSample(
             "rebuild_normalized_history_index", startedAt: startedAt,
-            metadata: "transactions=\(transactions.count) normalized=\(normalizedHistoryIndex.count)"
-        )
+            metadata: "transactions=\(transactions.count) normalized=\(normalizedHistoryIndex.count)")
     }
-    func rebuildTransactionDerivedState() {
+    /// Adopt the views of the transaction store that the UI renders.
+    ///
+    /// Core derives them from its own records; this caches the answers, which
+    /// is what `dashboardAssetGroups` already does. `cachedTransactionByID` is
+    /// an index into the projection, so it stays local.
+    func rebuildTransactionDerivedState() async {
         cachedTransactionByID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
-        let earliestInputs = transactions.map {
-            TransactionEarliestInput(walletId: $0.walletID, createdAtUnix: $0.createdAt.timeIntervalSince1970)
-        }
-        let earliestPairs = coreEarliestTransactionDates(transactions: earliestInputs)
+        let earliest = await WalletServiceBridge.shared.earliestTransactionDates()
         cachedFirstActivityDateByWalletID = Dictionary(
-            uniqueKeysWithValues: earliestPairs.map { ($0.walletId, Date(timeIntervalSince1970: $0.earliestCreatedAtUnix)) })
-        rebuildNormalizedHistoryIndex()
+            uniqueKeysWithValues: earliest.map {
+                ($0.walletId, Date(timeIntervalSince1970: $0.earliestCreatedAtUnix))
+            })
+        await rebuildNormalizedHistoryIndex()
     }
-    func pruneTransactionsForActiveWallets() {
-        let walletByID = cachedWalletByID.isEmpty ? Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) }) : cachedWalletByID
-        let activityInputs = transactions.map {
-            TransactionActivityInput(id: $0.id.uuidString, walletId: $0.walletID, chainName: $0.chainName)
-        }
-        let keptIDStrings = Set(
-            coreActiveWalletTransactionIds(
-                transactions: activityInputs, wallets: walletChainInputs(from: walletByID)
-            )
-        )
-        let droppedIDs = transactions.filter { !keptIDStrings.contains($0.id.uuidString) }.map(\.id)
+    /// Drop transactions whose wallet is gone. Core answers which those are,
+    /// from the wallets and the records it holds.
+    func pruneTransactionsForActiveWallets() async {
+        let kept = Set(await WalletServiceBridge.shared.activeWalletTransactionIDs())
+        let droppedIDs = transactions.filter { !kept.contains($0.id.uuidString) }.map(\.id)
         guard !droppedIDs.isEmpty else { return }
         removeTransactions(withIDs: droppedIDs)
     }
@@ -279,35 +275,5 @@ extension AppState {
     }
     private func nativeAssetDisplaySettingsKey(for chainName: String) -> String {
         CachedCoreHelpers.nativeAssetDisplaySettingsKey(chainName: chainName)
-    }
-    private func rebuildNormalizedHistoryIndexUsingRust(walletByID: [String: ImportedWallet]) -> [NormalizedHistoryEntry] {
-        let request = NormalizeHistoryRequest(
-            wallets: walletByID.map {
-                HistoryWallet(
-                    walletId: $0.key.lowercased(), selectedChain: $0.value.selectedChain
-                )
-            },
-            transactions: transactions.map {
-                HistoryTransaction(
-                    id: $0.id.uuidString.lowercased(), walletId: $0.walletID?.lowercased(), kind: $0.kind.rawValue,
-                    status: $0.status.rawValue, walletName: $0.walletName, assetName: $0.assetName, symbol: $0.symbol,
-                    chainName: $0.chainName, address: $0.address, transactionHash: $0.transactionHash,
-                    transactionHistorySource: $0.transactionHistorySource, createdAtUnix: $0.createdAt.timeIntervalSince1970
-                )
-            }, unknownLabel: localizedStoreString("Unknown")
-        )
-        let entries = coreNormalizeHistory(request: request)
-        return entries.compactMap { entry in
-            guard let transactionID = UUID(uuidString: entry.transactionId), let kind = TransactionKind(rawValue: entry.kind),
-                let status = TransactionStatus(rawValue: entry.status)
-            else { return nil }
-            return NormalizedHistoryEntry(
-                id: entry.id, transactionID: transactionID, dedupeKey: entry.dedupeKey,
-                createdAt: Date(timeIntervalSince1970: entry.createdAtUnix), kind: kind, status: status, walletName: entry.walletName,
-                assetName: entry.assetName, symbol: entry.symbol, chainName: entry.chainName, address: entry.address,
-                transactionHash: entry.transactionHash, sourceTag: entry.sourceTag, providerCount: Int(entry.providerCount),
-                searchIndex: entry.searchIndex
-            )
-        }
     }
 }

@@ -96,7 +96,7 @@ extension AppState {
             let descriptors = trackedTokens.map {
                 TokenDescriptor(contract: $0.contractAddress, symbol: $0.symbol, decimals: UInt8($0.decimals), name: $0.name)
             }
-            guard let results = try? await WalletServiceBridge.shared.fetchEVMTokenBalancesBatch(
+            guard let results = try? await WalletServiceBridge.shared.fetchTokenBalances(
                 chainId: chainId, address: address, tokens: descriptors
             ) else { continue }
             guard let currentIdx = wallets.firstIndex(where: { $0.id == wallet.id }) else { continue }
@@ -267,7 +267,7 @@ extension AppState {
         let nativeBalance = Double(summary.amountDisplay) ?? 0
         let tokenBalances =
             ethereumContext.isEthereumMainnet
-            ? ((try? await WalletServiceBridge.shared.fetchEVMTokenBalancesBatch(
+            ? ((try? await WalletServiceBridge.shared.fetchTokenBalances(
                 chainId: Chain.ethereum.id, address: address,
                 tokens: enabledEVMTrackedTokens(for: .ethereum).map { TokenDescriptor(contract: $0.contractAddress, symbol: $0.symbol, decimals: UInt8($0.decimals), name: nil) }
             )) ?? [])
@@ -287,25 +287,25 @@ extension AppState {
         var resolvedClassifications: [UUID: (TransactionStatus, EvmReceiptClassification)] = [:]
         for transaction in pendingTransactions {
             guard let transactionHash = transaction.transactionHash else { continue }
-            guard await shouldPollTransactionStatus(for: transaction, now: now) else { continue }
+            guard await shouldPollTransactionStatus(for: transaction) else { continue }
             do {
                 guard
                     let classified = try await WalletServiceBridge.shared.fetchEvmReceiptClassification(
                         chainId: chainId, txHash: transactionHash
                     )
                 else {
-                    await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: .pending, now: now)
+                    await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: .pending)
                     continue
                 }
                 if classified.isConfirmed {
                     let resolvedStatus: TransactionStatus = classified.isFailed ? .failed : .confirmed
-                    await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus, now: now)
+                    await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus)
                     resolvedClassifications[transaction.id] = (resolvedStatus, classified)
                 } else {
-                    await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: .pending, now: now)
+                    await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: .pending)
                 }
             } catch {
-                await markTransactionStatusPollFailure(for: transaction, now: now)
+                await markTransactionStatusPollFailure(for: transaction)
                 continue
             }
         }
@@ -315,7 +315,7 @@ extension AppState {
                 dogecoinNetworkFeeDoge: nil
             )
         }
-        let staleFailureIDs = await stalePendingFailureIDs(from: pendingTransactions, now: now)
-        await applyResolvedPendingTransactionStatuses(resolvedStatuses, staleFailureIDs: staleFailureIDs, now: now)
+        let staleFailureIDs = await stalePendingFailureIDs(from: pendingTransactions)
+        await applyResolvedPendingTransactionStatuses(resolvedStatuses, staleFailureIDs: staleFailureIDs)
     }
 }

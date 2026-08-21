@@ -154,7 +154,6 @@ extension AppState {
             )
         )
     }
-    func finalityConfirmations(for chainName: String) -> Int { Self.standardFinalityConfirmations }
     func updatedTransaction(
         _ transaction: TransactionRecord, status: TransactionStatus, receiptBlockNumber: Int? = nil, failureReason: String? = nil,
         confirmationCount: Int? = nil, dogecoinConfirmedNetworkFeeDoge: Double? = nil
@@ -182,42 +181,29 @@ extension AppState {
             "%@ transaction appears stuck and could not be confirmed after extended retries.", transaction.chainName
         )
     }
-    private func transactionStatusPollConfig() -> TransactionStatusPollConfig {
-        TransactionStatusPollConfig(
-            pendingPollSeconds: Self.pendingStatusPollSeconds,
-            confirmedPollSeconds: Self.confirmedStatusPollSeconds,
-            backoffMaxSeconds: Self.statusPollBackoffMaxSeconds,
-            finalityConfirmations: UInt32(Self.standardFinalityConfirmations),
-            pendingFailureTimeoutSeconds: Self.pendingFailureTimeoutSeconds,
-            pendingFailureMinFailures: UInt32(Self.pendingFailureMinFailures)
-        )
-    }
     // Core owns the confirmation-poll backoff table. These forward the poll
     // outcome and read back the schedule; nothing about it is cached here.
 
-    func shouldPollTransactionStatus(for transaction: TransactionRecord, now: Date) async -> Bool {
+    func shouldPollTransactionStatus(for transaction: TransactionRecord) async -> Bool {
         let due = try? await WalletServiceBridge.shared.transactionsDueForStatusPoll(
-            ids: [transaction.id.uuidString], now: now)
+            ids: [transaction.id.uuidString])
         // An unreachable core must not wedge polling off permanently.
         return due.map { !$0.isEmpty } ?? true
     }
     func markTransactionStatusPollSuccess(
-        for transaction: TransactionRecord, resolvedStatus: TransactionStatus, confirmations: Int? = nil, now: Date
+        for transaction: TransactionRecord, resolvedStatus: TransactionStatus,
+        confirmations: Int? = nil
     ) async {
         try? await WalletServiceBridge.shared.recordStatusPollSuccess(
             id: transaction.id.uuidString,
             confirmed: resolvedStatus == .confirmed,
             pending: resolvedStatus == .pending,
-            confirmations: confirmations.map { UInt32(max(0, $0)) },
-            now: now,
-            config: transactionStatusPollConfig()
-        )
+            confirmations: confirmations.map { UInt32(max(0, $0)) })
     }
-    func markTransactionStatusPollFailure(for transaction: TransactionRecord, now: Date) async {
-        try? await WalletServiceBridge.shared.recordStatusPollFailure(
-            id: transaction.id.uuidString, now: now, config: transactionStatusPollConfig())
+    func markTransactionStatusPollFailure(for transaction: TransactionRecord) async {
+        try? await WalletServiceBridge.shared.recordStatusPollFailure(id: transaction.id.uuidString)
     }
-    func stalePendingFailureIDs(from trackedTransactions: [TransactionRecord], now: Date) async -> Set<UUID> {
+    func stalePendingFailureIDs(from trackedTransactions: [TransactionRecord]) async -> Set<UUID> {
         let inputs = trackedTransactions.map { transaction in
             StalePendingFailureTransactionInput(
                 id: transaction.id.uuidString,
@@ -226,11 +212,11 @@ extension AppState {
             )
         }
         let ids = (try? await WalletServiceBridge.shared.stalePendingFailureIDs(
-            transactions: inputs, now: now, config: transactionStatusPollConfig())) ?? []
+            transactions: inputs)) ?? []
         return Set(ids.compactMap(UUID.init(uuidString:)))
     }
     func applyResolvedPendingTransactionStatuses(
-        _ resolvedStatuses: [UUID: PendingTransactionStatusResolution], staleFailureIDs: Set<UUID>, now: Date
+        _ resolvedStatuses: [UUID: PendingTransactionStatusResolution], staleFailureIDs: Set<UUID>
     ) async {
         guard !resolvedStatuses.isEmpty || !staleFailureIDs.isEmpty else { return }
         let oldByID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
@@ -250,7 +236,7 @@ extension AppState {
             )
         }
         let decisions = (try? await WalletServiceBridge.shared.applyResolvedPendingTransactionStatuses(
-            inputs: inputs, now: now, config: transactionStatusPollConfig())) ?? []
+            inputs: inputs)) ?? []
         let decisionByID: [UUID: ResolvedPendingTransactionDecision] = Dictionary(
             uniqueKeysWithValues: decisions.compactMap { decision in
                 UUID(uuidString: decision.id).map { ($0, decision) }
@@ -355,22 +341,22 @@ extension AppState {
             guard let address else { continue }
             let (statusByHash, hadError) = await fetchStatuses(address)
             if hadError {
-                for transaction in group { await markTransactionStatusPollFailure(for: transaction, now: now) }
+                for transaction in group { await markTransactionStatusPollFailure(for: transaction) }
                 continue
             }
             for transaction in group {
-                guard await shouldPollTransactionStatus(for: transaction, now: now),
+                guard await shouldPollTransactionStatus(for: transaction),
                     let transactionHash = transaction.transactionHash?.lowercased()
                 else { continue }
                 let resolvedStatus = statusByHash[transactionHash] ?? .pending
-                await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus, now: now)
+                await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus)
                 resolvedStatuses[transaction.id] = PendingTransactionStatusResolution(
                     status: resolvedStatus, receiptBlockNumber: nil, confirmations: nil, dogecoinNetworkFeeDoge: nil
                 )
             }
         }
-        let staleFailureIDs = await stalePendingFailureIDs(from: trackedTransactions, now: now)
-        await applyResolvedPendingTransactionStatuses(resolvedStatuses, staleFailureIDs: staleFailureIDs, now: now)
+        let staleFailureIDs = await stalePendingFailureIDs(from: trackedTransactions)
+        await applyResolvedPendingTransactionStatuses(resolvedStatuses, staleFailureIDs: staleFailureIDs)
     }
     func statusMapByTransactionHash<S: Sequence>(
         from snapshots: S, hash: (S.Element) -> String, status: (S.Element) -> TransactionStatus

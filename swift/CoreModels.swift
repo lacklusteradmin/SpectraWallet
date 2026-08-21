@@ -73,7 +73,7 @@ extension CoreCoin: Identifiable {
         }
     }
     var chain: Chain? { Chain(displayName: chainName) }
-    var isUTXOChain: Bool { coreSupportsDeepUtxoDiscovery(chainName: chainName) }
+    var isUTXOChain: Bool { chain?.supportsDeepUTXODiscovery ?? false }
     var isEVMChain: Bool { chain?.isEVM ?? false }
     /// A holding is the chain's own asset when its symbol is the one fees are
     /// paid in — `ETH` on Arbitrum, not `ARB`.
@@ -91,7 +91,7 @@ extension CoreImportedWallet {
     /// (including "every EVM chain shares Ethereum's") lives in the Rust
     /// registry, so this never needs to know which chains exist.
     func address(forChainNamed chainName: String) -> String? {
-        let slot = coreAddressSlot(chainName: chainName)
+        let slot = Chain(displayName: chainName)?.addressSlot ?? ""
         guard !slot.isEmpty else { return nil }
         return addresses[slot]
     }
@@ -104,7 +104,7 @@ extension CoreImportedWallet {
     /// Replaces the "rebuild the whole record to change one field" pattern the
     /// 27-field version forced on every caller.
     mutating func setAddress(_ address: String?, forChainNamed chainName: String) {
-        let slot = coreAddressSlot(chainName: chainName)
+        let slot = Chain(displayName: chainName)?.addressSlot ?? ""
         guard !slot.isEmpty else { return }
         if let address, !address.isEmpty {
             addresses[slot] = address
@@ -241,7 +241,7 @@ extension CoreImportedWallet {
         var bySlot: [String: String] = [:]
         for (chainName, address) in byChainName {
             guard let address, !address.isEmpty else { continue }
-            let slot = coreAddressSlot(chainName: chainName)
+            let slot = Chain(displayName: chainName)?.addressSlot ?? ""
             guard !slot.isEmpty else { continue }
             bySlot[slot] = address
         }
@@ -263,7 +263,7 @@ extension CoreWalletDerivationOverrides {
 //
 // `WalletImportAddresses` and `WalletImportWatchOnlyEntries` are keyed by
 // storage slot rather than carrying one field per chain. Slots come from the
-// Rust registry via `coreAddressSlot`, so the UI never hardcodes a key and
+// Rust registry via `Chain.addressSlot`, so the UI never hardcodes a key and
 // never has to know that every EVM chain shares Ethereum's slot.
 
 extension WalletImportAddresses {
@@ -273,7 +273,7 @@ extension WalletImportAddresses {
         var bySlot: [String: String] = [:]
         for (chainName, address) in byChainName {
             guard let address, !address.isEmpty else { continue }
-            let slot = coreAddressSlot(chainName: chainName)
+            let slot = Chain(displayName: chainName)?.addressSlot ?? ""
             guard !slot.isEmpty else { continue }
             bySlot[slot] = address
         }
@@ -282,7 +282,7 @@ extension WalletImportAddresses {
 
     /// The address stored for a chain, by display name.
     func address(for chainName: String) -> String? {
-        let slot = coreAddressSlot(chainName: chainName)
+        let slot = Chain(displayName: chainName)?.addressSlot ?? ""
         guard !slot.isEmpty else { return nil }
         return bySlot[slot]
     }
@@ -295,7 +295,7 @@ extension WalletImportWatchOnlyEntries {
     static func slotMap(_ byChainName: [String: [String]]) -> [String: [String]] {
         var bySlot: [String: [String]] = [:]
         for (chainName, addresses) in byChainName where !addresses.isEmpty {
-            let slot = coreAddressSlot(chainName: chainName)
+            let slot = Chain(displayName: chainName)?.addressSlot ?? ""
             guard !slot.isEmpty else { continue }
             bySlot[slot, default: []].append(contentsOf: addresses)
         }
@@ -304,7 +304,7 @@ extension WalletImportWatchOnlyEntries {
 
     /// Addresses entered for a chain, by display name.
     func addresses(for chainName: String) -> [String] {
-        let slot = coreAddressSlot(chainName: chainName)
+        let slot = Chain(displayName: chainName)?.addressSlot ?? ""
         guard !slot.isEmpty else { return [] }
         return bySlot[slot] ?? []
     }

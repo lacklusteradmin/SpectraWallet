@@ -46,6 +46,7 @@
 		90F002000000000000000029 /* SendPreviewTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000029 /* SendPreviewTypes.swift */; };
 		90F00200000000000000002B /* StakingTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002B /* StakingTypes.swift */; };
 		90F00200000000000000002C /* StaticContentCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002C /* StaticContentCatalog.swift */; };
+		90F002000000000000000101 /* Store+Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000101 /* Store+Settings.swift */; };
 		90F00200000000000000002D /* Store+Formatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002D /* Store+Formatting.swift */; };
 		90F00200000000000000002E /* Store+Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002E /* Store+Notifications.swift */; };
 		90F00200000000000000002F /* StoreDiagnosticsExport.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002F /* StoreDiagnosticsExport.swift */; };
@@ -137,6 +138,7 @@
 		90F001000000000000000029 /* SendPreviewTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendPreviewTypes.swift; sourceTree = "<group>"; };
 		90F00100000000000000002B /* StakingTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StakingTypes.swift; sourceTree = "<group>"; };
 		90F00100000000000000002C /* StaticContentCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaticContentCatalog.swift; sourceTree = "<group>"; };
+		90F001000000000000000101 /* Store+Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Settings.swift"; sourceTree = "<group>"; };
 		90F00100000000000000002D /* Store+Formatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Formatting.swift"; sourceTree = "<group>"; };
 		90F00100000000000000002E /* Store+Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Notifications.swift"; sourceTree = "<group>"; };
 		90F00100000000000000002F /* StoreDiagnosticsExport.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreDiagnosticsExport.swift; sourceTree = "<group>"; };
@@ -286,6 +288,7 @@
 				90F00100000000000000000C /* AppState+SendPreview.swift */,
 				90F00100000000000000000D /* AppState+SendRouting.swift */,
 				90F00100000000000000002D /* Store+Formatting.swift */,
+				90F001000000000000000101 /* Store+Settings.swift */,
 				90F00100000000000000002E /* Store+Notifications.swift */,
 				90F001000000000000000030 /* StoreHistoryRefresh.swift */,
 				90F001000000000000000031 /* StoreLifecycleReset.swift */,
@@ -474,6 +477,7 @@
 			inputPaths = (
 				"$(SRCROOT)/../ffi/Cargo.toml",
 				"$(SRCROOT)/../ffi/src/lib.rs",
+				"$(SRCROOT)/../scripts/bindgen-ios.sh",
 			);
 			name = "Build Rust Derivation Core";
 			outputFileListPaths = (
@@ -485,7 +489,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "set -euo pipefail\n\n# Purge cloud-sync placeholder files (OneDrive / Synology Drive leave .!NNNN!foo partial copies that Xcode tries to compile).\nfind \"${SRCROOT}\" -name '.!*' -type f -delete 2>/dev/null || true\n\nRUST_DIR=\"${SRCROOT}/../ffi\"\nRUST_BUILD_ROOT=\"${PROJECT_TEMP_DIR}/spectra-rust\"\nCARGO_TARGET_DIR=\"${RUST_BUILD_ROOT}/cargo-target\"\nTARGET_ROOT=\"${RUST_BUILD_ROOT}/apple\"\nSIM_OUT=\"${TARGET_ROOT}/ios-simulator\"\nDEVICE_OUT=\"${TARGET_ROOT}/ios-device\"\nGENERATED_SWIFT_DIR=\"${SRCROOT}/generated\"\nBINDGEN_MANIFEST=\"${SRCROOT}/../tools/uniffi-bindgen/Cargo.toml\"\nPROFILE=\"debug\"\nif [[ \"${CONFIGURATION}\" == Release ]]; then PROFILE=\"release\"; fi\nRELEASE_FLAG=\"\"\nif [[ \"${CONFIGURATION}\" == Release ]]; then RELEASE_FLAG=\"--release\"; fi\nHOST_DYLIB=\"${CARGO_TARGET_DIR}/${PROFILE}/libspectra_core.dylib\"\n\n# Xcode build phases run in a minimal shell, so cargo may not be on PATH.\nexport PATH=\"${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}\"\nif [[ -f \"${HOME}/.cargo/env\" ]]; then\n  # shellcheck disable=SC1090\n  source \"${HOME}/.cargo/env\"\nfi\n\nif ! command -v cargo >/dev/null 2>&1; then\n  echo \"error: cargo is required to build the Rust wallet core\"\n  echo \"hint: install Rust with 'brew install rustup-init && rustup-init' or from https://rustup.rs\"\n  exit 1\nfi\n\nmkdir -p \"${GENERATED_SWIFT_DIR}\"\nCARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build ${RELEASE_FLAG} --manifest-path \"${RUST_DIR}/Cargo.toml\"\n(\n  cd \"${RUST_DIR}\"\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo run --manifest-path \"${BINDGEN_MANIFEST}\" -- generate --language swift --library \"${HOST_DYLIB}\" --out-dir \"${GENERATED_SWIFT_DIR}\"\n)\ncp \"${GENERATED_SWIFT_DIR}/spectra_coreFFI.modulemap\" \"${GENERATED_SWIFT_DIR}/module.modulemap\"\n\n# Swift 6: vtablePtr is a UnsafePointer static let (safe, initialized once).\nPATCH_TMP=\"$(mktemp -t spectra_core.swift.XXXXXX)\"\nsed -e 's/    static let vtablePtr:/    nonisolated(unsafe) static let vtablePtr:/' \"${GENERATED_SWIFT_DIR}/spectra_core.swift\" > \"${PATCH_TMP}\"\nmv \"${PATCH_TMP}\" \"${GENERATED_SWIFT_DIR}/spectra_core.swift\"\n\nif [[ \"${PLATFORM_NAME}\" == *simulator* ]]; then\n  mkdir -p \"${SIM_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios-sim x86_64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build ${RELEASE_FLAG} --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios-sim\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build ${RELEASE_FLAG} --manifest-path \"${RUST_DIR}/Cargo.toml\" --target x86_64-apple-ios\n\n  lipo -create \\\n    \"${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/${PROFILE}/libspectra_core.a\" \\\n    \"${CARGO_TARGET_DIR}/x86_64-apple-ios/${PROFILE}/libspectra_core.a\" \\\n    -output \"${SIM_OUT}/libspectra_core.a\"\nelse\n  mkdir -p \"${DEVICE_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  CARGO_TARGET_DIR=\"${CARGO_TARGET_DIR}\" cargo build ${RELEASE_FLAG} --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios\n  cp \"${CARGO_TARGET_DIR}/aarch64-apple-ios/${PROFILE}/libspectra_core.a\" \"${DEVICE_OUT}/libspectra_core.a\"\nfi\n";
+			shellScript = "set -euo pipefail\n\n# Purge cloud-sync placeholder files (OneDrive / Synology Drive leave .!NNNN!foo partial copies that Xcode tries to compile).\nfind \"${SRCROOT}\" -name '.!*' -type f -delete 2>/dev/null || true\n\nRUST_DIR=\"${SRCROOT}/../ffi\"\nRUST_BUILD_ROOT=\"${PROJECT_TEMP_DIR}/spectra-rust\"\nexport CARGO_TARGET_DIR=\"${RUST_BUILD_ROOT}/cargo-target\"\nTARGET_ROOT=\"${RUST_BUILD_ROOT}/apple\"\nSIM_OUT=\"${TARGET_ROOT}/ios-simulator\"\nDEVICE_OUT=\"${TARGET_ROOT}/ios-device\"\nPROFILE=\"debug\"\nif [[ \"${CONFIGURATION}\" == Release ]]; then PROFILE=\"release\"; fi\nexport PROFILE\nexport OUT_DIR=\"${SRCROOT}/generated\"\nRELEASE_FLAG=\"\"\nif [[ \"${CONFIGURATION}\" == Release ]]; then RELEASE_FLAG=\"--release\"; fi\n\n# Xcode build phases run in a minimal shell, so cargo may not be on PATH.\nexport PATH=\"${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}\"\nif [[ -f \"${HOME}/.cargo/env\" ]]; then\n  # shellcheck disable=SC1090\n  source \"${HOME}/.cargo/env\"\nfi\n\n# Generating and patching the bindings is one script, called from here.\n# It used to be duplicated in this phase with a *different* patch, so which\n# version of swift/generated/ was on disk depended on whether Xcode or the\n# script had run last.\n\"${SRCROOT}/../scripts/bindgen-ios.sh\"\n\nif [[ \"${PLATFORM_NAME}\" == *simulator* ]]; then\n  mkdir -p \"${SIM_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios-sim x86_64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  cargo build ${RELEASE_FLAG} --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios-sim\n  cargo build ${RELEASE_FLAG} --manifest-path \"${RUST_DIR}/Cargo.toml\" --target x86_64-apple-ios\n\n  lipo -create \\\n    \"${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/${PROFILE}/libspectra_core.a\" \\\n    \"${CARGO_TARGET_DIR}/x86_64-apple-ios/${PROFILE}/libspectra_core.a\" \\\n    -output \"${SIM_OUT}/libspectra_core.a\"\nelse\n  mkdir -p \"${DEVICE_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  cargo build ${RELEASE_FLAG} --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios\n  cp \"${CARGO_TARGET_DIR}/aarch64-apple-ios/${PROFILE}/libspectra_core.a\" \"${DEVICE_OUT}/libspectra_core.a\"\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -543,6 +547,7 @@
 				90F00200000000000000000C /* AppState+SendPreview.swift in Sources */,
 				90F00200000000000000000D /* AppState+SendRouting.swift in Sources */,
 				90F00200000000000000002D /* Store+Formatting.swift in Sources */,
+				90F002000000000000000101 /* Store+Settings.swift in Sources */,
 				90F00200000000000000002E /* Store+Notifications.swift in Sources */,
 				90F002000000000000000030 /* StoreHistoryRefresh.swift in Sources */,
 				90F002000000000000000031 /* StoreLifecycleReset.swift in Sources */,

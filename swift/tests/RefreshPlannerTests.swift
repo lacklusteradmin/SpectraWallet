@@ -2,74 +2,43 @@ import Foundation
 #if canImport(XCTest)
     import XCTest
     @testable import Spectra
+
+    /// What this side of the refresh decision still owns.
+    ///
+    /// It used to own the decision: `WalletRefreshPlanner` packed five
+    /// `AppState` properties and two dictionaries into request records, asked
+    /// core the arithmetic, and unpacked the answer — so these tests asserted
+    /// core's arithmetic through a Swift wrapper. Core holds the clock now and
+    /// `policy.rs` tests the arithmetic against it, including the case no test
+    /// here could reach: that a stamped clock is the *same* clock the next
+    /// question reads.
+    ///
+    /// What is left is the half core cannot know — this device's conditions —
+    /// and that the plan comes back and drives the loop.
     @MainActor
     final class WalletRefreshPlannerTests: XCTestCase {
-        func testActiveMaintenancePlanRequestsPendingAndPriceRefreshWhenIntervalsElapsed() {
-            let now = Date()
-            let plan = WalletRefreshPlanner.activeMaintenancePlan(
-                now: now, lastPendingTransactionRefreshAt: now.addingTimeInterval(-301),
-                lastLivePriceRefreshAt: now.addingTimeInterval(-601), hasPendingTransactionMaintenanceWork: true,
-                shouldRunScheduledPriceRefresh: true, pendingRefreshInterval: 300, priceRefreshInterval: 600
-            )
-            XCTAssertTrue(plan.refreshPendingTransactions)
-            XCTAssertTrue(plan.refreshLivePrices)
-        }
-        func testActiveMaintenancePlanSkipsRefreshesWhenWorkOrScheduleIsMissing() {
-            let now = Date()
-            let plan = WalletRefreshPlanner.activeMaintenancePlan(
-                now: now, lastPendingTransactionRefreshAt: now.addingTimeInterval(-10_000),
-                lastLivePriceRefreshAt: now.addingTimeInterval(-10_000), hasPendingTransactionMaintenanceWork: false,
-                shouldRunScheduledPriceRefresh: false, pendingRefreshInterval: 300, priceRefreshInterval: 600
-            )
+        func testMaintenancePlanReportsThisDeviceAndComesBackWithACadence() async {
+            let store = AppState()
+            let plan = await store.maintenancePlan()
+            XCTAssertGreaterThan(plan.pollSeconds, 0, "a cadence of zero would spin the loop")
+            // No wallets and nothing pending, so there is nothing to refresh —
+            // but the loop still gets told how long to wait.
             XCTAssertFalse(plan.refreshPendingTransactions)
-            XCTAssertFalse(plan.refreshLivePrices)
         }
-        func testShouldRunBackgroundMaintenanceRequiresReachableNetworkAndElapsedInterval() {
-            let now = Date()
-            XCTAssertFalse(
-                WalletRefreshPlanner.shouldRunBackgroundMaintenance(
-                    now: now, isNetworkReachable: false, lastBackgroundMaintenanceAt: nil, interval: 300
-                )
-            )
-            XCTAssertTrue(
-                WalletRefreshPlanner.shouldRunBackgroundMaintenance(
-                    now: now, isNetworkReachable: true, lastBackgroundMaintenanceAt: nil, interval: 300
-                )
-            )
-            XCTAssertFalse(
-                WalletRefreshPlanner.shouldRunBackgroundMaintenance(
-                    now: now, isNetworkReachable: true, lastBackgroundMaintenanceAt: now.addingTimeInterval(-60), interval: 300
-                )
-            )
+
+        func testAnUnreachableNetworkStopsTheBackgroundTick() async {
+            let store = AppState()
+            store.appIsActive = false
+            store.isNetworkReachable = false
+            let offline = await store.maintenancePlan()
+            XCTAssertFalse(offline.runBackgroundTick, "no network, nothing to do")
+            XCTAssertFalse(offline.allowHeavyBackgroundWork)
+
+            store.isNetworkReachable = true
+            let online = await store.maintenancePlan()
+            XCTAssertTrue(online.runBackgroundTick, "a fresh clock has never ticked")
         }
-        func testChainPlansIncludeForcedPendingAndDegradedChainsWithExpectedHistoryFlags() {
-            let now = Date()
-            let plans = WalletRefreshPlanner.chainPlans(
-                for: Set(["Ethereum", "Solana", "Bitcoin"].compactMap(WalletChainID.init)), now: now, forceChainRefresh: false,
-                includeHistoryRefreshes: true, historyRefreshInterval: 300,
-                pendingTransactionMaintenanceChains: Set(["Ethereum"].compactMap(WalletChainID.init)),
-                degradedChains: Set(["Solana"].compactMap(WalletChainID.init)),
-                lastGoodChainSyncByID: [
-                    WalletChainID("Ethereum")!: now, WalletChainID("Solana")!: now, WalletChainID("Bitcoin")!: now,
-                ],
-                lastHistoryRefreshAtByChainID: [
-                    WalletChainID("Ethereum")!: now.addingTimeInterval(-600), WalletChainID("Solana")!: now,
-                ], automaticChainRefreshStalenessInterval: 86_400
-            )
-            XCTAssertEqual(plans.map(\.chainName), ["Ethereum", "Solana"])
-            XCTAssertEqual(plans.first(where: { $0.chainName == "Ethereum" })?.refreshHistory, true)
-            XCTAssertEqual(plans.first(where: { $0.chainName == "Solana" })?.refreshHistory, false)
-        }
-        func testHistoryPlansOnlyIncludeChainsWhoseHistoryIsStaleOrMissing() {
-            let now = Date()
-            let chains = WalletRefreshPlanner.historyPlans(
-                for: Set(["Ethereum", "Solana", "Bitcoin"].compactMap(WalletChainID.init)), now: now, interval: 300,
-                lastHistoryRefreshAtByChainID: [
-                    WalletChainID("Ethereum")!: now.addingTimeInterval(-600), WalletChainID("Solana")!: now,
-                ]
-            )
-            XCTAssertEqual(chains.map(\.displayName), ["Bitcoin", "Ethereum"])
-        }
+
         func testWalletChainIDResolvesStableRegistryIDFromDisplayNameAndSymbol() {
             XCTAssertEqual(WalletChainID("Ethereum")?.rawValue, "ethereum")
             XCTAssertEqual(WalletChainID("ETH")?.rawValue, "ethereum")

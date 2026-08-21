@@ -14,7 +14,7 @@ struct EndpointCatalogSettingsView: View {
     /// endpoints to fold in.
     private var bitcoinEndpointsByNetwork: [AppEndpointGroupedSettingsEntry] {
         let selected = store.networkChainID(forFamily: "bitcoin")
-        return coreNetworkChoices(chainId: "bitcoin").map { choice in
+        return (Chain(id: "bitcoin")?.networkChoices ?? []).map { choice in
             let custom = choice.chainId == selected ? parsedBitcoinCustomEndpoints : []
             return AppEndpointGroupedSettingsEntry(
                 title: choice.title,
@@ -23,7 +23,7 @@ struct EndpointCatalogSettingsView: View {
     }
     private var ethereumEndpointsByNetwork: [AppEndpointGroupedSettingsEntry] {
         let selected = store.networkChainID(forFamily: "ethereum")
-        return coreNetworkChoices(chainId: "ethereum").map { choice in
+        return (Chain(id: "ethereum")?.networkChoices ?? []).map { choice in
             var endpoints: [String] = []
             if choice.chainId == selected {
                 let custom = store.ethereumRPCEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -58,7 +58,7 @@ struct EndpointCatalogSettingsView: View {
         if !trimmed.isEmpty { return [trimmed] }
         return [MoneroBalanceService.defaultPublicBackend.baseURL]
     }
-    private var dogecoinEndpointsByNetwork: [AppEndpointGroupedSettingsEntry] { DogecoinBalanceService.endpointCatalogByNetwork() }
+    private var dogecoinEndpointsByNetwork: [AppEndpointGroupedSettingsEntry] { AppEndpointDirectory.groupedSettingsEntries(for: "Dogecoin") }
     private func addBitcoinEndpoint() {
         let trimmed = newBitcoinEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }

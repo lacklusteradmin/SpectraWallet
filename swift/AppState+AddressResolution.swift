@@ -82,7 +82,7 @@ extension AppState {
             for: wallet, chain: chain,
             derivationPath: walletDerivationPath(for: wallet, chain: chain),
             storedAddress: wallet.bitcoinAddress,
-            validationKind: coreAddressValidationKind(chainId: chainID)
+            validationKind: (Chain(id: chainID)?.addressValidationKind ?? "")
         )
     }
 
@@ -95,7 +95,7 @@ extension AppState {
         return resolveDerivedOrStoredAddress(
             for: wallet, chain: chain,
             derivationPath: derivationPath, storedAddress: wallet.dogecoinAddress,
-            validationKind: coreAddressValidationKind(chainId: chainID)
+            validationKind: (Chain(id: chainID)?.addressValidationKind ?? "")
         )
     }
 
