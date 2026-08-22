@@ -26,10 +26,15 @@ func classifySolanaDerivationPreference(
     resolution.flavor == .legacy ? .legacy : .standard
 }
 
+/// What differs between chains when resolving an address.
+///
+/// The key path to the wallet's stored address and the validation kind used to
+/// be columns here too, and both were the row's own key: the address is
+/// `wallet.address(forChainNamed:)` and the kind is
+/// `Chain.addressValidationKind`, which the registry has answered since the
+/// identity table landed. What is left is three flags that genuinely vary.
 private struct ChainAddressDescriptor {
     let chain: Chain
-    let storedAddressKP: KeyPath<ImportedWallet, String?>
-    let validationKind: String
     /// Whether this chain derives from the wallet's configured seed path
     /// rather than from `walletDerivationPath(for:chain:)`. Used to be a
     /// `KeyPath` into a per-chain field on `SeedDerivationPaths`; the paths are
@@ -38,11 +43,11 @@ private struct ChainAddressDescriptor {
     let derivedPostProcess: DerivedAddressPostProcess
     let normalizeStored: Bool
     init(
-        _ chain: Chain, _ addressKP: KeyPath<ImportedWallet, String?>, _ kind: String,
+        _ chain: Chain,
         usesConfiguredSeedPath: Bool = false,
         post: DerivedAddressPostProcess = .none, normalize: Bool = false
     ) {
-        self.chain = chain; self.storedAddressKP = addressKP; self.validationKind = kind
+        self.chain = chain
         self.usesConfiguredSeedPath = usesConfiguredSeedPath
         self.derivedPostProcess = post; self.normalizeStored = normalize
     }
@@ -101,25 +106,25 @@ extension AppState {
 
     private static let addressDescriptors: [Chain: ChainAddressDescriptor] = {
         let all: [ChainAddressDescriptor] = [
-            .init(.tron,            \.tronAddress,        "tron",            usesConfiguredSeedPath: true),
-            .init(.solana,          \.solanaAddress,       "solana"),
-            .init(.sui,             \.suiAddress,          "sui",             normalize: true),
-            .init(.aptos,           \.aptosAddress,        "aptos",           normalize: true),
-            .init(.ton,             \.tonAddress,          "ton",             normalize: true),
-            .init(.icp,\.icpAddress,          "internetComputer",usesConfiguredSeedPath: true, normalize: true),
-            .init(.near,            \.nearAddress,         "near",            post: .lowercase, normalize: true),
-            .init(.polkadot,        \.polkadotAddress,     "polkadot",        usesConfiguredSeedPath: true, post: .trim),
-            .init(.zcash,           \.zcashAddress,        "zcash",           usesConfiguredSeedPath: true),
-            .init(.bitcoinGold,     \.bitcoinGoldAddress,  "bitcoinGold",     usesConfiguredSeedPath: true),
-            .init(.decred,          \.decredAddress,       "decred",          usesConfiguredSeedPath: true),
-            .init(.kaspa,           \.kaspaAddress,        "kaspa",           usesConfiguredSeedPath: true, post: .lowercase, normalize: true),
-            .init(.dash,            \.dashAddress,         "dash",            usesConfiguredSeedPath: true),
-            .init(.bittensor,       \.bittensorAddress,    "bittensor",       usesConfiguredSeedPath: true, post: .trim),
-            .init(.stellar,         \.stellarAddress,      "stellar",         usesConfiguredSeedPath: true, post: .trim),
-            .init(.xrp,             \.xrpAddress,          "xrp"),
-            .init(.litecoin,        \.litecoinAddress,     "litecoin"),
-            .init(.bitcoinCash,     \.bitcoinCashAddress,  "bitcoinCash"),
-            .init(.bitcoinSv,       \.bitcoinSvAddress,    "bitcoinSV"),
+            .init(.tron, usesConfiguredSeedPath: true),
+            .init(.solana),
+            .init(.sui, normalize: true),
+            .init(.aptos, normalize: true),
+            .init(.ton, normalize: true),
+            .init(.icp, usesConfiguredSeedPath: true, normalize: true),
+            .init(.near, post: .lowercase, normalize: true),
+            .init(.polkadot, usesConfiguredSeedPath: true, post: .trim),
+            .init(.zcash, usesConfiguredSeedPath: true),
+            .init(.bitcoinGold, usesConfiguredSeedPath: true),
+            .init(.decred, usesConfiguredSeedPath: true),
+            .init(.kaspa, usesConfiguredSeedPath: true, post: .lowercase, normalize: true),
+            .init(.dash, usesConfiguredSeedPath: true),
+            .init(.bittensor, usesConfiguredSeedPath: true, post: .trim),
+            .init(.stellar, usesConfiguredSeedPath: true, post: .trim),
+            .init(.xrp),
+            .init(.litecoin),
+            .init(.bitcoinCash),
+            .init(.bitcoinSv),
         ]
         return Dictionary(uniqueKeysWithValues: all.map { ($0.chain, $0) })
     }()
@@ -132,8 +137,8 @@ extension AppState {
             : walletDerivationPath(for: wallet, chain: chain)
         return resolveDerivedOrStoredAddress(
             for: wallet, chain: chain, derivationPath: derivationPath,
-            storedAddress: wallet[keyPath: desc.storedAddressKP],
-            validationKind: desc.validationKind,
+            storedAddress: wallet.address(forChainNamed: chain.displayName),
+            validationKind: chain.addressValidationKind,
             derivedPostProcess: desc.derivedPostProcess,
             normalizeStored: desc.normalizeStored
         )

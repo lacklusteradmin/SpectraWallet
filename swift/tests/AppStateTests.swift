@@ -45,7 +45,7 @@ import Foundation
                 tokenStandard: "Native", contractAddress: nil, amount: 2, priceUsd: 3000
             )
             let wallet = ImportedWallet(
-                id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!, name: "Primary ETH", ethereumAddress: "0xabc123",
+                id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!, name: "Primary ETH", addresses: ["Ethereum": "0xabc123"],
                 selectedChain: "Ethereum", holdings: [existingHolding], includeInPortfolioTotal: false
             )
             await store.recordWallet(wallet)
@@ -122,8 +122,8 @@ import Foundation
         func testBitcoinWalletDisplayTitleUsesWalletSpecificNetwork() {
             let store = AppState()
             let wallet = ImportedWallet(
-                name: "BTC Testnet4", networkChainID: "bitcoin-testnet-4", bitcoinAddress: "tb1qexample",
-                selectedChain: "Bitcoin", holdings: []
+                name: "BTC Testnet4", networkChainID: "bitcoin-testnet-4",
+                addresses: ["Bitcoin": "tb1qexample"], selectedChain: "Bitcoin", holdings: []
             )
             XCTAssertEqual(store.displayNetworkName(for: wallet), "Testnet4")
             XCTAssertEqual(store.displayChainTitle(for: wallet), "Bitcoin Testnet4")
@@ -345,7 +345,7 @@ import Foundation
             // load started doing real work.
             let wallet = ImportedWallet(
                 id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!, name: "W",
-                bitcoinAddress: "bc1qexample", selectedChain: "Bitcoin")
+                addresses: ["Bitcoin": "bc1qexample"], selectedChain: "Bitcoin")
             await store.recordWallet(wallet)
             let tx = TransactionRecord(
                 walletID: wallet.id, kind: .send, status: .pending, walletName: "W",
@@ -412,7 +412,7 @@ import Foundation
         func testExportsPlatformSnapshotEnvelopeWithStableFoundationModels() async throws {
             let store = AppState()
             let wallet = ImportedWallet(
-                id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!, name: "Primary ETH", ethereumAddress: "0xabc123",
+                id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!, name: "Primary ETH", addresses: ["Ethereum": "0xabc123"],
                 selectedChain: "Ethereum",
                 holdings: [
                     Coin.makeCustom(

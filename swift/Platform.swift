@@ -90,13 +90,14 @@ private extension String {
 }
 private extension ImportedWallet {
     func makeAddressSnapshots() -> [PlatformWalletAddressSnapshot] {
-        let candidates: [(String, String?)] = [
-            ("Bitcoin", bitcoinAddress), ("Bitcoin Cash", bitcoinCashAddress), ("Bitcoin SV", bitcoinSvAddress),
-            ("Litecoin", litecoinAddress), ("Dogecoin", dogecoinAddress), ("Ethereum", ethereumAddress), ("Tron", tronAddress),
-            ("Solana", solanaAddress), ("Stellar", stellarAddress), ("XRP Ledger", xrpAddress), ("Monero", moneroAddress),
-            ("Cardano", cardanoAddress), ("Sui", suiAddress), ("Aptos", aptosAddress), ("TON", tonAddress),
-            ("Internet Computer", icpAddress), ("NEAR", nearAddress), ("Polkadot", polkadotAddress),
-        ]
+        // Eighteen `(chainName, <chain>Address)` pairs stood here, six short of
+        // the slots the wallet actually has — Zcash, Bitcoin Gold, Decred,
+        // Kaspa, Dash and Bittensor had no snapshot. The chains come from the
+        // registry; `WalletChainID` still filters to the ones the platform
+        // surface knows.
+        let candidates: [(String, String?)] = Chain.all.map {
+            ($0.displayName, address(forChainNamed: $0.displayName))
+        }
         return candidates.compactMap { chainName, address in
             guard let resolvedAddress = address?.platformTrimmedOrNil, let chainID = WalletChainID(chainName) else { return nil }
             return PlatformWalletAddressSnapshot(

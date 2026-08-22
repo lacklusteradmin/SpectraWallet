@@ -28,59 +28,38 @@ struct WalletChainID: Hashable, Codable, Identifiable, Comparable {
     )
 }
 typealias TokenTrackingChain = CoreTokenTrackingChain
-extension CoreTokenTrackingChain: RawRepresentable, CaseIterable, Codable, Identifiable {
-    public typealias RawValue = String
-    // Single source of truth for case↔rawValue mapping. Both init?(rawValue:) and
-    // var rawValue are derived from this table so adding a chain is one edit here.
+// Deliberately **not** `RawRepresentable`, though it has a `rawValue`.
+//
+// `RawRepresentable` supplies default `==` and `hash(into:)` that route through
+// `rawValue`, and those defaults win over the conformance UniFFI generates. That
+// was harmless while `rawValue` was a self-contained switch and fatal the moment
+// it read a table keyed by this enum: `chainByTracking`'s own initializer hashed
+// its keys, which called `rawValue`, which waited on the `dispatch_once` it was
+// inside. The app trapped in `_dispatch_once_wait` before the first frame.
+//
+// Dropping the conformance keeps every `.rawValue` call site working and leaves
+// hashing to the generated `Hashable`.
+extension CoreTokenTrackingChain: CaseIterable, Codable, Identifiable {
+    // The mapping is the registry's. `chain_name` and `from_chain_name` in
+    // `wallet_domain.rs` already collapsed four Rust copies of it into one, and
+    // this file held three more — an eighteen-arm `init?(rawValue:)`, an
+    // eighteen-arm `rawValue` and an eighteen-entry `allCases`, for an enum core
+    // owns. They are a column of `core_chain_identities` now, so adding a chain
+    // that hosts tokens is a registry edit and nothing here changes.
+    private static let chainByTracking: [CoreTokenTrackingChain: Chain] = Dictionary(
+        uniqueKeysWithValues: Chain.all.compactMap { chain in
+            chain.tokenTrackingChain.map { ($0, chain) }
+        })
+    private static let trackingByName: [String: CoreTokenTrackingChain] = Dictionary(
+        uniqueKeysWithValues: chainByTracking.map { ($0.value.displayName, $0.key) })
     public init?(rawValue: String) {
-        switch rawValue {
-        case "Ethereum": self = .ethereum
-        case "Arbitrum": self = .arbitrum
-        case "Optimism": self = .optimism
-        case "BNB Chain": self = .bnb
-        case "Avalanche": self = .avalanche
-        case "Hyperliquid": self = .hyperliquid
-        case "Polygon": self = .polygon
-        case "Base": self = .base
-        case "Linea": self = .linea
-        case "Scroll": self = .scroll
-        case "Blast": self = .blast
-        case "Mantle": self = .mantle
-        case "Solana": self = .solana
-        case "Sui": self = .sui
-        case "Aptos": self = .aptos
-        case "TON": self = .ton
-        case "NEAR": self = .near
-        case "Tron": self = .tron
-        default: return nil
-        }
+        guard let tracking = Self.trackingByName[rawValue] else { return nil }
+        self = tracking
     }
-    public var rawValue: String {
-        switch self {
-        case .ethereum: return "Ethereum"
-        case .arbitrum: return "Arbitrum"
-        case .optimism: return "Optimism"
-        case .bnb: return "BNB Chain"
-        case .avalanche: return "Avalanche"
-        case .hyperliquid: return "Hyperliquid"
-        case .polygon: return "Polygon"
-        case .base: return "Base"
-        case .linea: return "Linea"
-        case .scroll: return "Scroll"
-        case .blast: return "Blast"
-        case .mantle: return "Mantle"
-        case .solana: return "Solana"
-        case .sui: return "Sui"
-        case .aptos: return "Aptos"
-        case .ton: return "TON"
-        case .near: return "NEAR"
-        case .tron: return "Tron"
-        }
-    }
-    public static var allCases: [CoreTokenTrackingChain] {
-        [.ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .polygon, .base, .linea, .scroll, .blast, .mantle,
-         .solana, .sui, .aptos, .ton, .near, .tron]
-    }
+    public var rawValue: String { Self.chainByTracking[self]?.displayName ?? "" }
+    /// In catalog order, which is the order every other chain list in the app
+    /// uses. The hand-written array this replaces had its own ordering.
+    public static var allCases: [CoreTokenTrackingChain] { Chain.all.compactMap(\.tokenTrackingChain) }
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let raw = try container.decode(String.self)

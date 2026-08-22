@@ -66,30 +66,35 @@ extension AppState {
         defer { isLoadingMoreOnChainHistory = false }
         let eligibleWalletIDs = Set(walletIDs.filter(canLoadMoreHistory(for:)))
         let limit = AppState.HistoryPaging.endpointBatchSize
-        // Bitcoin and Dogecoin keep their own fetch (HD xpub expansion, and a
-        // confirmed-fee path); the rest go through the normalized one.
-        for name in ["Bitcoin", "Bitcoin Cash", "Bitcoin SV", "Litecoin", "Dogecoin"]
-        where hasWalletForChain(name) {
-            switch name {
-            case "Bitcoin":
+        // The chains to page are the ones the eligible wallets are on. Three
+        // hand-written lists stood here — five UTXO names, twelve EVM names and
+        // Tron — and `canLoadMoreHistory` says yes for *any* chain the registry
+        // knows whose pagination is not exhausted. So "Load more" was offered
+        // and did nothing on eleven EVM chains (Ethereum Classic, Sei, Celo,
+        // Cronos, opBNB, zkSync Era, Sonic, Berachain, Unichain, Ink, X Layer)
+        // and on every account-based chain: Solana, XRP Ledger, Stellar,
+        // Cardano, Sui, Aptos, TON, Internet Computer, NEAR, Polkadot, Monero
+        // and the rest.
+        //
+        // Bitcoin and Dogecoin keep their own fetch — HD xpub expansion, and a
+        // confirmed-fee path; every EVM chain pages through the token history;
+        // everything else goes through the normalized one, which its own
+        // comment already says covers "any future account-based chain".
+        let chainsToPage = Set(eligibleWalletIDs.compactMap { cachedWalletByID[$0]?.selectedChain })
+        for chain in Chain.all where chainsToPage.contains(chain.displayName) {
+            switch chain {
+            case .bitcoin:
                 await refreshBitcoinTransactions(limit: limit, loadMore: true, targetWalletIDs: eligibleWalletIDs)
-            case "Dogecoin":
+            case .dogecoin:
                 await refreshDogecoinTransactions(limit: limit, loadMore: true, targetWalletIDs: eligibleWalletIDs)
+            case _ where chain.isEVM:
+                await refreshEVMTokenTransactions(
+                    chainName: chain.displayName, maxResults: limit, loadMore: true, targetWalletIDs: eligibleWalletIDs)
             default:
                 await refreshNormalizedTransactions(
-                    chainName: name, loadMore: true, targetWalletIDs: eligibleWalletIDs)
+                    chainName: chain.displayName, loadMore: true, targetWalletIDs: eligibleWalletIDs)
             }
         }
-        // EVM chains all dispatch through `refreshEVMTokenTransactions(chainName:...)`.
-        let evmChainNames = [
-            "Ethereum", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid",
-            "Polygon", "Base", "Linea", "Scroll", "Blast", "Mantle",
-        ]
-        for chainName in evmChainNames where hasWalletForChain(chainName) {
-            await refreshEVMTokenTransactions(
-                chainName: chainName, maxResults: limit, loadMore: true, targetWalletIDs: eligibleWalletIDs)
-        }
-        if hasWalletForChain("Tron") { await refreshNormalizedTransactions(chainName: "Tron", loadMore: true, targetWalletIDs: eligibleWalletIDs) }
     }
 
     // ── Generic normalized refresh (covers BCH, BSV, LTC, XRP, XLM, ADA, DOT,

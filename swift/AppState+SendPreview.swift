@@ -23,6 +23,36 @@ private func evmCustomFeeDTO(_ customFees: EthereumCustomFeeConfiguration?) -> E
 // MARK: - AppState send preview methods
 
 extension AppState {
+    /// Hold one chain's "preview in flight" flag for the duration of `body`,
+    /// coalescing a second request into a single retry afterwards.
+    ///
+    /// The three debounced previews each inlined this, and each also called
+    /// `preparingChains.remove(chainName)` on **every early exit** — including
+    /// the exits that run *before* the flag is set. Those did not clear this
+    /// call's flag, because this call had not set one; they cleared whatever
+    /// call was actually in flight. So a keystroke that made the input
+    /// momentarily invalid dropped the guard protecting a request already on
+    /// the network, and the next keystroke started a second one beside it.
+    ///
+    /// Nothing outside this function touches the flag now, so an early exit
+    /// cannot reach it.
+    private func withSendPreviewInFlight(
+        _ chainName: String, retry: @escaping @MainActor () async -> Void, body: () async -> Void
+    ) async {
+        guard !preparingChains.contains(chainName) else {
+            pendingSendPreviewRefreshChains.insert(chainName)
+            return
+        }
+        preparingChains.insert(chainName)
+        defer {
+            preparingChains.remove(chainName)
+            if pendingSendPreviewRefreshChains.remove(chainName) != nil {
+                Task { @MainActor in await retry() }
+            }
+        }
+        await body()
+    }
+
     func refreshEthereumSendPreview() async {
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, isEVMChain(selectedSendCoin.chainName),
             let fromAddress = resolvedEVMAddress(for: wallet, chainName: selectedSendCoin.chainName), let amount = Double(sendAmount),
@@ -30,13 +60,11 @@ extension AppState {
                 ? amount >= 0 : amount > 0)
         else {
             sendPreviewStore.ethereumSendPreview = nil
-            preparingChains.remove("Ethereum")
             return
         }
         if let customEthereumNonceValidationError = customEthereumNonceValidationError {
             sendError = customEthereumNonceValidationError
             sendPreviewStore.ethereumSendPreview = nil
-            preparingChains.remove("Ethereum")
             return
         }
         let trimmedDestination = sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -50,36 +78,22 @@ extension AppState {
                 do {
                     guard let resolved = try await WalletServiceBridge.shared.resolveENSName(trimmedDestination) else {
                         sendPreviewStore.ethereumSendPreview = nil
-                        preparingChains.remove("Ethereum")
                         return
                     }
                     previewDestination = resolved
                     sendDestinationInfoMessage = "Resolved ENS \(trimmedDestination) to \(resolved)."
                 } catch {
                     sendPreviewStore.ethereumSendPreview = nil
-                    preparingChains.remove("Ethereum")
                     return
                 }
             } else {
                 sendPreviewStore.ethereumSendPreview = nil
-                preparingChains.remove("Ethereum")
                 return
             }
         }
-        guard !preparingChains.contains("Ethereum") else {
-            pendingSendPreviewRefreshChains.insert("Ethereum")
-            return
-        }
-        preparingChains.insert("Ethereum")
-        defer {
-            preparingChains.remove("Ethereum")
-            if pendingSendPreviewRefreshChains.remove("Ethereum") != nil {
-                Task { @MainActor in await self.refreshEthereumSendPreview() }
-            }
-        }
+        await withSendPreviewInFlight("Ethereum", retry: { await self.refreshEthereumSendPreview() }) {
         guard let chainId = Chain(displayName: selectedSendCoin.chainName)?.id else {
             sendPreviewStore.ethereumSendPreview = nil
-            preparingChains.remove("Ethereum")
             return
         }
         do {
@@ -96,7 +110,6 @@ extension AppState {
                     ))
             } catch {
                 sendPreviewStore.ethereumSendPreview = nil
-                preparingChains.remove("Ethereum")
                 return
             }
             let valueWei = assembly.valueWei
@@ -116,41 +129,28 @@ extension AppState {
             sendPreviewStore.ethereumSendPreview = nil
             sendError = "Unable to estimate EVM fee right now. Check RPC and retry."
         }
+        }
     }
     func refreshDogecoinSendPreview() async {
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, selectedSendCoin.chainName == "Dogecoin",
             selectedSendCoin.symbol == "DOGE", let amount = parseDogecoinAmountInput(sendAmount), amount > 0
         else {
             sendPreviewStore.dogecoinSendPreview = nil
-            preparingChains.remove("Dogecoin")
             return
         }
         let trimmedDestination = sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedDestination.isEmpty, !isValidDogecoinAddressForPolicy(trimmedDestination, wallet: wallet)
         {
             sendPreviewStore.dogecoinSendPreview = nil
-            preparingChains.remove("Dogecoin")
             return
         }
         guard storedSeedPhrase(for: wallet.id) != nil else {
             sendPreviewStore.dogecoinSendPreview = nil
-            preparingChains.remove("Dogecoin")
             return
         }
-        guard !preparingChains.contains("Dogecoin") else {
-            pendingSendPreviewRefreshChains.insert("Dogecoin")
-            return
-        }
-        preparingChains.insert("Dogecoin")
-        defer {
-            preparingChains.remove("Dogecoin")
-            if pendingSendPreviewRefreshChains.remove("Dogecoin") != nil {
-                Task { @MainActor in await self.refreshDogecoinSendPreview() }
-            }
-        }
+        await withSendPreviewInFlight("Dogecoin", retry: { await self.refreshDogecoinSendPreview() }) {
         guard let address = resolvedDogecoinAddress(for: wallet) else {
             sendPreviewStore.dogecoinSendPreview = nil
-            preparingChains.remove("Dogecoin")
             return
         }
         do {
@@ -168,6 +168,7 @@ extension AppState {
             if isCancelledRequest(error) { return }
             sendPreviewStore.dogecoinSendPreview = nil
             sendError = "Unable to estimate DOGE fee right now. Check provider health and retry."
+        }
         }
     }
     func refreshBitcoinSendPreview() async {
@@ -263,26 +264,29 @@ extension AppState {
             (selectedSendCoin.symbol == "TRX" || selectedSendCoin.symbol == "USDT"), let amount = Double(sendAmount), amount > 0
         else {
             sendPreviewStore.tronSendPreview = nil
-            preparingChains.remove("Tron")
             return
         }
         guard let sourceAddress = resolvedTronAddress(for: wallet) else {
             sendPreviewStore.tronSendPreview = nil
-            preparingChains.remove("Tron")
             return
         }
-        guard !preparingChains.contains("Tron") else { return }
-        preparingChains.insert("Tron")
-        defer { preparingChains.remove("Tron") }
-        do {
-            sendPreviewStore.tronSendPreview = try await WalletServiceBridge.shared.fetchTronSendPreviewTyped(
-                address: sourceAddress, symbol: selectedSendCoin.symbol, contractAddress: selectedSendCoin.contractAddress ?? ""
-            )
-            sendError = nil
-        } catch {
-            if isCancelledRequest(error) { return }
-            sendPreviewStore.tronSendPreview = nil
-            sendError = "Unable to estimate Tron fee right now. Check provider health and retry."
+        // Tron's guard used to be `guard !contains else { return }` with no
+        // `pendingSendPreviewRefreshChains.insert`, so a request arriving while
+        // one was in flight was dropped rather than retried — the preview then
+        // showed the fee for the previous amount. It coalesces like the other
+        // two now.
+        await withSendPreviewInFlight("Tron", retry: { await self.refreshTronSendPreview() }) {
+            do {
+                sendPreviewStore.tronSendPreview = try await WalletServiceBridge.shared.fetchTronSendPreviewTyped(
+                    address: sourceAddress, symbol: selectedSendCoin.symbol,
+                    contractAddress: selectedSendCoin.contractAddress ?? ""
+                )
+                sendError = nil
+            } catch {
+                if isCancelledRequest(error) { return }
+                sendPreviewStore.tronSendPreview = nil
+                sendError = "Unable to estimate Tron fee right now. Check provider health and retry."
+            }
         }
     }
     // Simple-chain dispatch: Rust owns per-chain defaults (fee raw parsing, priorityLabel,

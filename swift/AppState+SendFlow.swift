@@ -332,53 +332,82 @@ extension AppState {
     func confirmHighRiskSendAndSubmit() async {
         bypassHighRiskSendConfirmation = true; isShowingHighRiskSendConfirmation = false; await submitSend()
     }
+    /// What the address field says for a chain: how a valid address looks while
+    /// the field is empty, and what to fix once it does not parse.
+    ///
+    /// One table rather than the two fourteen-arm switches this replaces, which
+    /// said the same fourteen things in a different tense. Keyed by chain name
+    /// because the sentences are about a chain's address format, and that is
+    /// content rather than a registry fact — what the registry decides is
+    /// membership, which is why the EVM family is one arm below rather than
+    /// twenty-three rows here.
+    ///
+    /// **Ten mainnets have no entry** and fall back to the generic form:
+    /// Bitcoin Cash, Bitcoin SV, Litecoin, Internet Computer, Zcash, Bitcoin
+    /// Gold, Decred, Kaspa, Dash and Bittensor. Writing those needs copy in
+    /// four locales, so it is a content gap recorded in `PLAN.md` rather than
+    /// something to invent here — but it is one list now instead of two.
+    private static let addressFormatHints: [String: (empty: String, invalid: String)] = [
+        "Bitcoin": (
+            "Enter a Bitcoin address valid for the selected Bitcoin network mode.",
+            "Enter a valid Bitcoin address for the selected Bitcoin network mode."),
+        "Dogecoin": (
+            "Dogecoin addresses usually start with D, A, or 9.",
+            "Enter a valid Dogecoin address beginning with D, A, or 9."),
+        "Tron": (
+            "Tron addresses usually start with T and are Base58 encoded.",
+            "Enter a valid Tron address (starts with T)."),
+        "Solana": (
+            "Solana addresses are Base58 encoded and typically 32-44 characters.",
+            "Enter a valid Solana address (Base58 format)."),
+        "Cardano": (
+            "Cardano addresses typically start with addr1 and use bech32 format.",
+            "Enter a valid Cardano address (starts with addr1)."),
+        "XRP Ledger": (
+            "XRP Ledger addresses start with r and are Base58 encoded.",
+            "Enter a valid XRP address (starts with r)."),
+        "Stellar": (
+            "Stellar addresses start with G and are StrKey encoded.",
+            "Enter a valid Stellar address (starts with G)."),
+        "Monero": (
+            "Monero addresses are Base58 encoded and usually start with 4 or 8.",
+            "Enter a valid Monero address (starts with 4 or 8)."),
+        "TON": (
+            "TON addresses are usually user-friendly strings like UQ... or raw 0:<hex> addresses.",
+            "Enter a valid TON address."),
+        "NEAR": (
+            "NEAR addresses can be named accounts or 64-character implicit account IDs.",
+            "Enter a valid NEAR account ID or implicit address."),
+        "Polkadot": (
+            "Polkadot addresses use SS58 encoding and usually start with 1.",
+            "Enter a valid Polkadot SS58 address."),
+    ]
+
     func addressBookAddressValidationMessage(for address: String, chainName: String) -> String {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         let isEmpty = trimmed.isEmpty
         let isValid = !isEmpty && isValidAddress(trimmed, for: chainName)
-        if isEmpty {
-            switch chainName {
-            case "Bitcoin": return localizedStoreString("Enter a Bitcoin address valid for the selected Bitcoin network mode.")
-            case "Dogecoin": return localizedStoreString("Dogecoin addresses usually start with D, A, or 9.")
-            // One arm for the whole family. Thirteen names stood here and the
-            // other ten EVM mainnets got "Enter an address for the selected
-            // chain." Ethereum had a message of its own; the `%@` form says the
-            // same thing and says it for every chain in the family.
-            case let name where Chain(displayName: name)?.isEVM == true:
-                return localizedStoreFormat("%@ addresses use EVM format (0x + 40 hex characters).", chainName)
-            case "Tron": return localizedStoreString("Tron addresses usually start with T and are Base58 encoded.")
-            case "Solana": return localizedStoreString("Solana addresses are Base58 encoded and typically 32-44 characters.")
-            case "Cardano": return localizedStoreString("Cardano addresses typically start with addr1 and use bech32 format.")
-            case "XRP Ledger": return localizedStoreString("XRP Ledger addresses start with r and are Base58 encoded.")
-            case "Stellar": return localizedStoreString("Stellar addresses start with G and are StrKey encoded.")
-            case "Monero": return localizedStoreString("Monero addresses are Base58 encoded and usually start with 4 or 8.")
-            case "Sui", "Aptos": return localizedStoreFormat("%@ addresses are hex and typically start with 0x.", chainName)
-            case "TON": return localizedStoreString("TON addresses are usually user-friendly strings like UQ... or raw 0:<hex> addresses.")
-            case "NEAR": return localizedStoreString("NEAR addresses can be named accounts or 64-character implicit account IDs.")
-            case "Polkadot": return localizedStoreString("Polkadot addresses use SS58 encoding and usually start with 1.")
-            default: return localizedStoreString("Enter an address for the selected chain.")
-            }
+        if !isEmpty, isValid { return localizedStoreFormat("Valid %@ address.", chainName) }
+
+        if let hint = Self.addressFormatHints[chainName] {
+            return localizedStoreString(isEmpty ? hint.empty : hint.invalid)
         }
-        if isValid {
-            return localizedStoreFormat("Valid %@ address.", chainName)
+        // One arm for the whole family. Thirteen names stood here and the other
+        // ten EVM mainnets got the generic message; membership is the
+        // registry's.
+        if Chain(displayName: chainName)?.isEVM == true {
+            return isEmpty
+                ? localizedStoreFormat("%@ addresses use EVM format (0x + 40 hex characters).", chainName)
+                : localizedStoreFormat("Enter a valid %@ address (0x + 40 hex characters).", chainName)
         }
-        switch chainName {
-        case "Bitcoin": return localizedStoreString("Enter a valid Bitcoin address for the selected Bitcoin network mode.")
-        case "Dogecoin": return localizedStoreString("Enter a valid Dogecoin address beginning with D, A, or 9.")
-        case let name where Chain(displayName: name)?.isEVM == true:
-            return localizedStoreFormat("Enter a valid %@ address (0x + 40 hex characters).", chainName)
-        case "Tron": return localizedStoreString("Enter a valid Tron address (starts with T).")
-        case "Solana": return localizedStoreString("Enter a valid Solana address (Base58 format).")
-        case "Cardano": return localizedStoreString("Enter a valid Cardano address (starts with addr1).")
-        case "XRP Ledger": return localizedStoreString("Enter a valid XRP address (starts with r).")
-        case "Stellar": return localizedStoreString("Enter a valid Stellar address (starts with G).")
-        case "Monero": return localizedStoreString("Enter a valid Monero address (starts with 4 or 8).")
-        case "Sui", "Aptos": return localizedStoreFormat("Enter a valid %@ address (starts with 0x).", chainName)
-        case "TON": return localizedStoreString("Enter a valid TON address.")
-        case "NEAR": return localizedStoreString("Enter a valid NEAR account ID or implicit address.")
-        case "Polkadot": return localizedStoreString("Enter a valid Polkadot SS58 address.")
-        default: return localizedStoreFormat("Enter a valid %@ address.", chainName)
+        if chainName == "Sui" || chainName == "Aptos" {
+            return isEmpty
+                ? localizedStoreFormat("%@ addresses are hex and typically start with 0x.", chainName)
+                : localizedStoreFormat("Enter a valid %@ address (starts with 0x).", chainName)
         }
+        return isEmpty
+            ? localizedStoreString("Enter an address for the selected chain.")
+            : localizedStoreFormat("Enter a valid %@ address.", chainName)
     }
     func isDuplicateAddressBookAddress(_ address: String, chainName: String, excluding entryID: String? = nil) -> Bool {
         let normalized = normalizedAddress(address, for: chainName)
@@ -929,35 +958,23 @@ extension AppState {
         }
         return address
     }
+    /// Whether this address has ever been used on chain.
+    ///
+    /// Three arms before, and they asked different questions. Bitcoin asked
+    /// "any UTXOs, or any confirmed balance" and never looked at history;
+    /// Bitcoin Cash, Bitcoin SV, Litecoin and Dogecoin asked "any balance, or
+    /// any history" and never looked at the UTXO count. It is one question —
+    /// see "a used Bitcoin receive address" under "Behaviour changed on
+    /// purpose" — and `supports_deep_utxo_discovery` is the chain set, which
+    /// brings the testnets in with their mainnets.
     func hasUTXOOnChainActivity(address: String, chainName: String) async -> Bool {
-        switch chainName {
-        case "Bitcoin":
-            if let summary = try? await WalletServiceBridge.shared.fetchNativeBalanceSummary(chainId: Chain.bitcoin.id, address: address) {
-                let confirmedSats = UInt64(summary.smallestUnit) ?? 0
-                if summary.utxoCount > 0 || confirmedSats > 0 { return true }
-            }
-        case "Bitcoin Cash", "Bitcoin SV", "Litecoin":
-            guard let chainId = Chain(displayName: chainName)?.id else { return false }
-            if let summary = try? await WalletServiceBridge.shared.fetchNativeBalanceSummary(chainId: chainId, address: address),
-                let sat = UInt64(summary.smallestUnit), sat > 0
-            {
-                return true
-            }
-            if (try? await WalletServiceBridge.shared.fetchHistoryHasActivity(chainId: chainId, address: address)) == true {
-                return true
-            }
-        case "Dogecoin":
-            if let summary = try? await WalletServiceBridge.shared.fetchNativeBalanceSummary(chainId: Chain.dogecoin.id, address: address),
-                let koin = UInt64(summary.smallestUnit), koin > 0
-            {
-                return true
-            }
-            if (try? await WalletServiceBridge.shared.fetchHistoryHasActivity(chainId: Chain.dogecoin.id, address: address)) == true {
-                return true
-            }
-        default: return false
+        guard let chain = Chain(displayName: chainName), chain.supportsDeepUTXODiscovery else { return false }
+        if let summary = try? await WalletServiceBridge.shared.fetchNativeBalanceSummary(
+            chainId: chain.id, address: address)
+        {
+            if summary.utxoCount > 0 || (UInt64(summary.smallestUnit) ?? 0) > 0 { return true }
         }
-        return false
+        return (try? await WalletServiceBridge.shared.fetchHistoryHasActivity(chainId: chain.id, address: address)) == true
     }
     func knownUTXOAddresses(for wallet: ImportedWallet, chainName: String) async -> [String] {
         var ordered: [String] = []; var seen: Set<String> = []
@@ -967,14 +984,11 @@ extension AppState {
             guard isValidUTXOAddressForPolicy(trimmed, chainName: chainName), seen.insert(trimmed.lowercased()).inserted else { return }
             ordered.append(trimmed)
         }
-        switch chainName {
-        case "Bitcoin": appendAddress(wallet.bitcoinAddress)
-        case "Bitcoin Cash": appendAddress(wallet.bitcoinCashAddress)
-        case "Bitcoin SV": appendAddress(wallet.bitcoinSvAddress)
-        case "Litecoin": appendAddress(wallet.litecoinAddress)
-        case "Dogecoin": appendAddress(wallet.dogecoinAddress)
-        default: break
-        }
+        // The stored address for this chain, which may differ from the derived
+        // one below. Five arms picked between five of the `wallet.<chain>Address`
+        // shims by name; `address(forChainNamed:)` is that lookup, and it keys
+        // on the registry's slot rather than on a list.
+        appendAddress(wallet.address(forChainNamed: chainName))
         appendAddress(resolvedAddress(for: wallet, chainName: chainName))
         appendAddress(await reservedReceiveAddress(for: wallet, chainName: chainName, reserveIfMissing: false))
         for transaction in transactions where transaction.chainName == chainName && transaction.walletID == wallet.id {

@@ -177,24 +177,13 @@ extension AppState {
         Task { try? await WalletServiceBridge.shared.clearOperationalEvents(chainName: nil) }
         selfTests = [:]
         diagnostics.clearOperationalLogs()
-        for kp: ReferenceWritableKeyPath<AppState, Bool> in [
-            \.[historyRunFor: "Dogecoin"].isRunning, \.self[endpointHealthFor: "Dogecoin"].isChecking,
-            \.[historyRunFor: "Ethereum"].isRunning, \.self[endpointHealthFor: "Ethereum"].isChecking,
-            \.[historyRunFor: "Arbitrum"].isRunning, \.self[endpointHealthFor: "Arbitrum"].isChecking,
-            \.[historyRunFor: "Optimism"].isRunning, \.self[endpointHealthFor: "Optimism"].isChecking,
-            \.[historyRunFor: "Ethereum Classic"].isRunning, \.self[endpointHealthFor: "Ethereum Classic"].isChecking,
-            \.[historyRunFor: "BNB Chain"].isRunning, \.self[endpointHealthFor: "BNB Chain"].isChecking,
-            \.[historyRunFor: "Avalanche"].isRunning, \.self[endpointHealthFor: "Avalanche"].isChecking,
-            \.[historyRunFor: "Hyperliquid"].isRunning, \.self[endpointHealthFor: "Hyperliquid"].isChecking,
-            \.[historyRunFor: "Tron"].isRunning, \.self[endpointHealthFor: "Tron"].isChecking,
-            \.[historyRunFor: "Solana"].isRunning, \.self[endpointHealthFor: "Solana"].isChecking,
-            \.[historyRunFor: "XRP Ledger"].isRunning, \.self[endpointHealthFor: "XRP Ledger"].isChecking,
-            \.[historyRunFor: "Monero"].isRunning, \.self[endpointHealthFor: "Monero"].isChecking,
-            \.[historyRunFor: "Sui"].isRunning, \.self[endpointHealthFor: "Sui"].isChecking,
-            \.[historyRunFor: "Cardano"].isRunning, \.self[endpointHealthFor: "Cardano"].isChecking,
-            \.[historyRunFor: "Bitcoin"].isRunning, \.self[endpointHealthFor: "Bitcoin"].isChecking,
-            \.[historyRunFor: "Litecoin"].isRunning, \.self[endpointHealthFor: "Litecoin"].isChecking,
-        ] { self[keyPath: kp] = false }
+        // A thirty-two entry key-path list stood here setting `isRunning` and
+        // `isChecking` to false on sixteen named chains — two lines *after*
+        // `historyRunByChain` and `endpointHealthByChain` were emptied. Both
+        // subscripts insert a default row on write, so the loop did not clear
+        // anything: it put sixteen default rows back into maps the reset had
+        // just emptied. Deleting it resets more, not less, and for every chain
+        // rather than the sixteen someone last remembered.
         isLoadingMoreOnChainHistory = false
         tronLastSendErrorDetails = nil
         tronLastSendErrorAt = nil
@@ -208,16 +197,8 @@ extension AppState {
         lastChainBalanceRefreshAt = nil
         lastHistoryRefreshAtByChain = [:]
         lastObservedPortfolioTotalUSD = nil
-        self[rescanFor: "Bitcoin"].isRunning = false
-        self[rescanFor: "Bitcoin"].lastRunAt = nil
-        self[rescanFor: "Bitcoin Cash"].isRunning = false
-        self[rescanFor: "Bitcoin Cash"].lastRunAt = nil
-        self[rescanFor: "Bitcoin SV"].isRunning = false
-        self[rescanFor: "Bitcoin SV"].lastRunAt = nil
-        self[rescanFor: "Litecoin"].isRunning = false
-        self[rescanFor: "Litecoin"].lastRunAt = nil
-        self[rescanFor: "Dogecoin"].isRunning = false
-        self[rescanFor: "Dogecoin"].lastRunAt = nil
+        // Ten lines naming the five UTXO chains, which is the map itself.
+        utxoRescanStateByChain = [:]
         await rebuildNormalizedHistoryIndex()
     }
     private func resetAlertsAndContactsState() {

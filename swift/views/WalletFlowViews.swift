@@ -238,13 +238,13 @@ struct WalletDetailView: View {
         }
         return DetailPresentation(
             wallet: wallet, nonZeroAssetCount: visibleHoldings.count,
-            walletAddress: [
-                wallet.bitcoinAddress, wallet.bitcoinCashAddress, wallet.litecoinAddress, wallet.dogecoinAddress, wallet.ethereumAddress,
-                wallet.tronAddress, wallet.solanaAddress, wallet.xrpAddress, wallet.moneroAddress, wallet.cardanoAddress, wallet.suiAddress,
-                wallet.aptosAddress, wallet.tonAddress, wallet.nearAddress, wallet.polkadotAddress, wallet.stellarAddress,
-            ]
-            .compactMap { $0 }
-            .first, derivationPathsText: derivationPathsText(for: wallet),
+            // A wallet is on one chain, so its address is that chain's. Sixteen
+            // shims listed here and `.compactMap { $0 }.first` picked whichever
+            // came back first, which is "prefer Bitcoin, then Bitcoin Cash, …"
+            // dressed as a fallback — and eight chains were not in the list at
+            // all, so a Zcash or TON wallet showed no address.
+            walletAddress: wallet.address(forChainNamed: wallet.selectedChain),
+            derivationPathsText: derivationPathsText(for: wallet),
             walletBadge: Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, .mint),
             visibleHoldingPresentations: holdingPresentations,
             walletTotalValueText: store.preferences.hideBalances

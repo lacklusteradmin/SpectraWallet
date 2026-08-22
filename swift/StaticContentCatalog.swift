@@ -374,30 +374,18 @@ struct EndpointsContentCopy: Decodable {
         StaticContentCatalog.loadRequiredResource("EndpointsContent", as: EndpointsContentCopy.self)
     }
 }
+/// The token-tracking chain a name or id stands for.
+///
+/// Eighteen arms plus a fallback that repeated the same lookup — the fourth
+/// Swift copy of a mapping `CoreTokenTrackingChain::from_chain_name` owns, and
+/// the one core's own doc comment names. The registry answers both spellings:
+/// `"bnb"` is BNB Chain's catalog id, which is why that arm existed and why it
+/// does not need to be written down.
 private func tokenTrackingChainFor(_ value: String) -> TokenTrackingChain? {
     let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    switch normalized {
-    case "ethereum": return .ethereum
-    case "arbitrum": return .arbitrum
-    case "optimism": return .optimism
-    case "bnb", "bnb chain": return .bnb
-    case "avalanche": return .avalanche
-    case "hyperliquid": return .hyperliquid
-    case "polygon": return .polygon
-    case "base": return .base
-    case "linea": return .linea
-    case "scroll": return .scroll
-    case "blast": return .blast
-    case "mantle": return .mantle
-    case "solana": return .solana
-    case "sui": return .sui
-    case "aptos": return .aptos
-    case "ton": return .ton
-    case "near": return .near
-    case "tron": return .tron
-    default:
-        return TokenTrackingChain.allCases.first { $0.rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() == normalized }
-    }
+    guard !normalized.isEmpty else { return nil }
+    let chain = Chain(id: normalized) ?? Chain.all.first { $0.displayName.lowercased() == normalized }
+    return chain?.tokenTrackingChain
 }
 extension ChainTokenRegistryEntry {
     static let builtIn: [ChainTokenRegistryEntry] = {

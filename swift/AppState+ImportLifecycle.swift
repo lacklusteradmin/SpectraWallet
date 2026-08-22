@@ -95,23 +95,12 @@ extension AppState {
             guard let candidate else { return }
             candidateAddresses.append(candidate)
         }
-        appendAddress(wallet.bitcoinAddress)
-        appendAddress(wallet.bitcoinCashAddress)
-        appendAddress(wallet.bitcoinSvAddress)
-        appendAddress(wallet.litecoinAddress)
-        appendAddress(wallet.dogecoinAddress)
-        appendAddress(wallet.ethereumAddress)
-        appendAddress(wallet.tronAddress)
-        appendAddress(wallet.solanaAddress)
-        appendAddress(wallet.stellarAddress)
-        appendAddress(wallet.xrpAddress)
-        appendAddress(wallet.moneroAddress)
-        appendAddress(wallet.cardanoAddress)
-        appendAddress(wallet.suiAddress)
-        appendAddress(wallet.aptosAddress)
-        appendAddress(wallet.icpAddress)
-        appendAddress(wallet.nearAddress)
-        appendAddress(wallet.polkadotAddress)
+        // Every address the wallet has stored, in catalog order. Seventeen
+        // `appendAddress(wallet.<chain>Address)` lines stood here and they were
+        // seven short of the twenty-four slots: TON, Zcash, Bitcoin Gold,
+        // Decred, Kaspa, Dash and Bittensor were missing, so a stored address on
+        // any of them was not counted as the wallet's own.
+        for chain in Chain.all { appendAddress(wallet.address(forChainNamed: chain.displayName)) }
         appendAddress(resolvedBitcoinCashAddress(for: wallet))
         appendAddress(resolvedBitcoinSVAddress(for: wallet))
         appendAddress(resolvedLitecoinAddress(for: wallet))

@@ -125,22 +125,18 @@ extension AppState {
                 (try? await activateLiveReceiveAddress(receiveEVMAddress(for: evmAddress), for: wallet, chainName: receiveCoin.chainName)) ?? ""
             return
         }
-        let liveResolvers: [(String, (ImportedWallet) -> String?)] = [
-            ("Tron", { self.resolvedTronAddress(for: $0) }), ("Solana", { self.resolvedSolanaAddress(for: $0) }),
-            ("Cardano", { self.resolvedCardanoAddress(for: $0) }), ("XRP Ledger", { self.resolvedXRPAddress(for: $0) }),
-            ("Stellar", { self.resolvedStellarAddress(for: $0) }), ("Monero", { self.resolvedMoneroAddress(for: $0) }),
-            ("Sui", { self.resolvedSuiAddress(for: $0) }), ("Aptos", { self.resolvedAptosAddress(for: $0) }),
-            ("TON", { self.resolvedTONAddress(for: $0) }), ("Internet Computer", { self.resolvedICPAddress(for: $0) }),
-            ("NEAR", { self.resolvedNearAddress(for: $0) }), ("Polkadot", { self.resolvedPolkadotAddress(for: $0) }),
-            ("Zcash", { self.resolvedZcashAddress(for: $0) }),
-            ("Bitcoin Gold", { self.resolvedBitcoinGoldAddress(for: $0) }),
-            ("Decred", { self.resolvedDecredAddress(for: $0) }),
-            ("Kaspa", { self.resolvedKaspaAddress(for: $0) }),
-            ("Dash", { self.resolvedDashAddress(for: $0) }),
-            ("Bittensor", { self.resolvedBittensorAddress(for: $0) }),
-        ]
-        for (chainName, resolver) in liveResolvers where receiveCoin.chainName == chainName {
-            receiveResolvedAddress = await activateLiveReceiveAddress(resolver(wallet), for: wallet, chainName: chainName)
+        // Eighteen `(chainName, resolvedXAddress)` pairs stood here and a linear
+        // scan picked the one matching the coin's chain — which is
+        // `resolvedAddress(for:chainName:)`, the function that already states
+        // the four exceptions (Bitcoin and Dogecoin pick their derivation chain
+        // from the selected network, Cardano prefers a stored address, Monero
+        // only ever has one). The EVM family returned above; what is left is
+        // the UTXO five, which reserve a receive index below, and everything
+        // else, which resolves.
+        if let chain = Chain(displayName: receiveCoin.chainName), !chain.supportsDeepUTXODiscovery {
+            receiveResolvedAddress = await activateLiveReceiveAddress(
+                resolvedAddress(for: wallet, chainName: receiveCoin.chainName),
+                for: wallet, chainName: receiveCoin.chainName)
             return
         }
         guard receiveCoin.symbol == "BTC" else {

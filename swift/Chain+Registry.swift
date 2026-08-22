@@ -70,6 +70,8 @@ extension Chain: Identifiable {
     var supportsWatchOnlyImport: Bool { identity?.supportsWatchOnlyImport ?? false }
     /// The chain has protocol-native staking the staking tab can drive.
     var supportsStaking: Bool { identity?.supportsStaking ?? false }
+    /// Which `TokenTrackingChain` this chain is, if it can host tracked tokens.
+    var tokenTrackingChain: TokenTrackingChain? { identity?.tokenTrackingChain }
     var sendExecutionShape: SendExecutionShape? { identity?.sendExecutionShape }
     var pendingStatusPoll: PendingStatusPoll? { identity?.pendingStatusPoll }
     /// Which chain's derivation path this chain reuses, as a display name.

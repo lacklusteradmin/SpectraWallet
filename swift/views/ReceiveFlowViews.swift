@@ -429,40 +429,18 @@ private struct WalletReceiveCard: View {
         .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 22))
     }
 
+    /// The address stored for the wallet's own chain.
+    ///
+    /// A twenty-four arm switch stood here picking between the
+    /// `wallet.<chain>Address` shims by name, with a twenty-three name EVM arm
+    /// reading `ethereumAddress`. `address(forChainNamed:)` is that lookup, and
+    /// it keys on `Chain.addressSlot` — which folds the EVM family onto
+    /// Ethereum's slot without the list, and reads Ethereum Classic's own slot,
+    /// which the EVM arm could not.
     private func walletStaticAddress(for wallet: ImportedWallet) -> String? {
-        let raw: String?
-        switch wallet.selectedChain {
-        case "Bitcoin": raw = wallet.bitcoinAddress
-        case "Bitcoin Cash": raw = wallet.bitcoinCashAddress
-        case "Bitcoin SV": raw = wallet.bitcoinSvAddress
-        case "Litecoin": raw = wallet.litecoinAddress
-        case "Dogecoin": raw = wallet.dogecoinAddress
-        case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain",
-             "Avalanche", "Hyperliquid", "Polygon", "Base", "Linea", "Scroll",
-             "Blast", "Mantle", "Sei", "Celo", "Cronos", "opBNB", "zkSync Era",
-             "Sonic", "Berachain", "Unichain", "Ink", "X Layer":
-            raw = wallet.ethereumAddress
-        case "Tron": raw = wallet.tronAddress
-        case "Solana": raw = wallet.solanaAddress
-        case "XRP Ledger": raw = wallet.xrpAddress
-        case "Stellar": raw = wallet.stellarAddress
-        case "Monero": raw = wallet.moneroAddress
-        case "Cardano": raw = wallet.cardanoAddress
-        case "Sui": raw = wallet.suiAddress
-        case "Aptos": raw = wallet.aptosAddress
-        case "TON": raw = wallet.tonAddress
-        case "Internet Computer": raw = wallet.icpAddress
-        case "NEAR": raw = wallet.nearAddress
-        case "Polkadot": raw = wallet.polkadotAddress
-        case "Zcash": raw = wallet.zcashAddress
-        case "Bitcoin Gold": raw = wallet.bitcoinGoldAddress
-        case "Decred": raw = wallet.decredAddress
-        case "Kaspa": raw = wallet.kaspaAddress
-        case "Dash": raw = wallet.dashAddress
-        case "Bittensor": raw = wallet.bittensorAddress
-        default: raw = nil
-        }
-        let trimmed = raw?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        let trimmed =
+            wallet.address(forChainNamed: wallet.selectedChain)?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
     }
 }

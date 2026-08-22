@@ -120,35 +120,29 @@ extension CoreImportedWallet {
         return copy
     }
 
-    // MARK: Per-chain accessors (compatibility shim)
+    // MARK: The five chains read by name
     //
-    // `addresses` is the storage. These read through it so the ~300 existing
-    // `wallet.<chain>Address` call sites keep working. New code should call
-    // `address(forChainNamed:)`; a new chain needs no entry here.
+    // Twenty-four of these existed, "so the ~150 existing
+    // `wallet.<chain>Address` call sites keep working" — and this document
+    // declined to remove them on that trade, because rewriting 150 readable
+    // reads into `address(forChainNamed:)` improves a metric and not the code.
+    //
+    // What changed is that most of those call sites were not reads. They were
+    // switches *picking between* the shims by chain name — in the receive view,
+    // the receive flow, `knownUTXOAddresses`, `knownOwnedAddresses`, the wallet
+    // detail row and the address-resolution descriptor table — and every one of
+    // them is `address(forChainNamed:)` with the name it already had. Those are
+    // gone, and with them nineteen shims that had no reader left.
+    //
+    // These five remain because something genuinely reads them for that chain:
+    // Bitcoin falls back to its account xpub, Dogecoin has a watch address,
+    // Ethereum backs the EVM family, and Cardano and Monero prefer a stored
+    // address to a derived one.
     var bitcoinAddress: String? { address(forChainNamed: "Bitcoin") }
-    var bitcoinCashAddress: String? { address(forChainNamed: "Bitcoin Cash") }
-    var bitcoinSvAddress: String? { address(forChainNamed: "Bitcoin SV") }
-    var litecoinAddress: String? { address(forChainNamed: "Litecoin") }
     var dogecoinAddress: String? { address(forChainNamed: "Dogecoin") }
     var ethereumAddress: String? { address(forChainNamed: "Ethereum") }
-    var tronAddress: String? { address(forChainNamed: "Tron") }
-    var solanaAddress: String? { address(forChainNamed: "Solana") }
-    var stellarAddress: String? { address(forChainNamed: "Stellar") }
-    var xrpAddress: String? { address(forChainNamed: "XRP Ledger") }
     var moneroAddress: String? { address(forChainNamed: "Monero") }
     var cardanoAddress: String? { address(forChainNamed: "Cardano") }
-    var suiAddress: String? { address(forChainNamed: "Sui") }
-    var aptosAddress: String? { address(forChainNamed: "Aptos") }
-    var tonAddress: String? { address(forChainNamed: "TON") }
-    var icpAddress: String? { address(forChainNamed: "Internet Computer") }
-    var nearAddress: String? { address(forChainNamed: "NEAR") }
-    var polkadotAddress: String? { address(forChainNamed: "Polkadot") }
-    var zcashAddress: String? { address(forChainNamed: "Zcash") }
-    var bitcoinGoldAddress: String? { address(forChainNamed: "Bitcoin Gold") }
-    var decredAddress: String? { address(forChainNamed: "Decred") }
-    var kaspaAddress: String? { address(forChainNamed: "Kaspa") }
-    var dashAddress: String? { address(forChainNamed: "Dash") }
-    var bittensorAddress: String? { address(forChainNamed: "Bittensor") }
 
     /// The authoritative model this view model was rendered from.
     ///
@@ -161,36 +155,20 @@ extension CoreImportedWallet {
     /// Convenience initializer that defaults every field a caller doesn't set.
     ///
     /// `CoreImportedWallet` is a UniFFI record, so its generated memberwise
-    /// init has no defaults. Per-chain arguments are folded into `addresses`.
+    /// init has no defaults.
+    ///
+    /// Twenty-four per-chain arguments used to sit here — `bitcoinAddress:`,
+    /// `bitcoinCashAddress:`, one per chain — folded into `addresses` by a
+    /// twenty-four row table naming each chain a second time. Between them they
+    /// served two call sites, both tests, and both passed exactly one address.
+    /// `addresses` takes the table directly; a caller with one address writes
+    /// one entry.
     init(
         id: UUID = UUID(),
         name: String,
         networkChainID: String? = nil,
-        bitcoinAddress: String? = nil,
+        addresses: [String: String?] = [:],
         bitcoinXpub: String? = nil,
-        bitcoinCashAddress: String? = nil,
-        bitcoinSvAddress: String? = nil,
-        litecoinAddress: String? = nil,
-        dogecoinAddress: String? = nil,
-        ethereumAddress: String? = nil,
-        tronAddress: String? = nil,
-        solanaAddress: String? = nil,
-        stellarAddress: String? = nil,
-        xrpAddress: String? = nil,
-        moneroAddress: String? = nil,
-        cardanoAddress: String? = nil,
-        suiAddress: String? = nil,
-        aptosAddress: String? = nil,
-        tonAddress: String? = nil,
-        icpAddress: String? = nil,
-        nearAddress: String? = nil,
-        polkadotAddress: String? = nil,
-        zcashAddress: String? = nil,
-        bitcoinGoldAddress: String? = nil,
-        decredAddress: String? = nil,
-        kaspaAddress: String? = nil,
-        dashAddress: String? = nil,
-        bittensorAddress: String? = nil,
         seedDerivationPreset: CoreSeedDerivationPreset = .standard,
         seedDerivationPaths: CoreSeedDerivationPaths? = nil,
         derivationOverrides: CoreWalletDerivationOverrides = .empty,
@@ -200,32 +178,7 @@ extension CoreImportedWallet {
     ) {
         self.init(
             id: id.uuidString, name: name, networkChainId: networkChainID,
-            addresses: CoreImportedWallet.addressMap([
-                "Bitcoin": bitcoinAddress,
-                "Bitcoin Cash": bitcoinCashAddress,
-                "Bitcoin SV": bitcoinSvAddress,
-                "Litecoin": litecoinAddress,
-                "Dogecoin": dogecoinAddress,
-                "Ethereum": ethereumAddress,
-                "Tron": tronAddress,
-                "Solana": solanaAddress,
-                "Stellar": stellarAddress,
-                "XRP Ledger": xrpAddress,
-                "Monero": moneroAddress,
-                "Cardano": cardanoAddress,
-                "Sui": suiAddress,
-                "Aptos": aptosAddress,
-                "TON": tonAddress,
-                "Internet Computer": icpAddress,
-                "NEAR": nearAddress,
-                "Polkadot": polkadotAddress,
-                "Zcash": zcashAddress,
-                "Bitcoin Gold": bitcoinGoldAddress,
-                "Decred": decredAddress,
-                "Kaspa": kaspaAddress,
-                "Dash": dashAddress,
-                "Bittensor": bittensorAddress,
-            ]),
+            addresses: CoreImportedWallet.addressMap(addresses),
             bitcoinXpub: bitcoinXpub,
             seedDerivationPreset: seedDerivationPreset,
             seedDerivationPaths: seedDerivationPaths ?? .applyingPreset(seedDerivationPreset),
