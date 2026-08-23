@@ -35,11 +35,6 @@ extension AppState {
         if let storedAssetDisplayDecimalsByChain = loadAssetDisplayDecimalsByChain() {
             assetDisplayDecimalsByChain = storedAssetDisplayDecimalsByChain
         }
-        if let storedFeePrioritySelections = UserDefaults.standard.dictionary(forKey: Self.selectedFeePriorityOptionsByChainDefaultsKey)
-            as? [String: String]
-        {
-            selectedFeePriorityOptionRawByChain = storedFeePrioritySelections
-        }
         // Pinned dashboard assets are a core setting now; they arrive with
         // the rest of `CoreAppState`. The UserDefaults key they used to be
         // seeded from has had no writer since that move.
@@ -146,7 +141,8 @@ extension AppState {
         lastSendDestinationProbeInfoMessage = nil
         cachedResolvedENSAddresses = [:]
         bypassHighRiskSendConfirmation = false
-        Task { try? await WalletServiceBridge.shared.clearStatusTrackers() }
+        // Keeping none of them is the clear; core's second name for it is gone.
+        Task { try? await WalletServiceBridge.shared.retainStatusTrackers(ids: []) }
         isShowingWalletImporter = false
         isShowingAddWalletEntry = false
         isShowingSendSheet = false
@@ -219,7 +215,6 @@ extension AppState {
         UserDefaults.standard.removeObject(forKey: Self.tokenPreferencesDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.fiatRatesFromUSDDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.livePricesDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.selectedFeePriorityOptionsByChainDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.assetDisplayDecimalsByChainDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.torEnabledDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.torUseCustomProxyDefaultsKey)
@@ -241,9 +236,7 @@ extension AppState {
         for family in ["bitcoin", "ethereum", "dogecoin"] { selectNetworkChain(family) }
         bitcoinEsploraEndpoints = ""
         bitcoinStopGap = 10
-        bitcoinFeePriority = .normal
-        dogecoinFeePriority = .normal
-        selectedFeePriorityOptionRawByChain = [:]
+        clearFeePriorities()
         preferences.resetToDefaults()
         persistPlatformPreferences()
         backgroundSyncProfile = .balanced

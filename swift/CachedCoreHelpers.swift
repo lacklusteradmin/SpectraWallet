@@ -55,12 +55,6 @@ enum CachedCoreHelpers {
         allChainsResult = value
         return value
     }
-    static func allTokens() -> [TokenEntry] {
-        if let cached = allTokensResult { return cached }
-        let value = listTokens(chainId: "")
-        allTokensResult = value
-        return value
-    }
     static func supportedPrivateKeyChainNames() -> [String] {
         if let cached = supportedPrivateKeyChainNamesResult { return cached }
         let value = coreSupportedPrivateKeyChainNames()
@@ -94,11 +88,6 @@ enum CachedCoreHelpers {
     }
 
     // ── core.* predicates + enum mappers ───────────────────────────────
-    static func evmChainContextTag(chainName: String, ethereumNetworkMode: String) -> String {
-        cached(in: &evmChainContextTags, key: "\(chainName)|\(ethereumNetworkMode)") {
-            coreEvmChainContextTag(chainName: chainName, ethereumNetworkMode: ethereumNetworkMode)
-        }
-    }
     /// Storage key for a chain's derivation path (testnets fold onto their
     /// mainnet counterpart). `nonisolated` because `SeedDerivationPaths` is a
     /// value type read from background contexts; the call is a pure registry

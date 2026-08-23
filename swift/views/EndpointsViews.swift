@@ -3,7 +3,9 @@ struct EndpointCatalogSettingsView: View {
     @Bindable var store: AppState
     @State private var newBitcoinEndpoint: String = ""
     private let copy = EndpointsContentCopy.current
-    private var endpointSections: [Chain] { Chain.mainnets.filter(\.supportsEndpointCatalog) }
+    private var endpointSections: [Chain] {
+        Chain.mainnets.filter { AppEndpointDirectory.hasEndpoints($0.displayName) }
+    }
     private var parsedBitcoinCustomEndpoints: [String] {
         store.bitcoinEsploraEndpoints.components(separatedBy: CharacterSet(charactersIn: ",;\n")).map {
             $0.trimmingCharacters(in: .whitespacesAndNewlines)

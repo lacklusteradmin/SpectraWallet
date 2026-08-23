@@ -279,9 +279,6 @@ final class WalletImportDraft {
         if backupVerificationWordIndices.isEmpty { return "Generate a backup verification challenge to continue." }
         return ""
     }
-    var unsupportedSelectedChainNames: [String] {
-        selectedChainNames.filter { !AppEndpointDirectory.supportsBalanceRefresh(for: $0) }
-    }
     func configureForNewWallet() {
         mode = .importExisting
         isEditingWallet = false

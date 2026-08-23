@@ -82,47 +82,45 @@ extension AppState {
         .dogecoin: .init(
             runHistory: { store, _ in await store.runDogecoinHistoryDiagnostics() },
             // Dogecoin's probe was a copy of the shared one under its own name.
-            runEndpoints: { store, chain in await store.runSimpleEndpointDiagnostics(chainName: chain.displayName) }
+            runEndpoints: { store, chain in await store.runCatalogEndpointReachabilityDiagnostics(for: chain.displayName) }
         ),
         .tron: .init(
             runHistory: { store, chain in await store.runRustHistoryDiagnosticsForAllWallets(
                 chainName: chain.displayName,
                 resolveAddress: { store.resolvedTronAddress(for: $0) },
                 make: { TronHistoryDiagnostics(address: $0, tronScanTxCount: Int32($2), tronScanTrc20Count: 0, sourceUsed: $1, error: $3) },
-                record: { diagnosticsRecordTron(walletId: $0, entry: $1) }) },
+                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .tron(entry: $1)) }) },
             runHistoryForWallet: { store, chain, id in await store.runRustHistoryDiagnosticsForWallet(
                 walletID: id, chainName: chain.displayName,
                 resolveAddress: { store.resolvedTronAddress(for: $0) },
                 make: { TronHistoryDiagnostics(address: $0, tronScanTxCount: Int32($2), tronScanTrc20Count: 0, sourceUsed: $1, error: $3) },
-                record: { diagnosticsRecordTron(walletId: $0, entry: $1) }) },
-            runEndpoints: { store, chain in await store.runSimpleEndpointDiagnostics(
-                chainName: chain.displayName) }
+                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .tron(entry: $1)) }) },
+            runEndpoints: { store, chain in await store.runCatalogEndpointReachabilityDiagnostics(for: chain.displayName) }
         ),
         .solana: .init(
             runHistory: { store, chain in await store.runRustHistoryDiagnosticsForAllWallets(
                 chainName: chain.displayName,
                 resolveAddress: { store.resolvedSolanaAddress(for: $0) },
                 make: { SolanaHistoryDiagnostics(address: $0, rpcCount: Int32($2), sourceUsed: $1, error: $3) },
-                record: { diagnosticsRecordSolana(walletId: $0, entry: $1) }) },
+                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .solana(entry: $1)) }) },
             runHistoryForWallet: { store, chain, id in await store.runRustHistoryDiagnosticsForWallet(
                 walletID: id, chainName: chain.displayName,
                 resolveAddress: { store.resolvedSolanaAddress(for: $0) },
                 make: { SolanaHistoryDiagnostics(address: $0, rpcCount: Int32($2), sourceUsed: $1, error: $3) },
-                record: { diagnosticsRecordSolana(walletId: $0, entry: $1) }) },
-            runEndpoints: { store, chain in await store.runSimpleEndpointDiagnostics(
-                chainName: chain.displayName) }
+                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .solana(entry: $1)) }) },
+            runEndpoints: { store, chain in await store.runCatalogEndpointReachabilityDiagnostics(for: chain.displayName) }
         ),
         .monero: .init(
             runHistory: { store, chain in await store.runRustHistoryDiagnosticsForAllWallets(
                 chainName: chain.displayName,
                 resolveAddress: { store.resolvedMoneroAddress(for: $0) },
                 make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                record: { diagnosticsRecordSimple(chainName: chain.displayName, walletId: $0, entry: $1) }) },
+                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .simple(entry: $1)) }) },
             runHistoryForWallet: { store, chain, id in await store.runRustHistoryDiagnosticsForWallet(
                 walletID: id, chainName: chain.displayName,
                 resolveAddress: { store.resolvedMoneroAddress(for: $0) },
                 make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                record: { diagnosticsRecordSimple(chainName: chain.displayName, walletId: $0, entry: $1) }) },
+                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .simple(entry: $1)) }) },
             runEndpoints: { store, _ in await store.runMoneroEndpointReachabilityDiagnostics() }
         ),
         .near: .init(
@@ -130,12 +128,12 @@ extension AppState {
                 chainName: chain.displayName,
                 resolveAddress: { store.resolvedNearAddress(for: $0) },
                 make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                record: { diagnosticsRecordSimple(chainName: chain.displayName, walletId: $0, entry: $1) }) },
+                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .simple(entry: $1)) }) },
             runHistoryForWallet: { store, chain, id in await store.runRustHistoryDiagnosticsForWallet(
                 walletID: id, chainName: chain.displayName,
                 resolveAddress: { store.resolvedNearAddress(for: $0) },
                 make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                record: { diagnosticsRecordSimple(chainName: chain.displayName, walletId: $0, entry: $1) }) },
+                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .simple(entry: $1)) }) },
             runEndpoints: { store, _ in await store.runNearEndpointReachabilityDiagnostics() }
         ),
         .ethereum: .init(
@@ -205,13 +203,6 @@ extension AppState {
             await runUTXOStyleHistoryDiagnostics(chainName: chainName, resolveAddress: resolve)
         }
     }
-    private func runEVMChainEndpointDiagnostics(chainName: String) async {
-        guard let context = EVMChainContext(chainName: chainName) else { return }
-        await runPureEVMEndpointDiagnostics(chainName: chainName, context: context)
-    }
-    private func runSimpleChainEndpointDiagnostics(chainName: String) async {
-        await runSimpleEndpointDiagnostics(chainName: chainName)
-    }
 
     func runHistoryDiagnostics(for chain: Chain) async {
         guard let descriptor = Self.chainDiagDescriptors[chain] else {
@@ -239,9 +230,7 @@ extension AppState {
     }
     func runEndpointDiagnostics(for chain: Chain) async {
         guard let descriptor = Self.chainDiagDescriptors[chain] else {
-            return chain.isEVM
-                ? await runEVMChainEndpointDiagnostics(chainName: chain.displayName)
-                : await runSimpleChainEndpointDiagnostics(chainName: chain.displayName)
+            return await runCatalogEndpointReachabilityDiagnostics(for: chain.displayName)
         }
         await descriptor.runEndpoints(self, chain)
     }
@@ -339,56 +328,55 @@ extension AppState {
         }
     }
     func runNearEndpointReachabilityDiagnostics() async {
-        await withEndpointCheck(for: "NEAR") { publish in
+        await runCatalogEndpointReachabilityDiagnostics(for: "NEAR")
+    }
+    func runPolkadotEndpointReachabilityDiagnostics() async {
+        await runCatalogEndpointReachabilityDiagnostics(for: "Polkadot")
+    }
+
+    /// Probe every endpoint the catalog lists for a chain, each the way the
+    /// catalog says: a JSON-RPC call when the record carries the `rpc` role,
+    /// a GET against its probe URL otherwise.
+    ///
+    /// NEAR and Polkadot each had their own copy of this, and each decided
+    /// which endpoints were RPC from a hand-written list of endpoint ids in
+    /// `ChainTypes` — beside a catalog that already carries the role. Both
+    /// lists agreed when they were written; the drift they invited is a
+    /// JSON-RPC node probed with a GET, which many answer 405 and this would
+    /// have reported as unreachable.
+    func runCatalogEndpointReachabilityDiagnostics(for chainName: String) async {
+        await withEndpointCheck(for: chainName) { publish in
             var results: [EndpointHealthRow] = []
-            let rpcEndpoints = Set(NearBalanceService.rpcEndpointCatalog())
-            for check in AppEndpointDirectory.diagnosticsChecks(for: "NEAR") {
-                let endpoint = check.endpoint
-                let probeURL = check.probeUrl
-                if rpcEndpoints.contains(endpoint) {
-                    results.append(await self.probeJSONRPC(endpoint: endpoint, urlString: endpoint, rpcMethod: "status"))
-                } else if let url = URL(string: probeURL) {
+            // The one endpoint that is not in the catalog: whatever the user
+            // typed. Only Ethereum has such a setting — see "Known open items".
+            if let configured = self.configuredEVMRPCEndpointURL(for: chainName),
+                let method = Chain(displayName: chainName)?.rpcHealthMethod
+            {
+                var row = await self.probeJSONRPC(
+                    endpoint: configured.absoluteString, urlString: configured.absoluteString, rpcMethod: method)
+                row = EndpointHealthRow(
+                    label: "Configured RPC", endpoint: row.endpoint, reachable: row.reachable,
+                    statusCode: row.statusCode, detail: row.detail)
+                results.append(row)
+                publish(results)
+            }
+            for check in AppEndpointDirectory.diagnosticsChecks(for: chainName) {
+                if let method = check.rpcProbeMethod {
+                    results.append(
+                        await self.probeJSONRPC(endpoint: check.endpoint, urlString: check.endpoint, rpcMethod: method))
+                } else if let url = URL(string: check.probeUrl) {
                     let probe = await self.probeHTTP(url, profile: .diagnostics)
                     results.append(
                         EndpointHealthRow(
-                            label: "", endpoint: endpoint, reachable: probe.reachable, statusCode: probe.statusCode, detail: probe.detail))
+                            label: "", endpoint: check.endpoint, reachable: probe.reachable,
+                            statusCode: probe.statusCode, detail: probe.detail))
                 } else {
-                    results.append(EndpointHealthRow(label: "", endpoint: endpoint, reachable: false, statusCode: nil, detail: "Invalid URL"))
+                    results.append(
+                        EndpointHealthRow(
+                            label: "", endpoint: check.endpoint, reachable: false, statusCode: nil, detail: "Invalid URL"))
                 }
+                publish(results)
             }
-            publish(results)
-        }
-    }
-    func runPolkadotEndpointReachabilityDiagnostics() async {
-        await withEndpointCheck(for: "Polkadot") { publish in
-            var results: [EndpointHealthRow] = []
-            for check in AppEndpointDirectory.diagnosticsChecks(for: "Polkadot") {
-                let endpoint = check.endpoint
-                let probeURL = check.probeUrl
-                if PolkadotBalanceService.sidecarEndpointCatalog().contains(endpoint) {
-                    guard URL(string: probeURL) != nil else {
-                        results.append(
-                            EndpointHealthRow(label: "", endpoint: endpoint, reachable: false, statusCode: nil, detail: "Invalid URL"))
-                        continue
-                    }
-                    do {
-                        let resp = try await httpRequest(method: "GET", url: probeURL, headers: [], body: nil, profile: .diagnostics)
-                        let statusCode = Int32(resp.statusCode)
-                        let reachable = (200...299).contains(statusCode)
-                        results.append(
-                            EndpointHealthRow(
-                                label: "", endpoint: endpoint, reachable: reachable, statusCode: statusCode,
-                                detail: reachable ? "OK" : "HTTP \(statusCode)"))
-                    } catch {
-                        results.append(
-                            EndpointHealthRow(
-                                label: "", endpoint: endpoint, reachable: false, statusCode: nil, detail: error.localizedDescription))
-                    }
-                    continue
-                }
-                results.append(await self.probeJSONRPC(endpoint: endpoint, urlString: endpoint, rpcMethod: "chain_getHeader"))
-            }
-            publish(results)
         }
     }
     /// Send a JSON-RPC request to `urlString` with method `rpcMethod` and an
@@ -455,106 +443,15 @@ extension AppState {
 
     // MARK: EVM endpoint reachability
 
-    private static let ethereumExplorerProbeChecks: [(label: String, urlString: String)] = [
-        ("Etherscan API", "https://api.etherscan.io/api?module=stats&action=ethprice"),
-        ("Ethplorer API", "https://api.ethplorer.io/getAddressInfo/0x0000000000000000000000000000000000000000?apiKey=freekey"),
-    ]
-    /// The RPC checks for an EVM chain, plus the explorer endpoints that chain
-    /// has of its own.
-    ///
-    /// Two byte-identical functions stood here, differing in a chain name given
-    /// three times each and in which explorer list they appended.
-    private func runEVMExplorerEndpointDiagnostics(
-        chainName: String, explorerProbes: [(label: String, urlString: String)]
-    ) async {
-        guard let context = evmChainContext(for: chainName) else { return }
-        await withEndpointCheck(for: chainName) { publish in
-            var checks = self.evmEndpointChecks(chainName: chainName, context: context)
-            checks.append(
-                contentsOf: explorerProbes.compactMap { entry in
-                    URL(string: entry.urlString).map { (entry.label, $0, false) }
-                })
-            await self.runLabeledEVMEndpointDiagnostics(checks: checks, publish: publish)
-        }
-    }
     func runEthereumEndpointReachabilityDiagnostics() async {
-        await runEVMExplorerEndpointDiagnostics(
-            chainName: "Ethereum", explorerProbes: Self.ethereumExplorerProbeChecks)
+        await runCatalogEndpointReachabilityDiagnostics(for: "Ethereum")
     }
-    private static let bnbExplorerProbeChecks: [(label: String, urlString: String)] = [
-        ("BscScan API", "https://api.bscscan.com/api?module=stats&action=bnbprice")
-    ]
     func runBNBEndpointReachabilityDiagnostics() async {
-        await runEVMExplorerEndpointDiagnostics(
-            chainName: "BNB Chain", explorerProbes: Self.bnbExplorerProbeChecks)
-    }
-    func evmEndpointChecks(chainName: String, context: EVMChainContext) -> [(label: String, endpoint: URL, isRPC: Bool)] {
-        var checks: [(label: String, endpoint: URL, isRPC: Bool)] = []
-        if let configured = configuredEVMRPCEndpointURL(for: chainName) { checks.append(("Configured RPC", configured, true)) }
-        for rpc in context.defaultRPCEndpoints {
-            guard let url = URL(string: rpc), !checks.contains(where: { $0.endpoint == url }) else { continue }
-            checks.append(("Fallback RPC", url, true))
-        }
-        return checks
+        await runCatalogEndpointReachabilityDiagnostics(for: "BNB Chain")
     }
     /// `setResults` and `markUpdated` were two closures called one after the
     /// other, at the one call site each caller had — a pair, so the pair is one
     /// argument, and it is the same `publish` `withEndpointCheck` hands out.
-    func runSimpleEndpointReachabilityDiagnostics(
-        checks: [AppEndpointDiagnosticsCheck], profile: HttpRetryProfile, publish: ([EndpointHealthRow]) -> Void
-    ) async {
-        var results: [EndpointHealthRow] = []
-        for check in checks {
-            guard let url = URL(string: check.probeUrl) else {
-                results.append(
-                    EndpointHealthRow(label: "", endpoint: check.endpoint, reachable: false, statusCode: nil, detail: "Invalid URL"))
-                continue
-            }
-            let probe = await probeHTTP(url, profile: profile)
-            results.append(
-                EndpointHealthRow(
-                    label: "", endpoint: check.endpoint, reachable: probe.reachable, statusCode: probe.statusCode, detail: probe.detail))
-        }
-        publish(results)
-    }
-    func runLabeledEVMEndpointDiagnostics(
-        checks: [(label: String, endpoint: URL, isRPC: Bool)], publish: ([EndpointHealthRow]) -> Void
-    ) async {
-        var results: [EndpointHealthRow] = []
-        for check in checks {
-            let probe = check.isRPC ? await probeEthereumRPC(check.endpoint) : await probeHTTP(check.endpoint)
-            results.append(
-                EndpointHealthRow(
-                    label: check.label, endpoint: check.endpoint.absoluteString, reachable: probe.reachable, statusCode: probe.statusCode,
-                    detail: probe.detail))
-        }
-        publish(results)
-    }
-    private func runSimpleEndpointDiagnostics(chainName: String) async {
-        guard !self[endpointHealthFor: chainName].isChecking else { return }
-        self[endpointHealthFor: chainName].isChecking = true
-        defer { self[endpointHealthFor: chainName].isChecking = false }
-        await runSimpleEndpointReachabilityDiagnostics(
-            checks: AppEndpointDirectory.diagnosticsChecks(for: chainName), profile: .diagnostics,
-            publish: {
-                self[endpointHealthFor: chainName].results = $0
-                self[endpointHealthFor: chainName].lastUpdatedAt = Date()
-            })
-    }
-    private func runPureEVMEndpointDiagnostics(chainName: String, context: EVMChainContext) async {
-        guard !self[endpointHealthFor: chainName].isChecking else { return }
-        self[endpointHealthFor: chainName].isChecking = true
-        defer { self[endpointHealthFor: chainName].isChecking = false }
-        await runLabeledEVMEndpointDiagnostics(
-            checks: evmEndpointChecks(chainName: chainName, context: context),
-            publish: {
-                self[endpointHealthFor: chainName].results = $0
-                self[endpointHealthFor: chainName].lastUpdatedAt = Date()
-            })
-    }
-
-    // MARK: HTTP probes + timeout helper
-
     func withTimeout<T: Sendable>(seconds: Double, operation: @escaping @Sendable () async throws -> T) async throws -> T {
         try await withThrowingTaskGroup(of: T.self) { group in
             group.addTask { try await operation() }
@@ -574,21 +471,6 @@ extension AppState {
             }
         } catch { return (false, nil, error.localizedDescription) }
     }
-    func probeEthereumRPC(_ url: URL) async -> (reachable: Bool, statusCode: Int32?, detail: String) {
-        do {
-            return try await withTimeout(seconds: 10) {
-                let payload = #"{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}"#
-                let resp = try await httpPostJson(url: url.absoluteString, bodyJson: payload, headers: [:])
-                let statusCode = Int32(resp.status)
-                if (200..<300).contains(statusCode) {
-                    let trimmed = resp.body.trimmingCharacters(in: .whitespacesAndNewlines)
-                    return (true, statusCode, trimmed.isEmpty ? "OK" : String(trimmed.prefix(120)))
-                }
-                return (false, statusCode, "HTTP \(statusCode)")
-            }
-        } catch { return (false, nil, error.localizedDescription) }
-    }
-
     // MARK: Pending transaction refresh (AppState mutation; Swift-native)
 
     /// Poll one chain's pending transactions for a final status.

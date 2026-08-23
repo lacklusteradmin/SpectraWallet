@@ -59,10 +59,8 @@
 		90F002000000000000000039 /* AppState+TorLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000039 /* AppState+TorLifecycle.swift */; };
 		90F00200000000000000003B /* SetupFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003B /* SetupFlow.swift */; };
 		90F00200000000000000003C /* ImportDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003C /* ImportDraft.swift */; };
-		90F00200000000000000003D /* ViewExtensions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003D /* ViewExtensions.swift */; };
 		90F00200000000000000003E /* WalletDerivation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003E /* WalletDerivation.swift */; };
 		90F00200000000000000003F /* AppState+FundsFinder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003F /* AppState+FundsFinder.swift */; };
-		90F002000000000000000040 /* StakingViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000040 /* StakingViewModel.swift */; };
 		90F002000000000000000041 /* StakingBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000041 /* StakingBridge.swift */; };
 		91C100012F70000100AAA001 /* SpectraLiveActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 91C100032F70000100AAA001 /* SpectraLiveActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 /* End PBXBuildFile section */
@@ -150,10 +148,8 @@
 		90F001000000000000000039 /* AppState+TorLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TorLifecycle.swift"; sourceTree = "<group>"; };
 		90F00100000000000000003B /* SetupFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlow.swift; sourceTree = "<group>"; };
 		90F00100000000000000003C /* ImportDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportDraft.swift; sourceTree = "<group>"; };
-		90F00100000000000000003D /* ViewExtensions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewExtensions.swift; sourceTree = "<group>"; };
 		90F00100000000000000003E /* WalletDerivation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletDerivation.swift; sourceTree = "<group>"; };
 		90F00100000000000000003F /* AppState+FundsFinder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+FundsFinder.swift"; sourceTree = "<group>"; };
-		90F001000000000000000040 /* StakingViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StakingViewModel.swift; sourceTree = "<group>"; };
 		90F001000000000000000041 /* StakingBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StakingBridge.swift; sourceTree = "<group>"; };
 		91B000012F5B000100AAA001 /* SpectraTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpectraTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		91C100032F70000100AAA001 /* SpectraLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpectraLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -292,10 +288,8 @@
 				90F001000000000000000032 /* StorePersistenceNormalization.swift */,
 				90F00100000000000000003B /* SetupFlow.swift */,
 				90F00100000000000000003C /* ImportDraft.swift */,
-				90F00100000000000000003D /* ViewExtensions.swift */,
 				90F00100000000000000003E /* WalletDerivation.swift */,
 				90F00100000000000000003F /* AppState+FundsFinder.swift */,
-				90F001000000000000000040 /* StakingViewModel.swift */,
 				90F001000000000000000041 /* StakingBridge.swift */,
 				9074916B2F56D1E500D098D2 /* tests */,
 			);
@@ -524,10 +518,8 @@
 				90F002000000000000000038 /* WalletServiceBridge.swift in Sources */,
 				90F00200000000000000003B /* SetupFlow.swift in Sources */,
 				90F00200000000000000003C /* ImportDraft.swift in Sources */,
-				90F00200000000000000003D /* ViewExtensions.swift in Sources */,
 				90F00200000000000000003E /* WalletDerivation.swift in Sources */,
 				90F00200000000000000003F /* AppState+FundsFinder.swift in Sources */,
-				90F002000000000000000040 /* StakingViewModel.swift in Sources */,
 				90F002000000000000000041 /* StakingBridge.swift in Sources */,
 				90F002000000000000000001 /* AppState+AddressResolution.swift in Sources */,
 				90F002000000000000000002 /* AppState+BalanceRefresh.swift in Sources */,

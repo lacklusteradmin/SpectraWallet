@@ -21,14 +21,15 @@ extension AppState {
     func setHistoryCursor(chainId: String, walletId: String, cursor: String?) {
         wsb.advanceHistoryCursor(chainId: chainId, walletId: walletId, nextCursor: cursor); notifyHistoryMutation()
     }
-    func setHistoryPage(chainId: String, walletId: String, page: Int) {
-        wsb.setHistoryPage(chainId: chainId, walletId: walletId, page: UInt32(max(0, page))); notifyHistoryMutation()
-    }
-    func markHistoryExhausted(chainId: String, walletId: String) {
-        wsb.setHistoryExhausted(chainId: chainId, walletId: walletId, exhausted: true); notifyHistoryMutation()
-    }
-    func markHistoryActive(chainId: String, walletId: String) {
-        wsb.setHistoryExhausted(chainId: chainId, walletId: walletId, exhausted: false); notifyHistoryMutation()
+    /// The page just fetched, and whether it was the last one.
+    ///
+    /// Was `setHistoryPage` plus `markHistoryExhausted`/`markHistoryActive` —
+    /// two calls the one call site always made together, writing two fields of
+    /// one cursor.
+    func setHistoryPage(chainId: String, walletId: String, page: Int, isExhausted: Bool) {
+        wsb.setHistoryPage(
+            chainId: chainId, walletId: walletId, page: UInt32(max(0, page)), isExhausted: isExhausted)
+        notifyHistoryMutation()
     }
     func resetHistoryPagination(chainId: String, walletId: String) {
         wsb.resetHistory(.chainAndWallet(chainId: chainId, walletId: walletId))
@@ -107,13 +108,13 @@ extension AppState {
         targetWalletIDs: Set<String>? = nil
     ) async {
         let walletSnapshot = wallets
-        let targets = coreNormalizedRefreshTargets(
-            request: NormalizedRefreshTargetsRequest(
+        let targets = coreRefreshTargets(
+            request: RefreshTargetsRequest(
                 chainName: chainName,
-                wallets: walletSnapshot.enumerated().map { index, wallet in
-                    NormalizedRefreshWalletInput(
-                        index: UInt64(index), walletId: wallet.id, selectedChain: wallet.selectedChain, address: resolveAddress(wallet)
-                    )
+                wallets: walletSnapshot.map { wallet in
+                    RefreshWalletInput(
+                        walletId: wallet.id, selectedChain: wallet.selectedChain,
+                        addresses: [resolveAddress(wallet)].compactMap { $0 })
                 },
                 allowedWalletIds: targetWalletIDs.map(Array.init)
             )
@@ -125,8 +126,10 @@ extension AppState {
             returning: [(records: [TransactionRecord], error: Bool)].self
         ) { group in
             for target in targets {
-                guard let wallet = walletByID[target.walletId] else { continue }
-                let address = target.address
+                // The single-address family supplies one entry; `plan_refresh_targets`
+                // drops a wallet with none, so `first` is present.
+                guard let wallet = walletByID[target.walletId], let address = target.addresses.first
+                else { continue }
                 let walletSnapshot = wallet
                 group.addTask {
                     do {
@@ -329,7 +332,10 @@ extension AppState {
                     let entries = try await WalletServiceBridge.shared.fetchNormalizedHistory(
                         chainId: Chain.dogecoin.id, address: dogecoinAddress)
                     collected.append(contentsOf: entries)
-                    markHistoryExhausted(chainId: Chain.dogecoin.id, walletId: wallet.id)
+                    // Dogecoin's fetch returns the whole history in one call,
+                    // so the page it just wrote is also the last one.
+                    setHistoryPage(
+                        chainId: Chain.dogecoin.id, walletId: wallet.id, page: 1, isExhausted: true)
                 } catch { encounteredErrors = true; continue }
             }
             let aggregates = historyAggregateDogecoin(input: DogecoinAggregateInput(ownAddresses: dogecoinAddresses, entries: collected))
@@ -362,18 +368,18 @@ extension AppState {
     private func plannedDogecoinHistoryWallets(
         walletSnapshot: [ImportedWallet], targetWalletIDs: Set<String>?
     ) async -> [(ImportedWallet, [String])]? {
-        var inputs: [DogecoinRefreshWalletInput] = []
-        for (index, wallet) in walletSnapshot.enumerated() {
+        var inputs: [RefreshWalletInput] = []
+        for wallet in walletSnapshot {
             inputs.append(
-                DogecoinRefreshWalletInput(
-                    index: UInt64(index), walletId: wallet.id, selectedChain: wallet.selectedChain,
+                RefreshWalletInput(
+                    walletId: wallet.id, selectedChain: wallet.selectedChain,
                     addresses: await knownUTXOAddresses(for: wallet, chainName: "Dogecoin")
                 ))
         }
-        let request = DogecoinRefreshTargetsRequest(
-            wallets: inputs, allowedWalletIds: targetWalletIDs.map(Array.init)
-        )
-        let targets = coreDogecoinRefreshTargets(request: request)
+        let targets = coreRefreshTargets(
+            request: RefreshTargetsRequest(
+                chainName: "Dogecoin", wallets: inputs,
+                allowedWalletIds: targetWalletIDs.map(Array.init)))
         guard !targets.isEmpty else { return nil }
         let walletByID = Dictionary(uniqueKeysWithValues: walletSnapshot.map { ($0.id, $0) })
         return targets.compactMap { target in
@@ -390,7 +396,7 @@ extension AppState {
     func refreshEVMTokenTransactions(
         chainName: String, maxResults: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil
     ) async {
-        guard let chain = evmChainContext(for: chainName) else { return }
+        guard evmChainContext(for: chainName) != nil else { return }
         let walletSnapshot = wallets
         let walletsToRefresh =
             plannedEVMHistoryWallets(
@@ -429,7 +435,7 @@ extension AppState {
         if !loadMore {
             for walletID in Set(walletsToRefresh.map { $0.0.id }) {
                 resetHistoryPagination(chainId: evmChainId, walletId: walletID)
-                setHistoryPage(chainId: evmChainId, walletId: walletID, page: 1)
+                setHistoryPage(chainId: evmChainId, walletId: walletID, page: 1, isExhausted: false)
             }
         }
         for (targetWallets, _, normalizedAddress) in historyTargets {
@@ -493,12 +499,8 @@ extension AppState {
             }
             let isLastPage = decodedPage.tokens.count < requestedPageSize && decodedPage.native.count < requestedPageSize
             for wallet in targetWallets {
-                if isLastPage {
-                    markHistoryExhausted(chainId: evmChainId, walletId: wallet.id)
-                } else {
-                    markHistoryActive(chainId: evmChainId, walletId: wallet.id)
-                }
-                setHistoryPage(chainId: evmChainId, walletId: wallet.id, page: page)
+                setHistoryPage(
+                    chainId: evmChainId, walletId: wallet.id, page: page, isExhausted: isLastPage)
             }
             let nativeAsset = historyEvmNativeAsset(chainName: chainName) ?? EvmNativeAsset(assetName: "Ether", symbol: "ETH")
             let plannedRecords = planEvmTransactionRecords(
@@ -547,10 +549,10 @@ extension AppState {
     ) -> EvmRefreshPlan? {
         let request = EvmRefreshTargetsRequest(
             chainName: chainName,
-            wallets: walletSnapshot.enumerated().map { index, wallet in
-                EvmRefreshWalletInput(
-                    index: UInt64(index), walletId: wallet.id, selectedChain: wallet.selectedChain,
-                    address: resolvedEVMAddress(for: wallet, chainName: chainName))
+            wallets: walletSnapshot.map { wallet in
+                RefreshWalletInput(
+                    walletId: wallet.id, selectedChain: wallet.selectedChain,
+                    addresses: [resolvedEVMAddress(for: wallet, chainName: chainName)].compactMap { $0 })
             },
             allowedWalletIds: targetWalletIDs.map(Array.init),
             groupByNormalizedAddress: groupByNormalizedAddress

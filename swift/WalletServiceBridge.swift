@@ -21,9 +21,6 @@ protocol WalletServiceBridgeProtocol: Sendable {}
         WalletServiceBridge._syncService = svc
         return svc
     }
-    func refreshEndpoints() async throws {
-        try await service().updateEndpointsTyped(endpoints: Self.buildEndpoints())
-    }
     func fetchNativeBalanceSummary(chainId: String, address: String) async throws -> NativeBalanceSummary {
         try await service().fetchNativeBalanceSummary(chainId: chainId, address: address)
     }
@@ -107,7 +104,6 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     }
     nonisolated func rustGenerateMnemonic(wordCount: Int) -> String { MainActor.assumeIsolated { generateMnemonic(wordCount: UInt32(wordCount)) } }
     nonisolated func rustValidateMnemonic(_ phrase: String) -> Bool { MainActor.assumeIsolated { validateMnemonic(phrase: phrase) } }
-    nonisolated func rustBip39Wordlist() -> [String] { MainActor.assumeIsolated { bip39EnglishWordlist() }.split(separator: "\n").map(String.init) }
     func broadcastRawExtract(chainId: String, payload: String, resultField: String) async throws -> String {
         try await service().broadcastRawExtract(chainId: chainId, payload: payload, resultField: resultField)
     }
@@ -132,15 +128,6 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     }
 }
 extension WalletServiceBridge {
-    func fetchSolanaBalance(address: String) async throws -> SolanaBalance {
-        try await service().fetchSolanaBalanceTyped(address: address)
-    }
-    func fetchNearBalance(address: String) async throws -> NearBalance {
-        try await service().fetchNearBalanceTyped(address: address)
-    }
-    func fetchErc20Balance(chainId: String, contract: String, holder: String) async throws -> Erc20Balance {
-        try await service().fetchErc20BalanceTyped(chainId: chainId, contract: contract, holder: holder)
-    }
     // ── Owned application state ───────────────────────────────────────────
     //
     // `CoreAppState` is the domain state and Rust owns it. Swift sends a
@@ -295,16 +282,12 @@ extension WalletServiceBridge {
         try await service().transactionsDueForStatusPoll(transactionIds: ids)
     }
 
-    func recordStatusPollSuccess(
-        id: String, confirmed: Bool, pending: Bool, confirmations: UInt32?
-    ) async throws {
-        try await service().recordStatusPollSuccess(
-            transactionId: id, resolvedStatusConfirmed: confirmed, resolvedStatusPending: pending,
-            reportedConfirmations: confirmations)
-    }
-
-    func recordStatusPollFailure(id: String) async throws {
-        try await service().recordStatusPollFailure(transactionId: id)
+    /// Record what one confirmation poll found.
+    ///
+    /// Was two methods, and the success one took `confirmed` and `pending` as
+    /// separate booleans for a three-state answer.
+    func recordStatusPoll(id: String, outcome: StatusPollOutcome) async throws {
+        try await service().recordStatusPoll(transactionId: id, outcome: outcome)
     }
 
     func resetStatusTracker(id: String, clearFinality: Bool) async throws {
@@ -316,7 +299,6 @@ extension WalletServiceBridge {
         try await service().retainStatusTrackers(transactionIds: ids)
     }
 
-    func clearStatusTrackers() async throws { try await service().clearStatusTrackers() }
 
     /// Everything the wallet list implies, with holdings already resolved.
     func walletDerivedState(
@@ -357,9 +339,6 @@ extension WalletServiceBridge {
         try await service().clearReservedReceiveIndex(walletId: walletID, chainName: chainName)
     }
 
-    func keypoolSnapshot() async throws -> [String: [String: KeypoolState]] {
-        try await service().keypoolSnapshot()
-    }
 
     /// Import wallets into core. Returns what was created, plus the Keychain
     /// writes the caller still owns.
@@ -386,12 +365,6 @@ extension WalletServiceBridge {
     func fetchNormalizedHistory(chainId: String, address: String) async throws -> [NormalizedHistoryItem] {
         try await service().fetchNormalizedHistory(chainId: chainId, address: address)
     }
-    func saveKeypoolStateTyped(walletId: String, chainName: String, state: KeypoolState) async throws {
-        try await service().saveKeypoolStateTyped(
-            walletId: walletId, chainName: chainName, state: state
-        )
-    }
-    func loadAllKeypoolStateTyped() async throws -> [String: [String: KeypoolState]] { try await service().loadAllKeypoolStateTyped() }
     func deleteKeypoolForWallet(walletId: String) async throws {
         try await service().deleteKeypoolForWallet(walletId: walletId)
     }
@@ -428,8 +401,10 @@ extension WalletServiceBridge {
     func replaceAllHistoryRecords(_ records: [HistoryRecord]) async throws {
         try await service().replaceAllHistoryRecords(records: records)
     }
+    /// Empty the history table. Core's `clear` export was
+    /// `replaceAllHistoryRecords([])` under a second name.
     func clearAllHistoryRecords() async throws {
-        try await service().clearAllHistoryRecords()
+        try await service().replaceAllHistoryRecords(records: [])
     }
     /// Where the next history fetch for this (chain, wallet) starts.
     ///
@@ -442,8 +417,12 @@ extension WalletServiceBridge {
         }
     }
     nonisolated func advanceHistoryCursor(chainId: String, walletId: String, nextCursor: String?) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.advanceHistoryCursor(chainId: chainId, walletId: walletId, nextCursor: nextCursor) } }
-    nonisolated func setHistoryPage(chainId: String, walletId: String, page: UInt32) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.setHistoryPage(chainId: chainId, walletId: walletId, page: page) } }
-    nonisolated func setHistoryExhausted(chainId: String, walletId: String, exhausted: Bool) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.setHistoryExhausted(chainId: chainId, walletId: walletId, exhausted: exhausted) } }
+    nonisolated func setHistoryPage(chainId: String, walletId: String, page: UInt32, isExhausted: Bool) {
+        MainActor.assumeIsolated {
+            WalletServiceBridge._syncService?.setHistoryPage(
+                chainId: chainId, walletId: walletId, page: page, isExhausted: isExhausted)
+        }
+    }
     /// Forget history pagination, for as much of it as `scope` names. Four
     /// methods stood for the four cases.
     nonisolated func resetHistory(_ scope: HistoryScope) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.resetHistory(scope: scope) } }

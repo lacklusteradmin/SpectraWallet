@@ -63,6 +63,11 @@ extension AppState {
         func push(_ update: AppSettingUpdate, _ unchanged: Bool) {
             if known == nil || !unchanged { updates.append(update) }
         }
+        let knownFeeChains = known.map { Set($0.feePriorityByChain.keys) } ?? []
+        for chainName in Set(feePriorityByChain.keys).union(knownFeeChains) {
+            push(.feePriority(chain: chainName, value: feePriorityByChain[chainName] ?? "normal"),
+                 known?.feePriorityByChain[chainName] == feePriorityByChain[chainName])
+        }
         push(.pricingProvider(value: pricingProvider.rawValue),
              known?.pricingProvider == pricingProvider.rawValue)
         push(.fiatRateProvider(value: fiatRateProvider.rawValue),
@@ -79,10 +84,6 @@ extension AppState {
              known?.bitcoinEsploraEndpoints == bitcoinEsploraEndpoints)
         push(.bitcoinStopGap(value: UInt32(max(0, bitcoinStopGap))),
              known.map { Int($0.bitcoinStopGap) } == bitcoinStopGap)
-        push(.bitcoinFeePriority(value: bitcoinFeePriority.rawValue),
-             known?.bitcoinFeePriority == bitcoinFeePriority.rawValue)
-        push(.dogecoinFeePriority(value: dogecoinFeePriority.rawValue),
-             known?.dogecoinFeePriority == dogecoinFeePriority.rawValue)
         push(.useStrictRpcOnly(value: preferences.useStrictRPCOnly),
              known?.useStrictRpcOnly == preferences.useStrictRPCOnly)
         push(.backgroundSyncProfile(value: backgroundSyncProfile.rawValue),
@@ -124,10 +125,6 @@ extension AppState {
             value != pricingProvider { pricingProvider = value }
         if let value = FiatRateProvider(rawValue: settings.fiatRateProvider),
             value != fiatRateProvider { fiatRateProvider = value }
-        if let value = BitcoinFeePriority(rawValue: settings.bitcoinFeePriority),
-            value != bitcoinFeePriority { bitcoinFeePriority = value }
-        if let value = DogecoinFeePriority(rawValue: settings.dogecoinFeePriority),
-            value != dogecoinFeePriority { dogecoinFeePriority = value }
         if let value = BackgroundSyncProfile(rawValue: settings.backgroundSyncProfile),
             value != backgroundSyncProfile { backgroundSyncProfile = value }
         if settings.ethereumRpcEndpoint != ethereumRPCEndpoint {

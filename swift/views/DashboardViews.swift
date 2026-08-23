@@ -320,9 +320,8 @@ typealias DashboardAssetChainEntry = CoreDashboardAssetChainEntry
 extension CoreDashboardAssetChainEntry: Identifiable {
     public var id: String {
         let contract =
-            normalizeDashboardContractAddress(
-                contractAddress: coin.contractAddress, chainName: coin.chainName, tokenStandard: coin.tokenStandard
-            ) ?? "native"
+            normalizeTokenIdentifier(contractAddress: coin.contractAddress, chainName: coin.chainName)
+            ?? "native"
         return "\(coin.chainName.lowercased())|\(coin.symbol.lowercased())|\(contract)"
     }
     // Legacy uppercased acronym forwarder.

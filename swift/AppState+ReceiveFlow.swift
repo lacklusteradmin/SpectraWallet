@@ -75,32 +75,25 @@ extension AppState {
         }
         let isEvm = isEVMChain(receiveCoin.chainName)
         let chainAddress: String?
+        // Twenty-four arms stood here and twenty of them were
+        // `resolved<Chain>Address(for:)`, which is `resolvedChainAddress(for:chain:)`
+        // with the chain the case already names. What is left is the four that
+        // genuinely differ: Bitcoin reads its stored address rather than
+        // deriving, Dogecoin and the unmatched case have none, and the EVM
+        // family needs the chain name to pick a network.
+        //
+        // Through `mainnetCounterpart` because that is what
+        // `core_receive_address_resolver` dispatches on — a testnet coin gets
+        // its mainnet's case, so it needs its mainnet's resolver.
         switch CachedCoreHelpers.receiveAddressResolver(symbol: receiveCoin.symbol, chainName: receiveCoin.chainName, isEvmChain: isEvm) {
         case .bitcoinLegacy: chainAddress = wallet.bitcoinAddress
-        case .bitcoinCash: chainAddress = resolvedBitcoinCashAddress(for: wallet)
-        case .bitcoinSv: chainAddress = resolvedBitcoinSVAddress(for: wallet)
-        case .litecoin: chainAddress = resolvedLitecoinAddress(for: wallet)
-        case .dogecoinNone: chainAddress = nil
+        case .dogecoinNone, .none: chainAddress = nil
         case .evm: chainAddress = resolvedEVMAddress(for: wallet, chainName: receiveCoin.chainName)
-        case .tron: chainAddress = resolvedTronAddress(for: wallet)
-        case .solana: chainAddress = resolvedSolanaAddress(for: wallet)
-        case .cardano: chainAddress = resolvedCardanoAddress(for: wallet)
-        case .xrp: chainAddress = resolvedXRPAddress(for: wallet)
-        case .stellar: chainAddress = resolvedStellarAddress(for: wallet)
-        case .monero: chainAddress = resolvedMoneroAddress(for: wallet)
-        case .sui: chainAddress = resolvedSuiAddress(for: wallet)
-        case .aptos: chainAddress = resolvedAptosAddress(for: wallet)
-        case .ton: chainAddress = resolvedTONAddress(for: wallet)
-        case .icp: chainAddress = resolvedICPAddress(for: wallet)
-        case .near: chainAddress = resolvedNearAddress(for: wallet)
-        case .polkadot: chainAddress = resolvedPolkadotAddress(for: wallet)
-        case .zcash: chainAddress = resolvedZcashAddress(for: wallet)
-        case .bitcoinGold: chainAddress = resolvedBitcoinGoldAddress(for: wallet)
-        case .decred: chainAddress = resolvedDecredAddress(for: wallet)
-        case .kaspa: chainAddress = resolvedKaspaAddress(for: wallet)
-        case .dash: chainAddress = resolvedDashAddress(for: wallet)
-        case .bittensor: chainAddress = resolvedBittensorAddress(for: wallet)
-        case .none: chainAddress = nil
+        default:
+            chainAddress = resolvedAddress(
+                for: wallet,
+                chainName: Chain(displayName: receiveCoin.chainName)?.mainnetCounterpart.displayName
+                    ?? receiveCoin.chainName)
         }
         let hasWatchAddress = wallet.dogecoinAddress?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
         return receiveAddressMessage(
@@ -292,7 +285,7 @@ extension AppState {
             if requiresSeedPhrase {
                 // Derivation paths for the chains being imported, keyed by
                 // chain display name. Every EVM chain derives from Ethereum's
-                // path, which is what `coreSeedDerivationPathKey` already
+                // path, which is what `Chain.seedDerivationPathKey` already
                 // encodes — so this is a loop over the selection rather than a
                 // 30-entry table of (isSelected, chainName, path) triples.
                 //

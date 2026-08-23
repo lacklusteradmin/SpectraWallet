@@ -1081,7 +1081,7 @@ struct SendView: View {
     }
 
     private func confirmationPreferenceText(for priority: String) -> String {
-        switch DogecoinFeePriority(rawValue: priority) ?? .normal {
+        switch ChainFeePriorityOption(rawValue: priority) ?? .normal {
         case .economy: return "Economy (cost-optimized)"
         case .normal: return "Normal (balanced)"
         case .priority: return "Priority (faster confirmation bias)"

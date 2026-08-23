@@ -55,24 +55,6 @@ struct EthereumSendResult: Equatable {
     let verificationStatus: SendBroadcastVerificationStatus
 }
 
-enum BitcoinFeePriority: String, CaseIterable, Identifiable {
-    case economy
-    case normal
-    case priority
-    var id: String { rawValue }
-    var displayName: String {
-        switch self {
-        case .economy: return "Economy"
-        case .normal: return "Normal"
-        case .priority: return "Priority"
-        }
-    }
-}
-enum DogecoinFeePriority: String, CaseIterable, Equatable, Codable {
-    case economy
-    case normal
-    case priority
-}
 enum LitecoinChangeStrategy: String, CaseIterable, Identifiable {
     case derivedChange
     case reuseSourceAddress

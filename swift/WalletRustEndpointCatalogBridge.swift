@@ -10,11 +10,6 @@ enum WalletRustEndpointCatalogBridge {
             chainName: chainName, roles: roles.map(\.rawValue),
             settingsVisibleOnly: settingsVisibleOnly)
     }
-    static func chainBackends() -> [ChainBackendRecord] {
-        appCoreChainBackends().map {
-            ChainBackendRecord(chainName: $0.chainName, supportedSymbols: $0.supportedSymbols, integrationState: $0.integrationState, supportsSeedImport: $0.supportsSeedImport, supportsBalanceRefresh: $0.supportsBalanceRefresh, supportsReceiveAddress: $0.supportsReceiveAddress, supportsSend: $0.supportsSend)
-        }
-    }
 }
 enum AppEndpointRole: String, Hashable, CaseIterable, Decodable {
     case read
@@ -51,6 +46,18 @@ enum AppEndpointDirectory {
         byChainName[chainName]
     }
 
+    /// The chains the catalog actually has endpoints for.
+    ///
+    /// The endpoints screen used to filter on `supports_endpoint_catalog`, a
+    /// per-chain flag in `chains.toml` that was `false` for exactly one chain —
+    /// Bitcoin SV — which has three `whatsonchain` records in the catalog. So
+    /// the flag did not describe the catalog, it hid part of it. Asking the
+    /// catalog cannot disagree with the catalog.
+    static func hasEndpoints(_ chainName: String) -> Bool {
+        guard let entry = entry(chainName) else { return false }
+        return !entry.groupedSettings.isEmpty
+    }
+
     static func endpoints(for ids: [String]) -> [String] {
         do { return try WalletRustEndpointCatalogBridge.endpoints(for: ids) } catch {
             preconditionFailure("Rust endpoint lookup for ids \(ids) failed: \(error.localizedDescription)")
@@ -75,16 +82,8 @@ enum AppEndpointDirectory {
     static func explorerSupplementalEndpoints(for chainName: String) -> [String] {
         entry(chainName)?.explorerSupplemental ?? []
     }
-    static func transactionExplorerBaseURL(for chainName: String) -> String? {
-        entry(chainName)?.transactionExplorer?.endpoint
-    }
     static func transactionExplorerLabel(for chainName: String) -> String? {
         entry(chainName)?.transactionExplorer?.label
-    }
-    static func broadcastProviderOptions(for chainName: String) -> [ChainBroadcastProviderOption] {
-        (entry(chainName)?.broadcastProviders ?? []).map {
-            ChainBroadcastProviderOption(id: $0.id, title: $0.title)
-        }
     }
     static func bitcoinEsploraBaseURLs(forChainID chainID: String) -> [String] {
         byChainID[chainID]?.bitcoinEsplora ?? []
@@ -96,15 +95,11 @@ enum AppEndpointDirectory {
         guard let urlString = (try? coreTransactionExplorerUrl(chainName: chainName, transactionHash: transactionHash)) ?? nil else { return nil }
         return URL(string: urlString)
     }
-    static let allBackends: [ChainBackendRecord] = WalletRustEndpointCatalogBridge.chainBackends()
-    /// The chains a build can actually talk to. Derived from the backends
-    /// rather than asked for separately — `app_core_live_chain_names` was that
-    /// list filtered by `integrationState`, which this side can do.
-    static let liveChainNames: [String] = allBackends
-        .filter { $0.integrationState == .live }
-        .map(\.chainName)
-    static func backend(for chainName: String) -> ChainBackendRecord? { allBackends.first { $0.chainName == chainName } }
-    static func supportsBalanceRefresh(for chainName: String) -> Bool { backend(for: chainName)?.supportsBalanceRefresh ?? false }
-    static func supportsReceiveAddress(for chainName: String) -> Bool { backend(for: chainName)?.supportsReceiveAddress ?? false }
-    static func supportsSend(for chainName: String) -> Bool { backend(for: chainName)?.supportsSend ?? false }
+    /// Every chain the registry knows.
+    ///
+    /// Was `chain_backends()` filtered by `integrationState == .live`. That
+    /// table was 78 hand-written rows beside `chains.toml`'s 78 — verified
+    /// identical — and every row said `Live`, so the filter selected all of
+    /// them and the record's other six fields had no reader on this side.
+    static let liveChainNames: [String] = Chain.all.map(\.displayName)
 }

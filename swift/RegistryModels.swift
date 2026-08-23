@@ -411,16 +411,6 @@ extension Coin {
 
 // MARK: ─ (merged from ChainBackendModels.swift)
 
-typealias ChainIntegrationState = AppCoreChainIntegrationState
-struct ChainBackendRecord {
-    let chainName: String
-    let supportedSymbols: [String]
-    let integrationState: ChainIntegrationState
-    let supportsSeedImport: Bool
-    let supportsBalanceRefresh: Bool
-    let supportsReceiveAddress: Bool
-    let supportsSend: Bool
-}
 struct ChainBroadcastProviderOption: Identifiable, Hashable, Decodable {
     let id: String
     let title: String

@@ -156,7 +156,8 @@ extension AppState {
         do {
             guard
                 let preview = try await WalletServiceBridge.shared.fetchDogecoinSendPreviewTyped(
-                    address: address, requestedAmount: amount, feePriority: dogecoinFeePriority.rawValue)
+                    address: address, requestedAmount: amount,
+                    feePriority: feePriorityOption(for: "Dogecoin").rawValue)
             else {
                 sendPreviewStore.dogecoinSendPreview = nil
                 sendError = "Insufficient DOGE funds."

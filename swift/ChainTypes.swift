@@ -56,7 +56,6 @@ enum TronBalanceService {
 // MARK: - Polkadot
 // SimpleHistoryDiagnostics moved to Rust core.
 enum PolkadotBalanceService {
-    static func sidecarEndpointCatalog() -> [String] { AppEndpointDirectory.endpoints(for: ["polkadot.sidecar.parity"]) }
 }
 
 // MARK: - Monero
@@ -129,9 +128,6 @@ enum NearBalanceService {
         let tokenStandard: String
         let decimals: Int
         let coinGeckoId: String
-    }
-    static func rpcEndpointCatalog() -> [String] {
-        AppEndpointDirectory.endpoints(for: ["near.rpc.mainnet", "near.rpc.fastnear", "near.rpc.lava"])
     }
     static func parseHistoryResponse(_ data: Data, ownerAddress: String) throws -> [NearHistoryParsedSnapshot] {
         let jsonString = String(data: data, encoding: .utf8) ?? ""

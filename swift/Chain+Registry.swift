@@ -73,6 +73,9 @@ extension Chain: Identifiable {
     /// Which `TokenTrackingChain` this chain is, if it can host tracked tokens.
     var tokenTrackingChain: TokenTrackingChain? { identity?.tokenTrackingChain }
     var sendExecutionShape: SendExecutionShape? { identity?.sendExecutionShape }
+    /// The JSON-RPC method that answers "is this node alive", or nil when this
+    /// chain's endpoints are checked over plain HTTP.
+    var rpcHealthMethod: String? { identity?.rpcHealthMethod }
     var pendingStatusPoll: PendingStatusPoll? { identity?.pendingStatusPoll }
     /// Which chain's derivation path this chain reuses, as a display name.
     var seedDerivationChain: String? { identity?.seedDerivationChain }
@@ -96,8 +99,6 @@ extension Chain: Identifiable {
     /// on every L2, and it is this one that says whether a holding is native.
     var gasTokenSymbol: String { entry?.gasTokenSymbol ?? "" }
     var isEVM: Bool { identity?.isEvm ?? false }
-    var supportsDiagnostics: Bool { entry?.supportsDiagnostics ?? false }
-    var supportsEndpointCatalog: Bool { entry?.supportsEndpointCatalog ?? false }
     var searchKeywords: [String] { entry?.searchKeywords ?? [] }
 
     /// The catalog's default BIP-32 path for account 0. Empty for chains that

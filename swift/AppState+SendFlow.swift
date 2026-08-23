@@ -545,32 +545,10 @@ extension AppState {
         await WalletServiceBridge.shared.operationalEvents(chainName: chainName)
     }
     func feePriorityOption(for chainName: String) -> ChainFeePriorityOption {
-        if chainName == "Bitcoin" { return mapBitcoinFeePriorityToChainOption(bitcoinFeePriority) }
-        if chainName == "Dogecoin" { return mapDogecoinFeePriorityToChainOption(dogecoinFeePriority) }
-        return selectedFeePriorityOptionRawByChain[chainName].flatMap(ChainFeePriorityOption.init(rawValue:)) ?? .normal
+        feePriorityByChain[chainName].flatMap(ChainFeePriorityOption.init(rawValue:)) ?? .normal
     }
     func setFeePriorityOption(_ option: ChainFeePriorityOption, for chainName: String) {
-        if chainName == "Bitcoin" { bitcoinFeePriority = mapChainOptionToBitcoinFeePriority(option); return }
-        if chainName == "Dogecoin" { dogecoinFeePriority = mapChainOptionToDogecoinFeePriority(option); return }
-        selectedFeePriorityOptionRawByChain[chainName] = option.rawValue
-    }
-    func bitcoinFeePriority(for chainName: String) -> BitcoinFeePriority {
-        mapChainOptionToBitcoinFeePriority(feePriorityOption(for: chainName))
-    }
-    func mapBitcoinFeePriorityToChainOption(_ priority: BitcoinFeePriority) -> ChainFeePriorityOption {
-        ChainFeePriorityOption(rawValue: priority.rawValue) ?? .normal
-    }
-    func mapChainOptionToBitcoinFeePriority(_ option: ChainFeePriorityOption) -> BitcoinFeePriority {
-        BitcoinFeePriority(rawValue: option.rawValue) ?? .normal
-    }
-    func mapDogecoinFeePriorityToChainOption(_ priority: DogecoinFeePriority) -> ChainFeePriorityOption {
-        ChainFeePriorityOption(rawValue: priority.rawValue) ?? .normal
-    }
-    func mapChainOptionToDogecoinFeePriority(_ option: ChainFeePriorityOption) -> DogecoinFeePriority {
-        DogecoinFeePriority(rawValue: option.rawValue) ?? .normal
-    }
-    func persistSelectedFeePriorityOptions() {
-        persistCodableToSQLite(selectedFeePriorityOptionRawByChain, key: Self.selectedFeePriorityOptionsByChainDefaultsKey)
+        setFeePriority(option.rawValue, forChain: chainName)
     }
     private func runUTXORescan(
         chainName: String, abbrev: String, preWork: (() async -> Void)? = nil,

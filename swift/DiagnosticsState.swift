@@ -159,8 +159,9 @@ final class WalletDiagnosticsState {
     func markChainDegraded(_ chainName: String, detail: String) {
         guard let chainID = WalletChainID(chainName) else { return }
         let chainName = chainID.displayName
-        if diagnosticsDetailIndicatesLiveSuccess(detail: detail) { lastGoodChainSyncByID[chainID] = Date() }
-        let localizedDetail = localizedDegradedDetail(detail, chainName: chainName)
+        let classified = diagnosticsClassifyDegradedDetail(detail: detail)
+        if classified.indicatesLiveSuccess { lastGoodChainSyncByID[chainID] = Date() }
+        let localizedDetail = localized(classified, chainName: chainName)
         let metadata = degradedSyncSuffix(for: chainID)
         chainDegradedMessagesByID[chainID] = localizedDetail
         appendOperationalLog(
@@ -169,16 +170,22 @@ final class WalletDiagnosticsState {
     }
     private func localizedDegradedMessage(_ message: String, chainID: WalletChainID) -> String {
         if message.isEmpty { return message }
-        let detail = localizedDegradedDetail(
-            diagnosticsNormalizeDegradedDetail(message: message), chainName: chainID.displayName
-        )
+        let detail = localized(
+            diagnosticsClassifyDegradedDetail(detail: message), chainName: chainID.displayName)
         return [detail, degradedSyncSuffix(for: chainID)].filter { !$0.isEmpty }.joined(separator: " ")
     }
-    private func localizedDegradedDetail(_ detail: String, chainName: String) -> String {
-        if let templateKey = diagnosticsDegradedDetailTemplateKey(detail: detail) {
+    /// One classification, localized.
+    ///
+    /// Was three FFI calls asking three questions about one string, and the two
+    /// callers disagreed about whether to normalise before matching the
+    /// template — so a detail arriving with its "Last good sync" suffix still
+    /// attached matched no template on one path and did on the other. Core
+    /// matches against the normalized form for both.
+    private func localized(_ classified: DegradedDetail, chainName: String) -> String {
+        if let templateKey = classified.templateKey {
             return localizedStoreFormat(templateKey, chainName)
         }
-        return localizedStoreString(detail)
+        return localizedStoreString(classified.normalized)
     }
     private func degradedSyncSuffix(for chainID: WalletChainID) -> String {
         let copy = DiagnosticsContentCopy.current

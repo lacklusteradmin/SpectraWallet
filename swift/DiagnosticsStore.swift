@@ -37,19 +37,19 @@ extension AppState {
     func recordSimpleHistoryDiagnostics(
         chainName: String, walletID: String, _ entry: SimpleHistoryDiagnostics
     ) {
-        diagnosticsRecordSimple(chainName: chainName, walletId: walletID, entry: entry)
+        diagnosticsRecord(chainName: chainName, walletId: walletID, entry: .simple(entry: entry))
         chainDiagnosticsState.diagnosticsRevision &+= 1
     }
     func recordUTXOHistoryDiagnostics(
         chainName: String, walletID: String, _ entry: BitcoinHistoryDiagnostics
     ) {
-        diagnosticsRecordUtxo(chainName: chainName, walletId: walletID, entry: entry)
+        diagnosticsRecord(chainName: chainName, walletId: walletID, entry: .utxo(entry: entry))
         chainDiagnosticsState.diagnosticsRevision &+= 1
     }
     func recordEVMHistoryDiagnostics(
         chainName: String, walletID: String, _ entry: EthereumTokenTransferHistoryDiagnostics
     ) {
-        diagnosticsRecordEvm(chainName: chainName, walletId: walletID, entry: entry)
+        diagnosticsRecord(chainName: chainName, walletId: walletID, entry: .evm(entry: entry))
         chainDiagnosticsState.diagnosticsRevision &+= 1
     }
     subscript(historyRunFor chainName: String) -> WalletChainDiagnosticsState.HistoryRun {

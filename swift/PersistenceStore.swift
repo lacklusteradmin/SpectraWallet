@@ -45,11 +45,6 @@ extension AppState {
         {
             assetDisplayDecimalsByChain = decimals
         }
-        if let feePrios = await loadCodableFromSQLite([String: String].self, key: Self.selectedFeePriorityOptionsByChainDefaultsKey),
-            !feePrios.isEmpty
-        {
-            selectedFeePriorityOptionRawByChain = feePrios
-        }
         // The eighteen settings core owns arrive with `loadCoreOwnedState()`
         // above, through `applyCoreState`. What is left here is the four this
         // platform keeps: hiding balances, Face ID, auto-lock and

@@ -39,7 +39,6 @@ enum StaticContentCatalog {
         return value
     }
     private static func loadRequiredResourceUncached<T: Decodable>(_ baseName: String, as type: T.Type) -> T {
-        if let value: T = loadFromRustCore(baseName) { return value }
         let decoder = JSONDecoder()
         let localeIdentifiers = AppLocalization.preferredLocalizationIdentifiers()
         for url in candidateJSONURLs(for: baseName, localeIdentifiers: localeIdentifiers) {
@@ -49,7 +48,11 @@ enum StaticContentCatalog {
         fatalError("Missing required resource: \(baseName).json")
     }
     private static func loadResourceUncached<T: Decodable>(_ baseName: String, as type: T.Type) -> T? {
-        if let value: T = loadFromRustCore(baseName) { return value }
+        // `loadFromRustCore` used to be tried first. `core::resources` held two
+        // empty tables, so `coreStaticResourceJson` could only ever throw — the
+        // call was made, the error swallowed by `try?`, and the bundle path ran
+        // anyway, on every content load. Its two tests passed for the same
+        // reason: they asserted that a lookup in an empty map returns nothing.
         let decoder = JSONDecoder()
         let localeIdentifiers = AppLocalization.preferredLocalizationIdentifiers()
         for url in candidateJSONURLs(for: baseName, localeIdentifiers: localeIdentifiers) {
@@ -57,12 +60,6 @@ enum StaticContentCatalog {
             return value
         }
         return nil
-    }
-    private static func loadFromRustCore<T: Decodable>(_ baseName: String) -> T? {
-        guard let json = try? coreStaticResourceJson(resourceName: baseName),
-              let bytes = json.data(using: .utf8)
-        else { return nil }
-        return try? JSONDecoder().decode(T.self, from: bytes)
     }
     private static func candidateJSONURLs(for baseName: String, localeIdentifiers: [String]) -> [URL] {
         var candidates: [URL] = []

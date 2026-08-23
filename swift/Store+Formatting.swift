@@ -261,13 +261,12 @@ extension AppState {
         cachedAssetDecimalsResolutions[cacheKey] = pair
         return pair
     }
-    /// Memoized wrapper over `formattingAssetMinimumVisibleAmount`. Pure
-    /// function of `visibleDecimals`, so cache for app lifetime.
+    /// The smallest amount that still shows at `visibleDecimals` places.
+    ///
+    /// Was an FFI call — `10^-n`, crossed the boundary and memoized on this
+    /// side. A rule core owns is worth a call; an exponent is not.
     private func assetMinimumVisibleAmount(visibleDecimals: UInt32) -> Double {
-        if let cached = cachedAssetMinimumVisibleAmounts[visibleDecimals] { return cached }
-        let value = formattingAssetMinimumVisibleAmount(visibleDecimals: visibleDecimals)
-        cachedAssetMinimumVisibleAmounts[visibleDecimals] = value
-        return value
+        visibleDecimals == 0 ? 0 : pow(10, -Double(visibleDecimals))
     }
     func defaultAssetDisplayDecimalsByChain(defaultValue: Int = 3) -> [String: Int] {
         let normalized = UInt32(min(max(defaultValue, 0), 30))

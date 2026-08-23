@@ -393,6 +393,9 @@ final class AppState {
         // tick later quotes a testnet at mainnet prices in between.
         let unpriced = Set(coreUnpricedChainNames(settings: state.settings))
         if unpriced != unpricedChainNames { unpricedChainNames = unpriced }
+        if state.settings.feePriorityByChain != feePriorityByChain {
+            feePriorityByChain = state.settings.feePriorityByChain
+        }
         if state.settings.networkChainByFamily != networkChainByFamily {
             networkChainByFamily = state.settings.networkChainByFamily
         }
@@ -428,6 +431,32 @@ final class AppState {
             where networkChainByFamily[family] != oldValue[family] {
                 onNetworkChainChanged(family: family)
             }
+        }
+    }
+
+    /// Core owns it; this is the mirror the fee pickers bind to. Absent means
+    /// `.normal`, so the map is empty until the user picks something.
+    ///
+    /// It replaced three stores of one preference: Bitcoin and Dogecoin each
+    /// had a settings field and a Swift enum of their own, and the other
+    /// seventy-six shared a dictionary this class persisted itself.
+    private(set) var feePriorityByChain: [String: String] = [:] {
+        didSet {
+            guard feePriorityByChain != oldValue else { return }
+            commitAppSettingsSoon()
+        }
+    }
+
+    /// Forget every chain's preference, on a wipe.
+    func clearFeePriorities() { feePriorityByChain = [:] }
+
+    /// Pick a chain's confirmation preference. Core normalizes the value and
+    /// drops it again when it is the default.
+    func setFeePriority(_ rawValue: String, forChain chainName: String) {
+        if rawValue == "normal" {
+            feePriorityByChain.removeValue(forKey: chainName)
+        } else {
+            feePriorityByChain[chainName] = rawValue
         }
     }
 
@@ -553,7 +582,6 @@ final class AppState {
     // invalidate when the inputs (display-decimals prefs, token prefs,
     // selected fiat currency) change.
     @ObservationIgnored var cachedFiatAmountRules: [String: FiatAmountRules] = [:]
-    @ObservationIgnored var cachedAssetMinimumVisibleAmounts: [UInt32: Double] = [:]
     @ObservationIgnored var cachedAssetDecimalsResolutions: [String: (supported: UInt32, display: UInt32)] = [:]
 /// Chains whose selected network is a testnet, so their coins are not quoted.
     ///
@@ -587,18 +615,6 @@ final class AppState {
             commitAppSettingsSoon()
         }
     }
-    var bitcoinFeePriority: BitcoinFeePriority = .normal {
-        didSet {
-            guard bitcoinFeePriority != oldValue else { return }
-            commitAppSettingsSoon()
-        }
-    }
-    var dogecoinFeePriority: DogecoinFeePriority = .normal {
-        didSet {
-            guard dogecoinFeePriority != oldValue else { return }
-            commitAppSettingsSoon()
-        }
-    }
     /// User-facing preferences (UI / security / notifications / refresh cadence).
     /// Split out so views that only care about preferences stop getting
     /// invalidated whenever wallets / balances / transactions mutate.
@@ -625,12 +641,6 @@ final class AppState {
     var discoveredUTXOAddressesByChain: [String: [String: [String]]] = [:]
     var isLoadingMoreOnChainHistory: Bool = false
     let diagnostics = WalletDiagnosticsState()
-    var selectedFeePriorityOptionRawByChain: [String: String] = [:] {
-        didSet {
-            guard selectedFeePriorityOptionRawByChain != oldValue else { return }
-            persistSelectedFeePriorityOptions()
-        }
-    }
     /// Whether a chain's deep rescan is running, and when it last finished.
     ///
     /// Ten forwarding accessors used to name five chains twice each, over this
@@ -714,7 +724,6 @@ final class AppState {
     /// setting, went with the settings into core.
     static let platformPreferencesDefaultsKey = "settings.platform.v1"
     static let assetDisplayDecimalsByChainDefaultsKey = "settings.assetDisplayDecimalsByChain.v1"
-    static let selectedFeePriorityOptionsByChainDefaultsKey = "settings.feePriorityOptionsByChain.v1"
 
     static let torEnabledDefaultsKey = "tor.enabled"
     static let torUseCustomProxyDefaultsKey = "tor.useCustomProxy"
@@ -808,7 +817,7 @@ final class AppState {
         return AppEndpointDirectory.bitcoinWalletStoreDefaultBaseURLs(forChainID: networkChainID(forFamily: "bitcoin"))
     }
     var bitcoinEsploraEndpointsValidationError: String? {
-        Spectra.bitcoinEsploraEndpointsValidationError(raw: bitcoinEsploraEndpoints)
+        endpointValidationError(field: .bitcoinEsploraList, raw: bitcoinEsploraEndpoints)
     }
     func parseDogecoinAmountInput(_ amountText: String) -> Double? {
         parseAmountInput(text: amountText, maxDecimals: 8)
@@ -1077,24 +1086,16 @@ final class AppState {
     func enabledTokenPreferences(for chain: TokenTrackingChain) -> [TokenPreferenceEntry] {
         enabledTrackedTokenPreferences.filter { $0.chain == chain }
     }
+    /// The canonical form of a tracked token's contract address.
+    ///
+    /// Was a twelve-name EVM arm, then Aptos, Sui, TON and a lowercase default
+    /// — a second copy of `normalize_token_identifier`, which core keys by
+    /// chain. The two disagreed about TON: this side trimmed, core lowercased,
+    /// and a jetton master address is case-significant. Core states the TON rule
+    /// now and this asks it.
     func normalizedTrackedTokenIdentifier(for chain: TokenTrackingChain, contractAddress: String) -> String {
-        let trimmed = contractAddress.trimmingCharacters(in: .whitespacesAndNewlines)
-        switch chain {
-        case .ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .polygon, .base, .linea, .scroll, .blast, .mantle:
-            return normalizeEVMAddress(trimmed)
-        case .aptos: return normalizeAptosTokenIdentifier(trimmed)
-        case .sui: return normalizeSuiTokenIdentifier(trimmed)
-        case .ton: return TONBalanceService.normalizeJettonMasterAddress(trimmed)
-        default: return trimmed.lowercased()
-        }
+        normalizeTokenIdentifier(contractAddress: contractAddress, chainName: chain.rawValue) ?? ""
     }
-    // Normalizers (Aptos / Sui) now live in Rust: `core/src/app_state/token_helpers.rs`.
-    // Kept as instance-method forwarders so existing call sites (`self.foo(x)`) compile
-    // without churn.
-    func normalizeSuiTokenIdentifier(_ v: String) -> String { Spectra.normalizeSuiTokenIdentifier(value: v) }
-    func normalizeSuiPackageComponent(_ v: String) -> String { Spectra.normalizeSuiPackageComponent(value: v) }
-    func normalizeAptosTokenIdentifier(_ v: String) -> String { Spectra.normalizeAptosTokenIdentifier(value: v) }
-    func canonicalAptosHexAddress(_ v: String) -> String { Spectra.canonicalAptosHexAddress(value: v) }
     /// Map a `TokenTrackingChain` to the user's currently-enabled tracked tokens for that chain.
     /// All 12 EVM chains share this helper; routing via `TokenTrackingChain.forChainName(...)`
     /// at the call site picks the right chain.
@@ -1147,7 +1148,7 @@ final class AppState {
         Dictionary(
             uniqueKeysWithValues: enabledTokenPreferences(for: .aptos).map { entry in
                 (
-                    normalizeAptosTokenIdentifier(entry.contractAddress),
+                    normalizedTrackedTokenIdentifier(for: .aptos, contractAddress: entry.contractAddress),
                     AptosBalanceService.KnownTokenMetadata(
                         symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals),
                         coinGeckoId: entry.coinGeckoId
@@ -1156,7 +1157,6 @@ final class AppState {
             }
         )
     }
-    func aptosPackageIdentifier(from value: String?) -> String { Spectra.aptosPackageIdentifier(value: value) }
     func enabledNearTrackedTokens() -> [String: NearBalanceService.KnownTokenMetadata] {
         Dictionary(
             uniqueKeysWithValues: enabledTokenPreferences(for: .near).map { entry in
@@ -1183,7 +1183,11 @@ final class AppState {
             }
         )
     }
-    var ethereumRPCEndpointValidationError: String? { ethereumRpcEndpointValidationError(endpoint: ethereumRPCEndpoint) }
-    var moneroBackendBaseURLValidationError: String? { moneroBackendBaseUrlValidationError(endpoint: moneroBackendBaseURL) }
+    var ethereumRPCEndpointValidationError: String? {
+        endpointValidationError(field: .ethereumRpc, raw: ethereumRPCEndpoint)
+    }
+    var moneroBackendBaseURLValidationError: String? {
+        endpointValidationError(field: .moneroBackend, raw: moneroBackendBaseURL)
+    }
 
 }

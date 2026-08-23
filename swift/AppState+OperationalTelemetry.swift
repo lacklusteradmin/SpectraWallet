@@ -194,14 +194,18 @@ extension AppState {
         for transaction: TransactionRecord, resolvedStatus: TransactionStatus,
         confirmations: Int? = nil
     ) async {
-        try? await WalletServiceBridge.shared.recordStatusPollSuccess(
-            id: transaction.id.uuidString,
-            confirmed: resolvedStatus == .confirmed,
-            pending: resolvedStatus == .pending,
-            confirmations: confirmations.map { UInt32(max(0, $0)) })
+        let outcome: StatusPollOutcome =
+            switch resolvedStatus {
+            case .confirmed: .confirmed(confirmations: confirmations.map { UInt32(max(0, $0)) })
+            case .pending: .pending
+            default: .unresolved
+            }
+        try? await WalletServiceBridge.shared.recordStatusPoll(
+            id: transaction.id.uuidString, outcome: outcome)
     }
     func markTransactionStatusPollFailure(for transaction: TransactionRecord) async {
-        try? await WalletServiceBridge.shared.recordStatusPollFailure(id: transaction.id.uuidString)
+        try? await WalletServiceBridge.shared.recordStatusPoll(
+            id: transaction.id.uuidString, outcome: .failed)
     }
     func stalePendingFailureIDs(from trackedTransactions: [TransactionRecord]) async -> Set<UUID> {
         let inputs = trackedTransactions.map { transaction in

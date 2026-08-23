@@ -152,12 +152,6 @@ extension AppState {
     func resolvedICPAddress(for wallet: ImportedWallet) -> String?        { resolvedChainAddress(for: wallet, chain: .icp) }
     func resolvedNearAddress(for wallet: ImportedWallet) -> String?       { resolvedChainAddress(for: wallet, chain: .near) }
     func resolvedPolkadotAddress(for wallet: ImportedWallet) -> String?   { resolvedChainAddress(for: wallet, chain: .polkadot) }
-    func resolvedZcashAddress(for wallet: ImportedWallet) -> String?      { resolvedChainAddress(for: wallet, chain: .zcash) }
-    func resolvedBitcoinGoldAddress(for wallet: ImportedWallet) -> String?{ resolvedChainAddress(for: wallet, chain: .bitcoinGold) }
-    func resolvedDecredAddress(for wallet: ImportedWallet) -> String?     { resolvedChainAddress(for: wallet, chain: .decred) }
-    func resolvedKaspaAddress(for wallet: ImportedWallet) -> String?      { resolvedChainAddress(for: wallet, chain: .kaspa) }
-    func resolvedDashAddress(for wallet: ImportedWallet) -> String?       { resolvedChainAddress(for: wallet, chain: .dash) }
-    func resolvedBittensorAddress(for wallet: ImportedWallet) -> String?  { resolvedChainAddress(for: wallet, chain: .bittensor) }
     func resolvedStellarAddress(for wallet: ImportedWallet) -> String?    { resolvedChainAddress(for: wallet, chain: .stellar) }
     func resolvedXRPAddress(for wallet: ImportedWallet) -> String?        { resolvedChainAddress(for: wallet, chain: .xrp) }
     func resolvedLitecoinAddress(for wallet: ImportedWallet) -> String?   { resolvedChainAddress(for: wallet, chain: .litecoin) }

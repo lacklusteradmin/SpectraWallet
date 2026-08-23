@@ -381,8 +381,15 @@ struct StandardChainDiagnosticsView: View {
     @ViewBuilder
     private var bitcoinSettingsSection: some View {
         Section(AppLocalization.string("Bitcoin Settings")) {
-            Picker(AppLocalization.string("Send Fee Priority"), selection: $store.bitcoinFeePriority) {
-                ForEach(BitcoinFeePriority.allCases) { priority in Text(priority.displayName).tag(priority) }
+            Picker(
+                AppLocalization.string("Send Fee Priority"),
+                selection: Binding(
+                    get: { store.feePriorityOption(for: "Bitcoin") },
+                    set: { store.setFeePriorityOption($0, for: "Bitcoin") })
+            ) {
+                ForEach(ChainFeePriorityOption.allCases) { priority in
+                    Text(priority.displayName).tag(priority)
+                }
             }.pickerStyle(.segmented)
             TextField(
                 AppLocalization.string("Custom Esplora endpoints (comma-separated, optional)"),
