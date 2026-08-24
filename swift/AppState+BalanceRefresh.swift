@@ -255,12 +255,6 @@ extension AppState {
     }
 
     // EVM helpers kept because they're still called from SendFlow / DiagnosticsEndpoints.
-    func configuredEthereumRPCEndpointURL() -> URL? {
-        guard ethereumRPCEndpointValidationError == nil else { return nil }
-        let trimmed = ethereumRPCEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        return URL(string: trimmed)
-    }
     func fetchEthereumPortfolio(for address: String) async throws -> (nativeBalance: Double, tokenBalances: [TokenBalanceResult]) {
         // Was `?? .ethereum`, which resolved to a *fabricated* context with
         // chain id 0 when the registry lookup missed — a fallback that can only

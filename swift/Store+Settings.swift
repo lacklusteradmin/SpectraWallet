@@ -72,8 +72,11 @@ extension AppState {
              known?.pricingProvider == pricingProvider.rawValue)
         push(.fiatRateProvider(value: fiatRateProvider.rawValue),
              known?.fiatRateProvider == fiatRateProvider.rawValue)
-        push(.ethereumRpcEndpoint(value: ethereumRPCEndpoint),
-             known?.ethereumRpcEndpoint == ethereumRPCEndpoint)
+        let knownRPCChains = known.map { Set($0.rpcEndpointByChain.keys) } ?? []
+        for chainName in Set(rpcEndpointByChain.keys).union(knownRPCChains) {
+            push(.rpcEndpoint(chain: chainName, value: rpcEndpointByChain[chainName] ?? ""),
+                 known?.rpcEndpointByChain[chainName] == rpcEndpointByChain[chainName])
+        }
         push(.etherscanApiKey(value: etherscanAPIKey),
              known?.etherscanApiKey == etherscanAPIKey)
         push(.moneroBackendBaseUrl(value: moneroBackendBaseURL),
@@ -127,9 +130,6 @@ extension AppState {
             value != fiatRateProvider { fiatRateProvider = value }
         if let value = BackgroundSyncProfile(rawValue: settings.backgroundSyncProfile),
             value != backgroundSyncProfile { backgroundSyncProfile = value }
-        if settings.ethereumRpcEndpoint != ethereumRPCEndpoint {
-            ethereumRPCEndpoint = settings.ethereumRpcEndpoint
-        }
         if settings.etherscanApiKey != etherscanAPIKey { etherscanAPIKey = settings.etherscanApiKey }
         if settings.moneroBackendBaseUrl != moneroBackendBaseURL {
             moneroBackendBaseURL = settings.moneroBackendBaseUrl

@@ -330,24 +330,10 @@ struct SendView: View {
 
     // MARK: - Flow pages
 
-    private func sendPageHeader(title: String, subtitle: String, systemImage: String) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: systemImage)
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.orange)
-                .frame(width: 42, height: 42)
-                .glassEffect(.regular.tint(.white.opacity(0.04)), in: .circle)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(AppLocalization.string(title)).font(.title2.weight(.bold))
-                Text(AppLocalization.string(subtitle)).font(.subheadline).foregroundStyle(.secondary)
-            }
-        }
-    }
 
     private func networkStep(selectedCoin: Coin?) -> some View {
         VStack(alignment: .leading, spacing: 18) {
-            sendPageHeader(
+            spectraPageHeader(
                 title: "Network",
                 subtitle: "Review fee estimates and advanced chain options.",
                 systemImage: "antenna.radiowaves.left.and.right"
@@ -381,7 +367,7 @@ struct SendView: View {
 
     private func confirmStep(selectedCoin: Coin?) -> some View {
         VStack(alignment: .leading, spacing: 18) {
-            sendPageHeader(
+            spectraPageHeader(
                 title: "Review",
                 subtitle: "Confirm the transaction details before broadcasting.",
                 systemImage: "checkmark.shield.fill"
@@ -445,7 +431,7 @@ struct SendView: View {
 
     private var resultStep: some View {
         VStack(alignment: .leading, spacing: 18) {
-            sendPageHeader(
+            spectraPageHeader(
                 title: "Sent",
                 subtitle: "The transaction has been queued for network confirmation.",
                 systemImage: "checkmark.circle.fill"

@@ -321,7 +321,8 @@ struct StandardChainDiagnosticsView: View {
     /// `XBalanceService.endpointCatalog()` — one-line shims that do nothing but
     /// restate the chain's own name to `AppEndpointDirectory` — and
     /// `EVMChainContext.x.defaultRPCEndpoints`, which does the same. What is
-    /// genuinely per-chain is the user-configured override, and there are three.
+    /// genuinely per-chain is the user-configured override: Bitcoin's Esplora
+    /// list, Monero's backend, and every EVM chain's RPC.
     private func configuredEndpointsForCurrentChain() -> [String] {
         let name = chain.displayName
         switch chain {
@@ -337,30 +338,17 @@ struct StandardChainDiagnosticsView: View {
         case .monero:
             let trimmed = store.moneroBackendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
             return trimmed.isEmpty ? [MoneroBalanceService.defaultPublicBackend.baseURL] : [trimmed]
-        case .ethereum:
-            let custom = store.ethereumRPCEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+        default:
+            guard chain.isEVM else { return AppEndpointDirectory.settingsEndpoints(for: name) }
+            // The override used to be Ethereum's alone, so this was its own
+            // case and every other EVM chain fell through to the catalog list.
+            let custom = store.rpcEndpoint(forChain: name)
             var endpoints = custom.isEmpty ? [] : [custom]
-            for endpoint in evmEndpoints(for: name) where !endpoints.contains(endpoint) {
+            for endpoint in AppEndpointDirectory.evmEndpointsWithSupplemental(for: name) where !endpoints.contains(endpoint) {
                 endpoints.append(endpoint)
             }
             return endpoints
-        default:
-            return chain.isEVM
-                ? evmEndpoints(for: name) : AppEndpointDirectory.settingsEndpoints(for: name)
         }
-    }
-    /// An EVM chain's RPC list, plus whatever explorer endpoints the catalog
-    /// supplements it with. Only Ethereum and BNB Chain used to get the
-    /// supplement; for every other chain the list is empty, so asking for all
-    /// of them costs nothing and stops the next chain that has one from
-    /// needing a case here.
-    private func evmEndpoints(for name: String) -> [String] {
-        var endpoints = AppEndpointDirectory.evmRPCEndpoints(for: name)
-        for endpoint in AppEndpointDirectory.explorerSupplementalEndpoints(for: name)
-        where !endpoints.contains(endpoint) {
-            endpoints.append(endpoint)
-        }
-        return endpoints
     }
     private func rebuildHistorySourceRows() {
         let sources = chain.dispatch.historySummary(store).sources
@@ -405,11 +393,16 @@ struct StandardChainDiagnosticsView: View {
     @ViewBuilder
     private var ethereumSettingsSections: some View {
         Section(AppLocalization.string("Ethereum RPC")) {
-            TextField(AppLocalization.string("Ethereum RPC URL (Optional)"), text: $store.ethereumRPCEndpoint)
-                .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+            TextField(
+                AppLocalization.string("Ethereum RPC URL (Optional)"),
+                text: Binding(
+                    get: { store.rpcEndpoint(forChain: "Ethereum") },
+                    set: { store.setRPCEndpoint($0, forChain: "Ethereum") })
+            )
+            .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
             Text(copy.ethereumRPCNote).font(.caption).foregroundStyle(.secondary)
-            if let ethereumRPCEndpointValidationError = store.ethereumRPCEndpointValidationError {
-                Text(ethereumRPCEndpointValidationError).font(.caption).foregroundStyle(.red)
+            if let error = store.rpcEndpointValidationError(forChain: "Ethereum") {
+                Text(error).font(.caption).foregroundStyle(.red)
             }
         }
         Section(AppLocalization.string("Etherscan (Optional)")) {

@@ -227,7 +227,7 @@ final class WalletImportDraft {
     /// the draft is not in watch-only mode.
     var watchOnlyEntriesBySlot: [String: [String]] {
         guard isWatchOnlyMode else { return [:] }
-        return WalletImportWatchOnlyEntries.slotMap(
+        return addressSlotMap(
             watchOnlyInputsByChainName.mapValues { watchOnlyEntries(from: $0) }
         )
     }

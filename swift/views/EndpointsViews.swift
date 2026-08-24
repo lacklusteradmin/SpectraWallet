@@ -28,7 +28,7 @@ struct EndpointCatalogSettingsView: View {
         return (Chain(id: "ethereum")?.networkChoices ?? []).map { choice in
             var endpoints: [String] = []
             if choice.chainId == selected {
-                let custom = store.ethereumRPCEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
+                let custom = store.rpcEndpoint(forChain: "Ethereum")
                 if !custom.isEmpty { endpoints.append(custom) }
             }
             guard let context = EVMChainContext(chainName: choice.title) else {
@@ -42,18 +42,6 @@ struct EndpointCatalogSettingsView: View {
             }
             return AppEndpointGroupedSettingsEntry(title: choice.title, endpoints: endpoints)
         }
-    }
-    /// An EVM chain's RPC list plus the explorer endpoints the catalog
-    /// supplements it with. Only BNB Chain used to be given the supplement; the
-    /// list is empty for chains that have none, so asking for every chain costs
-    /// nothing and removes the case.
-    private func evmEndpoints(for name: String) -> [String] {
-        var endpoints = AppEndpointDirectory.evmRPCEndpoints(for: name)
-        for endpoint in AppEndpointDirectory.explorerSupplementalEndpoints(for: name)
-        where !endpoints.contains(endpoint) {
-            endpoints.append(endpoint)
-        }
-        return endpoints
     }
     private var moneroEndpoints: [String] {
         let trimmed = store.moneroBackendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -114,9 +102,7 @@ struct EndpointCatalogSettingsView: View {
         ForEach(ethereumEndpointsByNetwork, id: \.title) { group in
             namedEndpointGroup(title: group.title, endpoints: group.endpoints)
         }
-        TextField(copy.customEthereumRPCURLPlaceholder, text: $store.ethereumRPCEndpoint)
-            .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
-        if let error = store.ethereumRPCEndpointValidationError { Text(error).font(.caption).foregroundStyle(.red) }
+        customRPCField(for: "Ethereum")
     }
     @ViewBuilder
     private var moneroSectionBody: some View {
@@ -129,6 +115,26 @@ struct EndpointCatalogSettingsView: View {
     private func readOnlyEVMSection(_ endpoints: [String]) -> some View {
         endpointRows(endpoints)
         readOnlyFootnote
+    }
+
+    /// The custom-RPC field, for any EVM chain.
+    ///
+    /// Ethereum had this and the other twenty-two EVM mainnets did not — not
+    /// because the field was missing here, but because the setting behind it
+    /// was a single `ethereum_rpc_endpoint` string read through an accessor
+    /// that returned nil for every other name.
+    @ViewBuilder
+    private func customRPCField(for chainName: String) -> some View {
+        TextField(
+            copy.customRPCURLPlaceholder,
+            text: Binding(
+                get: { store.rpcEndpoint(forChain: chainName) },
+                set: { store.setRPCEndpoint($0, forChain: chainName) })
+        )
+        .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+        if let error = store.rpcEndpointValidationError(forChain: chainName) {
+            Text(error).font(.caption).foregroundStyle(.red)
+        }
     }
     @ViewBuilder
     /// One section per chain the catalog says has endpoints worth showing.
@@ -150,7 +156,8 @@ struct EndpointCatalogSettingsView: View {
                 }
             default:
                 if chain.isEVM {
-                    readOnlyEVMSection(evmEndpoints(for: chain.displayName))
+                    readOnlyEVMSection(AppEndpointDirectory.evmEndpointsWithSupplemental(for: chain.displayName))
+                    customRPCField(for: chain.displayName)
                 } else {
                     endpointRows(AppEndpointDirectory.settingsEndpoints(for: chain.displayName))
                 }

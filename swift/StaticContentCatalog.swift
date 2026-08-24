@@ -365,7 +365,7 @@ struct EndpointsContentCopy: Decodable {
     let addEsploraEndpointPlaceholder: String
     let addEndpointButtonTitle: String
     let clearCustomBitcoinEndpointsTitle: String
-    let customEthereumRPCURLPlaceholder: String
+    let customRPCURLPlaceholder: String
     let customMoneroBackendURLPlaceholder: String
     static var current: EndpointsContentCopy {
         StaticContentCatalog.loadRequiredResource("EndpointsContent", as: EndpointsContentCopy.self)

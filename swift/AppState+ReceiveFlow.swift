@@ -67,7 +67,7 @@ extension AppState {
     var pendingTransactionRefreshStatusText: String? {
         guard let at = lastPendingTransactionRefreshAt else { return nil }
         let f = RelativeDateTimeFormatter(); f.unitsStyle = .short
-        return localizedStoreFormat("Last checked %@", f.localizedString(for: at, relativeTo: Date()))
+        return AppLocalization.format("Last checked %@", f.localizedString(for: at, relativeTo: Date()))
     }
     func receiveAddress() -> String {
         guard let wallet = wallet(for: receiveWalletID), let receiveCoin = selectedReceiveCoin(for: receiveWalletID) else {
@@ -233,7 +233,7 @@ extension AppState {
             // Kept because it is a key path: refuse before deriving.
             let unsupported = importDraft.unsupportedPrivateKeyChainNames
             guard unsupported.isEmpty else {
-                importError = walletFlowLocalizedFormat(
+                importError = AppLocalization.format(
                     "Private key import is not available for: %@.", unsupported.joined(separator: ", "))
                 return
             }
@@ -394,7 +394,7 @@ extension AppState {
                 plannedWalletIds: plannedWalletIDs.map(\.uuidString), isWatchOnlyImport: isWatchOnlyImport,
                 isPrivateKeyImport: isPrivateKeyImport, hasWalletPassword: trimmedWalletPassword != nil,
                 resolvedAddresses: WalletImportAddresses(
-                    bySlot: WalletImportAddresses.slotMap(addressByChainName),
+                    bySlot: addressSlotMap(addressByChainName),
                     bitcoinXpub: resolvedBitcoinXPub
                 ),
                 // `ImportDraft` already keeps the per-chain inputs as one

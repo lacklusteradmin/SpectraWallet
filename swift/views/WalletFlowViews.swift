@@ -263,7 +263,7 @@ struct WalletDetailView: View {
         else { return nil }
         let path = wallet.seedDerivationPaths.path(for: chain)
         guard !path.isEmpty else { return nil }
-        return walletFlowLocalizedFormat("wallet.detail.chainPath", wallet.selectedChain, path)
+        return AppLocalization.format("wallet.detail.chainPath", wallet.selectedChain, path)
     }
     private var watchOnlyBadge: some View {
         Label(localizedWalletFlowString("Watching"), systemImage: "eye").font(.caption.weight(.semibold)).foregroundStyle(.orange).padding(
@@ -640,10 +640,6 @@ private struct WalletDetailRow: View {
             Text(value).font(.subheadline).foregroundStyle(Color.primary).textSelection(.enabled)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
-}
-func walletFlowLocalizedFormat(_ key: String, _ arguments: CVarArg...) -> String {
-    let format = AppLocalization.string(key)
-    return String(format: format, locale: AppLocalization.locale, arguments: arguments)
 }
 struct SeedPathSlotEditor: View {
     let title: String

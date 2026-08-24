@@ -173,7 +173,7 @@ extension AppState {
                 cancel ? "Cancellation context loaded. Review fees and tap Send." : "Replacement context loaded. Review fees and tap Send.")
             await refreshSendPreview()
         } catch {
-            sendError = localizedStoreFormat("Unable to prepare replacement context: %@", error.localizedDescription)
+            sendError = AppLocalization.format("Unable to prepare replacement context: %@", error.localizedDescription)
         }
     }
     func prepareEthereumSpeedUpContext() async { await prepareEthereumReplacementContext(cancel: false) }
@@ -209,7 +209,16 @@ extension AppState {
         EVMChainContext(chainName: chainName)
     }
     func isEVMChain(_ chainName: String) -> Bool { (Chain(displayName: chainName)?.isEVM ?? false) }
-    func configuredEVMRPCEndpointURL(for chainName: String) -> URL? { chainName == "Ethereum" ? configuredEthereumRPCEndpointURL() : nil }
+    /// The custom RPC this chain is pointed at, if it is set and valid.
+    ///
+    /// This was `chainName == "Ethereum" ? … : nil`, which is why twenty-two
+    /// EVM mainnets had no custom-RPC setting: the accessor refused to look.
+    func configuredEVMRPCEndpointURL(for chainName: String) -> URL? {
+        guard rpcEndpointValidationError(forChain: chainName) == nil else { return nil }
+        let trimmed = rpcEndpoint(forChain: chainName)
+        guard !trimmed.isEmpty else { return nil }
+        return URL(string: trimmed)
+    }
     func supportedEVMToken(for coin: Coin) -> ChainTokenRegistryEntry? {
         guard evmChainContext(for: coin.chainName) != nil else { return nil }
         // A chain's native asset is never one of its tokens. This used to be
@@ -271,17 +280,17 @@ extension AppState {
         return warnings.compactMap { w -> String? in
             switch w.code {
             case "recipient_is_contract":
-                return localizedStoreFormat(
+                return AppLocalization.format(
                     "Recipient is a smart contract on %@. Confirm it can receive %@ safely.", w.chainName ?? "", w.symbol ?? "")
             case "recipient_code_unknown":
-                return localizedStoreFormat(
+                return AppLocalization.format(
                     "Could not verify recipient contract state on %@. Review destination carefully.", w.chainName ?? "")
             case "token_contract_missing":
-                return localizedStoreFormat(
+                return AppLocalization.format(
                     "Token contract %@ appears missing on %@. This may be a wrong-network token selection.",
                     w.tokenSymbol ?? "", w.chainName ?? "")
             case "token_code_unknown":
-                return localizedStoreFormat(
+                return AppLocalization.format(
                     "Could not verify %@ contract bytecode on %@.", w.tokenSymbol ?? "", w.chainName ?? "")
             default: return nil
             }
@@ -304,21 +313,21 @@ extension AppState {
             usedENSResolution: usedENSResolution)
         return warnings.compactMap { w -> String? in
             switch w.code {
-            case "invalid_format": return localizedStoreFormat("The destination address format does not match %@.", w.chain ?? "")
+            case "invalid_format": return AppLocalization.format("The destination address format does not match %@.", w.chain ?? "")
             case "new_address": return localizedStoreString("This is a new destination address with no prior history in this wallet.")
             case "ens_resolved":
-                return localizedStoreFormat(
+                return AppLocalization.format(
                     "ENS name '%@' resolved to %@. Confirm this resolved address before sending.", w.name ?? "", w.address ?? "")
             case "large_send":
                 let formatted = (Double(w.percent ?? 0) / 100.0).formatted(.percent.precision(.fractionLength(0)))
-                return localizedStoreFormat("This send is %@ of your %@ balance.", formatted, w.symbol ?? "")
+                return AppLocalization.format("This send is %@ of your %@ balance.", formatted, w.symbol ?? "")
             case "non_evm_on_evm":
-                return localizedStoreFormat("Destination appears to be a non-EVM address while sending on %@.", w.chain ?? "")
+                return AppLocalization.format("Destination appears to be a non-EVM address while sending on %@.", w.chain ?? "")
             case "ens_on_l2":
-                return localizedStoreFormat(
+                return AppLocalization.format(
                     "ENS names are Ethereum-specific. For %@, verify the resolved EVM address very carefully.", w.chain ?? "")
             case "eth_on_utxo":
-                return localizedStoreFormat("Destination appears to be an Ethereum-style address while sending on %@.", w.chain ?? "")
+                return AppLocalization.format("Destination appears to be an Ethereum-style address while sending on %@.", w.chain ?? "")
             case "non_tron": return localizedStoreString("Destination appears to be non-Tron format while sending on Tron.")
             case "non_solana": return localizedStoreString("Destination appears to be non-Solana format while sending on Solana.")
             case "non_xrp": return localizedStoreString("Destination appears to be non-XRP format while sending on XRP Ledger.")
@@ -387,7 +396,7 @@ extension AppState {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         let isEmpty = trimmed.isEmpty
         let isValid = !isEmpty && isValidAddress(trimmed, for: chainName)
-        if !isEmpty, isValid { return localizedStoreFormat("Valid %@ address.", chainName) }
+        if !isEmpty, isValid { return AppLocalization.format("Valid %@ address.", chainName) }
 
         if let hint = Self.addressFormatHints[chainName] {
             return localizedStoreString(isEmpty ? hint.empty : hint.invalid)
@@ -397,17 +406,17 @@ extension AppState {
         // registry's.
         if Chain(displayName: chainName)?.isEVM == true {
             return isEmpty
-                ? localizedStoreFormat("%@ addresses use EVM format (0x + 40 hex characters).", chainName)
-                : localizedStoreFormat("Enter a valid %@ address (0x + 40 hex characters).", chainName)
+                ? AppLocalization.format("%@ addresses use EVM format (0x + 40 hex characters).", chainName)
+                : AppLocalization.format("Enter a valid %@ address (0x + 40 hex characters).", chainName)
         }
         if chainName == "Sui" || chainName == "Aptos" {
             return isEmpty
-                ? localizedStoreFormat("%@ addresses are hex and typically start with 0x.", chainName)
-                : localizedStoreFormat("Enter a valid %@ address (starts with 0x).", chainName)
+                ? AppLocalization.format("%@ addresses are hex and typically start with 0x.", chainName)
+                : AppLocalization.format("Enter a valid %@ address (starts with 0x).", chainName)
         }
         return isEmpty
             ? localizedStoreString("Enter an address for the selected chain.")
-            : localizedStoreFormat("Enter a valid %@ address.", chainName)
+            : AppLocalization.format("Enter a valid %@ address.", chainName)
     }
     func isDuplicateAddressBookAddress(_ address: String, chainName: String, excluding entryID: String? = nil) -> Bool {
         let normalized = normalizedAddress(address, for: chainName)
@@ -502,8 +511,8 @@ extension AppState {
         selfTests["Ethereum", default: .init()].isRunning = true
         defer { selfTests["Ethereum", default: .init()].isRunning = false }
         var results = ChainSelfTests.run("Ethereum")
-        let rpcURL = configuredEthereumRPCEndpointURL()?.absoluteString ?? "https://ethereum.publicnode.com"
-        let rpcLabel = configuredEthereumRPCEndpointURL()?.absoluteString ?? "default RPC pool"
+        let rpcURL = configuredEVMRPCEndpointURL(for: "Ethereum")?.absoluteString ?? "https://ethereum.publicnode.com"
+        let rpcLabel = configuredEVMRPCEndpointURL(for: "Ethereum")?.absoluteString ?? "default RPC pool"
         results.append(contentsOf: await selfTestsRunEthereumRpc(rpcUrl: rpcURL, rpcLabel: rpcLabel))
         if let firstEthereumWallet = wallets.first(where: { $0.selectedChain == "Ethereum" }),
             let ethereumAddress = resolvedEthereumAddress(for: firstEthereumWallet)
@@ -730,11 +739,14 @@ extension AppState {
         // `require_send_kind: false` because its explorer confirms receives on
         // its own cadence, and a received Litecoin transaction could not be
         // rechecked.
+        guard transaction.supportsStatusRecheck else {
+            return transaction.transactionHash == nil
+                ? "This transaction has no hash to recheck."
+                : "Status recheck is not available for this transaction."
+        }
         guard let chain = Chain(displayName: transaction.chainName),
-            case .utxo(let tracksFinality, let requireSendKind) = chain.pendingStatusPoll,
-            !requireSendKind || transaction.kind == .send
+            case .utxo(let tracksFinality, _) = chain.pendingStatusPoll
         else { return "Status recheck is not available for this transaction." }
-        guard transaction.transactionHash != nil else { return "This transaction has no hash to recheck." }
         try? await WalletServiceBridge.shared.resetStatusTracker(
             id: transactionID.uuidString, clearFinality: tracksFinality)
         // The switch this replaces had five arms and every one of them was
@@ -1434,24 +1446,24 @@ extension AppState {
             let total = amount + networkFee
             if total > holdingBalance {
                 let totalText = String(format: "%.\(feeDecimals)f", total)
-                return localizedStoreFormat(
+                return AppLocalization.format(
                     "Insufficient %@ for amount plus network fee (needs ~%@ %@).",
                     symbol, totalText, symbol
                 )
             }
         } else {
             if amount > holdingBalance {
-                return localizedStoreFormat("Insufficient %@ balance for this transfer.", symbol)
+                return AppLocalization.format("Insufficient %@ balance for this transfer.", symbol)
             }
             if let nativeSym = nativeSymbol, let nativeBal = nativeBalance, networkFee > nativeBal {
                 let feeText = String(format: "%.\(feeDecimals)f", networkFee)
                 if let chain = chainLabel {
-                    return localizedStoreFormat(
+                    return AppLocalization.format(
                         "Insufficient %@ to cover %@ network fee (~%@ %@).",
                         nativeSym, chain, feeText, nativeSym
                     )
                 }
-                return localizedStoreFormat(
+                return AppLocalization.format(
                     "Insufficient %@ to cover the network fee (~%@ %@).",
                     nativeSym, feeText, nativeSym
                 )
@@ -1464,12 +1476,12 @@ extension AppState {
     ) {
         let warning: String? =
             (balanceNonPositive && !hasHistory)
-            ? localizedStoreFormat(
+            ? AppLocalization.format(
                 "Warning: this %@ address has zero balance and no transaction history. Double-check recipient details.", chainName)
             : nil
         let info: String? =
             (balanceNonPositive && hasHistory)
-            ? localizedStoreFormat("Note: this %@ address has transaction history but currently zero %@.", chainName, balanceLabel)
+            ? AppLocalization.format("Note: this %@ address has transaction history but currently zero %@.", chainName, balanceLabel)
             : nil
         return (warning, info)
     }

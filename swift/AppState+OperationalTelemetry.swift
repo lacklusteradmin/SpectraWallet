@@ -7,7 +7,7 @@ extension AppState {
         let reachability = isNetworkReachable ? localizedStoreString("reachable") : localizedStoreString("offline")
         let constrained = isConstrainedNetwork ? localizedStoreString("constrained") : localizedStoreString("unconstrained")
         let expensive = isExpensiveNetwork ? localizedStoreString("expensive") : localizedStoreString("non-expensive")
-        return localizedStoreFormat(
+        return AppLocalization.format(
             "Network: %@, %@, %@ • Auto refresh: %d min", reachability, constrained, expensive, preferences.automaticRefreshFrequencyMinutes
         )
     }
@@ -177,7 +177,7 @@ extension AppState {
         )
     }
     func statusPollFailureMessage(for transaction: TransactionRecord) -> String {
-        localizedStoreFormat(
+        AppLocalization.format(
             "%@ transaction appears stuck and could not be confirmed after extended retries.", transaction.chainName
         )
     }
@@ -319,9 +319,9 @@ extension AppState {
     private func statusPollFinalityReachedMessage(for transaction: TransactionRecord, confirmations: Int) -> String {
         switch transaction.chainName {
         case "Dogecoin":
-            return localizedStoreFormat("DOGE transaction reached finality (%d confirmations).", confirmations)
+            return AppLocalization.format("DOGE transaction reached finality (%d confirmations).", confirmations)
         default:
-            return localizedStoreFormat("Transaction reached finality (%d confirmations).", confirmations)
+            return AppLocalization.format("Transaction reached finality (%d confirmations).", confirmations)
         }
     }
     func refreshPendingHistoryBackedTransactions(

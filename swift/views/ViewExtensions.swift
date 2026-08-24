@@ -298,3 +298,24 @@ struct SpectraApp: App {
         }
     }
 }
+
+/// The icon-plus-title-plus-subtitle header the send, receive and primary send
+/// pages all open with.
+///
+/// Three byte-identical copies, one per file, under three names —
+/// `sendPageHeader`, `receivePageHeader`, `pageHeader`.
+@ViewBuilder
+func spectraPageHeader(title: String, subtitle: String, systemImage: String) -> some View {
+    HStack(alignment: .top, spacing: 14) {
+        Image(systemName: systemImage)
+            .font(.title2.weight(.semibold))
+            .foregroundStyle(.orange)
+            .frame(width: 42, height: 42)
+            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .circle)
+
+        VStack(alignment: .leading, spacing: 4) {
+            Text(AppLocalization.string(title)).font(.title2.weight(.bold))
+            Text(AppLocalization.string(subtitle)).font(.subheadline).foregroundStyle(.secondary)
+        }
+    }
+}

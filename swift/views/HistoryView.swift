@@ -81,10 +81,11 @@ struct HistoryView: View {
                                                 HistoryTransactionRowView(row: row).equatable()
                                                     .padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
                                             }.buttonStyle(.plain).contextMenu {
-                                                if row.transaction.kind == .send,
-                                                    row.transaction.status == .pending || row.transaction.status == .failed
-                                                {
-                                                    if ["Bitcoin", "Bitcoin Cash", "Bitcoin SV", "Litecoin", "Dogecoin"].contains(row.transaction.chainName) {
+                                                if row.transaction.status == .pending || row.transaction.status == .failed {
+                                                    // `supportsStatusRecheck` carries the `kind == .send`
+                                                    // rule for the chains that want it; a blanket gate here
+                                                    // hid the button from the one chain that does not.
+                                                    if row.transaction.supportsStatusRecheck {
                                                         Button {
                                                             spectraHaptic(.light)
                                                             Task { _ = await store.retryUTXOTransactionStatus(for: row.transaction.id) }

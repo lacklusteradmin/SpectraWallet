@@ -26,7 +26,7 @@ extension AppState {
                 provider: pricingProvider.rawValue, coins: rustInputs
             )
             guard !fetchedPrices.isEmpty else {
-                quoteRefreshError = localizedStoreFormat("%@ returned no supported asset quotes", pricingProvider.rawValue)
+                quoteRefreshError = AppLocalization.format("%@ returned no supported asset quotes", pricingProvider.rawValue)
                 return false
             }
             let outcome = priceMergeLiveUpdates(existing: livePrices, fetched: fetchedPrices)
@@ -34,7 +34,7 @@ extension AppState {
             quoteRefreshError = nil
             didUpdatePrices = outcome.hadMeaningfulChange
         } catch {
-            quoteRefreshError = localizedStoreFormat("%@ pricing unavailable", pricingProvider.rawValue)
+            quoteRefreshError = AppLocalization.format("%@ pricing unavailable", pricingProvider.rawValue)
         }
         if didUpdatePrices { await evaluatePriceAlerts() }
         return didUpdatePrices
@@ -78,7 +78,7 @@ extension AppState {
             } else {
                 fiatRatesFromUSD[FiatCurrency.usd.rawValue] = 1.0
             }
-            fiatRatesRefreshError = localizedStoreFormat(
+            fiatRatesRefreshError = AppLocalization.format(
                 "%@ fiat exchange rates are unavailable. Using the last successful rates.", fiatRateProvider.rawValue)
         }
     }

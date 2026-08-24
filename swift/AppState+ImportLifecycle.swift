@@ -197,15 +197,15 @@ extension AppState {
             return localizedStoreString(
                 "No pending Ethereum send found for this wallet. Replacement and cancel are available only for pending transactions.")
         }
-        var message = localizedStoreFormat("Pending %@ transaction detected", pendingTransaction.symbol)
+        var message = AppLocalization.format("Pending %@ transaction detected", pendingTransaction.symbol)
         if let nonce = pendingTransaction.ethereumNonce {
-            message += localizedStoreFormat("send.replacement.pendingNonceSuffix", nonce)
+            message += AppLocalization.format("send.replacement.pendingNonceSuffix", nonce)
         } else {
             message += "."
         }
         if let transactionHash = pendingTransaction.transactionHash {
             let shortHash = transactionHash.count > 14 ? "\(transactionHash.prefix(10))...\(transactionHash.suffix(4))" : transactionHash
-            message += localizedStoreFormat("send.replacement.transactionSuffix", shortHash)
+            message += AppLocalization.format("send.replacement.transactionSuffix", shortHash)
         }
         message += localizedStoreString(
             " Use Speed Up to resend with higher fees or Cancel to submit a 0-value self-transfer using the same nonce.")

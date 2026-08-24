@@ -5,6 +5,6 @@
   "addEsploraEndpointPlaceholder": "Add Esplora endpoint",
   "addEndpointButtonTitle": "Add Endpoint",
   "clearCustomBitcoinEndpointsTitle": "Clear Custom Bitcoin Endpoints",
-  "customEthereumRPCURLPlaceholder": "Custom Ethereum RPC URL",
+  "customRPCURLPlaceholder": "Custom RPC URL",
   "customMoneroBackendURLPlaceholder": "Custom Monero Backend URL"
 }

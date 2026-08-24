@@ -108,8 +108,8 @@ final class WalletDiagnosticsState {
         let entries = events ?? operationalLogs
         let header = [
             localizedStoreString("Spectra Operational Logs"),
-            localizedStoreFormat("Generated: %@", Self.operationalLogTimestampFormatter.string(from: Date())),
-            localizedStoreFormat("Entries: %d", entries.count), networkSyncStatusText, "",
+            AppLocalization.format("Generated: %@", Self.operationalLogTimestampFormatter.string(from: Date())),
+            AppLocalization.format("Entries: %d", entries.count), networkSyncStatusText, "",
         ]
         let lines = entries.map { event in
             var parts: [String] = [
@@ -183,7 +183,7 @@ final class WalletDiagnosticsState {
     /// matches against the normalized form for both.
     private func localized(_ classified: DegradedDetail, chainName: String) -> String {
         if let templateKey = classified.templateKey {
-            return localizedStoreFormat(templateKey, chainName)
+            return AppLocalization.format(templateKey, chainName)
         }
         return localizedStoreString(classified.normalized)
     }

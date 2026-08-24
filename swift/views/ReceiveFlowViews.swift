@@ -128,7 +128,7 @@ struct ReceiveView: View {
 
     private var walletStep: some View {
         VStack(alignment: .leading, spacing: 18) {
-            receivePageHeader(
+            spectraPageHeader(
                 title: "Choose Wallet",
                 subtitle: "Pick where the incoming transfer should land.",
                 systemImage: "wallet.pass.fill"
@@ -154,7 +154,7 @@ struct ReceiveView: View {
 
     private var addressStep: some View {
         VStack(alignment: .leading, spacing: 18) {
-            receivePageHeader(
+            spectraPageHeader(
                 title: "Receive Address",
                 subtitle: "Review the network, copy the address, or open the full QR screen.",
                 systemImage: "qrcode"
@@ -343,20 +343,6 @@ struct ReceiveView: View {
         "\(currentStep.rawValue)|\(store.receiveWalletID)|\(store.receiveChainName)|\(store.receiveHoldingKey)"
     }
 
-    private func receivePageHeader(title: String, subtitle: String, systemImage: String) -> some View {
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: systemImage)
-                .font(.title2.weight(.semibold))
-                .foregroundStyle(.orange)
-                .frame(width: 42, height: 42)
-                .glassEffect(.regular.tint(.white.opacity(0.04)), in: .circle)
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(AppLocalization.string(title)).font(.title2.weight(.bold))
-                Text(AppLocalization.string(subtitle)).font(.subheadline).foregroundStyle(.secondary)
-            }
-        }
-    }
 }
 
 private struct WalletReceiveCard: View {

@@ -134,18 +134,16 @@ final class AppUserPreferences {
         persistHandler = nil
         platformPersistHandler = nil
         defer { persistHandler = previousPersist; platformPersistHandler = previousPlatform }
+        // Only the five this platform owns. The other seven on this class —
+        // strict RPC, the three notification toggles, the refresh cadence and
+        // the two large-movement thresholds — are core settings mirrored here,
+        // and `StateCommand::ResetAppSettings` puts them back; restating their
+        // defaults made this file a second copy of `AppSettings::default()`.
         hideBalances = false
         appearanceMode = .dark
         useFaceID = true
         useAutoLock = false
-        useStrictRPCOnly = false
         requireBiometricForSendActions = true
-        usePriceAlerts = true
-        useTransactionStatusNotifications = true
-        useLargeMovementNotifications = true
-        automaticRefreshFrequencyMinutes = 5
-        largeMovementAlertPercentThreshold = 10
-        largeMovementAlertUSDThreshold = 50
     }
 }
 

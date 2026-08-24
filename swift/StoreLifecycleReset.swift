@@ -85,7 +85,7 @@ extension AppState {
         if plan.resetWalletsAndSecrets { resetWalletsAndSecretsState() }
         if plan.resetHistoryAndCache { await resetHistoryAndCacheState() }
         if plan.resetAlertsAndContacts { resetAlertsAndContactsState() }
-        if plan.resetSettingsAndEndpoints { resetSettingsAndEndpointsState() }
+        if plan.resetSettingsAndEndpoints { await resetSettingsAndEndpointsState() }
         if plan.resetDashboardCustomization { resetDashboardCustomizationState() }
         if plan.resetProviderState { await resetProviderState() }
         if plan.clearNetworkAndTransportCaches { clearNetworkAndTransportCaches() }
@@ -207,7 +207,7 @@ extension AppState {
         }
     }
     private func resetDashboardCustomizationState() { resetPinnedDashboardAssets() }
-    private func resetSettingsAndEndpointsState() {
+    private func resetSettingsAndEndpointsState() async {
         // The settings core owns are reset by assigning the properties below,
         // which commit. The `UserDefaults` keys that used to be cleared here —
         // one per setting, twenty-two of them — have had no writer since
@@ -224,22 +224,27 @@ extension AppState {
         livePrices = [:]
         quoteRefreshError = nil
         fiatRatesRefreshError = nil
-        pricingProvider = .coinGecko
-        // Core-owned: reset by command so the store and the mirror agree.
-        Task { @MainActor [weak self] in await self?.setFiatCurrency(.usd) }
-        fiatRateProvider = .openER
         assetDisplayDecimalsByChain = defaultAssetDisplayDecimalsByChain()
-        ethereumRPCEndpoint = ""
-        etherscanAPIKey = ""
-        moneroBackendBaseURL = ""
-        moneroBackendAPIKey = ""
-        for family in ["bitcoin", "ethereum", "dogecoin"] { selectNetworkChain(family) }
-        bitcoinEsploraEndpoints = ""
-        bitcoinStopGap = 10
-        clearFeePriorities()
+        // Every setting core owns, back to core's own defaults.
+        //
+        // This was twelve assignments naming the value each mirror should
+        // take — `.coinGecko`, `.usd`, `.openER`, `""`, `10`, `.balanced` and
+        // the rest — every one of them a second copy of a `default_*` in
+        // `state.rs`, in a file with no way to notice one of them changing.
+        // The network families were the same shape and were wrong: three were
+        // named where twenty-nine have a choice.
+        // Awaited rather than spawned: the seven core settings mirrored onto
+        // `preferences` are no longer assigned here, so they are only right
+        // once core's answer has been applied.
+        if let transition = try? await WalletServiceBridge.shared.applyStateCommand(.resetAppSettings) {
+            let epoch = beginCoreStateRead()
+            applyCoreState(transition.state, epoch: epoch)
+        }
+        // The five this platform keeps for itself: hiding balances, appearance,
+        // Face ID, auto-lock and biometric-gated sends. No other front end has
+        // a use for them, so core has no default to be the copy of.
         preferences.resetToDefaults()
         persistPlatformPreferences()
-        backgroundSyncProfile = .balanced
     }
     private func resetProviderState() async {
         clearNetworkAndTransportCaches()

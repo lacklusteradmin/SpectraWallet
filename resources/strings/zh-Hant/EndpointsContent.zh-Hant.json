@@ -5,6 +5,6 @@
   "addEsploraEndpointPlaceholder": "新增 Esplora 端點",
   "addEndpointButtonTitle": "新增端點",
   "clearCustomBitcoinEndpointsTitle": "清除自訂比特幣端點",
-  "customEthereumRPCURLPlaceholder": "自訂以太坊 RPC 位址",
+  "customRPCURLPlaceholder": "自訂 RPC 位址",
   "customMoneroBackendURLPlaceholder": "自訂門羅後端位址"
 }

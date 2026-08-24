@@ -46,8 +46,8 @@ extension AppState {
     private func sendPriceAlertNotification(for notification: PriceAlertNotification) {
         postNotification(
             identifier: "price-alert-\(notification.id)-\(UUID().uuidString)",
-            title: localizedStoreFormat("%@ price alert", notification.symbol),
-            body: localizedStoreFormat(
+            title: AppLocalization.format("%@ price alert", notification.symbol),
+            body: AppLocalization.format(
                 "%@ on %@ is now %@, which is %@ your target of %@.", notification.assetName, notification.chainName,
                 formattedFiatAmount(fromUSD: notification.livePrice), notification.condition.rawValue.lowercased(),
                 formattedFiatAmount(fromUSD: notification.targetPrice)
@@ -60,14 +60,14 @@ extension AppState {
         let body: String
         switch newStatus {
         case .confirmed:
-            title = localizedStoreFormat("%@ transaction confirmed", transaction.symbol)
-            body = localizedStoreFormat(
+            title = AppLocalization.format("%@ transaction confirmed", transaction.symbol)
+            body = AppLocalization.format(
                 "Your %@ send from %@ is now confirmed on %@.", transaction.symbol, transaction.walletName, transaction.chainName)
         case .failed:
-            title = localizedStoreFormat("%@ transaction failed", transaction.symbol)
+            title = AppLocalization.format("%@ transaction failed", transaction.symbol)
             body =
                 transaction.failureReason
-                ?? localizedStoreFormat(
+                ?? AppLocalization.format(
                     "Your %@ send from %@ failed on %@.", transaction.symbol, transaction.walletName, transaction.chainName)
         case .pending: return
         }

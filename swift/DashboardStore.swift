@@ -182,7 +182,7 @@ extension AppState {
         notices.append(
             contentsOf: chainDegradedBanners.map { banner in
                 AppNoticeItem(
-                    title: localizedStoreFormat("%@ Degraded Mode", banner.chainName), message: banner.message, severity: .warning,
+                    title: AppLocalization.format("%@ Degraded Mode", banner.chainName), message: banner.message, severity: .warning,
                     systemImage: "antenna.radiowaves.left.and.right.slash", timestamp: banner.lastGoodSyncAt
                 )
             })

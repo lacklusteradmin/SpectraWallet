@@ -396,6 +396,9 @@ final class AppState {
         if state.settings.feePriorityByChain != feePriorityByChain {
             feePriorityByChain = state.settings.feePriorityByChain
         }
+        if state.settings.rpcEndpointByChain != rpcEndpointByChain {
+            rpcEndpointByChain = state.settings.rpcEndpointByChain
+        }
         if state.settings.networkChainByFamily != networkChainByFamily {
             networkChainByFamily = state.settings.networkChainByFamily
         }
@@ -412,11 +415,38 @@ final class AppState {
             Task { @MainActor [weak self] in await self?.refreshFiatExchangeRatesIfNeeded(force: true) }
         }
     }
-    var ethereumRPCEndpoint: String = "" {
+    /// Core owns it; this is the mirror the endpoint fields bind to. Absent
+    /// means the catalog's list.
+    ///
+    /// It replaced `ethereumRPCEndpoint`, one String read through an accessor
+    /// that was `chainName == "Ethereum" ? … : nil` — so the other twenty-two
+    /// EVM mainnets had no custom-RPC setting at all.
+    private(set) var rpcEndpointByChain: [String: String] = [:] {
         didSet {
-            guard ethereumRPCEndpoint != oldValue else { return }
+            guard rpcEndpointByChain != oldValue else { return }
             commitAppSettingsSoon()
         }
+    }
+
+    /// The custom RPC a chain is pointed at, or "" for the catalog's list.
+    func rpcEndpoint(forChain chainName: String) -> String {
+        rpcEndpointByChain[chainName] ?? ""
+    }
+
+    func setRPCEndpoint(_ raw: String, forChain chainName: String) {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            rpcEndpointByChain.removeValue(forKey: chainName)
+        } else {
+            rpcEndpointByChain[chainName] = trimmed
+        }
+    }
+
+    /// Forget every chain's override, on a wipe.
+    func clearRPCEndpoints() { rpcEndpointByChain = [:] }
+
+    func rpcEndpointValidationError(forChain chainName: String) -> String? {
+        endpointValidationError(field: .evmRpc, raw: rpcEndpoint(forChain: chainName))
     }
     /// Which network each chain family is on, as `mainnet id -> selected id`.
     ///
@@ -1034,7 +1064,7 @@ final class AppState {
         switch chain {
         case .ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .polygon, .base, .linea, .scroll, .blast, .mantle:
             guard AddressValidation.isValid(normalizedContract, kind: "evm") else {
-                return localizedStoreFormat("Enter a valid %@ token contract address.", chain.rawValue)
+                return AppLocalization.format("Enter a valid %@ token contract address.", chain.rawValue)
             }
         case .solana:
             guard AddressValidation.isValid(normalizedContract, kind: "solana") else {
@@ -1067,7 +1097,7 @@ final class AppState {
                 && normalizedTrackedTokenIdentifier(for: entry.chain, contractAddress: entry.contractAddress)
                     == normalizedTrackedTokenIdentifier(for: chain, contractAddress: normalizedContract)
         }
-        guard !duplicateExists else { return localizedStoreFormat("This token is already tracked for %@.", chain.rawValue) }
+        guard !duplicateExists else { return AppLocalization.format("This token is already tracked for %@.", chain.rawValue) }
         tokenPreferences.append(
             TokenPreferenceEntry(
                 chain: chain, name: normalizedName, symbol: normalizedSymbol, tokenStandard: chain.tokenStandard,
@@ -1182,9 +1212,6 @@ final class AppState {
                 )
             }
         )
-    }
-    var ethereumRPCEndpointValidationError: String? {
-        endpointValidationError(field: .ethereumRpc, raw: ethereumRPCEndpoint)
     }
     var moneroBackendBaseURLValidationError: String? {
         endpointValidationError(field: .moneroBackend, raw: moneroBackendBaseURL)

@@ -777,16 +777,12 @@ struct DashboardNoticeCardView: View {
             Text(notice.message).font(.subheadline).foregroundStyle(.primary)
             if let timestamp = notice.timestamp {
                 Text(
-                    dashboardComponentsLocalizedFormat(
+                    AppLocalization.format(
                         "Last known healthy sync: %@", timestamp.formatted(date: .abbreviated, time: .shortened))
                 ).font(.caption).foregroundStyle(.secondary)
             }
         }.padding(.vertical, 4)
     }
-}
-private func dashboardComponentsLocalizedFormat(_ key: String, _ arguments: CVarArg...) -> String {
-    let format = AppLocalization.string(key)
-    return String(format: format, locale: AppLocalization.locale, arguments: arguments)
 }
 
 // ── Dashboard top-level sections ────────────────────────────────────────

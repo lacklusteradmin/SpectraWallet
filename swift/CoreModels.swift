@@ -178,7 +178,7 @@ extension CoreImportedWallet {
     ) {
         self.init(
             id: id.uuidString, name: name, networkChainId: networkChainID,
-            addresses: CoreImportedWallet.addressMap(addresses),
+            addresses: addressSlotMap(addresses),
             bitcoinXpub: bitcoinXpub,
             seedDerivationPreset: seedDerivationPreset,
             seedDerivationPaths: seedDerivationPaths ?? .applyingPreset(seedDerivationPreset),
@@ -188,18 +188,6 @@ extension CoreImportedWallet {
         )
     }
 
-    /// Fold a chain-display-name → address table into the slot-keyed storage,
-    /// dropping empty and unknown entries.
-    static func addressMap(_ byChainName: [String: String?]) -> [String: String] {
-        var bySlot: [String: String] = [:]
-        for (chainName, address) in byChainName {
-            guard let address, !address.isEmpty else { continue }
-            let slot = Chain(displayName: chainName)?.addressSlot ?? ""
-            guard !slot.isEmpty else { continue }
-            bySlot[slot] = address
-        }
-        return bySlot
-    }
 }
 
 extension CoreWalletDerivationOverrides {
@@ -219,47 +207,56 @@ extension CoreWalletDerivationOverrides {
 // Rust registry via `Chain.addressSlot`, so the UI never hardcodes a key and
 // never has to know that every EVM chain shares Ethereum's slot.
 
-extension WalletImportAddresses {
-    /// Fold a chain-display-name → address table into the slot-keyed map,
-    /// dropping empty and unknown entries.
-    static func slotMap(_ byChainName: [String: String?]) -> [String: String] {
-        var bySlot: [String: String] = [:]
-        for (chainName, address) in byChainName {
-            guard let address, !address.isEmpty else { continue }
-            let slot = Chain(displayName: chainName)?.addressSlot ?? ""
-            guard !slot.isEmpty else { continue }
-            bySlot[slot] = address
-        }
-        return bySlot
-    }
+/// The storage slot a chain's address is kept under, or nil if the registry
+/// does not know the chain.
+///
+/// Written out five times as `Chain(displayName:)?.addressSlot ?? ""` followed
+/// by an is-empty guard — twice to fold a table, twice to read one back, once
+/// more in a third copy of the fold.
+private func addressSlot(forChainNamed chainName: String) -> String? {
+    let slot = Chain(displayName: chainName)?.addressSlot ?? ""
+    return slot.isEmpty ? nil : slot
+}
 
+/// Fold a chain-display-name → address table into the slot-keyed storage,
+/// dropping empty values and chains the registry does not know.
+///
+/// There were two byte-identical copies of this, `CoreImportedWallet.addressMap`
+/// and `WalletImportAddresses.slotMap`, with near-identical doc comments.
+func addressSlotMap(_ byChainName: [String: String?]) -> [String: String] {
+    var bySlot: [String: String] = [:]
+    for (chainName, address) in byChainName {
+        guard let address, !address.isEmpty, let slot = addressSlot(forChainNamed: chainName) else {
+            continue
+        }
+        bySlot[slot] = address
+    }
+    return bySlot
+}
+
+/// The list-valued variant. Chains that share a slot — the EVM family — have
+/// their lists concatenated rather than overwriting each other, which is the
+/// one thing that keeps this from being the same function.
+func addressSlotMap(_ byChainName: [String: [String]]) -> [String: [String]] {
+    var bySlot: [String: [String]] = [:]
+    for (chainName, addresses) in byChainName where !addresses.isEmpty {
+        guard let slot = addressSlot(forChainNamed: chainName) else { continue }
+        bySlot[slot, default: []].append(contentsOf: addresses)
+    }
+    return bySlot
+}
+
+extension WalletImportAddresses {
     /// The address stored for a chain, by display name.
     func address(for chainName: String) -> String? {
-        let slot = Chain(displayName: chainName)?.addressSlot ?? ""
-        guard !slot.isEmpty else { return nil }
-        return bySlot[slot]
+        addressSlot(forChainNamed: chainName).flatMap { bySlot[$0] }
     }
 }
 
 extension WalletImportWatchOnlyEntries {
-    /// Fold a chain-display-name → addresses table into the slot-keyed map,
-    /// dropping empty and unknown entries. Chains that share a slot (the EVM
-    /// family) have their lists concatenated.
-    static func slotMap(_ byChainName: [String: [String]]) -> [String: [String]] {
-        var bySlot: [String: [String]] = [:]
-        for (chainName, addresses) in byChainName where !addresses.isEmpty {
-            let slot = Chain(displayName: chainName)?.addressSlot ?? ""
-            guard !slot.isEmpty else { continue }
-            bySlot[slot, default: []].append(contentsOf: addresses)
-        }
-        return bySlot
-    }
-
     /// Addresses entered for a chain, by display name.
     func addresses(for chainName: String) -> [String] {
-        let slot = Chain(displayName: chainName)?.addressSlot ?? ""
-        guard !slot.isEmpty else { return [] }
-        return bySlot[slot] ?? []
+        addressSlot(forChainNamed: chainName).flatMap { bySlot[$0] } ?? []
     }
 }
 typealias SeedDerivationPreset = CoreSeedDerivationPreset
@@ -797,4 +794,23 @@ extension TransactionRecord {
         return nil
     }
     var supportsSignedRebroadcast: Bool { kind == .send && rebroadcastPayload != nil && rebroadcastPayloadFormat != nil }
+
+    /// Whether this transaction's status can be rechecked against the chain.
+    ///
+    /// The rule is `Chain::pending_status_poll`: the chain is polled
+    /// UTXO-style, and either it does not require a send or this is one.
+    /// Litecoin is `require_send_kind: false` because its explorer confirms
+    /// receives on its own cadence.
+    ///
+    /// `retryUTXOTransactionStatus` has read the registry since that was
+    /// fixed, but the context menu offering the button kept a five-name list
+    /// inside a `kind == .send` gate — so the fix was unreachable for exactly
+    /// the case it was for. One property now, read by both.
+    var supportsStatusRecheck: Bool {
+        guard transactionHash != nil,
+            let chain = Chain(displayName: chainName),
+            case .utxo(_, let requireSendKind) = chain.pendingStatusPoll
+        else { return false }
+        return !requireSendKind || kind == .send
+    }
 }

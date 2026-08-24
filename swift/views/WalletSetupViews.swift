@@ -521,15 +521,15 @@ struct SetupView: View {
     ) -> (message: String, color: Color) {
         let localizedAssetName = assetName
         if entries.isEmpty {
-            return (walletFlowLocalizedFormat("Enter one %@ address per line.", localizedAssetName), Color.secondary)
+            return (AppLocalization.format("Enter one %@ address per line.", localizedAssetName), Color.secondary)
         }
         if !entries.allSatisfy(validator) {
-            return (walletFlowLocalizedFormat("Every line must contain a valid %@ address.", localizedAssetName), .red.opacity(0.9))
+            return (AppLocalization.format("Every line must contain a valid %@ address.", localizedAssetName), .red.opacity(0.9))
         }
         let count = entries.count
         let pluralSuffix = AppLocalization.locale.identifier.hasPrefix("en") && count != 1 ? "es" : ""
         return (
-            walletFlowLocalizedFormat("%lld valid %@ address%@ ready to import.", count, localizedAssetName, pluralSuffix),
+            AppLocalization.format("%lld valid %@ address%@ ready to import.", count, localizedAssetName, pluralSuffix),
             .green.opacity(0.9)
         )
     }
@@ -751,7 +751,7 @@ struct SetupView: View {
         guard sharing.count > 1 else { return nil }
         let selected = sharing.filter { draft.isSelected($0.displayName) }.map(\.displayName)
         guard !selected.isEmpty else { return nil }
-        return walletFlowLocalizedFormat("One address covers: %@.", selected.joined(separator: ", "))
+        return AppLocalization.format("One address covers: %@.", selected.joined(separator: ", "))
     }
 
     private func watchOnlyInputBinding(for chain: Chain) -> Binding<String> {
@@ -1012,7 +1012,7 @@ struct SetupView: View {
             privateKeyMetadataRow
             if !draft.unsupportedPrivateKeyChainNames.isEmpty {
                 Text(
-                    walletFlowLocalizedFormat(
+                    AppLocalization.format(
                         "Private key import is not available for: %@.", draft.unsupportedPrivateKeyChainNames.joined(separator: ", "))
                 ).font(.footnote).foregroundStyle(.orange.opacity(0.9))
             } else if let validation = privateKeyValidationFeedback {
@@ -1100,7 +1100,7 @@ struct SetupView: View {
                 ForEach(draft.backupVerificationWordIndices.indices, id: \.self) { offset in
                     let wordIndex = draft.backupVerificationWordIndices[offset]
                     HStack(spacing: 8) {
-                        Text(walletFlowLocalizedFormat("Word #%lld", wordIndex + 1)).font(.caption.weight(.bold)).foregroundStyle(.secondary).frame(width: 72, alignment: .leading)
+                        Text(AppLocalization.format("Word #%lld", wordIndex + 1)).font(.caption.weight(.bold)).foregroundStyle(.secondary).frame(width: 72, alignment: .leading)
                         TextField("", text: backupVerificationBinding(for: offset)).textInputAutocapitalization(
                             .never
                         ).autocorrectionDisabled()

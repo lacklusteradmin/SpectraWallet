@@ -36,7 +36,7 @@ struct SendFromPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            pageHeader(
+            spectraPageHeader(
                 title: "Choose Asset",
                 subtitle: "Pick the wallet and asset to send from.",
                 systemImage: "creditcard.fill"
@@ -147,7 +147,7 @@ struct SendRecipientPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            pageHeader(
+            spectraPageHeader(
                 title: "Recipient",
                 subtitle: "Enter a destination address or scan a QR code.",
                 systemImage: "person.crop.circle.badge.arrow.forward.fill"
@@ -256,7 +256,7 @@ struct SendAmountPage: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            pageHeader(
+            spectraPageHeader(
                 title: "Amount",
                 subtitle: "Set the amount and compare it against your available balance.",
                 systemImage: "number.circle.fill"
@@ -342,21 +342,5 @@ struct SendAmountPage: View {
                 .foregroundStyle(isActive ? coin.color : Color.secondary)
         }
         .buttonStyle(.plain)
-    }
-}
-
-@ViewBuilder
-private func pageHeader(title: String, subtitle: String, systemImage: String) -> some View {
-    HStack(alignment: .top, spacing: 14) {
-        Image(systemName: systemImage)
-            .font(.title2.weight(.semibold))
-            .foregroundStyle(.orange)
-            .frame(width: 42, height: 42)
-            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .circle)
-
-        VStack(alignment: .leading, spacing: 4) {
-            Text(AppLocalization.string(title)).font(.title2.weight(.bold))
-            Text(AppLocalization.string(subtitle)).font(.subheadline).foregroundStyle(.secondary)
-        }
     }
 }
