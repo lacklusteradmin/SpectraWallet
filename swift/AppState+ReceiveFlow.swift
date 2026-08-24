@@ -547,11 +547,6 @@ extension AppState {
         (wallets.compactMap { $0.name.hasPrefix("Wallet ") ? Int($0.name.dropFirst(7)) : nil }.max() ?? 0) + 1
     }
     /// Build a wallet for one chain from the slot-keyed addresses Rust planned.
-    ///
-    /// The 26 per-chain arguments this used to take, each filtered by
-    /// `chainName == "..."`, are gone: `core_plan_wallet_import` already scopes
-    /// a planned wallet's `addresses` to its own chain, so the map passes
-    /// straight through.
     func walletByReplacingHoldings(_ wallet: ImportedWallet, with holdings: [Coin]) -> ImportedWallet {
         var updated = wallet
         updated.holdings = holdings

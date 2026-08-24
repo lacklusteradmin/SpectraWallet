@@ -323,11 +323,6 @@ extension AppState {
     }
     /// Refresh the send preview for a chain core estimates through the shared
     /// path.
-    ///
-    /// Eleven near-identical functions used to do this, differing in a chain
-    /// name, a symbol, an address resolver and a message. Two differences were
-    /// real and are stated here: Solana's sendable-coin rule is its own, and
-    /// Polkadot refuses to preview without a seed phrase.
     func refreshSendPreview(forChainNamed chainName: String) async {
         // The eleven-entry `[String: SimpleChain]` table that used to gate this
         // is gone: core derives the decode shape from the chain id it is given,

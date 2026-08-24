@@ -21,12 +21,6 @@ extension AppState {
     /// the chain list in the diagnostics code.
     static let diagnosticsBundleChainNames = Chain.mainnets.map(\.displayName)
 
-    /// Diagnostics JSON for one chain.
-    ///
-    /// Was a 24-case switch over five builders, each fed history this side had
-    /// just read out of core's registry and handed straight back across the
-    /// FFI. Core owns that storage and `Chain::diagnostics_shape` says which
-    /// document to build, so the chain name is the whole input.
     func diagnosticsJSON(for chainName: String) -> String? {
         coreDiagnosticsJson(
             chainName: chainName,
@@ -132,7 +126,6 @@ extension DiagnosticsBundlePayload {
         return byChainID
     }
 
-    /// Diagnostics JSON for a chain, by display name.
     func diagnosticsJSON(forChainNamed chainName: String) -> String? {
         chainDiagnosticsJson[coreResolveChainId(input: chainName)]
     }

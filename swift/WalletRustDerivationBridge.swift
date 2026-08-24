@@ -78,10 +78,6 @@ enum WalletRustDerivationBridge {
 
     // swiftlint:disable:next function_body_length cyclomatic_complexity
     /// One call, whatever the chain.
-    ///
-    /// This was a 212-line switch with an arm per chain, each calling a
-    /// `derive<Chain>` export that existed only to be called from that arm.
-    /// Core has dispatched by chain name since before any of them were written.
     private static func dispatch(
         chain: Chain,
         seedPhrase: String, path: String,

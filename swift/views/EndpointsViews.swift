@@ -138,12 +138,6 @@ struct EndpointCatalogSettingsView: View {
     }
     @ViewBuilder
     /// One section per chain the catalog says has endpoints worth showing.
-    ///
-    /// Was a thirty-case switch, of which twenty-two arms were
-    /// `endpointRows(XBalanceService.endpointCatalog())` or
-    /// `readOnlyEVMSection(EVMChainContext.x.defaultRPCEndpoints)` — both of
-    /// which only restate the chain's own name. What is left is the four chains
-    /// whose section is genuinely its own screen.
     private func endpointSection(_ chain: Chain) -> some View {
         Section(chain.displayName) {
             switch chain {

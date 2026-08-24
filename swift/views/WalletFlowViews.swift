@@ -252,11 +252,6 @@ struct WalletDetailView: View {
         )
     }
     /// The wallet's configured derivation path, when it has one.
-    ///
-    /// Was a twenty-nine row `[String: SeedDerivationChain]` map whose entries
-    /// were all the identity but one — BNB Chain, which read Ethereum's path.
-    /// Folding EVM chains onto Ethereum's slot is what `path(for:)` already
-    /// does, via the registry.
     private func derivationPathsText(for wallet: ImportedWallet) -> String? {
         guard !isWatchOnly, !isPrivateKeyWallet,
             let chain = Chain(displayName: wallet.selectedChain)

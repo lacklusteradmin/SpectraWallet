@@ -157,10 +157,6 @@ extension AppState {
     ]
     /// Chains whose diagnostics are the shared shape: fetch the history count
     /// for each wallet's address, and probe the endpoints the catalog lists.
-    ///
-    /// Eight rows of the descriptor table said this, byte-identical but for
-    /// the chain name. A chain lands here unless it has a descriptor of its
-    /// own, so adding one costs nothing.
     private func runSimpleChainDiagnostics(chainName: String, walletID: String? = nil) async {
         let make: (String, String, Int, String?) -> SimpleHistoryDiagnostics = {
             SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3)
@@ -275,13 +271,6 @@ extension AppState {
 
     /// Run one chain's endpoint probe, holding its "checking" flag and owning
     /// the write-back.
-    ///
-    /// Each of the six probes below used to name its chain four to eight times
-    /// — once for the flag, once per `results =`, once per `lastUpdatedAt =` —
-    /// because the caller did the bookkeeping. `publish` takes the rows and
-    /// stamps the time, and it can be called repeatedly: Bitcoin publishes
-    /// after every endpoint so the rows appear as they arrive, which is a
-    /// property of that probe rather than something to normalise away.
     private func withEndpointCheck(
         for chainName: String, operation: (_ publish: @MainActor ([EndpointHealthRow]) -> Void) async -> Void
     ) async {

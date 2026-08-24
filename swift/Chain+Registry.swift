@@ -7,12 +7,6 @@ import Foundation
 /// hand-written Swift enum — the string id, the display name, the native
 /// symbol, whether the chain is EVM — is a column of that catalog and is read
 /// from it here.
-///
-/// Four Swift enums used to state this list: `SpectraChainID` (30 ids),
-/// `SeedDerivationChain` (76 display names), `AppChainID` (30) and
-/// `StandardDiagnosticsChain` (24). None of them agreed with the catalog or
-/// with each other. Add a chain to `chains.toml` and it appears here; there is
-/// no second place to remember.
 extension Chain: Identifiable {
     /// Every chain, in catalog order.
     static let all: [Chain] = identities.map(\.chain)
@@ -54,10 +48,6 @@ extension Chain: Identifiable {
     var isTestnet: Bool { identity?.isTestnet ?? false }
 
     // ── Columns of the identity table ─────────────────────────────────────
-    //
-    // Ten free functions used to answer these, each taking a chain name or id
-    // and re-deriving from the registry. They are columns of the one table
-    // this file already reads once.
 
     /// Which chain's slot this chain's address is stored under. The EVM family
     /// shares Ethereum's.

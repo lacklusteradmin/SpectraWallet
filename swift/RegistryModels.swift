@@ -56,7 +56,11 @@ extension CoreTokenTrackingChain: CaseIterable, Codable, Identifiable {
         guard let tracking = Self.trackingByName[rawValue] else { return nil }
         self = tracking
     }
-    public var rawValue: String { Self.chainByTracking[self]?.displayName ?? "" }
+    public var rawValue: String { chain?.displayName ?? "" }
+
+    /// The registry chain this tracking chain is. Every fact about it —
+    /// display name, id, colour — comes from here rather than a switch.
+    public var chain: Chain? { Self.chainByTracking[self] }
     /// In catalog order, which is the order every other chain list in the app
     /// uses. The hand-written array this replaces had its own ordering.
     public static var allCases: [CoreTokenTrackingChain] { Chain.all.compactMap(\.tokenTrackingChain) }

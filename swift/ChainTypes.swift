@@ -1,11 +1,6 @@
 import Foundation
 
 /// A network a chain family can be on, as a registry chain id.
-///
-/// Three enums used to model this — `CoreBitcoinNetworkMode`,
-/// `CoreDogecoinNetworkMode` and a Swift-only Ethereum one — each spelling out
-/// chains the registry already has as variants, each with its own `rawValue`,
-/// `displayName` and `allCases` table. A network is a chain; this is its id.
 typealias NetworkChainID = String
 
 extension AppState {

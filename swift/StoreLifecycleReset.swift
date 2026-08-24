@@ -4,14 +4,6 @@ extension AppState {
     func restorePersistedRuntimeConfigurationAndState() {
         // The eighteen settings core owns are not seeded here. They arrive with
         // `open_state`, through `applyCoreState`.
-        //
-        // What stood here was a `UserDefaults` read per setting — the provider,
-        // the fee priorities, the endpoints, the notification toggles and the
-        // thresholds — and *nothing has written those keys* since settings
-        // moved into SQLite. Harmless while the values only fed a blob this
-        // side also owned; not harmless once core owns them, because each read
-        // lands in a `didSet` that commits, so every launch would have sent
-        // core a stale seed before core's own state arrived.
         if let storedFiatRates = UserDefaults.standard.dictionary(forKey: Self.fiatRatesFromUSDDefaultsKey) as? [String: Double] {
             fiatRatesFromUSD = storedFiatRates
         }
@@ -226,16 +218,6 @@ extension AppState {
         fiatRatesRefreshError = nil
         assetDisplayDecimalsByChain = defaultAssetDisplayDecimalsByChain()
         // Every setting core owns, back to core's own defaults.
-        //
-        // This was twelve assignments naming the value each mirror should
-        // take — `.coinGecko`, `.usd`, `.openER`, `""`, `10`, `.balanced` and
-        // the rest — every one of them a second copy of a `default_*` in
-        // `state.rs`, in a file with no way to notice one of them changing.
-        // The network families were the same shape and were wrong: three were
-        // named where twenty-nine have a choice.
-        // Awaited rather than spawned: the seven core settings mirrored onto
-        // `preferences` are no longer assigned here, so they are only right
-        // once core's answer has been applied.
         if let transition = try? await WalletServiceBridge.shared.applyStateCommand(.resetAppSettings) {
             let epoch = beginCoreStateRead()
             applyCoreState(transition.state, epoch: epoch)

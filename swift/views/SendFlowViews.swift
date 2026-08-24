@@ -52,14 +52,17 @@ struct SendView: View {
         store.availableSendCoins(for: store.sendWalletID).first(where: { $0.holdingKey == store.sendHoldingKey })
     }
 
-    private static let networkSendChainNames: Set<String> = [
-        "Bitcoin", "Bitcoin Cash", "Bitcoin SV", "Litecoin", "Dogecoin", "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism",
-        "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base", "Linea", "Scroll", "Blast", "Mantle", "Tron", "Solana",
-        "XRP Ledger", "Monero", "Cardano", "Sui", "Aptos", "TON", "NEAR", "Polkadot", "Stellar", "Internet Computer",
+    /// The chains `SendPreviewStore` keeps a field for, minus the EVM family.
+    private static let previewChainNames: Set<String> = [
+        "Bitcoin", "Bitcoin Cash", "Bitcoin SV", "Litecoin", "Dogecoin", "Tron", "Solana",
+        "XRP Ledger", "Monero", "Cardano", "Sui", "Aptos", "TON", "NEAR", "Polkadot",
+        "Stellar", "Internet Computer",
     ]
 
     private func hasNetworkSendSections(for coin: Coin?) -> Bool {
-        coin.map { Self.networkSendChainNames.contains($0.chainName) } ?? false
+        guard let coin else { return false }
+        if Chain(displayName: coin.chainName)?.isEVM == true { return true }
+        return Self.previewChainNames.contains(coin.chainName)
     }
 
     var body: some View {
@@ -510,7 +513,8 @@ struct SendView: View {
             return sendPreviewStore.litecoinSendPreview.map { String(format: "%.8f LTC", $0.estimatedNetworkFee) }
         case "Dogecoin":
             return sendPreviewStore.dogecoinSendPreview.map { String(format: "%.6f DOGE", $0.estimatedNetworkFee) }
-        case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Polygon", "Base", "Linea", "Scroll", "Blast", "Mantle":
+        // Thirteen EVM names stood here; all twenty-three share this preview.
+        case let name where Chain(displayName: name)?.isEVM == true:
             return sendPreviewStore.ethereumSendPreview.map {
                 String(format: "%.6f %@", $0.estimatedNetworkFee, evmFeeSymbol(for: coin.chainName))
             }
@@ -1051,9 +1055,6 @@ struct SendView: View {
 
     /// A scanned address is judged against the network the wallet is actually
     /// on — which is a chain, so the registry answers both halves.
-    ///
-    /// This replaced a twenty-row chain-to-kind table plus two hand-written
-    /// network-mode cases. `Chain::address_validation_kind` had all of it.
     private func isValidScannedAddress(_ address: String, for chainName: String) -> Bool {
         let family = Chain(displayName: chainName)?.id ?? ""
         guard !family.isEmpty else { return false }

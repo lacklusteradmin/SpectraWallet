@@ -158,11 +158,6 @@ extension AppState {
     }
     func isPricedAsset(_ coin: Coin) -> Bool { isPricedChain(coin.chainName) }
     /// The history list the UI renders, as core normalizes it.
-    ///
-    /// This used to convert the projection into a `NormalizeHistoryRequest` —
-    /// core's own records, reshaped — and hand them back. It also hashed them
-    /// first, through a second FFI call, so this side could decide whether the
-    /// round trip was worth making. Core decides that where the data is.
     func rebuildNormalizedHistoryIndex() async {
         // Nothing to normalize, and no reason to read the store to find out.
         if transactions.isEmpty {
@@ -258,9 +253,6 @@ extension AppState {
         return pair
     }
     /// The smallest amount that still shows at `visibleDecimals` places.
-    ///
-    /// Was an FFI call — `10^-n`, crossed the boundary and memoized on this
-    /// side. A rule core owns is worth a call; an exponent is not.
     private func assetMinimumVisibleAmount(visibleDecimals: UInt32) -> Double {
         visibleDecimals == 0 ? 0 : pow(10, -Double(visibleDecimals))
     }

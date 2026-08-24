@@ -22,10 +22,6 @@ extension AppState {
         wsb.advanceHistoryCursor(chainId: chainId, walletId: walletId, nextCursor: cursor); notifyHistoryMutation()
     }
     /// The page just fetched, and whether it was the last one.
-    ///
-    /// Was `setHistoryPage` plus `markHistoryExhausted`/`markHistoryActive` —
-    /// two calls the one call site always made together, writing two fields of
-    /// one cursor.
     func setHistoryPage(chainId: String, walletId: String, page: Int, isExhausted: Bool) {
         wsb.setHistoryPage(
             chainId: chainId, walletId: walletId, page: UInt32(max(0, page)), isExhausted: isExhausted)
@@ -173,11 +169,6 @@ extension AppState {
     }
 
     /// Fetch one chain's history through the normalized path.
-    ///
-    /// Fifteen wrappers used to state this, each naming a chain, its id and a
-    /// `resolved<Chain>Address` function — all three of which the callee can
-    /// look up. Bitcoin, Dogecoin and the EVM family keep their own entry
-    /// points below because their fetch genuinely differs.
     func refreshNormalizedTransactions(
         chainName: String, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil
     ) async {

@@ -372,12 +372,6 @@ struct EndpointsContentCopy: Decodable {
     }
 }
 /// The token-tracking chain a name or id stands for.
-///
-/// Eighteen arms plus a fallback that repeated the same lookup — the fourth
-/// Swift copy of a mapping `CoreTokenTrackingChain::from_chain_name` owns, and
-/// the one core's own doc comment names. The registry answers both spellings:
-/// `"bnb"` is BNB Chain's catalog id, which is why that arm existed and why it
-/// does not need to be written down.
 private func tokenTrackingChainFor(_ value: String) -> TokenTrackingChain? {
     let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     guard !normalized.isEmpty else { return nil }

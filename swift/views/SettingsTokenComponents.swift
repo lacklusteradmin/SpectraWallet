@@ -1,49 +1,12 @@
 import Foundation
 import SwiftUI
 extension TokenTrackingChain {
-    var settingsIconSlug: String {
-        switch self {
-        case .ethereum: return "ethereum"
-        case .arbitrum: return "arbitrum"
-        case .optimism: return "optimism"
-        case .bnb: return "bnb"
-        case .avalanche: return "avalanche"
-        case .hyperliquid: return "hyperliquid"
-        case .polygon: return "polygon"
-        case .base: return "base"
-        case .linea: return "linea"
-        case .scroll: return "scroll"
-        case .blast: return "blast"
-        case .mantle: return "mantle"
-        case .solana: return "solana"
-        case .sui: return "sui"
-        case .aptos: return "aptos"
-        case .ton: return "ton"
-        case .near: return "near"
-        case .tron: return "tron"
-        }
-    }
+    /// The icon slug is the chain's registry id.
+    var settingsIconSlug: String { chain?.id ?? "" }
+
+    /// The chain's colour, from the catalog.
     var settingsIconTint: Color {
-        switch self {
-        case .ethereum: return .blue
-        case .arbitrum: return .cyan
-        case .optimism: return .red
-        case .bnb: return .yellow
-        case .avalanche: return .red
-        case .hyperliquid: return .mint
-        case .polygon: return .purple
-        case .base: return .blue
-        case .linea: return .blue
-        case .scroll: return .orange
-        case .blast: return .yellow
-        case .mantle: return .green
-        case .solana: return .purple
-        case .sui: return .mint
-        case .aptos: return .cyan
-        case .ton: return .blue
-        case .near: return .indigo
-        case .tron: return .red
-        }
+        chain.flatMap { ChainRegistryEntry.entry(id: $0.id)?.color } ?? .accentColor
     }
 }
 extension TokenPreferenceEntry {

@@ -8,10 +8,10 @@ struct AdvancedSettingsView: View {
     @State private var isShowingDiagnosticsImporter = false
     @State private var isShowingDiagnosticsExportsBrowser = false
     @State private var lastExportedDiagnosticsURL: URL?
-    private let singleChainRefreshNames = [
-        "Bitcoin", "Litecoin", "Dogecoin", "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid",
-        "Tron", "Solana", "Cardano", "XRP Ledger", "Monero", "Sui", "Aptos", "TON", "Internet Computer", "NEAR", "Polkadot", "Stellar",
-    ]
+    /// Every mainnet. `performUserInitiatedRefresh(forChain:)` takes any name,
+    /// so the twenty-two spelled here were the only ones with a button, not
+    /// the only ones that could be refreshed.
+    private var singleChainRefreshNames: [String] { Chain.mainnets.map(\.displayName) }
     var body: some View {
         @Bindable var preferences = store.preferences
         return Form {

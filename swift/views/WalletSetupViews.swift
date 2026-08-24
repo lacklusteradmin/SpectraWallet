@@ -669,14 +669,6 @@ struct SetupView: View {
     }
     /// One watch-address field per storage slot, from the registry.
     ///
-    /// Was eighteen hand-written sections and a seven-name EVM condition. The
-    /// list had drifted in both directions: Zcash, Bitcoin Gold, Decred,
-    /// Kaspa, Dash and Bittensor support watch-only import and had no field at
-    /// all, sixteen EVM mainnets fell outside the seven the EVM section named,
-    /// Ethereum Classic was folded into the shared EVM field although its
-    /// address slot is its own, and Monero had a field although the registry
-    /// excludes it. Eleven of the twenty-eight watchable chains worked.
-    ///
     /// Keyed by slot rather than by chain because that is what core reads: the
     /// EVM family shares Ethereum's, so one field serves all of them, and the
     /// first chain in catalog order owns the row.

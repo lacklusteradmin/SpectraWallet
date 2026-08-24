@@ -50,11 +50,6 @@ struct DiagnosticsHubView: View {
     }
 }
 /// How one chain's diagnostics screen reads store state.
-///
-/// This was a twenty-four-row table of ten closures each — rows that differed
-/// only in the chain's display name and in which of five history dictionaries
-/// they read. Which of the five is `Chain.diagnosticsShape`, a registry fact,
-/// so the table is a function of the chain instead of a copy of the chain list.
 struct StandardChainDiagnosticsDispatch {
     let chain: Chain
     private var name: String { chain.displayName }
@@ -316,13 +311,6 @@ struct StandardChainDiagnosticsView: View {
         }
     }
     /// The endpoints this chain would actually use, as the screen lists them.
-    ///
-    /// Was a twenty-four case switch whose arms were mostly
-    /// `XBalanceService.endpointCatalog()` — one-line shims that do nothing but
-    /// restate the chain's own name to `AppEndpointDirectory` — and
-    /// `EVMChainContext.x.defaultRPCEndpoints`, which does the same. What is
-    /// genuinely per-chain is the user-configured override: Bitcoin's Esplora
-    /// list, Monero's backend, and every EVM chain's RPC.
     private func configuredEndpointsForCurrentChain() -> [String] {
         let name = chain.displayName
         switch chain {

@@ -3,12 +3,10 @@ import SwiftUI
 struct DecimalDisplaySettingsView: View {
     let store: AppState
     @State private var searchText: String = ""
-    private let decimalExamples: [(symbol: String, chainName: String)] = [
-        ("BTC", "Bitcoin"), ("BCH", "Bitcoin Cash"), ("LTC", "Litecoin"), ("DOGE", "Dogecoin"), ("ETH", "Ethereum"),
-        ("ETC", "Ethereum Classic"), ("BNB", "BNB Chain"), ("AVAX", "Avalanche"), ("HYPE", "Hyperliquid"), ("SOL", "Solana"),
-        ("ADA", "Cardano"), ("XRP", "XRP Ledger"), ("TRX", "Tron"), ("XMR", "Monero"), ("SUI", "Sui"), ("APT", "Aptos"), ("TON", "TON"),
-        ("ICP", "Internet Computer"), ("NEAR", "NEAR"), ("DOT", "Polkadot"), ("XLM", "Stellar"),
-    ]
+    /// Every mainnet and the asset it pays fees in.
+    private var decimalExamples: [(symbol: String, chainName: String)] {
+        Chain.mainnets.map { (symbol: $0.gasTokenSymbol, chainName: $0.displayName) }
+    }
     var body: some View {
         Form {
             Section(AppLocalization.string("Native Asset Display")) {

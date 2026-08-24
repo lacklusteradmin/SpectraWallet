@@ -301,9 +301,6 @@ struct SpectraApp: App {
 
 /// The icon-plus-title-plus-subtitle header the send, receive and primary send
 /// pages all open with.
-///
-/// Three byte-identical copies, one per file, under three names —
-/// `sendPageHeader`, `receivePageHeader`, `pageHeader`.
 @ViewBuilder
 func spectraPageHeader(title: String, subtitle: String, systemImage: String) -> some View {
     HStack(alignment: .top, spacing: 14) {

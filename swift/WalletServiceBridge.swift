@@ -283,9 +283,6 @@ extension WalletServiceBridge {
     }
 
     /// Record what one confirmation poll found.
-    ///
-    /// Was two methods, and the success one took `confirmed` and `pending` as
-    /// separate booleans for a three-state answer.
     func recordStatusPoll(id: String, outcome: StatusPollOutcome) async throws {
         try await service().recordStatusPoll(transactionId: id, outcome: outcome)
     }

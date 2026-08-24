@@ -541,25 +541,8 @@ private struct ChainWikiChainLogoBadge: View {
 private extension ChainWikiEntry {
     var registryEntry: ChainRegistryEntry? { ChainRegistryEntry.entry(id: id) }
     var nativeAssetIdentifier: String? { registryEntry?.assetIdentifier }
-    var accentColor: Color {
-        if let registryEntry { return registryEntry.color }
-        switch id {
-        case "bitcoin", "bitcoin-cash", "dogecoin", "monero": return .orange
-        case "litecoin": return .gray
-        case "ethereum", "ethereum-classic": return .indigo
-        case "bnb": return .yellow
-        case "avalanche", "tron": return .red
-        case "hyperliquid": return .cyan
-        case "solana": return .mint
-        case "aptos": return .black
-        case "cardano", "xrp": return .blue
-        case "sui", "stellar": return .teal
-        case "near": return .green
-        case "polkadot": return .pink
-        case "internet-computer": return .purple
-        default: return .accentColor
-        }
-    }
+    /// The registry's colour for this chain.
+    var accentColor: Color { registryEntry?.color ?? .accentColor }
 }
 private extension Array where Element == ChainWikiEntry {
     var availableWikiTags: [String] {

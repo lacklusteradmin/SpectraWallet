@@ -175,12 +175,6 @@ final class WalletDiagnosticsState {
         return [detail, degradedSyncSuffix(for: chainID)].filter { !$0.isEmpty }.joined(separator: " ")
     }
     /// One classification, localized.
-    ///
-    /// Was three FFI calls asking three questions about one string, and the two
-    /// callers disagreed about whether to normalise before matching the
-    /// template — so a detail arriving with its "Last good sync" suffix still
-    /// attached matched no template on one path and did on the other. Core
-    /// matches against the normalized form for both.
     private func localized(_ classified: DegradedDetail, chainName: String) -> String {
         if let templateKey = classified.templateKey {
             return AppLocalization.format(templateKey, chainName)
@@ -264,11 +258,6 @@ final class WalletChainDiagnosticsState {
     var diagnosticsRevision: Int = 0
 
     /// One chain's self-test state, keyed by chain display name.
-    ///
-    /// This was three stored properties per chain — `<chain>SelfTestResults`,
-    /// `isRunning<Chain>SelfTests`, `<chain>SelfTestsLastRunAt` — with a
-    /// matching pair of forwarding accessors each, a runner each, and a row in
-    /// two more tables. Keyed by chain, adding one costs nothing.
     struct SelfTests {
         var results: [ChainSelfTestResult] = []
         var isRunning: Bool = false
@@ -277,11 +266,6 @@ final class WalletChainDiagnosticsState {
     var selfTestsByChain: [String: SelfTests] = [:]
 
     /// One chain's endpoint-health state, keyed by chain display name.
-    ///
-    /// Was three stored properties per chain across 24 chains. Keying them
-    /// needed the two row records unified first — `EvmEndpointHealthRow`
-    /// differed from `EndpointHealthRow` by a `label` field, and two types for
-    /// one thing meant two differently-typed slots here.
     struct EndpointHealth {
         var results: [EndpointHealthRow] = []
         var lastUpdatedAt: Date?

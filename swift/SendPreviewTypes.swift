@@ -2,13 +2,6 @@ import Foundation
 
 /// The per-chain facts an EVM send needs, sourced from the registry.
 ///
-/// This was an enum with a case per chain and five switches over it —
-/// `displayName`, `tokenTrackingChain`, `expectedChainID`, the derivation path
-/// and `isEthereumFamily`. It covered 15 of the 23 EVM mainnets, so
-/// `isEVMChain` answered *false* for Sei, Celo, Cronos, opBNB, zkSync Era,
-/// Sonic, Berachain, Unichain, Ink and X Layer, and every EVM path skipped
-/// them without saying so.
-///
 /// It is a struct now, built from `coreEvmChainContext`. Adding an EVM chain is
 /// a registry edit and nothing here changes. The named statics are kept so the
 /// existing `EVMChainContext.arbitrum` call sites read the same.
@@ -237,13 +230,6 @@ final class SendPreviewStore {
     }
 
     /// Clear every chain's preview but one.
-    ///
-    /// Was eighteen `if activePreview != .x { store.xSendPreview = nil }` blocks
-    /// in `AppState+SendRouting`, which is this store's field list written out a
-    /// second time — and written in terms of a preview *kind* while the store
-    /// keys on a chain, so the EVM family's shared slot had to be reasoned
-    /// about at every site. Keeping one and resetting the rest is the same
-    /// thing said once.
     func resetAll(exceptChainNamed chainName: String?) {
         let kept = chainName.flatMap { taggedPreview(forChainNamed: $0) }
         resetAll()

@@ -25,12 +25,6 @@ enum AppEndpointRole: String, Hashable, CaseIterable, Decodable {
 }
 enum AppEndpointDirectory {
     /// The endpoint catalog, read once.
-    ///
-    /// It used to be eight exports, each taking a chain and re-walking the
-    /// same table — so a settings screen made six calls for one chain. The
-    /// catalog is static once the embedded JSON parses, which is why a
-    /// `preconditionFailure` here is right: a throw means a corrupt bundle,
-    /// not a runtime condition.
     private static let byChainName: [String: AppCoreChainEndpoints] = {
         do {
             return Dictionary(
@@ -112,10 +106,5 @@ enum AppEndpointDirectory {
         return URL(string: urlString)
     }
     /// Every chain the registry knows.
-    ///
-    /// Was `chain_backends()` filtered by `integrationState == .live`. That
-    /// table was 78 hand-written rows beside `chains.toml`'s 78 — verified
-    /// identical — and every row said `Live`, so the filter selected all of
-    /// them and the record's other six fields had no reader on this side.
     static let liveChainNames: [String] = Chain.all.map(\.displayName)
 }

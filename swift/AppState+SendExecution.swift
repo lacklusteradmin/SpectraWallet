@@ -530,11 +530,6 @@ extension AppState {
     }
 
     /// Store a broadcast that succeeded and reset the composer.
-    ///
-    /// This tail was written out eight times, six of them byte-identical: build
-    /// the record, decorate it, store it, refresh, clear that chain's preview.
-    /// Dogecoin is the one arm that genuinely differs — it runs its own refresh
-    /// sequence rather than `runPostSendRefreshActions` — and keeps its copy.
     private func recordSuccessfulBroadcast(
         wallet: ImportedWallet, holding: Coin, destinationAddress: String, amount: Double,
         transactionHash: String?, signedPayload: String?, payloadFormat: String?,

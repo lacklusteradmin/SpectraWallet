@@ -416,13 +416,6 @@ private struct WalletReceiveCard: View {
     }
 
     /// The address stored for the wallet's own chain.
-    ///
-    /// A twenty-four arm switch stood here picking between the
-    /// `wallet.<chain>Address` shims by name, with a twenty-three name EVM arm
-    /// reading `ethereumAddress`. `address(forChainNamed:)` is that lookup, and
-    /// it keys on `Chain.addressSlot` — which folds the EVM family onto
-    /// Ethereum's slot without the list, and reads Ethereum Classic's own slot,
-    /// which the EVM arm could not.
     private func walletStaticAddress(for wallet: ImportedWallet) -> String? {
         let trimmed =
             wallet.address(forChainNamed: wallet.selectedChain)?

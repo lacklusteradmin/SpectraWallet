@@ -94,12 +94,6 @@ final class WalletImportDraft {
         didSet { refreshSelectionState() }
     }
     /// The watch-only address text, keyed by chain display name.
-    ///
-    /// Was twenty-three `var <chain>AddressInput` properties and a twenty-three
-    /// row table transcribing them — which is how Monero came to have a field
-    /// nothing read and six chains came to have none at all. A plain text field
-    /// with no derivation invariant, so it binds directly; see the mutation
-    /// contract above.
     var watchOnlyInputsByChainName: [String: String] = [:]
     /// Not an address, so not in the table above: Bitcoin's account xpub stands
     /// in for the whole account and plans one wallet rather than one per line.
@@ -500,9 +494,6 @@ final class WalletImportDraft {
 /// `draft.validation.password` etc. — the rule for "is this field
 /// invalid" lives in `WalletImportDraft.validate()` instead of being
 /// spread across N computed properties.
-///
-/// The legacy property accessors are preserved as one-line shims that
-/// project from `validation` so call sites don't break.
 struct WalletImportDraftValidation {
     /// Words the user typed that aren't in the BIP-39 wordlist.
     var invalidSeedWords: [String] = []

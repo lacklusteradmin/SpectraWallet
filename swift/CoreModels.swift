@@ -156,13 +156,6 @@ extension CoreImportedWallet {
     ///
     /// `CoreImportedWallet` is a UniFFI record, so its generated memberwise
     /// init has no defaults.
-    ///
-    /// Twenty-four per-chain arguments used to sit here — `bitcoinAddress:`,
-    /// `bitcoinCashAddress:`, one per chain — folded into `addresses` by a
-    /// twenty-four row table naming each chain a second time. Between them they
-    /// served two call sites, both tests, and both passed exactly one address.
-    /// `addresses` takes the table directly; a caller with one address writes
-    /// one entry.
     init(
         id: UUID = UUID(),
         name: String,
@@ -209,10 +202,6 @@ extension CoreWalletDerivationOverrides {
 
 /// The storage slot a chain's address is kept under, or nil if the registry
 /// does not know the chain.
-///
-/// Written out five times as `Chain(displayName:)?.addressSlot ?? ""` followed
-/// by an is-empty guard — twice to fold a table, twice to read one back, once
-/// more in a third copy of the fold.
 private func addressSlot(forChainNamed chainName: String) -> String? {
     let slot = Chain(displayName: chainName)?.addressSlot ?? ""
     return slot.isEmpty ? nil : slot
@@ -220,9 +209,6 @@ private func addressSlot(forChainNamed chainName: String) -> String? {
 
 /// Fold a chain-display-name → address table into the slot-keyed storage,
 /// dropping empty values and chains the registry does not know.
-///
-/// There were two byte-identical copies of this, `CoreImportedWallet.addressMap`
-/// and `WalletImportAddresses.slotMap`, with near-identical doc comments.
 func addressSlotMap(_ byChainName: [String: String?]) -> [String: String] {
     var bySlot: [String: String] = [:]
     for (chainName, address) in byChainName {
@@ -801,11 +787,6 @@ extension TransactionRecord {
     /// UTXO-style, and either it does not require a send or this is one.
     /// Litecoin is `require_send_kind: false` because its explorer confirms
     /// receives on its own cadence.
-    ///
-    /// `retryUTXOTransactionStatus` has read the registry since that was
-    /// fixed, but the context menu offering the button kept a five-name list
-    /// inside a `kind == .send` gate — so the fix was unreachable for exactly
-    /// the case it was for. One property now, read by both.
     var supportsStatusRecheck: Bool {
         guard transactionHash != nil,
             let chain = Chain(displayName: chainName),

@@ -118,7 +118,7 @@ final class AppState {
     // structs and associated typealiases) moved to Shell/AppStateTypes.swift.
     /// Canonical wallet collection. Mutating it triggers a derived-cache
     /// rebuild via `scheduleWalletCollectionSideEffects`.
-    ///
+    //
     /// **Observation note for view code**: SwiftUI's `@Observable` tracks
     /// access to this property as a whole — any mutation invalidates every
     /// view that read `store.wallets` for any reason, even a single
@@ -130,7 +130,7 @@ final class AppState {
     /// `wallets` directly should justify it (e.g. they actually iterate
     /// the entire collection).
     /// Imported wallets.
-    ///
+    //
     /// Domain state: core owns the list and persists it. This is a projection
     /// of `CoreAppState.wallets`, rendered into the shape the views use — see
     /// `WalletSummary::to_imported_wallet`. `private(set)`, because assigning
@@ -417,10 +417,6 @@ final class AppState {
     }
     /// Core owns it; this is the mirror the endpoint fields bind to. Absent
     /// means the catalog's list.
-    ///
-    /// It replaced `ethereumRPCEndpoint`, one String read through an accessor
-    /// that was `chainName == "Ethereum" ? … : nil` — so the other twenty-two
-    /// EVM mainnets had no custom-RPC setting at all.
     private(set) var rpcEndpointByChain: [String: String] = [:] {
         didSet {
             guard rpcEndpointByChain != oldValue else { return }
@@ -466,10 +462,6 @@ final class AppState {
 
     /// Core owns it; this is the mirror the fee pickers bind to. Absent means
     /// `.normal`, so the map is empty until the user picks something.
-    ///
-    /// It replaced three stores of one preference: Bitcoin and Dogecoin each
-    /// had a settings field and a Swift enum of their own, and the other
-    /// seventy-six shared a dictionary this class persisted itself.
     private(set) var feePriorityByChain: [String: String] = [:] {
         didSet {
             guard feePriorityByChain != oldValue else { return }
@@ -614,7 +606,7 @@ final class AppState {
     @ObservationIgnored var cachedFiatAmountRules: [String: FiatAmountRules] = [:]
     @ObservationIgnored var cachedAssetDecimalsResolutions: [String: (supported: UInt32, display: UInt32)] = [:]
 /// Chains whose selected network is a testnet, so their coins are not quoted.
-    ///
+///
     /// Core decides; this is the projection the render path reads.
     private(set) var unpricedChainNames: Set<String> = []
     /// Memoizes `formattingTokenPreferenceLookupKey`. Keyed by
@@ -672,9 +664,6 @@ final class AppState {
     var isLoadingMoreOnChainHistory: Bool = false
     let diagnostics = WalletDiagnosticsState()
     /// Whether a chain's deep rescan is running, and when it last finished.
-    ///
-    /// Ten forwarding accessors used to name five chains twice each, over this
-    /// same keyed table.
     struct UTXORescanState { var isRunning: Bool = false; var lastRunAt: Date? = nil }
     var utxoRescanStateByChain: [String: UTXORescanState] = [:]
     subscript(rescanFor chainName: String) -> UTXORescanState {
@@ -1117,12 +1106,6 @@ final class AppState {
         enabledTrackedTokenPreferences.filter { $0.chain == chain }
     }
     /// The canonical form of a tracked token's contract address.
-    ///
-    /// Was a twelve-name EVM arm, then Aptos, Sui, TON and a lowercase default
-    /// — a second copy of `normalize_token_identifier`, which core keys by
-    /// chain. The two disagreed about TON: this side trimmed, core lowercased,
-    /// and a jetton master address is case-significant. Core states the TON rule
-    /// now and this asks it.
     func normalizedTrackedTokenIdentifier(for chain: TokenTrackingChain, contractAddress: String) -> String {
         normalizeTokenIdentifier(contractAddress: contractAddress, chainName: chain.rawValue) ?? ""
     }

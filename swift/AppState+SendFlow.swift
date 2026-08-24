@@ -210,9 +210,6 @@ extension AppState {
     }
     func isEVMChain(_ chainName: String) -> Bool { (Chain(displayName: chainName)?.isEVM ?? false) }
     /// The custom RPC this chain is pointed at, if it is set and valid.
-    ///
-    /// This was `chainName == "Ethereum" ? … : nil`, which is why twenty-two
-    /// EVM mainnets had no custom-RPC setting: the accessor refused to look.
     func configuredEVMRPCEndpointURL(for chainName: String) -> URL? {
         guard rpcEndpointValidationError(forChain: chainName) == nil else { return nil }
         let trimmed = rpcEndpoint(forChain: chainName)
@@ -242,9 +239,6 @@ extension AppState {
     }
 
     /// The address is judged against the network the family is on.
-    ///
-    /// This used to pick a mode string from a four-chain switch and hand it to
-    /// a validator that ignored it — the `kind` had always been what decided.
     func isValidAddress(_ address: String, for chainName: String) -> Bool {
         isValidSendAddress(chainName: chainName, address: address)
     }
@@ -343,13 +337,6 @@ extension AppState {
     }
     /// What the address field says for a chain: how a valid address looks while
     /// the field is empty, and what to fix once it does not parse.
-    ///
-    /// One table rather than the two fourteen-arm switches this replaces, which
-    /// said the same fourteen things in a different tense. Keyed by chain name
-    /// because the sentences are about a chain's address format, and that is
-    /// content rather than a registry fact — what the registry decides is
-    /// membership, which is why the EVM family is one arm below rather than
-    /// twenty-three rows here.
     ///
     /// **Ten mainnets have no entry** and fall back to the generic form:
     /// Bitcoin Cash, Bitcoin SV, Litecoin, Internet Computer, Zcash, Bitcoin
@@ -487,11 +474,6 @@ extension AppState {
         }
     }
     /// Run a chain's synchronous self-test suite and record the outcome.
-    ///
-    /// Was five wrappers, each threading three key paths into three per-chain
-    /// stored properties. The suite, the abbreviation and the state are all
-    /// keyed by chain now — the abbreviation from the registry, which has had
-    /// it all along as `coin_symbol`.
     func runSelfTests(for chainName: String) {
         guard !selfTests(for: chainName).isRunning else { return }
         selfTests[chainName, default: .init()].isRunning = true
@@ -577,12 +559,6 @@ extension AppState {
     }
     /// Deep-rescan one UTXO chain: rediscover addresses, then refetch
     /// balances, history and pending status together.
-    ///
-    /// Five wrappers used to state this, each naming a chain, two key paths
-    /// and its ticker. The ticker is on the chain descriptor, the running
-    /// state is keyed, and both refreshes take a chain name — so the wrapper
-    /// had nothing left to say. Bitcoin and Dogecoin keep their own history
-    /// fetch: HD xpub expansion and a confirmed-fee path.
     func runUTXORescan(chainName: String) async {
         guard (Chain(displayName: chainName)?.supportsDeepUTXODiscovery ?? false) else { return }
         let abbrev = Chain(displayName: chainName)?.gasTokenSymbol ?? chainName

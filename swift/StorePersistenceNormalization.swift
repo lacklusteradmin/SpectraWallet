@@ -158,10 +158,6 @@ extension AppState {
         lastHistoryRefreshAtByChain[chainName] = nil
     }
     /// Drop a deleted wallet's history diagnostics.
-    ///
-    /// Was twenty-seven lines naming every chain on every record shape, each a
-    /// read-modify-write of a whole map across the boundary. Core owns the
-    /// registries and a wallet is gone from all of them or none.
     func clearHistoryTracking(for walletID: String) {
         resetHistoryPaginationForWallet(walletID)
         diagnosticsForgetWallet(walletId: walletID)
