@@ -31,13 +31,6 @@ enum StaticContentCatalog {
         decodedResourceCache.withLock { $0[key] = value }
         return value
     }
-    static func loadResource<T: Decodable>(_ baseName: String, as type: T.Type) -> T? {
-        let key = cacheKey(baseName: baseName, typeID: String(describing: type))
-        if let cached = decodedResourceCache.withLock({ $0[key] as? T }) { return cached }
-        guard let value: T = loadResourceUncached(baseName, as: type) else { return nil }
-        decodedResourceCache.withLock { $0[key] = value }
-        return value
-    }
     private static func loadRequiredResourceUncached<T: Decodable>(_ baseName: String, as type: T.Type) -> T {
         let decoder = JSONDecoder()
         let localeIdentifiers = AppLocalization.preferredLocalizationIdentifiers()
@@ -46,20 +39,6 @@ enum StaticContentCatalog {
             return value
         }
         fatalError("Missing required resource: \(baseName).json")
-    }
-    private static func loadResourceUncached<T: Decodable>(_ baseName: String, as type: T.Type) -> T? {
-        // `loadFromRustCore` used to be tried first. `core::resources` held two
-        // empty tables, so `coreStaticResourceJson` could only ever throw — the
-        // call was made, the error swallowed by `try?`, and the bundle path ran
-        // anyway, on every content load. Its two tests passed for the same
-        // reason: they asserted that a lookup in an empty map returns nothing.
-        let decoder = JSONDecoder()
-        let localeIdentifiers = AppLocalization.preferredLocalizationIdentifiers()
-        for url in candidateJSONURLs(for: baseName, localeIdentifiers: localeIdentifiers) {
-            guard let data = try? Data(contentsOf: url), let value = try? decoder.decode(T.self, from: data) else { continue }
-            return value
-        }
-        return nil
     }
     private static func candidateJSONURLs(for baseName: String, localeIdentifiers: [String]) -> [URL] {
         var candidates: [URL] = []
@@ -212,20 +191,7 @@ struct CommonLocalizationContent: Decodable {
     let transactionReceivedTitleFormat: String
     let transactionSubtitleFormat: String
     let invalidAddressFormat: String
-    let invalidAmountFormat: String
     let invalidDestinationAddressPromptFormat: String
-    let invalidAssetAmountPromptFormat: String
-    let invalidSeedPhraseFormat: String
-    let invalidProviderResponseFormat: String
-    let invalidTransferAmountFormat: String
-    let signingTransactionFailedFormat: String
-    let insufficientBalanceForAmountPlusNetworkFeeFormat: String
-    let invalidUTXODataFormat: String
-    let sourceAddressDoesNotMatchSeedFormat: String
-    let networkErrorFormat: String
-    let signingFailedFormat: String
-    let networkRequestFailedFormat: String
-    let broadcastFailedFormat: String
     let rpcErrorFormat: String
     let walletImportErrorTitle: String
     let sendErrorTitle: String
@@ -239,47 +205,8 @@ enum CommonLocalization {
     static func invalidAddress(_ chainName: String) -> String {
         String(format: CommonLocalizationContent.current.invalidAddressFormat, chainName)
     }
-    static func invalidAmount(_ chainName: String) -> String {
-        String(format: CommonLocalizationContent.current.invalidAmountFormat, chainName)
-    }
     static func invalidDestinationAddressPrompt(_ chainName: String) -> String {
         String(format: CommonLocalizationContent.current.invalidDestinationAddressPromptFormat, chainName)
-    }
-    static func invalidAssetAmountPrompt(_ symbol: String) -> String {
-        String(format: CommonLocalizationContent.current.invalidAssetAmountPromptFormat, symbol)
-    }
-    static func invalidSeedPhrase(_ chainName: String) -> String {
-        String(format: CommonLocalizationContent.current.invalidSeedPhraseFormat, chainName)
-    }
-    static func invalidProviderResponse(_ chainName: String) -> String {
-        String(format: CommonLocalizationContent.current.invalidProviderResponseFormat, chainName)
-    }
-    static func invalidTransferAmount(_ chainName: String) -> String {
-        String(format: CommonLocalizationContent.current.invalidTransferAmountFormat, chainName)
-    }
-    static func signingTransactionFailed(_ chainName: String) -> String {
-        String(format: CommonLocalizationContent.current.signingTransactionFailedFormat, chainName)
-    }
-    static func insufficientBalanceForAmountPlusNetworkFee(_ symbolOrChain: String) -> String {
-        String(format: CommonLocalizationContent.current.insufficientBalanceForAmountPlusNetworkFeeFormat, symbolOrChain)
-    }
-    static func invalidUTXOData(_ chainName: String) -> String {
-        String(format: CommonLocalizationContent.current.invalidUTXODataFormat, chainName)
-    }
-    static func sourceAddressDoesNotMatchSeed(_ chainName: String) -> String {
-        String(format: CommonLocalizationContent.current.sourceAddressDoesNotMatchSeedFormat, chainName)
-    }
-    static func networkError(_ chainName: String, message: String) -> String {
-        String(format: CommonLocalizationContent.current.networkErrorFormat, chainName, AppLocalization.string(message))
-    }
-    static func signingFailed(_ chainName: String, message: String) -> String {
-        String(format: CommonLocalizationContent.current.signingFailedFormat, chainName, AppLocalization.string(message))
-    }
-    static func networkRequestFailed(_ chainName: String, message: String) -> String {
-        String(format: CommonLocalizationContent.current.networkRequestFailedFormat, chainName, AppLocalization.string(message))
-    }
-    static func broadcastFailed(_ chainName: String, message: String) -> String {
-        String(format: CommonLocalizationContent.current.broadcastFailedFormat, chainName, AppLocalization.string(message))
     }
     static func rpcError(_ chainName: String, message: String) -> String {
         String(format: CommonLocalizationContent.current.rpcErrorFormat, chainName, AppLocalization.string(message))

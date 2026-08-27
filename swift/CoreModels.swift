@@ -113,12 +113,6 @@ extension CoreImportedWallet {
         }
     }
 
-    /// A copy with one chain's address replaced.
-    func settingAddress(_ address: String?, forChainNamed chainName: String) -> ImportedWallet {
-        var copy = self
-        copy.setAddress(address, forChainNamed: chainName)
-        return copy
-    }
 
     // MARK: The five chains read by name
     //
@@ -372,12 +366,6 @@ extension CoreSeedDerivationPaths {
         return paths
     }
 
-    /// Paths keyed by chain display name, for the UI and for diagnostics.
-    func toDictionary() -> [String: String] {
-        var d: [String: String] = [:]
-        for chain in Chain.all { d[chain.displayName] = path(for: chain) }
-        return d
-    }
 }
 extension TransactionStatus {
     var localizedTitle: String {
@@ -540,16 +528,20 @@ struct TransactionRecord: Identifiable, Equatable, Sendable {
         guard !normalizedSymbol.isEmpty else { return nil }
         return "token:\(chainSlug):\(normalizedSymbol)"
     }
+    /// The chain part of a token's icon identifier, for chains that host
+    /// tokens.
+    ///
+    /// Six chains were named here out of the eighteen `tokenTrackingChain`
+    /// knows, so a token on Polygon, Base, Sui, TON or NEAR produced no
+    /// identifier and got no icon lookup at all. The slug is not parsed —
+    /// `entry(matchingAssetIdentifier:)` matches the symbol fragment — so the
+    /// registry id serves, and BNB Chain's `"bnb-chain"` was never read as
+    /// anything but text.
     private var transactionIconChainSlug: String? {
-        switch chainName {
-        case "Ethereum": return "ethereum"
-        case "Arbitrum": return "arbitrum"
-        case "BNB Chain": return "bnb-chain"
-        case "Avalanche": return "avalanche"
-        case "Tron": return "tron"
-        case "Solana": return "solana"
-        default: return nil
+        guard let chain = Chain(displayName: chainName), chain.tokenTrackingChain != nil else {
+            return nil
         }
+        return chain.id
     }
 }
 enum SendBroadcastVerificationStatus: Equatable {
@@ -787,6 +779,23 @@ extension TransactionRecord {
     /// UTXO-style, and either it does not require a send or this is one.
     /// Litecoin is `require_send_kind: false` because its explorer confirms
     /// receives on its own cadence.
+    /// The failure reason to show, localized.
+    ///
+    /// Core stores a code. A localized sentence written into the database
+    /// keeps its language when the user changes theirs, so the text is made
+    /// here and the record keeps the code.
+    var localizedFailureReason: String? {
+        guard let failureReason else { return nil }
+        switch failureReason {
+        case "stuckAfterRetries":
+            return AppLocalization.format(
+                "%@ transaction appears stuck and could not be confirmed after extended retries.",
+                chainName)
+        default:
+            return failureReason
+        }
+    }
+
     var supportsStatusRecheck: Bool {
         guard transactionHash != nil,
             let chain = Chain(displayName: chainName),

@@ -124,7 +124,9 @@ struct HistoryDetailView: View {
                         if let changeAddress = displayedTransaction.changeAddress {
                             detailRow(label: "Change Address", value: changeAddress)
                         }
-                        if let failureReason = displayedTransaction.failureReason { detailRow(label: "Failure", value: failureReason) }
+                        if let failureReason = displayedTransaction.localizedFailureReason {
+                            detailRow(label: "Failure", value: failureReason)
+                        }
                     }
                     if displayedTransaction.chainName == "Ethereum", displayedTransaction.kind == .send,
                         displayedTransaction.status == .pending
@@ -332,7 +334,8 @@ struct HistoryDetailView: View {
                 TransactionTimelineItem(
                     id: "failed",
                     title: "Failed",
-                    detail: displayedTransaction.failureReason ?? AppLocalization.string("Network or local validation failed."),
+                    detail: displayedTransaction.localizedFailureReason
+                        ?? AppLocalization.string("Network or local validation failed."),
                     systemImage: "xmark.octagon.fill",
                     tint: .red,
                     isComplete: false,

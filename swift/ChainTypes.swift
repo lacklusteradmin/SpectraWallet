@@ -124,10 +124,6 @@ enum NearBalanceService {
         let decimals: Int
         let coinGeckoId: String
     }
-    static func parseHistoryResponse(_ data: Data, ownerAddress: String) throws -> [NearHistoryParsedSnapshot] {
-        let jsonString = String(data: data, encoding: .utf8) ?? ""
-        return nearParseHistoryResponse(json: jsonString, ownerAddress: ownerAddress)
-    }
 }
 
 // MARK: - Aptos
@@ -166,7 +162,6 @@ enum TONBalanceService {
         let decimals: Int
         let coinGeckoId: String
     }
-    static func normalizeJettonMasterAddress(_ address: String) -> String { canonicalAddressIdentifier(address) }
     private static func canonicalAddressIdentifier(_ address: String?) -> String {
         address?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
     }

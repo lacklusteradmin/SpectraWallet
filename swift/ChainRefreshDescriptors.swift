@@ -28,18 +28,24 @@ struct WalletChainRefreshDescriptor: Sendable {
         let isUTXO = (Chain(displayName: chainName)?.supportsDeepUTXODiscovery ?? false)
         let isEVM = (Chain(displayName: chainName)?.isEVM ?? false)
 
-        // Bitcoin and Dogecoin keep their own history fetch: HD xpub expansion
-        // and a confirmed-fee path respectively.
+        // Three shapes, chosen by what the chain's wallets hold rather than by
+        // name. Bitcoin is the only chain with a stored xpub, so core expands
+        // the HD range for it; the other four deep-UTXO chains hold many
+        // discovered addresses and need their legs netted per transaction;
+        // everything else is one address per wallet.
+        //
+        // Dogecoin used to be the only name in the second arm, so Litecoin,
+        // Bitcoin Cash and Bitcoin SV fell to the third and only ever had
+        // their first address's history fetched.
         let history: @Sendable (AppState) async -> Void = { store in
-            switch chainName {
-            case "Bitcoin": await store.refreshBitcoinTransactions(loadMore: false)
-            case "Dogecoin": await store.refreshDogecoinTransactions(loadMore: false)
-            default:
-                if isEVM {
-                    await store.refreshEVMTokenTransactions(chainName: chainName, loadMore: false)
-                } else {
-                    await store.refreshNormalizedTransactions(chainName: chainName, loadMore: false)
-                }
+            if chainName == "Bitcoin" {
+                await store.refreshBitcoinTransactions(loadMore: false)
+            } else if Chain(displayName: chainName)?.supportsDeepUTXODiscovery == true {
+                await store.refreshMultiAddressUTXOTransactions(chainName: chainName, loadMore: false)
+            } else if isEVM {
+                await store.refreshEVMTokenTransactions(chainName: chainName, loadMore: false)
+            } else {
+                await store.refreshNormalizedTransactions(chainName: chainName, loadMore: false)
             }
         }
         let pending: @Sendable (AppState) async -> Void = { store in
@@ -89,14 +95,6 @@ extension AppState {
             )
         }
     }
-    func runPlannedChainRefreshes(using refreshPlanByChain: [WalletChainID: Bool], timeout: Double) async {
-        for descriptor in Self.chainRefreshDescriptors.values {
-            guard let refreshHistory = refreshPlanByChain[descriptor.chainID] else { continue }
-            await runTimedChainRefresh(descriptor.chainID, refreshHistory: refreshHistory, timeout: timeout) {
-                await descriptor.executeRefresh(self, refreshHistory)
-            }
-        }
-    }
     /// Refresh the history of the chains that are due one.
     ///
     /// Which those are is core's answer, from core's clock. This used to pass
@@ -122,24 +120,6 @@ extension AppState {
     }
     func runPendingTransactionHistoryRefreshes(for trackedChains: Set<WalletChainID>, interval: TimeInterval) async {
         await runHistoryRefreshes(for: trackedChains, interval: interval)
-    }
-    private func runTimedChainRefresh(
-        _ chainID: WalletChainID, refreshHistory: Bool, timeout: Double, operation: @escaping @Sendable () async -> Void
-    ) async {
-        let chainName = chainID.displayName
-        do {
-            try await withTimeout(seconds: timeout) {
-                await operation()
-                return ()
-            }
-            if refreshHistory { lastHistoryRefreshAtByChainID[chainID] = Date() }
-        } catch {
-            markChainDegraded(chainName, detail: "\(chainName) refresh timed out. Using cached balances and history.")
-            appendOperationalLog(
-                .warning, category: "Chain Sync", message: "\(chainName) refresh timeout", chainName: chainName, source: "timeout",
-                metadata: error.localizedDescription
-            )
-        }
     }
     func performUserInitiatedRefresh(forChain chainName: String) async {
         let startedAt = CFAbsoluteTimeGetCurrent()

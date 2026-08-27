@@ -15,27 +15,14 @@ struct AddressBookView: View {
     private var supportedChains: [String] { Chain.mainnets.map(\.displayName) }
     /// A terse format example, for the chains that have one.
     ///
-    /// Incomplete on purpose: writing one per chain is content in four
-    /// locales, recorded in `PLAN.md` as a gap rather than invented here. A
-    /// chain without an entry gets an empty placeholder and still validates.
+    /// A terse example of what an address on this chain looks like.
+    ///
+    /// A fifteen-arm switch stood here, one arm of it naming nine EVM chains.
+    /// It is a fact about the chain, so it is a catalog column now — which
+    /// also means the EVM family gets it from `is_evm` rather than from a list
+    /// that had Base, Polygon, Linea and the rest missing.
     private var addressPrompt: String {
-        switch selectedChainName {
-        case "Bitcoin": return "bc1q..."
-        case "Litecoin": return "ltc1... / L... / M..."
-        case "Dogecoin": return "D..."
-        case "Ethereum", "Ethereum Classic", "Arbitrum", "Optimism", "BNB Chain", "Avalanche", "Hyperliquid", "Sui", "Aptos": return "0x..."
-        case "Tron": return "T..."
-        case "Solana": return "So111..."
-        case "Cardano": return "addr1..."
-        case "XRP Ledger": return "r..."
-        case "Monero": return "4... / 8..."
-        case "TON": return "UQ... / EQ..."
-        case "Internet Computer": return "64-char account identifier"
-        case "NEAR": return "alice.near / 64-char hex"
-        case "Polkadot": return "1..."
-        case "Stellar": return "G..."
-        default: return ""
-        }
+        Chain(displayName: selectedChainName)?.addressPrefixHint ?? ""
     }
     private var addressValidationMessage: String {
         if store.isDuplicateAddressBookAddress(address, chainName: selectedChainName) {

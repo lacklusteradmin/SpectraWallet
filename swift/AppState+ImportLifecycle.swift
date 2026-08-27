@@ -160,9 +160,6 @@ extension AppState {
         else { return nil }
         return receiveCoins[selectedIndex]
     }
-    func resolvedReceiveChainName(for walletID: String) -> String {
-        receiveSelection(for: walletID).resolvedChainName
-    }
     /// Which chain and holding the receive sheet should show. `receiveChainName`
     /// is the user's current pick and stays in Swift — it is a sheet selection,
     /// not something a restart should preserve.

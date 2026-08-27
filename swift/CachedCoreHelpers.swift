@@ -61,11 +61,6 @@ enum CachedCoreHelpers {
         supportedPrivateKeyChainNamesResult = value
         return value
     }
-    static func resolveChainId(input: String) -> String {
-        cached(in: &resolvedChainIds, key: input) {
-            coreResolveChainId(input: input)
-        }
-    }
 
     // ── formatting.* ───────────────────────────────────────────────────
     static func nativeAssetDisplaySettingsKey(chainName: String) -> String {

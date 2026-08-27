@@ -35,12 +35,6 @@ struct SetupFlow {
         return pages[i - 1]
     }
 
-    /// 1-based step position for `current`, or `nil` for side routes
-    /// (like `.advanced`) that don't participate in the counter.
-    func stepPosition(for current: WalletSetupPage) -> (current: Int, total: Int)? {
-        guard let i = index(of: current) else { return nil }
-        return (i + 1, pages.count)
-    }
 }
 
 /// Linear pages for the wallet-setup flow. Lifted out of `SetupView`'s

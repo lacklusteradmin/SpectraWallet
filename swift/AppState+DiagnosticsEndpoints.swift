@@ -518,8 +518,7 @@ extension AppState {
                     dogecoinNetworkFeeDoge: nil)
             } catch { await markTransactionStatusPollFailure(for: transaction) }
         }
-        await applyResolvedPendingTransactionStatuses(
-            resolved, staleFailureIDs: await stalePendingFailureIDs(from: tracked))
+        await applyResolvedPendingStatuses(chainName: chainName, resolutions: resolved)
     }
 
     private func refreshPendingRustHistoryChainTransactions(chainName: String, chainId: String) async {
@@ -530,10 +529,11 @@ extension AppState {
             chainName: chainName,
             addressResolver: { [self] in resolvedAddress(for: $0, chainName: chainName) }
         ) { address in
-            guard let confirmed = try? await WalletServiceBridge.shared.fetchHistoryConfirmedTxids(chainId: chainId, address: address) else {
+            guard let summary = try? await WalletServiceBridge.shared.fetchHistorySummary(chainId: chainId, address: address) else {
                 return ([:], true)
             }
-            let map: [String: TransactionStatus] = Dictionary(uniqueKeysWithValues: confirmed.map { ($0, TransactionStatus.confirmed) })
+            let map: [String: TransactionStatus] = Dictionary(
+                uniqueKeysWithValues: summary.confirmedTxids.map { ($0, TransactionStatus.confirmed) })
             return (map, false)
         }
     }
@@ -576,7 +576,7 @@ extension AppState {
         await runAddressHistoryDiagnosticsForAllWallets(
             chainName: chainName, resolveAddress: resolveAddress,
             fetchDiagnostics: { address in
-                let count = Int((try? await WalletServiceBridge.shared.fetchHistoryEntryCount(chainId: chainId, address: address)) ?? 0)
+                let count = Int((try? await WalletServiceBridge.shared.fetchHistorySummary(chainId: chainId, address: address).entryCount) ?? 0)
                 return BitcoinHistoryDiagnostics(
                     walletId: "", identifier: address, sourceUsed: "rust", transactionCount: Int32(count), nextCursor: nil, error: nil)
             },
@@ -596,7 +596,7 @@ extension AppState {
         await runAddressHistoryDiagnosticsForWallet(
             walletID: walletID, chainName: chainName, resolveAddress: resolveAddress,
             fetchDiagnostics: { address in
-                let count = Int((try? await WalletServiceBridge.shared.fetchHistoryEntryCount(chainId: chainId, address: address)) ?? 0)
+                let count = Int((try? await WalletServiceBridge.shared.fetchHistorySummary(chainId: chainId, address: address).entryCount) ?? 0)
                 return BitcoinHistoryDiagnostics(
                     walletId: walletID, identifier: address, sourceUsed: "rust", transactionCount: Int32(count), nextCursor: nil, error: nil
                 )
@@ -609,7 +609,7 @@ extension AppState {
     /// Counting is now delegated to Rust (`diagnosticsHistoryEntryCount`);
     /// the Swift layer only threads the chain-specific `make` constructor.
     private func rustHistoryFetch<D>(chainId: String, address: String, make: (String, String, Int, String?) -> D) async -> D {
-        if let count = try? await WalletServiceBridge.shared.fetchHistoryEntryCount(chainId: chainId, address: address) {
+        if let count = try? await WalletServiceBridge.shared.fetchHistorySummary(chainId: chainId, address: address).entryCount {
             return make(address, "rust", Int(count), nil)
         }
         return make(address, "none", 0, "History fetch failed")

@@ -133,13 +133,14 @@ extension AppState {
     }
     func refreshDogecoinSendPreview() async {
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, selectedSendCoin.chainName == "Dogecoin",
-            selectedSendCoin.symbol == "DOGE", let amount = parseDogecoinAmountInput(sendAmount), amount > 0
+            selectedSendCoin.symbol == "DOGE", let amount = parseAmountInput(text: sendAmount, maxDecimals: Chain.dogecoin.nativeDecimals), amount > 0
         else {
             sendPreviewStore.dogecoinSendPreview = nil
             return
         }
         let trimmedDestination = sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedDestination.isEmpty, !isValidDogecoinAddressForPolicy(trimmedDestination, wallet: wallet)
+        if !trimmedDestination.isEmpty,
+            !isValidAddressForPolicy(trimmedDestination, chainName: "Dogecoin", wallet: wallet)
         {
             sendPreviewStore.dogecoinSendPreview = nil
             return
@@ -231,9 +232,9 @@ extension AppState {
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin,
             selectedSendCoin.chainName == "Litecoin", selectedSendCoin.symbol == "LTC",
             let amount = Double(sendAmount), amount > 0
-        else { sendPreviewStore.litecoinSendPreview = nil; return }
+        else { sendPreviewStore.clearPreview(forChainNamed: "Litecoin"); return }
         guard storedSeedPhrase(for: wallet.id) != nil, let sourceAddress = resolvedLitecoinAddress(for: wallet)
-        else { sendPreviewStore.litecoinSendPreview = nil; return }
+        else { sendPreviewStore.clearPreview(forChainNamed: "Litecoin"); return }
         let isMweb = sendAddress.hasPrefix("ltcmweb1") || sendAddress.hasPrefix("tmweb1")
         do {
             var preview = try await decodedUTXOFeePreview(chainId: Chain.litecoin.id, address: sourceAddress, satPerCoin: 100_000_000)
@@ -256,7 +257,7 @@ extension AppState {
             sendError = nil
         } catch {
             if isCancelledRequest(error) { return }
-            sendPreviewStore.litecoinSendPreview = nil
+            sendPreviewStore.clearPreview(forChainNamed: "Litecoin")
             sendError = "Unable to estimate LTC fee right now. Check provider health and retry."
         }
     }
@@ -264,11 +265,11 @@ extension AppState {
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, selectedSendCoin.chainName == "Tron",
             (selectedSendCoin.symbol == "TRX" || selectedSendCoin.symbol == "USDT"), let amount = Double(sendAmount), amount > 0
         else {
-            sendPreviewStore.tronSendPreview = nil
+            sendPreviewStore.clearPreview(forChainNamed: "Tron")
             return
         }
         guard let sourceAddress = resolvedTronAddress(for: wallet) else {
-            sendPreviewStore.tronSendPreview = nil
+            sendPreviewStore.clearPreview(forChainNamed: "Tron")
             return
         }
         // Tron's guard used to be `guard !contains else { return }` with no
@@ -285,7 +286,7 @@ extension AppState {
                 sendError = nil
             } catch {
                 if isCancelledRequest(error) { return }
-                sendPreviewStore.tronSendPreview = nil
+                sendPreviewStore.clearPreview(forChainNamed: "Tron")
                 sendError = "Unable to estimate Tron fee right now. Check provider health and retry."
             }
         }

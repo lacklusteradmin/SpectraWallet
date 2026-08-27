@@ -92,9 +92,6 @@ enum ChainSelfTests {
     static func run(_ chainKey: String) -> [ChainSelfTestResult] {
         selfTestsRunChain(chainKey: chainKey)
     }
-    static func runAll() -> [String: [ChainSelfTestResult]] {
-        selfTestsRunAll()
-    }
 }
 extension ChainSelfTestOutcome {
     var displayMessage: String {

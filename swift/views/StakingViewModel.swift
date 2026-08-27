@@ -30,14 +30,6 @@ import Foundation
         isLoading = false
     }
 
-    func loadPositions(walletAddress: String) async {
-        do {
-            positions = try await StakingBridge.shared.fetchPositions(
-                chainId: chain.id, walletAddress: walletAddress)
-        } catch {
-            self.error = error
-        }
-    }
 
     func dismissError() { error = nil }
     func dismissPreview() { preview = nil }

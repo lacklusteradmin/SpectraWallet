@@ -166,6 +166,9 @@ final class SpectraSecretStoreAdapter: SecretStore, @unchecked Sendable {
         }
     }
 
+
+
+
     func loadSecret(kind: SecretClass, key: String) throws -> String {
         switch kind {
         case .seed:
@@ -186,7 +189,6 @@ final class SpectraSecretStoreAdapter: SecretStore, @unchecked Sendable {
             return value
         }
     }
-
     func saveSecret(kind: SecretClass, key: String, value: String) throws {
         do {
             switch kind {
@@ -198,7 +200,6 @@ final class SpectraSecretStoreAdapter: SecretStore, @unchecked Sendable {
             throw SecretStoreError.Backend(message: String(describing: error))
         }
     }
-
     func deleteSecret(kind: SecretClass, key: String) throws {
         do {
             switch kind {
@@ -210,7 +211,6 @@ final class SpectraSecretStoreAdapter: SecretStore, @unchecked Sendable {
             throw SecretStoreError.Backend(message: String(describing: error))
         }
     }
-
     func listKeys(kind: SecretClass, prefixFilter: String) throws -> [String] {
         return []
     }

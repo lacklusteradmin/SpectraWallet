@@ -43,23 +43,6 @@ enum WalletRustDerivationBridge {
             privateKeyHex: result?.privateKeyHex)
     }
 
-    // MARK: — Batch derive (all selected chains)
-
-    static func deriveAllAddresses(seedPhrase: String, chainPaths: [String: String]) throws -> [String: String] {
-        var result: [String: String] = [:]
-        for (chainName, path) in chainPaths {
-            guard let chain = Chain(displayName: chainName) else { continue }
-            if let address = try? derive(
-                chain: chain, seedPhrase: seedPhrase, derivationPath: path,
-                passphrase: nil, hmacKey: nil,
-                wantAddress: true, wantPublicKey: false, wantPrivateKey: false
-            ).address {
-                result[chainName] = address
-            }
-        }
-        return result
-    }
-
     // MARK: — Script type from path
 
     private static func bitcoinScriptType(from path: String) -> BitcoinScriptType {

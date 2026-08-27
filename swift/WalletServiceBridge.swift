@@ -24,14 +24,8 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func fetchNativeBalanceSummary(chainId: String, address: String) async throws -> NativeBalanceSummary {
         try await service().fetchNativeBalanceSummary(chainId: chainId, address: address)
     }
-    func fetchHistoryHasActivity(chainId: String, address: String) async throws -> Bool {
-        try await service().fetchHistoryHasActivity(chainId: chainId, address: address)
-    }
-    func fetchHistoryEntryCount(chainId: String, address: String) async throws -> UInt32 {
-        try await service().fetchHistoryEntryCount(chainId: chainId, address: address)
-    }
-    func fetchHistoryConfirmedTxids(chainId: String, address: String) async throws -> [String] {
-        try await service().fetchHistoryConfirmedTxids(chainId: chainId, address: address)
+    func fetchHistorySummary(chainId: String, address: String) async throws -> HistorySummary {
+        try await service().fetchHistorySummary(chainId: chainId, address: address)
     }
     func fetchBitcoinHdHistoryPage(xpub: String, limit: UInt64) async throws -> [CoreBitcoinHistorySnapshot] {
         try await service().fetchBitcoinHdHistoryPage(xpub: xpub, limit: limit)
@@ -343,17 +337,12 @@ extension WalletServiceBridge {
         try await service().importWallets(commit: commit)
     }
 
-    func applyResolvedPendingTransactionStatuses(
-        inputs: [ResolvedPendingTransactionInput]
-    ) async throws -> [ResolvedPendingTransactionDecision] {
-        try await service().applyResolvedPendingTransactionStatuses(inputs: inputs)
+    func applyResolvedPendingStatuses(
+        chainName: String, resolutions: [ResolvedPendingStatus]
+    ) async throws -> [TransactionStatusChange] {
+        try await service().applyResolvedPendingStatuses(chainName: chainName, resolutions: resolutions)
     }
 
-    func stalePendingFailureIDs(
-        transactions: [StalePendingFailureTransactionInput]
-    ) async throws -> [String] {
-        try await service().stalePendingFailureIds(transactions: transactions)
-    }
 
     func loadState(key: String) async throws -> String { try await service().loadState(key: key) }
     func saveState(key: String, stateJSON: String) async throws {

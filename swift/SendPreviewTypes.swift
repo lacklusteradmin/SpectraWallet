@@ -90,83 +90,29 @@ func receiveEVMAddress(for address: String) throws -> String {
     try validateEVMAddress(address)
 }
 
-@MainActor
-@Observable
-final class SendPreviewStore {
-    var ethereumSendPreview: EthereumSendPreview?
-    var bitcoinSendPreview: BitcoinSendPreview?
-    var bitcoinCashSendPreview: BitcoinSendPreview?
-    var bitcoinSVSendPreview: BitcoinSendPreview?
-    var litecoinSendPreview: BitcoinSendPreview?
-    var dogecoinSendPreview: DogecoinSendPreview?
-    var tronSendPreview: TronSendPreview?
-    var solanaSendPreview: SolanaSendPreview?
-    var xrpSendPreview: XrpSendPreview?
-    var stellarSendPreview: StellarSendPreview?
-    var moneroSendPreview: MoneroSendPreview?
-    var cardanoSendPreview: CardanoSendPreview?
-    var suiSendPreview: SuiSendPreview?
-    var aptosSendPreview: AptosSendPreview?
-    var tonSendPreview: TonSendPreview?
-    var icpSendPreview: IcpSendPreview?
-    var nearSendPreview: NearSendPreview?
-    var polkadotSendPreview: PolkadotSendPreview?
-
-    /// Store a freshly fetched preview under its chain, or clear it.
-    ///
-    /// The per-chain `applyPreview` closures each did this for one chain, with
-    /// an `if case` that had to match the tag by hand.
-    func apply(_ preview: SendPreview?, forChainNamed chainName: String) {
-        switch chainName {
-        case "Bitcoin": bitcoinSendPreview = preview.flatMap { if case .utxo(let p) = $0 { p } else { nil } }
-        case "Bitcoin Cash": bitcoinCashSendPreview = preview.flatMap { if case .utxo(let p) = $0 { p } else { nil } }
-        case "Bitcoin SV": bitcoinSVSendPreview = preview.flatMap { if case .utxo(let p) = $0 { p } else { nil } }
-        case "Litecoin": litecoinSendPreview = preview.flatMap { if case .utxo(let p) = $0 { p } else { nil } }
-        case "Dogecoin": dogecoinSendPreview = preview.flatMap { if case .dogecoin(let p) = $0 { p } else { nil } }
-        case "Tron": tronSendPreview = preview.flatMap { if case .tron(let p) = $0 { p } else { nil } }
-        case "Solana": solanaSendPreview = preview.flatMap { if case .solana(let p) = $0 { p } else { nil } }
-        case "XRP Ledger": xrpSendPreview = preview.flatMap { if case .xrp(let p) = $0 { p } else { nil } }
-        case "Stellar": stellarSendPreview = preview.flatMap { if case .stellar(let p) = $0 { p } else { nil } }
-        case "Monero": moneroSendPreview = preview.flatMap { if case .monero(let p) = $0 { p } else { nil } }
-        case "Cardano": cardanoSendPreview = preview.flatMap { if case .cardano(let p) = $0 { p } else { nil } }
-        case "Sui": suiSendPreview = preview.flatMap { if case .sui(let p) = $0 { p } else { nil } }
-        case "Aptos": aptosSendPreview = preview.flatMap { if case .aptos(let p) = $0 { p } else { nil } }
-        case "TON": tonSendPreview = preview.flatMap { if case .ton(let p) = $0 { p } else { nil } }
-        case "Internet Computer": icpSendPreview = preview.flatMap { if case .icp(let p) = $0 { p } else { nil } }
-        case "NEAR": nearSendPreview = preview.flatMap { if case .near(let p) = $0 { p } else { nil } }
-        case "Polkadot": polkadotSendPreview = preview.flatMap { if case .polkadot(let p) = $0 { p } else { nil } }
-        default:
-            guard (Chain(displayName: chainName)?.isEVM ?? false) else { return }
-            ethereumSendPreview = preview.flatMap { if case .ethereum(let p) = $0 { p } else { nil } }
+extension SendPreview {
+    /// The same preview, under the tag `SendPreviewStore` keys on.
+    init(simple: SimpleChainPreview) {
+        switch simple {
+        case .solana(let p): self = .solana(preview: p)
+        case .xrp(let p): self = .xrp(preview: p)
+        case .stellar(let p): self = .stellar(preview: p)
+        case .monero(let p): self = .monero(preview: p)
+        case .cardano(let p): self = .cardano(preview: p)
+        case .sui(let p): self = .sui(preview: p)
+        case .aptos(let p): self = .aptos(preview: p)
+        case .ton(let p): self = .ton(preview: p)
+        case .icp(let p): self = .icp(preview: p)
+        case .near(let p): self = .near(preview: p)
+        case .polkadot(let p): self = .polkadot(preview: p)
         }
     }
-    /// Same, for the narrower enum the simple-chain refresher returns.
-    func apply(_ preview: SimpleChainPreview?, forChainNamed chainName: String) {
-        switch preview {
-        case .solana(let p): solanaSendPreview = p
-        case .xrp(let p): xrpSendPreview = p
-        case .stellar(let p): stellarSendPreview = p
-        case .monero(let p): moneroSendPreview = p
-        case .cardano(let p): cardanoSendPreview = p
-        case .sui(let p): suiSendPreview = p
-        case .aptos(let p): aptosSendPreview = p
-        case .ton(let p): tonSendPreview = p
-        case .icp(let p): icpSendPreview = p
-        case .near(let p): nearSendPreview = p
-        case .polkadot(let p): polkadotSendPreview = p
-        case .none: clearPreview(forChainNamed: chainName)
-        }
-    }
-    func clearPreview(forChainNamed chainName: String) { apply(nil as SendPreview?, forChainNamed: chainName) }
 
-    /// The estimated network fee a chain's preview reports, in its own units.
+    /// The estimated network fee, whichever shape the preview is.
     ///
-    /// Every preview record carries one; they used to spell it
-    /// `estimatedNetworkFeeSui`, `…Apt`, `…Ton` and so on, so a caller that
-    /// only wanted "the fee" had to know which chain it was asking about.
-    /// The field is `estimatedNetworkFee` on all of them now.
-    func estimatedFee(forChainNamed chainName: String) -> Double? {
-        switch taggedPreview(forChainNamed: chainName) {
+    /// Every preview record carries one — the tags differ, the field does not.
+    var estimatedNetworkFee: Double {
+        switch self {
         case .utxo(let p): return p.estimatedNetworkFee
         case .dogecoin(let p): return p.estimatedNetworkFee
         case .tron(let p): return p.estimatedNetworkFee
@@ -182,78 +128,129 @@ final class SendPreviewStore {
         case .near(let p): return p.estimatedNetworkFee
         case .polkadot(let p): return p.estimatedNetworkFee
         case .ethereum(let p): return p.estimatedNetworkFee
-        case .none: return nil
         }
     }
+}
 
-    /// The preview to hand Rust for `chainName`, tagged with its shape.
+@MainActor
+@Observable
+final class SendPreviewStore {
+    /// Every chain's latest preview, keyed by preview slot.
     ///
-    /// Rust used to receive all eighteen previews and select one by matching on
-    /// the chain name — a match that carried its own EVM chain list and had
-    /// gone stale. Tagging at the source means only the relevant preview
-    /// crosses the FFI, and EVM membership is asked of the registry.
+    /// Eighteen `var <chain>SendPreview` fields stood here, with an
+    /// eighteen-arm `apply`, an eighteen-arm `taggedPreview` and an
+    /// eighteen-line `resetAll` over them — the field list written out four
+    /// times, in terms of chain names. The slot comes from
+    /// `previewSlot(forChainNamed:)`, which asks the registry, so the EVM
+    /// family shares Ethereum's without anyone naming its members.
+    private(set) var previewBySlot: [String: SendPreview] = [:]
+
+    func apply(_ preview: SendPreview?, forChainNamed chainName: String) {
+        guard let slot = Self.previewSlot(forChainNamed: chainName) else { return }
+        previewBySlot[slot] = preview
+    }
+
     func taggedPreview(forChainNamed chainName: String) -> SendPreview? {
-        switch chainName {
-        case "Bitcoin": return bitcoinSendPreview.map { .utxo(preview: $0) }
-        case "Bitcoin Cash": return bitcoinCashSendPreview.map { .utxo(preview: $0) }
-        case "Bitcoin SV": return bitcoinSVSendPreview.map { .utxo(preview: $0) }
-        case "Litecoin": return litecoinSendPreview.map { .utxo(preview: $0) }
-        case "Dogecoin": return dogecoinSendPreview.map { .dogecoin(preview: $0) }
-        case "Tron": return tronSendPreview.map { .tron(preview: $0) }
-        case "Solana": return solanaSendPreview.map { .solana(preview: $0) }
-        case "XRP Ledger": return xrpSendPreview.map { .xrp(preview: $0) }
-        case "Stellar": return stellarSendPreview.map { .stellar(preview: $0) }
-        case "Monero": return moneroSendPreview.map { .monero(preview: $0) }
-        case "Cardano": return cardanoSendPreview.map { .cardano(preview: $0) }
-        case "Sui": return suiSendPreview.map { .sui(preview: $0) }
-        case "Aptos": return aptosSendPreview.map { .aptos(preview: $0) }
-        case "TON": return tonSendPreview.map { .ton(preview: $0) }
-        case "Internet Computer": return icpSendPreview.map { .icp(preview: $0) }
-        case "NEAR": return nearSendPreview.map { .near(preview: $0) }
-        case "Polkadot": return polkadotSendPreview.map { .polkadot(preview: $0) }
-        default:
-            // Every EVM chain shares one preview. Asking the registry rather
-            // than listing them is what fixes Base, Polygon, Linea, Scroll,
-            // Blast, Mantle and the newer rollups, which the old name match
-            // never reached.
-            guard (Chain(displayName: chainName)?.isEVM ?? false) else { return nil }
-            return ethereumSendPreview.map { .ethereum(preview: $0) }
-        }
+        Self.previewSlot(forChainNamed: chainName).flatMap { previewBySlot[$0] }
+    }
+
+    /// A simple-chain preview arrives under its own tag; store it under the
+    /// same slot as any other. The eleven-arm switch this replaces assigned to
+    /// one of eleven fields, which is the field list written out a fifth time.
+    func apply(_ preview: SimpleChainPreview?, forChainNamed chainName: String) {
+        apply(preview.map(SendPreview.init(simple:)), forChainNamed: chainName)
+    }
+
+    func clearPreview(forChainNamed chainName: String) { apply(nil as SendPreview?, forChainNamed: chainName) }
+
+    /// The estimated network fee a chain's preview reports, in its own units.
+    ///
+    /// Every preview record carries one; they used to spell it
+    /// `estimatedNetworkFeeSui`, `…Apt`, `…Ton` and so on, so a caller that
+    /// only wanted "the fee" had to know which chain it was asking about.
+    func estimatedFee(forChainNamed chainName: String) -> Double? {
+        taggedPreview(forChainNamed: chainName)?.estimatedNetworkFee
     }
 
     /// Which chain's preview slot `chainName` writes to — itself, or Ethereum
-    /// for the EVM family, which shares one. The same rule `apply` and
-    /// `taggedPreview` dispatch on, named so callers can ask for it.
+    /// for the EVM family, which shares one.
     static func previewSlot(forChainNamed chainName: String) -> String? {
         guard let chain = Chain(displayName: chainName) else { return nil }
         return chain.isEVM ? "Ethereum" : chainName
     }
 
+    func resetAll() { previewBySlot.removeAll() }
+
     /// Clear every chain's preview but one.
     func resetAll(exceptChainNamed chainName: String?) {
-        let kept = chainName.flatMap { taggedPreview(forChainNamed: $0) }
-        resetAll()
-        if let kept, let chainName { apply(kept, forChainNamed: chainName) }
+        let kept = chainName.flatMap { Self.previewSlot(forChainNamed: $0) }
+        previewBySlot = previewBySlot.filter { $0.key == kept }
     }
 
-    func resetAll() {
-        ethereumSendPreview = nil
-        bitcoinSendPreview = nil
-        bitcoinCashSendPreview = nil
-        bitcoinSVSendPreview = nil
-        litecoinSendPreview = nil
-        dogecoinSendPreview = nil
-        tronSendPreview = nil
-        solanaSendPreview = nil
-        xrpSendPreview = nil
-        stellarSendPreview = nil
-        moneroSendPreview = nil
-        cardanoSendPreview = nil
-        suiSendPreview = nil
-        aptosSendPreview = nil
-        tonSendPreview = nil
-        icpSendPreview = nil
-        nearSendPreview = nil
-        polkadotSendPreview = nil
+    // Typed accessors, for the six chains a caller reads a chain-specific
+    // field off: Ethereum's nonce and gas, Bitcoin's sat/vB rate, Dogecoin's
+    // max-sendable and change flag, Monero's priority label, Sui's gas budget,
+    // Aptos's max gas, TON's sequence. Everything else goes through
+    // `estimatedFee(forChainNamed:)`, which is why there are seven of these
+    // rather than eighteen.
+    var ethereumSendPreview: EthereumSendPreview? {
+        get { if case .ethereum(let p) = previewBySlot["Ethereum"] { p } else { nil } }
+        set { previewBySlot["Ethereum"] = newValue.map { .ethereum(preview: $0) } }
+    }
+    var bitcoinSendPreview: BitcoinSendPreview? {
+        get { if case .utxo(let p) = previewBySlot["Bitcoin"] { p } else { nil } }
+        set { previewBySlot["Bitcoin"] = newValue.map { .utxo(preview: $0) } }
+    }
+    var bitcoinCashSendPreview: BitcoinSendPreview? {
+        get { if case .utxo(let p) = previewBySlot["Bitcoin Cash"] { p } else { nil } }
+        set { previewBySlot["Bitcoin Cash"] = newValue.map { .utxo(preview: $0) } }
+    }
+    var bitcoinSVSendPreview: BitcoinSendPreview? {
+        get { if case .utxo(let p) = previewBySlot["Bitcoin SV"] { p } else { nil } }
+        set { previewBySlot["Bitcoin SV"] = newValue.map { .utxo(preview: $0) } }
+    }
+    var litecoinSendPreview: BitcoinSendPreview? {
+        get { if case .utxo(let p) = previewBySlot["Litecoin"] { p } else { nil } }
+        set { previewBySlot["Litecoin"] = newValue.map { .utxo(preview: $0) } }
+    }
+    var dogecoinSendPreview: DogecoinSendPreview? {
+        get { if case .dogecoin(let p) = previewBySlot["Dogecoin"] { p } else { nil } }
+        set { previewBySlot["Dogecoin"] = newValue.map { .dogecoin(preview: $0) } }
+    }
+    var tronSendPreview: TronSendPreview? {
+        get { if case .tron(let p) = previewBySlot["Tron"] { p } else { nil } }
+        set { previewBySlot["Tron"] = newValue.map { .tron(preview: $0) } }
+    }
+    var solanaSendPreview: SolanaSendPreview? {
+        get { if case .solana(let p) = previewBySlot["Solana"] { p } else { nil } }
+        set { previewBySlot["Solana"] = newValue.map { .solana(preview: $0) } }
+    }
+    var xrpSendPreview: XrpSendPreview? {
+        get { if case .xrp(let p) = previewBySlot["XRP Ledger"] { p } else { nil } }
+        set { previewBySlot["XRP Ledger"] = newValue.map { .xrp(preview: $0) } }
+    }
+    var stellarSendPreview: StellarSendPreview? {
+        get { if case .stellar(let p) = previewBySlot["Stellar"] { p } else { nil } }
+        set { previewBySlot["Stellar"] = newValue.map { .stellar(preview: $0) } }
+    }
+    var moneroSendPreview: MoneroSendPreview? {
+        get { if case .monero(let p) = previewBySlot["Monero"] { p } else { nil } }
+        set { previewBySlot["Monero"] = newValue.map { .monero(preview: $0) } }
+    }
+    var cardanoSendPreview: CardanoSendPreview? {
+        get { if case .cardano(let p) = previewBySlot["Cardano"] { p } else { nil } }
+        set { previewBySlot["Cardano"] = newValue.map { .cardano(preview: $0) } }
+    }
+    var suiSendPreview: SuiSendPreview? {
+        get { if case .sui(let p) = previewBySlot["Sui"] { p } else { nil } }
+        set { previewBySlot["Sui"] = newValue.map { .sui(preview: $0) } }
+    }
+    var aptosSendPreview: AptosSendPreview? {
+        get { if case .aptos(let p) = previewBySlot["Aptos"] { p } else { nil } }
+        set { previewBySlot["Aptos"] = newValue.map { .aptos(preview: $0) } }
+    }
+    var tonSendPreview: TonSendPreview? {
+        get { if case .ton(let p) = previewBySlot["TON"] { p } else { nil } }
+        set { previewBySlot["TON"] = newValue.map { .ton(preview: $0) } }
     }
 }

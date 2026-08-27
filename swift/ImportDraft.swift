@@ -198,10 +198,6 @@ final class WalletImportDraft {
         let selected = Set(selectedChainNames)
         return Chain.all.filter { selected.contains($0.displayName) }
     }
-    func applyDerivationPreset(_ preset: SeedDerivationPreset, keepCustomEnabled: Bool? = nil) {
-        seedDerivationPreset = preset
-        seedDerivationPaths = .applyingPreset(preset, keepCustomEnabled: keepCustomEnabled ?? seedDerivationPaths.isCustomEnabled)
-    }
     func watchOnlyEntries(from rawValue: String) -> [String] {
         rawValue.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
@@ -341,11 +337,6 @@ final class WalletImportDraft {
         privateKeyInput = ""
         seedPhraseEntries = Array(repeating: "", count: selectedSeedPhraseWordCount)
         backupVerificationEntries = Array(repeating: "", count: backupVerificationWordIndices.count)
-    }
-    func bindingForChainSelection(_ chainName: String) -> Binding<Bool> {
-        Binding(
-            get: { self.isSelectedChain(chainName) }, set: { isSelected in self.setSelectedChain(chainName, isEnabled: isSelected) }
-        )
     }
     func toggleChainSelection(_ chainName: String) { setSelectedChain(chainName, isEnabled: !isSelectedChain(chainName)) }
     private func isSelectedChain(_ chainName: String) -> Bool { selectedChainNamesStorage.contains(chainName) }

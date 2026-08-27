@@ -66,7 +66,7 @@ extension AppState {
         case .failed:
             title = AppLocalization.format("%@ transaction failed", transaction.symbol)
             body =
-                transaction.failureReason
+                transaction.localizedFailureReason
                 ?? AppLocalization.format(
                     "Your %@ send from %@ failed on %@.", transaction.symbol, transaction.walletName, transaction.chainName)
         case .pending: return

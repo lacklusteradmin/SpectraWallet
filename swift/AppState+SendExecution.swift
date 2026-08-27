@@ -106,7 +106,7 @@ extension AppState {
         }
         if preflight.submitKind == "icp" {
             guard !sendingChains.contains(holding.chainName) else { return }
-            if sendPreviewStore.icpSendPreview == nil { await refreshSendPreview(forChainNamed: "Internet Computer") }
+            if sendPreviewStore.taggedPreview(forChainNamed: "Internet Computer") == nil { await refreshSendPreview(forChainNamed: "Internet Computer") }
             guard wallets.contains(where: { $0.id == wallet.id }), let sourceAddress = resolvedICPAddress(for: wallet)
             else {
                 sendError = "Unable to resolve this wallet's ICP address."
@@ -134,7 +134,7 @@ extension AppState {
                     wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount,
                     transactionHash: result.transactionHash, signedPayload: result.rebroadcastPayload,
                     payloadFormat: result.payloadFormat,
-                    clearPreview: { self.sendPreviewStore.icpSendPreview = nil })
+                    clearPreview: { self.sendPreviewStore.clearPreview(forChainNamed: "Internet Computer") })
             } catch {
                 sendError = error.localizedDescription
                 noteSendBroadcastFailure(for: holding.chainName, message: sendError ?? error.localizedDescription)
@@ -182,11 +182,11 @@ extension AppState {
         }
         if preflight.submitKind == "dogecoin" {
             guard !sendingChains.contains(holding.chainName) else { return }
-            guard let dogecoinAmount = parseDogecoinAmountInput(sendAmount) else {
+            guard let dogecoinAmount = parseAmountInput(text: sendAmount, maxDecimals: Chain.dogecoin.nativeDecimals) else {
                 sendError = "Enter a valid DOGE amount with up to 8 decimal places."
                 return
             }
-            guard isValidDogecoinAddressForPolicy(destinationAddress, wallet: wallet) else {
+            guard isValidAddressForPolicy(destinationAddress, chainName: holding.chainName, wallet: wallet) else {
                 sendError = CommonLocalization.invalidDestinationAddressPrompt("Dogecoin")
                 return
             }
@@ -238,7 +238,7 @@ extension AppState {
                 clearSendVerificationNotice()
                 appendChainOperationalEvent(
                     .info, chainName: "Dogecoin", message: "DOGE send broadcast.", transactionHash: result.transactionHash)
-                await refreshDogecoinTransactions()
+                await refreshMultiAddressUTXOTransactions(chainName: holding.chainName)
                 await refreshPendingTransactions(chainName: "Dogecoin")
                 updateSendVerificationNoticeForLastSentTransaction()
                 resetSendComposerState {
@@ -263,7 +263,7 @@ extension AppState {
                 sendError = "Unable to resolve this wallet's Tron signing address."
                 return
             }
-            if sendPreviewStore.tronSendPreview == nil { await refreshTronSendPreview() }
+            if sendPreviewStore.taggedPreview(forChainNamed: "Tron") == nil { await refreshTronSendPreview() }
             guard let preview = sendPreviewStore.tronSendPreview else {
                 sendError = sendError ?? "Unable to estimate Tron network fee."
                 return
@@ -294,7 +294,7 @@ extension AppState {
                     transactionHash: result.transactionHash, signedPayload: result.rebroadcastPayload,
                     payloadFormat: result.payloadFormat,
                     clearPreview: {
-                        self.sendPreviewStore.tronSendPreview = nil
+                        self.sendPreviewStore.clearPreview(forChainNamed: "Tron")
                         self.tronLastSendErrorDetails = nil
                         self.tronLastSendErrorAt = nil
                     })
@@ -318,7 +318,7 @@ extension AppState {
                 sendError = "Unable to resolve this wallet's Solana signing address from the seed phrase."
                 return
             }
-            if sendPreviewStore.solanaSendPreview == nil { await refreshSendPreview(forChainNamed: "Solana") }
+            if sendPreviewStore.taggedPreview(forChainNamed: "Solana") == nil { await refreshSendPreview(forChainNamed: "Solana") }
             guard let preview = sendPreviewStore.solanaSendPreview else {
                 sendError = sendError ?? "Unable to estimate Solana network fee."
                 return
@@ -364,7 +364,7 @@ extension AppState {
                     wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount,
                     transactionHash: result.transactionHash, signedPayload: result.rebroadcastPayload,
                     payloadFormat: result.payloadFormat,
-                    clearPreview: { self.sendPreviewStore.solanaSendPreview = nil })
+                    clearPreview: { self.sendPreviewStore.clearPreview(forChainNamed: "Solana") })
             } catch {
                 sendError = error.localizedDescription
                 noteSendBroadcastFailure(for: holding.chainName, message: sendError ?? error.localizedDescription)
@@ -416,7 +416,7 @@ extension AppState {
                     wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount,
                     transactionHash: result.transactionHash, signedPayload: result.rebroadcastPayload,
                     payloadFormat: result.payloadFormat,
-                    clearPreview: { self.sendPreviewStore.nearSendPreview = nil })
+                    clearPreview: { self.sendPreviewStore.clearPreview(forChainNamed: "NEAR") })
             } catch {
                 sendError = error.localizedDescription
                 noteSendBroadcastFailure(for: holding.chainName, message: sendError ?? error.localizedDescription)
@@ -426,10 +426,6 @@ extension AppState {
         // `submitKind` is "ethereum" for every EVM chain and every token on
         // one — the route core computed, not `isEVMChain` asked again.
         if preflight.submitKind == "ethereum" {
-            guard evmChainContext(for: holding.chainName) != nil else {
-                sendError = "\(holding.chainName) native sending is not enabled yet."
-                return
-            }
             guard !sendingChains.contains("Ethereum") else { return }
             guard !activeEthereumSendWalletIDs.contains(wallet.id) else {
                 sendError = "An \(holding.chainName) send is already in progress for this wallet."
@@ -439,10 +435,10 @@ extension AppState {
                 sendError = customEthereumNonceValidationError
                 return
             }
-            if holding.symbol != "ETH" && holding.symbol != "BNB", amount <= 0 {
-                sendError = "Enter a valid amount"
-                return
-            }
+            // Whether a zero amount is allowed is `allows_zero_amount`, which
+            // core checked in the preflight above — this named ETH and BNB, so
+            // it refused a zero-amount send of AVAX, HYPE, ETC, POL, MNT, S,
+            // BERA, CELO, CRO, SEI or OKB that core had just permitted.
             let seedPhrase = storedSeedPhrase(for: wallet.id)
             let privateKey = storedPrivateKey(for: wallet.id)
             guard seedPhrase != nil || privateKey != nil else {
@@ -462,7 +458,8 @@ extension AppState {
                 holdingBalance: preflight.isNativeEvmAsset ? nativeBalance : holding.amount,
                 isNativeAsset: preflight.isNativeEvmAsset, symbol: preflight.isNativeEvmAsset ? nativeSymbol : holding.symbol,
                 nativeSymbol: nativeSymbol, nativeBalance: nativeBalance,
-                feeDecimals: 6, chainLabel: nil
+                feeDecimals: Int(Chain(displayName: holding.chainName)?.sendExecutionShape?.feeDecimals ?? 6),
+                chainLabel: nil
             ) {
                 sendError = err; return
             }
@@ -480,10 +477,8 @@ extension AppState {
                 let customFees = customEthereumFeeConfiguration()
                 let explicitNonce = explicitEthereumNonce()
                 let evmDerivationChain = WalletDerivationLayer.evmSeedDerivationChain(for: holding.chainName) ?? .ethereum
-                let spectraEvmChainId = Chain(displayName: holding.chainName)?.id
                 let evmOverrides = evmSendOverrides(nonce: explicitNonce, customFees: customFees)
-                let rustSupportsChain = spectraEvmChainId != nil
-                guard rustSupportsChain, let chainId = spectraEvmChainId else {
+                guard let chainId = Chain(displayName: holding.chainName)?.id else {
                     sendError = "\(holding.symbol) transfers on \(holding.chainName) are not enabled yet."
                     return
                 }

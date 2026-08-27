@@ -82,8 +82,9 @@ extension AppState {
             switch chain {
             case .bitcoin:
                 await refreshBitcoinTransactions(limit: limit, loadMore: true, targetWalletIDs: eligibleWalletIDs)
-            case .dogecoin:
-                await refreshDogecoinTransactions(limit: limit, loadMore: true, targetWalletIDs: eligibleWalletIDs)
+            case _ where chain.supportsDeepUTXODiscovery:
+                await refreshMultiAddressUTXOTransactions(
+                    chainName: chain.displayName, loadMore: true, targetWalletIDs: eligibleWalletIDs)
             case _ where chain.isEVM:
                 await refreshEVMTokenTransactions(
                     chainName: chain.displayName, maxResults: limit, loadMore: true, targetWalletIDs: eligibleWalletIDs)
@@ -292,17 +293,28 @@ extension AppState {
 // Dogecoin (special: multi-address per-wallet, UTXO aggregation)
 // ────────────────────────────────────────────────────────────────────────────
 extension AppState {
-    func refreshDogecoinTransactions(limit: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil) async {
+    /// History for a chain whose wallets hold many addresses.
+    ///
+    /// The five chains that walk their addresses are Bitcoin, Dogecoin,
+    /// Litecoin, Bitcoin Cash and Bitcoin SV. Bitcoin has its own path — it is
+    /// the only one with a stored xpub, so core expands the HD range for it.
+    /// This served **Dogecoin alone**, under that name, while Litecoin,
+    /// Bitcoin Cash and Bitcoin SV went through the single-address refresh:
+    /// their wallets have many addresses and only the first one's history was
+    /// ever fetched.
+    func refreshMultiAddressUTXOTransactions(
+        chainName: String, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil
+    ) async {
+        guard let chain = Chain(displayName: chainName) else { return }
+        let chainID = chain.id
         let walletSnapshot = wallets
-        // Explicit loops rather than compactMap: gathering a wallet's known
-        // addresses now reads core's keypool, and map closures cannot await.
-        var walletsToRefresh = await plannedDogecoinHistoryWallets(
-            walletSnapshot: walletSnapshot, targetWalletIDs: targetWalletIDs) ?? []
+        var walletsToRefresh = await plannedMultiAddressHistoryWallets(
+            chainName: chainName, walletSnapshot: walletSnapshot, targetWalletIDs: targetWalletIDs) ?? []
         if walletsToRefresh.isEmpty {
             for wallet in walletSnapshot {
-                guard wallet.selectedChain == "Dogecoin" else { continue }
+                guard wallet.selectedChain == chainName else { continue }
                 if let targetWalletIDs, !targetWalletIDs.contains(wallet.id) { continue }
-                let addresses = await knownUTXOAddresses(for: wallet, chainName: "Dogecoin")
+                let addresses = await knownUTXOAddresses(for: wallet, chainName: chainName)
                 guard !addresses.isEmpty else { continue }
                 walletsToRefresh.append((wallet, addresses))
             }
@@ -310,26 +322,26 @@ extension AppState {
         guard !walletsToRefresh.isEmpty else { return }
         if !loadMore {
             for walletID in Set(walletsToRefresh.map { $0.0.id }) {
-                resetHistoryPagination(chainId: Chain.dogecoin.id, walletId: walletID)
+                resetHistoryPagination(chainId: chainID, walletId: walletID)
             }
         }
         var syncedTransactions: [TransactionRecord] = []
         var encounteredErrors = false
-        for (wallet, dogecoinAddresses) in walletsToRefresh {
-            if loadMore && historyPaginationExhausted(chainId: Chain.dogecoin.id, walletId: wallet.id) { continue }
+        for (wallet, addresses) in walletsToRefresh {
+            if loadMore && historyPaginationExhausted(chainId: chainID, walletId: wallet.id) { continue }
             var collected: [NormalizedHistoryItem] = []
-            for dogecoinAddress in dogecoinAddresses {
+            for address in addresses {
                 do {
                     let entries = try await WalletServiceBridge.shared.fetchNormalizedHistory(
-                        chainId: Chain.dogecoin.id, address: dogecoinAddress)
+                        chainId: chainID, address: address)
                     collected.append(contentsOf: entries)
-                    // Dogecoin's fetch returns the whole history in one call,
-                    // so the page it just wrote is also the last one.
-                    setHistoryPage(
-                        chainId: Chain.dogecoin.id, walletId: wallet.id, page: 1, isExhausted: true)
+                    // These fetches return the whole history in one call, so
+                    // the page just written is also the last one.
+                    setHistoryPage(chainId: chainID, walletId: wallet.id, page: 1, isExhausted: true)
                 } catch { encounteredErrors = true; continue }
             }
-            let aggregates = historyAggregateDogecoin(input: DogecoinAggregateInput(ownAddresses: dogecoinAddresses, entries: collected))
+            let aggregates = historyAggregateByTransaction(
+                input: MultiAddressAggregateInput(ownAddresses: addresses, entries: collected))
             guard !aggregates.isEmpty else { continue }
             syncedTransactions.append(
                 contentsOf: aggregates.map { agg in
@@ -337,39 +349,44 @@ extension AppState {
                         walletID: wallet.id,
                         kind: TransactionKind(rawValue: agg.kind) ?? .send,
                         status: TransactionStatus(rawValue: agg.status) ?? .confirmed,
-                        walletName: wallet.name, assetName: "Dogecoin", symbol: "DOGE",
-                        chainName: "Dogecoin", amount: agg.amount, address: agg.counterparty,
+                        walletName: wallet.name, assetName: chain.displayName, symbol: chain.gasTokenSymbol,
+                        chainName: chainName, amount: agg.amount, address: agg.counterparty,
                         transactionHash: agg.hash, receiptBlockNumber: agg.blockNumber.map(Int.init),
-                        transactionHistorySource: "dogecoin.providers",
+                        transactionHistorySource: "\(chainID).providers",
                         createdAt: agg.createdAtUnix > 0 ? Date(timeIntervalSince1970: agg.createdAtUnix) : Date.distantPast
                     )
                 })
         }
         guard !syncedTransactions.isEmpty else {
-            if encounteredErrors { markChainDegraded("Dogecoin", detail: "Dogecoin history refresh failed. Using cached history.") }
+            if encounteredErrors {
+                markChainDegraded(chainName, detail: AppLocalization.format(
+                    "%@ history refresh failed. Using cached history.", chainName))
+            }
             return
         }
-        upsertTransactions(syncedTransactions, chainName: "Dogecoin")
+        upsertTransactions(syncedTransactions, chainName: chainName)
         if encounteredErrors {
-            markChainDegraded("Dogecoin", detail: "Dogecoin history loaded with partial provider failures.")
+            markChainDegraded(chainName, detail: AppLocalization.format(
+                "%@ history loaded with partial provider failures.", chainName))
         } else {
-            markChainHealthy("Dogecoin")
+            markChainHealthy(chainName)
         }
     }
-    private func plannedDogecoinHistoryWallets(
-        walletSnapshot: [ImportedWallet], targetWalletIDs: Set<String>?
+
+    private func plannedMultiAddressHistoryWallets(
+        chainName: String, walletSnapshot: [ImportedWallet], targetWalletIDs: Set<String>?
     ) async -> [(ImportedWallet, [String])]? {
         var inputs: [RefreshWalletInput] = []
         for wallet in walletSnapshot {
             inputs.append(
                 RefreshWalletInput(
                     walletId: wallet.id, selectedChain: wallet.selectedChain,
-                    addresses: await knownUTXOAddresses(for: wallet, chainName: "Dogecoin")
+                    addresses: await knownUTXOAddresses(for: wallet, chainName: chainName)
                 ))
         }
         let targets = coreRefreshTargets(
             request: RefreshTargetsRequest(
-                chainName: "Dogecoin", wallets: inputs,
+                chainName: chainName, wallets: inputs,
                 allowedWalletIds: targetWalletIDs.map(Array.init)))
         guard !targets.isEmpty else { return nil }
         let walletByID = Dictionary(uniqueKeysWithValues: walletSnapshot.map { ($0.id, $0) })

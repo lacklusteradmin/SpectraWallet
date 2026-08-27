@@ -15,16 +15,6 @@ import Foundation
 // `AppState+ReceiveFlow` and should *call* into one of these resolvers,
 // not own the resolution logic itself.
 
-/// Pure derivation classification — no `AppState` reads, no mutation.
-/// Lifted out as a free function so callers and tests don't need to
-/// instantiate `AppState`. Exemplar for the testability convention
-/// documented in `Store+Formatting.swift`.
-func classifySolanaDerivationPreference(
-    for wallet: ImportedWallet,
-    using resolution: SeedDerivationResolution
-) -> SolanaDerivationPreference {
-    resolution.flavor == .legacy ? .legacy : .standard
-}
 
 /// What differs between chains when resolving an address.
 ///
@@ -55,12 +45,6 @@ private struct ChainAddressDescriptor {
 
 @MainActor
 extension AppState {
-    /// Thin shim: pulls the resolution off `self` and forwards to the
-    /// pure free function. Kept for call-site ergonomics.
-    func solanaDerivationPreference(for wallet: ImportedWallet) -> SolanaDerivationPreference {
-        let resolution = derivationResolution(for: wallet, chain: .solana)
-        return classifySolanaDerivationPreference(for: wallet, using: resolution)
-    }
 
     func resolvedEthereumAddress(for wallet: ImportedWallet) -> String? { resolvedEVMAddress(for: wallet, chainName: "Ethereum") }
 
@@ -200,10 +184,6 @@ extension AppState {
         return nil
     }
 
-    func walletWithResolvedDogecoinAddress(_ wallet: ImportedWallet) -> ImportedWallet {
-        guard let resolved = resolvedDogecoinAddress(for: wallet) else { return wallet }
-        return wallet.settingAddress(resolved, forChainNamed: "Dogecoin")
-    }
 
     private func resolveDerivedOrStoredAddress(
         for wallet: ImportedWallet,

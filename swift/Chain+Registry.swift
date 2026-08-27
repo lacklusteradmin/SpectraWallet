@@ -79,6 +79,9 @@ extension Chain: Identifiable {
     /// The networks this chain's family offers, mainnet first.
     var networkChoices: [NetworkChoice] { identity?.networkChoices ?? [] }
 
+    /// True when this chain's family offers more than one network.
+    var hasNetworkChoice: Bool { networkChoices.count > 1 }
+
     /// This chain's catalog row. `nil` only if the enum and the catalog have
     /// drifted, which core's `chain_order_matches_the_catalog` fails on.
     var entry: ChainEntry? { Self.entryByChain[self] }
@@ -88,6 +91,13 @@ extension Chain: Identifiable {
     /// The asset fees are paid in — `ETH` on Arbitrum. Distinct from `symbol`
     /// on every L2, and it is this one that says whether a holding is native.
     var gasTokenSymbol: String { entry?.gasTokenSymbol ?? "" }
+
+    /// The chain's native asset decimals, from the catalog.
+    var nativeDecimals: UInt32 { entry?.nativeDecimals ?? 8 }
+
+    /// A terse example of what an address on this chain looks like, or "" for
+    /// a chain the catalog has no example for.
+    var addressPrefixHint: String { entry?.addressPrefixHint ?? "" }
     var isEVM: Bool { identity?.isEvm ?? false }
     var searchKeywords: [String] { entry?.searchKeywords ?? [] }
 

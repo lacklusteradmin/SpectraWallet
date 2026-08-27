@@ -438,8 +438,6 @@ final class AppState {
         }
     }
 
-    /// Forget every chain's override, on a wipe.
-    func clearRPCEndpoints() { rpcEndpointByChain = [:] }
 
     func rpcEndpointValidationError(forChain chainName: String) -> String? {
         endpointValidationError(field: .evmRpc, raw: rpcEndpoint(forChain: chainName))
@@ -469,8 +467,6 @@ final class AppState {
         }
     }
 
-    /// Forget every chain's preference, on a wipe.
-    func clearFeePriorities() { feePriorityByChain = [:] }
 
     /// Pick a chain's confirmation preference. Core normalizes the value and
     /// drops it again when it is the default.
@@ -838,9 +834,7 @@ final class AppState {
     var bitcoinEsploraEndpointsValidationError: String? {
         endpointValidationError(field: .bitcoinEsploraList, raw: bitcoinEsploraEndpoints)
     }
-    func parseDogecoinAmountInput(_ amountText: String) -> Double? {
-        parseAmountInput(text: amountText, maxDecimals: 8)
-    }
+
     func recordPendingSentTransaction(_ transaction: TransactionRecord) {
         appendTransaction(transaction)
         lastSentTransaction = transaction
@@ -853,13 +847,6 @@ final class AppState {
     }
     func clearSendVerificationNotice() {
         applyVerificationNotice(SendVerificationNotice(notice: nil, isWarning: false))
-    }
-    func setDeferredSendVerificationNotice(for chainName: String) {
-        applyVerificationNotice(verificationNoticeForStatus(status: .deferred, chainName: chainName))
-    }
-    func setFailedSendVerificationNotice(_ message: String) {
-        sendVerificationNotice = "Warning: \(message)"
-        sendVerificationNoticeIsWarning = true
     }
     func applySendVerificationStatus(_ verificationStatus: SendBroadcastVerificationStatus, chainName: String) {
         let coreStatus: CoreSendVerificationStatus
@@ -1121,13 +1108,6 @@ final class AppState {
                 isEnabledByDefault: e.isEnabled)
         }
     }
-    func enabledTronTrackedTokens() -> [TronBalanceService.TrackedTRC20Token] {
-        enabledTokenPreferences(for: .tron).map { entry in
-            TronBalanceService.TrackedTRC20Token(
-                symbol: entry.symbol, contractAddress: entry.contractAddress, decimals: Int(entry.decimals)
-            )
-        }
-    }
     func solanaTrackedTokens(includeDisabled: Bool = false) -> [String: SolanaBalanceService.KnownTokenMetadata] {
         var result: [String: SolanaBalanceService.KnownTokenMetadata] = [:]
         let entries = includeDisabled ? tokenPreferences.filter { $0.chain == .solana } : enabledTokenPreferences(for: .solana)
@@ -1138,63 +1118,6 @@ final class AppState {
             )
         }
         return result
-    }
-    func enabledSolanaTrackedTokens() -> [String: SolanaBalanceService.KnownTokenMetadata] {
-        let configured = solanaTrackedTokens(includeDisabled: false)
-        if configured.isEmpty { return SolanaBalanceService.knownTokenMetadataByMint }
-        return configured
-    }
-    func enabledSuiTrackedTokens() -> [String: SuiBalanceService.KnownTokenMetadata] {
-        Dictionary(
-            uniqueKeysWithValues: enabledTokenPreferences(for: .sui).map { entry in
-                (
-                    entry.contractAddress,
-                    SuiBalanceService.KnownTokenMetadata(
-                        symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals),
-                        coinGeckoId: entry.coinGeckoId
-                    )
-                )
-            }
-        )
-    }
-    func enabledAptosTrackedTokens() -> [String: AptosBalanceService.KnownTokenMetadata] {
-        Dictionary(
-            uniqueKeysWithValues: enabledTokenPreferences(for: .aptos).map { entry in
-                (
-                    normalizedTrackedTokenIdentifier(for: .aptos, contractAddress: entry.contractAddress),
-                    AptosBalanceService.KnownTokenMetadata(
-                        symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals),
-                        coinGeckoId: entry.coinGeckoId
-                    )
-                )
-            }
-        )
-    }
-    func enabledNearTrackedTokens() -> [String: NearBalanceService.KnownTokenMetadata] {
-        Dictionary(
-            uniqueKeysWithValues: enabledTokenPreferences(for: .near).map { entry in
-                (
-                    entry.contractAddress,
-                    NearBalanceService.KnownTokenMetadata(
-                        symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals),
-                        coinGeckoId: entry.coinGeckoId
-                    )
-                )
-            }
-        )
-    }
-    func enabledTONTrackedTokens() -> [String: TONBalanceService.KnownTokenMetadata] {
-        Dictionary(
-            uniqueKeysWithValues: enabledTokenPreferences(for: .ton).map { entry in
-                (
-                    TONBalanceService.normalizeJettonMasterAddress(entry.contractAddress),
-                    TONBalanceService.KnownTokenMetadata(
-                        symbol: entry.symbol, name: entry.name, tokenStandard: entry.tokenStandard, decimals: Int(entry.decimals),
-                        coinGeckoId: entry.coinGeckoId
-                    )
-                )
-            }
-        )
     }
     var moneroBackendBaseURLValidationError: String? {
         endpointValidationError(field: .moneroBackend, raw: moneroBackendBaseURL)

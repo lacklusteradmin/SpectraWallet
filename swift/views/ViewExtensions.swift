@@ -83,9 +83,6 @@ struct ContentView: View {
 // MARK: — Typography helpers
 extension View {
     func spectraHintText() -> some View { font(.caption).foregroundStyle(.secondary) }
-    func spectraSectionCaption() -> some View {
-        font(.caption2.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
-    }
     func spectraPressable(scale: CGFloat = 0.985, opacity: CGFloat = 0.92) -> some View {
         modifier(SpectraPressableModifier(scale: scale, opacity: opacity))
     }

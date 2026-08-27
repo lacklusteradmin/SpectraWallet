@@ -117,24 +117,6 @@ extension AppState {
         recordWalletDetached(wallet)
         resetLargeMovementAlertBaseline()
     }
-    func hasWalletForChain(_ chainName: String) -> Bool {
-        let eligibilityInputs: [WalletChainEligibilityInput] = wallets.map { wallet in
-            let hasSeedPhrase: Bool = (storedSeedPhrase(for: wallet.id)?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false)
-            let bitcoinAddressIsValid: Bool =
-                wallet.bitcoinAddress.map {
-                    AddressValidation.isValid(
-                        $0,
-                        kind: Chain(id: walletNetworkChainID(for: wallet, family: "bitcoin"))?
-                            .addressValidationKind ?? "")
-                } ?? false
-            return WalletChainEligibilityInput(
-                walletId: wallet.id, selectedChain: wallet.selectedChain, hasSeedPhrase: hasSeedPhrase,
-                bitcoinAddress: wallet.bitcoinAddress, bitcoinAddressIsValid: bitcoinAddressIsValid, bitcoinXpub: wallet.bitcoinXpub,
-                resolvedAddressForChain: resolvedAddress(for: wallet, chainName: chainName)
-            )
-        }
-        return coreHasWalletForChain(chainName: chainName, wallets: eligibilityInputs)
-    }
     func refreshChainBalances(
         includeHistoryRefreshes: Bool = true, historyRefreshInterval: TimeInterval = 120, forceChainRefresh: Bool = true
     ) async {
@@ -155,31 +137,6 @@ extension AppState {
             try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
         }
     }
-    func collectLimitedConcurrentIndexedResults<Item: Sendable, Value: Sendable>(
-        from items: [Item], maxConcurrent: Int = 4, operation: @escaping @Sendable (Item) async -> (Int, Value?)
-    ) async -> [Int: Value] {
-        guard !items.isEmpty else { return [:] }
-        let concurrencyLimit = max(1, min(maxConcurrent, items.count))
-        return await withTaskGroup(of: (Int, Value?).self, returning: [Int: Value].self) { group in
-            var iterator = items.makeIterator()
-            for _ in 0..<concurrencyLimit {
-                guard let item = iterator.next() else { break }
-                group.addTask {
-                    await operation(item)
-                }
-            }
-            var results: [Int: Value] = [:]
-            while let (index, value) = await group.next() {
-                if let value { results[index] = value }
-                if let item = iterator.next() {
-                    group.addTask {
-                        await operation(item)
-                    }
-                }
-            }
-            return results
-        }
-    }
     func scheduleImportedWalletRefresh(_ createdWallets: [ImportedWallet]) {
         guard !createdWallets.isEmpty else {
             resetLargeMovementAlertBaseline()
@@ -198,22 +155,7 @@ extension AppState {
             }
         }
     }
-    func shouldRefreshChainBalances(now: Date = Date()) -> Bool {
-        guard !isRefreshingChainBalances else { return false }
-        guard let lastChainBalanceRefreshAt else { return true }
-        return now.timeIntervalSince(lastChainBalanceRefreshAt) >= 30
-    }
     #if DEBUG
-        func logBalanceTelemetry(source: String, chainName: String, wallet: ImportedWallet, holdings: [Coin]) {
-            let nonZeroAssets = holdings.reduce(into: 0) { partialResult, coin in
-                if abs(coin.amount) > 0 { partialResult += 1 }
-            }
-            let totalUnits = holdings.reduce(0) { $0 + $1.amount }
-            appendOperationalLog(
-                .debug, category: "Balance Telemetry", message: "Balance updated", chainName: chainName, walletID: wallet.id,
-                source: source, metadata: "non_zero_assets=\(nonZeroAssets), total_units=\(totalUnits)"
-            )
-        }
     #endif
 }
 enum PricingProvider: String, CaseIterable, Identifiable {

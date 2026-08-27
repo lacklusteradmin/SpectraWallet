@@ -231,12 +231,6 @@ extension AppState {
         }
         return chainTokens.first { $0.symbol == coin.symbol }
     }
-    func isValidDogecoinAddressForPolicy(_ address: String, wallet: ImportedWallet? = nil) -> Bool {
-        let chainID =
-            wallet.map { walletNetworkChainID(for: $0, family: "dogecoin") }
-            ?? networkChainID(forFamily: "dogecoin")
-        return AddressValidation.isValid(address, kind: (Chain(id: chainID)?.addressValidationKind ?? ""))
-    }
 
     /// The address is judged against the network the family is on.
     func isValidAddress(_ address: String, for chainName: String) -> Bool {
@@ -335,49 +329,6 @@ extension AppState {
     func confirmHighRiskSendAndSubmit() async {
         bypassHighRiskSendConfirmation = true; isShowingHighRiskSendConfirmation = false; await submitSend()
     }
-    /// What the address field says for a chain: how a valid address looks while
-    /// the field is empty, and what to fix once it does not parse.
-    ///
-    /// **Ten mainnets have no entry** and fall back to the generic form:
-    /// Bitcoin Cash, Bitcoin SV, Litecoin, Internet Computer, Zcash, Bitcoin
-    /// Gold, Decred, Kaspa, Dash and Bittensor. Writing those needs copy in
-    /// four locales, so it is a content gap recorded in `PLAN.md` rather than
-    /// something to invent here — but it is one list now instead of two.
-    private static let addressFormatHints: [String: (empty: String, invalid: String)] = [
-        "Bitcoin": (
-            "Enter a Bitcoin address valid for the selected Bitcoin network mode.",
-            "Enter a valid Bitcoin address for the selected Bitcoin network mode."),
-        "Dogecoin": (
-            "Dogecoin addresses usually start with D, A, or 9.",
-            "Enter a valid Dogecoin address beginning with D, A, or 9."),
-        "Tron": (
-            "Tron addresses usually start with T and are Base58 encoded.",
-            "Enter a valid Tron address (starts with T)."),
-        "Solana": (
-            "Solana addresses are Base58 encoded and typically 32-44 characters.",
-            "Enter a valid Solana address (Base58 format)."),
-        "Cardano": (
-            "Cardano addresses typically start with addr1 and use bech32 format.",
-            "Enter a valid Cardano address (starts with addr1)."),
-        "XRP Ledger": (
-            "XRP Ledger addresses start with r and are Base58 encoded.",
-            "Enter a valid XRP address (starts with r)."),
-        "Stellar": (
-            "Stellar addresses start with G and are StrKey encoded.",
-            "Enter a valid Stellar address (starts with G)."),
-        "Monero": (
-            "Monero addresses are Base58 encoded and usually start with 4 or 8.",
-            "Enter a valid Monero address (starts with 4 or 8)."),
-        "TON": (
-            "TON addresses are usually user-friendly strings like UQ... or raw 0:<hex> addresses.",
-            "Enter a valid TON address."),
-        "NEAR": (
-            "NEAR addresses can be named accounts or 64-character implicit account IDs.",
-            "Enter a valid NEAR account ID or implicit address."),
-        "Polkadot": (
-            "Polkadot addresses use SS58 encoding and usually start with 1.",
-            "Enter a valid Polkadot SS58 address."),
-    ]
 
     func addressBookAddressValidationMessage(for address: String, chainName: String) -> String {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -385,25 +336,30 @@ extension AppState {
         let isValid = !isEmpty && isValidAddress(trimmed, for: chainName)
         if !isEmpty, isValid { return AppLocalization.format("Valid %@ address.", chainName) }
 
-        if let hint = Self.addressFormatHints[chainName] {
-            return localizedStoreString(isEmpty ? hint.empty : hint.invalid)
+        // The sentence a chain has of its own, looked up by id.
+        //
+        // An eleven-entry dictionary of `(empty, invalid)` pairs stood here,
+        // with an EVM arm and a `Sui || Aptos` arm below it. The sentences are
+        // content, so they live in the locale files keyed by chain id; the
+        // chains that have none fall back to a template built from the
+        // catalog's `address_prefix_hint`, which covers every chain that has
+        // an example instead of the eleven that had a sentence.
+        guard let chain = Chain(displayName: chainName) else {
+            return AppLocalization.format("Enter a valid %@ address.", chainName)
         }
-        // One arm for the whole family. Thirteen names stood here and the other
-        // ten EVM mainnets got the generic message; membership is the
-        // registry's.
-        if Chain(displayName: chainName)?.isEVM == true {
+        let key = "addressHint.\(chain.id).\(isEmpty ? "empty" : "invalid")"
+        let localized = AppLocalization.string(key)
+        if localized != key { return localized }
+
+        let hint = chain.addressPrefixHint
+        guard !hint.isEmpty else {
             return isEmpty
-                ? AppLocalization.format("%@ addresses use EVM format (0x + 40 hex characters).", chainName)
-                : AppLocalization.format("Enter a valid %@ address (0x + 40 hex characters).", chainName)
-        }
-        if chainName == "Sui" || chainName == "Aptos" {
-            return isEmpty
-                ? AppLocalization.format("%@ addresses are hex and typically start with 0x.", chainName)
-                : AppLocalization.format("Enter a valid %@ address (starts with 0x).", chainName)
+                ? localizedStoreString("Enter an address for the selected chain.")
+                : AppLocalization.format("Enter a valid %@ address.", chainName)
         }
         return isEmpty
-            ? localizedStoreString("Enter an address for the selected chain.")
-            : AppLocalization.format("Enter a valid %@ address.", chainName)
+            ? AppLocalization.format("%@ addresses look like %@", chainName, hint)
+            : AppLocalization.format("Enter a valid %@ address — they look like %@", chainName, hint)
     }
     func isDuplicateAddressBookAddress(_ address: String, chainName: String, excluding entryID: String? = nil) -> Bool {
         let normalized = normalizedAddress(address, for: chainName)
@@ -572,8 +528,8 @@ extension AppState {
                 switch chainName {
                 case "Bitcoin":
                     await self.refreshBitcoinTransactions(limit: HistoryPaging.endpointBatchSize)
-                case "Dogecoin":
-                    await self.refreshDogecoinTransactions(limit: HistoryPaging.endpointBatchSize)
+                case let name where Chain(displayName: name)?.supportsDeepUTXODiscovery == true:
+                    await self.refreshMultiAddressUTXOTransactions(chainName: name)
                 default:
                     await self.refreshNormalizedTransactions(chainName: chainName)
                 }
@@ -592,7 +548,7 @@ extension AppState {
         for (wallet, address) in walletsToRefresh {
             do {
                 let count = try await withTimeout(seconds: 20) {
-                    try await WalletServiceBridge.shared.fetchHistoryEntryCount(chainId: Chain.dogecoin.id, address: address)
+                    try await WalletServiceBridge.shared.fetchHistorySummary(chainId: Chain.dogecoin.id, address: address).entryCount
                 }
                 recordUTXOHistoryDiagnostics(
                     chainName: "Dogecoin", walletID: wallet.id,
@@ -734,51 +690,6 @@ extension AppState {
         if updated.status == .failed { return updated.failureReason ?? "Transaction remains failed." }
         return "Transaction is confirmed."
     }
-    func rebroadcastDogecoinTransaction(for transactionID: UUID) async -> String {
-        guard let transaction = transactions.first(where: { $0.id == transactionID }) else { return "Transaction not found." }
-        guard transaction.chainName == "Dogecoin", transaction.kind == .send else {
-            return "Rebroadcast is only supported for Dogecoin send transactions."
-        }
-        guard await authenticateForSensitiveAction(reason: "Authorize Dogecoin rebroadcast") else {
-            return sendError ?? "Authentication failed."
-        }
-        guard let rawTransactionHex = transaction.signedTransactionPayload,
-            !rawTransactionHex.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else { return "This transaction cannot be rebroadcast because raw signed data was not saved." }
-        appendChainOperationalEvent(
-            .info, chainName: "Dogecoin", message: "DOGE rebroadcast requested.", transactionHash: transaction.transactionHash)
-        do {
-            let txidFromJSON = try await WalletServiceBridge.shared.broadcastRawExtract(
-                chainId: Chain.dogecoin.id, payload: rawTransactionHex, resultField: "txid")
-            let txHash = txidFromJSON.isEmpty ? (transaction.transactionHash ?? "") : txidFromJSON
-            let result = (transactionHash: txHash, verificationStatus: SendBroadcastVerificationStatus.deferred)
-            if let index = transactions.firstIndex(where: { $0.id == transactionID }) {
-                recordTransaction(transactions[index].withRebroadcastUpdate(status: .pending, transactionHash: result.transactionHash))
-            }
-            await refreshPendingTransactions(chainName: "Dogecoin")
-            switch result.verificationStatus {
-            case .verified:
-                appendChainOperationalEvent(
-                    .info, chainName: "Dogecoin", message: "DOGE rebroadcast verified by provider.", transactionHash: result.transactionHash
-                ); return "Transaction rebroadcasted and observed on network providers."
-            case .deferred:
-                appendChainOperationalEvent(
-                    .warning, chainName: "Dogecoin", message: "DOGE rebroadcast accepted; verification deferred.",
-                    transactionHash: result.transactionHash);
-                return "Transaction rebroadcasted. Network indexers may take a moment to reflect it."
-            case .failed(let message):
-                appendChainOperationalEvent(
-                    .warning, chainName: "Dogecoin", message: "DOGE rebroadcast verification warning: \(message)",
-                    transactionHash: result.transactionHash);
-                return "Rebroadcast sent, but verification warning: \(message)"
-            }
-        } catch {
-            appendChainOperationalEvent(
-                .error, chainName: "Dogecoin", message: "DOGE rebroadcast failed: \(error.localizedDescription)",
-                transactionHash: transaction.transactionHash);
-            return error.localizedDescription
-        }
-    }
     func rebroadcastSignedTransaction(for transactionID: UUID) async -> String {
         guard let transaction = transactions.first(where: { $0.id == transactionID }) else { return "Transaction not found." }
         guard transaction.kind == .send else { return "Rebroadcast is only supported for send transactions." }
@@ -878,7 +789,9 @@ extension AppState {
         return String(title.dropFirst(chain.count)).trimmingCharacters(in: .whitespaces)
     }
     func displayNetworkName(for transaction: TransactionRecord) -> String {
-        if (transaction.chainName == "Bitcoin" || transaction.chainName == "Dogecoin"), let walletID = transaction.walletID,
+        // The families whose selected network changes the name shown. Two were
+        // spelled here; `hasNetworkChoice` is the registry column.
+        if Chain(displayName: transaction.chainName)?.hasNetworkChoice == true, let walletID = transaction.walletID,
             let wallet = cachedWalletByID[walletID]
         {
             return displayNetworkName(for: wallet)
@@ -886,7 +799,9 @@ extension AppState {
         return displayNetworkName(for: transaction.chainName)
     }
     func displayChainTitle(for transaction: TransactionRecord) -> String {
-        if (transaction.chainName == "Bitcoin" || transaction.chainName == "Dogecoin"), let walletID = transaction.walletID,
+        // The families whose selected network changes the name shown. Two were
+        // spelled here; `hasNetworkChoice` is the registry column.
+        if Chain(displayName: transaction.chainName)?.hasNetworkChoice == true, let walletID = transaction.walletID,
             let wallet = cachedWalletByID[walletID]
         {
             return displayChainTitle(for: wallet)
@@ -897,11 +812,27 @@ extension AppState {
     /// Judged against the network the family is on, which is a chain — so the
     /// registry supplies the kind. Five hand-written cases before, two of them
     /// passing a mode the validator ignored.
-    func isValidUTXOAddressForPolicy(_ address: String, chainName: String) -> Bool {
-        guard supportsDeepUTXODiscovery(chainName: chainName),
+    /// Judge an address against the network the chain is actually on.
+    ///
+    /// `wallet` picks that wallet's network where it has one of its own;
+    /// without it the family's global selection is used. A Dogecoin-only twin
+    /// of this existed for the wallet-scoped case, which is a distinction
+    /// every one of the twenty-nine chains with a network choice has.
+    ///
+    /// `requireDeepUTXODiscovery` is what the address-discovery callers need
+    /// and the send callers do not: discovery walks a chain's addresses, so it
+    /// only applies to chains that support the walk.
+    func isValidAddressForPolicy(
+        _ address: String, chainName: String,
+        wallet: ImportedWallet? = nil, requireDeepUTXODiscovery: Bool = false
+    ) -> Bool {
+        guard !requireDeepUTXODiscovery || supportsDeepUTXODiscovery(chainName: chainName),
             let family = Chain(displayName: chainName)?.id, !family.isEmpty
         else { return false }
-        let kind = Chain(id: networkChainID(forFamily: family))?.addressValidationKind ?? ""
+        let selected =
+            wallet.map { walletNetworkChainID(for: $0, family: family) }
+            ?? networkChainID(forFamily: family)
+        let kind = Chain(id: selected)?.addressValidationKind ?? ""
         return !kind.isEmpty && AddressValidation.isValid(address, kind: kind)
     }
     func utxoDiscoveryDerivationPath(for wallet: ImportedWallet, chainName: String, branch: WalletDerivationBranch, index: Int) -> String? {
@@ -918,7 +849,7 @@ extension AppState {
             let address = try? deriveSeedPhraseAddress(
                 seedPhrase: seedPhrase, chain: derivationChain,
                 derivationPath: derivationPath
-            ), isValidUTXOAddressForPolicy(address, chainName: chainName)
+            ), isValidAddressForPolicy(address, chainName: chainName, requireDeepUTXODiscovery: true)
         else {
             return nil
         }
@@ -940,14 +871,17 @@ extension AppState {
         {
             if summary.utxoCount > 0 || (UInt64(summary.smallestUnit) ?? 0) > 0 { return true }
         }
-        return (try? await WalletServiceBridge.shared.fetchHistoryHasActivity(chainId: chain.id, address: address)) == true
+        let summary = try? await WalletServiceBridge.shared.fetchHistorySummary(chainId: chain.id, address: address)
+        return (summary?.entryCount ?? 0) > 0
     }
     func knownUTXOAddresses(for wallet: ImportedWallet, chainName: String) async -> [String] {
         var ordered: [String] = []; var seen: Set<String> = []
         func appendAddress(_ candidate: String?) {
             guard let candidate else { return }
             let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard isValidUTXOAddressForPolicy(trimmed, chainName: chainName), seen.insert(trimmed.lowercased()).inserted else { return }
+            guard isValidAddressForPolicy(trimmed, chainName: chainName, requireDeepUTXODiscovery: true),
+                seen.insert(trimmed.lowercased()).inserted
+            else { return }
             ordered.append(trimmed)
         }
         // The stored address for this chain, which may differ from the derived
@@ -1067,9 +1001,6 @@ extension AppState {
     }
     func walletHasAddress(for wallet: ImportedWallet, chainName: String) -> Bool {
         resolvedAddress(for: wallet, chainName: chainName) != nil
-    }
-    func normalizedOwnedAddressKey(chainName: String, address: String) -> String {
-        address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
     /// Record an address this wallet owns. Core holds the table — the keypool
     /// baseline is derived from it, so a second copy here could go stale and
@@ -1314,8 +1245,8 @@ extension AppState {
                         chainId: Chain.tron.id, address: destinationForProbe)
                     let tronSun = UInt64(tronSummary.smallestUnit) ?? 0
                     let hasHistory =
-                        (try? await WalletServiceBridge.shared.fetchHistoryHasActivity(
-                            chainId: Chain.tron.id, address: destinationForProbe)) ?? false
+                        ((try? await WalletServiceBridge.shared.fetchHistorySummary(
+                            chainId: Chain.tron.id, address: destinationForProbe))?.entryCount ?? 0) > 0
                     let balance: Double
                     if coin.symbol == "TRX" {
                         balance = Double(tronSun) / 1e6
@@ -1345,8 +1276,8 @@ extension AppState {
                     nearBalance = 0
                 }
                 let nearHasHistory =
-                    (try? await WalletServiceBridge.shared.fetchHistoryHasActivity(
-                        chainId: Chain.near.id, address: destinationForProbe)) ?? false
+                    ((try? await WalletServiceBridge.shared.fetchHistorySummary(
+                        chainId: Chain.near.id, address: destinationForProbe))?.entryCount ?? 0) > 0
                 let m = chainRiskProbeMessages(
                     chainName: "NEAR", balanceLabel: "NEAR balance", balanceNonPositive: nearBalance <= 0, hasHistory: nearHasHistory)
                 warning = m.warning; infoMessage = m.info
@@ -1405,7 +1336,9 @@ extension AppState {
             return (nil, nil)
         }
         let balance = Double(summary.amountDisplay) ?? 0
-        let hasHistory = (try? await WalletServiceBridge.shared.fetchHistoryHasActivity(chainId: chainId, address: address)) ?? false
+        let hasHistory =
+            ((try? await WalletServiceBridge.shared.fetchHistorySummary(chainId: chainId, address: address))?
+                .entryCount ?? 0) > 0
         let m = chainRiskProbeMessages(
             chainName: chainName, balanceLabel: balanceLabel, balanceNonPositive: balance <= 0, hasHistory: hasHistory)
         return (m.warning, m.info)

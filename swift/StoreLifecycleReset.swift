@@ -63,7 +63,6 @@ extension AppState {
         clearWalletSecretIndex()
         UserDefaults.standard.set(true, forKey: Self.installMarkerDefaultsKey)
     }
-    func resetWalletData() async { await resetSelectedData(scopes: Set(ResetScope.allCases)) }
     func resetSelectedData(scopes: Set<ResetScope>) async {
         guard !scopes.isEmpty else { return }
         guard

@@ -272,47 +272,4 @@ extension AppState {
             : []
         return (nativeBalance, tokenBalances)
     }
-    func refreshPendingEVMTransactions(chainName: String) async {
-        guard let chainId = Chain(displayName: chainName)?.id else { return }
-        let pendingTransactions = transactions.filter { transaction in
-            transaction.kind == .send
-                && transaction.chainName == chainName
-                && transaction.status == .pending
-                && transaction.transactionHash != nil
-        }
-        guard !pendingTransactions.isEmpty else { return }
-        var resolvedClassifications: [UUID: (TransactionStatus, EvmReceiptClassification)] = [:]
-        for transaction in pendingTransactions {
-            guard let transactionHash = transaction.transactionHash else { continue }
-            guard await shouldPollTransactionStatus(for: transaction) else { continue }
-            do {
-                guard
-                    let classified = try await WalletServiceBridge.shared.fetchEvmReceiptClassification(
-                        chainId: chainId, txHash: transactionHash
-                    )
-                else {
-                    await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: .pending)
-                    continue
-                }
-                if classified.isConfirmed {
-                    let resolvedStatus: TransactionStatus = classified.isFailed ? .failed : .confirmed
-                    await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus)
-                    resolvedClassifications[transaction.id] = (resolvedStatus, classified)
-                } else {
-                    await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: .pending)
-                }
-            } catch {
-                await markTransactionStatusPollFailure(for: transaction)
-                continue
-            }
-        }
-        let resolvedStatuses = resolvedClassifications.mapValues { resolvedStatus, classified in
-            PendingTransactionStatusResolution(
-                status: resolvedStatus, receiptBlockNumber: classified.blockNumber.map(Int.init), confirmations: nil,
-                dogecoinNetworkFeeDoge: nil
-            )
-        }
-        let staleFailureIDs = await stalePendingFailureIDs(from: pendingTransactions)
-        await applyResolvedPendingTransactionStatuses(resolvedStatuses, staleFailureIDs: staleFailureIDs)
-    }
 }

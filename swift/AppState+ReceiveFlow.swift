@@ -133,10 +133,13 @@ extension AppState {
             return
         }
         guard receiveCoin.symbol == "BTC" else {
-            if (receiveCoin.symbol == "BCH" && receiveCoin.chainName == "Bitcoin Cash")
-                || (receiveCoin.symbol == "BSV" && receiveCoin.chainName == "Bitcoin SV")
-                || (receiveCoin.symbol == "LTC" && receiveCoin.chainName == "Litecoin")
-                || (receiveCoin.symbol == "DOGE" && receiveCoin.chainName == "Dogecoin")
+            // The native coin of a chain that hands out reserved receive
+            // indices. Four `(symbol, chain)` pairs stood here; both halves are
+            // registry columns, and `supportsDeepUTXODiscovery` is the same
+            // fact that decides whether an index is reserved at all.
+            let receiveChain = Chain(displayName: receiveCoin.chainName)
+            if let receiveChain, receiveChain.supportsDeepUTXODiscovery,
+                receiveCoin.symbol == receiveChain.gasTokenSymbol
             {
                 receiveResolvedAddress = await reservedReceiveAddress(for: wallet, chainName: receiveCoin.chainName, reserveIfMissing: true) ?? ""
                 return
@@ -280,79 +283,14 @@ extension AppState {
                 guard let address, !address.isEmpty else { return }
                 addressByChainName[chainName] = address
             }
-            let createdWalletIDs = selectedChainNames.map { _ in UUID() }
-            let bitcoinWalletID = zip(selectedChainNames, createdWalletIDs).first(where: { $0.0 == "Bitcoin" })?.1
-            if requiresSeedPhrase {
-                // Derivation paths for the chains being imported, keyed by
-                // chain display name. Every EVM chain derives from Ethereum's
-                // path, which is what `Chain.seedDerivationPathKey` already
-                // encodes — so this is a loop over the selection rather than a
-                // 30-entry table of (isSelected, chainName, path) triples.
-                //
-                // An empty path is not a reason to skip a chain. Monero has
-                // none — its keys come from the seed — and skipping it here is
-                // what made a Monero import impossible: the batch produced no
-                // address for it, so the guard below demanded a typed one, and
-                // the only field to type it into was on the watch-only page a
-                // seed import never sees.
-                var chainPaths: [String: String] = [:]
-                for chainName in selectedChains {
-                    guard let chain = Chain(displayName: chainName) else { continue }
-                    chainPaths[chainName] = selectedDerivationPaths.path(for: chain)
-                }
-                // EVM chains share one derived address, produced under the
-                // Ethereum entry, so ensure it is present whenever any EVM
-                // chain is selected even if Ethereum itself is not.
-                if chainPaths["Ethereum"] == nil, selectedChains.contains(where: { (Chain(displayName: $0)?.isEVM ?? false) }) {
-                    let ethereumPath = selectedDerivationPaths.path(for: .ethereum)
-                    if !ethereumPath.isEmpty { chainPaths["Ethereum"] = ethereumPath }
-                }
-                do {
-                    let overrides = draft.resolvedDerivationOverrides
-                    let derived: [String: String]
-                    if overrides.isEmpty {
-                        // Fast path: Rust batch-derives all chains with preset defaults.
-                        derived = try WalletRustDerivationBridge.deriveAllAddresses(
-                            seedPhrase: trimmedSeedPhrase, chainPaths: chainPaths)
-                    } else {
-                        // Advanced mode: re-derive each chain individually so the power-user
-                        // overrides (passphrase / wordlist / iteration count / algorithm
-                        // overrides) actually affect the produced addresses.
-                        var perChain: [String: String] = [:]
-                        for (chainName, path) in chainPaths {
-                            guard let chain = Chain(displayName: chainName) else { continue }
-                            if let address = try? WalletDerivationLayer.deriveAddress(
-                                seedPhrase: trimmedSeedPhrase, chain: chain,
-                                derivationPath: path, overrides: overrides
-                            ) {
-                                perChain[chainName] = address
-                            }
-                        }
-                        derived = perChain
-                    }
-                    if selectedChains.contains("Bitcoin") {
-                        guard let bitcoinWalletID else {
-                            importError = "Bitcoin wallet initialization failed."
-                            return
-                        }
-                        _ = bitcoinWalletID
-                    }
-                    // `derived` is already keyed by chain display name, so
-                    // unpacking it into 24 locals and repacking it was pure
-                    // transcription.
-                    addressByChainName = derived
-                } catch {
-                    let resolvedMessage =
-                        (error as? LocalizedError)?.errorDescription
-                        ?? error.localizedDescription
-                    if resolvedMessage.isEmpty || resolvedMessage == "(null)" {
-                        importError = "Wallet initialization failed. Check the seed phrase."
-                    } else {
-                        importError = resolvedMessage
-                    }
-                    return
-                }
-            } else if let privateKeyAddress {
+            // A seed import leaves `addressByChainName` empty: core derives one
+            // address per selected chain from the seed on the commit. What
+            // stood here built a path table, added Ethereum's entry whenever
+            // any EVM chain was selected because the family shares one address
+            // slot, and looped calling core once per chain — a rule about
+            // chains, kept in the one front end that imports more than one at
+            // a time.
+            if let privateKeyAddress {
                 // Core dispatches private-key derivation by chain, so there is
                 // nothing to switch on: one address, for the one chain a
                 // private-key import may select.
@@ -421,7 +359,8 @@ extension AppState {
                         seedDerivationPreset: selectedDerivationPreset,
                         seedDerivationPaths: selectedDerivationPaths,
                         derivationOverrides: draft.resolvedDerivationOverrides,
-                        networkChainByFamily: networkChainByFamily
+                        networkChainByFamily: networkChainByFamily,
+                        seedPhrase: requiresSeedPhrase ? trimmedSeedPhrase : nil
                     )
                 )
             } catch {
@@ -535,13 +474,6 @@ extension AppState {
             "Bitcoin": Chain.bitcoin, "Bitcoin Cash": .bitcoinCash, "Bitcoin SV": .bitcoinSv, "Litecoin": .litecoin,
             "Dogecoin": .dogecoin,
         ][chainName]
-    }
-    func walletDisplayName(baseName: String, batchPosition: Int, defaultWalletIndex: Int, selectedChainCount: Int) -> String {
-        // Delegates to Rust `wallet_display_name`. Swift keeps the `Int` overload
-        // so callers don't have to convert.
-        let baseTrimmed = baseName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if baseTrimmed.isEmpty { return "Wallet \(defaultWalletIndex)" }
-        return selectedChainCount > 1 ? "\(baseTrimmed) \(batchPosition)" : baseTrimmed
     }
     func nextDefaultWalletNameIndex() -> Int {
         (wallets.compactMap { $0.name.hasPrefix("Wallet ") ? Int($0.name.dropFirst(7)) : nil }.max() ?? 0) + 1

@@ -85,9 +85,6 @@ extension AppState {
         return dashboardPinPrototypes.first(where: { $0.symbol.uppercased() == normalizedSymbol })
     }
     var dashboardAssetGroups: [DashboardAssetGroup] { cachedDashboardAssetGroups }
-    func dashboardSupportedTokenEntries(symbol: String) -> [TokenPreferenceEntry] {
-        cachedDashboardSupportedTokenEntriesBySymbol[symbol.uppercased()] ?? []
-    }
     func rebuildDashboardDerivedState() { batchCacheUpdates { _rebuildDashboardDerivedStateBody() } }
     private func _rebuildDashboardDerivedStateBody() {
         let holdingsBySymbol = cachedIncludedPortfolioHoldingsBySymbol
