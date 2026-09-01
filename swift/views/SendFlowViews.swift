@@ -501,13 +501,10 @@ struct SendView: View {
     }
 
     private func estimatedNetworkFeeText(for coin: Coin?) -> String? {
-        // A seventeen-arm switch stood here, each arm naming a chain, the
-        // symbol its fee is denominated in and the precision to show it at.
-        // Both are registry columns — `gasTokenSymbol` and
-        // `sendExecutionShape.feeDecimals` — and `estimatedFee(forChainNamed:)`
-        // already keys the preview by chain. Two of the seventeen disagreed
-        // with the registry, and the registry was the one that was wrong: see
-        // `utxo_and_e8s_chains_use_eight`.
+        // The fee's symbol and precision are registry columns —
+        // `gasTokenSymbol` and `sendExecutionShape.feeDecimals` — and
+        // `estimatedFee(forChainNamed:)` already keys the preview by chain.
+        // `utxo_and_e8s_chains_use_eight` pins the precision side.
         guard let coin,
             let chain = Chain(displayName: coin.chainName),
             let fee = sendPreviewStore.estimatedFee(forChainNamed: coin.chainName)
@@ -744,22 +741,22 @@ struct SendView: View {
             }
             if store.preparingChains.contains("Ethereum") {
                 SpectraLoadingRow(title: "Loading nonce and fee estimate...")
-            } else if let ethereumSendPreview = sendPreviewStore.ethereumSendPreview {
-                Text(AppLocalization.format("Nonce: %lld", ethereumSendPreview.nonce))
-                Text(AppLocalization.format("Gas Limit: %lld", ethereumSendPreview.gasLimit))
-                Text(AppLocalization.format("Max Fee: %.2f gwei", ethereumSendPreview.maxFeePerGasGwei))
-                Text(AppLocalization.format("Priority Fee: %.2f gwei", ethereumSendPreview.maxPriorityFeePerGasGwei))
+            } else if let evmSendPreview = sendPreviewStore.evmSendPreview {
+                Text(AppLocalization.format("Nonce: %lld", evmSendPreview.nonce))
+                Text(AppLocalization.format("Gas Limit: %lld", evmSendPreview.gasLimit))
+                Text(AppLocalization.format("Max Fee: %.2f gwei", evmSendPreview.maxFeePerGasGwei))
+                Text(AppLocalization.format("Priority Fee: %.2f gwei", evmSendPreview.maxPriorityFeePerGasGwei))
                 let feeSymbol = evmFeeSymbol(for: selectedCoin.chainName)
-                if let fiatFee = store.formattedFiatAmount(fromNative: ethereumSendPreview.estimatedNetworkFee, symbol: feeSymbol) {
+                if let fiatFee = store.formattedFiatAmount(fromNative: evmSendPreview.estimatedNetworkFee, symbol: feeSymbol) {
                     Text(
                         AppLocalization.format(
                             "Estimated Network Fee: %.6f %@ (~%@)",
-                            ethereumSendPreview.estimatedNetworkFee, feeSymbol, fiatFee
+                            evmSendPreview.estimatedNetworkFee, feeSymbol, fiatFee
                         )
                     )
                         .font(.subheadline.weight(.semibold))
                 } else {
-                    Text(AppLocalization.format("Estimated Network Fee: %.6f %@", ethereumSendPreview.estimatedNetworkFee, feeSymbol))
+                    Text(AppLocalization.format("Estimated Network Fee: %.6f %@", evmSendPreview.estimatedNetworkFee, feeSymbol))
                         .font(.subheadline.weight(.semibold))
                 }
             } else {

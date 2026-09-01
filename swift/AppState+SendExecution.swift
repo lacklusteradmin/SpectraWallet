@@ -1,20 +1,17 @@
 import Foundation
 
-private func evmSendOverrides(nonce: Int?, customFees: EthereumCustomFeeConfiguration?) -> EvmSendOverridesInput? {
-    let customDTO: EvmCustomFeeConfiguration? = customFees.map {
-        EvmCustomFeeConfiguration(maxFeePerGasGwei: $0.maxFeePerGasGwei, maxPriorityFeePerGasGwei: $0.maxPriorityFeePerGasGwei)
-    }
-    if nonce == nil && customDTO == nil { return nil }
-    return EvmSendOverridesInput(nonce: nonce.map(Int64.init), customFees: customDTO, gasLimit: nil, calldataHex: nil, signOnly: nil, accessListJson: nil)
+private func evmSendOverrides(nonce: Int?, customFees: EvmCustomFeeConfiguration?) -> EvmSendOverridesInput? {
+    if nonce == nil && customFees == nil { return nil }
+    return EvmSendOverridesInput(nonce: nonce.map(Int64.init), customFees: customFees, gasLimit: nil, calldataHex: nil, signOnly: nil, accessListJson: nil)
 }
 
-private func ethereumSendResult(from typed: EvmSendResultDecoded) -> EthereumSendResult {
-    let preview = EthereumSendPreview(
+private func evmSendResult(from typed: EvmSendResultDecoded) -> EvmSendResult {
+    let preview = EvmSendPreview(
         nonce: typed.nonce, gasLimit: typed.gasLimit, maxFeePerGasGwei: 0, maxPriorityFeePerGasGwei: 0, estimatedNetworkFee: 0,
         spendableBalance: nil, feeRateDescription: nil, estimatedTransactionBytes: nil, selectedInputCount: nil, usesChangeOutput: nil,
         maxSendable: nil
     )
-    return EthereumSendResult(
+    return EvmSendResult(
         fromAddress: "", transactionHash: typed.txid, rawTransactionHex: typed.rawTxHex, preview: preview, verificationStatus: .verified
     )
 }
@@ -94,10 +91,8 @@ extension AppState {
         // — goes through one call. Ten arms used to state this, each carrying
         // the same four constants that are now `Chain::send_execution_shape`.
         //
-        // Which chains those are is `Chain::uses_generic_send_submit`. Two
-        // lists of names stood here re-deciding it, with identical bodies, and
-        // a twelfth chain joining the shared path had to be added to whichever
-        // of the two the author happened to be looking at.
+        // Which chains those are is `Chain::uses_generic_send_submit`; a chain
+        // joining the shared path is one registry edit, not a list here.
         if preflight.usesGenericSubmit {
             await submitNativeChainSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress,
@@ -154,7 +149,7 @@ extension AppState {
                     sendError = "This wallet's seed phrase is unavailable."
                     return
                 }
-                guard let sourceAddress = resolvedBitcoinAddress(for: wallet) else {
+                guard let sourceAddress = resolvedNetworkModeAddress(for: wallet, family: "bitcoin", fallback: .bitcoin) else {
                     sendError = "Unable to resolve this wallet's Bitcoin address from the seed phrase."
                     return
                 }
@@ -194,7 +189,7 @@ extension AppState {
                 sendError = "This wallet's seed phrase is unavailable."
                 return
             }
-            guard resolvedDogecoinAddress(for: wallet) != nil else {
+            guard resolvedNetworkModeAddress(for: wallet, family: "dogecoin", fallback: .dogecoin) != nil else {
                 sendError = "Unable to resolve this wallet's Dogecoin signing address from the seed phrase."
                 return
             }
@@ -207,7 +202,7 @@ extension AppState {
             }
             sendingChains.insert(holding.chainName)
             defer { sendingChains.remove(holding.chainName) }
-            guard let sourceAddress = resolvedDogecoinAddress(for: wallet) else {
+            guard let sourceAddress = resolvedNetworkModeAddress(for: wallet, family: "dogecoin", fallback: .dogecoin) else {
                 sendError = "Unable to resolve this wallet's Dogecoin signing address."
                 return
             }
@@ -279,8 +274,22 @@ extension AppState {
             sendingChains.insert(holding.chainName)
             defer { sendingChains.remove(holding.chainName) }
             do {
-                let contractAddress: String? = (holding.symbol == "TRX") ? nil : holding.contractAddress
-                let tokenDecimals: UInt32? = (contractAddress != nil) ? 6 : nil
+                // Six decimals were hardcoded for every Tron token. That is
+                // right for USDT and wrong for the other four in the catalog —
+                // BTT, TUSD, USD1 and USDD are all eighteen — so the raw amount
+                // would have been 10^12 too small. It has not fired because
+                // `route_send_asset` lets only TRX and USDT reach here, which
+                // means an obvious-looking widening of that router would have
+                // armed it. The token's own decimals now.
+                let tronToken = supportedToken(for: holding)
+                let contractAddress: String? =
+                    holding.symbol == Chain.tron.gasTokenSymbol ? nil : holding.contractAddress
+                let tokenDecimals: UInt32? =
+                    contractAddress == nil ? nil : tronToken.map { UInt32($0.decimals) }
+                if contractAddress != nil, tokenDecimals == nil {
+                    sendError = "\(holding.symbol) is not a known Tron token."
+                    return
+                }
                 let result = try await WalletServiceBridge.shared.executeSend(
                     SendExecutionRequest(
                         chainId: Chain.tron.id, chainName: "Tron", derivationPath: wallet.seedDerivationPaths.path(for: .tron),
@@ -341,7 +350,7 @@ extension AppState {
                     contractAddress = nil
                     tokenDecimals = nil
                 } else {
-                    let solanaTokenMetadataByMint = solanaTrackedTokens(includeDisabled: true)
+                    let solanaTokenMetadataByMint = solanaKnownTokens(includeDisabled: true)
                     guard let mintAddress = holding.contractAddress ?? SolanaBalanceService.mintAddress(for: holding.symbol),
                         let tokenMetadata = solanaTokenMetadataByMint[mintAddress]
                     else {
@@ -448,8 +457,8 @@ extension AppState {
             let nativeSymbol = preflight.nativeEvmSymbol ?? "ETH"
             let nativeBalance =
                 wallet.holdings.first(where: { $0.chainName == holding.chainName && $0.symbol == nativeSymbol })?.amount ?? 0
-            if sendPreviewStore.ethereumSendPreview == nil { await refreshEthereumSendPreview() }
-            guard let preview = sendPreviewStore.ethereumSendPreview else {
+            if sendPreviewStore.evmSendPreview == nil { await refreshEvmSendPreview() }
+            guard let preview = sendPreviewStore.evmSendPreview else {
                 sendError = sendError ?? "Unable to estimate \(holding.chainName) network fee."
                 return
             }
@@ -491,7 +500,7 @@ extension AppState {
                 if preflight.isNativeEvmAsset {
                     contractAddress = nil
                     tokenDecimals = nil
-                } else if let token = supportedEVMToken(for: holding) {
+                } else if let token = supportedToken(for: holding) {
                     contractAddress = token.contractAddress
                     tokenDecimals = UInt32(token.decimals)
                 } else {
@@ -507,9 +516,9 @@ extension AppState {
                         contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
                         feeAmount: nil, evmOverrides: evmOverrides, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                     ))
-                let fallbackNonce = explicitNonce.map(Int64.init) ?? sendPreviewStore.ethereumSendPreview?.nonce ?? 0
+                let fallbackNonce = explicitNonce.map(Int64.init) ?? sendPreviewStore.evmSendPreview?.nonce ?? 0
                 let typed = result.evm ?? EvmSendResultDecoded(txid: "", rawTxHex: "", nonce: fallbackNonce, gasLimit: 0)
-                let evmResult = ethereumSendResult(from: typed)
+                let evmResult = evmSendResult(from: typed)
                 await recordSuccessfulBroadcast(
                     wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount,
                     transactionHash: result.transactionHash, signedPayload: evmResult.rawTransactionHex,

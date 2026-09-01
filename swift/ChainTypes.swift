@@ -15,27 +15,6 @@ nonisolated extension NetworkChoice: Identifiable {
     public var id: String { chainId }
 }
 
-// MARK: - EVM
-struct EthereumCustomFeeConfiguration: Equatable {
-    let maxFeePerGasGwei: Double
-    let maxPriorityFeePerGasGwei: Double
-}
-// EthereumTokenTransferHistoryDiagnostics moved to Rust core; see DiagnosticsTypesCompat.swift.
-
-// MARK: - Tron
-// TronHistoryDiagnostics moved to Rust core.
-enum TronBalanceService {
-    static let usdtTronContract = "TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t"
-    static let usddTronContract = "TXDk8mbtRbXeYuMNS83CfKPaYYT8XWv9Hz"
-    static let usd1TronContract = "TPFqcBAaaUMCSVRCqPaQ9QnzKhmuoLR6Rc"
-    static let bttTronContract = "TAFjULxiVgT4qWk6UZwjqwZXTSaGaqnVp4"
-    struct TrackedTRC20Token: Equatable {
-        let symbol: String
-        let contractAddress: String
-        let decimals: Int
-    }
-}
-
 // MARK: - Stellar
 // SimpleHistoryDiagnostics moved to Rust core.
 

@@ -57,7 +57,7 @@ extension AppState {
     func resetPinnedDashboardAssets() {
         setPinnedDashboardAssets([])
     }
-    private func prototypeCoinForTrackedEntry(_ entry: TokenPreferenceEntry) -> Coin {
+    private func prototypeCoinForKnownEntry(_ entry: TokenPreferenceEntry) -> Coin {
         let price: Double = CachedCoreHelpers.stablecoinFallbackPriceUsd(symbol: entry.symbol)
         return CoreCoin(
             id: UUID().uuidString, name: entry.name, symbol: entry.symbol, coinGeckoId: entry.coinGeckoId,
@@ -79,8 +79,8 @@ extension AppState {
                 priceUsd: existing.priceUsd
             )
         }
-        if let trackedEntry = cachedResolvedTokenPreferencesBySymbol[normalizedSymbol]?.first {
-            return prototypeCoinForTrackedEntry(trackedEntry)
+        if let knownEntry = cachedResolvedTokenPreferencesBySymbol[normalizedSymbol]?.first {
+            return prototypeCoinForKnownEntry(knownEntry)
         }
         return dashboardPinPrototypes.first(where: { $0.symbol.uppercased() == normalizedSymbol })
     }
@@ -88,7 +88,7 @@ extension AppState {
     func rebuildDashboardDerivedState() { batchCacheUpdates { _rebuildDashboardDerivedStateBody() } }
     private func _rebuildDashboardDerivedStateBody() {
         let holdingsBySymbol = cachedIncludedPortfolioHoldingsBySymbol
-        let trackedEntriesBySymbol = cachedResolvedTokenPreferencesBySymbol
+        let knownEntriesBySymbol = cachedResolvedTokenPreferencesBySymbol
         let prototypeBySymbol = Dictionary(
             dashboardPinPrototypes.map { ($0.symbol.uppercased(), $0) }, uniquingKeysWith: { first, _ in first })
         let availableSymbols = Array(
@@ -96,13 +96,13 @@ extension AppState {
                 defaultPinnedDashboardAssetSymbols
                     + dashboardPinPrototypes.map { $0.symbol.uppercased() }
                     + Array(holdingsBySymbol.keys)
-                    + Array(trackedEntriesBySymbol.keys)
+                    + Array(knownEntriesBySymbol.keys)
             )
         ).sorted()
         let optionBySymbol = Dictionary(
             uniqueKeysWithValues: availableSymbols.compactMap { symbol in
                 dashboardPinOptionUncached(
-                    for: symbol, portfolioCoins: holdingsBySymbol[symbol] ?? [], trackedEntries: trackedEntriesBySymbol[symbol] ?? [],
+                    for: symbol, portfolioCoins: holdingsBySymbol[symbol] ?? [], knownEntries: knownEntriesBySymbol[symbol] ?? [],
                     prototype: prototypeBySymbol[symbol]
                 ).map { (symbol, $0) }
             }
@@ -110,7 +110,7 @@ extension AppState {
         cachedDashboardPinOptionBySymbol = optionBySymbol
         cachedAvailableDashboardPinOptions = availableSymbols.compactMap { optionBySymbol[$0] }
         cachedDashboardSupportedTokenEntriesBySymbol = Dictionary(
-            uniqueKeysWithValues: trackedEntriesBySymbol.map { symbol, entries in
+            uniqueKeysWithValues: knownEntriesBySymbol.map { symbol, entries in
                 (symbol, coreDashboardSupportedTokenEntries(entries: entries))
             }
         )
@@ -127,19 +127,19 @@ extension AppState {
     }
 
     private func dashboardPinOptionUncached(
-        for symbol: String, portfolioCoins: [Coin], trackedEntries: [TokenPreferenceEntry], prototype: Coin?
+        for symbol: String, portfolioCoins: [Coin], knownEntries: [TokenPreferenceEntry], prototype: Coin?
     ) -> DashboardPinOption? {
         let normalizedSymbol = symbol.uppercased()
         if let representativeCoin = portfolioCoins.first {
-            let chainNames = Array(Set(portfolioCoins.map(\.chainName) + trackedEntries.map(\.chain.rawValue))).sorted()
+            let chainNames = Array(Set(portfolioCoins.map(\.chainName) + knownEntries.map(\.chain.rawValue))).sorted()
             return DashboardPinOption(
                 symbol: normalizedSymbol, name: representativeCoin.name,
                 subtitle: chainNames.isEmpty ? representativeCoin.chainName : chainNames.joined(separator: ", "),
                 assetIdentifier: representativeCoin.iconIdentifier
             )
         }
-        if let representativeEntry = trackedEntries.first {
-            let chainNames = Array(Set(trackedEntries.map(\.chain.rawValue))).sorted()
+        if let representativeEntry = knownEntries.first {
+            let chainNames = Array(Set(knownEntries.map(\.chain.rawValue))).sorted()
             return DashboardPinOption(
                 symbol: normalizedSymbol, name: representativeEntry.name, subtitle: chainNames.joined(separator: ", "),
                 assetIdentifier: Coin.iconIdentifier(

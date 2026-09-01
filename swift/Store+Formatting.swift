@@ -83,28 +83,31 @@ extension AppState {
         let amountUSD = amount * price
         return formattedFiatAmountIfAvailable(fromUSD: amountUSD)
     }
+    /// Core decides how many places this amount deserves; the formatter renders
+    /// them and trims the trailing zeros.
     func formattedAssetAmount(_ amount: Double, symbol: String, chainName: String) -> String {
-        // One FFI call (memoized) instead of two: `supportedDecimalPlaces`
-        // and `displayDecimalPlaces` both hit the same Rust helper, so read
-        // it once and reuse both fields.
-        let resolution = assetDecimalsResolution(symbol: symbol, chainName: chainName)
-        let supportedDecimals = Int(resolution.supported)
-        let visibleDecimals = min(Int(resolution.display), supportedDecimals)
-        let formatter = decimalFormatter(
-            minimumFractionDigits: 0, maximumFractionDigits: visibleDecimals, usesGroupingSeparator: false
-        )
-        if amount > 0, visibleDecimals > 0 {
-            let threshold = assetMinimumVisibleAmount(visibleDecimals: UInt32(visibleDecimals))
-            if amount < threshold {
-                let thresholdFormatter = decimalFormatter(
-                    minimumFractionDigits: visibleDecimals, maximumFractionDigits: visibleDecimals, usesGroupingSeparator: false
-                )
-                let thresholdText = thresholdFormatter.string(from: NSNumber(value: threshold)) ?? ""
-                return "<\(thresholdText) \(symbol)"
-            }
+        let display = assetAmountDisplay(amount, symbol: symbol, chainName: chainName)
+        let places = Int(display.places)
+        if display.belowThreshold {
+            let thresholdFormatter = decimalFormatter(
+                minimumFractionDigits: places, maximumFractionDigits: places, usesGroupingSeparator: false
+            )
+            let thresholdText = thresholdFormatter.string(from: NSNumber(value: display.threshold)) ?? ""
+            return "<\(thresholdText) \(symbol)"
         }
+        let formatter = decimalFormatter(
+            minimumFractionDigits: 0, maximumFractionDigits: places, usesGroupingSeparator: false
+        )
         let formattedValue = formatter.string(from: NSNumber(value: amount)) ?? ""
         return "\(formattedValue) \(symbol)"
+    }
+
+    /// The asset's own decimals — the contract's, the mint's, or the chain's
+    /// `native_decimals` — paired with the amount, which is what decides how
+    /// many of them are worth printing.
+    func assetAmountDisplay(_ amount: Double, symbol: String, chainName: String) -> AssetAmountDisplay {
+        formattingAssetAmountDisplay(
+            amount: amount, assetDecimals: UInt32(supportedAssetDecimals(symbol: symbol, chainName: chainName)))
     }
     func formattedTransactionAmount(_ transaction: TransactionRecord) -> String? {
         guard transaction.amount.isFinite, transaction.amount >= 0 else { return nil }
@@ -117,16 +120,6 @@ extension AppState {
         )
     }
     func supportedAssetDecimals(symbol: String, chainName: String) -> Int { supportedDecimalPlaces(for: symbol, chainName: chainName) }
-    func displayAssetDecimals(symbol: String, chainName: String) -> Int { displayDecimalPlaces(for: symbol, chainName: chainName) }
-    func assetDisplayDecimalPlaces(for chainName: String) -> Int {
-        let settingsKey = nativeAssetDisplaySettingsKey(for: chainName)
-        let defaultValue = defaultAssetDisplayDecimalsByChain()[settingsKey] ?? 3
-        return assetDisplayDecimalsByChain[settingsKey].map { min(max($0, 0), 30) } ?? defaultValue
-    }
-    func setAssetDisplayDecimalPlaces(_ decimals: Int, for chainName: String) {
-        let settingsKey = nativeAssetDisplaySettingsKey(for: chainName)
-        assetDisplayDecimalsByChain[settingsKey] = min(max(decimals, 0), 30)
-    }
     func currentValue(for coin: Coin) -> Double { coin.amount * currentPrice(for: coin) }
     func currentValueIfAvailable(for coin: Coin) -> Double? {
         guard isPricedAsset(coin) else { return nil }
@@ -221,46 +214,17 @@ extension AppState {
         cachedTokenPreferenceLookupKeys[cacheKey] = value
         return value
     }
+    /// How many decimals the asset itself has — a token's from its catalog
+    /// entry, a native asset's from the chain table. Memoized; invalidated by
+    /// `tokenPreferences.didSet`.
     private func supportedDecimalPlaces(for symbol: String, chainName: String) -> Int {
-        Int(assetDecimalsResolution(symbol: symbol, chainName: chainName).supported)
-    }
-    private func displayDecimalPlaces(for symbol: String, chainName: String) -> Int {
-        Int(assetDecimalsResolution(symbol: symbol, chainName: chainName).display)
-    }
-    /// Memoized wrapper over the Rust `formattingResolveAssetDecimals` FFI.
-    /// Invalidated by `assetDisplayDecimalsByChain.didSet` (display prefs
-    /// change) and `tokenPreferences.didSet` (custom token decimals change).
-    func assetDecimalsResolution(symbol: String, chainName: String) -> (supported: UInt32, display: UInt32) {
         let cacheKey = "\(chainName)|\(symbol)"
-        if let cached = cachedAssetDecimalsResolutions[cacheKey] { return cached }
-        let assetDisplay = UInt32(min(max(assetDisplayDecimalPlaces(for: chainName), 0), 30))
-        let tokenOverride = cachedTokenPreferenceByChainAndSymbol[tokenPreferenceLookupKey(chainName: chainName, symbol: symbol)].map {
-            entry in
-            TokenPreferenceOverride(
-                chainName: chainName, symbol: symbol,
-                decimals: UInt32(max(0, entry.decimals)),
-                displayDecimals: entry.displayDecimals.map { UInt32(max(0, $0)) }
-            )
-        }
-        let result = formattingResolveAssetDecimals(
-            request: AssetDecimalsRequest(
-                chainName: chainName, symbol: symbol,
-                assetDisplayDecimals: assetDisplay,
-                tokenOverride: tokenOverride
-            ))
-        let pair: (supported: UInt32, display: UInt32) = (result.supported, result.display)
-        cachedAssetDecimalsResolutions[cacheKey] = pair
-        return pair
-    }
-    /// The smallest amount that still shows at `visibleDecimals` places.
-    private func assetMinimumVisibleAmount(visibleDecimals: UInt32) -> Double {
-        visibleDecimals == 0 ? 0 : pow(10, -Double(visibleDecimals))
-    }
-    func defaultAssetDisplayDecimalsByChain(defaultValue: Int = 3) -> [String: Int] {
-        let normalized = UInt32(min(max(defaultValue, 0), 30))
-        return CachedCoreHelpers.defaultAssetDisplayDecimalsByChain(defaultValue: normalized).mapValues { Int($0) }
-    }
-    private func nativeAssetDisplaySettingsKey(for chainName: String) -> String {
-        CachedCoreHelpers.nativeAssetDisplaySettingsKey(chainName: chainName)
+        if let cached = cachedAssetDecimals[cacheKey] { return Int(cached) }
+        let tokenDecimals = cachedTokenPreferenceByChainAndSymbol[
+            tokenPreferenceLookupKey(chainName: chainName, symbol: symbol)
+        ].map { UInt32(max(0, $0.decimals)) }
+        let value = formattingSupportedDecimalPlaces(chainName: chainName, overrideDecimals: tokenDecimals)
+        cachedAssetDecimals[cacheKey] = value
+        return Int(value)
     }
 }

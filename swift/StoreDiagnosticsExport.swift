@@ -6,15 +6,6 @@ import Foundation
 // `DiagnosticsBundlePayload` and `DiagnosticsEnvironmentMetadata` are UniFFI
 // records — Swift sees them as plain structs via the generated bindings.
 
-// The `SimpleAddressHistoryDiag` protocol and its ten conformances stood here.
-// It existed to treat ten identically-shaped records as one type; core stamped
-// those out with a macro from a single field list, so there is one record now
-// and nothing left for the protocol to unify.
-
-// `simpleEntries`, `utxoJSON`, `evmJSON` and `simpleJSON` stood here: three
-// wrappers that read history out of core's registry and handed it straight back
-// so core could build JSON from it. `coreDiagnosticsJson` reads its own store.
-
 extension AppState {
     /// Every mainnet — the same set the diagnostics hub offers a screen for.
     /// Was a hand-typed list of twenty-four display names, the fifth copy of

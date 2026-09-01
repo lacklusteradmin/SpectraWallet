@@ -84,17 +84,33 @@ extension AppState {
 
     /// Fetch ERC-20/EVM token balances for all EVM wallets and merge them into holdings.
     /// Called after each native refresh cycle so token balances stay current alongside native balances.
-    func refreshEVMTokenBalances() async {
+    /// Fetch and apply known-token balances for every chain that hosts
+    /// tokens.
+    ///
+    /// This was two functions with the same body: one gated on `isEVMChain`
+    /// and one on `chainName == "Solana"`, differing only in how they
+    /// normalised a contract address. Eighteen chains have a
+    /// `tokenHostingChain` — twelve EVM plus Solana, Tron, Sui, Aptos, TON
+    /// and NEAR — so **Tron, Sui, Aptos, TON and NEAR known tokens had their
+    /// balances fetched by nothing**. Core can fetch all of them; the refresh
+    /// engine only fetches native balances, and Swift only asked for two
+    /// families.
+    ///
+    /// The contract normaliser is core's, which is what makes the merge safe:
+    /// EVM lowercases, and a TON jetton address is case-significant base64
+    /// that `normalizeEVMAddress` would have corrupted.
+    func refreshKnownTokenBalances() async {
         for wallet in wallets {
-            guard isEVMChain(wallet.selectedChain),
-                  let tokenChain = TokenTrackingChain.forChainName(wallet.selectedChain),
-                  let chainId = Chain(displayName: wallet.selectedChain)?.id,
-                  let address = resolvedAddress(for: wallet, chainName: wallet.selectedChain)
+            guard let tokenChain = TokenHostingChain.forChainName(wallet.selectedChain),
+                let chainId = Chain(displayName: wallet.selectedChain)?.id,
+                let address = resolvedAddress(for: wallet, chainName: wallet.selectedChain)
             else { continue }
-            let trackedTokens = enabledEVMTrackedTokens(for: tokenChain)
-            guard !trackedTokens.isEmpty else { continue }
-            let descriptors = trackedTokens.map {
-                TokenDescriptor(contract: $0.contractAddress, symbol: $0.symbol, decimals: UInt8($0.decimals), name: $0.name)
+            let known = enabledTokenPreferences(for: tokenChain)
+            guard !known.isEmpty else { continue }
+            let descriptors = known.map {
+                TokenDescriptor(
+                    contract: $0.contractAddress, symbol: $0.symbol,
+                    decimals: UInt8(clamping: $0.decimals), name: $0.name)
             }
             guard let results = try? await WalletServiceBridge.shared.fetchTokenBalances(
                 chainId: chainId, address: address, tokens: descriptors
@@ -105,8 +121,9 @@ extension AppState {
             var holdingsChanged = false
             for result in results {
                 let amount = Double(result.balanceDisplay) ?? 0
-                let normalizedContract = normalizeEVMAddress(result.contractAddress)
-                let key = holdingKey(wallet.selectedChain, result.symbol, normalizedContract.isEmpty ? nil : normalizedContract)
+                let contract = normalizedKnownTokenIdentifier(
+                    for: tokenChain, contractAddress: result.contractAddress)
+                let key = holdingKey(wallet.selectedChain, result.symbol, contract.isEmpty ? nil : contract)
                 if let existingIdx = existingKeys.firstIndex(of: key) {
                     guard holdings[existingIdx].amount != amount else { continue }
                     let old = holdings[existingIdx]
@@ -117,7 +134,9 @@ extension AppState {
                         amount: amount, priceUsd: old.priceUsd)
                     holdingsChanged = true
                 } else if amount > 0 {
-                    guard let entry = trackedTokens.first(where: { $0.contractAddress == normalizedContract }) else { continue }
+                    guard let entry = known.first(where: {
+                        normalizedKnownTokenIdentifier(for: tokenChain, contractAddress: $0.contractAddress) == contract
+                    }) else { continue }
                     holdings.append(CoreCoin(
                         id: UUID().uuidString,
                         name: entry.name, symbol: entry.symbol,
@@ -129,56 +148,6 @@ extension AppState {
             }
             if holdingsChanged {
                 await updateWalletsIfPresent([walletByReplacingHoldings(wallets[currentIdx], with: holdings)])
-                print("[BalanceRefresh] applied token balances for wallet '\(wallet.name)' tokens=\(results.filter { (Double($0.balanceDisplay) ?? 0) > 0 }.map { "\($0.symbol):\($0.balanceDisplay)" })")
-            }
-        }
-        await refreshSolanaTokenBalances()
-    }
-
-    private func refreshSolanaTokenBalances() async {
-        let solanaTokens = enabledTokenPreferences(for: .solana)
-        guard !solanaTokens.isEmpty else { return }
-        let descriptors = solanaTokens.map {
-            TokenDescriptor(contract: $0.contractAddress, symbol: $0.symbol, decimals: UInt8(clamping: $0.decimals), name: $0.name)
-        }
-        for wallet in wallets {
-            guard wallet.selectedChain == "Solana",
-                  let address = resolvedAddress(for: wallet, chainName: "Solana")
-            else { continue }
-            guard let results = try? await WalletServiceBridge.shared.fetchTokenBalances(
-                chainId: Chain.solana.id, address: address, tokens: descriptors
-            ) else { continue }
-            guard let currentIdx = wallets.firstIndex(where: { $0.id == wallet.id }) else { continue }
-            var holdings = wallets[currentIdx].holdings
-            let existingKeys = holdings.map { holdingKey($0.chainName, $0.symbol, $0.contractAddress) }
-            var holdingsChanged = false
-            for result in results {
-                let amount = Double(result.balanceDisplay) ?? 0
-                let mintAddress = result.contractAddress
-                let key = holdingKey("Solana", result.symbol, mintAddress.isEmpty ? nil : mintAddress)
-                if let existingIdx = existingKeys.firstIndex(of: key) {
-                    guard holdings[existingIdx].amount != amount else { continue }
-                    let old = holdings[existingIdx]
-                    holdings[existingIdx] = CoreCoin(
-                        id: old.id, name: old.name, symbol: old.symbol,
-                        coinGeckoId: old.coinGeckoId, chainName: old.chainName,
-                        tokenStandard: old.tokenStandard, contractAddress: old.contractAddress,
-                        amount: amount, priceUsd: old.priceUsd)
-                    holdingsChanged = true
-                } else if amount > 0 {
-                    guard let entry = solanaTokens.first(where: { $0.contractAddress == mintAddress }) else { continue }
-                    holdings.append(CoreCoin(
-                        id: UUID().uuidString,
-                        name: entry.name, symbol: entry.symbol,
-                        coinGeckoId: entry.coinGeckoId, chainName: "Solana",
-                        tokenStandard: entry.tokenStandard, contractAddress: entry.contractAddress,
-                        amount: amount, priceUsd: 0))
-                    holdingsChanged = true
-                }
-            }
-            if holdingsChanged {
-                await updateWalletsIfPresent([walletByReplacingHoldings(wallets[currentIdx], with: holdings)])
-                print("[BalanceRefresh] applied Solana SPL balances for wallet '\(wallet.name)' tokens=\(results.filter { (Double($0.balanceDisplay) ?? 0) > 0 }.map { "\($0.symbol):\($0.balanceDisplay)" })")
             }
         }
     }
@@ -260,14 +229,14 @@ extension AppState {
         // chain id 0 when the registry lookup missed — a fallback that can only
         // fire when the registry has no Ethereum, and then reports mainnet as
         // not-mainnet. `false` says the same thing without inventing a chain.
-        let isEthereumMainnet = evmChainContext(for: "Ethereum")?.isEthereumMainnet ?? false
+        let isEthereumMainnet = EVMChainContext(chainName: "Ethereum")?.isEthereumMainnet ?? false
         let summary = try await WalletServiceBridge.shared.fetchNativeBalanceSummary(chainId: Chain.ethereum.id, address: address)
         let nativeBalance = Double(summary.amountDisplay) ?? 0
         let tokenBalances =
             isEthereumMainnet
             ? ((try? await WalletServiceBridge.shared.fetchTokenBalances(
                 chainId: Chain.ethereum.id, address: address,
-                tokens: enabledEVMTrackedTokens(for: .ethereum).map { TokenDescriptor(contract: $0.contractAddress, symbol: $0.symbol, decimals: UInt8($0.decimals), name: nil) }
+                tokens: enabledKnownTokens(for: .ethereum).map { TokenDescriptor(contract: $0.contractAddress, symbol: $0.symbol, decimals: UInt8($0.decimals), name: nil) }
             )) ?? [])
             : []
         return (nativeBalance, tokenBalances)

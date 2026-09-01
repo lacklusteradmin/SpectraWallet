@@ -41,7 +41,7 @@ extension AppState {
         chainDiagnosticsState.diagnosticsRevision &+= 1
     }
     func recordUTXOHistoryDiagnostics(
-        chainName: String, walletID: String, _ entry: BitcoinHistoryDiagnostics
+        chainName: String, walletID: String, _ entry: UtxoHistoryDiagnostics
     ) {
         diagnosticsRecord(chainName: chainName, walletId: walletID, entry: .utxo(entry: entry))
         chainDiagnosticsState.diagnosticsRevision &+= 1

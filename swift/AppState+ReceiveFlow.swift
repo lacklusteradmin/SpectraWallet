@@ -26,15 +26,15 @@ extension AppState {
     }
     func refreshPendingTransactions(includeHistoryRefreshes: Bool = true, historyRefreshInterval: TimeInterval = 120) async {
         guard !isRefreshingPendingTransactions else { return }
-        let trackedChains = pendingTransactionMaintenanceChainIDs
-        guard !trackedChains.isEmpty else { return }
+        let tokenHostingChains = pendingTransactionMaintenanceChainIDs
+        guard !tokenHostingChains.isEmpty else { return }
         let startedAt = CFAbsoluteTimeGetCurrent()
         isRefreshingPendingTransactions = true
         defer {
             isRefreshingPendingTransactions = false
             recordPerformanceSample(
                 "refresh_pending_transactions", startedAt: startedAt,
-                metadata: "chains=\(trackedChains.count) include_history=\(includeHistoryRefreshes)"
+                metadata: "chains=\(tokenHostingChains.count) include_history=\(includeHistoryRefreshes)"
             )
         }
         lastPendingTransactionRefreshAt = Date()
@@ -47,7 +47,7 @@ extension AppState {
             ids: trackedTransactionIDs.map(\.uuidString))
         await withTaskGroup(of: Void.self) { group in
             for descriptor in Self.chainRefreshDescriptors.values {
-                guard trackedChains.contains(descriptor.chainID), let pending = descriptor.executePendingOnly else { continue }
+                guard tokenHostingChains.contains(descriptor.chainID), let pending = descriptor.executePendingOnly else { continue }
                 group.addTask { await pending(self) }
             }
             await group.waitForAll()
@@ -61,7 +61,7 @@ extension AppState {
             }
         }
         guard includeHistoryRefreshes else { refreshLastSent(); return }
-        await runPendingTransactionHistoryRefreshes(for: trackedChains, interval: historyRefreshInterval)
+        await runPendingTransactionHistoryRefreshes(for: tokenHostingChains, interval: historyRefreshInterval)
         refreshLastSent()
     }
     var pendingTransactionRefreshStatusText: String? {
@@ -75,12 +75,10 @@ extension AppState {
         }
         let isEvm = isEVMChain(receiveCoin.chainName)
         let chainAddress: String?
-        // Twenty-four arms stood here and twenty of them were
-        // `resolved<Chain>Address(for:)`, which is `resolvedChainAddress(for:chain:)`
-        // with the chain the case already names. What is left is the four that
-        // genuinely differ: Bitcoin reads its stored address rather than
-        // deriving, Dogecoin and the unmatched case have none, and the EVM
-        // family needs the chain name to pick a network.
+        // Only the chains that genuinely differ get an arm: Bitcoin reads its
+        // stored address rather than deriving, Dogecoin and the unmatched case
+        // have none, and the EVM family needs the chain name to pick a network.
+        // Everything else is `resolvedChainAddress(for:chain:)`.
         //
         // Through `mainnetCounterpart` because that is what
         // `core_receive_address_resolver` dispatches on — a testnet coin gets
@@ -118,12 +116,10 @@ extension AppState {
                 (try? await activateLiveReceiveAddress(receiveEVMAddress(for: evmAddress), for: wallet, chainName: receiveCoin.chainName)) ?? ""
             return
         }
-        // Eighteen `(chainName, resolvedXAddress)` pairs stood here and a linear
-        // scan picked the one matching the coin's chain — which is
-        // `resolvedAddress(for:chainName:)`, the function that already states
-        // the four exceptions (Bitcoin and Dogecoin pick their derivation chain
-        // from the selected network, Cardano prefers a stored address, Monero
-        // only ever has one). The EVM family returned above; what is left is
+        // `resolvedAddress(for:chainName:)` states the four exceptions itself
+        // (Bitcoin and Dogecoin pick their derivation chain from the selected
+        // network, Cardano prefers a stored address, Monero only ever has one).
+        // The EVM family returned above; what is left is
         // the UTXO five, which reserve a receive index below, and everything
         // else, which resolves.
         if let chain = Chain(displayName: receiveCoin.chainName), !chain.supportsDeepUTXODiscovery {
@@ -134,9 +130,8 @@ extension AppState {
         }
         guard receiveCoin.symbol == "BTC" else {
             // The native coin of a chain that hands out reserved receive
-            // indices. Four `(symbol, chain)` pairs stood here; both halves are
-            // registry columns, and `supportsDeepUTXODiscovery` is the same
-            // fact that decides whether an index is reserved at all.
+            // indices. `supportsDeepUTXODiscovery` is the same fact that decides
+            // whether an index is reserved at all.
             let receiveChain = Chain(displayName: receiveCoin.chainName)
             if let receiveChain, receiveChain.supportsDeepUTXODiscovery,
                 receiveCoin.symbol == receiveChain.gasTokenSymbol
@@ -192,7 +187,10 @@ extension AppState {
         let coins = importDraft.selectedCoins
         let trimmedSeedPhrase = importDraft.seedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }.joined(
             separator: " ")
-        let trimmedPrivateKey = corePrivateKeyHexNormalized(rawValue: importDraft.privateKeyInput)
+        // One call, not two: `corePrivateKeyHex` returns the normalised key
+        // or nil, so the normaliser and the "is it one" predicate cannot
+        // disagree about what normalised means.
+        let trimmedPrivateKey = corePrivateKeyHex(rawValue: importDraft.privateKeyInput) ?? ""
         let trimmedWalletPassword = importDraft.normalizedWalletPassword
         let draft = importDraft
         // Bitcoin's account xpub is the one typed value this flow still reads:
@@ -256,13 +254,11 @@ extension AppState {
             importError = "Monero watched addresses are not supported in this build."
             return
         }
-        // The Cardano guard that stood here validated `typed("Cardano")` on the
-        // *non*-watch-only path, where that value is always empty: the per-chain
-        // address fields exist only on the watch-addresses page, and all three
-        // writers of `isWatchOnlyMode` call `reset()` first, which clears them.
-        // So the guard could not fire, and Cardano's address comes from
-        // derivation like every other chain's. Watch-only entries are validated
-        // by core on the way in.
+        // No per-chain address guard belongs here: on the non-watch-only path
+        // the typed per-chain fields are always empty — they exist only on the
+        // watch-addresses page, and every writer of `isWatchOnlyMode` calls
+        // `reset()` first. Watch-only entries are validated by core on the way
+        // in.
         // The 16-row watch-only validation table, the Bitcoin address/xpub
         // guard and the seven-chain EVM guard that used to sit here are gone.
         // All three restated per-chain address formats the registry already
@@ -284,12 +280,8 @@ extension AppState {
                 addressByChainName[chainName] = address
             }
             // A seed import leaves `addressByChainName` empty: core derives one
-            // address per selected chain from the seed on the commit. What
-            // stood here built a path table, added Ethereum's entry whenever
-            // any EVM chain was selected because the family shares one address
-            // slot, and looped calling core once per chain — a rule about
-            // chains, kept in the one front end that imports more than one at
-            // a time.
+            // address per selected chain from the seed on the commit, so the
+            // address-slot rules stay in core rather than in the importer.
             if let privateKeyAddress {
                 // Core dispatches private-key derivation by chain, so there is
                 // nothing to switch on: one address, for the one chain a
@@ -461,14 +453,14 @@ extension AppState {
     func derivePrivateKeyImportAddress(privateKeyHex: String, chain: Chain) -> String? {
         try? WalletRustDerivationBridge.deriveFromPrivateKey(chain: chain, privateKeyHex: privateKeyHex).address
     }
-    static func deriveSeedPhraseAddress(
-        seedPhrase: String, chain: Chain, derivationPath: String
-    ) throws -> String {
-        try WalletDerivationLayer.deriveAddress(seedPhrase: seedPhrase, chain: chain, derivationPath: derivationPath)
-    }
+    /// One shim, not two: the `static` half existed only to be wrapped by the
+    /// instance half, which has the single caller.
     func deriveSeedPhraseAddress(seedPhrase: String, chain: Chain, derivationPath: String)
         throws -> String
-    { try Self.deriveSeedPhraseAddress(seedPhrase: seedPhrase, chain: chain, derivationPath: derivationPath) }
+    {
+        try WalletDerivationLayer.deriveAddress(
+            seedPhrase: seedPhrase, chain: chain, derivationPath: derivationPath)
+    }
     func utxoDiscoveryDerivationChain(for chainName: String) -> Chain? {
         [
             "Bitcoin": Chain.bitcoin, "Bitcoin Cash": .bitcoinCash, "Bitcoin SV": .bitcoinSv, "Litecoin": .litecoin,
@@ -554,7 +546,4 @@ extension AppState {
         return rate
     }
     func fiatRate(for currency: FiatCurrency) -> Double { fiatRateIfAvailable(for: currency) ?? (currency == .usd ? 1.0 : 0) }
-    func persistAssetDisplayDecimalsByChain() {
-        persistCodableToSQLite(assetDisplayDecimalsByChain, key: Self.assetDisplayDecimalsByChainDefaultsKey)
-    }
 }

@@ -5,8 +5,7 @@ struct SettingsView: View {
     @State private var isShowingResetWalletWarning: Bool = false
     private enum Route: Hashable {
         case addressBook
-        case trackedTokens
-        case decimalDisplay
+        case knownTokens
         case appearance
         case refreshFrequency
         case priceAlerts
@@ -28,11 +27,10 @@ struct SettingsView: View {
             Form {
                 Section(AppLocalization.string("Wallet & Transfers")) {
                     settingsLink("Address Book", systemImage: "book.closed", route: .addressBook)
-                    settingsLink("Tracked Tokens", systemImage: "bitcoinsign.bank.building", route: .trackedTokens)
+                    settingsLink("Known Tokens", systemImage: "bitcoinsign.bank.building", route: .knownTokens)
                 }
                 Section(AppLocalization.string("Display")) {
                     settingsToggle("Hide balances", systemImage: "eye.slash", isOn: preferenceBinding(\.hideBalances))
-                    settingsLink("Decimal Display", systemImage: "number", route: .decimalDisplay)
                     settingsLink("Appearance", systemImage: "circle.lefthalf.filled", route: .appearance)
                 }
                 Section(AppLocalization.string("Sync & Automation")) {
@@ -94,8 +92,7 @@ struct SettingsView: View {
             .navigationDestination(for: Route.self) { route in
                 switch route {
                 case .addressBook: AddressBookView(store: store)
-                case .trackedTokens: TokenRegistrySettingsView(store: store)
-                case .decimalDisplay: DecimalDisplaySettingsView(store: store)
+                case .knownTokens: TokenRegistrySettingsView(store: store)
                 case .appearance: AppearanceSettingsView(preferences: store.preferences)
                 case .refreshFrequency: BackgroundSyncSettingsView(store: store)
                 case .priceAlerts: PriceAlertsView(store: store)

@@ -17,10 +17,8 @@ struct AddressBookView: View {
     ///
     /// A terse example of what an address on this chain looks like.
     ///
-    /// A fifteen-arm switch stood here, one arm of it naming nine EVM chains.
-    /// It is a fact about the chain, so it is a catalog column now — which
-    /// also means the EVM family gets it from `is_evm` rather than from a list
-    /// that had Base, Polygon, Linea and the rest missing.
+    /// A fact about the chain, so it is a catalog column; the EVM family gets
+    /// it from `is_evm` rather than from a list of member names.
     private var addressPrompt: String {
         Chain(displayName: selectedChainName)?.addressPrefixHint ?? ""
     }

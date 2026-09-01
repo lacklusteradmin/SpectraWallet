@@ -49,7 +49,7 @@ extension AppState {
     func resolvedEthereumAddress(for wallet: ImportedWallet) -> String? { resolvedEVMAddress(for: wallet, chainName: "Ethereum") }
 
     func resolvedEVMAddress(for wallet: ImportedWallet, chainName: String) -> String? {
-        guard isEVMChain(chainName), evmChainContext(for: chainName) != nil else { return nil }
+        guard isEVMChain(chainName), EVMChainContext(chainName: chainName) != nil else { return nil }
         if let seedPhrase = storedSeedPhrase(for: wallet.id),
             let derivationChain = WalletDerivationLayer.evmSeedDerivationChain(for: chainName),
             let derived = try? WalletDerivationLayer.deriveAddress(
@@ -64,26 +64,27 @@ extension AppState {
         return nil
     }
 
-    func resolvedBitcoinAddress(for wallet: ImportedWallet) -> String? {
-        let chainID = walletNetworkChainID(for: wallet, family: "bitcoin")
-        let chain = seedDerivationChain(forChainID: chainID) ?? .bitcoin
+    /// The address for a chain that has a testnet the app can switch to, so the
+    /// derivation chain depends on the wallet's network mode rather than on the
+    /// name alone.
+    ///
+    /// Bitcoin and Dogecoin were separate copies of this. Dogecoin's built its
+    /// path from a hand-written `m/44'/3'/…` helper — the same path the
+    /// registry already carries, but assembled by hand, so it read the wallet's
+    /// derivation *account* and then discarded the rest of the resolution: a
+    /// custom Dogecoin path was honoured everywhere except when resolving the
+    /// address it produced.
+    func resolvedNetworkModeAddress(
+        for wallet: ImportedWallet,
+        family: String,
+        fallback: Chain
+    ) -> String? {
+        let chainID = walletNetworkChainID(for: wallet, family: family)
+        let chain = seedDerivationChain(forChainID: chainID) ?? fallback
         return resolveDerivedOrStoredAddress(
             for: wallet, chain: chain,
             derivationPath: walletDerivationPath(for: wallet, chain: chain),
-            storedAddress: wallet.bitcoinAddress,
-            validationKind: (Chain(id: chainID)?.addressValidationKind ?? "")
-        )
-    }
-
-    func resolvedDogecoinAddress(for wallet: ImportedWallet) -> String? {
-        let chainID = walletNetworkChainID(for: wallet, family: "dogecoin")
-        let chain = seedDerivationChain(forChainID: chainID) ?? .dogecoin
-        let derivationPath = WalletDerivationPath.dogecoin(
-            account: derivationAccount(for: wallet, chain: chain), branch: .external, index: 0
-        )
-        return resolveDerivedOrStoredAddress(
-            for: wallet, chain: chain,
-            derivationPath: derivationPath, storedAddress: wallet.dogecoinAddress,
+            storedAddress: wallet.address(forChainNamed: fallback.displayName),
             validationKind: (Chain(id: chainID)?.addressValidationKind ?? "")
         )
     }
@@ -169,8 +170,8 @@ extension AppState {
         // Monero only ever uses a stored address — routing it through the
         // generic path would make it attempt a derivation it has no key for.
         switch chainName {
-        case "Bitcoin": return resolvedBitcoinAddress(for: wallet)
-        case "Dogecoin": return resolvedDogecoinAddress(for: wallet)
+        case "Bitcoin": return resolvedNetworkModeAddress(for: wallet, family: "bitcoin", fallback: .bitcoin)
+        case "Dogecoin": return resolvedNetworkModeAddress(for: wallet, family: "dogecoin", fallback: .dogecoin)
         case "Cardano": return resolvedCardanoAddress(for: wallet)
         case "Monero": return resolvedMoneroAddress(for: wallet)
         default: break

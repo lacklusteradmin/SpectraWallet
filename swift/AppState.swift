@@ -549,7 +549,7 @@ final class AppState {
             tokenPreferencesPersist.fire { [weak self] in self?.commitTokenPreferences() }
             // Token-decimals overrides feed into the Rust asset-decimals
             // resolver, so drop the memoized cache when the overrides change.
-            cachedAssetDecimalsResolutions = [:]
+            cachedAssetDecimals = [:]
             tokenPreferenceRebuild.fire { [weak self] in
                 guard let self else { return }
                 self.rebuildTokenPreferenceDerivedState()
@@ -588,9 +588,9 @@ final class AppState {
         }
         set { _cachedResolvedTokenPreferences = newValue }
     }
-    var cachedTokenPreferencesByChain: [TokenTrackingChain: [TokenPreferenceEntry]] = [:] { didSet { bumpCachesRevision() } }
+    var cachedTokenPreferencesByChain: [TokenHostingChain: [TokenPreferenceEntry]] = [:] { didSet { bumpCachesRevision() } }
     var cachedResolvedTokenPreferencesBySymbol: [String: [TokenPreferenceEntry]] = [:] { didSet { bumpCachesRevision() } }
-    var cachedEnabledTrackedTokenPreferences: [TokenPreferenceEntry] = [] { didSet { bumpCachesRevision() } }
+    var cachedEnabledKnownTokenPreferences: [TokenPreferenceEntry] = [] { didSet { bumpCachesRevision() } }
     var cachedTokenPreferenceByChainAndSymbol: [String: TokenPreferenceEntry] = [:] { didSet { bumpCachesRevision() } }
     @ObservationIgnored var cachedCurrencyFormatters: [String: NumberFormatter] = [:]
     @ObservationIgnored var cachedDecimalFormatters: [String: NumberFormatter] = [:]
@@ -600,7 +600,7 @@ final class AppState {
     // invalidate when the inputs (display-decimals prefs, token prefs,
     // selected fiat currency) change.
     @ObservationIgnored var cachedFiatAmountRules: [String: FiatAmountRules] = [:]
-    @ObservationIgnored var cachedAssetDecimalsResolutions: [String: (supported: UInt32, display: UInt32)] = [:]
+    @ObservationIgnored var cachedAssetDecimals: [String: UInt32] = [:]
 /// Chains whose selected network is a testnet, so their coins are not quoted.
 ///
     /// Core decides; this is the projection the render path reads.
@@ -637,18 +637,6 @@ final class AppState {
     /// Split out so views that only care about preferences stop getting
     /// invalidated whenever wallets / balances / transactions mutate.
     let preferences = AppUserPreferences()
-    var assetDisplayDecimalsByChain: [String: Int] = [:] {
-        didSet {
-            let normalized = assetDisplayDecimalsByChain.mapValues { min(max($0, 0), 30) }
-            if normalized != assetDisplayDecimalsByChain {
-                assetDisplayDecimalsByChain = normalized
-                return
-            }
-            persistAssetDisplayDecimalsByChain()
-            cachedDecimalFormatters = [:]
-            cachedAssetDecimalsResolutions = [:]
-        }
-    }
     var backgroundSyncProfile: BackgroundSyncProfile = .balanced {
         didSet {
             guard backgroundSyncProfile != oldValue else { return }
@@ -738,7 +726,6 @@ final class AppState {
     /// `PlatformPreferences`. The twenty keys that stood beside it, one per
     /// setting, went with the settings into core.
     static let platformPreferencesDefaultsKey = "settings.platform.v1"
-    static let assetDisplayDecimalsByChainDefaultsKey = "settings.assetDisplayDecimalsByChain.v1"
 
     static let torEnabledDefaultsKey = "tor.enabled"
     static let torUseCustomProxyDefaultsKey = "tor.useCustomProxy"
@@ -992,8 +979,8 @@ final class AppState {
         importDraft.canImportWallet
     }
     var resolvedTokenPreferences: [TokenPreferenceEntry] { cachedResolvedTokenPreferences }
-    var tokenPreferencesByChain: [TokenTrackingChain: [TokenPreferenceEntry]] { cachedTokenPreferencesByChain }
-    var enabledTrackedTokenPreferences: [TokenPreferenceEntry] { cachedEnabledTrackedTokenPreferences }
+    var tokenPreferencesByChain: [TokenHostingChain: [TokenPreferenceEntry]] { cachedTokenPreferencesByChain }
+    var enabledKnownTokenPreferences: [TokenPreferenceEntry] { cachedEnabledKnownTokenPreferences }
     func setTokenPreferenceEnabled(id: String, isEnabled: Bool) {
         guard let index = tokenPreferences.firstIndex(where: { $0.id == id }) else { return }
         tokenPreferences[index].isEnabled = isEnabled
@@ -1011,23 +998,10 @@ final class AppState {
     func updateCustomTokenPreferenceDecimals(id: String, decimals: Int) {
         guard let index = tokenPreferences.firstIndex(where: { $0.id == id && !$0.isBuiltIn }) else { return }
         tokenPreferences[index].decimals = Int32(min(max(decimals, 0), 30))
-        if let displayDecimals = tokenPreferences[index].displayDecimals {
-            tokenPreferences[index].displayDecimals = min(displayDecimals, tokenPreferences[index].decimals)
-        }
-    }
-    func updateTokenPreferenceDisplayDecimals(id: String, decimals: Int) {
-        guard let index = tokenPreferences.firstIndex(where: { $0.id == id }) else { return }
-        let supportedDecimals = max(tokenPreferences[index].decimals, 0)
-        tokenPreferences[index].displayDecimals = min(Int32(max(decimals, 0)), supportedDecimals)
-    }
-    func resetNativeAssetDisplayDecimals() { assetDisplayDecimalsByChain = defaultAssetDisplayDecimalsByChain() }
-    func resetTrackedTokenDisplayDecimals() {
-        guard !tokenPreferences.isEmpty else { return }
-        for index in tokenPreferences.indices { tokenPreferences[index].displayDecimals = nil }
     }
     @discardableResult
     func addCustomTokenPreference(
-        chain: TokenTrackingChain, symbol: String, name: String, contractAddress: String,
+        chain: TokenHostingChain, symbol: String, name: String, contractAddress: String,
         coinGeckoId: String = "", decimals: Int
     ) -> String? {
         let normalizedSymbol = symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
@@ -1070,10 +1044,10 @@ final class AppState {
         }
         let duplicateExists = tokenPreferences.contains { entry in
             entry.chain == chain
-                && normalizedTrackedTokenIdentifier(for: entry.chain, contractAddress: entry.contractAddress)
-                    == normalizedTrackedTokenIdentifier(for: chain, contractAddress: normalizedContract)
+                && normalizedKnownTokenIdentifier(for: entry.chain, contractAddress: entry.contractAddress)
+                    == normalizedKnownTokenIdentifier(for: chain, contractAddress: normalizedContract)
         }
-        guard !duplicateExists else { return AppLocalization.format("This token is already tracked for %@.", chain.rawValue) }
+        guard !duplicateExists else { return AppLocalization.format("%@ already knows this token.", chain.rawValue) }
         tokenPreferences.append(
             TokenPreferenceEntry(
                 chain: chain, name: normalizedName, symbol: normalizedSymbol, tokenStandard: chain.tokenStandard,
@@ -1089,26 +1063,26 @@ final class AppState {
         }
         return nil
     }
-    func enabledTokenPreferences(for chain: TokenTrackingChain) -> [TokenPreferenceEntry] {
-        enabledTrackedTokenPreferences.filter { $0.chain == chain }
+    func enabledTokenPreferences(for chain: TokenHostingChain) -> [TokenPreferenceEntry] {
+        enabledKnownTokenPreferences.filter { $0.chain == chain }
     }
-    /// The canonical form of a tracked token's contract address.
-    func normalizedTrackedTokenIdentifier(for chain: TokenTrackingChain, contractAddress: String) -> String {
+    /// The canonical form of a known token's contract address.
+    func normalizedKnownTokenIdentifier(for chain: TokenHostingChain, contractAddress: String) -> String {
         normalizeTokenIdentifier(contractAddress: contractAddress, chainName: chain.rawValue) ?? ""
     }
-    /// Map a `TokenTrackingChain` to the user's currently-enabled tracked tokens for that chain.
-    /// All 12 EVM chains share this helper; routing via `TokenTrackingChain.forChainName(...)`
+    /// Map a `TokenHostingChain` to the user's currently-enabled known tokens for that chain.
+    /// All 12 EVM chains share this helper; routing via `TokenHostingChain.forChainName(...)`
     /// at the call site picks the right chain.
-    func enabledEVMTrackedTokens(for chain: TokenTrackingChain) -> [ChainTokenRegistryEntry] {
+    func enabledKnownTokens(for chain: TokenHostingChain) -> [ChainTokenRegistryEntry] {
         enabledTokenPreferences(for: chain).map { e in
             ChainTokenRegistryEntry(
                 chain: e.chain, name: e.name, symbol: e.symbol, tokenStandard: e.tokenStandard,
                 contractAddress: normalizeEVMAddress(e.contractAddress), coinGeckoId: e.coinGeckoId,
-                decimals: Int(e.decimals), displayDecimals: e.displayDecimals.map(Int.init), category: e.category, isBuiltIn: e.isBuiltIn,
+                decimals: Int(e.decimals), category: e.category, isBuiltIn: e.isBuiltIn,
                 isEnabledByDefault: e.isEnabled)
         }
     }
-    func solanaTrackedTokens(includeDisabled: Bool = false) -> [String: SolanaBalanceService.KnownTokenMetadata] {
+    func solanaKnownTokens(includeDisabled: Bool = false) -> [String: SolanaBalanceService.KnownTokenMetadata] {
         var result: [String: SolanaBalanceService.KnownTokenMetadata] = [:]
         let entries = includeDisabled ? tokenPreferences.filter { $0.chain == .solana } : enabledTokenPreferences(for: .solana)
         for entry in entries {

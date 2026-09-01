@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 struct AddCustomTokenView: View {
     let store: AppState
-    @State private var selectedChain: TokenTrackingChain = .ethereum
+    @State private var selectedChain: TokenHostingChain = .ethereum
     @State private var symbolInput: String = ""
     @State private var nameInput: String = ""
     @State private var contractInput: String = ""
@@ -20,7 +20,7 @@ struct AddCustomTokenView: View {
             }
             Section(AppLocalization.string("Token Details")) {
                 Picker(AppLocalization.string("Chain"), selection: $selectedChain) {
-                    ForEach(TokenTrackingChain.allCases) { chain in Text(chain.rawValue).tag(chain) }
+                    ForEach(TokenHostingChain.allCases) { chain in Text(chain.rawValue).tag(chain) }
                 }
                 TextField(AppLocalization.string("Symbol"), text: $symbolInput).textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()

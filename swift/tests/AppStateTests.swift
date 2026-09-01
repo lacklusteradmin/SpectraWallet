@@ -103,7 +103,7 @@ import Foundation
                 "storage holds the mainnet-derived address"
             )
             // What the user is shown is derived for the selected network.
-            let shown = store.wallets.first.flatMap { store.resolvedBitcoinAddress(for: $0) } ?? ""
+            let shown = store.wallets.first.flatMap { store.resolvedNetworkModeAddress(for: $0, family: "bitcoin", fallback: .bitcoin) } ?? ""
             XCTAssertTrue(
                 AddressValidation.isValid(
                     shown, kind: Chain(id: "bitcoin-testnet-4")?.addressValidationKind ?? ""),

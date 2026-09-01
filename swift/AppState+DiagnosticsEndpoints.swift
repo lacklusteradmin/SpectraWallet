@@ -7,30 +7,30 @@ import SwiftUI
 //   * HTTP probes via Rust FFI (httpRequest / httpPostJson / diagnosticsProbeJsonrpc)
 //   * async orchestration + pending-transaction mutation against
 //     AppState's transaction model.
-// All pure JSON decoding and diagnostic-record construction has been
-// lifted — see `diagnosticsHistoryEntryCount`, `diagnosticsHistorySummary`,
-// `diagnosticsMakeEvm{Running,Error,Success}`, and
-// `diagnosticsParseJsonrpcProbe` in the generated UniFFI bindings.
+// JSON decoding and diagnostic-record construction live in core — see
+// `diagnosticsHistoryEntryCount`, `diagnosticsHistorySummary`,
+// `diagnosticsMakeEvm{Running,Error,Success}` and `diagnosticsParseJsonrpcProbe`
+// in the generated bindings.
 @MainActor
 extension AppState {
     // MARK: Bitcoin-family history diagnostics
 
-    func runBitcoinHistoryDiagnostics() async {
+    func runUtxoHistoryDiagnostics() async {
         guard !self[historyRunFor: "Bitcoin"].isRunning else { return }
         self[historyRunFor: "Bitcoin"].isRunning = true
         defer { self[historyRunFor: "Bitcoin"].isRunning = false }
         let btcWallets = wallets.filter { $0.selectedChain == "Bitcoin" }
         guard !btcWallets.isEmpty else { self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date(); return }
-        for wallet in btcWallets { await runBitcoinHistoryDiagnosticsInner(for: wallet) }
+        for wallet in btcWallets { await runUtxoHistoryDiagnosticsInner(for: wallet) }
     }
-    func runBitcoinHistoryDiagnostics(for walletID: String) async {
+    func runUtxoHistoryDiagnostics(for walletID: String) async {
         guard !self[historyRunFor: "Bitcoin"].isRunning else { return }
         guard let wallet = wallets.first(where: { $0.id == walletID }), wallet.selectedChain == "Bitcoin" else { return }
         self[historyRunFor: "Bitcoin"].isRunning = true
         defer { self[historyRunFor: "Bitcoin"].isRunning = false }
-        await runBitcoinHistoryDiagnosticsInner(for: wallet)
+        await runUtxoHistoryDiagnosticsInner(for: wallet)
     }
-    private func runBitcoinHistoryDiagnosticsInner(for wallet: ImportedWallet) async {
+    private func runUtxoHistoryDiagnosticsInner(for wallet: ImportedWallet) async {
         let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? wallet.name
         do {
             let page = try await withTimeout(seconds: 20) {
@@ -39,16 +39,16 @@ extension AppState {
             if identifier.isEmpty {
                 recordUTXOHistoryDiagnostics(
                     chainName: "Bitcoin", walletID: wallet.id,
-                    BitcoinHistoryDiagnostics(walletId: wallet.id, identifier: "missing address/xpub", sourceUsed: "none", transactionCount: 0, nextCursor: nil, error: "Wallet has no BTC address or xpub configured."))
+                    UtxoHistoryDiagnostics(walletId: wallet.id, identifier: "missing address/xpub", sourceUsed: "none", transactionCount: 0, nextCursor: nil, error: "Wallet has no BTC address or xpub configured."))
             } else {
                 recordUTXOHistoryDiagnostics(
                     chainName: "Bitcoin", walletID: wallet.id,
-                    BitcoinHistoryDiagnostics(walletId: wallet.id, identifier: identifier, sourceUsed: page.sourceUsed, transactionCount: Int32(page.snapshots.count), nextCursor: page.nextCursor, error: nil))
+                    UtxoHistoryDiagnostics(walletId: wallet.id, identifier: identifier, sourceUsed: page.sourceUsed, transactionCount: Int32(page.snapshots.count), nextCursor: page.nextCursor, error: nil))
             }
         } catch {
             recordUTXOHistoryDiagnostics(
                 chainName: "Bitcoin", walletID: wallet.id,
-                BitcoinHistoryDiagnostics(walletId: wallet.id, identifier: wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? "unknown", sourceUsed: "none", transactionCount: 0, nextCursor: nil, error: error.localizedDescription))
+                UtxoHistoryDiagnostics(walletId: wallet.id, identifier: wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? "unknown", sourceUsed: "none", transactionCount: 0, nextCursor: nil, error: error.localizedDescription))
         }
         self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
     }
@@ -57,10 +57,8 @@ extension AppState {
 
     /// The three diagnostics runs for one chain.
     ///
-    /// Each closure is handed the `Chain` the row is keyed by, so a row stops
-    /// spelling its own key: `chainName: chain.displayName` inside the `.tron` entry was
-    /// the dictionary key written a second time, once per closure. The chain id
-    /// and the two key paths went the same way a pass earlier.
+    /// Each closure is handed the `Chain` the row is keyed by, so a row never
+    /// spells its own key a second time.
     struct ChainDiagnosticsDescriptor {
         let runHistory: (AppState, Chain) async -> Void
         let runHistoryForWallet: ((AppState, Chain, String) async -> Void)?
@@ -75,13 +73,20 @@ extension AppState {
     }
     static let chainDiagDescriptors: [Chain: ChainDiagnosticsDescriptor] = [
         .bitcoin: .init(
-            runHistory: { store, _ in await store.runBitcoinHistoryDiagnostics() },
-            runHistoryForWallet: { store, _, id in await store.runBitcoinHistoryDiagnostics(for: id) },
+            runHistory: { store, _ in await store.runUtxoHistoryDiagnostics() },
+            runHistoryForWallet: { store, _, id in await store.runUtxoHistoryDiagnostics(for: id) },
             runEndpoints: { store, _ in await store.runBitcoinEndpointReachabilityDiagnostics() }
         ),
         .dogecoin: .init(
-            runHistory: { store, _ in await store.runDogecoinHistoryDiagnostics() },
-            // Dogecoin's probe was a copy of the shared one under its own name.
+            runHistory: { store, chain in await store.runRustHistoryDiagnosticsForAllWallets(
+                chainName: chain.displayName,
+                resolveAddress: { store.resolvedNetworkModeAddress(for: $0, family: "dogecoin", fallback: .dogecoin) },
+                make: { UtxoHistoryDiagnostics(walletId: "", identifier: $0, sourceUsed: $1, transactionCount: Int32($2), nextCursor: nil, error: $3) },
+                record: { walletID, entry in store.recordUTXOHistoryDiagnostics(
+                    chainName: chain.displayName, walletID: walletID,
+                    UtxoHistoryDiagnostics(
+                        walletId: walletID, identifier: entry.identifier, sourceUsed: entry.sourceUsed,
+                        transactionCount: entry.transactionCount, nextCursor: nil, error: entry.error)) }) },
             runEndpoints: { store, chain in await store.runCatalogEndpointReachabilityDiagnostics(for: chain.displayName) }
         ),
         .tron: .init(
@@ -577,13 +582,13 @@ extension AppState {
             chainName: chainName, resolveAddress: resolveAddress,
             fetchDiagnostics: { address in
                 let count = Int((try? await WalletServiceBridge.shared.fetchHistorySummary(chainId: chainId, address: address).entryCount) ?? 0)
-                return BitcoinHistoryDiagnostics(
+                return UtxoHistoryDiagnostics(
                     walletId: "", identifier: address, sourceUsed: "rust", transactionCount: Int32(count), nextCursor: nil, error: nil)
             },
             storeDiagnostics: { walletID, d in
                 self.recordUTXOHistoryDiagnostics(
                     chainName: chainName, walletID: walletID,
-                    BitcoinHistoryDiagnostics(
+                    UtxoHistoryDiagnostics(
                         walletId: walletID, identifier: d.identifier, sourceUsed: d.sourceUsed,
                         transactionCount: d.transactionCount, nextCursor: d.nextCursor, error: d.error))
             })
@@ -597,7 +602,7 @@ extension AppState {
             walletID: walletID, chainName: chainName, resolveAddress: resolveAddress,
             fetchDiagnostics: { address in
                 let count = Int((try? await WalletServiceBridge.shared.fetchHistorySummary(chainId: chainId, address: address).entryCount) ?? 0)
-                return BitcoinHistoryDiagnostics(
+                return UtxoHistoryDiagnostics(
                     walletId: walletID, identifier: address, sourceUsed: "rust", transactionCount: Int32(count), nextCursor: nil, error: nil
                 )
             },

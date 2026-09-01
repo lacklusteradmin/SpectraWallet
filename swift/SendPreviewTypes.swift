@@ -24,14 +24,7 @@ struct EVMChainContext: Equatable {
         isEthereumMainnet = info.isEthereumMainnet
     }
 
-    // Fifteen `static var <chain>: EVMChainContext` accessors stood here,
-    // "kept so the existing `EVMChainContext.arbitrum` call sites read the
-    // same". Those call sites are gone — two test assertions were the only
-    // readers left, and they name the chain themselves now. A per-chain
-    // accessor on a type whose whole point is that it is built from the
-    // registry is the shape this file's own header describes as the bug.
-
-    var tokenTrackingChain: TokenTrackingChain? { TokenTrackingChain.forChainName(displayName) }
+    var tokenHostingChain: TokenHostingChain? { TokenHostingChain.forChainName(displayName) }
     var defaultDerivationPath: String { derivationPath(account: 0) }
     func derivationPath(account: UInt32) -> String { "m/44\'/\(coinType)\'/\(account)\'/0/0" }
     var defaultRPCEndpoints: [String] { AppEndpointDirectory.evmRPCEndpoints(for: displayName) }
@@ -40,11 +33,11 @@ struct EVMChainContext: Equatable {
 // Send preview types are now UniFFI-generated from Rust (core/src/wallet_core.rs).
 // Swift owns only the send *result* types (not yet lifted) + chain-specific enums used by the UI.
 
-struct EthereumSendResult: Equatable {
+struct EvmSendResult: Equatable {
     let fromAddress: String
     let transactionHash: String
     let rawTransactionHex: String
-    let preview: EthereumSendPreview
+    let preview: EvmSendPreview
     let verificationStatus: SendBroadcastVerificationStatus
 }
 
@@ -137,12 +130,9 @@ extension SendPreview {
 final class SendPreviewStore {
     /// Every chain's latest preview, keyed by preview slot.
     ///
-    /// Eighteen `var <chain>SendPreview` fields stood here, with an
-    /// eighteen-arm `apply`, an eighteen-arm `taggedPreview` and an
-    /// eighteen-line `resetAll` over them — the field list written out four
-    /// times, in terms of chain names. The slot comes from
-    /// `previewSlot(forChainNamed:)`, which asks the registry, so the EVM
-    /// family shares Ethereum's without anyone naming its members.
+    /// The slot comes from `previewSlot(forChainNamed:)`, which asks the
+    /// registry, so the EVM family shares Ethereum's without anyone naming its
+    /// members.
     private(set) var previewBySlot: [String: SendPreview] = [:]
 
     func apply(_ preview: SendPreview?, forChainNamed chainName: String) {
@@ -193,7 +183,7 @@ final class SendPreviewStore {
     // Aptos's max gas, TON's sequence. Everything else goes through
     // `estimatedFee(forChainNamed:)`, which is why there are seven of these
     // rather than eighteen.
-    var ethereumSendPreview: EthereumSendPreview? {
+    var evmSendPreview: EvmSendPreview? {
         get { if case .ethereum(let p) = previewBySlot["Ethereum"] { p } else { nil } }
         set { previewBySlot["Ethereum"] = newValue.map { .ethereum(preview: $0) } }
     }

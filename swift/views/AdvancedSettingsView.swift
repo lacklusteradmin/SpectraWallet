@@ -112,7 +112,7 @@ struct AdvancedSettingsView: View {
                     Text(pendingRefresh).font(.caption).foregroundStyle(.secondary)
                 }
                 Text(AppLocalization.format("Wallets: %lld", store.wallets.count)).font(.caption).foregroundStyle(.secondary)
-                Text(AppLocalization.format("Tracked token checks enabled: %lld", store.tokenPreferences.filter { $0.isEnabled }.count))
+                Text(AppLocalization.format("Known token checks enabled: %lld", store.tokenPreferences.filter { $0.isEnabled }.count))
                     .font(.caption).foregroundStyle(.secondary)
             }
         }.navigationTitle(AppLocalization.string("Advanced")).sheet(isPresented: $isShowingDiagnosticsExportsBrowser) {

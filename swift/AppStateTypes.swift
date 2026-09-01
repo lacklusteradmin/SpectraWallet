@@ -67,7 +67,7 @@ extension AppState {
                 return localizedStoreString("Transactions, history database, diagnostics snapshots, and cached chain state.")
             case .alertsAndContacts: return localizedStoreString("Price alerts, notification rules, and saved address book recipients.")
             case .settingsAndEndpoints:
-                return localizedStoreString("Tracked tokens, pricing and RPC settings, preferences, and icon customizations.")
+                return localizedStoreString("Known tokens, pricing and RPC settings, preferences, and icon customizations.")
             case .dashboardCustomization:
                 return localizedStoreString("Pinned assets and other home page customization choices stored on this device.")
             case .providerState:

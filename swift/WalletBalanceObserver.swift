@@ -37,7 +37,7 @@ final class WalletBalanceObserver: BalanceObserver, @unchecked Sendable {
                 // redundant Keychain write + Rust FFI cascade every cycle
                 // even when nothing changed.
             }
-            await store.refreshEVMTokenBalances()
+            await store.refreshKnownTokenBalances()
             // Refresh prices immediately after balances update so the portfolio
             // total reflects fresh amounts without waiting for the next
             // maintenance-loop tick (which can be up to 5 min away).

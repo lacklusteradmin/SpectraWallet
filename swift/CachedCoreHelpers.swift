@@ -24,11 +24,7 @@ enum CachedCoreHelpers {
     // ── Unbounded caches for fixed-domain helpers ──────────────────────
     private static var allChainsResult: [ChainEntry]?
     private static var allTokensResult: [TokenEntry]?
-    private static var supportedPrivateKeyChainNamesResult: [String]?
-    private static var nativeAssetDisplaySettingsKeys: [String: String] = [:]
-    private static var defaultAssetDisplayDecimalsByChainResult: [String: UInt32]?
     private static var stablecoinFallbackPriceUsdBySymbol: [String: Double] = [:]
-    private static var evmChainContextTags: [String: String] = [:]
     private static var seedDerivationChainRaws: [String: String?] = [:]
     private static var evmSeedDerivationChainNames: [String: String?] = [:]
     private static var receiveAddressResolvers: [String: ReceiveAddressResolverKind] = [:]
@@ -55,27 +51,8 @@ enum CachedCoreHelpers {
         allChainsResult = value
         return value
     }
-    static func supportedPrivateKeyChainNames() -> [String] {
-        if let cached = supportedPrivateKeyChainNamesResult { return cached }
-        let value = coreSupportedPrivateKeyChainNames()
-        supportedPrivateKeyChainNamesResult = value
-        return value
-    }
 
     // ── formatting.* ───────────────────────────────────────────────────
-    static func nativeAssetDisplaySettingsKey(chainName: String) -> String {
-        cached(in: &nativeAssetDisplaySettingsKeys, key: chainName) {
-            formattingNativeAssetDisplaySettingsKey(chainName: chainName)
-        }
-    }
-    static func defaultAssetDisplayDecimalsByChain(defaultValue: UInt32) -> [String: UInt32] {
-        // `defaultValue` is a caller-side fallback baked into the request;
-        // callers use a single value app-wide, so cache the whole map.
-        if let cached = defaultAssetDisplayDecimalsByChainResult { return cached }
-        let value = formattingDefaultAssetDisplayDecimalsByChain(defaultValue: defaultValue)
-        defaultAssetDisplayDecimalsByChainResult = value
-        return value
-    }
     static func stablecoinFallbackPriceUsd(symbol: String) -> Double {
         cached(in: &stablecoinFallbackPriceUsdBySymbol, key: symbol) {
             formattingStablecoinFallbackPriceUsd(symbol: symbol)
@@ -107,7 +84,7 @@ enum CachedCoreHelpers {
     }
     static func privateKeyHexIsLikely(rawValue: String) -> Bool {
         cachedBounded(in: &privateKeyHexIsLikelyCache, key: rawValue, cap: privateKeyCacheCap) {
-            corePrivateKeyHexIsLikely(rawValue: rawValue)
+            corePrivateKeyHex(rawValue: rawValue) != nil
         }
     }
     nonisolated static func chainDerivationPath(chainName: String) -> String {

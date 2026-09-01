@@ -27,48 +27,48 @@ struct WalletChainID: Hashable, Codable, Identifiable, Comparable {
             .map { ($0.id.lowercased(), $0.name) }
     )
 }
-typealias TokenTrackingChain = CoreTokenTrackingChain
+typealias TokenHostingChain = CoreTokenHostingChain
 // Deliberately **not** `RawRepresentable`, though it has a `rawValue`.
 //
 // `RawRepresentable` supplies default `==` and `hash(into:)` that route through
 // `rawValue`, and those defaults win over the conformance UniFFI generates. That
 // was harmless while `rawValue` was a self-contained switch and fatal the moment
-// it read a table keyed by this enum: `chainByTracking`'s own initializer hashed
+// it read a table keyed by this enum: `chainByHosting`'s own initializer hashed
 // its keys, which called `rawValue`, which waited on the `dispatch_once` it was
 // inside. The app trapped in `_dispatch_once_wait` before the first frame.
 //
 // Dropping the conformance keeps every `.rawValue` call site working and leaves
 // hashing to the generated `Hashable`.
-extension CoreTokenTrackingChain: CaseIterable, Codable, Identifiable {
+extension CoreTokenHostingChain: CaseIterable, Codable, Identifiable {
     // The mapping is the registry's. `chain_name` and `from_chain_name` in
     // `wallet_domain.rs` already collapsed four Rust copies of it into one, and
     // this file held three more — an eighteen-arm `init?(rawValue:)`, an
     // eighteen-arm `rawValue` and an eighteen-entry `allCases`, for an enum core
     // owns. They are a column of `core_chain_identities` now, so adding a chain
     // that hosts tokens is a registry edit and nothing here changes.
-    private static let chainByTracking: [CoreTokenTrackingChain: Chain] = Dictionary(
+    private static let chainByHosting: [CoreTokenHostingChain: Chain] = Dictionary(
         uniqueKeysWithValues: Chain.all.compactMap { chain in
-            chain.tokenTrackingChain.map { ($0, chain) }
+            chain.tokenHostingChain.map { ($0, chain) }
         })
-    private static let trackingByName: [String: CoreTokenTrackingChain] = Dictionary(
-        uniqueKeysWithValues: chainByTracking.map { ($0.value.displayName, $0.key) })
+    private static let hostingByName: [String: CoreTokenHostingChain] = Dictionary(
+        uniqueKeysWithValues: chainByHosting.map { ($0.value.displayName, $0.key) })
     public init?(rawValue: String) {
-        guard let tracking = Self.trackingByName[rawValue] else { return nil }
-        self = tracking
+        guard let hosting = Self.hostingByName[rawValue] else { return nil }
+        self = hosting
     }
     public var rawValue: String { chain?.displayName ?? "" }
 
-    /// The registry chain this tracking chain is. Every fact about it —
+    /// The registry chain this hosting chain is. Every fact about it —
     /// display name, id, colour — comes from here rather than a switch.
-    public var chain: Chain? { Self.chainByTracking[self] }
+    public var chain: Chain? { Self.chainByHosting[self] }
     /// In catalog order, which is the order every other chain list in the app
     /// uses. The hand-written array this replaces had its own ordering.
-    public static var allCases: [CoreTokenTrackingChain] { Chain.all.compactMap(\.tokenTrackingChain) }
+    public static var allCases: [CoreTokenHostingChain] { Chain.all.compactMap(\.tokenHostingChain) }
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
         let raw = try container.decode(String.self)
-        guard let v = CoreTokenTrackingChain(rawValue: raw) else {
-            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unknown TokenTrackingChain: \(raw)")
+        guard let v = CoreTokenHostingChain(rawValue: raw) else {
+            throw DecodingError.dataCorruptedError(in: container, debugDescription: "Unknown TokenHostingChain: \(raw)")
         }
         self = v
     }
@@ -90,11 +90,11 @@ extension CoreTokenTrackingChain: CaseIterable, Codable, Identifiable {
     var contractAddressPrompt: String {
         Self.chainEntryByName[rawValue.lowercased()]?.contractAddressPrompt ?? "Contract Address"
     }
-    static func forChainName(_ chainName: String) -> TokenTrackingChain? {
+    static func forChainName(_ chainName: String) -> TokenHostingChain? {
         let normalized = chainName.trimmingCharacters(in: .whitespacesAndNewlines)
         return byNormalizedName[normalized.lowercased()]
     }
-    private static let byNormalizedName: [String: TokenTrackingChain] = Dictionary(
+    private static let byNormalizedName: [String: TokenHostingChain] = Dictionary(
         uniqueKeysWithValues: allCases.map { ($0.rawValue.lowercased(), $0) }
     )
     private static let chainEntryByName: [String: ChainEntry] = {
@@ -147,7 +147,7 @@ struct ChainRegistryEntry: Identifiable {
 struct TokenVisualRegistryEntry: Identifiable {
     let title: String
     let symbol: String
-    let referenceChain: TokenTrackingChain
+    let referenceChain: TokenHostingChain
     let color: Color
     let assetName: String
     var id: String { symbol }
@@ -207,8 +207,8 @@ typealias TokenPreferenceEntry = CoreTokenPreferenceEntry
 nonisolated extension CoreTokenPreferenceEntry: Identifiable, Codable {
     // Legacy UUID-style id initializer & convenience matching Swift-era struct.
     nonisolated init(
-        id: UUID = UUID(), chain: TokenTrackingChain, name: String, symbol: String, tokenStandard: String, contractAddress: String,
-        coinGeckoId: String, decimals: Int, displayDecimals: Int? = nil, category: TokenPreferenceCategory,
+        id: UUID = UUID(), chain: TokenHostingChain, name: String, symbol: String, tokenStandard: String, contractAddress: String,
+        coinGeckoId: String, decimals: Int, category: TokenPreferenceCategory,
         isBuiltIn: Bool, isEnabled: Bool
     ) {
         self.id = id.uuidString
@@ -219,26 +219,24 @@ nonisolated extension CoreTokenPreferenceEntry: Identifiable, Codable {
         self.contractAddress = contractAddress
         self.coinGeckoId = coinGeckoId
         self.decimals = Int32(decimals)
-        self.displayDecimals = displayDecimals.map(Int32.init)
         self.category = category
         self.isBuiltIn = isBuiltIn
         self.isEnabled = isEnabled
     }
     private enum CodingKeys: String, CodingKey {
-        case id, chain, name, symbol, tokenStandard, contractAddress, coinGeckoId, decimals, displayDecimals, category,
+        case id, chain, name, symbol, tokenStandard, contractAddress, coinGeckoId, decimals, category,
             isBuiltIn, isEnabled
     }
     nonisolated public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         self.id = try c.decode(String.self, forKey: .id)
-        self.chain = try c.decode(CoreTokenTrackingChain.self, forKey: .chain)
+        self.chain = try c.decode(CoreTokenHostingChain.self, forKey: .chain)
         self.name = try c.decode(String.self, forKey: .name)
         self.symbol = try c.decode(String.self, forKey: .symbol)
         self.tokenStandard = try c.decode(String.self, forKey: .tokenStandard)
         self.contractAddress = try c.decode(String.self, forKey: .contractAddress)
         self.coinGeckoId = try c.decode(String.self, forKey: .coinGeckoId)
         self.decimals = try c.decode(Int32.self, forKey: .decimals)
-        self.displayDecimals = try c.decodeIfPresent(Int32.self, forKey: .displayDecimals)
         self.category = try c.decode(CoreTokenPreferenceCategory.self, forKey: .category)
         self.isBuiltIn = try c.decode(Bool.self, forKey: .isBuiltIn)
         self.isEnabled = try c.decode(Bool.self, forKey: .isEnabled)
@@ -253,21 +251,19 @@ nonisolated extension CoreTokenPreferenceEntry: Identifiable, Codable {
         try c.encode(contractAddress, forKey: .contractAddress)
         try c.encode(coinGeckoId, forKey: .coinGeckoId)
         try c.encode(decimals, forKey: .decimals)
-        try c.encodeIfPresent(displayDecimals, forKey: .displayDecimals)
         try c.encode(category, forKey: .category)
         try c.encode(isBuiltIn, forKey: .isBuiltIn)
         try c.encode(isEnabled, forKey: .isEnabled)
     }
 }
 struct ChainTokenRegistryEntry: Identifiable, Equatable {
-    let chain: TokenTrackingChain
+    let chain: TokenHostingChain
     let name: String
     let symbol: String
     let tokenStandard: String
     let contractAddress: String
     let coinGeckoId: String
     let decimals: Int
-    let displayDecimals: Int?
     let category: TokenPreferenceCategory
     let comment: String
     let isBuiltIn: Bool
@@ -278,8 +274,8 @@ struct ChainTokenRegistryEntry: Identifiable, Equatable {
         )
     }
     init(
-        chain: TokenTrackingChain, name: String, symbol: String, tokenStandard: String, contractAddress: String,
-        coinGeckoId: String, decimals: Int, displayDecimals: Int? = nil, category: TokenPreferenceCategory, isBuiltIn: Bool,
+        chain: TokenHostingChain, name: String, symbol: String, tokenStandard: String, contractAddress: String,
+        coinGeckoId: String, decimals: Int, category: TokenPreferenceCategory, isBuiltIn: Bool,
         comment: String = "", isEnabledByDefault: Bool
     ) {
         self.chain = chain
@@ -289,7 +285,6 @@ struct ChainTokenRegistryEntry: Identifiable, Equatable {
         self.contractAddress = contractAddress
         self.coinGeckoId = coinGeckoId
         self.decimals = decimals
-        self.displayDecimals = displayDecimals
         self.category = category
         self.comment = comment
         self.isBuiltIn = isBuiltIn
@@ -303,7 +298,6 @@ struct ChainTokenRegistryEntry: Identifiable, Equatable {
         contractAddress = tokenPreferenceEntry.contractAddress
         coinGeckoId = tokenPreferenceEntry.coinGeckoId
         decimals = Int(tokenPreferenceEntry.decimals)
-        displayDecimals = tokenPreferenceEntry.displayDecimals.map(Int.init)
         category = tokenPreferenceEntry.category
         comment = ""
         isBuiltIn = tokenPreferenceEntry.isBuiltIn
@@ -312,7 +306,7 @@ struct ChainTokenRegistryEntry: Identifiable, Equatable {
     var tokenPreferenceEntry: TokenPreferenceEntry {
         TokenPreferenceEntry(
             chain: chain, name: name, symbol: symbol, tokenStandard: tokenStandard, contractAddress: contractAddress,
-            coinGeckoId: coinGeckoId, decimals: decimals, displayDecimals: displayDecimals, category: category,
+            coinGeckoId: coinGeckoId, decimals: decimals, category: category,
             isBuiltIn: isBuiltIn, isEnabled: isEnabledByDefault
         )
     }

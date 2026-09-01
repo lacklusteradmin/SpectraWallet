@@ -100,9 +100,9 @@ extension AppState {
     /// Which those are is core's answer, from core's clock. This used to pass
     /// `lastHistoryRefreshAtByChainID` — a dictionary on this side — so the
     /// answer was only as current as the caller's copy of it.
-    func runHistoryRefreshes(for trackedChains: Set<WalletChainID>, interval: TimeInterval) async {
+    func runHistoryRefreshes(for tokenHostingChains: Set<WalletChainID>, interval: TimeInterval) async {
         let due = await WalletServiceBridge.shared.historyRefreshPlans(
-            chainIDs: trackedChains.map(\.rawValue), intervalSecs: interval)
+            chainIDs: tokenHostingChains.map(\.rawValue), intervalSecs: interval)
         let plannedHistoryChains = Set(due.compactMap(WalletChainID.init))
         guard !plannedHistoryChains.isEmpty else { return }
         await withTaskGroup(of: Void.self) { group in
@@ -118,8 +118,8 @@ extension AppState {
             await WalletServiceBridge.shared.recordHistoryRefresh(chainID: chainID.rawValue)
         }
     }
-    func runPendingTransactionHistoryRefreshes(for trackedChains: Set<WalletChainID>, interval: TimeInterval) async {
-        await runHistoryRefreshes(for: trackedChains, interval: interval)
+    func runPendingTransactionHistoryRefreshes(for tokenHostingChains: Set<WalletChainID>, interval: TimeInterval) async {
+        await runHistoryRefreshes(for: tokenHostingChains, interval: interval)
     }
     func performUserInitiatedRefresh(forChain chainName: String) async {
         let startedAt = CFAbsoluteTimeGetCurrent()

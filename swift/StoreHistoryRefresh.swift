@@ -50,7 +50,7 @@ extension NormalizedHistoryItem {
 extension AppState {
     func canLoadMoreHistory(for walletID: String) -> Bool {
         guard let wallet = cachedWalletByID[walletID],
-            let chainId = historyPaginationChainId(chainName: wallet.selectedChain)
+            let chainId = Chain(displayName: wallet.selectedChain)?.id
         else { return false }
         return !historyPaginationExhausted(chainId: chainId, walletId: walletID)
     }
@@ -63,15 +63,10 @@ extension AppState {
         defer { isLoadingMoreOnChainHistory = false }
         let eligibleWalletIDs = Set(walletIDs.filter(canLoadMoreHistory(for:)))
         let limit = AppState.HistoryPaging.endpointBatchSize
-        // The chains to page are the ones the eligible wallets are on. Three
-        // hand-written lists stood here — five UTXO names, twelve EVM names and
-        // Tron — and `canLoadMoreHistory` says yes for *any* chain the registry
-        // knows whose pagination is not exhausted. So "Load more" was offered
-        // and did nothing on eleven EVM chains (Ethereum Classic, Sei, Celo,
-        // Cronos, opBNB, zkSync Era, Sonic, Berachain, Unichain, Ink, X Layer)
-        // and on every account-based chain: Solana, XRP Ledger, Stellar,
-        // Cardano, Sui, Aptos, TON, Internet Computer, NEAR, Polkadot, Monero
-        // and the rest.
+        // The chains to page are the ones the eligible wallets are on, not a
+        // list of names: `canLoadMoreHistory` says yes for any chain the
+        // registry knows whose pagination is not exhausted, so "Load more" must
+        // reach all of them.
         //
         // Bitcoin and Dogecoin keep their own fetch — HD xpub expansion, and a
         // confirmed-fee path; every EVM chain pages through the token history;
@@ -249,7 +244,7 @@ extension AppState {
                 setHistoryCursor(chainId: Chain.bitcoin.id, walletId: wallet.id, cursor: page.nextCursor)
                 recordUTXOHistoryDiagnostics(
                     chainName: "Bitcoin", walletID: wallet.id,
-                    BitcoinHistoryDiagnostics(
+                    UtxoHistoryDiagnostics(
                         walletId: wallet.id, identifier: identifier, sourceUsed: page.sourceUsed,
                         transactionCount: Int32(page.snapshots.count), nextCursor: page.nextCursor, error: nil))
                 self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
@@ -270,7 +265,7 @@ extension AppState {
                 let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? ""
                 recordUTXOHistoryDiagnostics(
                     chainName: "Bitcoin", walletID: wallet.id,
-                    BitcoinHistoryDiagnostics(
+                    UtxoHistoryDiagnostics(
                         walletId: wallet.id, identifier: identifier, sourceUsed: "none", transactionCount: 0,
                         nextCursor: nil, error: error.localizedDescription))
                 self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
@@ -404,7 +399,7 @@ extension AppState {
     func refreshEVMTokenTransactions(
         chainName: String, maxResults: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil
     ) async {
-        guard evmChainContext(for: chainName) != nil else { return }
+        guard EVMChainContext(chainName: chainName) != nil else { return }
         let walletSnapshot = wallets
         let walletsToRefresh =
             plannedEVMHistoryWallets(
@@ -439,7 +434,7 @@ extension AppState {
         var encounteredErrors = false
         let unknownTimestamp = Date.distantPast
         let requestedPageSize = max(20, min(maxResults ?? HistoryPaging.endpointBatchSize, 500))
-        let evmChainId: String = historyPaginationChainId(chainName: chainName) ?? Chain.bnbChain.id
+        let evmChainId: String = Chain(displayName: chainName)?.id ?? Chain.bnbChain.id
         if !loadMore {
             for walletID in Set(walletsToRefresh.map { $0.0.id }) {
                 resetHistoryPagination(chainId: evmChainId, walletId: walletID)
@@ -451,8 +446,8 @@ extension AppState {
             if loadMore && historyPaginationExhausted(chainId: evmChainId, walletId: representativeWallet.id) { continue }
             let currentPage = max(1, historyPaginationPage(chainId: evmChainId, walletId: representativeWallet.id))
             let page = loadMore ? (currentPage + 1) : currentPage
-            let trackedTokens: [ChainTokenRegistryEntry]? =
-                TokenTrackingChain.forChainName(chainName).map { enabledEVMTrackedTokens(for: $0) }
+            let knownTokens: [ChainTokenRegistryEntry]? =
+                TokenHostingChain.forChainName(chainName).map { enabledKnownTokens(for: $0) }
             var decodedPage = EvmHistoryPageDecoded(tokens: [], native: [])
             var tokenDiagnostics: EthereumTokenTransferHistoryDiagnostics?
             var tokenHistoryError: Error?
@@ -461,7 +456,7 @@ extension AppState {
                 continue
             }
             let tokenDescriptors: [TokenDescriptor] =
-                (trackedTokens ?? []).map { TokenDescriptor(contract: $0.contractAddress, symbol: $0.symbol, decimals: UInt8($0.decimals), name: $0.name) }
+                (knownTokens ?? []).map { TokenDescriptor(contract: $0.contractAddress, symbol: $0.symbol, decimals: UInt8($0.decimals), name: $0.name) }
             do {
                 decodedPage = try await WalletServiceBridge.shared.fetchEVMHistoryPage(
                     chainId: chainId, address: normalizedAddress, tokens: tokenDescriptors, page: page, pageSize: requestedPageSize

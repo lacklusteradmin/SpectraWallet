@@ -48,16 +48,9 @@ enum WalletDerivationLayer {
     }
 }
 
-// MARK: ─ (merged from Presets.swift)
-
 enum WalletDerivationBranch: Int {
     case external = 0
     case change = 1
 }
 
-enum WalletDerivationPath {
-    static func dogecoin(account: UInt32 = 0, branch: WalletDerivationBranch = .external, index: UInt32 = 0) -> String {
-        "m/44'/3'/\(account)'/\(branch.rawValue)/\(index)"
-    }
-}
 

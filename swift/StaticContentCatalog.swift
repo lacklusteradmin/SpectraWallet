@@ -244,7 +244,7 @@ enum TokenVisualRegistryCatalog {
         for token in listAllBuiltinTokens() {
             let normalizedSymbol = token.symbol.uppercased()
             guard seen.insert(normalizedSymbol).inserted else { continue }
-            guard let referenceChain = tokenTrackingChainFor(token.chain) else { continue }
+            guard let referenceChain = tokenHostingChainFor(token.chain) else { continue }
             entries.append(
                 TokenVisualRegistryEntry(
                     title: token.name, symbol: token.symbol, referenceChain: referenceChain,
@@ -298,24 +298,24 @@ struct EndpointsContentCopy: Decodable {
         StaticContentCatalog.loadRequiredResource("EndpointsContent", as: EndpointsContentCopy.self)
     }
 }
-/// The token-tracking chain a name or id stands for.
-private func tokenTrackingChainFor(_ value: String) -> TokenTrackingChain? {
+/// The token-hosting chain a name or id stands for.
+private func tokenHostingChainFor(_ value: String) -> TokenHostingChain? {
     let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     guard !normalized.isEmpty else { return nil }
     let chain = Chain(id: normalized) ?? Chain.all.first { $0.displayName.lowercased() == normalized }
-    return chain?.tokenTrackingChain
+    return chain?.tokenHostingChain
 }
 extension ChainTokenRegistryEntry {
     static let builtIn: [ChainTokenRegistryEntry] = {
         listAllBuiltinTokens().compactMap { entry -> ChainTokenRegistryEntry? in
-            guard let chain = tokenTrackingChainFor(entry.chain) else { return nil }
+            guard let chain = tokenHostingChainFor(entry.chain) else { return nil }
             let category: TokenPreferenceCategory = entry.tags.lazy
                 .compactMap { TokenPreferenceCategory(rawValue: $0) }
                 .first ?? .custom
             return ChainTokenRegistryEntry(
                 chain: chain, name: entry.name, symbol: entry.symbol, tokenStandard: entry.tokenStandard,
                 contractAddress: entry.contract, coinGeckoId: entry.coingeckoId,
-                decimals: Int(entry.decimals), displayDecimals: entry.displayDecimals.map(Int.init),
+                decimals: Int(entry.decimals),
                 category: category, isBuiltIn: true, comment: entry.comment, isEnabledByDefault: entry.enabled
             )
         }

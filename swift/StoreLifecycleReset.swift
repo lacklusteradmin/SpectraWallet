@@ -11,7 +11,7 @@ extension AppState {
         suppressWalletSideEffects = true
         // Price alerts + address book are loaded async via
         // `reloadPersistedStateFromSQLite()` from the typed Rust SQLite store.
-        // Built-in tokens only. The user's tracked list is core state and
+        // Built-in tokens only. The user's known-token list is core state and
         // arrives in `reloadPersistedStateFromSQLite()`; reading a second copy
         // from UserDefaults here would race it and usually win.
         tokenPreferences = ChainTokenRegistryEntry.builtIn.map(\.tokenPreferenceEntry)
@@ -24,9 +24,6 @@ extension AppState {
         // `syncChainOwnedAddressManagementState` runs there too: it reserves
         // receive indices, so it must not run before core has loaded the
         // keypool or it would reserve against an empty table.
-        if let storedAssetDisplayDecimalsByChain = loadAssetDisplayDecimalsByChain() {
-            assetDisplayDecimalsByChain = storedAssetDisplayDecimalsByChain
-        }
         // Pinned dashboard assets are a core setting now; they arrive with
         // the rest of `CoreAppState`. The UserDefaults key they used to be
         // seeded from has had no writer since that move.
@@ -164,13 +161,10 @@ extension AppState {
         Task { try? await WalletServiceBridge.shared.clearOperationalEvents(chainName: nil) }
         selfTests = [:]
         diagnostics.clearOperationalLogs()
-        // A thirty-two entry key-path list stood here setting `isRunning` and
-        // `isChecking` to false on sixteen named chains — two lines *after*
-        // `historyRunByChain` and `endpointHealthByChain` were emptied. Both
-        // subscripts insert a default row on write, so the loop did not clear
-        // anything: it put sixteen default rows back into maps the reset had
-        // just emptied. Deleting it resets more, not less, and for every chain
-        // rather than the sixteen someone last remembered.
+        // Nothing clears `isRunning`/`isChecking` per chain below this point:
+        // the `historyRunByChain` and `endpointHealthByChain` subscripts insert
+        // a default row on write, so touching them after the maps are emptied
+        // puts rows back rather than clearing any.
         isLoadingMoreOnChainHistory = false
         tronLastSendErrorDetails = nil
         tronLastSendErrorAt = nil
@@ -206,7 +200,6 @@ extension AppState {
         UserDefaults.standard.removeObject(forKey: Self.tokenPreferencesDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.fiatRatesFromUSDDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.livePricesDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.assetDisplayDecimalsByChainDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.torEnabledDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.torUseCustomProxyDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.torCustomProxyAddressDefaultsKey)
@@ -215,7 +208,6 @@ extension AppState {
         livePrices = [:]
         quoteRefreshError = nil
         fiatRatesRefreshError = nil
-        assetDisplayDecimalsByChain = defaultAssetDisplayDecimalsByChain()
         // Every setting core owns, back to core's own defaults.
         if let transition = try? await WalletServiceBridge.shared.applyStateCommand(.resetAppSettings) {
             let epoch = beginCoreStateRead()

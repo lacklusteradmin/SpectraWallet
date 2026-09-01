@@ -73,7 +73,7 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func fetchEvmSendPreviewTyped(
         chainId: String, from: String, to: String, valueWei: String, dataHex: String,
         explicitNonce: Int64?, customFees: EvmCustomFeeConfiguration?
-    ) async throws -> EthereumSendPreview? {
+    ) async throws -> EvmSendPreview? {
         try await service().fetchEvmSendPreviewTyped(
             chainId: chainId, from: from, to: to, valueWei: valueWei, dataHex: dataHex,
             explicitNonce: explicitNonce, customFees: customFees)
@@ -153,7 +153,7 @@ extension WalletServiceBridge {
         try await service().evaluatePriceAlerts(prices: prices)
     }
     /// The dashboard's rows. Only the live prices go out — core holds the
-    /// holdings, the tracked tokens, the pins and the selected networks.
+    /// holdings, the known tokens, the pins and the selected networks.
     func dashboardAssetGroups(prices: [String: Double]) async throws -> [CoreDashboardAssetGroup] {
         try await service().dashboardAssetGroups(prices: prices)
     }

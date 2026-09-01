@@ -9,7 +9,7 @@ extension AppState {
             cachedResolvedTokenPreferencesBySymbol = Dictionary(
                 grouping: resolvedPreferences, by: { $0.symbol.uppercased() }
             )
-            cachedEnabledTrackedTokenPreferences = resolvedPreferences.filter(\.isEnabled)
+            cachedEnabledKnownTokenPreferences = resolvedPreferences.filter(\.isEnabled)
             cachedTokenPreferenceByChainAndSymbol = resolvedPreferences.reduce(into: [:]) { partialResult, entry in
                 partialResult[tokenPreferenceLookupKey(chainName: entry.chain.rawValue, symbol: entry.symbol)] = entry
             }

@@ -37,12 +37,11 @@ extension AppState {
         case .bitcoinCash: await refreshBitcoinCashSendPreview()
         case .bitcoinSV: await refreshBitcoinSVSendPreview()
         case .litecoin: await refreshLitecoinSendPreview()
-        case .ethereum: await refreshEthereumSendPreview()
+        case .ethereum: await refreshEvmSendPreview()
         case .dogecoin: await refreshDogecoinSendPreview()
         case .tron: await refreshTronSendPreview()
-        // Eleven arms stood here and every one of them said "the chain this
-        // coin is on", spelled out. They are the chains core previews through
-        // one entry point, which is what `Chain::simple_preview_chain` names.
+        // The chains core previews through one entry point — which is what
+        // `Chain::simple_preview_chain` names.
         case .some: await refreshSendPreview(forChainNamed: selectedSendCoin.chainName)
         case nil: break
         }

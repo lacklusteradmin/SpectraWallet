@@ -58,10 +58,13 @@ extension Chain: Identifiable {
     var supportsDeepUTXODiscovery: Bool { identity?.supportsDeepUtxoDiscovery ?? false }
     /// A watch-only import can carry addresses for this chain.
     var supportsWatchOnlyImport: Bool { identity?.supportsWatchOnlyImport ?? false }
+
+    /// A private key alone yields an address on this chain.
+    var derivesFromPrivateKey: Bool { identity?.derivesFromPrivateKey ?? false }
     /// The chain has protocol-native staking the staking tab can drive.
     var supportsStaking: Bool { identity?.supportsStaking ?? false }
-    /// Which `TokenTrackingChain` this chain is, if it can host tracked tokens.
-    var tokenTrackingChain: TokenTrackingChain? { identity?.tokenTrackingChain }
+    /// Which `TokenHostingChain` this chain is, if it can host known tokens.
+    var tokenHostingChain: TokenHostingChain? { identity?.tokenHostingChain }
     var sendExecutionShape: SendExecutionShape? { identity?.sendExecutionShape }
     /// The JSON-RPC method that answers "is this node alive", or nil when this
     /// chain's endpoints are checked over plain HTTP.

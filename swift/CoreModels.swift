@@ -531,14 +531,14 @@ struct TransactionRecord: Identifiable, Equatable, Sendable {
     /// The chain part of a token's icon identifier, for chains that host
     /// tokens.
     ///
-    /// Six chains were named here out of the eighteen `tokenTrackingChain`
+    /// Six chains were named here out of the eighteen `tokenHostingChain`
     /// knows, so a token on Polygon, Base, Sui, TON or NEAR produced no
     /// identifier and got no icon lookup at all. The slug is not parsed —
     /// `entry(matchingAssetIdentifier:)` matches the symbol fragment — so the
     /// registry id serves, and BNB Chain's `"bnb-chain"` was never read as
     /// anything but text.
     private var transactionIconChainSlug: String? {
-        guard let chain = Chain(displayName: chainName), chain.tokenTrackingChain != nil else {
+        guard let chain = Chain(displayName: chainName), chain.tokenHostingChain != nil else {
             return nil
         }
         return chain.id

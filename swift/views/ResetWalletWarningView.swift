@@ -48,7 +48,7 @@ struct ResetWalletWarningView: View {
                     }
                     if selectedScopes.contains(.settingsAndEndpoints) {
                         Label(
-                            AppLocalization.string("Tracked tokens, API keys, endpoint settings, preferences, and custom icons"),
+                            AppLocalization.string("Known tokens, API keys, endpoint settings, preferences, and custom icons"),
                             systemImage: "slider.horizontal.3")
                     }
                     if selectedScopes.contains(.dashboardCustomization) {

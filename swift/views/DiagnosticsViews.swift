@@ -76,11 +76,8 @@ struct StandardChainDiagnosticsDispatch {
     }
     /// How many wallets reported, and which source each used.
     ///
-    /// Two five-way switches on `diagnosticsShape` stood here, reaching into
-    /// whichever of core's five registries matched the shape to take `.count`
-    /// and `.sourceUsed` — the two fields every shape has. Core knows the
-    /// shape and owns the records, so it answers with the two numbers and no
-    /// diagnostics record crosses the boundary to be counted.
+    /// Core knows the shape and owns the records, so it answers with the two
+    /// numbers and no diagnostics record crosses the boundary to be counted.
     ///
     /// `revision` is unused, and is the point: reading it makes the summary
     /// depend on the observable that changes when a run writes, so the screen

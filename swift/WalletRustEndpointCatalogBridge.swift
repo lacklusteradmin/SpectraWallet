@@ -101,9 +101,15 @@ enum AppEndpointDirectory {
     static func bitcoinWalletStoreDefaultBaseURLs(forChainID chainID: String) -> [String] {
         byChainID[chainID]?.bitcoinWalletStore ?? []
     }
+    /// Built from the explorer record this bridge already holds.
+    ///
+    /// Was an export whose only content beyond `endpoint + hash` was a
+    /// `chain_name == "Aptos"` branch appending `?network=mainnet`. That is a
+    /// property of the explorer's URL format, so it is a catalog column now
+    /// and every chain's URL is the same expression.
     static func transactionExplorerURL(for chainName: String, transactionHash: String) -> URL? {
-        guard let urlString = (try? coreTransactionExplorerUrl(chainName: chainName, transactionHash: transactionHash)) ?? nil else { return nil }
-        return URL(string: urlString)
+        guard let explorer = entry(chainName)?.transactionExplorer else { return nil }
+        return URL(string: "\(explorer.endpoint)\(transactionHash)\(explorer.txSuffix)")
     }
     /// Every chain the registry knows.
     static let liveChainNames: [String] = Chain.all.map(\.displayName)

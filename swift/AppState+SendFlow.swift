@@ -73,13 +73,13 @@ extension AppState {
         case .maxBelowPriority: return localizedStoreString("Max Fee must be greater than or equal to Priority Fee.")
         }
     }
-    func customEthereumFeeConfiguration() -> EthereumCustomFeeConfiguration? {
+    func customEthereumFeeConfiguration() -> EvmCustomFeeConfiguration? {
         guard useCustomEthereumFees else { return nil }
         guard customEthereumFeeValidationError == nil else { return nil }
         guard let maxFee = Double(customEthereumMaxFeeGwei.trimmingCharacters(in: .whitespacesAndNewlines)),
             let priorityFee = Double(customEthereumPriorityFeeGwei.trimmingCharacters(in: .whitespacesAndNewlines))
         else { return nil }
-        return EthereumCustomFeeConfiguration(maxFeePerGasGwei: maxFee, maxPriorityFeePerGasGwei: priorityFee)
+        return EvmCustomFeeConfiguration(maxFeePerGasGwei: maxFee, maxPriorityFeePerGasGwei: priorityFee)
     }
     var customEthereumNonceValidationError: String? {
         let code = coreEthereumManualNonceValidation(
@@ -202,12 +202,6 @@ extension AppState {
             return message
         }
     }
-    /// The registry's answer, not a 15-case switch over a tag string. The tag
-    /// was produced for every EVM chain; it was this switch that dropped ten of
-    /// them on the floor.
-    func evmChainContext(for chainName: String) -> EVMChainContext? {
-        EVMChainContext(chainName: chainName)
-    }
     func isEVMChain(_ chainName: String) -> Bool { (Chain(displayName: chainName)?.isEVM ?? false) }
     /// The custom RPC this chain is pointed at, if it is set and valid.
     func configuredEVMRPCEndpointURL(for chainName: String) -> URL? {
@@ -216,20 +210,26 @@ extension AppState {
         guard !trimmed.isEmpty else { return nil }
         return URL(string: trimmed)
     }
-    func supportedEVMToken(for coin: Coin) -> ChainTokenRegistryEntry? {
-        guard evmChainContext(for: coin.chainName) != nil else { return nil }
-        // A chain's native asset is never one of its tokens. This used to be
-        // six hand-written chain/symbol pairs covering a fraction of the EVM
-        // chains; the registry has the full table.
-        if Chain(displayName: coin.chainName)?.gasTokenSymbol == coin.symbol {
-            return nil
+    /// The known-token entry for a holding, on any chain that hosts tokens.
+    ///
+    /// The contract normaliser is core's rather than `normalizeEVMAddress`, so
+    /// a TON jetton's case-significant address is not lowercased into a
+    /// non-match.
+    func supportedToken(for coin: Coin) -> ChainTokenRegistryEntry? {
+        guard let tokenChain = TokenHostingChain.forChainName(coin.chainName) else { return nil }
+        // A chain's native asset is never one of its tokens.
+        if Chain(displayName: coin.chainName)?.gasTokenSymbol == coin.symbol { return nil }
+        let chainTokens = enabledKnownTokens(for: tokenChain)
+        guard let contractAddress = coin.contractAddress else {
+            return chainTokens.first { $0.symbol == coin.symbol }
         }
-        let chainTokens = TokenTrackingChain.forChainName(coin.chainName).map { enabledEVMTrackedTokens(for: $0) } ?? []
-        if let contractAddress = coin.contractAddress {
-            let normalizedContract = normalizeEVMAddress(contractAddress)
-            return chainTokens.first { $0.symbol == coin.symbol && $0.contractAddress == normalizedContract }
+        let normalized = normalizedKnownTokenIdentifier(
+            for: tokenChain, contractAddress: contractAddress)
+        return chainTokens.first {
+            $0.symbol == coin.symbol
+                && normalizedKnownTokenIdentifier(for: tokenChain, contractAddress: $0.contractAddress)
+                    == normalized
         }
-        return chainTokens.first { $0.symbol == coin.symbol }
     }
 
     /// The address is judged against the network the family is on.
@@ -336,14 +336,10 @@ extension AppState {
         let isValid = !isEmpty && isValidAddress(trimmed, for: chainName)
         if !isEmpty, isValid { return AppLocalization.format("Valid %@ address.", chainName) }
 
-        // The sentence a chain has of its own, looked up by id.
-        //
-        // An eleven-entry dictionary of `(empty, invalid)` pairs stood here,
-        // with an EVM arm and a `Sui || Aptos` arm below it. The sentences are
-        // content, so they live in the locale files keyed by chain id; the
-        // chains that have none fall back to a template built from the
-        // catalog's `address_prefix_hint`, which covers every chain that has
-        // an example instead of the eleven that had a sentence.
+        // The sentence a chain has of its own, looked up by id. These are
+        // content, so they live in the locale files keyed by chain id; a chain
+        // with none falls back to a template built from the catalog's
+        // `address_prefix_hint`.
         guard let chain = Chain(displayName: chainName) else {
             return AppLocalization.format("Enter a valid %@ address.", chainName)
         }
@@ -537,30 +533,6 @@ extension AppState {
             refreshPending: { await self.refreshPendingTransactions(chainName: chainName) })
     }
 
-    func runDogecoinHistoryDiagnostics() async {
-        guard !self[historyRunFor: "Dogecoin"].isRunning else { return }
-        self[historyRunFor: "Dogecoin"].isRunning = true; defer { self[historyRunFor: "Dogecoin"].isRunning = false }
-        let walletsToRefresh = wallets.compactMap { w -> (ImportedWallet, String)? in
-            guard w.selectedChain == "Dogecoin", let address = resolvedDogecoinAddress(for: w) else { return nil }
-            return (w, address)
-        }
-        guard !walletsToRefresh.isEmpty else { self[historyRunFor: "Dogecoin"].lastUpdatedAt = Date(); return }
-        for (wallet, address) in walletsToRefresh {
-            do {
-                let count = try await withTimeout(seconds: 20) {
-                    try await WalletServiceBridge.shared.fetchHistorySummary(chainId: Chain.dogecoin.id, address: address).entryCount
-                }
-                recordUTXOHistoryDiagnostics(
-                    chainName: "Dogecoin", walletID: wallet.id,
-                    BitcoinHistoryDiagnostics(walletId: wallet.id, identifier: address, sourceUsed: "rust", transactionCount: Int32(count), nextCursor: nil, error: nil))
-            } catch {
-                recordUTXOHistoryDiagnostics(
-                    chainName: "Dogecoin", walletID: wallet.id,
-                    BitcoinHistoryDiagnostics(walletId: wallet.id, identifier: address, sourceUsed: "none", transactionCount: 0, nextCursor: nil, error: error.localizedDescription))
-            }
-            self[historyRunFor: "Dogecoin"].lastUpdatedAt = Date()
-        }
-    }
     func startNetworkPathMonitorIfNeeded() {
         #if canImport(Network)
             networkPathMonitor.pathUpdateHandler = { [weak self] path in
@@ -1202,11 +1174,9 @@ extension AppState {
                 let m = chainRiskProbeMessages(
                     chainName: "Bitcoin", balanceLabel: "balance", balanceNonPositive: btcBalance <= 0, hasHistory: btcSummary.utxoCount > 0)
                 warning = m.warning; infoMessage = m.info
-            // Thirteen names stood here, and the ten EVM mainnets outside them —
-            // Sei, Celo, Cronos, opBNB, zkSync Era, Sonic, Berachain, Unichain,
-            // Ink and X Layer — fell to `default`, which is "no warning". The
-            // probe is the same call for every EVM chain; membership is the
-            // registry's.
+            // The probe is the same call for every EVM chain, so membership is
+            // the registry's — a name list here silently means "no warning" for
+            // whichever chains it forgets.
             case let name where Chain(displayName: name)?.isEVM == true:
                 guard let chainId = Chain(displayName: coin.chainName)?.id else {
                     warning = nil
@@ -1218,13 +1188,22 @@ extension AppState {
                     chainId: chainId, address: normalizedAddress
                 )
                 let hasHistory = probe.nonce > 0
-                if coin.symbol == "ETH" || coin.symbol == "BNB" || coin.symbol == "AVAX" || coin.symbol == "ARB" || coin.symbol == "OP" {
+                // The chain's own gas token, which is `gasTokenSymbol`. Five
+                // symbols were named here and the list was wrong in both
+                // directions: ARB and OP are governance tokens, not what
+                // Arbitrum and Optimism charge gas in — so an ARB send checked
+                // the *ETH* balance — and ten chains' actual gas tokens (ETC,
+                // HYPE, POL, MNT, SEI, CELO, CRO, S, BERA, OKB) were absent,
+                // fell to the token branch, found no token, and produced no
+                // warning at all. Same pair, same mistake as
+                // `is_native_evm_asset` had.
+                if coin.symbol == Chain(displayName: coin.chainName)?.gasTokenSymbol {
                     let m = chainRiskProbeMessages(
                         chainName: coin.chainName, balanceLabel: "\(coin.symbol) balance",
                         balanceNonPositive: probe.balanceEth <= 0,
                         hasHistory: hasHistory)
                     warning = m.warning; infoMessage = m.info
-                } else if let token = supportedEVMToken(for: coin) {
+                } else if let token = supportedToken(for: coin) {
                     let tokenBalances = try await WalletServiceBridge.shared.fetchTokenBalances(
                         chainId: chainId, address: normalizedAddress,
                         tokens: [TokenDescriptor(contract: token.contractAddress, symbol: token.symbol, decimals: UInt8(token.decimals), name: nil)])
@@ -1240,7 +1219,12 @@ extension AppState {
                     warning = nil; infoMessage = nil
                 }
             case "Tron":
-                if coin.symbol == "TRX" || coin.symbol == "USDT" {
+                // TRX, or any token the catalog knows on Tron. This named TRX
+                // and USDT, so the other four Tron tokens were sent with no
+                // destination check at all — and the one it did check was
+                // pinned to a hardcoded contract and six decimals.
+                let tronToken = supportedToken(for: coin)
+                if coin.symbol == Chain.tron.gasTokenSymbol || tronToken != nil {
                     let tronSummary = try await WalletServiceBridge.shared.fetchNativeBalanceSummary(
                         chainId: Chain.tron.id, address: destinationForProbe)
                     let tronSun = UInt64(tronSummary.smallestUnit) ?? 0
@@ -1248,13 +1232,15 @@ extension AppState {
                         ((try? await WalletServiceBridge.shared.fetchHistorySummary(
                             chainId: Chain.tron.id, address: destinationForProbe))?.entryCount ?? 0) > 0
                     let balance: Double
-                    if coin.symbol == "TRX" {
-                        balance = Double(tronSun) / 1e6
-                    } else {
-                        let usdtResults = try await WalletServiceBridge.shared.fetchTokenBalances(
+                    if let token = tronToken {
+                        let results = try await WalletServiceBridge.shared.fetchTokenBalances(
                             chainId: Chain.tron.id, address: destinationForProbe,
-                            tokens: [TokenDescriptor(contract: TronBalanceService.usdtTronContract, symbol: "USDT", decimals: 6, name: nil)])
-                        balance = usdtResults.first.flatMap { Double($0.balanceDisplay) } ?? 0
+                            tokens: [TokenDescriptor(
+                                contract: token.contractAddress, symbol: token.symbol,
+                                decimals: UInt8(token.decimals), name: nil)])
+                        balance = results.first.flatMap { Double($0.balanceDisplay) } ?? 0
+                    } else {
+                        balance = Double(tronSun) / 1e6
                     }
                     let label = "\(coin.symbol) balance"
                     warning =
@@ -1266,34 +1252,24 @@ extension AppState {
                 } else {
                     warning = nil; infoMessage = nil
                 }
-            case "NEAR":
-                let nearBalance: Double
-                if let nearSummary = try? await WalletServiceBridge.shared.fetchNativeBalanceSummary(
-                    chainId: Chain.near.id, address: destinationForProbe)
-                {
-                    nearBalance = Double(nearSummary.amountDisplay) ?? 0
-                } else {
-                    nearBalance = 0
-                }
-                let nearHasHistory =
-                    ((try? await WalletServiceBridge.shared.fetchHistorySummary(
-                        chainId: Chain.near.id, address: destinationForProbe))?.entryCount ?? 0) > 0
-                let m = chainRiskProbeMessages(
-                    chainName: "NEAR", balanceLabel: "NEAR balance", balanceNonPositive: nearBalance <= 0, hasHistory: nearHasHistory)
-                warning = m.warning; infoMessage = m.info
-            // No chain list on the way out either. The seven names that used to
-            // gate this arm — Litecoin, Dogecoin, Solana, XRP Ledger, Monero,
-            // Sui, Aptos — were a copy of the seven `core_simple_chain_risk_probe_config`
-            // matches, and it already answers `nil` for a chain it has no probe
-            // for. Two answers to one question, and the copy could only ever be
-            // the staler of the two.
+            // The probe is a balance fetch and a history fetch, both of which
+            // work for any chain the catalog has endpoints for. It used to be
+            // gated by `core_simple_chain_risk_probe_config`, a seven-row table
+            // of `(display name, balance label)` — so thirteen chains sent with
+            // no destination check at all, including every chain whose send was
+            // enabled above.
+            //
+            // Both of that table's columns are registry columns, and it was
+            // inconsistent in two places: XRP Ledger's display name was "XRP"
+            // where every other row used the chain name, and Litecoin's and
+            // Dogecoin's labels said "balance" where every other row said
+            // "<SYMBOL> balance".
             default:
-                if let cfg = coreSimpleChainRiskProbeConfig(chainName: coin.chainName, symbol: coin.symbol),
-                    let chainId = Chain(displayName: coin.chainName)?.id
-                {
+                if let chain = Chain(displayName: coin.chainName), !chain.id.isEmpty {
                     (warning, infoMessage) = await fetchChainRiskWarning(
-                        chainId: chainId, address: destinationForProbe,
-                        chainName: cfg.displayChainName, balanceLabel: cfg.balanceLabel)
+                        chainId: chain.id, address: destinationForProbe,
+                        chainName: chain.displayName,
+                        balanceLabel: AppLocalization.format("%@ balance", chain.gasTokenSymbol))
                 } else {
                     warning = nil
                     infoMessage = nil

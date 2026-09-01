@@ -31,7 +31,7 @@ struct TokenRegistrySettingsView: View {
         case tron
         var id: Self { self }
         var title: String { chain?.filterDisplayName ?? AppLocalization.string("All") }
-        var chain: TokenTrackingChain? {
+        var chain: TokenHostingChain? {
             switch self {
             case .all: return nil
             case .ethereum: return .ethereum
@@ -87,11 +87,11 @@ struct TokenRegistrySettingsView: View {
                     }
                 }
             }
-            Section(AppLocalization.string("Tracked Tokens")) {
+            Section(AppLocalization.string("Known Tokens")) {
                 if filteredGroups.isEmpty {
                     Text(
                         searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            ? AppLocalization.string("No tracked tokens match the selected filters.")
+                            ? AppLocalization.string("No known tokens match the selected filters.")
                             : AppLocalization.string("No matching tokens.")
                     ).font(.caption).foregroundStyle(.secondary)
                 } else {
@@ -112,7 +112,7 @@ struct TokenRegistrySettingsView: View {
                     }
                 }
             }
-        }.navigationTitle(AppLocalization.string("Tracked Tokens"))
+        }.navigationTitle(AppLocalization.string("Known Tokens"))
             .searchable(text: $searchText, prompt: AppLocalization.string("Search name, symbol, chain, or address"))
             .textInputAutocapitalization(.never).autocorrectionDisabled()
             .toolbar {
@@ -125,7 +125,7 @@ struct TokenRegistrySettingsView: View {
                 }
             }
     }
-    private func entries(for chain: TokenTrackingChain) -> [TokenPreferenceEntry] {
+    private func entries(for chain: TokenHostingChain) -> [TokenPreferenceEntry] {
         store.resolvedTokenPreferences.filter { $0.chain == chain }
             .sorted { lhs, rhs in
                 if lhs.isBuiltIn != rhs.isBuiltIn { return lhs.isBuiltIn && !rhs.isBuiltIn }

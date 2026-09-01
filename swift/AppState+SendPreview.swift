@@ -14,12 +14,6 @@ private func decodedUTXOFeePreview(chainId: String, address: String, satPerCoin:
     return preview
 }
 
-private func evmCustomFeeDTO(_ customFees: EthereumCustomFeeConfiguration?) -> EvmCustomFeeConfiguration? {
-    customFees.map {
-        EvmCustomFeeConfiguration(maxFeePerGasGwei: $0.maxFeePerGasGwei, maxPriorityFeePerGasGwei: $0.maxPriorityFeePerGasGwei)
-    }
-}
-
 // MARK: - AppState send preview methods
 
 extension AppState {
@@ -53,18 +47,23 @@ extension AppState {
         await body()
     }
 
-    func refreshEthereumSendPreview() async {
+    func refreshEvmSendPreview() async {
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, isEVMChain(selectedSendCoin.chainName),
             let fromAddress = resolvedEVMAddress(for: wallet, chainName: selectedSendCoin.chainName), let amount = Double(sendAmount),
-            ((selectedSendCoin.symbol == "ETH" || selectedSendCoin.symbol == "ETC" || selectedSendCoin.symbol == "BNB")
+            // Whether a zero amount previews is `allows_zero_amount`, which core
+            // derives from `is_native_evm_asset`. Three symbols were named here
+            // — the third place this rule has been written down — so a
+            // zero-amount preview was refused on the twenty EVM chains whose
+            // gas token is none of ETH, ETC or BNB.
+            ((selectedSendCoin.symbol == Chain(displayName: selectedSendCoin.chainName)?.gasTokenSymbol)
                 ? amount >= 0 : amount > 0)
         else {
-            sendPreviewStore.ethereumSendPreview = nil
+            sendPreviewStore.evmSendPreview = nil
             return
         }
         if let customEthereumNonceValidationError = customEthereumNonceValidationError {
             sendError = customEthereumNonceValidationError
-            sendPreviewStore.ethereumSendPreview = nil
+            sendPreviewStore.evmSendPreview = nil
             return
         }
         let trimmedDestination = sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -77,27 +76,31 @@ extension AppState {
             } else if selectedSendCoin.chainName == "Ethereum", isENSNameCandidate(trimmedDestination) {
                 do {
                     guard let resolved = try await WalletServiceBridge.shared.resolveENSName(trimmedDestination) else {
-                        sendPreviewStore.ethereumSendPreview = nil
+                        sendPreviewStore.evmSendPreview = nil
                         return
                     }
                     previewDestination = resolved
                     sendDestinationInfoMessage = "Resolved ENS \(trimmedDestination) to \(resolved)."
                 } catch {
-                    sendPreviewStore.ethereumSendPreview = nil
+                    sendPreviewStore.evmSendPreview = nil
                     return
                 }
             } else {
-                sendPreviewStore.ethereumSendPreview = nil
+                sendPreviewStore.evmSendPreview = nil
                 return
             }
         }
-        await withSendPreviewInFlight("Ethereum", retry: { await self.refreshEthereumSendPreview() }) {
+        // The in-flight key is the preview *slot*, and every EVM chain shares
+        // Ethereum's. Asking for the slot rather than spelling it keeps that a
+        // registry fact instead of a fourth copy of it.
+        let slot = SendPreviewStore.previewSlot(forChainNamed: selectedSendCoin.chainName) ?? "Ethereum"
+        await withSendPreviewInFlight(slot, retry: { await self.refreshEvmSendPreview() }) {
         guard let chainId = Chain(displayName: selectedSendCoin.chainName)?.id else {
-            sendPreviewStore.ethereumSendPreview = nil
+            sendPreviewStore.evmSendPreview = nil
             return
         }
         do {
-            let assemblyToken: EvmSupportedToken? = supportedEVMToken(for: selectedSendCoin).map {
+            let assemblyToken: EvmSupportedToken? = supportedToken(for: selectedSendCoin).map {
                 EvmSupportedToken(symbol: $0.symbol, contractAddress: $0.contractAddress, decimals: UInt32($0.decimals))
             }
             let assembly: EvmSendAssembly
@@ -109,24 +112,24 @@ extension AppState {
                         token: assemblyToken
                     ))
             } catch {
-                sendPreviewStore.ethereumSendPreview = nil
+                sendPreviewStore.evmSendPreview = nil
                 return
             }
             let valueWei = assembly.valueWei
             let toAddress = assembly.toAddress
             let dataHex = assembly.dataHex
-            sendPreviewStore.ethereumSendPreview = try await WalletServiceBridge.shared.fetchEvmSendPreviewTyped(
+            sendPreviewStore.evmSendPreview = try await WalletServiceBridge.shared.fetchEvmSendPreviewTyped(
                 chainId: chainId, from: fromAddress, to: toAddress, valueWei: valueWei, dataHex: dataHex,
                 explicitNonce: explicitEthereumNonce().map(Int64.init),
-                customFees: evmCustomFeeDTO(customEthereumFeeConfiguration())
+                customFees: customEthereumFeeConfiguration()
             )
-            if sendPreviewStore.ethereumSendPreview != nil {
+            if sendPreviewStore.evmSendPreview != nil {
                 sendError = nil
                 clearSendVerificationNotice()
             }
         } catch {
             if isCancelledRequest(error) { return }
-            sendPreviewStore.ethereumSendPreview = nil
+            sendPreviewStore.evmSendPreview = nil
             sendError = "Unable to estimate EVM fee right now. Check RPC and retry."
         }
         }
@@ -150,7 +153,7 @@ extension AppState {
             return
         }
         await withSendPreviewInFlight("Dogecoin", retry: { await self.refreshDogecoinSendPreview() }) {
-        guard let address = resolvedDogecoinAddress(for: wallet) else {
+        guard let address = resolvedNetworkModeAddress(for: wallet, family: "dogecoin", fallback: .dogecoin) else {
             sendPreviewStore.dogecoinSendPreview = nil
             return
         }
@@ -174,92 +177,114 @@ extension AppState {
         }
     }
     func refreshBitcoinSendPreview() async {
-        guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, selectedSendCoin.chainName == "Bitcoin",
-            selectedSendCoin.symbol == "BTC", let amount = Double(sendAmount), amount > 0
-        else {
-            sendPreviewStore.bitcoinSendPreview = nil
-            return
-        }
-        guard storedSeedPhrase(for: wallet.id) != nil else {
-            sendPreviewStore.bitcoinSendPreview = nil
-            return
-        }
-        do {
-            if let xpub = wallet.bitcoinXpub?.trimmingCharacters(in: .whitespacesAndNewlines), !xpub.isEmpty {
-                sendPreviewStore.bitcoinSendPreview = try await WalletServiceBridge.shared.fetchBitcoinHdSendPreviewTyped(xpub: xpub)
-            } else if let address = resolvedBitcoinAddress(for: wallet) {
-                sendPreviewStore.bitcoinSendPreview = try await decodedUTXOFeePreview(
-                    chainId: Chain.bitcoin.id, address: address, satPerCoin: 100_000_000
-                )
-            } else {
-                sendPreviewStore.bitcoinSendPreview = nil
-            }
-            sendError = nil
-        } catch {
-            if isCancelledRequest(error) { return }
-            sendPreviewStore.bitcoinSendPreview = nil
-            sendError = "Unable to estimate BTC fee right now. Check provider health and retry."
-        }
+        // Bitcoin is the only chain with a stored account xpub, so core can
+        // expand the HD range and price against every derived address rather
+        // than the one this wallet happens to be showing. Everything around
+        // that — precision, destination check, request coalescing — is the
+        // same as its UTXO siblings, and used to be missing here.
+        let wallet = wallet(for: sendWalletID)
+        let xpub = wallet?.bitcoinXpub?.trimmingCharacters(in: .whitespacesAndNewlines)
+        await refreshUTXOChainPreview(
+            chainName: "Bitcoin", chainId: Chain.bitcoin.id,
+            resolveAddress: { self.resolvedNetworkModeAddress(for: $0, family: "bitcoin", fallback: .bitcoin) },
+            fetch: { chainId, address in
+                if let xpub, !xpub.isEmpty {
+                    return try await WalletServiceBridge.shared.fetchBitcoinHdSendPreviewTyped(xpub: xpub)
+                }
+                return try await decodedUTXOFeePreview(
+                    chainId: chainId, address: address, satPerCoin: 100_000_000)
+            },
+            setPreview: { self.sendPreviewStore.bitcoinSendPreview = $0 })
     }
-    private func refreshUTXOSatChainPreview(
-        chainName: String, symbol: String, chainId: String, resolveAddress: (ImportedWallet) -> String?,
-        setPreview: (BitcoinSendPreview?) -> Void
+    private func refreshUTXOChainPreview(
+        chainName: String, chainId: String,
+        resolveAddress: @escaping (ImportedWallet) -> String?,
+        adjust: @escaping (BitcoinSendPreview) -> BitcoinSendPreview = { $0 },
+        fetch: (@MainActor (String, String) async throws -> BitcoinSendPreview?)? = nil,
+        setPreview: @escaping (BitcoinSendPreview?) -> Void
     ) async {
-        guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, selectedSendCoin.chainName == chainName,
-            selectedSendCoin.symbol == symbol, let amount = Double(sendAmount), amount > 0
+        guard let chain = Chain(displayName: chainName) else { setPreview(nil); return }
+        guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin,
+            selectedSendCoin.chainName == chainName, selectedSendCoin.symbol == chain.gasTokenSymbol,
+            let amount = parseAmountInput(text: sendAmount, maxDecimals: chain.nativeDecimals),
+            amount > 0
         else { setPreview(nil); return }
-        guard storedSeedPhrase(for: wallet.id) != nil, let sourceAddress = resolveAddress(wallet) else { setPreview(nil); return }
-        do {
-            setPreview(try await decodedUTXOFeePreview(chainId: chainId, address: sourceAddress, satPerCoin: 100_000_000))
-            sendError = nil
-        } catch {
-            if isCancelledRequest(error) { return }
+        let trimmedDestination = sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedDestination.isEmpty,
+            !isValidAddressForPolicy(trimmedDestination, chainName: chainName, wallet: wallet)
+        {
             setPreview(nil)
-            sendError = "Unable to estimate \(symbol) fee right now. Check provider health and retry."
+            return
+        }
+        guard storedSeedPhrase(for: wallet.id) != nil, let sourceAddress = resolveAddress(wallet)
+        else { setPreview(nil); return }
+        await withSendPreviewInFlight(
+            chainName,
+            retry: { [weak self] in
+                await self?.refreshUTXOChainPreview(
+                    chainName: chainName, chainId: chainId, resolveAddress: resolveAddress,
+                    adjust: adjust, fetch: fetch, setPreview: setPreview)
+            }
+        ) {
+            do {
+                // A chain-specific fetch may legitimately answer nil — the
+                // Bitcoin HD path does when the xpub yields nothing — and that
+                // clears the preview rather than showing a stale one.
+                let preview: BitcoinSendPreview?
+                if let fetch {
+                    preview = try await fetch(chainId, sourceAddress)
+                } else {
+                    preview = try await decodedUTXOFeePreview(
+                        chainId: chainId, address: sourceAddress, satPerCoin: 100_000_000)
+                }
+                setPreview(preview.map(adjust))
+                sendError = nil
+            } catch {
+                if isCancelledRequest(error) { return }
+                setPreview(nil)
+                sendError = AppLocalization.format(
+                    "Unable to estimate %@ fee right now. Check provider health and retry.",
+                    chain.gasTokenSymbol)
+            }
         }
     }
     func refreshBitcoinCashSendPreview() async {
-        await refreshUTXOSatChainPreview(
-            chainName: "Bitcoin Cash", symbol: "BCH", chainId: Chain.bitcoinCash.id,
-            resolveAddress: { self.resolvedBitcoinCashAddress(for: $0) }, setPreview: { self.sendPreviewStore.bitcoinCashSendPreview = $0 })
+        await refreshUTXOChainPreview(
+            chainName: "Bitcoin Cash", chainId: Chain.bitcoinCash.id,
+            resolveAddress: { self.resolvedBitcoinCashAddress(for: $0) },
+            setPreview: { self.sendPreviewStore.bitcoinCashSendPreview = $0 })
     }
     func refreshBitcoinSVSendPreview() async {
-        await refreshUTXOSatChainPreview(
-            chainName: "Bitcoin SV", symbol: "BSV", chainId: Chain.bitcoinSv.id,
-            resolveAddress: { self.resolvedBitcoinSVAddress(for: $0) }, setPreview: { self.sendPreviewStore.bitcoinSVSendPreview = $0 })
+        await refreshUTXOChainPreview(
+            chainName: "Bitcoin SV", chainId: Chain.bitcoinSv.id,
+            resolveAddress: { self.resolvedBitcoinSVAddress(for: $0) },
+            setPreview: { self.sendPreviewStore.bitcoinSVSendPreview = $0 })
     }
     func refreshLitecoinSendPreview() async {
-        guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin,
-            selectedSendCoin.chainName == "Litecoin", selectedSendCoin.symbol == "LTC",
-            let amount = Double(sendAmount), amount > 0
-        else { sendPreviewStore.clearPreview(forChainNamed: "Litecoin"); return }
-        guard storedSeedPhrase(for: wallet.id) != nil, let sourceAddress = resolvedLitecoinAddress(for: wallet)
-        else { sendPreviewStore.clearPreview(forChainNamed: "Litecoin"); return }
+        // MWEB is Litecoin's own: an extension-block output costs about a
+        // kilobyte more than a plain one, and neither the fee nor the max
+        // sendable reflects it unless it is added here.
         let isMweb = sendAddress.hasPrefix("ltcmweb1") || sendAddress.hasPrefix("tmweb1")
-        do {
-            var preview = try await decodedUTXOFeePreview(chainId: Chain.litecoin.id, address: sourceAddress, satPerCoin: 100_000_000)
-            if isMweb {
+        await refreshUTXOChainPreview(
+            chainName: "Litecoin", chainId: Chain.litecoin.id,
+            resolveAddress: { self.resolvedLitecoinAddress(for: $0) },
+            adjust: { preview in
+                guard isMweb else { return preview }
                 let mwebOverhead: Int64 = 1017
-                let adjustedBytes = (preview.estimatedTransactionBytes ?? 0) + mwebOverhead
-                let additionalFeeBtc = Double(mwebOverhead) * Double(preview.estimatedFeeRateSatVb) / 100_000_000.0
-                preview = BitcoinSendPreview(
+                let additionalFee =
+                    Double(mwebOverhead) * Double(preview.estimatedFeeRateSatVb) / 100_000_000.0
+                return BitcoinSendPreview(
                     estimatedFeeRateSatVb: preview.estimatedFeeRateSatVb,
-                    estimatedNetworkFee: preview.estimatedNetworkFee + additionalFeeBtc,
+                    estimatedNetworkFee: preview.estimatedNetworkFee + additionalFee,
                     feeRateDescription: preview.feeRateDescription,
                     spendableBalance: preview.spendableBalance,
-                    estimatedTransactionBytes: adjustedBytes,
+                    estimatedTransactionBytes: (preview.estimatedTransactionBytes ?? 0) + mwebOverhead,
                     selectedInputCount: preview.selectedInputCount,
                     usesChangeOutput: preview.usesChangeOutput,
-                    maxSendable: preview.maxSendable.map { max(0, $0 - additionalFeeBtc) }
+                    maxSendable: preview.maxSendable.map { max(0, $0 - additionalFee) }
                 )
-            }
-            sendPreviewStore.litecoinSendPreview = preview
-            sendError = nil
-        } catch {
-            if isCancelledRequest(error) { return }
-            sendPreviewStore.clearPreview(forChainNamed: "Litecoin")
-            sendError = "Unable to estimate LTC fee right now. Check provider health and retry."
-        }
+            },
+            setPreview: { self.sendPreviewStore.litecoinSendPreview = $0 })
     }
     func refreshTronSendPreview() async {
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, selectedSendCoin.chainName == "Tron",
@@ -303,23 +328,31 @@ extension AppState {
         let errorMessage: String
     }
     @MainActor private func refreshSimpleChain(_ cfg: SimpleChainConfig) async {
+        // Every exit must leave the in-flight flag to `withSendPreviewInFlight`.
+        // Clearing it by hand on an early exit releases the guard over a request
+        // still on the network, and the next keystroke starts a second one
+        // beside it.
         guard let wallet = wallet(for: sendWalletID), let coin = selectedSendCoin,
             await cfg.coinCheck(self, coin),
-            let amount = Double(sendAmount), amount > 0
-        else { cfg.applyPreview(self, nil); preparingChains.remove(cfg.chainName); return }
-        guard let src = cfg.resolveAddress(self, wallet)
-        else { cfg.applyPreview(self, nil); preparingChains.remove(cfg.chainName); return }
-        guard !preparingChains.contains(cfg.chainName) else { return }
-        preparingChains.insert(cfg.chainName); defer { preparingChains.remove(cfg.chainName) }
-        do {
-            let preview = try await WalletServiceBridge.shared.fetchSimpleChainSendPreviewTyped(
-                chainId: cfg.chainId, address: src)
-            cfg.applyPreview(self, preview)
-            sendError = nil
-        } catch {
-            if isCancelledRequest(error) { return }
-            cfg.applyPreview(self, nil)
-            sendError = cfg.errorMessage
+            let amount = parseAmountInput(
+                text: sendAmount,
+                maxDecimals: Chain(displayName: cfg.chainName)?.nativeDecimals ?? 18),
+            amount > 0
+        else { cfg.applyPreview(self, nil); return }
+        guard let src = cfg.resolveAddress(self, wallet) else { cfg.applyPreview(self, nil); return }
+        await withSendPreviewInFlight(
+            cfg.chainName, retry: { [weak self] in await self?.refreshSimpleChain(cfg) }
+        ) {
+            do {
+                let preview = try await WalletServiceBridge.shared.fetchSimpleChainSendPreviewTyped(
+                    chainId: cfg.chainId, address: src)
+                cfg.applyPreview(self, preview)
+                sendError = nil
+            } catch {
+                if isCancelledRequest(error) { return }
+                cfg.applyPreview(self, nil)
+                sendError = cfg.errorMessage
+            }
         }
     }
     /// Refresh the send preview for a chain core estimates through the shared

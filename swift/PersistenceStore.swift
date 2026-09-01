@@ -40,11 +40,6 @@ extension AppState {
             fiatRatesFromUSD = rates
             fiatRatesFromUSD[FiatCurrency.usd.rawValue] = 1.0
         }
-        if let decimals = await loadCodableFromSQLite([String: Int].self, key: Self.assetDisplayDecimalsByChainDefaultsKey),
-            !decimals.isEmpty
-        {
-            assetDisplayDecimalsByChain = decimals
-        }
         // The eighteen settings core owns arrive with `loadCoreOwnedState()`
         // above, through `applyCoreState`. What is left here is the four this
         // platform keeps: hiding balances, Face ID, auto-lock and
@@ -81,9 +76,6 @@ extension AppState {
     func persistLivePrices() {
         persistCodableToSQLite(livePrices, key: Self.livePricesDefaultsKey)
     }
-    func loadAssetDisplayDecimalsByChain() -> [String: Int]? {
-        loadCodableFromUserDefaults([String: Int].self, key: Self.assetDisplayDecimalsByChainDefaultsKey)
-    }
     func loadPersistedLivePrices() -> [String: Double] {
         loadCodableFromUserDefaults([String: Double].self, key: Self.livePricesDefaultsKey) ?? [:]
     }
@@ -119,7 +111,7 @@ extension AppState {
             self.applyCoreState(transition.state, epoch: epoch)
         }
     }
-    /// Send the tracked-token list to core, which clamps it and stores it.
+    /// Send the known-token list to core, which clamps it and stores it.
     func commitTokenPreferences() {
         let entries = tokenPreferences
         let epoch = beginCoreStateRead()

@@ -1,6 +1,6 @@
 import Foundation
 import SwiftUI
-extension TokenTrackingChain {
+extension TokenHostingChain {
     /// The icon slug is the chain's registry id.
     var settingsIconSlug: String { chain?.id ?? "" }
 
