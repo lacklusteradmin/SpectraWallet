@@ -219,8 +219,10 @@ extension AppState {
 private final class AddressValidationCache: @unchecked Sendable {
     static let shared = AddressValidationCache()
     private let lock = NSLock()
+    /// One cache. There were two, of the same type, keyed the same way, because
+    /// core had two exports and two identical record pairs for "is this typed
+    /// string well formed, and how is it spelled".
     private var addressCache: [String: AddressValidationResult] = [:]
-    private var stringCache: [String: StringValidationResult] = [:]
     private static let maxEntries = 512
     private init() {}
     func address(_ address: String, kind: String) -> AddressValidationResult {
@@ -237,20 +239,6 @@ private final class AddressValidationCache: @unchecked Sendable {
         addressCache[key] = result
         return result
     }
-    func string(_ value: String, kind: String) -> StringValidationResult {
-        let key = "\(kind)|\(value)"
-        lock.lock()
-        if let cached = stringCache[key] { lock.unlock(); return cached }
-        lock.unlock()
-        let result = coreValidateStringIdentifier(request: StringValidationRequest(kind: kind, value: value))
-        lock.lock()
-        defer { lock.unlock() }
-        if stringCache.count > Self.maxEntries {
-            stringCache.removeAll(keepingCapacity: true)
-        }
-        stringCache[key] = result
-        return result
-    }
 }
 
 enum AddressValidation {
@@ -261,6 +249,6 @@ enum AddressValidation {
         AddressValidationCache.shared.address(address, kind: kind).normalizedValue
     }
     static func isValidAptosTokenType(_ value: String) -> Bool {
-        AddressValidationCache.shared.string(value, kind: "aptosTokenType").isValid
+        AddressValidationCache.shared.address(value, kind: "aptosTokenType").isValid
     }
 }

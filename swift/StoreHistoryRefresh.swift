@@ -242,11 +242,12 @@ extension AppState {
                 let page = try await fetchBitcoinHistoryPage(for: wallet, limit: requestedLimit, cursor: cursor)
                 let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? wallet.name
                 setHistoryCursor(chainId: Chain.bitcoin.id, walletId: wallet.id, cursor: page.nextCursor)
-                recordUTXOHistoryDiagnostics(
-                    chainName: "Bitcoin", walletID: wallet.id,
-                    UtxoHistoryDiagnostics(
+                recordHistoryDiagnostics(
+                    chainName: "Bitcoin",
+                    HistoryDiagnostics(
                         walletId: wallet.id, identifier: identifier, sourceUsed: page.sourceUsed,
-                        transactionCount: Int32(page.snapshots.count), nextCursor: page.nextCursor, error: nil))
+                        transactionCount: Int32(page.snapshots.count), scannedCount: nil,
+                        nextCursor: page.nextCursor, error: nil, perSource: []))
                 self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
                 discoveredTransactions.append(
                     contentsOf: page.snapshots.map { snapshot in
@@ -263,11 +264,12 @@ extension AppState {
                 encounteredErrors = true
                 setHistoryCursor(chainId: Chain.bitcoin.id, walletId: wallet.id, cursor: nil)
                 let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? ""
-                recordUTXOHistoryDiagnostics(
-                    chainName: "Bitcoin", walletID: wallet.id,
-                    UtxoHistoryDiagnostics(
-                        walletId: wallet.id, identifier: identifier, sourceUsed: "none", transactionCount: 0,
-                        nextCursor: nil, error: error.localizedDescription))
+                recordHistoryDiagnostics(
+                    chainName: "Bitcoin",
+                    HistoryDiagnostics(
+                        walletId: wallet.id, identifier: identifier, sourceUsed: "none",
+                        transactionCount: 0, scannedCount: nil, nextCursor: nil,
+                        error: error.localizedDescription, perSource: []))
                 self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
             }
         }
@@ -446,27 +448,27 @@ extension AppState {
             if loadMore && historyPaginationExhausted(chainId: evmChainId, walletId: representativeWallet.id) { continue }
             let currentPage = max(1, historyPaginationPage(chainId: evmChainId, walletId: representativeWallet.id))
             let page = loadMore ? (currentPage + 1) : currentPage
-            let knownTokens: [ChainTokenRegistryEntry]? =
-                TokenHostingChain.forChainName(chainName).map { enabledKnownTokens(for: $0) }
+            let knownTokens: [TokenPreferenceEntry] =
+                TokenHostingChain.forChainName(chainName).map { enabledKnownTokens(for: $0) } ?? []
             var decodedPage = EvmHistoryPageDecoded(tokens: [], native: [])
-            var tokenDiagnostics: EthereumTokenTransferHistoryDiagnostics?
+            var tokenTransferCount: Int32?
+            var tokenSourceUsed: String?
             var tokenHistoryError: Error?
             guard let chainId = Chain(displayName: chainName)?.id else {
                 encounteredErrors = true
                 continue
             }
-            let tokenDescriptors: [TokenDescriptor] =
-                (knownTokens ?? []).map { TokenDescriptor(contract: $0.contractAddress, symbol: $0.symbol, decimals: UInt8($0.decimals), name: $0.name) }
+            let tokenDescriptors: [TokenDescriptor] = knownTokens.map {
+                TokenDescriptor(
+                    contract: $0.token.contract, symbol: $0.token.symbol,
+                    decimals: UInt8(clamping: $0.token.decimals), name: $0.token.name)
+            }
             do {
                 decodedPage = try await WalletServiceBridge.shared.fetchEVMHistoryPage(
                     chainId: chainId, address: normalizedAddress, tokens: tokenDescriptors, page: page, pageSize: requestedPageSize
                 )
-                tokenDiagnostics = EthereumTokenTransferHistoryDiagnostics(
-                    address: normalizedAddress, rpcTransferCount: 0, rpcError: nil, blockscoutTransferCount: 0, blockscoutError: nil,
-                    etherscanTransferCount: Int32(decodedPage.tokens.count), etherscanError: nil, ethplorerTransferCount: 0,
-                    ethplorerError: nil, sourceUsed: "rust/etherscan", transferScanCount: 0, decodedTransferCount: 0,
-                    unsupportedTransferDropCount: 0, decodingCompletenessRatio: 0
-                )
+                tokenTransferCount = Int32(decodedPage.tokens.count)
+                tokenSourceUsed = "rust/etherscan"
             } catch {
                 tokenHistoryError = error
                 encounteredErrors = true
@@ -481,21 +483,23 @@ extension AppState {
             // two hand-written exceptions and no general case.
             let diagnosticsChainName: String? = Chain(displayName: chainName)?.mainnetCounterpart.displayName
             if let diagnosticsChainName {
-                let entry =
-                    tokenDiagnostics
-                    ?? tokenHistoryError.map { error in
-                        EthereumTokenTransferHistoryDiagnostics(
-                            address: normalizedAddress, rpcTransferCount: 0,
-                            rpcError: error.localizedDescription, blockscoutTransferCount: 0,
-                            blockscoutError: nil, etherscanTransferCount: 0, etherscanError: nil,
-                            ethplorerTransferCount: 0, ethplorerError: nil, sourceUsed: "none",
-                            transferScanCount: 0, decodedTransferCount: 0,
-                            unsupportedTransferDropCount: 0, decodingCompletenessRatio: 0)
-                    }
-                if let entry {
+                // One row per wallet, not one row written under every wallet
+                // id: the row carries the id it belongs to.
+                let source = tokenSourceUsed ?? (tokenHistoryError == nil ? nil : "none")
+                if let source {
                     for wallet in targetWallets {
-                        recordEVMHistoryDiagnostics(
-                            chainName: diagnosticsChainName, walletID: wallet.id, entry)
+                        recordHistoryDiagnostics(
+                            chainName: diagnosticsChainName,
+                            HistoryDiagnostics(
+                                walletId: wallet.id, identifier: normalizedAddress,
+                                sourceUsed: source, transactionCount: tokenTransferCount ?? 0,
+                                scannedCount: nil, nextCursor: nil,
+                                error: tokenHistoryError?.localizedDescription,
+                                perSource: [
+                                    HistoryDiagnosticsSource(
+                                        name: "etherscan", count: tokenTransferCount ?? 0,
+                                        error: tokenHistoryError?.localizedDescription)
+                                ]))
                     }
                 }
                 self[historyRunFor: diagnosticsChainName].lastUpdatedAt = Date()
@@ -511,7 +515,7 @@ extension AppState {
                     decodedPage: decodedPage,
                     normalizedAddress: normalizedAddress,
                     chainName: chainName,
-                    tokenSourceUsed: tokenDiagnostics?.sourceUsed,
+                    tokenSourceUsed: tokenSourceUsed,
                     nativeAssetName: nativeAsset.assetName,
                     nativeAssetSymbol: nativeAsset.symbol,
                     wallets: targetWallets.map { EvmTransactionRecordWalletInput(walletId: $0.id, walletName: $0.name) },

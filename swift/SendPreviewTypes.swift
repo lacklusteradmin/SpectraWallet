@@ -191,18 +191,6 @@ final class SendPreviewStore {
         get { if case .utxo(let p) = previewBySlot["Bitcoin"] { p } else { nil } }
         set { previewBySlot["Bitcoin"] = newValue.map { .utxo(preview: $0) } }
     }
-    var bitcoinCashSendPreview: BitcoinSendPreview? {
-        get { if case .utxo(let p) = previewBySlot["Bitcoin Cash"] { p } else { nil } }
-        set { previewBySlot["Bitcoin Cash"] = newValue.map { .utxo(preview: $0) } }
-    }
-    var bitcoinSVSendPreview: BitcoinSendPreview? {
-        get { if case .utxo(let p) = previewBySlot["Bitcoin SV"] { p } else { nil } }
-        set { previewBySlot["Bitcoin SV"] = newValue.map { .utxo(preview: $0) } }
-    }
-    var litecoinSendPreview: BitcoinSendPreview? {
-        get { if case .utxo(let p) = previewBySlot["Litecoin"] { p } else { nil } }
-        set { previewBySlot["Litecoin"] = newValue.map { .utxo(preview: $0) } }
-    }
     var dogecoinSendPreview: DogecoinSendPreview? {
         get { if case .dogecoin(let p) = previewBySlot["Dogecoin"] { p } else { nil } }
         set { previewBySlot["Dogecoin"] = newValue.map { .dogecoin(preview: $0) } }

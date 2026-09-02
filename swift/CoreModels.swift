@@ -32,20 +32,24 @@ struct SendPreviewDetails: Equatable {
             || maxSendable != nil
     }
 }
-/// `Coin` is the Rust-defined `CoreCoin`. Chain identity is the
+/// `Coin` is the Rust-defined `AssetHolding`. Chain identity is the
 /// `(chainName, tokenStandard, contractAddress)` triple — use the
 /// existing `assetIdentityKey` / `Coin.normalizedIconIdentifier` helpers
 /// rather than parsing the strings ad-hoc.
-typealias Coin = CoreCoin
-extension CoreCoin: Identifiable {
+typealias Coin = AssetHolding
+extension AssetHolding: Identifiable {
+    /// The list key, from what identifies the holding. Was a stored field each
+    /// producer filled its own way — one of them with a fresh `UUID`, which
+    /// makes SwiftUI treat every row as new on each rebuild.
+    public var id: String { holdingIdentity(holding: self) }
     var color: Color { Coin.displayColor(for: symbol) }
     var valueUSD: Double { amount * priceUsd }
     static func makeCustom(
         name: String, symbol: String, coinGeckoId: String, chainName: String, tokenStandard: String,
         contractAddress: String?, amount: Double, priceUsd: Double
     ) -> Coin {
-        CoreCoin(
-            id: UUID().uuidString, name: name, symbol: symbol, coinGeckoId: coinGeckoId, chainName: chainName,
+        AssetHolding(
+            name: name, symbol: symbol, coinGeckoId: coinGeckoId, chainName: chainName,
             tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUsd)
     }
     var hasVisibleBalance: Bool { amount > 0 }

@@ -34,9 +34,11 @@ extension AppState {
             exceptChainNamed: activePreview == nil ? nil : selectedSendCoin.chainName)
         switch activePreview {
         case .bitcoin: await refreshBitcoinSendPreview()
-        case .bitcoinCash: await refreshBitcoinCashSendPreview()
-        case .bitcoinSV: await refreshBitcoinSVSendPreview()
-        case .litecoin: await refreshLitecoinSendPreview()
+        // Three arms named a chain the coin already names.
+        case .bitcoinCash, .bitcoinSV, .litecoin:
+            if let chain = Chain(displayName: selectedSendCoin.chainName) {
+                await refreshUTXOSendPreview(for: chain)
+            }
         case .ethereum: await refreshEvmSendPreview()
         case .dogecoin: await refreshDogecoinSendPreview()
         case .tron: await refreshTronSendPreview()

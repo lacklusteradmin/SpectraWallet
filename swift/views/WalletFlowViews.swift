@@ -248,7 +248,7 @@ struct WalletDetailView: View {
             walletBadge: Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, .mint),
             visibleHoldingPresentations: holdingPresentations,
             walletTotalValueText: store.preferences.hideBalances
-                ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: store.currentTotalIfAvailable(for: wallet))
+                ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: store.quotedTotal(for: wallet.holdings).total)
         )
     }
     /// The wallet's configured derivation path, when it has one.

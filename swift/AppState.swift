@@ -310,7 +310,7 @@ final class AppState {
     func chainKeypoolDiagnostics(for chainName: String) async -> [ChainKeypoolDiagnostic] {
         var rows: [ChainKeypoolDiagnostic] = []
         for wallet in wallets where wallet.selectedChain == chainName || walletHasAddress(for: wallet, chainName: chainName) {
-            let state = await keypoolStateForDisplay(for: wallet, chainName: chainName)
+            let state = await keypoolState(for: wallet, chainName: chainName)
             let reservedIndex = state.reservedReceiveIndex
             rows.append(
                 ChainKeypoolDiagnostic(
@@ -323,12 +323,6 @@ final class AppState {
         }
         return rows
         .sorted { $0.walletName.localizedCaseInsensitiveCompare($1.walletName) == .orderedAscending }
-    }
-    var pricingProvider: PricingProvider = .coinGecko {
-        didSet {
-            guard pricingProvider != oldValue else { return }
-            commitAppSettingsSoon()
-        }
     }
     /// Display currency for prices and totals.
     ///
@@ -408,19 +402,16 @@ final class AppState {
             rebuildDashboardDerivedState()
         }
     }
-    var fiatRateProvider: FiatRateProvider = .openER {
-        didSet {
-            guard fiatRateProvider != oldValue else { return }
-            commitAppSettingsSoon()
-            Task { @MainActor [weak self] in await self?.refreshFiatExchangeRatesIfNeeded(force: true) }
-        }
-    }
     /// Core owns it; this is the mirror the endpoint fields bind to. Absent
     /// means the catalog's list.
     private(set) var rpcEndpointByChain: [String: String] = [:] {
         didSet {
             guard rpcEndpointByChain != oldValue else { return }
             commitAppSettingsSoon()
+            // The service holds its own endpoint list; without this the setting
+            // is stored and read by nothing that fetches.
+            let endpoints = rpcEndpointByChain
+            Task { await WalletServiceBridge.shared.updateEndpoints(custom: endpoints) }
         }
     }
 
@@ -583,7 +574,7 @@ final class AppState {
     var cachedResolvedTokenPreferences: [TokenPreferenceEntry] {
         get {
             _cachedResolvedTokenPreferences.isEmpty
-                ? ChainTokenRegistryEntry.builtIn.map(\.tokenPreferenceEntry)
+                ? TokenPreferenceEntry.builtIn
                 : _cachedResolvedTokenPreferences
         }
         set { _cachedResolvedTokenPreferences = newValue }
@@ -997,7 +988,7 @@ final class AppState {
     }
     func updateCustomTokenPreferenceDecimals(id: String, decimals: Int) {
         guard let index = tokenPreferences.firstIndex(where: { $0.id == id && !$0.isBuiltIn }) else { return }
-        tokenPreferences[index].decimals = Int32(min(max(decimals, 0), 30))
+        tokenPreferences[index].token.decimals = UInt32(min(max(decimals, 0), 30))
     }
     @discardableResult
     func addCustomTokenPreference(
@@ -1043,28 +1034,29 @@ final class AppState {
             }
         }
         let duplicateExists = tokenPreferences.contains { entry in
-            entry.chain == chain
-                && normalizedKnownTokenIdentifier(for: entry.chain, contractAddress: entry.contractAddress)
+            entry.token.chain == chain.rawValue
+                && normalizedKnownTokenIdentifier(for: chain, contractAddress: entry.token.contract)
                     == normalizedKnownTokenIdentifier(for: chain, contractAddress: normalizedContract)
         }
         guard !duplicateExists else { return AppLocalization.format("%@ already knows this token.", chain.rawValue) }
         tokenPreferences.append(
             TokenPreferenceEntry(
-                chain: chain, name: normalizedName, symbol: normalizedSymbol, tokenStandard: chain.tokenStandard,
-                contractAddress: normalizedContract,
-                coinGeckoId: coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines), decimals: min(max(decimals, 0), 30),
-                category: .custom, isBuiltIn: false, isEnabled: true
-            )
-        )
+                token: TokenEntry(
+                    chain: chain.rawValue, name: normalizedName, symbol: normalizedSymbol,
+                    tokenStandard: chain.tokenStandard, contract: normalizedContract,
+                    coingeckoId: coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines),
+                    decimals: UInt32(min(max(decimals, 0), 30)), tags: [], comment: "",
+                    color: "", assetName: "", enabled: true),
+                category: .custom, isBuiltIn: false, isEnabled: true))
         tokenPreferences.sort { lhs, rhs in
-            if lhs.chain != rhs.chain { return lhs.chain.rawValue < rhs.chain.rawValue }
+            if lhs.token.chain != rhs.token.chain { return lhs.token.chain < rhs.token.chain }
             if lhs.isBuiltIn != rhs.isBuiltIn { return lhs.isBuiltIn && !rhs.isBuiltIn }
-            return lhs.symbol < rhs.symbol
+            return lhs.token.symbol < rhs.token.symbol
         }
         return nil
     }
     func enabledTokenPreferences(for chain: TokenHostingChain) -> [TokenPreferenceEntry] {
-        enabledKnownTokenPreferences.filter { $0.chain == chain }
+        enabledKnownTokenPreferences.filter { $0.token.chain == chain.rawValue }
     }
     /// The canonical form of a known token's contract address.
     func normalizedKnownTokenIdentifier(for chain: TokenHostingChain, contractAddress: String) -> String {
@@ -1073,22 +1065,26 @@ final class AppState {
     /// Map a `TokenHostingChain` to the user's currently-enabled known tokens for that chain.
     /// All 12 EVM chains share this helper; routing via `TokenHostingChain.forChainName(...)`
     /// at the call site picks the right chain.
-    func enabledKnownTokens(for chain: TokenHostingChain) -> [ChainTokenRegistryEntry] {
+    /// The user's enabled tokens for a chain, contracts normalised.
+    ///
+    /// Built a `ChainTokenRegistryEntry` — a fourth record for one token, with
+    /// its own spelling of every field. The preference carries the token now.
+    func enabledKnownTokens(for chain: TokenHostingChain) -> [TokenPreferenceEntry] {
         enabledTokenPreferences(for: chain).map { e in
-            ChainTokenRegistryEntry(
-                chain: e.chain, name: e.name, symbol: e.symbol, tokenStandard: e.tokenStandard,
-                contractAddress: normalizeEVMAddress(e.contractAddress), coinGeckoId: e.coinGeckoId,
-                decimals: Int(e.decimals), category: e.category, isBuiltIn: e.isBuiltIn,
-                isEnabledByDefault: e.isEnabled)
+            var normalised = e
+            normalised.token.contract = normalizeEVMAddress(e.token.contract)
+            return normalised
         }
     }
     func solanaKnownTokens(includeDisabled: Bool = false) -> [String: SolanaBalanceService.KnownTokenMetadata] {
         var result: [String: SolanaBalanceService.KnownTokenMetadata] = [:]
-        let entries = includeDisabled ? tokenPreferences.filter { $0.chain == .solana } : enabledTokenPreferences(for: .solana)
+        let entries = includeDisabled
+            ? tokenPreferences.filter { $0.token.chain == TokenHostingChain.solana.rawValue }
+            : enabledTokenPreferences(for: .solana)
         for entry in entries {
-            result[entry.contractAddress] = SolanaBalanceService.KnownTokenMetadata(
-                symbol: entry.symbol, name: entry.name, decimals: Int(entry.decimals),
-                coinGeckoId: entry.coinGeckoId
+            result[entry.token.contract] = SolanaBalanceService.KnownTokenMetadata(
+                symbol: entry.token.symbol, name: entry.token.name, decimals: Int(entry.token.decimals),
+                coinGeckoId: entry.token.coingeckoId
             )
         }
         return result

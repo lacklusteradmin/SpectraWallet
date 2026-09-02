@@ -1,5 +1,5 @@
 {
-  "aboutEthosLines" : [
+  "aboutEthosLines": [
     "免費且開源。",
     "不收集數據。",
     "去中心化軟件。",
@@ -7,16 +7,16 @@
     "自托管。",
     "你完全掌控自己的密鑰。"
   ],
-  "aboutEthosTitle" : "Spectra 理念",
-  "aboutNarrativeParagraphs" : [
+  "aboutEthosTitle": "Spectra 理念",
+  "aboutNarrativeParagraphs": [
     "除非你明確選擇共享，否則你的錢包數據會一直保留在設備上。Spectra 的設計目標是讓密鑰材料、觀察地址和本地交易狀態都由你自己掌控。",
     "你始終掌控恢復短語和私鑰。這個應用是客戶端，不是托管方，應當被理解為與鏈上基礎設施通信的本地錢包軟件，而不是托管賬戶平台。"
   ],
-  "aboutNarrativeTitle" : "這意味著什麼",
-  "aboutSubtitle" : "一個專注於本地控制、透明網絡訪問和最小信任假設的自托管多鏈錢包。",
-  "aboutTitle" : "Spectra",
-  "buyProvidersIntro" : "這些是官方法幣入金服務商，支持使用現金或綁定的銀行卡\/支付卡付款，並將加密資產直接發送到錢包地址。不同提供商的可用性、費用、身份驗證、支持網絡和地區覆蓋範圍會有所不同。",
-  "buyWarning" : "Spectra 不處理購買流程。付款前請務必再次確認錢包地址、所選鏈和資產，因為加密轉賬通常不可逆。",
+  "aboutNarrativeTitle": "這意味著什麼",
+  "aboutSubtitle": "一個專注於本地控制、透明網絡訪問和最小信任假設的自托管多鏈錢包。",
+  "aboutTitle": "Spectra",
+  "buyProvidersIntro": "這些是官方法幣入金服務商，支持使用現金或綁定的銀行卡/支付卡付款，並將加密資產直接發送到錢包地址。不同提供商的可用性、費用、身份驗證、支持網絡和地區覆蓋範圍會有所不同。",
+  "buyWarning": "Spectra 不處理購買流程。付款前請務必再次確認錢包地址、所選鏈和資產，因為加密轉賬通常不可逆。",
   "moonpayName": "MoonPay",
   "moonpayDescription": "Card, bank transfer, Apple Pay, and Google Pay on-ramp that asks for your wallet address during checkout and sends the crypto there.",
   "rampNetworkName": "Ramp Network",
@@ -25,8 +25,8 @@
   "transakDescription": "Direct wallet on-ramp. You enter your wallet address or open it from a supported wallet integration and Transak delivers the crypto there.",
   "banxaName": "Banxa",
   "banxaDescription": "Fiat on-ramp that can send purchased crypto to the wallet address you provide when the partner flow does not use a built-in wallet.",
-  "fiatRateProviderNote" : "用於 USD 到本地法幣的轉換。默認是 Open ER。",
-  "pricingIntro" : "如果你需要實時價格，請選擇一個價格提供商。Spectra 會從所選提供商批量請求價格，並在實時數據不可用時回退到內置參考價格。",
-  "publicProviderNote" : "該提供商使用公開的批量報價接口。當前構建無需 API 密鑰。",
-  "reportProblemActionTitle" : "打開反饋表單",
-  "reportProblemDescription" : "使用此頁面打開未來的支持表單或問題跟蹤器。下方鏈接目前仍是佔位地址。"}
+  "pricingIntro": "價格同時向多個公開資料來源請求，誰回應就用誰——某個來源掛掉或沒收錄某個資產，都不會讓它沒有價格。沒有任何來源報價的資產會顯示為無價格，而不是一個猜出來的數字。",
+  "publicProviderNote": "該提供商使用公開的批量報價接口。當前構建無需 API 密鑰。",
+  "reportProblemActionTitle": "打開反饋表單",
+  "reportProblemDescription": "使用此頁面打開未來的支持表單或問題跟蹤器。下方鏈接目前仍是佔位地址。"
+}

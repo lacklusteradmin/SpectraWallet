@@ -143,9 +143,36 @@ import Foundation
             )
             XCTAssertEqual(store.assetIdentityKey(for: coin), "Bitcoin Testnet4|BTC")
             XCTAssertNil(store.currentPriceIfAvailable(for: coin))
-            XCTAssertNil(store.currentOrFallbackPriceIfAvailable(for: coin))
             XCTAssertNil(store.currentValueIfAvailable(for: coin))
         }
+        /// A holding nobody quoted is left out of the total and counted, not
+        /// folded in at zero and not at an invented dollar.
+        ///
+        /// USDC and USDT used to be pinned to exactly $1.00 — in the price
+        /// fetchers, where the constant was inserted *before* the market quote
+        /// and made it unreachable, and again in the display fallback. A wallet
+        /// that cannot see a depeg is most wrong exactly when it matters.
+        func testUnquotedHoldingsAreExcludedFromTheTotalAndCounted() async {
+            let store = AppState()
+            await store.awaitPendingCoreStateWrites()
+            let priced = Coin.makeCustom(
+                name: "Ethereum", symbol: "ETH", coinGeckoId: "ethereum", chainName: "Ethereum",
+                tokenStandard: "Native", contractAddress: nil, amount: 2, priceUsd: 0)
+            let stablecoin = Coin.makeCustom(
+                name: "USD Coin", symbol: "USDC", coinGeckoId: "usd-coin", chainName: "Ethereum",
+                tokenStandard: "ERC-20", contractAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
+                amount: 100, priceUsd: 0)
+            store.livePrices[store.activePriceKey(for: priced)] = 3000
+
+            let quoted = store.quotedTotal(for: [priced, stablecoin])
+            XCTAssertEqual(quoted.total, 6000, accuracy: 0.0001, "the priced holding is all the total covers")
+            XCTAssertEqual(quoted.unpricedCount, 1, "the unquoted stablecoin is counted, not valued")
+            XCTAssertFalse(quoted.isComplete)
+            XCTAssertNil(
+                store.currentPriceIfAvailable(for: stablecoin),
+                "no feed answered for USDC, so there is no price to show")
+        }
+
         func testBitcoinTestnet4EndpointsAreAvailable() {
             XCTAssertEqual(
                 AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: "bitcoin-testnet-4"),

@@ -192,7 +192,7 @@ struct DashboardView: View {
                             walletName: wallet.name, chainTitleText: store.displayChainTitle(for: wallet),
                             totalValueText: store.preferences.hideBalances
                                 ? "••••••"
-                                : store.formattedFiatAmountOrZero(fromUSD: store.currentTotalIfAvailable(for: wallet)),
+                                : store.formattedFiatAmountOrZero(fromUSD: store.quotedTotal(for: wallet.holdings).total),
                             assetCountText: AppLocalization.format(
                                 "%lld assets", wallet.holdings.filter { $0.amount > 0 }.count),
                             isWatchOnly: store.isWatchOnlyWallet(wallet), badgeAssetIdentifier: badge.0,
@@ -271,7 +271,7 @@ struct DashboardView: View {
     }
     private func dashboardAssetPriceText(for assetGroup: DashboardAssetGroup, hideBalances: Bool) -> String {
         if hideBalances { return "••••••" }
-        guard let price = store.currentOrFallbackPriceIfAvailable(for: assetGroup.representativeCoin) else {
+        guard let price = store.currentPriceIfAvailable(for: assetGroup.representativeCoin) else {
             return store.formattedFiatAmountOrZero(fromUSD: nil)
         }
         return store.formattedFiatAmountOrZero(fromUSD: price)
@@ -560,17 +560,17 @@ private struct AssetContractsCard: View {
                 Text(AppLocalization.string("No contract addresses are available for this asset.")).font(.subheadline)
                     .foregroundStyle(.secondary)
             } else {
-                ForEach(entries) { entry in
+                ForEach(entries, id: \.id) { entry in
                     VStack(alignment: .leading, spacing: 6) {
                         HStack(spacing: 8) {
-                            Text(entry.chain.rawValue).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
+                            Text(entry.token.chain).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
                             Spacer()
-                            Text(entry.tokenStandard).font(.caption.weight(.semibold)).foregroundStyle(.orange).padding(
+                            Text(entry.token.tokenStandard).font(.caption.weight(.semibold)).foregroundStyle(.orange).padding(
                                 .horizontal, 8
                             ).padding(.vertical, 3).background(
                                 Capsule(style: .continuous).fill(Color.orange.opacity(0.12)))
                         }
-                        Text(entry.contractAddress).font(.footnote.monospaced()).foregroundStyle(.secondary).textSelection(
+                        Text(entry.token.contract).font(.footnote.monospaced()).foregroundStyle(.secondary).textSelection(
                             .enabled
                         ).lineLimit(2).truncationMode(.middle)
                     }.padding(.vertical, 4)
@@ -800,9 +800,17 @@ private struct DashboardPortfolioHeader: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(AppLocalization.string("Portfolio")).font(.subheadline).foregroundStyle(.secondary)
-                    Text(store.preferences.hideBalances ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: store.totalBalanceIfAvailable))
+                    let quoted = store.portfolioQuotedTotal
+                    Text(store.preferences.hideBalances ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: quoted.total))
                         .font(.title.weight(.bold)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.5).allowsTightening(true)
                     Text(AppLocalization.format("%lld in total", store.cachedIncludedPortfolioWallets.count)).font(.footnote).foregroundStyle(.secondary)
+                    // What the total leaves out, said out loud. A holding with
+                    // no quote is not worth zero; the number above simply does
+                    // not cover it.
+                    if !store.preferences.hideBalances, !quoted.isComplete {
+                        Text(AppLocalization.format("%lld without a price", quoted.unpricedCount))
+                            .font(.footnote).foregroundStyle(.secondary)
+                    }
                 }
                 Spacer()
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)

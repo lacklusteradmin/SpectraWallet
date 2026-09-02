@@ -93,7 +93,6 @@ enum StaticContentCatalog {
 }
 struct SettingsContentCopy: Decodable {
     let pricingIntro: String
-    let fiatRateProviderNote: String
     let publicProviderNote: String
     let aboutTitle: String
     let aboutSubtitle: String
@@ -305,19 +304,20 @@ private func tokenHostingChainFor(_ value: String) -> TokenHostingChain? {
     let chain = Chain(id: normalized) ?? Chain.all.first { $0.displayName.lowercased() == normalized }
     return chain?.tokenHostingChain
 }
-extension ChainTokenRegistryEntry {
-    static let builtIn: [ChainTokenRegistryEntry] = {
-        listAllBuiltinTokens().compactMap { entry -> ChainTokenRegistryEntry? in
-            guard let chain = tokenHostingChainFor(entry.chain) else { return nil }
-            let category: TokenPreferenceCategory = entry.tags.lazy
+extension TokenPreferenceEntry {
+    /// The catalog's tokens, as preferences with nothing changed yet.
+    ///
+    /// Went through `ChainTokenRegistryEntry` — a fourth record for one token,
+    /// built here from the catalog row and converted back to a preference at
+    /// every use.
+    static let builtIn: [TokenPreferenceEntry] = {
+        listAllBuiltinTokens().compactMap { token -> TokenPreferenceEntry? in
+            guard tokenHostingChainFor(token.chain) != nil else { return nil }
+            let category: TokenPreferenceCategory = token.tags.lazy
                 .compactMap { TokenPreferenceCategory(rawValue: $0) }
                 .first ?? .custom
-            return ChainTokenRegistryEntry(
-                chain: chain, name: entry.name, symbol: entry.symbol, tokenStandard: entry.tokenStandard,
-                contractAddress: entry.contract, coinGeckoId: entry.coingeckoId,
-                decimals: Int(entry.decimals),
-                category: category, isBuiltIn: true, comment: entry.comment, isEnabledByDefault: entry.enabled
-            )
+            return TokenPreferenceEntry(
+                token: token, category: category, isBuiltIn: true, isEnabled: token.enabled)
         }
     }()
 }

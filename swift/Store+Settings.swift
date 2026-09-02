@@ -68,10 +68,6 @@ extension AppState {
             push(.feePriority(chain: chainName, value: feePriorityByChain[chainName] ?? "normal"),
                  known?.feePriorityByChain[chainName] == feePriorityByChain[chainName])
         }
-        push(.pricingProvider(value: pricingProvider.rawValue),
-             known?.pricingProvider == pricingProvider.rawValue)
-        push(.fiatRateProvider(value: fiatRateProvider.rawValue),
-             known?.fiatRateProvider == fiatRateProvider.rawValue)
         let knownRPCChains = known.map { Set($0.rpcEndpointByChain.keys) } ?? []
         for chainName in Set(rpcEndpointByChain.keys).union(knownRPCChains) {
             push(.rpcEndpoint(chain: chainName, value: rpcEndpointByChain[chainName] ?? ""),
@@ -124,10 +120,6 @@ extension AppState {
         // what they just typed, and then the diff would find nothing to send.
         guard pendingAppSettingsEpoch == nil else { return }
         lastAppliedAppSettings = settings
-        if let value = PricingProvider(rawValue: settings.pricingProvider),
-            value != pricingProvider { pricingProvider = value }
-        if let value = FiatRateProvider(rawValue: settings.fiatRateProvider),
-            value != fiatRateProvider { fiatRateProvider = value }
         if let value = BackgroundSyncProfile(rawValue: settings.backgroundSyncProfile),
             value != backgroundSyncProfile { backgroundSyncProfile = value }
         if settings.etherscanApiKey != etherscanAPIKey { etherscanAPIKey = settings.etherscanApiKey }

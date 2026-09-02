@@ -34,7 +34,6 @@ extension AppState {
             osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
             localeIdentifier: Locale.current.identifier,
             timeZoneIdentifier: TimeZone.current.identifier,
-            pricingProvider: pricingProvider.rawValue,
             selectedFiatCurrency: selectedFiatCurrency.rawValue,
             walletCount: Int64(wallets.count),
             transactionCount: Int64(transactions.count))

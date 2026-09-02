@@ -14,7 +14,7 @@ extension AppState {
         // Built-in tokens only. The user's known-token list is core state and
         // arrives in `reloadPersistedStateFromSQLite()`; reading a second copy
         // from UserDefaults here would race it and usually win.
-        tokenPreferences = ChainTokenRegistryEntry.builtIn.map(\.tokenPreferenceEntry)
+        tokenPreferences = TokenPreferenceEntry.builtIn
         rebuildTokenPreferenceDerivedState()
         livePrices = loadPersistedLivePrices()
         // Keypool, owned addresses and operational events all load from core in
@@ -129,8 +129,8 @@ extension AppState {
         lastSendDestinationProbeInfoMessage = nil
         cachedResolvedENSAddresses = [:]
         bypassHighRiskSendConfirmation = false
-        // Keeping none of them is the clear; core's second name for it is gone.
-        Task { try? await WalletServiceBridge.shared.retainStatusTrackers(ids: []) }
+        // A reset leaves no transactions, so pruning drops every tracker.
+        Task { try? await WalletServiceBridge.shared.pruneStatusTrackers() }
         isShowingWalletImporter = false
         isShowingAddWalletEntry = false
         isShowingSendSheet = false
@@ -204,7 +204,7 @@ extension AppState {
         UserDefaults.standard.removeObject(forKey: Self.torUseCustomProxyDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.torCustomProxyAddressDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.torKillSwitchDefaultsKey)
-        tokenPreferences = ChainTokenRegistryEntry.builtIn.map(\.tokenPreferenceEntry)
+        tokenPreferences = TokenPreferenceEntry.builtIn
         livePrices = [:]
         quoteRefreshError = nil
         fiatRatesRefreshError = nil

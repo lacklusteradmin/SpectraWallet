@@ -215,19 +215,19 @@ extension AppState {
     /// The contract normaliser is core's rather than `normalizeEVMAddress`, so
     /// a TON jetton's case-significant address is not lowercased into a
     /// non-match.
-    func supportedToken(for coin: Coin) -> ChainTokenRegistryEntry? {
+    func supportedToken(for coin: Coin) -> TokenPreferenceEntry? {
         guard let tokenChain = TokenHostingChain.forChainName(coin.chainName) else { return nil }
         // A chain's native asset is never one of its tokens.
         if Chain(displayName: coin.chainName)?.gasTokenSymbol == coin.symbol { return nil }
         let chainTokens = enabledKnownTokens(for: tokenChain)
         guard let contractAddress = coin.contractAddress else {
-            return chainTokens.first { $0.symbol == coin.symbol }
+            return chainTokens.first { $0.token.symbol == coin.symbol }
         }
         let normalized = normalizedKnownTokenIdentifier(
             for: tokenChain, contractAddress: contractAddress)
         return chainTokens.first {
-            $0.symbol == coin.symbol
-                && normalizedKnownTokenIdentifier(for: tokenChain, contractAddress: $0.contractAddress)
+            $0.token.symbol == coin.symbol
+                && normalizedKnownTokenIdentifier(for: tokenChain, contractAddress: $0.token.contract)
                     == normalized
         }
     }
@@ -311,7 +311,7 @@ extension AppState {
                 return AppLocalization.format("This send is %@ of your %@ balance.", formatted, w.symbol ?? "")
             case "non_evm_on_evm":
                 return AppLocalization.format("Destination appears to be a non-EVM address while sending on %@.", w.chain ?? "")
-            case "ens_on_l2":
+            case "ens_off_ethereum":
                 return AppLocalization.format(
                     "ENS names are Ethereum-specific. For %@, verify the resolved EVM address very carefully.", w.chain ?? "")
             case "eth_on_utxo":
@@ -469,7 +469,7 @@ extension AppState {
                     name: "ETH Portfolio Probe", passed: true, chainLabel: "Ethereum",
                     outcome: .custom(text: "Skipped: no imported wallet with Ethereum enabled.")))
         }
-        let diagnosticsOK = diagnosticsJSON(for: "Ethereum").map { coreDiagnosticsEvmJsonShapeOk(json: $0) } ?? false
+        let diagnosticsOK = diagnosticsJSON(for: "Ethereum").map { coreDiagnosticsJsonShapeOk(json: $0) } ?? false
         results.append(
             ChainSelfTestResult(
                 name: "ETH Diagnostics JSON Shape", passed: diagnosticsOK, chainLabel: "Ethereum",
@@ -998,10 +998,9 @@ extension AppState {
     /// supplies the baseline, which depends on transaction and owned-address
     /// history it still computes.
     func keypoolState(for wallet: ImportedWallet, chainName: String) async -> ChainKeypoolState {
-        guard let state = try? await WalletServiceBridge.shared.keypoolState(
-            walletID: wallet.id, chainName: chainName)
-        else { return ChainKeypoolState(keypool: KeypoolState(nextExternalIndex: 0, nextChangeIndex: 0, reservedReceiveIndex: nil)) }
-        return ChainKeypoolState(keypool: state)
+        ChainKeypoolState(
+            keypool: await WalletServiceBridge.shared.keypoolState(
+                walletID: wallet.id, chainName: chainName))
     }
     /// Reserve the next receive index, or return the one already reserved.
     ///
@@ -1034,18 +1033,11 @@ extension AppState {
     /// The `reserveIfMissing: false` path of `reservedReceiveAddress` still
     /// wrote — through `keypoolState` and `registerOwnedAddress`, both of which
     /// touch observed state. This is the variant a SwiftUI `body` can call.
-    func keypoolStateForDisplay(for wallet: ImportedWallet, chainName: String) async
-        -> ChainKeypoolState
-    {
-        ChainKeypoolState(
-            keypool: await WalletServiceBridge.shared.keypoolStateForDisplay(
-                walletID: wallet.id, chainName: chainName))
-    }
     func reservedReceiveAddressForDisplay(for wallet: ImportedWallet, chainName: String) async
         -> String?
     {
         if supportsDeepUTXODiscovery(chainName: chainName) {
-            let state = await keypoolStateForDisplay(for: wallet, chainName: chainName)
+            let state = await keypoolState(for: wallet, chainName: chainName)
             guard let reservedIndex = state.reservedReceiveIndex,
                 let address = deriveUTXOAddress(
                     for: wallet, chainName: chainName, branch: .external, index: reservedIndex)
@@ -1206,7 +1198,9 @@ extension AppState {
                 } else if let token = supportedToken(for: coin) {
                     let tokenBalances = try await WalletServiceBridge.shared.fetchTokenBalances(
                         chainId: chainId, address: normalizedAddress,
-                        tokens: [TokenDescriptor(contract: token.contractAddress, symbol: token.symbol, decimals: UInt8(token.decimals), name: nil)])
+                        tokens: [TokenDescriptor(
+                            contract: token.token.contract, symbol: token.token.symbol,
+                            decimals: UInt8(clamping: token.token.decimals), name: nil)])
                     let tokenBalance = Decimal(string: tokenBalances.first?.balanceDisplay ?? "0") ?? .zero
                     warning =
                         (tokenBalance <= .zero && !hasHistory)
@@ -1236,8 +1230,8 @@ extension AppState {
                         let results = try await WalletServiceBridge.shared.fetchTokenBalances(
                             chainId: Chain.tron.id, address: destinationForProbe,
                             tokens: [TokenDescriptor(
-                                contract: token.contractAddress, symbol: token.symbol,
-                                decimals: UInt8(token.decimals), name: nil)])
+                                contract: token.token.contract, symbol: token.token.symbol,
+                                decimals: UInt8(clamping: token.token.decimals), name: nil)])
                         balance = results.first.flatMap { Double($0.balanceDisplay) } ?? 0
                     } else {
                         balance = Double(tronSun) / 1e6

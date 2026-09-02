@@ -52,17 +52,9 @@ struct SendView: View {
         store.availableSendCoins(for: store.sendWalletID).first(where: { $0.holdingKey == store.sendHoldingKey })
     }
 
-    /// The chains `SendPreviewStore` keeps a field for, minus the EVM family.
-    private static let previewChainNames: Set<String> = [
-        "Bitcoin", "Bitcoin Cash", "Bitcoin SV", "Litecoin", "Dogecoin", "Tron", "Solana",
-        "XRP Ledger", "Monero", "Cardano", "Sui", "Aptos", "TON", "NEAR", "Polkadot",
-        "Stellar", "Internet Computer",
-    ]
-
     private func hasNetworkSendSections(for coin: Coin?) -> Bool {
-        guard let coin else { return false }
-        if Chain(displayName: coin.chainName)?.isEVM == true { return true }
-        return Self.previewChainNames.contains(coin.chainName)
+        guard let coin, let chain = Chain(displayName: coin.chainName) else { return false }
+        return chain.hasSendPreview
     }
 
     var body: some View {
@@ -934,12 +926,16 @@ struct SendView: View {
         Binding(get: { store.feePriorityOption(for: chainName) }, set: { store.setFeePriorityOption($0, for: chainName) })
     }
 
+    /// The preview stored under this coin's own slot.
+    ///
+    /// Two arms named a chain and everything else fell through to Bitcoin's,
+    /// so a send on Bitcoin SV, Dogecoin, Zcash, Dash, Decred or Bitcoin Gold
+    /// showed Bitcoin's fee.
     private func utxoPreview(for coin: Coin) -> BitcoinSendPreview? {
-        switch coin.chain {
-        case .litecoin: return sendPreviewStore.litecoinSendPreview
-        case .bitcoinCash: return sendPreviewStore.bitcoinCashSendPreview
-        default: return sendPreviewStore.bitcoinSendPreview
+        if case .utxo(let preview) = sendPreviewStore.taggedPreview(forChainNamed: coin.chainName) {
+            return preview
         }
+        return nil
     }
 
     private func utxoAdvancedModeCaption(for chainName: String) -> String? {

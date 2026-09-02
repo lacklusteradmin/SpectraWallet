@@ -24,7 +24,6 @@ enum CachedCoreHelpers {
     // ── Unbounded caches for fixed-domain helpers ──────────────────────
     private static var allChainsResult: [ChainEntry]?
     private static var allTokensResult: [TokenEntry]?
-    private static var stablecoinFallbackPriceUsdBySymbol: [String: Double] = [:]
     private static var seedDerivationChainRaws: [String: String?] = [:]
     private static var evmSeedDerivationChainNames: [String: String?] = [:]
     private static var receiveAddressResolvers: [String: ReceiveAddressResolverKind] = [:]
@@ -50,13 +49,6 @@ enum CachedCoreHelpers {
         let value = listAllChains()
         allChainsResult = value
         return value
-    }
-
-    // ── formatting.* ───────────────────────────────────────────────────
-    static func stablecoinFallbackPriceUsd(symbol: String) -> Double {
-        cached(in: &stablecoinFallbackPriceUsdBySymbol, key: symbol) {
-            formattingStablecoinFallbackPriceUsd(symbol: symbol)
-        }
     }
 
     // ── core.* predicates + enum mappers ───────────────────────────────

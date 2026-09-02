@@ -15,40 +15,49 @@ import SwiftUI
 extension AppState {
     // MARK: Bitcoin-family history diagnostics
 
-    func runUtxoHistoryDiagnostics() async {
+    func runBitcoinXpubHistoryDiagnostics() async {
         guard !self[historyRunFor: "Bitcoin"].isRunning else { return }
         self[historyRunFor: "Bitcoin"].isRunning = true
         defer { self[historyRunFor: "Bitcoin"].isRunning = false }
         let btcWallets = wallets.filter { $0.selectedChain == "Bitcoin" }
         guard !btcWallets.isEmpty else { self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date(); return }
-        for wallet in btcWallets { await runUtxoHistoryDiagnosticsInner(for: wallet) }
+        for wallet in btcWallets { await runBitcoinXpubHistoryDiagnosticsInner(for: wallet) }
     }
-    func runUtxoHistoryDiagnostics(for walletID: String) async {
+    func runBitcoinXpubHistoryDiagnostics(for walletID: String) async {
         guard !self[historyRunFor: "Bitcoin"].isRunning else { return }
         guard let wallet = wallets.first(where: { $0.id == walletID }), wallet.selectedChain == "Bitcoin" else { return }
         self[historyRunFor: "Bitcoin"].isRunning = true
         defer { self[historyRunFor: "Bitcoin"].isRunning = false }
-        await runUtxoHistoryDiagnosticsInner(for: wallet)
+        await runBitcoinXpubHistoryDiagnosticsInner(for: wallet)
     }
-    private func runUtxoHistoryDiagnosticsInner(for wallet: ImportedWallet) async {
+    private func runBitcoinXpubHistoryDiagnosticsInner(for wallet: ImportedWallet) async {
         let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? wallet.name
         do {
             let page = try await withTimeout(seconds: 20) {
                 try await self.fetchBitcoinHistoryPage(for: wallet, limit: HistoryPaging.endpointBatchSize, cursor: nil)
             }
             if identifier.isEmpty {
-                recordUTXOHistoryDiagnostics(
-                    chainName: "Bitcoin", walletID: wallet.id,
-                    UtxoHistoryDiagnostics(walletId: wallet.id, identifier: "missing address/xpub", sourceUsed: "none", transactionCount: 0, nextCursor: nil, error: "Wallet has no BTC address or xpub configured."))
+                recordHistoryDiagnostics(
+                    chainName: "Bitcoin",
+                    HistoryDiagnostics(
+                        walletId: wallet.id, identifier: "missing address/xpub",
+                        sourceUsed: "none", transactionCount: 0,
+                        scannedCount: nil, nextCursor: nil, error: "Wallet has no BTC address or xpub configured.", perSource: []))
             } else {
-                recordUTXOHistoryDiagnostics(
-                    chainName: "Bitcoin", walletID: wallet.id,
-                    UtxoHistoryDiagnostics(walletId: wallet.id, identifier: identifier, sourceUsed: page.sourceUsed, transactionCount: Int32(page.snapshots.count), nextCursor: page.nextCursor, error: nil))
+                recordHistoryDiagnostics(
+                    chainName: "Bitcoin",
+                    HistoryDiagnostics(
+                        walletId: wallet.id, identifier: identifier,
+                        sourceUsed: page.sourceUsed, transactionCount: Int32(page.snapshots.count),
+                        scannedCount: nil, nextCursor: page.nextCursor, error: nil, perSource: []))
             }
         } catch {
-            recordUTXOHistoryDiagnostics(
-                chainName: "Bitcoin", walletID: wallet.id,
-                UtxoHistoryDiagnostics(walletId: wallet.id, identifier: wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? "unknown", sourceUsed: "none", transactionCount: 0, nextCursor: nil, error: error.localizedDescription))
+            recordHistoryDiagnostics(
+                chainName: "Bitcoin",
+                HistoryDiagnostics(
+                        walletId: wallet.id, identifier: wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? "unknown",
+                        sourceUsed: "none", transactionCount: 0,
+                        scannedCount: nil, nextCursor: nil, error: error.localizedDescription, perSource: []))
         }
         self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
     }
@@ -73,72 +82,50 @@ extension AppState {
     }
     static let chainDiagDescriptors: [Chain: ChainDiagnosticsDescriptor] = [
         .bitcoin: .init(
-            runHistory: { store, _ in await store.runUtxoHistoryDiagnostics() },
-            runHistoryForWallet: { store, _, id in await store.runUtxoHistoryDiagnostics(for: id) },
+            runHistory: { store, _ in await store.runBitcoinXpubHistoryDiagnostics() },
+            runHistoryForWallet: { store, _, id in await store.runBitcoinXpubHistoryDiagnostics(for: id) },
             runEndpoints: { store, _ in await store.runBitcoinEndpointReachabilityDiagnostics() }
         ),
         .dogecoin: .init(
             runHistory: { store, chain in await store.runRustHistoryDiagnosticsForAllWallets(
                 chainName: chain.displayName,
-                resolveAddress: { store.resolvedNetworkModeAddress(for: $0, family: "dogecoin", fallback: .dogecoin) },
-                make: { UtxoHistoryDiagnostics(walletId: "", identifier: $0, sourceUsed: $1, transactionCount: Int32($2), nextCursor: nil, error: $3) },
-                record: { walletID, entry in store.recordUTXOHistoryDiagnostics(
-                    chainName: chain.displayName, walletID: walletID,
-                    UtxoHistoryDiagnostics(
-                        walletId: walletID, identifier: entry.identifier, sourceUsed: entry.sourceUsed,
-                        transactionCount: entry.transactionCount, nextCursor: nil, error: entry.error)) }) },
+                resolveAddress: { store.resolvedNetworkModeAddress(for: $0, family: "dogecoin", fallback: .dogecoin) }) },
             runEndpoints: { store, chain in await store.runCatalogEndpointReachabilityDiagnostics(for: chain.displayName) }
         ),
         .tron: .init(
             runHistory: { store, chain in await store.runRustHistoryDiagnosticsForAllWallets(
                 chainName: chain.displayName,
-                resolveAddress: { store.resolvedTronAddress(for: $0) },
-                make: { TronHistoryDiagnostics(address: $0, tronScanTxCount: Int32($2), tronScanTrc20Count: 0, sourceUsed: $1, error: $3) },
-                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .tron(entry: $1)) }) },
+                resolveAddress: { store.resolvedTronAddress(for: $0) }) },
             runHistoryForWallet: { store, chain, id in await store.runRustHistoryDiagnosticsForWallet(
                 walletID: id, chainName: chain.displayName,
-                resolveAddress: { store.resolvedTronAddress(for: $0) },
-                make: { TronHistoryDiagnostics(address: $0, tronScanTxCount: Int32($2), tronScanTrc20Count: 0, sourceUsed: $1, error: $3) },
-                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .tron(entry: $1)) }) },
+                resolveAddress: { store.resolvedTronAddress(for: $0) }) },
             runEndpoints: { store, chain in await store.runCatalogEndpointReachabilityDiagnostics(for: chain.displayName) }
         ),
         .solana: .init(
             runHistory: { store, chain in await store.runRustHistoryDiagnosticsForAllWallets(
                 chainName: chain.displayName,
-                resolveAddress: { store.resolvedSolanaAddress(for: $0) },
-                make: { SolanaHistoryDiagnostics(address: $0, rpcCount: Int32($2), sourceUsed: $1, error: $3) },
-                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .solana(entry: $1)) }) },
+                resolveAddress: { store.resolvedSolanaAddress(for: $0) }) },
             runHistoryForWallet: { store, chain, id in await store.runRustHistoryDiagnosticsForWallet(
                 walletID: id, chainName: chain.displayName,
-                resolveAddress: { store.resolvedSolanaAddress(for: $0) },
-                make: { SolanaHistoryDiagnostics(address: $0, rpcCount: Int32($2), sourceUsed: $1, error: $3) },
-                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .solana(entry: $1)) }) },
+                resolveAddress: { store.resolvedSolanaAddress(for: $0) }) },
             runEndpoints: { store, chain in await store.runCatalogEndpointReachabilityDiagnostics(for: chain.displayName) }
         ),
         .monero: .init(
             runHistory: { store, chain in await store.runRustHistoryDiagnosticsForAllWallets(
                 chainName: chain.displayName,
-                resolveAddress: { store.resolvedMoneroAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .simple(entry: $1)) }) },
+                resolveAddress: { store.resolvedMoneroAddress(for: $0) }) },
             runHistoryForWallet: { store, chain, id in await store.runRustHistoryDiagnosticsForWallet(
                 walletID: id, chainName: chain.displayName,
-                resolveAddress: { store.resolvedMoneroAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .simple(entry: $1)) }) },
+                resolveAddress: { store.resolvedMoneroAddress(for: $0) }) },
             runEndpoints: { store, _ in await store.runMoneroEndpointReachabilityDiagnostics() }
         ),
         .near: .init(
             runHistory: { store, chain in await store.runRustHistoryDiagnosticsForAllWallets(
                 chainName: chain.displayName,
-                resolveAddress: { store.resolvedNearAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .simple(entry: $1)) }) },
+                resolveAddress: { store.resolvedNearAddress(for: $0) }) },
             runHistoryForWallet: { store, chain, id in await store.runRustHistoryDiagnosticsForWallet(
                 walletID: id, chainName: chain.displayName,
-                resolveAddress: { store.resolvedNearAddress(for: $0) },
-                make: { SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3) },
-                record: { diagnosticsRecord(chainName: chain.displayName, walletId: $0, entry: .simple(entry: $1)) }) },
+                resolveAddress: { store.resolvedNearAddress(for: $0) }) },
             runEndpoints: { store, _ in await store.runNearEndpointReachabilityDiagnostics() }
         ),
         .ethereum: .init(
@@ -160,24 +147,6 @@ extension AppState {
             runEndpoints: { store, _ in await store.runBNBEndpointReachabilityDiagnostics() }
         ),
     ]
-    /// Chains whose diagnostics are the shared shape: fetch the history count
-    /// for each wallet's address, and probe the endpoints the catalog lists.
-    private func runSimpleChainDiagnostics(chainName: String, walletID: String? = nil) async {
-        let make: (String, String, Int, String?) -> SimpleHistoryDiagnostics = {
-            SimpleHistoryDiagnostics(address: $0, sourceUsed: $1, transactionCount: Int32($2), error: $3)
-        }
-        let resolve: (ImportedWallet) -> String? = { [self] in resolvedAddress(for: $0, chainName: chainName) }
-        let record: @MainActor (String, SimpleHistoryDiagnostics) -> Void = { [self] in
-            recordSimpleHistoryDiagnostics(chainName: chainName, walletID: $0, $1)
-        }
-        if let walletID {
-            await runRustHistoryDiagnosticsForWallet(
-                walletID: walletID, chainName: chainName, resolveAddress: resolve, make: make, record: record)
-        } else {
-            await runRustHistoryDiagnosticsForAllWallets(
-                chainName: chainName, resolveAddress: resolve, make: make, record: record)
-        }
-    }
     /// The EVM family's diagnostics, for chains without a descriptor of their
     /// own. Five rows said this, byte-identical but for the chain name;
     /// Ethereum and BNB Chain keep theirs because their endpoint probes parse
@@ -191,17 +160,17 @@ extension AppState {
             await runEVMHistoryDiagnosticsForAllWallets(chainName: chainName, resolveAddress: resolve)
         }
     }
-    /// The UTXO chains' diagnostics. Three rows said this — Litecoin, Bitcoin
-    /// Cash and Bitcoin SV — identical but for the chain name. Bitcoin and
-    /// Dogecoin keep theirs: Bitcoin's walks an xpub, Dogecoin's counts
-    /// history entries directly.
-    private func runUTXOChainDiagnostics(chainName: String, walletID: String? = nil) async {
+    /// Every chain without a descriptor of its own except the EVM family:
+    /// fetch each wallet's history count for its address. UTXO chains and
+    /// account chains ran this separately, through two functions and two
+    /// runners that differed only in the record type they built.
+    private func runChainHistoryDiagnostics(chainName: String, walletID: String? = nil) async {
         let resolve: (ImportedWallet) -> String? = { [self] in resolvedAddress(for: $0, chainName: chainName) }
         if let walletID {
-            await runUTXOStyleHistoryDiagnosticsForWallet(
+            await runRustHistoryDiagnosticsForWallet(
                 walletID: walletID, chainName: chainName, resolveAddress: resolve)
         } else {
-            await runUTXOStyleHistoryDiagnostics(chainName: chainName, resolveAddress: resolve)
+            await runRustHistoryDiagnosticsForAllWallets(chainName: chainName, resolveAddress: resolve)
         }
     }
 
@@ -210,10 +179,7 @@ extension AppState {
             if chain.isEVM {
                 return await runEVMChainDiagnostics(chainName: chain.displayName)
             }
-            if chain.supportsDeepUTXODiscovery {
-                return await runUTXOChainDiagnostics(chainName: chain.displayName)
-            }
-            return await runSimpleChainDiagnostics(chainName: chain.displayName)
+            return await runChainHistoryDiagnostics(chainName: chain.displayName)
         }
         await descriptor.runHistory(self, chain)
     }
@@ -222,10 +188,8 @@ extension AppState {
             if chain.isEVM {
                 return await runEVMChainDiagnostics(chainName: chain.displayName, walletID: walletID)
             }
-            if chain.supportsDeepUTXODiscovery {
-                return await runUTXOChainDiagnostics(chainName: chain.displayName, walletID: walletID)
-            }
-            return await runSimpleChainDiagnostics(chainName: chain.displayName, walletID: walletID)
+            return await runChainHistoryDiagnostics(
+                chainName: chain.displayName, walletID: walletID)
         }
         await descriptor.runHistoryForWallet?(self, chain, walletID)
     }
@@ -241,9 +205,9 @@ extension AppState {
     /// The run flag and the "last updated" stamp are both `self[historyRunFor:
     /// chainName]`, so neither is a parameter: passing a key path built from an
     /// argument the same call already carries is the argument passed twice.
-    private func runAddressHistoryDiagnosticsForAllWallets<Diagnostics>(
+    private func runAddressHistoryDiagnosticsForAllWallets(
         chainName: String, resolveAddress: (ImportedWallet) -> String?,
-        fetchDiagnostics: (String) async -> Diagnostics, storeDiagnostics: (String, Diagnostics) -> Void
+        fetchDiagnostics: (String, String) async -> HistoryDiagnostics
     ) async {
         let markUpdated = { self[historyRunFor: chainName].lastUpdatedAt = Date() }
         guard !self[historyRunFor: chainName].isRunning else { return }
@@ -254,13 +218,15 @@ extension AppState {
             return (wallet, address)
         }
         guard !walletsToRefresh.isEmpty else { markUpdated(); return }
-        for (wallet, address) in walletsToRefresh { storeDiagnostics(wallet.id, await fetchDiagnostics(address)) }
+        for (wallet, address) in walletsToRefresh {
+            recordHistoryDiagnostics(chainName: chainName, await fetchDiagnostics(wallet.id, address))
+        }
         markUpdated()
     }
-    private func runAddressHistoryDiagnosticsForWallet<Diagnostics>(
+    private func runAddressHistoryDiagnosticsForWallet(
         walletID: String, chainName: String,
         resolveAddress: (ImportedWallet) -> String?,
-        fetchDiagnostics: (String) async -> Diagnostics, storeDiagnostics: (String, Diagnostics) -> Void
+        fetchDiagnostics: (String, String) async -> HistoryDiagnostics
     ) async {
         guard !self[historyRunFor: chainName].isRunning else { return }
         guard let wallet = wallets.first(where: { $0.id == walletID }), wallet.selectedChain == chainName,
@@ -268,7 +234,7 @@ extension AppState {
         else { return }
         self[historyRunFor: chainName].isRunning = true
         defer { self[historyRunFor: chainName].isRunning = false }
-        storeDiagnostics(wallet.id, await fetchDiagnostics(address))
+        recordHistoryDiagnostics(chainName: chainName, await fetchDiagnostics(wallet.id, address))
         self[historyRunFor: chainName].lastUpdatedAt = Date()
     }
 
@@ -401,11 +367,14 @@ extension AppState {
         }
         guard !walletsToRefresh.isEmpty else { self[historyRunFor: chainName].lastUpdatedAt = Date(); return }
         for (wallet, address) in walletsToRefresh {
-            recordEVMHistoryDiagnostics(chainName: chainName, walletID: wallet.id, diagnosticsMakeEvmRunning(address: address))
+            recordHistoryDiagnostics(
+                chainName: chainName,
+                diagnosticsMakeEvmRunning(walletId: wallet.id, address: address))
             self[historyRunFor: chainName].lastUpdatedAt = Date()
-            recordEVMHistoryDiagnostics(
-            chainName: chainName, walletID: wallet.id,
-            await rustEVMHistoryDiagnostics(chainName: chainName, address: address))
+            recordHistoryDiagnostics(
+                chainName: chainName,
+                await rustEVMHistoryDiagnostics(
+                    chainName: chainName, walletID: wallet.id, address: address))
         }
         self[historyRunFor: chainName].lastUpdatedAt = Date()
     }
@@ -418,21 +387,27 @@ extension AppState {
         else { return }
         self[historyRunFor: chainName].isRunning = true
         defer { self[historyRunFor: chainName].isRunning = false }
-        recordEVMHistoryDiagnostics(chainName: chainName, walletID: wallet.id, diagnosticsMakeEvmRunning(address: address))
+        recordHistoryDiagnostics(
+            chainName: chainName,
+            diagnosticsMakeEvmRunning(walletId: wallet.id, address: address))
         self[historyRunFor: chainName].lastUpdatedAt = Date()
-        recordEVMHistoryDiagnostics(
-            chainName: chainName, walletID: wallet.id,
-            await rustEVMHistoryDiagnostics(chainName: chainName, address: address))
+        recordHistoryDiagnostics(
+            chainName: chainName,
+            await rustEVMHistoryDiagnostics(
+                chainName: chainName, walletID: wallet.id, address: address))
         self[historyRunFor: chainName].lastUpdatedAt = Date()
     }
     /// Bridge to Rust: fused history-fetch-then-build call. Rust owns both
     /// the HTTP fetch and the diagnostics record construction so Swift never
     /// sees the intermediate JSON. Unsupported chain → error record built
     /// on the Rust side via `fetch_evm_history_diagnostics`' fallback path.
-    private func rustEVMHistoryDiagnostics(chainName: String, address: String) async -> EthereumTokenTransferHistoryDiagnostics {
+    private func rustEVMHistoryDiagnostics(
+        chainName: String, walletID: String, address: String
+    ) async -> HistoryDiagnostics {
         let chainId = Chain(displayName: chainName)?.id ?? ""
-        return (try? await WalletServiceBridge.shared.fetchEVMHistoryDiagnostics(chainId: chainId, address: address))
-            ?? diagnosticsMakeEvmRunning(address: address)
+        return (try? await WalletServiceBridge.shared.fetchEVMHistoryDiagnostics(
+            chainId: chainId, walletID: walletID, address: address))
+            ?? diagnosticsMakeEvmRunning(walletId: walletID, address: address)
     }
 
     // MARK: EVM endpoint reachability
@@ -498,14 +473,11 @@ extension AppState {
             if tracksFinality { return $0.status == .pending || $0.status == .confirmed }
             return $0.status == .pending
         }
-        if tracked.isEmpty {
-            if tracksFinality { try? await WalletServiceBridge.shared.retainStatusTrackers(ids: []) }
-            return
-        }
-        if tracksFinality {
-            try? await WalletServiceBridge.shared.retainStatusTrackers(
-                ids: tracked.map(\.id.uuidString))
-        }
+        // Core drops trackers for transactions nothing polls any more; it reads
+        // its own transaction table and the chain's poll shape to decide, so
+        // the set is not computed here and sent over.
+        try? await WalletServiceBridge.shared.pruneStatusTrackers()
+        if tracked.isEmpty { return }
         var resolved: [UUID: PendingTransactionStatusResolution] = [:]
         for transaction in tracked {
             guard let hash = transaction.transactionHash, await shouldPollTransactionStatus(for: transaction) else { continue }
@@ -550,73 +522,36 @@ extension AppState {
     /// `\.[historyRunFor: chainName].isRunning` and `.lastUpdatedAt`. Passing
     /// them alongside the name they are built from is the name passed four
     /// times, and every descriptor row paid it twice.
-    private func runRustHistoryDiagnosticsForAllWallets<D>(
-        chainName: String,
-        resolveAddress: @escaping (ImportedWallet) -> String?, make: @escaping (String, String, Int, String?) -> D,
-        record: @escaping @MainActor (String, D) -> Void
+    private func runRustHistoryDiagnosticsForAllWallets(
+        chainName: String, resolveAddress: @escaping (ImportedWallet) -> String?
     ) async {
         guard let chainId = Chain(displayName: chainName)?.id else { return }
         await runAddressHistoryDiagnosticsForAllWallets(
             chainName: chainName, resolveAddress: resolveAddress,
-            fetchDiagnostics: { await self.rustHistoryFetch(chainId: chainId, address: $0, make: make) },
-            storeDiagnostics: record)
+            fetchDiagnostics: { await self.rustHistoryFetch(chainId: chainId, walletID: $0, address: $1) })
     }
-    private func runRustHistoryDiagnosticsForWallet<D>(
-        walletID: String, chainName: String,
-        resolveAddress: @escaping (ImportedWallet) -> String?, make: @escaping (String, String, Int, String?) -> D,
-        record: @escaping @MainActor (String, D) -> Void
-    ) async {
-        guard let chainId = Chain(displayName: chainName)?.id else { return }
-        await runAddressHistoryDiagnosticsForWallet(
-            walletID: walletID, chainName: chainName,
-            resolveAddress: resolveAddress,
-            fetchDiagnostics: { await self.rustHistoryFetch(chainId: chainId, address: $0, make: make) },
-            storeDiagnostics: record)
-    }
-    private func runUTXOStyleHistoryDiagnostics(
-        chainName: String,
-        resolveAddress: @escaping (ImportedWallet) -> String?
-    ) async {
-        guard let chainId = Chain(displayName: chainName)?.id else { return }
-        await runAddressHistoryDiagnosticsForAllWallets(
-            chainName: chainName, resolveAddress: resolveAddress,
-            fetchDiagnostics: { address in
-                let count = Int((try? await WalletServiceBridge.shared.fetchHistorySummary(chainId: chainId, address: address).entryCount) ?? 0)
-                return UtxoHistoryDiagnostics(
-                    walletId: "", identifier: address, sourceUsed: "rust", transactionCount: Int32(count), nextCursor: nil, error: nil)
-            },
-            storeDiagnostics: { walletID, d in
-                self.recordUTXOHistoryDiagnostics(
-                    chainName: chainName, walletID: walletID,
-                    UtxoHistoryDiagnostics(
-                        walletId: walletID, identifier: d.identifier, sourceUsed: d.sourceUsed,
-                        transactionCount: d.transactionCount, nextCursor: d.nextCursor, error: d.error))
-            })
-    }
-    private func runUTXOStyleHistoryDiagnosticsForWallet(
-        walletID: String, chainName: String,
-        resolveAddress: @escaping (ImportedWallet) -> String?
+    private func runRustHistoryDiagnosticsForWallet(
+        walletID: String, chainName: String, resolveAddress: @escaping (ImportedWallet) -> String?
     ) async {
         guard let chainId = Chain(displayName: chainName)?.id else { return }
         await runAddressHistoryDiagnosticsForWallet(
             walletID: walletID, chainName: chainName, resolveAddress: resolveAddress,
-            fetchDiagnostics: { address in
-                let count = Int((try? await WalletServiceBridge.shared.fetchHistorySummary(chainId: chainId, address: address).entryCount) ?? 0)
-                return UtxoHistoryDiagnostics(
-                    walletId: walletID, identifier: address, sourceUsed: "rust", transactionCount: Int32(count), nextCursor: nil, error: nil
-                )
-            },
-            storeDiagnostics: { _, d in
-                self.recordUTXOHistoryDiagnostics(chainName: chainName, walletID: walletID, d)
-            })
+            fetchDiagnostics: { await self.rustHistoryFetch(chainId: chainId, walletID: $0, address: $1) })
     }
-    /// Fetch Rust history JSON and construct a per-chain diagnostics record.
-    /// Counting is now delegated to Rust (`diagnosticsHistoryEntryCount`);
-    /// the Swift layer only threads the chain-specific `make` constructor.
-    private func rustHistoryFetch<D>(chainId: String, address: String, make: (String, String, Int, String?) -> D) async -> D {
-        if let count = try? await WalletServiceBridge.shared.fetchHistorySummary(chainId: chainId, address: address).entryCount {
-            return make(address, "rust", Int(count), nil)
-        }
-        return make(address, "none", 0, "History fetch failed")
+    /// One history-summary call, as a diagnostics row.
+    ///
+    /// Took a `make` closure so each chain could build its own record shape.
+    /// There is one shape, so there is nothing to pass.
+    private func rustHistoryFetch(
+        chainId: String, walletID: String, address: String
+    ) async -> HistoryDiagnostics {
+        let count = try? await WalletServiceBridge.shared.fetchHistorySummary(
+            chainId: chainId, address: address
+        ).entryCount
+        return HistoryDiagnostics(
+            walletId: walletID, identifier: address,
+            sourceUsed: count == nil ? "none" : "rust",
+            transactionCount: Int32(count ?? 0), scannedCount: nil, nextCursor: nil,
+            error: count == nil ? "History fetch failed" : nil, perSource: [])
     }
 }

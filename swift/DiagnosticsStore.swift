@@ -26,32 +26,18 @@ extension AppState {
         get { chainDiagnosticsState.historyRunByChain }
         set { chainDiagnosticsState.historyRunByChain = newValue }
     }
-    /// Record one wallet's history diagnostics, on the registry its chain's
-    /// record shape belongs to.
+    /// Record one wallet's history-run row.
     ///
-    /// These were subscripts returning the whole per-chain map, so storing one
-    /// wallet's row read every row across the boundary, mutated the copy, and
-    /// sent all of them back — the read-modify-write that made two wallets
-    /// refreshing at once keep only the later one. Nothing read the map for
-    /// its own sake: the screen's counts come from `diagnosticsRunSummary`.
-    func recordSimpleHistoryDiagnostics(
-        chainName: String, walletID: String, _ entry: SimpleHistoryDiagnostics
-    ) {
-        diagnosticsRecord(chainName: chainName, walletId: walletID, entry: .simple(entry: entry))
+    /// One row goes across the boundary, not the chain's whole map: reading
+    /// every row, mutating a copy and sending them all back is what made two
+    /// wallets refreshing at once keep only the later one. Nothing reads the
+    /// map for its own sake — the screen's counts come from
+    /// `diagnosticsRunSummary`.
+    func recordHistoryDiagnostics(chainName: String, _ entry: HistoryDiagnostics) {
+        diagnosticsRecord(chainName: chainName, entry: entry)
         chainDiagnosticsState.diagnosticsRevision &+= 1
     }
-    func recordUTXOHistoryDiagnostics(
-        chainName: String, walletID: String, _ entry: UtxoHistoryDiagnostics
-    ) {
-        diagnosticsRecord(chainName: chainName, walletId: walletID, entry: .utxo(entry: entry))
-        chainDiagnosticsState.diagnosticsRevision &+= 1
-    }
-    func recordEVMHistoryDiagnostics(
-        chainName: String, walletID: String, _ entry: EthereumTokenTransferHistoryDiagnostics
-    ) {
-        diagnosticsRecord(chainName: chainName, walletId: walletID, entry: .evm(entry: entry))
-        chainDiagnosticsState.diagnosticsRevision &+= 1
-    }
+
     subscript(historyRunFor chainName: String) -> WalletChainDiagnosticsState.HistoryRun {
         get { chainDiagnosticsState.historyRunByChain[chainName] ?? .init() }
         set { chainDiagnosticsState.historyRunByChain[chainName] = newValue }

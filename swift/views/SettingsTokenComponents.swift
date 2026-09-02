@@ -11,16 +11,16 @@ extension TokenHostingChain {
 }
 extension TokenPreferenceEntry {
     var settingsAssetIdentifier: String {
-        let slug = chain.settingsIconSlug
-        let lowerSymbol = symbol.lowercased()
-        let trimmedGeckoId = coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines)
+        let slug = hostingChain?.settingsIconSlug ?? ""
+        let lowerSymbol = token.symbol.lowercased()
+        let trimmedGeckoId = token.coingeckoId.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedGeckoId.isEmpty {
             return "\(slug):\(trimmedGeckoId.lowercased()):\(lowerSymbol)"
         }
         return "\(slug):\(lowerSymbol)"
     }
     var settingsFallbackMark: String {
-        String(symbol.trimmingCharacters(in: .whitespacesAndNewlines).prefix(2)).uppercased()
+        String(token.symbol.trimmingCharacters(in: .whitespacesAndNewlines).prefix(2)).uppercased()
     }
 }
 struct TokenRegistryGroup: Identifiable {
@@ -40,7 +40,7 @@ struct TokenRegistryGroupRowView: View {
             CoinBadge(
                 assetIdentifier: group.representativeEntry.settingsAssetIdentifier,
                 fallbackText: group.representativeEntry.settingsFallbackMark,
-                color: group.representativeEntry.chain.settingsIconTint, size: 30
+                color: group.representativeEntry.hostingChain?.settingsIconTint ?? .accentColor, size: 30
             )
             VStack(alignment: .leading, spacing: 4) {
                 Text(group.name).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
@@ -60,8 +60,8 @@ struct TokenRegistryEntryCardView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(entry.chain.rawValue).font(.subheadline.weight(.semibold))
-                    Text(entry.tokenStandard).font(.caption).foregroundStyle(.secondary)
+                    Text(entry.token.chain).font(.subheadline.weight(.semibold))
+                    Text(entry.token.tokenStandard).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 Toggle(
@@ -71,18 +71,18 @@ struct TokenRegistryEntryCardView: View {
             SettingsTokenDetailRow(
                 title: AppLocalization.string("Source"),
                 value: entry.isBuiltIn ? AppLocalization.string("Built-In") : AppLocalization.string("Custom"))
-            SettingsTokenDetailRow(title: AppLocalization.string("Supported Decimals"), value: "\(entry.decimals)")
+            SettingsTokenDetailRow(title: AppLocalization.string("Supported Decimals"), value: "\(entry.token.decimals)")
             VStack(alignment: .leading, spacing: 6) {
                 Text(AppLocalization.string("Contract / Mint")).font(.caption).foregroundStyle(.secondary)
-                Text(entry.contractAddress).font(.caption.monospaced()).textSelection(.enabled)
+                Text(entry.token.contract).font(.caption.monospaced()).textSelection(.enabled)
             }
-            if !entry.coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                SettingsTokenDetailRow(title: AppLocalization.string("CoinGecko ID"), value: entry.coinGeckoId)
+            if !entry.token.coingeckoId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                SettingsTokenDetailRow(title: AppLocalization.string("CoinGecko ID"), value: entry.token.coingeckoId)
             }
             if !entry.isBuiltIn {
                 Stepper(
-                    AppLocalization.format("Supports: %lld decimals", Int(entry.decimals)),
-                    value: Binding(get: { Int(entry.decimals) }, set: { v in updateDecimals(v) }), in: 0...30, step: 1
+                    AppLocalization.format("Supports: %lld decimals", Int(entry.token.decimals)),
+                    value: Binding(get: { Int(entry.token.decimals) }, set: { v in updateDecimals(v) }), in: 0...30, step: 1
                 )
                 Button(role: .destructive) {
                     isShowingRemoveConfirmation = true

@@ -2,9 +2,9 @@ import Foundation
 import SwiftUI
 enum TokenRegistryGrouping {
     nonisolated static func key(for entry: TokenPreferenceEntry) -> String {
-        let geckoID = entry.coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        let geckoID = entry.token.coingeckoId.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         if !geckoID.isEmpty { return "gecko:\(geckoID)" }
-        return "symbol:\(entry.symbol.lowercased())|\(entry.name.lowercased())"
+        return "symbol:\(entry.token.symbol.lowercased())|\(entry.token.name.lowercased())"
     }
 }
 struct TokenRegistrySettingsView: View {
@@ -126,11 +126,11 @@ struct TokenRegistrySettingsView: View {
             }
     }
     private func entries(for chain: TokenHostingChain) -> [TokenPreferenceEntry] {
-        store.resolvedTokenPreferences.filter { $0.chain == chain }
+        store.resolvedTokenPreferences.filter { $0.token.chain == chain.rawValue }
             .sorted { lhs, rhs in
                 if lhs.isBuiltIn != rhs.isBuiltIn { return lhs.isBuiltIn && !rhs.isBuiltIn }
                 if lhs.category != rhs.category { return lhs.category.rawValue < rhs.category.rawValue }
-                return lhs.symbol < rhs.symbol
+                return lhs.token.symbol < rhs.token.symbol
             }
     }
     private var filteredGroups: [TokenRegistryGroup] {
@@ -138,37 +138,40 @@ struct TokenRegistrySettingsView: View {
         let grouped = Dictionary(grouping: allEntries, by: TokenRegistryGrouping.key(for:))
         let groups = grouped.values.compactMap { entries -> TokenRegistryGroup? in
             let sortedEntries = entries.sorted { lhs, rhs in
-                if lhs.chain != rhs.chain { return lhs.chain.rawValue < rhs.chain.rawValue }
+                if lhs.token.chain != rhs.token.chain { return lhs.token.chain < rhs.token.chain }
                 if lhs.isBuiltIn != rhs.isBuiltIn { return lhs.isBuiltIn && !rhs.isBuiltIn }
-                return lhs.contractAddress < rhs.contractAddress
+                return lhs.token.contract < rhs.token.contract
             }
             guard let representative = sortedEntries.first else { return nil }
             return TokenRegistryGroup(
-                key: TokenRegistryGrouping.key(for: representative), name: representative.name, symbol: representative.symbol,
+                key: TokenRegistryGrouping.key(for: representative), name: representative.token.name,
+                symbol: representative.token.symbol,
                 entries: sortedEntries
             )
         }
-        let filtered = groups.filter { group in
-            if let selectedChain = chainFilter.chain, !group.entries.contains(where: { $0.chain == selectedChain }) {
+        let filtered: [TokenRegistryGroup] = groups.filter { group in
+            if let selectedChain = chainFilter.chain, !group.entries.contains(where: { $0.token.chain == selectedChain.rawValue }) {
                 return false
             }
             switch sourceFilter {
             case .all: break
-            case .builtIn: guard group.entries.contains(where: \.isBuiltIn) else { return false }
+            case .builtIn: guard group.entries.contains(where: { $0.isBuiltIn }) else { return false }
             case .custom: guard group.entries.contains(where: { !$0.isBuiltIn }) else { return false }
             }
             let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             guard !query.isEmpty else { return true }
             let haystack =
                 ([group.symbol, group.name]
-                + group.entries.flatMap { entry in [entry.chain.rawValue, entry.tokenStandard, entry.contractAddress, entry.coinGeckoId] })
+                + group.entries.flatMap { entry in
+                    [entry.token.chain, entry.token.tokenStandard, entry.token.contract, entry.token.coingeckoId]
+                })
                 .joined(separator: " ").lowercased()
             return haystack.contains(query)
         }
         return filtered.sorted { lhs, rhs in
-            if lhs.entries.contains(where: \.isBuiltIn) != rhs.entries.contains(where: \.isBuiltIn) {
-                return lhs.entries.contains(where: \.isBuiltIn)
-            }
+            let lhsBuiltIn = lhs.entries.contains { $0.isBuiltIn }
+            let rhsBuiltIn = rhs.entries.contains { $0.isBuiltIn }
+            if lhsBuiltIn != rhsBuiltIn { return lhsBuiltIn }
             return lhs.symbol < rhs.symbol
         }
     }

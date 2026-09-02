@@ -38,13 +38,12 @@ extension AppState {
             )
         }
         lastPendingTransactionRefreshAt = Date()
-        let trackedTransactionIDs = Set(
-            transactions.compactMap { t -> UUID? in
-                guard t.kind == .send, t.transactionHash != nil, t.status == .pending || t.status == .confirmed else { return nil }
-                return t.id
-            })
-        try? await WalletServiceBridge.shared.retainStatusTrackers(
-            ids: trackedTransactionIDs.map(\.uuidString))
+        // The filter that stood here — send kind, has a hash, pending or
+        // confirmed — read core's own transaction table to tell core which
+        // trackers to keep, and it ignored the chain's poll shape: it kept
+        // `confirmed` for every chain, though only the ones that count
+        // confirmation depth still poll after the first one.
+        try? await WalletServiceBridge.shared.pruneStatusTrackers()
         await withTaskGroup(of: Void.self) { group in
             for descriptor in Self.chainRefreshDescriptors.values {
                 guard tokenHostingChains.contains(descriptor.chainID), let pending = descriptor.executePendingOnly else { continue }
@@ -532,12 +531,6 @@ extension AppState {
     func currentPriceIfAvailable(for coin: Coin) -> Double? {
         guard isPricedAsset(coin) else { return nil }
         return livePrices[activePriceKey(for: coin)]
-    }
-    func currentOrFallbackPriceIfAvailable(for coin: Coin) -> Double? {
-        guard isPricedAsset(coin) else { return nil }
-        if let livePrice = currentPriceIfAvailable(for: coin) { return livePrice }
-        guard coin.priceUsd > 0 else { return nil }
-        return coin.priceUsd
     }
     func currentPrice(for coin: Coin) -> Double { currentPriceIfAvailable(for: coin) ?? 0 }
     func fiatRateIfAvailable(for currency: FiatCurrency) -> Double? {

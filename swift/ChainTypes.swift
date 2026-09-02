@@ -75,17 +75,20 @@ enum SolanaBalanceService {
     /// when no user-configured token preferences exist.
     static let knownTokenMetadataByMint: [String: KnownTokenMetadata] = {
         var result: [String: KnownTokenMetadata] = [:]
-        for entry in ChainTokenRegistryEntry.builtIn where entry.chain == .solana && !entry.contractAddress.isEmpty {
-            result[entry.contractAddress] = KnownTokenMetadata(
-                symbol: entry.symbol, name: entry.name, decimals: entry.decimals, coinGeckoId: entry.coinGeckoId
+        for entry in TokenPreferenceEntry.builtIn
+        where entry.token.chain == TokenHostingChain.solana.rawValue && !entry.token.contract.isEmpty {
+            result[entry.token.contract] = KnownTokenMetadata(
+                symbol: entry.token.symbol, name: entry.token.name,
+                decimals: Int(entry.token.decimals), coinGeckoId: entry.token.coingeckoId
             )
         }
         return result
     }()
     private static let mintAddressBySymbol: [String: String] = {
         var result: [String: String] = [:]
-        for entry in ChainTokenRegistryEntry.builtIn where entry.chain == .solana && !entry.contractAddress.isEmpty {
-            result[entry.symbol.uppercased()] = entry.contractAddress
+        for entry in TokenPreferenceEntry.builtIn
+        where entry.token.chain == TokenHostingChain.solana.rawValue && !entry.token.contract.isEmpty {
+            result[entry.token.symbol.uppercased()] = entry.token.contract
         }
         return result
     }()

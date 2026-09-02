@@ -285,7 +285,7 @@ extension AppState {
                 let contractAddress: String? =
                     holding.symbol == Chain.tron.gasTokenSymbol ? nil : holding.contractAddress
                 let tokenDecimals: UInt32? =
-                    contractAddress == nil ? nil : tronToken.map { UInt32($0.decimals) }
+                    contractAddress == nil ? nil : tronToken.map { UInt32($0.token.decimals) }
                 if contractAddress != nil, tokenDecimals == nil {
                     sendError = "\(holding.symbol) is not a known Tron token."
                     return
@@ -407,9 +407,9 @@ extension AppState {
                 sendError = "Insufficient NEAR balance to cover the network fee for this \(holding.symbol) transfer."; return
             }
             let tokenPref = (cachedTokenPreferencesByChain[.near] ?? []).first {
-                $0.contractAddress.lowercased() == contractAddress.lowercased()
+                $0.token.contract.lowercased() == contractAddress.lowercased()
             }
-            let decimals = min(Int(tokenPref?.decimals ?? 6), 18)
+            let decimals = min(Int(tokenPref?.token.decimals ?? 6), 18)
             sendingChains.insert(holding.chainName)
             defer { sendingChains.remove(holding.chainName) }
             do {
@@ -501,8 +501,8 @@ extension AppState {
                     contractAddress = nil
                     tokenDecimals = nil
                 } else if let token = supportedToken(for: holding) {
-                    contractAddress = token.contractAddress
-                    tokenDecimals = UInt32(token.decimals)
+                    contractAddress = token.token.contract
+                    tokenDecimals = token.token.decimals
                 } else {
                     sendError = "\(holding.symbol) transfers on \(holding.chainName) are not enabled yet."
                     return

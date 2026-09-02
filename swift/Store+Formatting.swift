@@ -123,23 +123,35 @@ extension AppState {
     func currentValue(for coin: Coin) -> Double { coin.amount * currentPrice(for: coin) }
     func currentValueIfAvailable(for coin: Coin) -> Double? {
         guard isPricedAsset(coin) else { return nil }
-        guard let price = currentOrFallbackPriceIfAvailable(for: coin) else { return nil }
+        guard let price = currentPriceIfAvailable(for: coin) else { return nil }
         return coin.amount * price
     }
-    func currentTotal(for wallet: ImportedWallet) -> Double {
-        wallet.holdings.reduce(0) { $0 + currentValue(for: $1) }
+    /// A total and what it could not include.
+    ///
+    /// Holdings nobody quoted are left out and counted, not folded in at zero
+    /// and not at a made-up dollar: a price the feed did not give is not a
+    /// price, and a total that quietly contains one cannot be told apart from a
+    /// total that does not.
+    struct QuotedTotal: Equatable {
+        let total: Double
+        let unpricedCount: Int
+        var isComplete: Bool { unpricedCount == 0 }
     }
-    func currentTotalIfAvailable(for wallet: ImportedWallet) -> Double? { sumLiveQuotedValues(for: wallet.holdings) }
-    func sumLiveQuotedValues(for coins: [Coin]) -> Double? {
+    func quotedTotal(for coins: [Coin]) -> QuotedTotal {
         var total: Double = 0
-        var sawQuotedCoin = false
+        var unpriced = 0
         for coin in coins where coin.amount > 0 {
-            guard let value = currentValueIfAvailable(for: coin) else { return nil }
-            total += value
-            sawQuotedCoin = true
+            if let value = currentValueIfAvailable(for: coin) {
+                total += value
+            } else if isPricedAsset(coin) {
+                // A chain the app never prices — a testnet — is not a hole in
+                // the total; a chain it does price but has no quote for is.
+                unpriced += 1
+            }
         }
-        return sawQuotedCoin ? total : 0
+        return QuotedTotal(total: total, unpricedCount: unpriced)
     }
+    func currentTotal(for wallet: ImportedWallet) -> Double { quotedTotal(for: wallet.holdings).total }
     func runtimeChainIdentity(for chainName: String) -> String { displayChainTitle(for: chainName) }
     func assetIdentityKey(for coin: Coin) -> String { "\(runtimeChainIdentity(for: coin.chainName))|\(coin.symbol)" }
     /// Hot path — called per coin during portfolio totals and per row in the
@@ -222,7 +234,7 @@ extension AppState {
         if let cached = cachedAssetDecimals[cacheKey] { return Int(cached) }
         let tokenDecimals = cachedTokenPreferenceByChainAndSymbol[
             tokenPreferenceLookupKey(chainName: chainName, symbol: symbol)
-        ].map { UInt32(max(0, $0.decimals)) }
+        ].map { UInt32(max(0, $0.token.decimals)) }
         let value = formattingSupportedDecimalPlaces(chainName: chainName, overrideDecimals: tokenDecimals)
         cachedAssetDecimals[cacheKey] = value
         return Int(value)

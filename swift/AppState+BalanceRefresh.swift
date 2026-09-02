@@ -59,15 +59,14 @@ extension AppState {
             if let idx = existingKeys.firstIndex(of: key) {
                 guard merged[idx].amount != incoming.amount else { continue }
                 let old = merged[idx]
-                merged[idx] = CoreCoin(
-                    id: old.id, name: old.name, symbol: old.symbol,
+                merged[idx] = AssetHolding(
+                    name: old.name, symbol: old.symbol,
                     coinGeckoId: old.coinGeckoId, chainName: old.chainName,
                     tokenStandard: old.tokenStandard, contractAddress: old.contractAddress,
                     amount: incoming.amount, priceUsd: old.priceUsd)
                 anyChanged = true
             } else if incoming.amount > 0 {
-                merged.append(CoreCoin(
-                    id: UUID().uuidString,
+                merged.append(AssetHolding(
                     name: incoming.name, symbol: incoming.symbol,
                     coinGeckoId: incoming.coinGeckoId, chainName: incoming.chainName,
                     tokenStandard: incoming.tokenStandard, contractAddress: incoming.contractAddress,
@@ -109,8 +108,8 @@ extension AppState {
             guard !known.isEmpty else { continue }
             let descriptors = known.map {
                 TokenDescriptor(
-                    contract: $0.contractAddress, symbol: $0.symbol,
-                    decimals: UInt8(clamping: $0.decimals), name: $0.name)
+                    contract: $0.token.contract, symbol: $0.token.symbol,
+                    decimals: UInt8(clamping: $0.token.decimals), name: $0.token.name)
             }
             guard let results = try? await WalletServiceBridge.shared.fetchTokenBalances(
                 chainId: chainId, address: address, tokens: descriptors
@@ -127,21 +126,20 @@ extension AppState {
                 if let existingIdx = existingKeys.firstIndex(of: key) {
                     guard holdings[existingIdx].amount != amount else { continue }
                     let old = holdings[existingIdx]
-                    holdings[existingIdx] = CoreCoin(
-                        id: old.id, name: old.name, symbol: old.symbol,
+                    holdings[existingIdx] = AssetHolding(
+                        name: old.name, symbol: old.symbol,
                         coinGeckoId: old.coinGeckoId, chainName: old.chainName,
                         tokenStandard: old.tokenStandard, contractAddress: old.contractAddress,
                         amount: amount, priceUsd: old.priceUsd)
                     holdingsChanged = true
                 } else if amount > 0 {
                     guard let entry = known.first(where: {
-                        normalizedKnownTokenIdentifier(for: tokenChain, contractAddress: $0.contractAddress) == contract
+                        normalizedKnownTokenIdentifier(for: tokenChain, contractAddress: $0.token.contract) == contract
                     }) else { continue }
-                    holdings.append(CoreCoin(
-                        id: UUID().uuidString,
-                        name: entry.name, symbol: entry.symbol,
-                        coinGeckoId: entry.coinGeckoId, chainName: wallet.selectedChain,
-                        tokenStandard: entry.tokenStandard, contractAddress: entry.contractAddress,
+                    holdings.append(AssetHolding(
+                        name: entry.token.name, symbol: entry.token.symbol,
+                        coinGeckoId: entry.token.coingeckoId, chainName: wallet.selectedChain,
+                        tokenStandard: entry.token.tokenStandard, contractAddress: entry.token.contract,
                         amount: amount, priceUsd: 0))
                     holdingsChanged = true
                 }
@@ -236,7 +234,7 @@ extension AppState {
             isEthereumMainnet
             ? ((try? await WalletServiceBridge.shared.fetchTokenBalances(
                 chainId: Chain.ethereum.id, address: address,
-                tokens: enabledKnownTokens(for: .ethereum).map { TokenDescriptor(contract: $0.contractAddress, symbol: $0.symbol, decimals: UInt8($0.decimals), name: nil) }
+                tokens: enabledKnownTokens(for: .ethereum).map { TokenDescriptor(contract: $0.token.contract, symbol: $0.token.symbol, decimals: UInt8($0.token.decimals), name: nil) }
             )) ?? [])
             : []
         return (nativeBalance, tokenBalances)

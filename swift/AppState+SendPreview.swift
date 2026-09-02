@@ -101,7 +101,9 @@ extension AppState {
         }
         do {
             let assemblyToken: EvmSupportedToken? = supportedToken(for: selectedSendCoin).map {
-                EvmSupportedToken(symbol: $0.symbol, contractAddress: $0.contractAddress, decimals: UInt32($0.decimals))
+                EvmSupportedToken(
+                    symbol: $0.token.symbol, contractAddress: $0.token.contract,
+                    decimals: $0.token.decimals)
             }
             let assembly: EvmSendAssembly
             do {
@@ -248,44 +250,40 @@ extension AppState {
             }
         }
     }
-    func refreshBitcoinCashSendPreview() async {
+    /// The UTXO chains without a preview path of their own.
+    ///
+    /// Three functions stood here — Bitcoin Cash, Bitcoin SV and Litecoin —
+    /// each passing four arguments, three of which are registry facts. The
+    /// fourth was Litecoin's MWEB overhead, which is a fact about the chain and
+    /// lives on it now.
+    func refreshUTXOSendPreview(for chain: Chain) async {
+        let chainName = chain.displayName
         await refreshUTXOChainPreview(
-            chainName: "Bitcoin Cash", chainId: Chain.bitcoinCash.id,
-            resolveAddress: { self.resolvedBitcoinCashAddress(for: $0) },
-            setPreview: { self.sendPreviewStore.bitcoinCashSendPreview = $0 })
-    }
-    func refreshBitcoinSVSendPreview() async {
-        await refreshUTXOChainPreview(
-            chainName: "Bitcoin SV", chainId: Chain.bitcoinSv.id,
-            resolveAddress: { self.resolvedBitcoinSVAddress(for: $0) },
-            setPreview: { self.sendPreviewStore.bitcoinSVSendPreview = $0 })
-    }
-    func refreshLitecoinSendPreview() async {
-        // MWEB is Litecoin's own: an extension-block output costs about a
-        // kilobyte more than a plain one, and neither the fee nor the max
-        // sendable reflects it unless it is added here.
-        let isMweb = sendAddress.hasPrefix("ltcmweb1") || sendAddress.hasPrefix("tmweb1")
-        await refreshUTXOChainPreview(
-            chainName: "Litecoin", chainId: Chain.litecoin.id,
-            resolveAddress: { self.resolvedLitecoinAddress(for: $0) },
-            adjust: { preview in
-                guard isMweb else { return preview }
-                let mwebOverhead: Int64 = 1017
+            chainName: chainName, chainId: chain.id,
+            resolveAddress: { [self] in resolvedAddress(for: $0, chainName: chainName) },
+            adjust: { [self] preview in
+                let overhead = Int64(
+                    extraOutputOverheadBytes(chainName: chainName, destination: sendAddress))
+                guard overhead > 0 else { return preview }
                 let additionalFee =
-                    Double(mwebOverhead) * Double(preview.estimatedFeeRateSatVb) / 100_000_000.0
+                    Double(overhead) * Double(preview.estimatedFeeRateSatVb) / 100_000_000.0
                 return BitcoinSendPreview(
                     estimatedFeeRateSatVb: preview.estimatedFeeRateSatVb,
                     estimatedNetworkFee: preview.estimatedNetworkFee + additionalFee,
                     feeRateDescription: preview.feeRateDescription,
                     spendableBalance: preview.spendableBalance,
-                    estimatedTransactionBytes: (preview.estimatedTransactionBytes ?? 0) + mwebOverhead,
+                    estimatedTransactionBytes: (preview.estimatedTransactionBytes ?? 0) + overhead,
                     selectedInputCount: preview.selectedInputCount,
                     usesChangeOutput: preview.usesChangeOutput,
                     maxSendable: preview.maxSendable.map { max(0, $0 - additionalFee) }
                 )
             },
-            setPreview: { self.sendPreviewStore.litecoinSendPreview = $0 })
+            setPreview: { [self] preview in
+                sendPreviewStore.apply(
+                    preview.map { SendPreview.utxo(preview: $0) }, forChainNamed: chainName)
+            })
     }
+
     func refreshTronSendPreview() async {
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, selectedSendCoin.chainName == "Tron",
             (selectedSendCoin.symbol == "TRX" || selectedSendCoin.symbol == "USDT"), let amount = Double(sendAmount), amount > 0

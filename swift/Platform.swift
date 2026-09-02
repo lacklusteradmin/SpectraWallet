@@ -15,7 +15,6 @@ struct PlatformSnapshotEnvelope: Codable {
     }
 }
 struct PlatformAppSnapshot: Codable {
-    let pricingProvider: String
     let fiatCurrency: String
     let walletCount: Int
     let transactionCount: Int
@@ -149,7 +148,7 @@ extension AppState {
         PlatformSnapshotEnvelope(
             generatedAt: generatedAt,
             app: PlatformAppSnapshot(
-                pricingProvider: pricingProvider.rawValue, fiatCurrency: selectedFiatCurrency.rawValue, walletCount: wallets.count,
+                fiatCurrency: selectedFiatCurrency.rawValue, walletCount: wallets.count,
                 transactionCount: transactions.count, addressBookCount: addressBook.count,
                 wallets: wallets.map { $0.makePlatformSnapshot() }, portfolio: cachedPortfolio.map { $0.makePlatformSnapshot() },
                 transactions: transactions.map { $0.makePlatformSnapshot() }, addressBook: addressBook.map { $0.makePlatformSnapshot() },

@@ -133,11 +133,10 @@ struct StandardChainDiagnosticsView: View {
         MoneroBalanceService.trustedBackends.first(where: { $0.id == selectedMoneroBackendID })
     }
 
-    /// Self-test and rescan actions, offered on the chains whose diagnostics
-    /// are UTXO-shaped. Was a five-row table restating each chain's name and
-    /// ticker; both are catalog columns.
+    /// Self-test and rescan actions, offered on the chains a rescan means
+    /// something for — the ones whose addresses HD discovery walks.
     private var utxoActions: (selfTestTitle: String, rescanTitle: String, rescanInFlightTitle: String)? {
-        guard chain.diagnosticsShape == .utxo else { return nil }
+        guard chain.supportsDeepUTXODiscovery else { return nil }
         let ticker = chain.symbol
         return (
             AppLocalization.format("Run %@ Self-Tests", ticker),

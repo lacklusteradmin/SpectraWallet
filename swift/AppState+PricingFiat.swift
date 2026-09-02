@@ -22,11 +22,9 @@ extension AppState {
                     holdingKey: coin.holdingKey, symbol: coin.symbol, coinGeckoId: coin.coinGeckoId
                 )
             }
-            let fetchedPrices = try await WalletServiceBridge.shared.fetchPricesViaRust(
-                provider: pricingProvider.rawValue, coins: rustInputs
-            )
+            let fetchedPrices = try await WalletServiceBridge.shared.fetchPricesViaRust(coins: rustInputs)
             guard !fetchedPrices.isEmpty else {
-                quoteRefreshError = AppLocalization.format("%@ returned no supported asset quotes", pricingProvider.rawValue)
+                quoteRefreshError = localizedStoreString("No price provider had a quote for these assets.")
                 return false
             }
             let outcome = priceMergeLiveUpdates(existing: livePrices, fetched: fetchedPrices)
@@ -34,7 +32,7 @@ extension AppState {
             quoteRefreshError = nil
             didUpdatePrices = outcome.hadMeaningfulChange
         } catch {
-            quoteRefreshError = AppLocalization.format("%@ pricing unavailable", pricingProvider.rawValue)
+            quoteRefreshError = localizedStoreString("No price provider answered.")
         }
         if didUpdatePrices { await evaluatePriceAlerts() }
         return didUpdatePrices
@@ -61,8 +59,7 @@ extension AppState {
         }
         do {
             let fetchedRates = try await WalletServiceBridge.shared.fetchFiatRatesViaRust(
-                provider: fiatRateProvider.rawValue, currencies: FiatCurrency.allCases.map(\.rawValue)
-            )
+                currencies: FiatCurrency.allCases.map(\.rawValue))
             let rates = priceMergeFiatRateUpdates(
                 fetched: fetchedRates, existing: fiatRatesFromUSD,
                 currencies: FiatCurrency.allCases.map(\.rawValue),
@@ -78,8 +75,8 @@ extension AppState {
             } else {
                 fiatRatesFromUSD[FiatCurrency.usd.rawValue] = 1.0
             }
-            fiatRatesRefreshError = AppLocalization.format(
-                "%@ fiat exchange rates are unavailable. Using the last successful rates.", fiatRateProvider.rawValue)
+            fiatRatesRefreshError = localizedStoreString(
+                "No fiat-rate provider answered. Using the last successful rates.")
         }
     }
     func activePriceKey(for coin: Coin) -> String { assetIdentityKey(for: coin) }
@@ -110,7 +107,7 @@ extension AppState {
         await refreshFiatExchangeRatesIfNeeded(force: true)
     }
 
-    var totalBalanceIfAvailable: Double? { sumLiveQuotedValues(for: portfolio) }
+    var portfolioQuotedTotal: QuotedTotal { quotedTotal(for: portfolio) }
     func setPortfolioInclusion(_ isIncluded: Bool, for walletID: String) {
         guard var wallet = wallets.first(where: { $0.id == walletID }) else { return }
         wallet.includeInPortfolioTotal = isIncluded
@@ -157,19 +154,6 @@ extension AppState {
     }
     #if DEBUG
     #endif
-}
-enum PricingProvider: String, CaseIterable, Identifiable {
-    case coinGecko = "CoinGecko"
-    case coinPaprika = "CoinPaprika"
-    case coinLore = "CoinLore"
-    var id: String { rawValue }
-}
-enum FiatRateProvider: String, CaseIterable, Identifiable {
-    case openER = "Open ER"
-    case exchangeRateHost = "ExchangeRate.host"
-    case frankfurter = "Frankfurter API"
-    case fawazAhmed = "Fawaz Ahmed Currency API"
-    var id: String { rawValue }
 }
 enum FiatCurrency: String, CaseIterable, Identifiable {
     case usd = "USD"

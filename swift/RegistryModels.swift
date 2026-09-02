@@ -204,113 +204,14 @@ extension CoreTokenPreferenceCategory: RawRepresentable, CaseIterable, Codable, 
 }
 
 typealias TokenPreferenceEntry = CoreTokenPreferenceEntry
-nonisolated extension CoreTokenPreferenceEntry: Identifiable, Codable {
-    // Legacy UUID-style id initializer & convenience matching Swift-era struct.
-    nonisolated init(
-        id: UUID = UUID(), chain: TokenHostingChain, name: String, symbol: String, tokenStandard: String, contractAddress: String,
-        coinGeckoId: String, decimals: Int, category: TokenPreferenceCategory,
-        isBuiltIn: Bool, isEnabled: Bool
-    ) {
-        self.id = id.uuidString
-        self.chain = chain
-        self.name = name
-        self.symbol = symbol
-        self.tokenStandard = tokenStandard
-        self.contractAddress = contractAddress
-        self.coinGeckoId = coinGeckoId
-        self.decimals = Int32(decimals)
-        self.category = category
-        self.isBuiltIn = isBuiltIn
-        self.isEnabled = isEnabled
-    }
-    private enum CodingKeys: String, CodingKey {
-        case id, chain, name, symbol, tokenStandard, contractAddress, coinGeckoId, decimals, category,
-            isBuiltIn, isEnabled
-    }
-    nonisolated public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        self.id = try c.decode(String.self, forKey: .id)
-        self.chain = try c.decode(CoreTokenHostingChain.self, forKey: .chain)
-        self.name = try c.decode(String.self, forKey: .name)
-        self.symbol = try c.decode(String.self, forKey: .symbol)
-        self.tokenStandard = try c.decode(String.self, forKey: .tokenStandard)
-        self.contractAddress = try c.decode(String.self, forKey: .contractAddress)
-        self.coinGeckoId = try c.decode(String.self, forKey: .coinGeckoId)
-        self.decimals = try c.decode(Int32.self, forKey: .decimals)
-        self.category = try c.decode(CoreTokenPreferenceCategory.self, forKey: .category)
-        self.isBuiltIn = try c.decode(Bool.self, forKey: .isBuiltIn)
-        self.isEnabled = try c.decode(Bool.self, forKey: .isEnabled)
-    }
-    nonisolated public func encode(to encoder: Encoder) throws {
-        var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(id, forKey: .id)
-        try c.encode(chain, forKey: .chain)
-        try c.encode(name, forKey: .name)
-        try c.encode(symbol, forKey: .symbol)
-        try c.encode(tokenStandard, forKey: .tokenStandard)
-        try c.encode(contractAddress, forKey: .contractAddress)
-        try c.encode(coinGeckoId, forKey: .coinGeckoId)
-        try c.encode(decimals, forKey: .decimals)
-        try c.encode(category, forKey: .category)
-        try c.encode(isBuiltIn, forKey: .isBuiltIn)
-        try c.encode(isEnabled, forKey: .isEnabled)
-    }
+nonisolated extension CoreTokenPreferenceEntry: Identifiable {
+    /// A token *is* its contract on its chain. The id was a stored UUID string,
+    /// regenerated whenever an entry was rebuilt.
+    public var id: String { "\(token.chain)|\(token.contract)" }
+    /// The chain enum, where the registry has one for this chain.
+    var hostingChain: TokenHostingChain? { TokenHostingChain.forChainName(token.chain) }
 }
-struct ChainTokenRegistryEntry: Identifiable, Equatable {
-    let chain: TokenHostingChain
-    let name: String
-    let symbol: String
-    let tokenStandard: String
-    let contractAddress: String
-    let coinGeckoId: String
-    let decimals: Int
-    let category: TokenPreferenceCategory
-    let comment: String
-    let isBuiltIn: Bool
-    let isEnabledByDefault: Bool
-    var id: String {
-        Coin.iconIdentifier(
-            symbol: symbol, chainName: chain.rawValue, contractAddress: contractAddress, tokenStandard: tokenStandard
-        )
-    }
-    init(
-        chain: TokenHostingChain, name: String, symbol: String, tokenStandard: String, contractAddress: String,
-        coinGeckoId: String, decimals: Int, category: TokenPreferenceCategory, isBuiltIn: Bool,
-        comment: String = "", isEnabledByDefault: Bool
-    ) {
-        self.chain = chain
-        self.name = name
-        self.symbol = symbol
-        self.tokenStandard = tokenStandard
-        self.contractAddress = contractAddress
-        self.coinGeckoId = coinGeckoId
-        self.decimals = decimals
-        self.category = category
-        self.comment = comment
-        self.isBuiltIn = isBuiltIn
-        self.isEnabledByDefault = isEnabledByDefault
-    }
-    init(tokenPreferenceEntry: TokenPreferenceEntry) {
-        chain = tokenPreferenceEntry.chain
-        name = tokenPreferenceEntry.name
-        symbol = tokenPreferenceEntry.symbol
-        tokenStandard = tokenPreferenceEntry.tokenStandard
-        contractAddress = tokenPreferenceEntry.contractAddress
-        coinGeckoId = tokenPreferenceEntry.coinGeckoId
-        decimals = Int(tokenPreferenceEntry.decimals)
-        category = tokenPreferenceEntry.category
-        comment = ""
-        isBuiltIn = tokenPreferenceEntry.isBuiltIn
-        isEnabledByDefault = tokenPreferenceEntry.isEnabled
-    }
-    var tokenPreferenceEntry: TokenPreferenceEntry {
-        TokenPreferenceEntry(
-            chain: chain, name: name, symbol: symbol, tokenStandard: tokenStandard, contractAddress: contractAddress,
-            coinGeckoId: coinGeckoId, decimals: decimals, category: category,
-            isBuiltIn: isBuiltIn, isEnabled: isEnabledByDefault
-        )
-    }
-}
+
 struct NativeChainIconDescriptor: Identifiable {
     let registryID: String
     let title: String

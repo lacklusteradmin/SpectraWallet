@@ -39,9 +39,10 @@ protocol WalletServiceBridgeProtocol: Sendable {}
         )
     }
     func fetchEVMHistoryDiagnostics(
-        chainId: String, address: String
-    ) async throws -> EthereumTokenTransferHistoryDiagnostics {
-        try await service().fetchEvmHistoryDiagnostics(chainId: chainId, address: address)
+        chainId: String, walletID: String, address: String
+    ) async throws -> HistoryDiagnostics {
+        try await service().fetchEvmHistoryDiagnostics(
+            chainId: chainId, walletId: walletID, address: address)
     }
     func executeSend(_ request: SendExecutionRequest) async throws -> SendExecutionResult { try await service().executeSend(request: request) }
     /// Token balances for any chain that has them, EVM included.
@@ -61,14 +62,8 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func resolveENSName(_ name: String) async throws -> String? {
         try await service().resolveEnsNameTyped(name: name)
     }
-    func fetchEvmHasContractCode(chainId: String, address: String) async throws -> Bool {
-        try await service().fetchEvmHasContractCode(chainId: chainId, address: address)
-    }
     func fetchEVMTxNonce(chainId: String, txHash: String) async throws -> Int {
         Int(try await service().fetchEvmTxNonceTyped(chainId: chainId, txHash: txHash))
-    }
-    func fetchEvmReceiptClassification(chainId: String, txHash: String) async throws -> EvmReceiptClassification? {
-        try await service().fetchEvmReceiptClassification(chainId: chainId, txHash: txHash)
     }
     func fetchEvmSendPreviewTyped(
         chainId: String, from: String, to: String, valueWei: String, dataHex: String,
@@ -101,17 +96,14 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func broadcastRawExtract(chainId: String, payload: String, resultField: String) async throws -> String {
         try await service().broadcastRawExtract(chainId: chainId, payload: payload, resultField: resultField)
     }
-    func deriveBitcoinHdAddressStrings(xpub: String, change: UInt32, startIndex: UInt32, count: UInt32) async throws -> [String] {
-        try await service().deriveBitcoinHdAddressStrings(xpub: xpub, change: change, startIndex: startIndex, count: count)
-    }
     func fetchBitcoinNextUnusedAddressTyped(xpub: String, change: UInt32 = 0, gapLimit: UInt32 = 20) async throws -> String? {
         try await service().fetchBitcoinNextUnusedAddressTyped(xpub: xpub, change: change, gapLimit: gapLimit)
     }
-    func fetchPricesViaRust(provider: String, coins: [PriceRequestCoin]) async throws -> [String: Double] {
-        try await service().fetchPricesTyped(provider: provider, coins: coins)
+    func fetchPricesViaRust(coins: [PriceRequestCoin]) async throws -> [String: Double] {
+        try await service().fetchPricesTyped(coins: coins)
     }
-    func fetchFiatRatesViaRust(provider: String, currencies: [String]) async throws -> [String: Double] {
-        try await service().fetchFiatRatesTyped(provider: provider, currencies: currencies)
+    func fetchFiatRatesViaRust(currencies: [String]) async throws -> [String: Double] {
+        try await service().fetchFiatRatesTyped(currencies: currencies)
     }
     func registerSecretStore(_ store: SecretStore) throws { try service().setSecretStore(store: store) }
     nonisolated func setEtherscanAPIKey(_ key: String) {
@@ -252,6 +244,18 @@ extension WalletServiceBridge {
 
     /// Change the core-owned transaction store. Returns which ids changed.
     @discardableResult
+    /// Push a rebuilt endpoint list into the service.
+    ///
+    /// `update_endpoints_typed` had existed unreachable since it was written,
+    /// and the service was built once and never reconfigured — so a custom RPC
+    /// the user set in Settings reached exactly one thing, the diagnostics
+    /// reachability probe. Balances, history and sends all used the catalog's
+    /// list and never saw it.
+    func updateEndpoints(custom: [String: String]) async {
+        guard let service = try? service() else { return }
+        try? await service.updateEndpointsTyped(endpoints: Self.buildEndpoints(custom: custom))
+    }
+
     func applyTransactionCommand(_ command: TransactionCommand) async throws -> TransactionChange {
         try await service().applyTransactionCommand(command: command)
     }
@@ -286,8 +290,8 @@ extension WalletServiceBridge {
             transactionId: id, clearFinality: clearFinality)
     }
 
-    func retainStatusTrackers(ids: [String]) async throws {
-        try await service().retainStatusTrackers(transactionIds: ids)
+    func pruneStatusTrackers() async throws {
+        try await service().pruneStatusTrackers()
     }
 
 
@@ -304,15 +308,11 @@ extension WalletServiceBridge {
     // Reservation is read-modify-write, so it happens inside core under one
     // lock, over a baseline it computes from its own tables.
 
-    func keypoolState(walletID: String, chainName: String) async throws -> KeypoolState {
-        try await service().keypoolState(walletId: walletID, chainName: chainName)
-    }
-
-    func keypoolStateForDisplay(walletID: String, chainName: String) async -> KeypoolState {
+    func keypoolState(walletID: String, chainName: String) async -> KeypoolState {
         guard let service = try? service() else {
             return KeypoolState(nextExternalIndex: 0, nextChangeIndex: 0, reservedReceiveIndex: nil)
         }
-        return await service.keypoolStateForDisplay(walletId: walletID, chainName: chainName)
+        return await service.keypoolState(walletId: walletID, chainName: chainName)
     }
 
     func reserveReceiveIndex(walletID: String, chainName: String, minimumIndex: Int64) async throws
@@ -377,20 +377,13 @@ extension WalletServiceBridge {
         try await service().deleteWalletRelationalData(walletId: walletId)
     }
     // ── Transaction history persistence (Rust SQLite) ──────────────────────────
-    func upsertHistoryRecords(_ records: [HistoryRecord]) async throws {
-        try await service().upsertHistoryRecords(records: records)
-    }
     func fetchAllHistoryRecordsTyped() async throws -> [HistoryRecord] { try await service().fetchAllHistoryRecordsTyped() }
-    func deleteHistoryRecords(ids: [String]) async throws {
-        try await service().deleteHistoryRecords(ids: ids)
-    }
-    func replaceAllHistoryRecords(_ records: [HistoryRecord]) async throws {
-        try await service().replaceAllHistoryRecords(records: records)
-    }
-    /// Empty the history table. Core's `clear` export was
-    /// `replaceAllHistoryRecords([])` under a second name.
+    /// Empty the history table.
+    ///
+    /// Went through `replaceAllHistoryRecords([])`, which was a third spelling
+    /// of a command `TransactionCommand` already has.
     func clearAllHistoryRecords() async throws {
-        try await service().replaceAllHistoryRecords(records: [])
+        _ = try await applyTransactionCommand(.clear)
     }
     /// Where the next history fetch for this (chain, wallet) starts.
     ///
@@ -421,15 +414,28 @@ extension WalletServiceBridge {
     }
 }
 private extension WalletServiceBridge {
-    static func buildEndpoints() -> [ChainEndpoints] {
+    static func buildEndpoints(custom: [String: String] = [:]) -> [ChainEndpoints] {
         var payloads: [ChainEndpoints] = []
         // A chain's id is its name, resolved by the registry — stating both was
         // 30 rows of `chainId: <id>, chainName: "X"`. Whether its endpoints come
         // from the EVM list or the generic record list is `coreIsEvmChain`.
         for chainName in AppEndpointDirectory.liveChainNames {
-            payloads +=
+            var payload =
                 (Chain(displayName: chainName)?.isEVM ?? false)
                 ? evmPayloads(chainName: chainName) : rpcPayloads(chainName: chainName)
+            // The user's own endpoint goes first: `with_fallback` walks the list
+            // in order, so "configured" means tried before the catalog's, not
+            // instead of it — a typo in the field degrades to the catalog rather
+            // than taking the chain offline.
+            if let configured = custom[chainName]?.trimmingCharacters(in: .whitespacesAndNewlines),
+                !configured.isEmpty, !payload.isEmpty
+            {
+                payload[0] = ChainEndpoints(
+                    chainId: payload[0].chainId,
+                    endpoints: [configured] + payload[0].endpoints.filter { $0 != configured },
+                    apiKey: payload[0].apiKey)
+            }
+            payloads += payload
         }
         // Supplemental explorer endpoints, and the slot each chain writes them
         // into. Which slot is a per-chain fact that still lives in Swift rather

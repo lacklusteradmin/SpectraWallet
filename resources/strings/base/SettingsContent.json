@@ -1,6 +1,5 @@
 {
-  "pricingIntro": "Choose a pricing provider if you want live quotes. Spectra requests batched prices from the selected provider and falls back to built-in reference prices when live data is unavailable.",
-  "fiatRateProviderNote": "Used for USD to local fiat conversion. Default is Open ER.",
+  "pricingIntro": "Prices come from several public providers at once — whichever answers is used, so one being down or not listing an asset does not leave it unpriced. An asset nobody quotes is shown without a price rather than at a guessed one.",
   "publicProviderNote": "This provider uses public batched quote endpoints. No API key is required in this build.",
   "aboutTitle": "Spectra",
   "aboutSubtitle": "A self-custodial multi-chain wallet focused on local control, transparent network access, and minimal trust assumptions.",

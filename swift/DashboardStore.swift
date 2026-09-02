@@ -58,17 +58,17 @@ extension AppState {
         setPinnedDashboardAssets([])
     }
     private func prototypeCoinForKnownEntry(_ entry: TokenPreferenceEntry) -> Coin {
-        let price: Double = CachedCoreHelpers.stablecoinFallbackPriceUsd(symbol: entry.symbol)
-        return CoreCoin(
-            id: UUID().uuidString, name: entry.name, symbol: entry.symbol, coinGeckoId: entry.coinGeckoId,
-            chainName: entry.chain.rawValue, tokenStandard: entry.tokenStandard, contractAddress: entry.contractAddress,
-            amount: 0, priceUsd: price)
+        // No quote until the feed gives one; zero is how every reader spells
+        // "unknown", and a pin card shows "—" rather than an invented dollar.
+        return AssetHolding(
+            name: entry.token.name, symbol: entry.token.symbol, coinGeckoId: entry.token.coingeckoId,
+            chainName: entry.token.chain, tokenStandard: entry.token.tokenStandard, contractAddress: entry.token.contract,
+            amount: 0, priceUsd: 0)
     }
     private func dashboardPinnedAssetPrototype(symbol: String) -> Coin? {
         let normalizedSymbol = symbol.uppercased()
         if let existing = cachedIncludedPortfolioHoldingsBySymbol[normalizedSymbol]?.first {
-            return CoreCoin(
-                id: UUID().uuidString,
+            return AssetHolding(
                 name: existing.name,
                 symbol: existing.symbol,
                 coinGeckoId: existing.coinGeckoId,
@@ -131,7 +131,7 @@ extension AppState {
     ) -> DashboardPinOption? {
         let normalizedSymbol = symbol.uppercased()
         if let representativeCoin = portfolioCoins.first {
-            let chainNames = Array(Set(portfolioCoins.map(\.chainName) + knownEntries.map(\.chain.rawValue))).sorted()
+            let chainNames = Array(Set(portfolioCoins.map(\.chainName) + knownEntries.map(\.token.chain))).sorted()
             return DashboardPinOption(
                 symbol: normalizedSymbol, name: representativeCoin.name,
                 subtitle: chainNames.isEmpty ? representativeCoin.chainName : chainNames.joined(separator: ", "),
@@ -139,12 +139,12 @@ extension AppState {
             )
         }
         if let representativeEntry = knownEntries.first {
-            let chainNames = Array(Set(knownEntries.map(\.chain.rawValue))).sorted()
+            let chainNames = Array(Set(knownEntries.map(\.token.chain))).sorted()
             return DashboardPinOption(
-                symbol: normalizedSymbol, name: representativeEntry.name, subtitle: chainNames.joined(separator: ", "),
+                symbol: normalizedSymbol, name: representativeEntry.token.name, subtitle: chainNames.joined(separator: ", "),
                 assetIdentifier: Coin.iconIdentifier(
-                    symbol: representativeEntry.symbol, chainName: representativeEntry.chain.rawValue,
-                    contractAddress: representativeEntry.contractAddress, tokenStandard: representativeEntry.tokenStandard
+                    symbol: representativeEntry.token.symbol, chainName: representativeEntry.token.chain,
+                    contractAddress: representativeEntry.token.contract, tokenStandard: representativeEntry.token.tokenStandard
                 )
             )
         }

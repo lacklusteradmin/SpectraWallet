@@ -6,8 +6,8 @@ struct TokenRegistryDetailView: View {
     private var groupEntries: [TokenPreferenceEntry] {
         store.resolvedTokenPreferences.filter { TokenRegistryGrouping.key(for: $0) == groupKey }
             .sorted { lhs, rhs in
-                if lhs.chain != rhs.chain { return lhs.chain.rawValue < rhs.chain.rawValue }
-                return lhs.contractAddress < rhs.contractAddress
+                if lhs.token.chain != rhs.token.chain { return lhs.token.chain < rhs.token.chain }
+                return lhs.token.contract < rhs.token.contract
             }
     }
     private var representativeEntry: TokenPreferenceEntry? { groupEntries.first }
@@ -19,11 +19,11 @@ struct TokenRegistryDetailView: View {
                         CoinBadge(
                             assetIdentifier: representativeEntry.settingsAssetIdentifier,
                             fallbackText: representativeEntry.settingsFallbackMark,
-                            color: representativeEntry.chain.settingsIconTint, size: 42
+                            color: representativeEntry.hostingChain?.settingsIconTint ?? .accentColor, size: 42
                         )
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(representativeEntry.name).font(.headline)
-                            Text(representativeEntry.symbol).font(.subheadline).foregroundStyle(.secondary)
+                            Text(representativeEntry.token.name).font(.headline)
+                            Text(representativeEntry.token.symbol).font(.subheadline).foregroundStyle(.secondary)
                         }
                     }.padding(.vertical, 4)
                 }
@@ -36,7 +36,7 @@ struct TokenRegistryDetailView: View {
                         )
                     }
                 }
-            }.navigationTitle(representativeEntry.symbol)
+            }.navigationTitle(representativeEntry.token.symbol)
         } else {
             ContentUnavailableView(AppLocalization.string("Token Not Found"), systemImage: "questionmark.circle")
         }

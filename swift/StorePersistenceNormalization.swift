@@ -3,15 +3,15 @@ extension AppState {
     func rebuildTokenPreferenceDerivedState() {
         batchCacheUpdates {
             let resolvedPreferences =
-                tokenPreferences.isEmpty ? ChainTokenRegistryEntry.builtIn.map(\.tokenPreferenceEntry) : tokenPreferences
+                tokenPreferences.isEmpty ? TokenPreferenceEntry.builtIn : tokenPreferences
             cachedResolvedTokenPreferences = resolvedPreferences
-            cachedTokenPreferencesByChain = Dictionary(grouping: resolvedPreferences, by: \.chain)
+            cachedTokenPreferencesByChain = Dictionary(grouping: resolvedPreferences, by: { TokenHostingChain.forChainName($0.token.chain) ?? .ethereum })
             cachedResolvedTokenPreferencesBySymbol = Dictionary(
-                grouping: resolvedPreferences, by: { $0.symbol.uppercased() }
+                grouping: resolvedPreferences, by: { $0.token.symbol.uppercased() }
             )
             cachedEnabledKnownTokenPreferences = resolvedPreferences.filter(\.isEnabled)
             cachedTokenPreferenceByChainAndSymbol = resolvedPreferences.reduce(into: [:]) { partialResult, entry in
-                partialResult[tokenPreferenceLookupKey(chainName: entry.chain.rawValue, symbol: entry.symbol)] = entry
+                partialResult[tokenPreferenceLookupKey(chainName: entry.token.chain, symbol: entry.token.symbol)] = entry
             }
         }
     }

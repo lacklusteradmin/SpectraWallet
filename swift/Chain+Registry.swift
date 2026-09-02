@@ -63,6 +63,8 @@ extension Chain: Identifiable {
     var derivesFromPrivateKey: Bool { identity?.derivesFromPrivateKey ?? false }
     /// The chain has protocol-native staking the staking tab can drive.
     var supportsStaking: Bool { identity?.supportsStaking ?? false }
+    /// The send screen has a network card to show for this chain.
+    var hasSendPreview: Bool { identity?.hasSendPreview ?? false }
     /// Which `TokenHostingChain` this chain is, if it can host known tokens.
     var tokenHostingChain: TokenHostingChain? { identity?.tokenHostingChain }
     var sendExecutionShape: SendExecutionShape? { identity?.sendExecutionShape }
@@ -119,7 +121,6 @@ extension Chain: Identifiable {
     var ownsItsAddressSlot: Bool { addressSlot == id }
 
     /// Which history-record shape this chain's diagnostics screen reads.
-    var diagnosticsShape: DiagnosticsShape { identity?.diagnosticsShape ?? .simple }
 
     init?(id: String) {
         guard let chain = Self.chainByID[id] else { return nil }
