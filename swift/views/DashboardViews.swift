@@ -235,7 +235,7 @@ struct DashboardView: View {
             DashboardAssetRowPresentation(
                 assetGroup: assetGroup,
                 amountText: store.formattedAssetAmount(
-                    assetGroup.totalAmount, symbol: assetGroup.symbol, chainName: assetGroup.representativeCoin.chainName
+                    assetGroup.totalAmount, symbol: assetGroup.symbol, chainName: assetGroup.coin.chainName
                 ),
                 totalValueText: hideBalances
                     ? "••••••"
@@ -271,21 +271,17 @@ struct DashboardView: View {
     }
     private func dashboardAssetPriceText(for assetGroup: DashboardAssetGroup, hideBalances: Bool) -> String {
         if hideBalances { return "••••••" }
-        guard let price = store.currentPriceIfAvailable(for: assetGroup.representativeCoin) else {
+        guard let price = store.currentPriceIfAvailable(for: assetGroup.coin) else {
             return store.formattedFiatAmountOrZero(fromUSD: nil)
         }
         return store.formattedFiatAmountOrZero(fromUSD: price)
     }
+    /// A row is one token on one network, so there is one chain to name.
+    ///
+    /// Read a `chainEntries` list, with an "+N more" branch for the case where
+    /// it held several. It never did: the row key already fixed the network.
     private func dashboardChainSummaryText(for assetGroup: DashboardAssetGroup) -> String {
-        if assetGroup.chainEntries.isEmpty { return AppLocalization.string("No chain balances yet") }
-        if assetGroup.chainEntries.count == 1, let chainName = assetGroup.chainEntries.first?.coin.chainName {
-            return AppLocalization.format("dashboard.asset.onChain", chainName)
-        }
-        let names = assetGroup.chainEntries.map(\.coin.chainName)
-        let preview = names.prefix(2).joined(separator: ", ")
-        let remainder = names.count - min(names.count, 2)
-        if remainder > 0 { return AppLocalization.format("On %@ +%lld more", preview, remainder) }
-        return AppLocalization.format("dashboard.asset.onChain", preview)
+        AppLocalization.format("dashboard.asset.onChain", assetGroup.coin.chainName)
     }
 }
 enum DashboardPage {
@@ -316,36 +312,14 @@ struct AppNoticeItem: Identifiable {
     let systemImage: String
     var timestamp: Date? = nil
 }
-typealias DashboardAssetChainEntry = CoreDashboardAssetChainEntry
-extension CoreDashboardAssetChainEntry: Identifiable {
-    public var id: String {
-        let contract =
-            normalizeTokenIdentifier(contractAddress: coin.contractAddress, chainName: coin.chainName)
-            ?? "native"
-        return "\(coin.chainName.lowercased())|\(coin.symbol.lowercased())|\(contract)"
-    }
-    // Legacy uppercased acronym forwarder.
-    var valueUSD: Double? { valueUsd }
-    init(coin: Coin, valueUSD: Double?) {
-        self.init(coin: coin, valueUsd: valueUSD)
-    }
-}
-
 typealias DashboardAssetGroup = CoreDashboardAssetGroup
 extension CoreDashboardAssetGroup: Identifiable {
-    var name: String { representativeCoin.name }
-    var symbol: String { representativeCoin.symbol }
-    var iconIdentifier: String { representativeCoin.iconIdentifier }
-    var color: Color { representativeCoin.color }
-    var totalValueUSD: Double? { totalValueUsd }
-    init(
-        id: String, representativeCoin: Coin, totalAmount: Double, totalValueUSD: Double?, chainEntries: [DashboardAssetChainEntry],
-        isPinned: Bool
-    ) {
-        self.init(
-            id: id, representativeCoin: representativeCoin, totalAmount: totalAmount, totalValueUsd: totalValueUSD,
-            chainEntries: chainEntries, isPinned: isPinned)
-    }
+    var name: String { coin.name }
+    var symbol: String { coin.symbol }
+    var iconIdentifier: String { coin.iconIdentifier }
+    var color: Color { coin.color }
+    var totalValueUSD: Double? { valueUsd }
+    var totalAmount: Double { coin.amount }
 }
 
 typealias DashboardPinOption = CoreDashboardPinOption
@@ -402,7 +376,8 @@ private struct AssetDetailHubCard: View {
             }
 
             HStack(spacing: 10) {
-                hubMetric(title: "Networks", value: "\(assetGroup.chainEntries.count)", icon: "circle.hexagongrid.fill")
+                // A "Networks" metric stood here, reading the chain-entry
+                // count. A row is one token on one network, so it read 1.
                 hubMetric(title: "Contracts", value: "\(contractCount)", icon: "doc.text.magnifyingglass")
                 hubMetric(title: "Symbol", value: assetGroup.symbol, icon: "tag.fill")
             }
@@ -481,7 +456,7 @@ private struct AssetSummaryStatsCard: View {
             statRow(
                 label: AppLocalization.string("Total Amount"),
                 value: store.formattedAssetAmount(
-                    assetGroup.totalAmount, symbol: assetGroup.symbol, chainName: assetGroup.representativeCoin.chainName),
+                    assetGroup.totalAmount, symbol: assetGroup.symbol, chainName: assetGroup.coin.chainName),
                 icon: "scalemass.fill")
             Divider().opacity(0.4)
             statRow(
@@ -503,46 +478,33 @@ private struct AssetSummaryStatsCard: View {
         }
     }
 }
+/// The row's holding, by chain and token standard.
+///
+/// Rendered a `chainEntries` list — a count badge, an empty state, dividers
+/// between entries, and a caption saying "Balances merge across chains", which
+/// was never true: the row key includes the network, so a row is one token on
+/// one network and the list always held exactly one thing.
 private struct AssetChainBreakdownCard: View {
     let assetGroup: DashboardAssetGroup
     let store: AppState
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                Text(AppLocalization.string("Chain Breakdown")).font(.headline).foregroundStyle(Color.primary)
-                Spacer()
-                Text("\(assetGroup.chainEntries.count)").font(.caption.weight(.bold)).foregroundStyle(.orange).padding(
-                    .horizontal, 8
-                ).padding(.vertical, 3).background(Capsule(style: .continuous).fill(Color.orange.opacity(0.14)))
-            }
-            if assetGroup.chainEntries.isEmpty {
-                SpectraEmptyStateContent(
-                    title: "No chain balances yet",
-                    message: "No chain balances yet for this asset.",
-                    systemImage: "point.3.connected.trianglepath.dotted"
-                )
-            } else {
-                ForEach(assetGroup.chainEntries) { entry in
-                    AssetChainBreakdownRow(
-                        chainTitle: store.displayChainTitle(for: entry.coin.chainName),
-                        chainName: entry.coin.chainName,
-                        tokenStandard: entry.coin.tokenStandard,
-                        amountText: store.formattedAssetAmount(
-                            entry.coin.amount, symbol: entry.coin.symbol, chainName: entry.coin.chainName),
-                        valueText: store.formattedFiatAmountOrZero(fromUSD: entry.valueUSD),
-                        symbol: entry.coin.symbol
-                    )
-                    if entry.id != assetGroup.chainEntries.last?.id {
-                        Divider().opacity(0.3)
-                    }
-                }
-                Text(AppLocalization.string("Balances merge across chains; per-chain token-standard details show here."))
-                    .font(.caption2).foregroundStyle(.secondary).padding(.top, 4)
-            }
+            Text(AppLocalization.string("Chain Breakdown")).font(.headline).foregroundStyle(Color.primary)
+            AssetChainBreakdownRow(
+                chainTitle: store.displayChainTitle(for: assetGroup.coin.chainName),
+                chainName: assetGroup.coin.chainName,
+                tokenStandard: assetGroup.coin.tokenStandard,
+                amountText: store.formattedAssetAmount(
+                    assetGroup.coin.amount, symbol: assetGroup.coin.symbol,
+                    chainName: assetGroup.coin.chainName),
+                valueText: store.formattedFiatAmountOrZero(fromUSD: assetGroup.totalValueUSD),
+                symbol: assetGroup.coin.symbol
+            )
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
 }
+
 private struct AssetContractsCard: View {
     let entries: [TokenPreferenceEntry]
     var body: some View {
@@ -583,6 +545,7 @@ private struct AssetContractsCard: View {
             .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
 }
+
 private struct AssetChainBreakdownRow: View {
     let chainTitle: String
     let chainName: String

@@ -51,7 +51,8 @@ extension AppState {
         }
         // ── Wallet projection, from the store core owns ───────────────────────
         if let stored = try? await WalletServiceBridge.shared.storedWallets(), !stored.isEmpty {
-            adoptWalletsFromCore(stored)
+            adoptWalletsFromCore(
+                mergeAdoptedProjection(stored: stored, keepingLocal: wallets, identity: \.id))
             rebuildWalletDerivedState()
         }
         // ── Transaction projection, from the store core owns ──────────────────
@@ -68,7 +69,9 @@ extension AppState {
         if let stored = try? await WalletServiceBridge.shared.storedTransactions() {
             let records = stored.compactMap(TransactionRecord.init(snapshot:))
             if !records.isEmpty {
-                adoptTransactionsFromCore(records)
+                adoptTransactionsFromCore(
+                    mergeAdoptedProjection(
+                        stored: records, keepingLocal: transactions, identity: \.id.uuidString))
                 await rebuildTransactionDerivedState()
             }
         }

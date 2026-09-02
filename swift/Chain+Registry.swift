@@ -65,6 +65,10 @@ extension Chain: Identifiable {
     var supportsStaking: Bool { identity?.supportsStaking ?? false }
     /// The send screen has a network card to show for this chain.
     var hasSendPreview: Bool { identity?.hasSendPreview ?? false }
+    /// Which endpoint slot this chain's supplemental explorer endpoints go in.
+    var supplementalEndpointSlot: AppCoreEndpointSlot {
+        identity?.supplementalEndpointSlot ?? .explorer
+    }
     /// Which `TokenHostingChain` this chain is, if it can host known tokens.
     var tokenHostingChain: TokenHostingChain? { identity?.tokenHostingChain }
     var sendExecutionShape: SendExecutionShape? { identity?.sendExecutionShape }

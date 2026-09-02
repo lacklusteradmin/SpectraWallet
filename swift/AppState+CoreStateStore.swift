@@ -199,3 +199,30 @@ extension AppState {
     // Address-book mutation helpers are gone: core owns that list, and it is
     // changed by `StateCommand` rather than by assigning to an array here.
 }
+
+/// Core's stored list, plus anything the projection gained while the read was
+/// in flight.
+///
+/// The launch load adopted core's snapshot with a wholesale replace and nothing
+/// ordering it against the optimistic writes the command helpers make: a wallet
+/// imported between issuing the read and its continuation was dropped from the
+/// projection. Nothing put it back — `updateWalletsIfPresent` starts *from* the
+/// projection, so a balance refresh could not resurrect it — and the only other
+/// readers of `storedWallets()` are the import tail and "clear all". It stayed
+/// missing until the next launch.
+///
+/// The load runs once, from `warmUpAfterLaunch`, so the projection starts
+/// empty: the only local write that can interleave is an insert, and an insert
+/// is newer than the snapshot by construction. Local therefore wins on a
+/// collision and core supplies everything local has not heard of.
+func mergeAdoptedProjection<T>(
+    stored: [T], keepingLocal local: [T], identity: (T) -> String
+) -> [T] {
+    guard !local.isEmpty else { return stored }
+    var merged = local
+    let localIDs = Set(local.map(identity))
+    for record in stored where !localIDs.contains(identity(record)) {
+        merged.append(record)
+    }
+    return merged
+}

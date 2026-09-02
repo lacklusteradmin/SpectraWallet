@@ -8,7 +8,6 @@ struct ChainWikiEntry: Identifiable, Equatable {
     let family: String
     let consensus: String
     let stateModel: String
-    let primaryUse: String
     let derivationPaths: [ChainWikiDerivationPath]
     let totalCirculationModel: String
     static var all: [ChainWikiEntry] {
@@ -18,7 +17,6 @@ struct ChainWikiEntry: Identifiable, Equatable {
                 ChainWikiEntry(
                     id: chain.id, name: chain.name, symbol: chain.symbol, tags: chain.tags,
                     comment: chain.comment, family: chain.family, consensus: chain.consensus, stateModel: chain.stateModel,
-                    primaryUse: chain.primaryUse,
                     derivationPaths: chain.derivationPath.map(ChainWikiDerivationPath.init(corePath:)),
                     totalCirculationModel: chain.totalCirculationModel
                 )

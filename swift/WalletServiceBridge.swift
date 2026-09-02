@@ -437,17 +437,16 @@ private extension WalletServiceBridge {
             }
             payloads += payload
         }
-        // Supplemental explorer endpoints, and the slot each chain writes them
-        // into. Which slot is a per-chain fact that still lives in Swift rather
-        // than on `registry::Chain` — see PLAN.md "Known open items".
-        let supplemental: [(chain: Chain, slot: AppCoreEndpointSlot)] =
-            [(.polkadot, .secondary), (.icp, .secondary)]
-            + [Chain.ethereum, .tron, .arbitrum, .optimism, .avalanche, .near, .base,
-               .ethereumClassic, .bnbChain, .polygon, .linea, .scroll, .blast, .mantle]
-                .map { ($0, .explorer) }
-        for (chain, slot) in supplemental {
+        // Supplemental explorer endpoints. Which chains have one is data — the
+        // catalog answers, and `explorerPayloads` returns nothing for a chain
+        // without — and which slot it lands in is a registry column.
+        //
+        // A sixteen-name table stood here. Twelve of its names have no
+        // supplement at all, and Hyperliquid, which does, was not in it.
+        for chain in Chain.all {
             payloads += explorerPayloads(
-                chainId: endpointSlotId(chain.id, slot), chainName: chain.displayName)
+                chainId: endpointSlotId(chain.id, chain.supplementalEndpointSlot),
+                chainName: chain.displayName)
         }
         let tonV3URLs = AppEndpointDirectory.endpoints(for: ["ton.api.v3"])
         if !tonV3URLs.isEmpty {

@@ -173,6 +173,39 @@ import Foundation
                 "no feed answered for USDC, so there is no price to show")
         }
 
+        /// A wallet imported while the launch load is reading core is not
+        /// dropped by the adoption.
+        ///
+        /// The adoption was a wholesale replace with nothing ordering it
+        /// against the optimistic write the command helpers make first. The
+        /// read returns a snapshot taken before the import; replacing the
+        /// projection with it lost the wallet — and `updateWalletsIfPresent`
+        /// starts *from* the projection, so a balance refresh could not bring
+        /// it back. It stayed gone until the next launch.
+        func testAdoptionKeepsAWalletWrittenWhileTheReadWasInFlight() {
+            struct Row: Equatable {
+                let id: String
+            }
+            let storedSnapshot = [Row(id: "a"), Row(id: "b")]
+
+            // Nothing wrote while the read was out: adopt core's list whole.
+            XCTAssertEqual(
+                mergeAdoptedProjection(stored: storedSnapshot, keepingLocal: [], identity: \.id),
+                storedSnapshot)
+
+            // An import landed mid-read. Core's snapshot predates it, so the
+            // merge keeps it and adds everything core has that it lacks.
+            let merged = mergeAdoptedProjection(
+                stored: storedSnapshot, keepingLocal: [Row(id: "c")], identity: \.id)
+            XCTAssertEqual(merged.map(\.id), ["c", "a", "b"])
+
+            // A local entry core also has is not duplicated, and the local
+            // version is the one kept — it is newer by construction.
+            let overlapping = mergeAdoptedProjection(
+                stored: storedSnapshot, keepingLocal: [Row(id: "a")], identity: \.id)
+            XCTAssertEqual(overlapping.map(\.id), ["a", "b"])
+        }
+
         func testBitcoinTestnet4EndpointsAreAvailable() {
             XCTAssertEqual(
                 AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: "bitcoin-testnet-4"),

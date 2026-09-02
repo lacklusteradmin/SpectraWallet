@@ -7,7 +7,10 @@ extension AppState {
         let allChains = listAllChains()
         let chainNameById = Dictionary(uniqueKeysWithValues: allChains.map { ($0.id, $0.name) })
         var coins = allChains
-            .filter { !$0.nativeAssetName.isEmpty && $0.category != "testnet" }
+            // A testnet asset has no price, so it is not something to pin.
+            // Asked `category != "testnet"`, which is why the catalog had to
+            // put a network kind in a column of chain families.
+            .filter { !$0.nativeAssetName.isEmpty && Chain(id: $0.id)?.isTestnet != true }
             .map { chain in
                 Coin.makeCustom(
                     name: chain.nativeAssetName, symbol: chain.gasTokenSymbol,

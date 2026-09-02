@@ -38,13 +38,22 @@ enum SetupChainCategory: String, CaseIterable, Identifiable {
         case .testnets: return AppLocalization.string("Testnets")
         }
     }
-    init?(chainCategory: String) {
-        switch chainCategory {
+    /// The section a chain belongs to.
+    ///
+    /// Read `category` alone, which meant the catalog had to spell `"testnet"`
+    /// there — a network-kind flag in a column of chain families, and the one
+    /// reason `is_evm` could not be derived from `category`. Which network a
+    /// row is is the registry's `isTestnet`.
+    init?(chain: ChainEntry) {
+        if Chain(id: chain.id)?.isTestnet == true {
+            self = .testnets
+            return
+        }
+        switch chain.category {
         case "bitcoin-family": self = .bitcoinFamily
         case "evm-l1": self = .evmL1
         case "evm-l2": self = .evmL2
         case "other": self = .other
-        case "testnet": self = .testnets
         default: return nil
         }
     }
@@ -62,7 +71,7 @@ enum SetupChainCategory: String, CaseIterable, Identifiable {
 /// hasn't been migrated yet because its dependency surface is large.
 struct SetupView: View {
     private static let chainSelectionDescriptors: [SetupChainSelectionDescriptor] = listAllChains().compactMap { chain in
-        guard let category = SetupChainCategory(chainCategory: chain.category) else { return nil }
+        guard let category = SetupChainCategory(chain: chain) else { return nil }
         return SetupChainSelectionDescriptor(
             id: chain.id, title: chain.name, symbol: chain.symbol, chainName: chain.name,
             color: RegistryColorLookup.color(named: chain.color), category: category,
