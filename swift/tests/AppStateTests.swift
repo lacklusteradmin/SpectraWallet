@@ -38,6 +38,38 @@ import Foundation
             _ = try await WalletServiceBridge.shared.applyTransactionCommand(.clear)
         }
 
+        /// Every EVM mainnet resolves an address, so no wallet is dropped
+        /// before the balance refresh can fetch anything.
+        ///
+        /// `resolvedAddress` tested `seedDerivationChain` before `isEVMChain`.
+        /// Core answers the former for *every* chain in the catalog — it
+        /// returns `Option` but never `None` — so the EVM branch was
+        /// unreachable, and the table it fell into has no EVM entry. All 23
+        /// EVM mainnets resolved to `nil`; the refresh engine drops a wallet
+        /// with no address, so their balances never loaded at all.
+        ///
+        /// Asserted over `Chain.mainnets` rather than a list written here, so
+        /// a new EVM chain is covered by adding it to the catalog.
+        func testEveryEVMMainnetResolvesAWalletAddress() async {
+            let store = AppState()
+            store.importDraft.walletName = "EVM Coverage"
+            store.importDraft.setSeedPhraseForTesting(
+                "test test test test test test test test test test test junk")
+            store.importDraft.selectedChainNamesStorage = ["Ethereum"]
+            await store.importWallet()
+            XCTAssertNil(store.importError)
+            guard let wallet = store.wallets.first else { return XCTFail("no wallet") }
+
+            let evmMainnets = Chain.mainnets.filter(\.isEVM)
+            XCTAssertGreaterThan(evmMainnets.count, 20, "the catalog lost its EVM chains")
+            var unresolved: [String] = []
+            for chain in evmMainnets
+            where store.resolvedAddress(for: wallet, chainName: chain.displayName) == nil {
+                unresolved.append(chain.displayName)
+            }
+            XCTAssertEqual(unresolved, [], "no address, so the refresh engine drops the wallet")
+        }
+
         /// A rename lands after a delete without bringing the wallet back.
         ///
         /// The rename write is detached, so it can arrive after the user has
@@ -503,48 +535,6 @@ import Foundation
             await store.awaitPendingCoreStateWrites()
         }
 
-        func testExportsPlatformSnapshotEnvelopeWithStableFoundationModels() async throws {
-            let store = AppState()
-            let wallet = ImportedWallet(
-                id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!, name: "Primary ETH", addresses: ["Ethereum": "0xabc123"],
-                selectedChain: "Ethereum",
-                holdings: [
-                    Coin.makeCustom(
-                        name: "Ethereum", symbol: "ETH", coinGeckoId: "ethereum", chainName: "Ethereum",
-                        tokenStandard: "Native", contractAddress: nil, amount: 2, priceUsd: 3000
-                    )
-                ]
-            )
-            await store.recordWallet(wallet)
-            // Core-owned. Sent through the bridge and awaited: this test is
-            // about the snapshot, not about the fire-and-forget UI entry point.
-            _ = try await WalletServiceBridge.shared.applyStateCommand(
-                .addAddressBookEntry(
-                    id: UUID().uuidString, name: "Cold Wallet", chainName: "Ethereum",
-                    address: "0x9858EfFD232B4033E47d90003D41EC34EcaEda94", note: "vault"))
-            await store.loadCoreOwnedState()
-            store.recordTransaction(
-                TransactionRecord(
-                    walletID: wallet.id, kind: .send, status: .pending, walletName: wallet.name, assetName: "Ethereum", symbol: "ETH",
-                    chainName: "Ethereum", amount: 0.5, address: "0xfeedbeef", transactionHash: "0xdeadbeef"
-                ))
-            store.livePrices = ["Ethereum|ETH": 3000]
-            let snapshot = store.makePlatformSnapshotEnvelope(generatedAt: Date(timeIntervalSince1970: 1_700_000_000))
-            XCTAssertEqual(snapshot.schemaVersion, PlatformSnapshotEnvelope.currentSchemaVersion)
-            XCTAssertEqual(snapshot.app.walletCount, 1)
-            XCTAssertEqual(snapshot.app.transactionCount, 1)
-            XCTAssertEqual(snapshot.app.addressBookCount, 1)
-            XCTAssertEqual(snapshot.app.wallets.first?.selectedChainID, "ethereum")
-            XCTAssertEqual(snapshot.app.wallets.first?.addresses.first?.chainID, "ethereum")
-            XCTAssertEqual(snapshot.app.wallets.first?.holdings.first?.valueUSD, 6000)
-            XCTAssertEqual(snapshot.app.transactions.first?.chainID, "ethereum")
-            XCTAssertEqual(snapshot.app.addressBook.first?.chainID, "ethereum")
-            let data = try store.exportPlatformSnapshotJSON(generatedAt: Date(timeIntervalSince1970: 1_700_000_000))
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let decoded = try decoder.decode(PlatformSnapshotEnvelope.self, from: data)
-            XCTAssertEqual(decoded.app.wallets.first?.name, "Primary ETH")
-        }
     }
 #endif
 

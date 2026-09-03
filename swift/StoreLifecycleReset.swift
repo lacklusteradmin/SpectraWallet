@@ -89,7 +89,6 @@ extension AppState {
         clearAllWalletsDetached()
         discoveredUTXOAddressesByChain = [:]
         receiveWalletID = ""
-        receiveChainName = ""
         receiveHoldingKey = ""
         receiveResolvedAddress = ""
         isResolvingReceiveAddress = false

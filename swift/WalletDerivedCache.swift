@@ -16,7 +16,6 @@ struct WalletDerivedCache {
     var portfolio: [Coin]
     var availableSendCoinsByWalletID: [String: [Coin]]
     var availableReceiveCoinsByWalletID: [String: [Coin]]
-    var availableReceiveChainsByWalletID: [String: [String]]
     var sendEnabledWallets: [ImportedWallet]
     var receiveEnabledWallets: [ImportedWallet]
     var refreshableChainNames: Set<String>
@@ -35,7 +34,6 @@ struct WalletDerivedCache {
         portfolio: [],
         availableSendCoinsByWalletID: [:],
         availableReceiveCoinsByWalletID: [:],
-        availableReceiveChainsByWalletID: [:],
         sendEnabledWallets: [],
         receiveEnabledWallets: [],
         refreshableChainNames: [],

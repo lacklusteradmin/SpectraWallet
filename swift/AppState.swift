@@ -197,7 +197,6 @@ final class AppState {
     }
     var cachedAvailableSendCoinsByWalletID: [String: [Coin]] { walletDerivedCache.availableSendCoinsByWalletID }
     var cachedAvailableReceiveCoinsByWalletID: [String: [Coin]] { walletDerivedCache.availableReceiveCoinsByWalletID }
-    var cachedAvailableReceiveChainsByWalletID: [String: [String]] { walletDerivedCache.availableReceiveChainsByWalletID }
     var cachedSendEnabledWallets: [ImportedWallet] { walletDerivedCache.sendEnabledWallets }
     var cachedReceiveEnabledWallets: [ImportedWallet] { walletDerivedCache.receiveEnabledWallets }
     var cachedRefreshableChainNames: Set<String> { walletDerivedCache.refreshableChainNames }
@@ -239,7 +238,6 @@ final class AppState {
     var sendVerificationNotice: String? = nil
     var sendVerificationNoticeIsWarning: Bool = false
     var receiveWalletID: String = ""
-    var receiveChainName: String = ""
     var receiveHoldingKey: String = ""
     var receiveResolvedAddress: String = ""
     var isResolvingReceiveAddress: Bool = false
@@ -463,7 +461,8 @@ final class AppState {
         }
     }
 
-    /// The chain id this family is on.
+    /// A family with no selection reports itself, so the mainnet id is the
+    /// default without being stored as one.
     func networkChainID(forFamily family: String) -> NetworkChainID {
         networkChainByFamily[family] ?? family
     }

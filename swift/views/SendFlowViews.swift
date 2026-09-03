@@ -765,7 +765,6 @@ struct SendView: View {
         }
     }
 
-    @ViewBuilder
     /// One chain's fee card.
     ///
     /// `isPreparing` and the fee triple used to be passed in at all eleven call
@@ -775,6 +774,7 @@ struct SendView: View {
     /// `sendExecutionShape.feeDecimals`, and the preview is keyed by chain.
     /// What a caller still supplies is what the registry cannot: the footer
     /// sentence and whatever that chain shows beside its fee.
+    @ViewBuilder
     private func simpleFeeContent(
         selectedCoin: Coin?, chainName: String,
         footer: String, extraLines: [String] = [], extraCaption: String? = nil
@@ -786,7 +786,6 @@ struct SendView: View {
                 (amount, chain?.gasTokenSymbol ?? "",
                  "%.\(Int(chain?.sendExecutionShape?.feeDecimals ?? 6))f")
             }
-        return Group {
         if let selectedCoin, selectedCoin.chainName == chainName {
             VStack(alignment: .leading, spacing: 10) {
                 networkSectionHeader(AppLocalization.format("%@ Network", chainName))
@@ -807,7 +806,6 @@ struct SendView: View {
                 }
                 Text(AppLocalization.string(footer)).font(.caption).foregroundStyle(.secondary)
             }
-        }
         }
     }
 

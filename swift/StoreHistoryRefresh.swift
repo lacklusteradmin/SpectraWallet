@@ -101,9 +101,17 @@ extension AppState {
             request: RefreshTargetsRequest(
                 chainName: chainName,
                 wallets: walletSnapshot.map { wallet in
+                    // Resolve only for the wallets actually on this chain.
+                    // `plan_refresh_targets` drops the rest by `selectedChain`
+                    // anyway, and resolving is not free: it reads the seed out
+                    // of the Keychain and derives a key. A wallet is on one
+                    // chain, so asking a Bitcoin wallet for its Ethereum
+                    // address derived something nothing would ever use.
                     RefreshWalletInput(
                         walletId: wallet.id, selectedChain: wallet.selectedChain,
-                        addresses: [resolveAddress(wallet)].compactMap { $0 })
+                        addresses: wallet.selectedChain == chainName
+                            ? [resolveAddress(wallet)].compactMap { $0 }
+                            : [])
                 },
                 allowedWalletIds: targetWalletIDs.map(Array.init)
             )

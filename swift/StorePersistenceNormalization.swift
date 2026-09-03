@@ -48,7 +48,6 @@ extension AppState {
             portfolio: derived.portfolio,
             availableSendCoinsByWalletID: derived.sendCoinsByWalletId,
             availableReceiveCoinsByWalletID: derived.receiveCoinsByWalletId,
-            availableReceiveChainsByWalletID: derived.receiveChainsByWalletId,
             sendEnabledWallets: derived.sendEnabledWalletIds.compactMap { walletByID[$0] },
             receiveEnabledWallets: derived.receiveEnabledWalletIds.compactMap { walletByID[$0] },
             refreshableChainNames: Set(derived.refreshableChainNames),

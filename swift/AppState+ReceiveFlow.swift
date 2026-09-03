@@ -6,15 +6,12 @@ extension AppState {
     func beginReceive() {
         guard let firstWallet = receiveEnabledWallets.first else { return }
         receiveWalletID = firstWallet.id
-        receiveChainName = availableReceiveChains(for: receiveWalletID).first ?? ""
         receiveHoldingKey = selectedReceiveCoin(for: receiveWalletID)?.holdingKey ?? ""
         receiveResolvedAddress = ""
         isResolvingReceiveAddress = false
         isShowingReceiveSheet = true
     }
     func syncReceiveAssetSelection() {
-        let availableChains = availableReceiveChains(for: receiveWalletID)
-        if !availableChains.contains(receiveChainName) { receiveChainName = availableChains.first ?? "" }
         receiveHoldingKey = selectedReceiveCoin(for: receiveWalletID)?.holdingKey ?? ""
         receiveResolvedAddress = ""
         isResolvingReceiveAddress = false

@@ -242,8 +242,6 @@ extension WalletServiceBridge {
         try await service().mergeBuiltInTokenPreferences()
     }
 
-    /// Change the core-owned transaction store. Returns which ids changed.
-    @discardableResult
     /// Push a rebuilt endpoint list into the service.
     ///
     /// `update_endpoints_typed` had existed unreachable since it was written,

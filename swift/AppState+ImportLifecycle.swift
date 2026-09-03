@@ -73,7 +73,6 @@ extension AppState {
         // Core drops the wallet's owned addresses in `deleteWalletRelationalData`.
         if receiveWalletID == deletedWalletIDString {
             receiveWalletID = ""
-            receiveChainName = ""
             receiveHoldingKey = ""
             receiveResolvedAddress = ""
             isResolvingReceiveAddress = false
@@ -95,25 +94,21 @@ extension AppState {
             guard let candidate else { return }
             candidateAddresses.append(candidate)
         }
-        // Every address the wallet has stored, in catalog order.
-        for chain in Chain.all { appendAddress(wallet.address(forChainNamed: chain.displayName)) }
-        appendAddress(resolvedBitcoinCashAddress(for: wallet))
-        appendAddress(resolvedBitcoinSVAddress(for: wallet))
-        appendAddress(resolvedLitecoinAddress(for: wallet))
-        appendAddress(resolvedNetworkModeAddress(for: wallet, family: "dogecoin", fallback: .dogecoin))
-        appendAddress(resolvedEthereumAddress(for: wallet))
-        appendAddress(resolvedTronAddress(for: wallet))
-        appendAddress(resolvedSolanaAddress(for: wallet))
-        appendAddress(resolvedXRPAddress(for: wallet))
-        appendAddress(resolvedStellarAddress(for: wallet))
-        appendAddress(resolvedMoneroAddress(for: wallet))
-        appendAddress(resolvedCardanoAddress(for: wallet))
-        appendAddress(resolvedSuiAddress(for: wallet))
-        appendAddress(resolvedAptosAddress(for: wallet))
-        appendAddress(resolvedTONAddress(for: wallet))
-        appendAddress(resolvedICPAddress(for: wallet))
-        appendAddress(resolvedNearAddress(for: wallet))
-        appendAddress(resolvedPolkadotAddress(for: wallet))
+        // Every address the wallet has stored — one, or two for Ethereum
+        // Classic, which occupies both the shared EVM slot and its own. This
+        // walked all 78 catalog chains asking for each one's slot to find
+        // them; the map already is the answer.
+        for address in wallet.addresses.values { appendAddress(address) }
+        // And the address its own chain derives. Seventeen
+        // `resolved<Chain>Address(for:)` calls stood here, one per chain
+        // family, each reading the seed out of the Keychain and deriving a
+        // key — on a path that runs before every send and on opening any
+        // transaction. A wallet is on one chain, so sixteen of them derived
+        // addresses on chains this wallet is not on: they belong to whatever
+        // separate wallet the same seed was imported as there, and they could
+        // never match the address being checked anyway, since the check is
+        // always against one chain's transaction.
+        appendAddress(resolvedAddress(for: wallet, chainName: wallet.selectedChain))
         for transaction in transactions where transaction.walletID == walletID {
             appendAddress(transaction.sourceAddress)
             appendAddress(transaction.changeAddress)
@@ -147,7 +142,6 @@ extension AppState {
     }
     func availableSendCoins(for walletID: String) -> [Coin] { cachedAvailableSendCoinsByWalletID[walletID] ?? [] }
     func availableReceiveCoins(for walletID: String) -> [Coin] { cachedAvailableReceiveCoinsByWalletID[walletID] ?? [] }
-    func availableReceiveChains(for walletID: String) -> [String] { cachedAvailableReceiveChainsByWalletID[walletID] ?? [] }
     func selectedReceiveCoin(for walletID: String) -> Coin? {
         let receiveCoins = availableReceiveCoins(for: walletID)
         let plan = receiveSelection(for: walletID, coins: receiveCoins)
@@ -156,18 +150,20 @@ extension AppState {
         else { return nil }
         return receiveCoins[selectedIndex]
     }
-    /// Which chain and holding the receive sheet should show. `receiveChainName`
-    /// is the user's current pick and stays in Swift — it is a sheet selection,
-    /// not something a restart should preserve.
+    /// Which holding the receive screen presents itself as — the native one,
+    /// or the first token if there is no native holding.
+    ///
+    /// Took a chain too: a `receiveChainName` pick plus the wallet's list of
+    /// receive chains, which core filtered holdings against. A wallet is on one
+    /// chain, so that list held one entry and the filter never dropped
+    /// anything.
     private func receiveSelection(for walletID: String, coins: [Coin]? = nil) -> ReceiveSelectionPlan {
         let receiveCoins = coins ?? availableReceiveCoins(for: walletID)
         return coreReceiveSelection(
             request: ReceiveSelectionRequest(
-                receiveChainName: receiveChainName,
-                availableReceiveChains: availableReceiveChains(for: walletID),
                 availableReceiveHoldings: receiveCoins.enumerated().map { offset, coin in
                     ReceiveSelectionHoldingInput(
-                        holdingIndex: UInt64(offset), chainName: coin.chainName,
+                        holdingIndex: UInt64(offset),
                         hasContractAddress: coin.contractAddress != nil
                     )
                 }

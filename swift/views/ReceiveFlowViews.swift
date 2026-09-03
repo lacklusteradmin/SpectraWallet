@@ -25,9 +25,12 @@ private enum ReceiveFlowStep: Int, CaseIterable, Identifiable {
 
 struct ReceiveView: View {
     @Bindable var store: AppState
-    @State private var qrWallet: ImportedWallet? = nil
     @State private var currentStep: ReceiveFlowStep = .wallet
     @State private var flowDirection: Int = 1
+    @State private var didCopy: Bool = false
+    @State private var isShowingShareSheet: Bool = false
+    @State private var qrExportMessage: String?
+    @State private var qrImageSaver: PhotoLibraryImageSaver?
 
     private var selectedWallet: ImportedWallet? {
         store.receiveEnabledWallets.first(where: { $0.id == store.receiveWalletID })
@@ -44,6 +47,13 @@ struct ReceiveView: View {
     private var canUseResolvedAddress: Bool {
         !resolvedAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             && resolvedAddress != AppLocalization.string("Select a wallet and chain")
+    }
+
+    /// The QR as an image, for sharing and saving. `nil` until an address
+    /// resolves, which is what disables both buttons.
+    private var qrImage: UIImage? {
+        let address = resolvedAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        return canUseResolvedAddress ? QRCodeRenderer.makeImage(from: address) : nil
     }
 
     var body: some View {
@@ -76,8 +86,16 @@ struct ReceiveView: View {
                 .accessibilityLabel(AppLocalization.string("Close"))
             }
         }
-        .sheet(item: $qrWallet) { wallet in
-            ReceiveQRSheet(store: store, wallet: wallet)
+        .sheet(isPresented: $isShowingShareSheet) {
+            if let qrImage { ActivityItemSheet(activityItems: [qrImage]) }
+        }
+        .alert(
+            AppLocalization.string("QR Code Export"),
+            isPresented: .isPresent($qrExportMessage)
+        ) {
+            Button(AppLocalization.string("OK"), role: .cancel) { qrExportMessage = nil }
+        } message: {
+            if let qrExportMessage { Text(verbatim: qrExportMessage) }
         }
         .task(id: receiveRefreshKey) {
             guard currentStep == .address else { return }
@@ -156,12 +174,11 @@ struct ReceiveView: View {
         VStack(alignment: .leading, spacing: 18) {
             spectraPageHeader(
                 title: "Receive Address",
-                subtitle: "Review the network, copy the address, or open the full QR screen.",
+                subtitle: "Scan the code, or copy the address to share it.",
                 systemImage: "qrcode"
             )
 
             receiveAddressHero
-            receiveChainCard
             receiveActionCard
         }
     }
@@ -209,68 +226,48 @@ struct ReceiveView: View {
         .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
     }
 
-    private var receiveChainCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(AppLocalization.string("Network")).font(.headline)
-            Picker(AppLocalization.string("Receive Chain"), selection: $store.receiveChainName) {
-                ForEach(store.availableReceiveChains(for: store.receiveWalletID), id: \.self) { chain in
-                    Text(chain).tag(chain)
-                }
-            }
-            .pickerStyle(.menu)
-            .onChange(of: store.receiveChainName) { _, _ in
-                store.syncReceiveAssetSelection()
-                Task { await store.refreshReceiveAddress() }
-            }
-
-            if let coin = selectedCoin {
-                HStack(spacing: 10) {
-                    CoinBadge(
-                        assetIdentifier: coin.iconIdentifier,
-                        fallbackText: coin.symbol,
-                        color: coin.color,
-                        size: 28
-                    )
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(coin.symbol).font(.subheadline.weight(.semibold))
-                        Text(coin.chainName).font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
-    }
-
+    /// Share and save. Copy is the bottom bar's primary action rather than a
+    /// third button here — it is the one thing nearly every visit is for.
+    ///
+    /// These two used to be the only reason to open a second screen: a full-QR
+    /// sheet showing the same code, the same wallet and chain, and the same
+    /// address this one already shows, reachable from two buttons that did the
+    /// same thing ("Open Full QR" here, "Show QR" in the bottom bar).
     private var receiveActionCard: some View {
         VStack(spacing: 10) {
             Button {
-                guard let selectedWallet else { return }
-                qrWallet = selectedWallet
+                guard qrImage != nil else { return }
+                isShowingShareSheet = true
             } label: {
-                Label(AppLocalization.string("Open Full QR"), systemImage: "qrcode.viewfinder")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-            }
-            .buttonStyle(.glassProminent)
-            .spectraPressable()
-            .disabled(selectedWallet == nil)
-
-            Button {
-                UIPasteboard.general.string = resolvedAddress
-                spectraHaptic(.light)
-            } label: {
-                Label(AppLocalization.string("Copy Address"), systemImage: "doc.on.doc")
+                Label(AppLocalization.string("Share QR Code"), systemImage: "square.and.arrow.up")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 10)
             }
             .buttonStyle(.glass)
             .spectraPressable()
-            .disabled(!canUseResolvedAddress || store.isResolvingReceiveAddress)
+            .disabled(qrImage == nil)
+
+            Button {
+                guard let qrImage else { return }
+                let saver = PhotoLibraryImageSaver { result in
+                    switch result {
+                    case .success: qrExportMessage = AppLocalization.string("QR code saved to Photos.")
+                    case .failure(let error): qrExportMessage = error.localizedDescription
+                    }
+                    qrImageSaver = nil
+                }
+                qrImageSaver = saver
+                saver.save(qrImage)
+            } label: {
+                Label(AppLocalization.string("Save QR Code"), systemImage: "square.and.arrow.down")
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+            }
+            .buttonStyle(.glass)
+            .spectraPressable()
+            .disabled(qrImage == nil)
         }
         .padding(20)
         .frame(maxWidth: .infinity)
@@ -303,13 +300,18 @@ struct ReceiveView: View {
                             go(to: .address)
                         }
                     case .address:
-                        guard let selectedWallet else { return }
-                        qrWallet = selectedWallet
+                        UIPasteboard.general.string = resolvedAddress
+                        didCopy = true
+                        spectraHaptic(.light)
+                        Task {
+                            try? await Task.sleep(for: .seconds(1.5))
+                            didCopy = false
+                        }
                     }
                 } label: {
                     Label(
-                        AppLocalization.string(currentStep == .wallet ? "Continue" : "Show QR"),
-                        systemImage: currentStep == .wallet ? "chevron.right" : "qrcode"
+                        AppLocalization.string(currentStep == .wallet ? "Continue" : "Copy Address"),
+                        systemImage: copyStepSystemImage
                     )
                     .font(.headline)
                     .frame(maxWidth: .infinity)
@@ -317,12 +319,23 @@ struct ReceiveView: View {
                 }
                 .buttonStyle(.glassProminent)
                 .spectraPressable()
-                .disabled(store.receiveEnabledWallets.isEmpty)
+                .disabled(isPrimaryActionDisabled)
             }
             .padding(.horizontal, 20)
             .padding(.vertical, 12)
             .background(.regularMaterial)
         }
+    }
+
+    private var copyStepSystemImage: String {
+        if currentStep == .wallet { return "chevron.right" }
+        return didCopy ? "checkmark" : "doc.on.doc"
+    }
+
+    private var isPrimaryActionDisabled: Bool {
+        if store.receiveEnabledWallets.isEmpty { return true }
+        guard currentStep == .address else { return false }
+        return !canUseResolvedAddress || store.isResolvingReceiveAddress
     }
 
     private func choose(_ wallet: ImportedWallet) {
@@ -340,7 +353,7 @@ struct ReceiveView: View {
     }
 
     private var receiveRefreshKey: String {
-        "\(currentStep.rawValue)|\(store.receiveWalletID)|\(store.receiveChainName)|\(store.receiveHoldingKey)"
+        "\(currentStep.rawValue)|\(store.receiveWalletID)|\(store.receiveHoldingKey)"
     }
 
 }
@@ -421,176 +434,6 @@ private struct WalletReceiveCard: View {
             wallet.address(forChainNamed: wallet.selectedChain)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
-    }
-}
-
-private struct ReceiveQRSheet: View {
-    @Bindable var store: AppState
-    let wallet: ImportedWallet
-    @State private var didCopy: Bool = false
-    @State private var isShowingShareSheet: Bool = false
-    @State private var qrExportMessage: String?
-    @State private var qrImageSaver: PhotoLibraryImageSaver?
-    @Environment(\.dismiss) private var dismiss
-
-    private var resolvedAddress: String { store.receiveAddress() }
-    private var canUse: Bool { !resolvedAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-    private var qrImage: UIImage? {
-        let addr = resolvedAddress.trimmingCharacters(in: .whitespacesAndNewlines)
-        return addr.isEmpty ? nil : QRCodeRenderer.makeImage(from: addr)
-    }
-
-    var body: some View {
-        NavigationStack {
-            ScrollView(showsIndicators: false) {
-                VStack(spacing: 16) {
-                    qrCard
-                    addressCard
-                    actionCard
-                }
-                .padding(20)
-            }
-            .navigationTitle(wallet.name)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button(AppLocalization.string("Done")) { dismiss() }
-                }
-            }
-            .task(id: wallet.id) { await store.refreshReceiveAddress() }
-            .sheet(isPresented: $isShowingShareSheet) {
-                if let qrImage { ActivityItemSheet(activityItems: [qrImage]) }
-            }
-            .alert(
-                AppLocalization.string("QR Code Export"),
-                isPresented: .isPresent($qrExportMessage)
-            ) {
-                Button(AppLocalization.string("OK"), role: .cancel) { qrExportMessage = nil }
-            } message: {
-                if let qrExportMessage { Text(verbatim: qrExportMessage) }
-            }
-        }
-    }
-
-    @ViewBuilder
-    private var qrCard: some View {
-        let badge = Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, Color.mint)
-        VStack(spacing: 16) {
-            if canUse {
-                QRCodeImage(address: resolvedAddress)
-                    .frame(width: 220, height: 220)
-                    .padding(18)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 28, style: .continuous))
-            } else {
-                receiveQRCodePlaceholder(size: 256)
-            }
-            HStack(spacing: 10) {
-                CoinBadge(
-                    assetIdentifier: badge.assetIdentifier,
-                    fallbackText: wallet.selectedChain,
-                    color: badge.color,
-                    size: 28
-                )
-                VStack(alignment: .leading, spacing: 1) {
-                    Text(wallet.name).font(.headline)
-                    Text(wallet.selectedChain).font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            Text(AppLocalization.string("Scan to receive"))
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(24)
-        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
-    }
-
-    @ViewBuilder
-    private var addressCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(AppLocalization.string("Address")).font(.headline)
-            if canUse {
-                Text(resolvedAddress)
-                    .font(.body.monospaced())
-                    .textSelection(.enabled)
-                    .padding(14)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 18))
-            } else {
-                receiveAddressPlaceholder
-                .padding(14)
-                .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 18))
-            }
-            if didCopy {
-                Label(AppLocalization.string("Address copied to clipboard."), systemImage: "checkmark.circle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.green)
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
-    }
-
-    @ViewBuilder
-    private var actionCard: some View {
-        VStack(spacing: 10) {
-            Button {
-                UIPasteboard.general.string = resolvedAddress
-                didCopy = true
-                spectraHaptic(.light)
-                Task {
-                    try? await Task.sleep(for: .seconds(1.5))
-                    didCopy = false
-                }
-            } label: {
-                Label(
-                    AppLocalization.string("Copy Address"),
-                    systemImage: didCopy ? "checkmark" : "doc.on.doc"
-                )
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
-            }
-            .buttonStyle(.glassProminent)
-            .disabled(!canUse || store.isResolvingReceiveAddress)
-
-            Button {
-                guard let qrImage else { return }
-                isShowingShareSheet = true
-                _ = qrImage
-            } label: {
-                Label(AppLocalization.string("Share QR Code"), systemImage: "square.and.arrow.up")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-            }
-            .buttonStyle(.glass)
-            .disabled(qrImage == nil)
-
-            Button {
-                guard let qrImage else { return }
-                let saver = PhotoLibraryImageSaver { result in
-                    switch result {
-                    case .success: qrExportMessage = AppLocalization.string("QR code saved to Photos.")
-                    case .failure(let error): qrExportMessage = error.localizedDescription
-                    }
-                    qrImageSaver = nil
-                }
-                qrImageSaver = saver
-                saver.save(qrImage)
-            } label: {
-                Label(AppLocalization.string("Save QR Code"), systemImage: "square.and.arrow.down")
-                    .font(.subheadline.weight(.semibold))
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-            }
-            .buttonStyle(.glass)
-            .disabled(qrImage == nil)
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
     }
 }
 

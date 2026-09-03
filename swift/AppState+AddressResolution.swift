@@ -131,17 +131,8 @@ extension AppState {
 
     func resolvedTronAddress(for wallet: ImportedWallet) -> String?       { resolvedChainAddress(for: wallet, chain: .tron) }
     func resolvedSolanaAddress(for wallet: ImportedWallet) -> String?     { resolvedChainAddress(for: wallet, chain: .solana) }
-    func resolvedSuiAddress(for wallet: ImportedWallet) -> String?        { resolvedChainAddress(for: wallet, chain: .sui) }
-    func resolvedAptosAddress(for wallet: ImportedWallet) -> String?      { resolvedChainAddress(for: wallet, chain: .aptos) }
-    func resolvedTONAddress(for wallet: ImportedWallet) -> String?        { resolvedChainAddress(for: wallet, chain: .ton) }
     func resolvedICPAddress(for wallet: ImportedWallet) -> String?        { resolvedChainAddress(for: wallet, chain: .icp) }
     func resolvedNearAddress(for wallet: ImportedWallet) -> String?       { resolvedChainAddress(for: wallet, chain: .near) }
-    func resolvedPolkadotAddress(for wallet: ImportedWallet) -> String?   { resolvedChainAddress(for: wallet, chain: .polkadot) }
-    func resolvedStellarAddress(for wallet: ImportedWallet) -> String?    { resolvedChainAddress(for: wallet, chain: .stellar) }
-    func resolvedXRPAddress(for wallet: ImportedWallet) -> String?        { resolvedChainAddress(for: wallet, chain: .xrp) }
-    func resolvedLitecoinAddress(for wallet: ImportedWallet) -> String?   { resolvedChainAddress(for: wallet, chain: .litecoin) }
-    func resolvedBitcoinCashAddress(for wallet: ImportedWallet) -> String?{ resolvedChainAddress(for: wallet, chain: .bitcoinCash) }
-    func resolvedBitcoinSVAddress(for wallet: ImportedWallet) -> String?  { resolvedChainAddress(for: wallet, chain: .bitcoinSv) }
 
     func resolvedCardanoAddress(for wallet: ImportedWallet) -> String? {
         if let addr = wallet.cardanoAddress, AddressValidation.isValid(addr, kind: "cardano") {
@@ -176,12 +167,24 @@ extension AppState {
         case "Monero": return resolvedMoneroAddress(for: wallet)
         default: break
         }
-        // Everything else is the same lookup with a different slot, and the
-        // chain-name → derivation-chain mapping already comes from core.
-        if let chain = seedDerivationChain(for: chainName) {
-            return resolvedChainAddress(for: wallet, chain: chain)
-        }
+        // EVM first, and the order is the whole bug this once had: every EVM
+        // chain shares one address, and `seedDerivationChain` answers for
+        // *every* chain in the catalog — it is `Option` but core never returns
+        // `None`. So the `if let` below always succeeded and always returned,
+        // making this line unreachable, and `addressDescriptors` has no EVM
+        // entry, so all 23 EVM mainnets resolved to `nil`. A wallet with no
+        // address is dropped from the refresh engine's entry list, which is
+        // why their balances never loaded.
         if isEVMChain(chainName) { return resolvedEVMAddress(for: wallet, chainName: chainName) }
+        // Everything else is the same lookup with a different slot, and the
+        // chain-name → derivation-chain mapping already comes from core. The
+        // `let address` is deliberate: a chain the descriptor table does not
+        // cover must fall through rather than end the function.
+        if let chain = seedDerivationChain(for: chainName),
+            let address = resolvedChainAddress(for: wallet, chain: chain)
+        {
+            return address
+        }
         return nil
     }
 
