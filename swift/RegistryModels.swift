@@ -111,12 +111,7 @@ struct ChainRegistryEntry: Identifiable {
     let symbol: String
     let color: Color
     let assetName: String
-    let comment: String
-    let family: String
-    let consensus: String
-    let stateModel: String
     let derivationPath: [ChainDerivationPathEntry]
-    let totalCirculationModel: String
     var assetIdentifier: String { Coin.iconIdentifier(symbol: symbol, chainName: name) }
     var nativeIconDescriptor: NativeChainIconDescriptor {
         NativeChainIconDescriptor(
@@ -130,9 +125,7 @@ struct ChainRegistryEntry: Identifiable {
                 ChainRegistryEntry(
                     id: chain.id, name: chain.name, symbol: chain.symbol,
                     color: RegistryColorLookup.color(named: chain.color), assetName: chain.assetName,
-                    comment: chain.comment, family: chain.family, consensus: chain.consensus, stateModel: chain.stateModel,
-                    derivationPath: chain.derivationPath,
-                    totalCirculationModel: chain.totalCirculationModel
+                    derivationPath: chain.derivationPath
                 )
             }
     }()
@@ -276,17 +269,17 @@ extension Coin {
     static func normalizedIconIdentifier(_ identifier: String) -> String {
         coreNormalizedIconIdentifier(identifier: identifier)
     }
+    /// A coin's colour, from whichever catalog vouches for it.
+    ///
+    /// Four hardcoded symbols stood between these two lookups. `MATIC` is in
+    /// neither catalog since POL replaced it; `ARB` could never be reached,
+    /// because the chain descriptor above matches Arbitrum first; and `TRX`
+    /// and `USDT` restated the colour the catalog already gives, `red` and
+    /// `green`. Four arms, none of them doing anything the catalogs do not.
     static func displayColor(for symbol: String) -> Color {
         if let nativeDescriptor = nativeChainIconDescriptor(symbol: symbol) { return nativeDescriptor.color }
-        switch symbol {
-        case "MATIC": return .indigo
-        case "TRX": return .red
-        case "ARB": return .cyan
-        case "USDT": return .green
-        default:
-            if let tokenEntry = TokenVisualRegistryEntry.entry(symbol: symbol) { return tokenEntry.color }
-            return .gray
-        }
+        if let tokenEntry = TokenVisualRegistryEntry.entry(symbol: symbol) { return tokenEntry.color }
+        return .gray
     }
     var iconIdentifier: String {
         Self.iconIdentifier(symbol: symbol, chainName: chainName, contractAddress: contractAddress, tokenStandard: tokenStandard)

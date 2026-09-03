@@ -38,6 +38,40 @@ import Foundation
             _ = try await WalletServiceBridge.shared.applyTransactionCommand(.clear)
         }
 
+        /// A rename lands after a delete without bringing the wallet back.
+        ///
+        /// The rename write is detached, so it can arrive after the user has
+        /// deleted the wallet. It used to be an upsert, so it did bring it
+        /// back — and in the test suite it resurrected a wallet across the
+        /// `setUp` clear, which is how this was found: an import test two
+        /// files down would occasionally see two wallets instead of one.
+        func testARenameThatLandsAfterADeleteDoesNotResurrectTheWallet() async throws {
+            let store = AppState()
+            let wallet = ImportedWallet(
+                id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!, name: "Probe",
+                addresses: ["Ethereum": "0xabc123"],
+                selectedChain: "Ethereum", holdings: [], includeInPortfolioTotal: false
+            )
+            await store.recordWallet(wallet)
+            store.editingWalletID = wallet.id
+            store.importDraft.configureForEditing(wallet: wallet)
+            store.importDraft.walletName = "Probe Renamed"
+            store.importDraft.selectedChainNamesStorage = []
+            await store.importWallet()
+
+            // The delete wins the race: it is awaited, the rename is not.
+            let state = try await WalletServiceBridge.shared.openState()
+            for w in state.wallets {
+                _ = try await WalletServiceBridge.shared.applyStateCommand(
+                    .removeWallet(walletId: w.id))
+            }
+            try await Task.sleep(nanoseconds: 800_000_000)
+            let after = try await WalletServiceBridge.shared.storedWallets()
+            XCTAssertEqual(
+                after.count, 0,
+                "the detached rename resurrected \(after.map(\.id))")
+        }
+
         func testEditingWalletNamePreservesExistingHoldings() async {
             let store = AppState()
             let existingHolding = Coin.makeCustom(

@@ -1,18 +1,16 @@
 import Foundation
 extension AppState {
     func rebuildTokenPreferenceDerivedState() {
-        batchCacheUpdates {
-            let resolvedPreferences =
-                tokenPreferences.isEmpty ? TokenPreferenceEntry.builtIn : tokenPreferences
-            cachedResolvedTokenPreferences = resolvedPreferences
-            cachedTokenPreferencesByChain = Dictionary(grouping: resolvedPreferences, by: { TokenHostingChain.forChainName($0.token.chain) ?? .ethereum })
-            cachedResolvedTokenPreferencesBySymbol = Dictionary(
-                grouping: resolvedPreferences, by: { $0.token.symbol.uppercased() }
-            )
-            cachedEnabledKnownTokenPreferences = resolvedPreferences.filter(\.isEnabled)
-            cachedTokenPreferenceByChainAndSymbol = resolvedPreferences.reduce(into: [:]) { partialResult, entry in
-                partialResult[tokenPreferenceLookupKey(chainName: entry.token.chain, symbol: entry.token.symbol)] = entry
-            }
+        let resolvedPreferences =
+            tokenPreferences.isEmpty ? TokenPreferenceEntry.builtIn : tokenPreferences
+        cachedResolvedTokenPreferences = resolvedPreferences
+        cachedTokenPreferencesByChain = Dictionary(grouping: resolvedPreferences, by: { TokenHostingChain.forChainName($0.token.chain) ?? .ethereum })
+        cachedResolvedTokenPreferencesBySymbol = Dictionary(
+            grouping: resolvedPreferences, by: { $0.token.symbol.uppercased() }
+        )
+        cachedEnabledKnownTokenPreferences = resolvedPreferences.filter(\.isEnabled)
+        cachedTokenPreferenceByChainAndSymbol = resolvedPreferences.reduce(into: [:]) { partialResult, entry in
+            partialResult[tokenPreferenceLookupKey(chainName: entry.token.chain, symbol: entry.token.symbol)] = entry
         }
     }
     func rebuildWalletDerivedState() {
@@ -30,7 +28,7 @@ extension AppState {
                 privateKeyBackedWalletIDs: signing.filter(\.1.isPrivateKeyBacked).map(\.0)
             )
         else { return }
-        batchCacheUpdates { applyWalletDerivedState(derived) }
+        applyWalletDerivedState(derived)
     }
     private func applyWalletDerivedState(_ derived: WalletDerivedState) {
         let walletByID = Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) })
@@ -81,13 +79,10 @@ extension AppState {
         }
     }
 
-    /// Phase 1: rebuild the observable derived state in one batched pass so
-    /// SwiftUI sees a single revision bump.
+    /// Phase 1: rebuild the observable derived state.
     private func rebuildWalletDerivedCaches() {
-        batchCacheUpdates {
-            rebuildWalletDerivedState()
-            rebuildDashboardDerivedState()
-        }
+        rebuildWalletDerivedState()
+        rebuildDashboardDerivedState()
     }
 
     /// Phase 2: write the wallet collection to SQLite + Keychain and prune

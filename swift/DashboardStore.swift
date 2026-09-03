@@ -88,7 +88,7 @@ extension AppState {
         return dashboardPinPrototypes.first(where: { $0.symbol.uppercased() == normalizedSymbol })
     }
     var dashboardAssetGroups: [DashboardAssetGroup] { cachedDashboardAssetGroups }
-    func rebuildDashboardDerivedState() { batchCacheUpdates { _rebuildDashboardDerivedStateBody() } }
+    func rebuildDashboardDerivedState() { _rebuildDashboardDerivedStateBody() }
     private func _rebuildDashboardDerivedStateBody() {
         let holdingsBySymbol = cachedIncludedPortfolioHoldingsBySymbol
         let knownEntriesBySymbol = cachedResolvedTokenPreferencesBySymbol
@@ -112,11 +112,6 @@ extension AppState {
         )
         cachedDashboardPinOptionBySymbol = optionBySymbol
         cachedAvailableDashboardPinOptions = availableSymbols.compactMap { optionBySymbol[$0] }
-        cachedDashboardSupportedTokenEntriesBySymbol = Dictionary(
-            uniqueKeysWithValues: knownEntriesBySymbol.map { symbol, entries in
-                (symbol, coreDashboardSupportedTokenEntries(entries: entries))
-            }
-        )
         // The rows themselves are core's: grouping the same asset, ordering by
         // value, and putting pinned symbols first are domain rules, and core
         // holds every input but the live prices.

@@ -17,7 +17,7 @@ struct SettingsView: View {
         case reportProblem
         case buyCryptoHelp
         case about
-        case chainWiki
+        case cryptoWiki
         case advanced
         case donate
         case tor
@@ -73,7 +73,7 @@ struct SettingsView: View {
                 }
                 Section(AppLocalization.string("About")) {
                     settingsLink("About Spectra", systemImage: "info.circle", route: .about)
-                    settingsLink("Chain Wiki", systemImage: "books.vertical", route: .chainWiki)
+                    settingsLink("Crypto Wiki", systemImage: "books.vertical", route: .cryptoWiki)
                     settingsLink("Donate", systemImage: "heart", route: .donate)
                 }
                 Section(AppLocalization.string("Advanced")) {
@@ -104,7 +104,7 @@ struct SettingsView: View {
                 case .reportProblem: ReportProblemView()
                 case .buyCryptoHelp: BuyCryptoHelpView()
                 case .about: AboutView()
-                case .chainWiki: ChainWikiLibraryView()
+                case .cryptoWiki: CryptoWikiLibraryView()
                 case .donate: DonationsView()
                 case .advanced: AdvancedSettingsView(store: store)
                 case .tor: TorSettingsView(store: store)

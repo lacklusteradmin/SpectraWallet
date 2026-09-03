@@ -111,7 +111,7 @@ extension AppState {
     func setPortfolioInclusion(_ isIncluded: Bool, for walletID: String) {
         guard var wallet = wallets.first(where: { $0.id == walletID }) else { return }
         wallet.includeInPortfolioTotal = isIncluded
-        recordWalletDetached(wallet)
+        updateWalletDetached(wallet)
         resetLargeMovementAlertBaseline()
     }
     func refreshChainBalances(

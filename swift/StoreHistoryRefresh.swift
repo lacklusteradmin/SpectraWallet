@@ -8,7 +8,6 @@ struct BitcoinHistoryPage {
 
 extension AppState {
     private var wsb: WalletServiceBridge { WalletServiceBridge.shared }
-    private func notifyHistoryMutation() { bumpCachesRevision() }
     func historyPaginationExhausted(chainId: String, walletId: String) -> Bool {
         wsb.historyCursor(chainId: chainId, walletId: walletId).isExhausted
     }
@@ -19,25 +18,23 @@ extension AppState {
         Int(wsb.historyCursor(chainId: chainId, walletId: walletId).nextPage)
     }
     func setHistoryCursor(chainId: String, walletId: String, cursor: String?) {
-        wsb.advanceHistoryCursor(chainId: chainId, walletId: walletId, nextCursor: cursor); notifyHistoryMutation()
+        wsb.advanceHistoryCursor(chainId: chainId, walletId: walletId, nextCursor: cursor)
     }
     /// The page just fetched, and whether it was the last one.
     func setHistoryPage(chainId: String, walletId: String, page: Int, isExhausted: Bool) {
         wsb.setHistoryPage(
             chainId: chainId, walletId: walletId, page: UInt32(max(0, page)), isExhausted: isExhausted)
-        notifyHistoryMutation()
     }
     func resetHistoryPagination(chainId: String, walletId: String) {
         wsb.resetHistory(.chainAndWallet(chainId: chainId, walletId: walletId))
-        notifyHistoryMutation()
     }
     func resetHistoryPaginationForWallet(_ walletId: String) {
-        wsb.resetHistory(.wallet(walletId: walletId)); notifyHistoryMutation()
+        wsb.resetHistory(.wallet(walletId: walletId))
     }
     func resetHistoryPaginationForChain(_ chainId: String) {
-        wsb.resetHistory(.chain(chainId: chainId)); notifyHistoryMutation()
+        wsb.resetHistory(.chain(chainId: chainId))
     }
-    func resetAllHistoryPagination() { wsb.resetHistory(.all); notifyHistoryMutation() }
+    func resetAllHistoryPagination() { wsb.resetHistory(.all) }
 }
 // ────────────────────────────────────────────────────────────────────────────
 // Normalized history fetch: a single function replaces all per-chain

@@ -169,28 +169,22 @@ final class AppState {
     }
     private(set) var walletsRevision: UInt64 = 0
     // Derived caches. Recomputed by `applyWalletCollectionSideEffects`,
-    // `rebuildWalletDerivedState`, `rebuildDashboardDerivedState`, and
-    // `rebuildTokenPreferenceDerivedState`. Each `didSet` bumps
-    // `cachesRevision` so SwiftUI views observing it refresh; bulk rebuilds
-    // wrap their work in `batchCacheUpdates` to coalesce into a single bump.
-    var cachesRevision: UInt64 = 0
-    @ObservationIgnored private var cacheBatchDepth: Int = 0
-    func bumpCachesRevision() {
-        guard cacheBatchDepth == 0 else { return }
-        cachesRevision &+= 1
-    }
-    func batchCacheUpdates(_ block: () -> Void) {
-        cacheBatchDepth += 1
-        block()
-        cacheBatchDepth -= 1
-        if cacheBatchDepth == 0 { cachesRevision &+= 1 }
-    }
+    // `rebuildWalletDerivedState`, `rebuildDashboardDerivedState` and
+    // `rebuildTokenPreferenceDerivedState`.
+    //
+    // Twelve of them used to bump a `cachesRevision` counter on every write,
+    // with a `batchCacheUpdates` depth counter to coalesce the bumps. Nothing
+    // read it. Under `@Observable` a view already tracks the properties it
+    // reads, so the counter could only ever have made things worse: a view
+    // that did observe it would invalidate on every unrelated cache write.
+    // `walletsRevision` above is different — two views watch it with
+    // `onChange`, which needs a value that changes.
     /// Bundled derived state of the wallet collection. Recomputed by
     /// `_rebuildWalletDerivedStateBody` as a single value, so the rebuild
     /// reads as one assignment instead of 17 sequential mutations. The
     /// individual `cached*` properties below are thin computed accessors
     /// preserved for call-site compatibility.
-    var walletDerivedCache: WalletDerivedCache = .empty { didSet { bumpCachesRevision() } }
+    var walletDerivedCache: WalletDerivedCache = .empty
     var cachedWalletByID: [String: ImportedWallet] { walletDerivedCache.walletByID }
     var cachedWalletByIDString: [String: ImportedWallet] { walletDerivedCache.walletByIDString }
     var cachedIncludedPortfolioWallets: [ImportedWallet] { walletDerivedCache.includedPortfolioWallets }
@@ -260,7 +254,7 @@ final class AppState {
     @ObservationIgnored var lastSendDestinationProbeKey: String?
     @ObservationIgnored var lastSendDestinationProbeWarning: String?
     @ObservationIgnored var lastSendDestinationProbeInfoMessage: String?
-    var cachedResolvedENSAddresses: [String: String] = [:] { didSet { bumpCachesRevision() } }
+    var cachedResolvedENSAddresses: [String: String] = [:]
     @ObservationIgnored var bypassHighRiskSendConfirmation = false
     @ObservationIgnored var isRefreshingLivePrices = false
     @ObservationIgnored var isRefreshingFiatRates = false
@@ -563,14 +557,11 @@ final class AppState {
     var quoteRefreshError: String? = nil
     /// Projection of `CoreAppState.settings.pinnedDashboardAssetSymbols`.
     /// Written only by `applyCoreState`; change it with `setPinnedDashboardAssets`.
-    private(set) var cachedPinnedDashboardAssetSymbols: [String] = [] {
-        didSet { bumpCachesRevision() }
-    }
-    var cachedDashboardPinOptionBySymbol: [String: DashboardPinOption] = [:] { didSet { bumpCachesRevision() } }
-    var cachedAvailableDashboardPinOptions: [DashboardPinOption] = [] { didSet { bumpCachesRevision() } }
-    var cachedDashboardAssetGroups: [DashboardAssetGroup] = [] { didSet { bumpCachesRevision() } }
-    var cachedDashboardSupportedTokenEntriesBySymbol: [String: [TokenPreferenceEntry]] = [:] { didSet { bumpCachesRevision() } }
-    private var _cachedResolvedTokenPreferences: [TokenPreferenceEntry] = [] { didSet { bumpCachesRevision() } }
+    private(set) var cachedPinnedDashboardAssetSymbols: [String] = []
+    var cachedDashboardPinOptionBySymbol: [String: DashboardPinOption] = [:]
+    var cachedAvailableDashboardPinOptions: [DashboardPinOption] = []
+    var cachedDashboardAssetGroups: [DashboardAssetGroup] = []
+    private var _cachedResolvedTokenPreferences: [TokenPreferenceEntry] = []
     var cachedResolvedTokenPreferences: [TokenPreferenceEntry] {
         get {
             _cachedResolvedTokenPreferences.isEmpty
@@ -579,10 +570,10 @@ final class AppState {
         }
         set { _cachedResolvedTokenPreferences = newValue }
     }
-    var cachedTokenPreferencesByChain: [TokenHostingChain: [TokenPreferenceEntry]] = [:] { didSet { bumpCachesRevision() } }
-    var cachedResolvedTokenPreferencesBySymbol: [String: [TokenPreferenceEntry]] = [:] { didSet { bumpCachesRevision() } }
-    var cachedEnabledKnownTokenPreferences: [TokenPreferenceEntry] = [] { didSet { bumpCachesRevision() } }
-    var cachedTokenPreferenceByChainAndSymbol: [String: TokenPreferenceEntry] = [:] { didSet { bumpCachesRevision() } }
+    var cachedTokenPreferencesByChain: [TokenHostingChain: [TokenPreferenceEntry]] = [:]
+    var cachedResolvedTokenPreferencesBySymbol: [String: [TokenPreferenceEntry]] = [:]
+    var cachedEnabledKnownTokenPreferences: [TokenPreferenceEntry] = []
+    var cachedTokenPreferenceByChainAndSymbol: [String: TokenPreferenceEntry] = [:]
     @ObservationIgnored var cachedCurrencyFormatters: [String: NumberFormatter] = [:]
     @ObservationIgnored var cachedDecimalFormatters: [String: NumberFormatter] = [:]
     // ── Memoized Rust-FFI lookups (hot path). Every asset row / wallet card
@@ -1045,7 +1036,7 @@ final class AppState {
                     chain: chain.rawValue, name: normalizedName, symbol: normalizedSymbol,
                     tokenStandard: chain.tokenStandard, contract: normalizedContract,
                     coingeckoId: coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines),
-                    decimals: UInt32(min(max(decimals, 0), 30)), tags: [], comment: "",
+                    decimals: UInt32(min(max(decimals, 0), 30)), tags: [],
                     color: "", assetName: "", enabled: true),
                 category: .custom, isBuiltIn: false, isEnabled: true))
         tokenPreferences.sort { lhs, rhs in

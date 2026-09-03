@@ -235,7 +235,7 @@ struct DashboardView: View {
             DashboardAssetRowPresentation(
                 assetGroup: assetGroup,
                 amountText: store.formattedAssetAmount(
-                    assetGroup.totalAmount, symbol: assetGroup.symbol, chainName: assetGroup.coin.chainName
+                    assetGroup.totalAmount, symbol: assetGroup.symbol, chainName: assetGroup.chainName
                 ),
                 totalValueText: hideBalances
                     ? "••••••"
@@ -271,17 +271,21 @@ struct DashboardView: View {
     }
     private func dashboardAssetPriceText(for assetGroup: DashboardAssetGroup, hideBalances: Bool) -> String {
         if hideBalances { return "••••••" }
-        guard let price = store.currentPriceIfAvailable(for: assetGroup.coin) else {
+        guard let coin = assetGroup.representative,
+            let price = store.currentPriceIfAvailable(for: coin)
+        else {
             return store.formattedFiatAmountOrZero(fromUSD: nil)
         }
         return store.formattedFiatAmountOrZero(fromUSD: price)
     }
-    /// A row is one token on one network, so there is one chain to name.
-    ///
-    /// Read a `chainEntries` list, with an "+N more" branch for the case where
-    /// it held several. It never did: the row key already fixed the network.
+    /// Where the asset is held: the largest place, and a count of the rest.
     private func dashboardChainSummaryText(for assetGroup: DashboardAssetGroup) -> String {
-        AppLocalization.format("dashboard.asset.onChain", assetGroup.coin.chainName)
+        guard let coin = assetGroup.representative else { return "" }
+        let onChain = AppLocalization.format(
+            "dashboard.asset.onChain", store.displayChainTitle(for: coin.chainName))
+        let others = assetGroup.holdings.count - 1
+        guard others > 0 else { return onChain }
+        return onChain + " " + AppLocalization.format("+%d more", others)
     }
 }
 enum DashboardPage {
@@ -314,12 +318,25 @@ struct AppNoticeItem: Identifiable {
 }
 typealias DashboardAssetGroup = CoreDashboardAssetGroup
 extension CoreDashboardAssetGroup: Identifiable {
-    var name: String { coin.name }
-    var symbol: String { coin.symbol }
-    var iconIdentifier: String { coin.iconIdentifier }
-    var color: Color { coin.color }
-    var totalValueUSD: Double? { valueUsd }
-    var totalAmount: Double { coin.amount }
+    /// The place most of the asset is held. Core sorts `holdings` by value, so
+    /// this is the first one, and it is how the row names and colours itself.
+    var representative: AssetHolding? { holdings.first?.coin }
+    var name: String { representative?.name ?? "" }
+    var symbol: String { representative?.symbol ?? "" }
+    var iconIdentifier: String { representative?.iconIdentifier ?? "" }
+    var color: Color { representative?.color ?? .orange }
+    var chainName: String { representative?.chainName ?? "" }
+    /// Summed across every place the asset is held, not read from a field
+    /// beside them: a total stored next to the list it comes from can disagree
+    /// with it. None when any place is unpriced — a partial sum shown as the
+    /// whole would understate the balance.
+    var totalValueUSD: Double? {
+        holdings.reduce(Double?.some(0)) { running, holding in
+            guard let running, let value = holding.valueUsd else { return nil }
+            return running + value
+        }
+    }
+    var totalAmount: Double { holdings.reduce(0) { $0 + $1.coin.amount } }
 }
 
 typealias DashboardPinOption = CoreDashboardPinOption
@@ -330,14 +347,16 @@ extension CoreDashboardPinOption: Identifiable {
 struct AssetGroupDetailView: View {
     let store: AppState
     let assetGroup: DashboardAssetGroup
-    private var supportedTokenEntries: [TokenPreferenceEntry] {
-        store.cachedDashboardSupportedTokenEntriesBySymbol[assetGroup.symbol.uppercased()] ?? []
+    /// Where the coin lives, from core's asset wiki — the same join the wiki
+    /// screen renders, rather than a second dashboard-only cache of it.
+    private var places: [AssetWikiPlace] {
+        CachedCoreHelpers.assetWikiEntry(symbol: assetGroup.symbol)?.livesOn ?? []
     }
     var body: some View {
         ScrollView(showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: 16) {
                 AssetDetailHeroCard(assetGroup: assetGroup, store: store)
-                AssetDetailHubCard(assetGroup: assetGroup, contractCount: supportedTokenEntries.count)
+                AssetDetailHubCard(assetGroup: assetGroup, contractCount: places.filter { !$0.contract.isEmpty }.count)
                 AssetSummaryStatsCard(assetGroup: assetGroup, store: store)
                 AssetChainBreakdownCard(assetGroup: assetGroup, store: store)
             }.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
@@ -345,7 +364,7 @@ struct AssetGroupDetailView: View {
             .navigationTitle(assetGroup.symbol).navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
-                if !supportedTokenEntries.isEmpty {
+                if !places.isEmpty {
                     ToolbarItem(placement: .topBarTrailing) {
                         NavigationLink(AppLocalization.string("Details")) {
                             AssetContractsDetailView(store: store, assetGroup: assetGroup)
@@ -376,8 +395,8 @@ private struct AssetDetailHubCard: View {
             }
 
             HStack(spacing: 10) {
-                // A "Networks" metric stood here, reading the chain-entry
-                // count. A row is one token on one network, so it read 1.
+                hubMetric(
+                    title: "Networks", value: "\(assetGroup.holdings.count)", icon: "point.3.connected.trianglepath.dotted")
                 hubMetric(title: "Contracts", value: "\(contractCount)", icon: "doc.text.magnifyingglass")
                 hubMetric(title: "Symbol", value: assetGroup.symbol, icon: "tag.fill")
             }
@@ -408,14 +427,14 @@ private struct AssetDetailHubCard: View {
 struct AssetContractsDetailView: View {
     let store: AppState
     let assetGroup: DashboardAssetGroup
-    private var supportedTokenEntries: [TokenPreferenceEntry] {
-        store.cachedDashboardSupportedTokenEntriesBySymbol[assetGroup.symbol.uppercased()] ?? []
+    private var places: [AssetWikiPlace] {
+        CachedCoreHelpers.assetWikiEntry(symbol: assetGroup.symbol)?.livesOn ?? []
     }
     var body: some View {
         ScrollView(showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: 16) {
                 AssetDetailHeroCard(assetGroup: assetGroup, store: store, compact: true)
-                AssetContractsCard(entries: supportedTokenEntries)
+                AssetPlacesCard(places: places, symbol: assetGroup.symbol)
             }.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
         }.background(SpectraBackdrop().ignoresSafeArea())
             .navigationTitle(AppLocalization.format("%@ Details", assetGroup.symbol)).navigationBarTitleDisplayMode(.inline)
@@ -456,7 +475,7 @@ private struct AssetSummaryStatsCard: View {
             statRow(
                 label: AppLocalization.string("Total Amount"),
                 value: store.formattedAssetAmount(
-                    assetGroup.totalAmount, symbol: assetGroup.symbol, chainName: assetGroup.coin.chainName),
+                    assetGroup.totalAmount, symbol: assetGroup.symbol, chainName: assetGroup.chainName),
                 icon: "scalemass.fill")
             Divider().opacity(0.4)
             statRow(
@@ -478,68 +497,33 @@ private struct AssetSummaryStatsCard: View {
         }
     }
 }
-/// The row's holding, by chain and token standard.
-///
-/// Rendered a `chainEntries` list — a count badge, an empty state, dividers
-/// between entries, and a caption saying "Balances merge across chains", which
-/// was never true: the row key includes the network, so a row is one token on
-/// one network and the list always held exactly one thing.
+/// Every place the row's asset is held, largest first.
 private struct AssetChainBreakdownCard: View {
     let assetGroup: DashboardAssetGroup
     let store: AppState
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text(AppLocalization.string("Chain Breakdown")).font(.headline).foregroundStyle(Color.primary)
-            AssetChainBreakdownRow(
-                chainTitle: store.displayChainTitle(for: assetGroup.coin.chainName),
-                chainName: assetGroup.coin.chainName,
-                tokenStandard: assetGroup.coin.tokenStandard,
-                amountText: store.formattedAssetAmount(
-                    assetGroup.coin.amount, symbol: assetGroup.coin.symbol,
-                    chainName: assetGroup.coin.chainName),
-                valueText: store.formattedFiatAmountOrZero(fromUSD: assetGroup.totalValueUSD),
-                symbol: assetGroup.coin.symbol
-            )
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
-    }
-}
-
-private struct AssetContractsCard: View {
-    let entries: [TokenPreferenceEntry]
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
-                Text(AppLocalization.string("Contracts")).font(.headline).foregroundStyle(Color.primary)
+                Text(AppLocalization.string("Chain Breakdown")).font(.headline).foregroundStyle(Color.primary)
                 Spacer()
-                if !entries.isEmpty {
-                    Text("\(entries.count)").font(.caption.weight(.bold)).foregroundStyle(.orange).padding(
+                if assetGroup.holdings.count > 1 {
+                    Text("\(assetGroup.holdings.count)").font(.caption.weight(.bold)).foregroundStyle(.orange).padding(
                         .horizontal, 8
                     ).padding(.vertical, 3).background(Capsule(style: .continuous).fill(Color.orange.opacity(0.14)))
                 }
             }
-            if entries.isEmpty {
-                Text(AppLocalization.string("No contract addresses are available for this asset.")).font(.subheadline)
-                    .foregroundStyle(.secondary)
-            } else {
-                ForEach(entries, id: \.id) { entry in
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 8) {
-                            Text(entry.token.chain).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-                            Spacer()
-                            Text(entry.token.tokenStandard).font(.caption.weight(.semibold)).foregroundStyle(.orange).padding(
-                                .horizontal, 8
-                            ).padding(.vertical, 3).background(
-                                Capsule(style: .continuous).fill(Color.orange.opacity(0.12)))
-                        }
-                        Text(entry.token.contract).font(.footnote.monospaced()).foregroundStyle(.secondary).textSelection(
-                            .enabled
-                        ).lineLimit(2).truncationMode(.middle)
-                    }.padding(.vertical, 4)
-                    if entry.id != entries.last?.id {
-                        Divider().opacity(0.3)
-                    }
-                }
+            ForEach(Array(assetGroup.holdings.enumerated()), id: \.offset) { index, holding in
+                AssetChainBreakdownRow(
+                    chainTitle: store.displayChainTitle(for: holding.coin.chainName),
+                    chainName: holding.coin.chainName,
+                    tokenStandard: holding.coin.tokenStandard,
+                    amountText: store.formattedAssetAmount(
+                        holding.coin.amount, symbol: holding.coin.symbol,
+                        chainName: holding.coin.chainName),
+                    valueText: store.formattedFiatAmountOrZero(fromUSD: holding.valueUsd),
+                    symbol: holding.coin.symbol
+                )
+                if index < assetGroup.holdings.count - 1 { Divider().opacity(0.3) }
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))

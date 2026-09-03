@@ -90,18 +90,28 @@ extension AppState {
     // Synchronous entry points for UI actions that cannot await. The
     // projection updates now — a rename must show immediately — and only the
     // command is deferred.
-    func recordWalletDetached(_ record: ImportedWallet) {
+    /// Edit a wallet core already has, without waiting for the write.
+    ///
+    /// `.updateWalletIfPresent`, not `.upsertWallet`, and the difference is a
+    /// bug rather than a preference: the write is detached, so it can land
+    /// after the user has deleted the wallet, and an upsert would bring the
+    /// deleted wallet back. Rename a wallet, delete it, and it returned.
+    ///
+    /// Both callers edit a wallet they just found in the projection — rename
+    /// and the portfolio-inclusion toggle — so neither ever needs to create
+    /// one, and an edit of a wallet that no longer exists should do nothing.
+    /// This is the same reasoning `updateWalletsIfPresent` already carried for
+    /// balance refresh; the detached path had kept the create-or-update
+    /// command.
+    func updateWalletDetached(_ record: ImportedWallet) {
+        guard let index = wallets.firstIndex(where: { $0.id == record.id }) else { return }
         var next = wallets
-        if let index = next.firstIndex(where: { $0.id == record.id }) {
-            next[index] = record
-        } else {
-            next.append(record)
-        }
+        next[index] = record
         setWalletProjection(next)
         let summary = record.summary(isWatchOnly: isWatchOnlyWallet(record))
         Task.detached(priority: .utility) {
             _ = try? await WalletServiceBridge.shared.applyStateCommand(
-                .upsertWallet(wallet: summary))
+                .updateWalletIfPresent(wallet: summary))
         }
     }
 

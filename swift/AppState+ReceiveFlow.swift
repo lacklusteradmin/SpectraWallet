@@ -426,7 +426,7 @@ extension AppState {
     func renameWallet(id: String, to newName: String) {
         guard var wallet = wallets.first(where: { $0.id == id }) else { return }
         wallet.name = newName
-        recordWalletDetached(wallet)
+        updateWalletDetached(wallet)
         finishWalletImportFlow()
     }
     func finishWalletImportFlow() {

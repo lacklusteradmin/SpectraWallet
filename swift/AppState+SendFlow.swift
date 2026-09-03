@@ -709,9 +709,6 @@ extension AppState {
     func walletDerivationPath(for wallet: ImportedWallet, chain: Chain) -> String {
         derivationResolution(for: wallet, chain: chain).normalizedPath
     }
-    func derivationAccount(for wallet: ImportedWallet, chain: Chain) -> UInt32 {
-        derivationResolution(for: wallet, chain: chain).accountIndex
-    }
     func derivationResolution(for wallet: ImportedWallet, chain: Chain) -> SeedDerivationResolution {
         chain.resolve(path: wallet.seedDerivationPaths.path(for: chain))
     }

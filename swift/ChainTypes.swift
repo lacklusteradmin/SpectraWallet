@@ -144,9 +144,6 @@ enum TONBalanceService {
         let decimals: Int
         let coinGeckoId: String
     }
-    private static func canonicalAddressIdentifier(_ address: String?) -> String {
-        address?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-    }
 }
 
 // MARK: - Transactions & price alerts (Rust-owned enums)

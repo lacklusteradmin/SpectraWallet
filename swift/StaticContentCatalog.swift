@@ -207,9 +207,6 @@ enum CommonLocalization {
     static func invalidDestinationAddressPrompt(_ chainName: String) -> String {
         String(format: CommonLocalizationContent.current.invalidDestinationAddressPromptFormat, chainName)
     }
-    static func rpcError(_ chainName: String, message: String) -> String {
-        String(format: CommonLocalizationContent.current.rpcErrorFormat, chainName, AppLocalization.string(message))
-    }
 }
 /// Maps a human-readable color string (stored in `core/tokens.toml`
 /// and `core/chains.toml`) to a SwiftUI `Color`.
