@@ -374,24 +374,21 @@ extension AppState {
             var secretStorageFailure: Error? = nil
             for instruction in outcome.secretInstructions {
                 let walletID = instruction.walletId
-                let account = resolvedSeedPhraseAccount(for: walletID)
-                let passwordAccount = resolvedSeedPhrasePasswordAccount(for: walletID)
-                let privateKeyAccount = resolvedPrivateKeyAccount(for: walletID)
+                // The password is the seal, not a gate beside the material:
+                // core encrypts under it and stores a verifier, so passing it
+                // here is what makes `shouldStorePasswordVerifier` mean
+                // anything. A wallet with no password is stored unsealed,
+                // which is the state the front end used to write on its own.
+                let password = instruction.shouldStorePasswordVerifier ? trimmedWalletPassword : nil
                 do {
                     if instruction.shouldStoreSeedPhrase {
-                        try SecureSeedStore.save(trimmedSeedPhrase, for: account)
+                        try WalletServiceBridge.shared.storeWalletSeedPhrase(
+                            walletID: walletID, seedPhrase: trimmedSeedPhrase, password: password)
+                    } else if instruction.shouldStorePrivateKey {
+                        try WalletServiceBridge.shared.storeWalletPrivateKey(
+                            walletID: walletID, privateKey: trimmedPrivateKey, password: password)
                     } else {
-                        try SecureSeedStore.deleteValue(for: account)
-                    }
-                    if instruction.shouldStorePasswordVerifier, let trimmedWalletPassword {
-                        try SecureSeedPasswordStore.save(trimmedWalletPassword, for: passwordAccount)
-                    } else {
-                        try SecureSeedPasswordStore.deleteValue(for: passwordAccount)
-                    }
-                    if instruction.shouldStorePrivateKey {
-                        try SecurePrivateKeyStore.save(trimmedPrivateKey, for: privateKeyAccount)
-                    } else {
-                        try SecurePrivateKeyStore.deleteValue(for: privateKeyAccount)
+                        try WalletServiceBridge.shared.deleteWalletSecrets(walletID: walletID)
                     }
                 } catch {
                     secretStorageFailure = error
@@ -456,12 +453,6 @@ extension AppState {
     {
         try WalletDerivationLayer.deriveAddress(
             seedPhrase: seedPhrase, chain: chain, derivationPath: derivationPath)
-    }
-    func utxoDiscoveryDerivationChain(for chainName: String) -> Chain? {
-        [
-            "Bitcoin": Chain.bitcoin, "Bitcoin Cash": .bitcoinCash, "Bitcoin SV": .bitcoinSv, "Litecoin": .litecoin,
-            "Dogecoin": .dogecoin,
-        ][chainName]
     }
     func nextDefaultWalletNameIndex() -> Int {
         (wallets.compactMap { $0.name.hasPrefix("Wallet ") ? Int($0.name.dropFirst(7)) : nil }.max() ?? 0) + 1

@@ -3,6 +3,12 @@ import Foundation
     import SwiftUI
     import XCTest
     @testable import Spectra
+    /// Set from inside the task under test; read by the deadline loop. Both
+    /// run on the main actor, so no lock is needed.
+    @MainActor private final class EVMPendingRefreshTerminationFlag {
+        var finished = false
+    }
+
     @MainActor
     final class AppStatePlatformBridgeTests: XCTestCase {
         /// `AppState()` loads whatever is in the shared keychain-backed wallet
@@ -50,6 +56,34 @@ import Foundation
         ///
         /// Asserted over `Chain.mainnets` rather than a list written here, so
         /// a new EVM chain is covered by adding it to the catalog.
+        /// An EVM pending refresh has to terminate.
+        ///
+        /// `refreshPendingTransactions(chainName:)`'s `.evmReceipt` arm called
+        /// the function containing it, with the same argument, from the commit
+        /// that collapsed eighteen per-chain wrappers into a registry switch —
+        /// it replaced a `refreshPendingEVMTransactions` deleted in that same
+        /// commit. `pending_status_poll` answers `EvmReceipt` for every EVM
+        /// chain, and both `executeRefresh` and `executePendingOnly` call this
+        /// for every chain, so every balance refresh on an EVM chain recursed
+        /// without a base case.
+        ///
+        /// With no wallets there is nothing to poll and this returns at the
+        /// first guard. The old code never reached that guard.
+        func testAnEVMPendingRefreshTerminates() async throws {
+            let store = AppState()
+            let flag = EVMPendingRefreshTerminationFlag()
+            let work = Task { @MainActor in
+                await store.refreshPendingTransactions(chainName: "Ethereum")
+                flag.finished = true
+            }
+            let deadline = Date().addingTimeInterval(5)
+            while !flag.finished, Date() < deadline {
+                try await Task.sleep(nanoseconds: 50_000_000)
+            }
+            work.cancel()
+            XCTAssertTrue(flag.finished, "an EVM pending refresh must terminate rather than recurse")
+        }
+
         func testEveryEVMMainnetResolvesAWalletAddress() async {
             let store = AppState()
             store.importDraft.walletName = "EVM Coverage"

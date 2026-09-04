@@ -6,7 +6,11 @@
   "actionsSectionTitle": "Actions",
   "statusSectionTitle": "Status",
   "crossChainHistoryTitle": "History Sources",
-  "crossChainHistoryKeywords": ["History", "Sources", "Cross-Chain"],
+  "crossChainHistoryKeywords": [
+    "History",
+    "Sources",
+    "Cross-Chain"
+  ],
   "historyNotRunYet": "History diagnostics have not been run yet.",
   "walletDiagnosticsCoveredFormat": "Wallet diagnostics covered: %@",
   "mostUsedHistorySourceFormat": "Most used history source: %@ (%@)",
@@ -17,7 +21,7 @@
   "noEndpointChecksYet": "No endpoint checks yet.",
   "bitcoinEsploraHint": "Leave endpoints blank to use the built-in endpoint set for the selected network.",
   "ethereumRPCNote": "Optional. Leave this blank to use Spectra's default public Ethereum endpoint. Add your own RPC URL if you want a dedicated provider for live ETH and ERC-20 watched-address balances.",
-  "etherscanNote": "Optional but recommended for ETH token history reliability. Without a key, Etherscan may return NOTOK due to rate limits.",
+  "etherscanNote": "Only these chains still need it: BNB Chain, Linea, Sei, Sonic, opBNB, Hyperliquid and Base. Every other EVM chain reads its history from a keyless explorer and ignores this field. Cronos and X Layer have no transaction history from any provider.",
   "moneroBackendNote": "Used for Monero balance/history/send in this build. Default backend is preconfigured; switch to Custom URL to override.",
   "moneroAPIKeyNote": "Optional bearer token used by your backend.",
   "dogecoinTestnetNote": "Keep this off for production wallets. Turn it on only when you intentionally use Dogecoin testnet addresses.",

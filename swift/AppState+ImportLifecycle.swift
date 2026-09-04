@@ -119,23 +119,39 @@ extension AppState {
         let request = OwnedAddressAggregationRequest(candidateAddresses: candidateAddresses)
         return coreAggregateOwnedAddresses(request: request)
     }
-    func canRevealSeedPhrase(for walletID: String) -> Bool { storedSeedPhrase(for: walletID) != nil }
-    func verifySeedPhrasePassword(_ password: String, for walletID: String) -> Bool {
-        let account = resolvedSeedPhrasePasswordAccount(for: walletID)
-        return SecureSeedPasswordStore.verify(password, for: account)
+    /// A sealed wallet can be revealed with its password, so this asks what is
+    /// stored rather than whether it can be read without one.
+    func canRevealSeedPhrase(for walletID: String) -> Bool {
+        guard let state = WalletServiceBridge.shared.walletSecretState(walletID: walletID) else { return false }
+        return state.hasSigningMaterial && !state.hasPrivateKey
     }
     func isWatchOnlyWallet(_ wallet: ImportedWallet) -> Bool { !walletHasSigningMaterial(wallet.id) }
     func isPrivateKeyWallet(_ wallet: ImportedWallet) -> Bool { isPrivateKeyBackedWallet(wallet.id) }
     func revealSeedPhrase(for wallet: ImportedWallet, password: String? = nil) async throws -> String {
         let authenticated = await authenticateForSeedPhraseReveal(reason: "Authenticate to view seed phrase for \(wallet.name)")
         guard authenticated else { throw SeedPhraseRevealError.authenticationRequired }
+        var providedPassword: String? = nil
         if walletRequiresSeedPhrasePassword(wallet.id) {
-            guard let providedPassword = password?.trimmingCharacters(in: .whitespacesAndNewlines), !providedPassword.isEmpty else {
+            guard let supplied = password?.trimmingCharacters(in: .whitespacesAndNewlines), !supplied.isEmpty else {
                 throw SeedPhraseRevealError.passwordRequired
             }
-            guard verifySeedPhrasePassword(providedPassword, for: wallet.id) else { throw SeedPhraseRevealError.invalidPassword }
+            providedPassword = supplied
         }
-        guard let seedPhrase = storedSeedPhrase(for: wallet.id), !seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        // One call decides both. The password used to be checked against a
+        // verifier stored beside a plaintext phrase, so a wrong password was
+        // the only thing standing between a reader and material that was never
+        // encrypted; it is the decryption key now, and a wrong one cannot
+        // produce a phrase at all.
+        let seedPhrase: String
+        do {
+            seedPhrase = try WalletServiceBridge.shared.walletSeedPhrase(
+                walletID: wallet.id, password: providedPassword)
+        } catch {
+            throw providedPassword == nil
+                ? SeedPhraseRevealError.unavailable
+                : SeedPhraseRevealError.invalidPassword
+        }
+        guard !seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw SeedPhraseRevealError.unavailable
         }
         return seedPhrase

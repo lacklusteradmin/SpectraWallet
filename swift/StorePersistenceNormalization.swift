@@ -21,7 +21,10 @@ extension AppState {
     /// hands back coins rather than indices into a list the caller has to
     /// re-walk.
     private func rebuildWalletDerivedStateFromCore() async {
-        let signing = wallets.map { ($0.id, signingMaterialAvailability(for: $0.id)) }
+        let signing = wallets.map { wallet -> (String, (hasSigningMaterial: Bool, isPrivateKeyBacked: Bool)) in
+            let state = WalletServiceBridge.shared.walletSecretState(walletID: wallet.id)
+            return (wallet.id, (state?.hasSigningMaterial ?? false, state?.hasPrivateKey ?? false))
+        }
         guard
             let derived = try? await WalletServiceBridge.shared.walletDerivedState(
                 signingMaterialWalletIDs: signing.filter(\.1.hasSigningMaterial).map(\.0),

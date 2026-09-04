@@ -458,7 +458,7 @@ extension AppState {
         case .historyTxids:
             await refreshPendingRustHistoryChainTransactions(chainName: chainName, chainId: chainID)
         case .evmReceipt:
-            await refreshPendingTransactions(chainName: chainName)
+            await refreshPendingEVMChainTransactions(chainName: chainName, chainId: chainID)
         case .none:
             break
         }
@@ -494,6 +494,53 @@ extension AppState {
                     confirmations: confirmations,
                     dogecoinNetworkFeeDoge: nil)
             } catch { await markTransactionStatusPollFailure(for: transaction) }
+        }
+        await applyResolvedPendingStatuses(chainName: chainName, resolutions: resolved)
+    }
+
+    /// Poll one EVM chain's pending sends by transaction receipt.
+    ///
+    /// A receipt is the only thing that separates a mined-and-reverted send
+    /// from a successful one: the history summary its sibling uses can say the
+    /// hash appeared, and would call a revert a confirmation. Core does the
+    /// fetch and the classification; this walks the wallet's pending sends and
+    /// forwards each outcome to the poll schedule.
+    ///
+    /// This arm called `refreshPendingTransactions(chainName:)` — the function
+    /// containing it, with the same argument — from the commit that collapsed
+    /// eighteen per-chain wrappers into the registry switch. It replaced a
+    /// `refreshPendingEVMTransactions` that was deleted in the same commit.
+    private func refreshPendingEVMChainTransactions(chainName: String, chainId: String) async {
+        let tracked = transactions.filter { transaction in
+            transaction.kind == .send
+                && transaction.chainName == chainName
+                && transaction.status == .pending
+                && transaction.transactionHash != nil
+        }
+        guard !tracked.isEmpty else { return }
+        var resolved: [UUID: PendingTransactionStatusResolution] = [:]
+        for transaction in tracked {
+            guard let hash = transaction.transactionHash,
+                await shouldPollTransactionStatus(for: transaction)
+            else { continue }
+            let classification: EvmReceiptClassification?
+            do {
+                classification = try await WalletServiceBridge.shared.evmTransactionStatus(
+                    chainId: chainId, txHash: hash)
+            } catch {
+                await markTransactionStatusPollFailure(for: transaction)
+                continue
+            }
+            // No receipt yet is pending, not a failed poll: the node answered.
+            guard let classification, classification.isConfirmed else {
+                await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: .pending)
+                continue
+            }
+            let status: TransactionStatus = classification.isFailed ? .failed : .confirmed
+            await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: status)
+            resolved[transaction.id] = PendingTransactionStatusResolution(
+                status: status, receiptBlockNumber: classification.blockNumber.map(Int.init),
+                confirmations: nil, dogecoinNetworkFeeDoge: nil)
         }
         await applyResolvedPendingStatuses(chainName: chainName, resolutions: resolved)
     }

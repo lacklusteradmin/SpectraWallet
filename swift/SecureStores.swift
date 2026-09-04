@@ -125,31 +125,6 @@ enum SecureSeedStore {
     static func deleteValue(for account: String) throws { try storage.deleteValue(for: account) }
     static func deleteAllValues() throws { try storage.deleteAllValues() }
 }
-enum SecureSeedPasswordStore {
-    private static let storage = KeychainBackedSecureStore(service: "com.spectra.seed.password")
-    static func save(_ password: String, for account: String) throws {
-        let normalized = password.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty else {
-            try deleteValue(for: account)
-            return
-        }
-        let verifierData = try createPasswordVerifier(password: normalized)
-        try storage.saveData(verifierData, for: account)
-    }
-    /// A read failure answers "yes" on purpose. Callers use this to decide
-    /// whether to demand a password before revealing a seed, and answering "no"
-    /// because the Keychain happened to be unreadable would drop that check.
-    static func hasPassword(for account: String) -> Bool {
-        do { return try storage.loadData(for: account) != nil } catch { return true }
-    }
-    static func verify(_ password: String, for account: String) -> Bool {
-        let normalized = password.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalized.isEmpty, let data = try? storage.loadData(for: account) else { return false }
-        return verifyPasswordVerifier(password: normalized, verifierData: data)
-    }
-    static func deleteValue(for account: String) throws { try storage.deleteValue(for: account) }
-    static func deleteAllValues() throws { try storage.deleteAllValues() }
-}
 enum SecurePrivateKeyStore {
     private static let storage = KeychainBackedSecureStore(service: "com.spectra.privatekey")
     static func save(_ value: String, for account: String) throws { try storage.save(value, for: account) }

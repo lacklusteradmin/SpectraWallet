@@ -263,12 +263,11 @@ extension AppState {
                 sendError = sendError ?? "Unable to estimate Tron network fee."
                 return
             }
-            if let err = validateSendBalance(
-                amount: amount, networkFee: preview.estimatedNetworkFee, holdingBalance: holding.amount,
-                isNativeAsset: holding.symbol == "TRX", symbol: holding.symbol,
-                nativeSymbol: "TRX", nativeBalance: wallet.holdings.first(where: { $0.chainName == "Tron" && $0.symbol == "TRX" })?.amount,
-                feeDecimals: 6, chainLabel: "Tron"
-            ) {
+            if let err = sendAffordabilityMessage(sendAffordability(input: SendAffordabilityInput(
+                chainName: holding.chainName, symbol: holding.symbol, amount: amount,
+                networkFee: preview.estimatedNetworkFee, holdingBalance: holding.amount,
+                gasBalance: wallet.holdings.first(where: { $0.chainName == "Tron" && $0.symbol == "TRX" })?.amount
+            ))) {
                 sendError = err; return
             }
             sendingChains.insert(holding.chainName)
@@ -332,13 +331,11 @@ extension AppState {
                 sendError = sendError ?? "Unable to estimate Solana network fee."
                 return
             }
-            if let err = validateSendBalance(
-                amount: amount, networkFee: preview.estimatedNetworkFee, holdingBalance: holding.amount,
-                isNativeAsset: holding.symbol == "SOL", symbol: holding.symbol,
-                nativeSymbol: "SOL",
-                nativeBalance: wallet.holdings.first(where: { $0.chainName == "Solana" && $0.symbol == "SOL" })?.amount,
-                feeDecimals: 6, chainLabel: "Solana"
-            ) {
+            if let err = sendAffordabilityMessage(sendAffordability(input: SendAffordabilityInput(
+                chainName: holding.chainName, symbol: holding.symbol, amount: amount,
+                networkFee: preview.estimatedNetworkFee, holdingBalance: holding.amount,
+                gasBalance: wallet.holdings.first(where: { $0.chainName == "Solana" && $0.symbol == "SOL" })?.amount
+            ))) {
                 sendError = err; return
             }
             sendingChains.insert(holding.chainName)
@@ -462,14 +459,13 @@ extension AppState {
                 sendError = sendError ?? "Unable to estimate \(holding.chainName) network fee."
                 return
             }
-            if let err = validateSendBalance(
-                amount: amount, networkFee: preview.estimatedNetworkFee,
+            if let err = sendAffordabilityMessage(sendAffordability(input: SendAffordabilityInput(
+                chainName: holding.chainName,
+                symbol: preflight.isNativeEvmAsset ? nativeSymbol : holding.symbol, amount: amount,
+                networkFee: preview.estimatedNetworkFee,
                 holdingBalance: preflight.isNativeEvmAsset ? nativeBalance : holding.amount,
-                isNativeAsset: preflight.isNativeEvmAsset, symbol: preflight.isNativeEvmAsset ? nativeSymbol : holding.symbol,
-                nativeSymbol: nativeSymbol, nativeBalance: nativeBalance,
-                feeDecimals: Int(Chain(displayName: holding.chainName)?.sendExecutionShape?.feeDecimals ?? 6),
-                chainLabel: nil
-            ) {
+                gasBalance: nativeBalance
+            ))) {
                 sendError = err; return
             }
             sendingChains.insert("Ethereum")
@@ -602,11 +598,10 @@ extension AppState {
             sendError = sendError ?? "Unable to estimate \(chainName) network fee."
             return
         }
-        if let err = validateSendBalance(
-            amount: amount, networkFee: fee, holdingBalance: holding.amount,
-            isNativeAsset: true, symbol: symbol, nativeSymbol: nil, nativeBalance: nil,
-            feeDecimals: Int(shape.feeDecimals), chainLabel: nil
-        ) {
+        if let err = sendAffordabilityMessage(sendAffordability(input: SendAffordabilityInput(
+            chainName: chainName, symbol: symbol, amount: amount, networkFee: fee,
+            holdingBalance: holding.amount, gasBalance: nil
+        ))) {
             sendError = err
             return
         }

@@ -240,3 +240,27 @@ extension AppState {
         return Int(value)
     }
 }
+
+/// The sentence a send-affordability verdict turns into.
+///
+/// Core decides; this only picks the wording. It replaces
+/// `AppState.validateSendBalance`, which returned the sentence itself from
+/// nine parameters — four of which were registry facts the caller looked up by
+/// hand. The "…to cover the network fee" variant that stood beside the
+/// labelled one is gone: core names the chain on every token verdict, so the
+/// two spellings of one message were only ever a difference in which caller
+/// asked.
+func sendAffordabilityMessage(_ verdict: SendAffordability) -> String? {
+    switch verdict {
+    case .affordable:
+        return nil
+    case let .amountPlusFeeExceedsBalance(symbol, required):
+        return AppLocalization.format(
+            "Insufficient %@ for amount plus network fee (needs ~%@ %@).", symbol, required, symbol)
+    case let .amountExceedsBalance(symbol):
+        return AppLocalization.format("Insufficient %@ balance for this transfer.", symbol)
+    case let .feeExceedsGasBalance(gasSymbol, fee, chainName):
+        return AppLocalization.format(
+            "Insufficient %@ to cover %@ network fee (~%@ %@).", gasSymbol, chainName, fee, gasSymbol)
+    }
+}

@@ -30,22 +30,6 @@ final class SecureSeedStoreTests: XCTestCase {
             XCTAssertFalse(storedData.range(of: Data(word.utf8)) != nil, "seed word \(word) appears in stored bytes")
         }
     }
-    func testSavingPasswordVerifierAllowsVerification() throws {
-        let account = "test.seed.password.1"
-        let password = "correct horse battery staple"
-        try SecureSeedPasswordStore.deleteValue(for: account)
-        try SecureSeedPasswordStore.save(password, for: account)
-        defer { try? SecureSeedPasswordStore.deleteValue(for: account) }
-        XCTAssertTrue(SecureSeedPasswordStore.hasPassword(for: account))
-        XCTAssertTrue(SecureSeedPasswordStore.verify(password, for: account))
-        XCTAssertFalse(SecureSeedPasswordStore.verify("wrong password", for: account))
-    }
-    func testEmptyPasswordDeletesPasswordVerifier() throws {
-        let account = "test.seed.password.2"
-        try SecureSeedPasswordStore.save("temporary", for: account)
-        try SecureSeedPasswordStore.save("", for: account)
-        XCTAssertFalse(SecureSeedPasswordStore.hasPassword(for: account))
-    }
     func testPrivateKeySaveThenLoadRoundTrips() throws {
         let account = "test.privatekey.roundtrip.1"
         let key = String(repeating: "ab", count: 32)

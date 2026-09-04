@@ -804,103 +804,22 @@ extension AppState {
         let kind = Chain(id: selected)?.addressValidationKind ?? ""
         return !kind.isEmpty && AddressValidation.isValid(address, kind: kind)
     }
-    func utxoDiscoveryDerivationPath(for wallet: ImportedWallet, chainName: String, branch: WalletDerivationBranch, index: Int) -> String? {
-        guard let derivationChain = seedDerivationChain(for: chainName) else { return nil }
-        let rawPath = walletDerivationPath(for: wallet, chain: derivationChain)
-        guard let segments = coreParseDerivationPath(rawPath: rawPath), segments.count >= 5 else { return nil }
-        return coreDerivationPathReplacingLastTwo(
-            rawPath: rawPath, branch: UInt32(branch.rawValue), index: UInt32(max(0, index)), fallback: rawPath)
-    }
-    func deriveUTXOAddress(for wallet: ImportedWallet, chainName: String, branch: WalletDerivationBranch, index: Int) -> String? {
-        guard let seedPhrase = storedSeedPhrase(for: wallet.id), supportsDeepUTXODiscovery(chainName: chainName),
-            let derivationPath = utxoDiscoveryDerivationPath(for: wallet, chainName: chainName, branch: branch, index: index),
-            let derivationChain = utxoDiscoveryDerivationChain(for: chainName),
-            let address = try? deriveSeedPhraseAddress(
-                seedPhrase: seedPhrase, chain: derivationChain,
-                derivationPath: derivationPath
-            ), isValidAddressForPolicy(address, chainName: chainName, requireDeepUTXODiscovery: true)
-        else {
-            return nil
-        }
-        return address
-    }
-    /// Whether this address has ever been used on chain.
-    ///
-    /// Three arms before, and they asked different questions. Bitcoin asked
-    /// "any UTXOs, or any confirmed balance" and never looked at history;
-    /// Bitcoin Cash, Bitcoin SV, Litecoin and Dogecoin asked "any balance, or
-    /// any history" and never looked at the UTXO count. It is one question —
-    /// see "a used Bitcoin receive address" under "Behaviour changed on
-    /// purpose" — and `supports_deep_utxo_discovery` is the chain set, which
-    /// brings the testnets in with their mainnets.
-    func hasUTXOOnChainActivity(address: String, chainName: String) async -> Bool {
-        guard let chain = Chain(displayName: chainName), chain.supportsDeepUTXODiscovery else { return false }
-        if let summary = try? await WalletServiceBridge.shared.fetchNativeBalanceSummary(
-            chainId: chain.id, address: address)
-        {
-            if summary.utxoCount > 0 || (UInt64(summary.smallestUnit) ?? 0) > 0 { return true }
-        }
-        let summary = try? await WalletServiceBridge.shared.fetchHistorySummary(chainId: chain.id, address: address)
-        return (summary?.entryCount ?? 0) > 0
-    }
     func knownUTXOAddresses(for wallet: ImportedWallet, chainName: String) async -> [String] {
-        var ordered: [String] = []; var seen: Set<String> = []
-        func appendAddress(_ candidate: String?) {
-            guard let candidate else { return }
-            let trimmed = candidate.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard isValidAddressForPolicy(trimmed, chainName: chainName, requireDeepUTXODiscovery: true),
-                seen.insert(trimmed.lowercased()).inserted
-            else { return }
-            ordered.append(trimmed)
-        }
-        // The stored address for this chain, which may differ from the derived
-        // one below. Five arms picked between five of the `wallet.<chain>Address`
-        // shims by name; `address(forChainNamed:)` is that lookup, and it keys
-        // on the registry's slot rather than on a list.
-        appendAddress(wallet.address(forChainNamed: chainName))
-        appendAddress(resolvedAddress(for: wallet, chainName: chainName))
-        appendAddress(await reservedReceiveAddress(for: wallet, chainName: chainName, reserveIfMissing: false))
-        for transaction in transactions where transaction.chainName == chainName && transaction.walletID == wallet.id {
-            appendAddress(transaction.sourceAddress)
-            appendAddress(transaction.changeAddress)
-        }
-        for discoveredAddress in discoveredUTXOAddressesByChain[chainName]?[wallet.id] ?? [] { appendAddress(discoveredAddress) }
-        for ownedAddress in await ownedAddresses(for: wallet.id, chainName: chainName) { appendAddress(ownedAddress) }
-        return ordered
+        guard let chain = Chain(displayName: chainName) else { return [] }
+        return (try? await WalletServiceBridge.shared.knownUTXOAddresses(
+            walletID: wallet.id, chainId: chain.id)) ?? []
     }
+
+    /// Walk the wallet's derived addresses and record the used ones.
+    ///
+    /// The loop was here because it needed the seed phrase, and the phrase was
+    /// only readable from Swift. Core reads the seed, the derivation path, the
+    /// keypool bound, the balance and the history, so the loop is core's and
+    /// the phrase no longer crosses for it.
     func discoverUTXOAddresses(for wallet: ImportedWallet, chainName: String) async -> [String] {
-        var ordered = await knownUTXOAddresses(for: wallet, chainName: chainName)
-        var seen = Set(ordered.map { $0.lowercased() })
-        guard supportsDeepUTXODiscovery(chainName: chainName), storedSeedPhrase(for: wallet.id) != nil else { return ordered }
-        let state = await keypoolState(for: wallet, chainName: chainName)
-        // `nextExternalIndex` already clears the highest owned external index —
-        // core folds it into the baseline — so this only has to also clear the
-        // reservation.
-        let reserved = state.reservedReceiveIndex ?? 0
-        let scanUpperBound = min(
-            Self.utxoDiscoveryMaxIndex,
-            max(state.nextExternalIndex, reserved + 1) + Self.utxoDiscoveryGapLimit
-        )
-        guard scanUpperBound >= 0 else { return ordered }
-        for index in 0...scanUpperBound {
-            guard let derivedAddress = deriveUTXOAddress(for: wallet, chainName: chainName, branch: .external, index: index) else {
-                continue
-            }
-            let normalized = derivedAddress.lowercased()
-            if !seen.contains(normalized) {
-                seen.insert(normalized)
-                ordered.append(derivedAddress)
-            }
-            if await hasUTXOOnChainActivity(address: derivedAddress, chainName: chainName) {
-                registerOwnedAddress(
-                    chainName: chainName, address: derivedAddress, walletID: wallet.id,
-                    derivationPath: utxoDiscoveryDerivationPath(
-                        for: wallet, chainName: chainName, branch: .external, index: index
-                    ), index: index, branch: "external"
-                )
-            }
-        }
-        return ordered
+        guard let chain = Chain(displayName: chainName) else { return [] }
+        return (try? await WalletServiceBridge.shared.discoverUTXOAddresses(
+            walletID: wallet.id, chainId: chain.id)) ?? []
     }
     func refreshUTXOAddressDiscovery(chainName: String) async {
         guard supportsDeepUTXODiscovery(chainName: chainName) else {
@@ -925,45 +844,16 @@ extension AppState {
         }
         discoveredUTXOAddressesByChain[chainName] = discovered
     }
+    /// Move each wallet's reservation past a receive address that has been
+    /// used.
+    ///
+    /// Reserve, derive, check, release, re-reserve — five steps that all read
+    /// or write core's tables, so they run there. Doing them from here meant a
+    /// window between releasing an index and taking the next in which nothing
+    /// stopped the same address being handed out twice.
     func refreshUTXOReceiveReservationState(chainName: String) async {
-        guard supportsDeepUTXODiscovery(chainName: chainName) else { return }
-        let utxoWallets = wallets.filter { $0.selectedChain == chainName }
-        guard !utxoWallets.isEmpty else { return }
-        for wallet in utxoWallets {
-            guard storedSeedPhrase(for: wallet.id) != nil else { continue }
-            _ = await reserveReceiveIndex(for: wallet, chainName: chainName, minimumIndex: 1)
-            let state = await keypoolState(for: wallet, chainName: chainName)
-            guard let reservedIndex = state.reservedReceiveIndex,
-                let reservedAddress = deriveUTXOAddress(
-                    for: wallet, chainName: chainName, branch: .external, index: reservedIndex
-                )
-            else {
-                continue
-            }
-            registerOwnedAddress(
-                chainName: chainName, address: reservedAddress, walletID: wallet.id,
-                derivationPath: utxoDiscoveryDerivationPath(
-                    for: wallet, chainName: chainName, branch: .external, index: reservedIndex
-                ), index: reservedIndex, branch: "external"
-            )
-            guard await hasUTXOOnChainActivity(address: reservedAddress, chainName: chainName) else { continue }
-            // The reserved address has been used, so move past it: release the
-            // reservation and take the next index. Both halves run in core, so
-            // nothing else can slip in between and reissue what we just used.
-            try? await WalletServiceBridge.shared.clearReservedReceiveIndex(
-                walletID: wallet.id, chainName: chainName)
-            guard let nextReserved = await reserveReceiveIndex(
-                for: wallet, chainName: chainName, minimumIndex: reservedIndex + 1)
-            else { continue }
-            if let nextAddress = deriveUTXOAddress(for: wallet, chainName: chainName, branch: .external, index: nextReserved) {
-                registerOwnedAddress(
-                    chainName: chainName, address: nextAddress, walletID: wallet.id,
-                    derivationPath: utxoDiscoveryDerivationPath(
-                        for: wallet, chainName: chainName, branch: .external, index: nextReserved
-                    ), index: nextReserved, branch: "external"
-                )
-            }
-        }
+        guard let chain = Chain(displayName: chainName) else { return }
+        try? await WalletServiceBridge.shared.advanceUsedUTXOReservations(chainId: chain.id)
     }
     func seedDerivationChain(for chainName: String) -> Chain? {
         CachedCoreHelpers.seedDerivationChainRaw(chainName: chainName).flatMap(Chain.init(displayName:))
@@ -1017,13 +907,13 @@ extension AppState {
             walletID: wallet.id, chainName: chainName)
         return reserved.map(Int.init)
     }
+    /// The path a non-UTXO chain's receive address came from.
+    ///
+    /// Deep-UTXO chains no longer reach here: core records the path alongside
+    /// the address it derived, so there is nothing for a caller to compute.
     func reservedReceiveDerivationPath(for wallet: ImportedWallet, chainName: String, index: Int?) -> String? {
-        if supportsDeepUTXODiscovery(chainName: chainName) {
-            guard let index else { return nil }
-            return utxoDiscoveryDerivationPath(for: wallet, chainName: chainName, branch: .external, index: index)
-        }
-        guard seedDerivationChain(for: chainName) != nil else { return nil }
-        return seedDerivationChain(for: chainName).map { walletDerivationPath(for: wallet, chain: $0) }
+        guard let chain = seedDerivationChain(for: chainName) else { return nil }
+        return walletDerivationPath(for: wallet, chain: chain)
     }
     /// The keypool as it currently stands, recording nothing.
     ///
@@ -1033,33 +923,21 @@ extension AppState {
     func reservedReceiveAddressForDisplay(for wallet: ImportedWallet, chainName: String) async
         -> String?
     {
-        if supportsDeepUTXODiscovery(chainName: chainName) {
-            let state = await keypoolState(for: wallet, chainName: chainName)
-            guard let reservedIndex = state.reservedReceiveIndex,
-                let address = deriveUTXOAddress(
-                    for: wallet, chainName: chainName, branch: .external, index: reservedIndex)
-            else { return resolvedAddress(for: wallet, chainName: chainName) }
-            return address
+        guard let chain = Chain(displayName: chainName), chain.supportsDeepUTXODiscovery else {
+            return resolvedAddress(for: wallet, chainName: chainName)
         }
-        return resolvedAddress(for: wallet, chainName: chainName)
+        let address = try? await WalletServiceBridge.shared.utxoReceiveAddress(
+            walletID: wallet.id, chainId: chain.id, reserve: false)
+        return address ?? resolvedAddress(for: wallet, chainName: chainName)
     }
     func reservedReceiveAddress(for wallet: ImportedWallet, chainName: String, reserveIfMissing: Bool) async -> String? {
-        if supportsDeepUTXODiscovery(chainName: chainName) {
-            // Deep-UTXO chains never hand out index 0 as a receive address.
-            let reserved: Int? =
-                reserveIfMissing
-                ? await reserveReceiveIndex(for: wallet, chainName: chainName, minimumIndex: 1)
-                : await keypoolState(for: wallet, chainName: chainName).reservedReceiveIndex
-            guard let reservedIndex = reserved,
-                let address = deriveUTXOAddress(for: wallet, chainName: chainName, branch: .external, index: reservedIndex)
-            else { return resolvedAddress(for: wallet, chainName: chainName) }
-            registerOwnedAddress(
-                chainName: chainName, address: address, walletID: wallet.id,
-                derivationPath: utxoDiscoveryDerivationPath(
-                    for: wallet, chainName: chainName, branch: .external, index: reservedIndex
-                ), index: reservedIndex, branch: "external"
-            )
-            return address
+        // Core reserves, derives and records in one call. The floor of 1 —
+        // deep-UTXO chains never hand out index 0 as a receive address — is
+        // its rule now rather than an argument passed from here.
+        if let chain = Chain(displayName: chainName), chain.supportsDeepUTXODiscovery {
+            let address = try? await WalletServiceBridge.shared.utxoReceiveAddress(
+                walletID: wallet.id, chainId: chain.id, reserve: reserveIfMissing)
+            return address ?? resolvedAddress(for: wallet, chainName: chainName)
         }
         if reserveIfMissing { _ = await reserveReceiveIndex(for: wallet, chainName: chainName) }
         guard let address = resolvedAddress(for: wallet, chainName: chainName) else { return nil }
@@ -1150,134 +1028,41 @@ extension AppState {
             isCheckingSendDestinationBalance = false
             return
         }
+        guard let chain = Chain(displayName: coin.chainName), !chain.id.isEmpty else { clearProbe(); return }
+        // Native when the coin is what the chain charges gas in, the catalog's
+        // entry when it is a token on it. Neither means there is no balance to
+        // ask about, which is what the EVM arm already did for an unvouched
+        // token — the other three arms probed the *chain's* asset instead and
+        // reported its balance as though it were the one being sent.
+        let token: TokenDescriptor?
+        if coin.symbol == chain.gasTokenSymbol {
+            token = nil
+        } else if let entry = supportedToken(for: coin) {
+            token = TokenDescriptor(
+                contract: entry.token.contract, symbol: entry.token.symbol,
+                decimals: UInt8(clamping: entry.token.decimals), name: nil)
+        } else {
+            clearProbe()
+            return
+        }
         isCheckingSendDestinationBalance = true
         defer { isCheckingSendDestinationBalance = false }
-        do {
-            let warning: String?
-            let infoMessage: String?
-            switch coin.chainName {
-            case "Bitcoin":
-                let btcSummary = try await WalletServiceBridge.shared.fetchNativeBalanceSummary(
-                    chainId: Chain.bitcoin.id, address: destinationForProbe)
-                let btcBalance = UInt64(btcSummary.smallestUnit) ?? 0
-                let m = chainRiskProbeMessages(
-                    chainName: "Bitcoin", balanceLabel: "balance", balanceNonPositive: btcBalance <= 0, hasHistory: btcSummary.utxoCount > 0)
-                warning = m.warning; infoMessage = m.info
-            // The probe is the same call for every EVM chain, so membership is
-            // the registry's — a name list here silently means "no warning" for
-            // whichever chains it forgets.
-            case let name where Chain(displayName: name)?.isEVM == true:
-                guard let chainId = Chain(displayName: coin.chainName)?.id else {
-                    warning = nil
-                    infoMessage = nil
-                    break
-                }
-                let normalizedAddress = try validateEVMAddress(destinationForProbe)
-                let probe = try await WalletServiceBridge.shared.fetchEvmAddressProbe(
-                    chainId: chainId, address: normalizedAddress
-                )
-                let hasHistory = probe.nonce > 0
-                // The chain's own gas token, which is `gasTokenSymbol`. Five
-                // symbols were named here and the list was wrong in both
-                // directions: ARB and OP are governance tokens, not what
-                // Arbitrum and Optimism charge gas in — so an ARB send checked
-                // the *ETH* balance — and ten chains' actual gas tokens (ETC,
-                // HYPE, POL, MNT, SEI, CELO, CRO, S, BERA, OKB) were absent,
-                // fell to the token branch, found no token, and produced no
-                // warning at all. Same pair, same mistake as
-                // `is_native_evm_asset` had.
-                if coin.symbol == Chain(displayName: coin.chainName)?.gasTokenSymbol {
-                    let m = chainRiskProbeMessages(
-                        chainName: coin.chainName, balanceLabel: "\(coin.symbol) balance",
-                        balanceNonPositive: probe.balanceEth <= 0,
-                        hasHistory: hasHistory)
-                    warning = m.warning; infoMessage = m.info
-                } else if let token = supportedToken(for: coin) {
-                    let tokenBalances = try await WalletServiceBridge.shared.fetchTokenBalances(
-                        chainId: chainId, address: normalizedAddress,
-                        tokens: [TokenDescriptor(
-                            contract: token.token.contract, symbol: token.token.symbol,
-                            decimals: UInt8(clamping: token.token.decimals), name: nil)])
-                    let tokenBalance = Decimal(string: tokenBalances.first?.balanceDisplay ?? "0") ?? .zero
-                    warning =
-                        (tokenBalance <= .zero && !hasHistory)
-                        ? "Warning: this address has zero \(coin.symbol) balance and no transaction history on \(coin.chainName). Double-check recipient details."
-                        : nil
-                    infoMessage =
-                        (tokenBalance <= .zero && hasHistory)
-                        ? "Note: this address has transaction history but currently zero \(coin.symbol) balance on \(coin.chainName)." : nil
-                } else {
-                    warning = nil; infoMessage = nil
-                }
-            case "Tron":
-                // TRX, or any token the catalog knows on Tron. This named TRX
-                // and USDT, so the other four Tron tokens were sent with no
-                // destination check at all — and the one it did check was
-                // pinned to a hardcoded contract and six decimals.
-                let tronToken = supportedToken(for: coin)
-                if coin.symbol == Chain.tron.gasTokenSymbol || tronToken != nil {
-                    let tronSummary = try await WalletServiceBridge.shared.fetchNativeBalanceSummary(
-                        chainId: Chain.tron.id, address: destinationForProbe)
-                    let tronSun = UInt64(tronSummary.smallestUnit) ?? 0
-                    let hasHistory =
-                        ((try? await WalletServiceBridge.shared.fetchHistorySummary(
-                            chainId: Chain.tron.id, address: destinationForProbe))?.entryCount ?? 0) > 0
-                    let balance: Double
-                    if let token = tronToken {
-                        let results = try await WalletServiceBridge.shared.fetchTokenBalances(
-                            chainId: Chain.tron.id, address: destinationForProbe,
-                            tokens: [TokenDescriptor(
-                                contract: token.token.contract, symbol: token.token.symbol,
-                                decimals: UInt8(clamping: token.token.decimals), name: nil)])
-                        balance = results.first.flatMap { Double($0.balanceDisplay) } ?? 0
-                    } else {
-                        balance = Double(tronSun) / 1e6
-                    }
-                    let label = "\(coin.symbol) balance"
-                    warning =
-                        (balance <= 0 && !hasHistory)
-                        ? "Warning: this Tron address has zero \(coin.symbol) balance and no transaction history. Double-check recipient details."
-                        : nil
-                    infoMessage =
-                        (balance <= 0 && hasHistory) ? "Note: this Tron address has transaction history but currently zero \(label)." : nil
-                } else {
-                    warning = nil; infoMessage = nil
-                }
-            // The probe is a balance fetch and a history fetch, both of which
-            // work for any chain the catalog has endpoints for. It used to be
-            // gated by `core_simple_chain_risk_probe_config`, a seven-row table
-            // of `(display name, balance label)` — so thirteen chains sent with
-            // no destination check at all, including every chain whose send was
-            // enabled above.
-            //
-            // Both of that table's columns are registry columns, and it was
-            // inconsistent in two places: XRP Ledger's display name was "XRP"
-            // where every other row used the chain name, and Litecoin's and
-            // Dogecoin's labels said "balance" where every other row said
-            // "<SYMBOL> balance".
-            default:
-                if let chain = Chain(displayName: coin.chainName), !chain.id.isEmpty {
-                    (warning, infoMessage) = await fetchChainRiskWarning(
-                        chainId: chain.id, address: destinationForProbe,
-                        chainName: chain.displayName,
-                        balanceLabel: AppLocalization.format("%@ balance", chain.gasTokenSymbol))
-                } else {
-                    warning = nil
-                    infoMessage = nil
-                }
-            }
-            guard probeID == "\(sendWalletID)|\(sendHoldingKey)|\(sendAddress)" else { return }
-            sendDestinationRiskWarning = warning
-            sendDestinationInfoMessage = [infoMessage, ensResolutionInfo]
-                .compactMap { $0 }.joined(separator: " ")
-            lastSendDestinationProbeKey = addressProbeKey
-            lastSendDestinationProbeWarning = warning
-            lastSendDestinationProbeInfoMessage = sendDestinationInfoMessage
-        } catch {
-            guard probeID == "\(sendWalletID)|\(sendHoldingKey)|\(sendAddress)" else { return }
+        let risk = try? await WalletServiceBridge.shared.sendDestinationRisk(
+            chainId: chain.id, address: destinationForProbe, token: token)
+        guard probeID == "\(sendWalletID)|\(sendHoldingKey)|\(sendAddress)" else { return }
+        guard let risk else {
             sendDestinationRiskWarning = nil
             sendDestinationInfoMessage = nil
+            return
         }
+        let messages = chainRiskProbeMessages(
+            chainName: chain.displayName, symbol: coin.symbol,
+            balanceIsZero: risk.balanceIsZero, hasHistory: risk.hasHistory)
+        sendDestinationRiskWarning = messages.warning
+        sendDestinationInfoMessage = [messages.info, ensResolutionInfo].compactMap { $0 }.joined(separator: " ")
+        lastSendDestinationProbeKey = addressProbeKey
+        lastSendDestinationProbeWarning = messages.warning
+        lastSendDestinationProbeInfoMessage = sendDestinationInfoMessage
     }
     func userFacingTronSendError(_ error: Error, symbol: String) -> String {
         let message = error.localizedDescription
@@ -1296,68 +1081,26 @@ extension AppState {
         tronLastSendErrorDetails = trimmed
         tronLastSendErrorAt = Date()
     }
-    private func fetchChainRiskWarning(
-        chainId: String, address: String, chainName: String, balanceLabel: String
-    ) async -> (warning: String?, info: String?) {
-        guard let summary = try? await WalletServiceBridge.shared.fetchNativeBalanceSummary(chainId: chainId, address: address) else {
-            return (nil, nil)
-        }
-        let balance = Double(summary.amountDisplay) ?? 0
-        let hasHistory =
-            ((try? await WalletServiceBridge.shared.fetchHistorySummary(chainId: chainId, address: address))?
-                .entryCount ?? 0) > 0
-        let m = chainRiskProbeMessages(
-            chainName: chainName, balanceLabel: balanceLabel, balanceNonPositive: balance <= 0, hasHistory: hasHistory)
-        return (m.warning, m.info)
-    }
-    /// Validate that the wallet has sufficient balance for amount + fee.
-    /// Returns nil on success, or a user-facing error message on failure.
-    func validateSendBalance(
-        amount: Double, networkFee: Double, holdingBalance: Double,
-        isNativeAsset: Bool, symbol: String,
-        nativeSymbol: String?, nativeBalance: Double?,
-        feeDecimals: Int, chainLabel: String?
-    ) -> String? {
-        if isNativeAsset {
-            let total = amount + networkFee
-            if total > holdingBalance {
-                let totalText = String(format: "%.\(feeDecimals)f", total)
-                return AppLocalization.format(
-                    "Insufficient %@ for amount plus network fee (needs ~%@ %@).",
-                    symbol, totalText, symbol
-                )
-            }
-        } else {
-            if amount > holdingBalance {
-                return AppLocalization.format("Insufficient %@ balance for this transfer.", symbol)
-            }
-            if let nativeSym = nativeSymbol, let nativeBal = nativeBalance, networkFee > nativeBal {
-                let feeText = String(format: "%.\(feeDecimals)f", networkFee)
-                if let chain = chainLabel {
-                    return AppLocalization.format(
-                        "Insufficient %@ to cover %@ network fee (~%@ %@).",
-                        nativeSym, chain, feeText, nativeSym
-                    )
-                }
-                return AppLocalization.format(
-                    "Insufficient %@ to cover the network fee (~%@ %@).",
-                    nativeSym, feeText, nativeSym
-                )
-            }
-        }
-        return nil
-    }
-    func chainRiskProbeMessages(chainName: String, balanceLabel: String, balanceNonPositive: Bool, hasHistory: Bool) -> (
+    /// The one sentence pair a destination verdict turns into.
+    ///
+    /// Four chain arms used to word this themselves and produced three
+    /// different templates, two of them interpolated in Swift and so absent
+    /// from the locale files — a Tron or EVM token send showed English in a
+    /// Chinese app. Both templates name the asset now, which the two
+    /// interpolated ones did and the localized one did not.
+    func chainRiskProbeMessages(chainName: String, symbol: String, balanceIsZero: Bool, hasHistory: Bool) -> (
         warning: String?, info: String?
     ) {
         let warning: String? =
-            (balanceNonPositive && !hasHistory)
+            (balanceIsZero && !hasHistory)
             ? AppLocalization.format(
-                "Warning: this %@ address has zero balance and no transaction history. Double-check recipient details.", chainName)
+                "Warning: this %@ address has zero %@ balance and no transaction history. Double-check recipient details.",
+                chainName, symbol)
             : nil
         let info: String? =
-            (balanceNonPositive && hasHistory)
-            ? AppLocalization.format("Note: this %@ address has transaction history but currently zero %@.", chainName, balanceLabel)
+            (balanceIsZero && hasHistory)
+            ? AppLocalization.format(
+                "Note: this %@ address has transaction history but currently zero %@ balance.", chainName, symbol)
             : nil
         return (warning, info)
     }

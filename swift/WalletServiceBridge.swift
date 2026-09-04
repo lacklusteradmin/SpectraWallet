@@ -21,6 +21,44 @@ protocol WalletServiceBridgeProtocol: Sendable {}
         WalletServiceBridge._syncService = svc
         return svc
     }
+    // ── Wallet secrets ──────────────────────────────────────────────────────
+    //
+    // Synchronous on purpose: these are Keychain reads behind core's own key
+    // layout, and the callers are the same places that used to reach into
+    // `SecureSeedStore` directly. Nothing here computes a key — core does,
+    // because there were two layouts for as long as this side owned one.
+
+    func walletSecretState(walletID: String) -> WalletSecretState? {
+        try? service().walletSecretState(walletId: walletID)
+    }
+    func storeWalletSeedPhrase(walletID: String, seedPhrase: String, password: String?) throws {
+        try service().storeWalletSeedPhrase(walletId: walletID, seedPhrase: seedPhrase, password: password)
+    }
+    func storeWalletPrivateKey(walletID: String, privateKey: String, password: String?) throws {
+        try service().storeWalletPrivateKey(walletId: walletID, privateKey: privateKey, password: password)
+    }
+    func walletSeedPhrase(walletID: String, password: String?) throws -> String {
+        try service().walletSeedPhrase(walletId: walletID, password: password)
+    }
+    func walletPrivateKey(walletID: String, password: String?) throws -> String {
+        try service().walletPrivateKey(walletId: walletID, password: password)
+    }
+    func deleteWalletSecrets(walletID: String) throws {
+        try service().deleteWalletSecrets(walletId: walletID)
+    }
+
+    func utxoReceiveAddress(walletID: String, chainId: String, reserve: Bool) async throws -> String? {
+        try await service().utxoReceiveAddress(walletId: walletID, chainId: chainId, reserve: reserve)
+    }
+    func advanceUsedUTXOReservations(chainId: String) async throws {
+        try await service().advanceUsedUtxoReservations(chainId: chainId)
+    }
+    func knownUTXOAddresses(walletID: String, chainId: String) async throws -> [String] {
+        try await service().knownUtxoAddresses(walletId: walletID, chainId: chainId)
+    }
+    func discoverUTXOAddresses(walletID: String, chainId: String) async throws -> [String] {
+        try await service().discoverUtxoAddresses(walletId: walletID, chainId: chainId)
+    }
     func fetchNativeBalanceSummary(chainId: String, address: String) async throws -> NativeBalanceSummary {
         try await service().fetchNativeBalanceSummary(chainId: chainId, address: address)
     }
@@ -73,8 +111,11 @@ protocol WalletServiceBridgeProtocol: Sendable {}
             chainId: chainId, from: from, to: to, valueWei: valueWei, dataHex: dataHex,
             explicitNonce: explicitNonce, customFees: customFees)
     }
-    func fetchEvmAddressProbe(chainId: String, address: String) async throws -> EvmAddressProbe {
-        try await service().fetchEvmAddressProbe(chainId: chainId, address: address)
+    func sendDestinationRisk(chainId: String, address: String, token: TokenDescriptor?) async throws -> SendDestinationRisk {
+        try await service().sendDestinationRisk(chainId: chainId, address: address, token: token)
+    }
+    func evmTransactionStatus(chainId: String, txHash: String) async throws -> EvmReceiptClassification? {
+        try await service().evmTransactionStatus(chainId: chainId, txHash: txHash)
     }
     func fetchTronSendPreviewTyped(address: String, symbol: String, contractAddress: String) async throws -> TronSendPreview? {
         try await service().fetchTronSendPreviewTyped(address: address, symbol: symbol, contractAddress: contractAddress)

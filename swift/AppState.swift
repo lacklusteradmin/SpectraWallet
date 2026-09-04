@@ -736,58 +736,47 @@ final class AppState {
     static let lowBatteryBackgroundMaintenanceInterval: TimeInterval = 60 * 60
     static let foregroundFullRefreshStalenessInterval: TimeInterval = 2 * 60
     static let automaticChainRefreshStalenessInterval: TimeInterval = 10 * 60
-    static func seedPhraseAccount(for walletID: String) -> String { "wallet.seed.\(walletID)" }
-    static func seedPhrasePasswordAccount(for walletID: String) -> String { "wallet.seed.password.\(walletID)" }
-    static func privateKeyAccount(for walletID: String) -> String { "wallet.privatekey.\(walletID)" }
-    func resolvedSeedPhraseAccount(for walletID: String) -> String {
-        cachedSecretDescriptorsByWalletID[walletID]?.seedPhraseStoreKey ?? Self.seedPhraseAccount(for: walletID)
-    }
-    func resolvedSeedPhrasePasswordAccount(for walletID: String) -> String {
-        cachedSecretDescriptorsByWalletID[walletID]?.passwordStoreKey ?? Self.seedPhrasePasswordAccount(for: walletID)
-    }
-    func resolvedPrivateKeyAccount(for walletID: String) -> String {
-        cachedSecretDescriptorsByWalletID[walletID]?.privateKeyStoreKey ?? Self.privateKeyAccount(for: walletID)
-    }
     func clearWalletSecretIndex() {
         cachedSigningMaterialWalletIDs = []
         cachedPrivateKeyBackedWalletIDs = []
         cachedPasswordProtectedWalletIDs = []
         cachedSecretDescriptorsByWalletID = [:]
     }
+    /// The phrase for an unsealed wallet, or nil.
+    ///
+    /// A sealed wallet answers nil here rather than throwing: the callers that
+    /// use this are background derivation, and a wallet whose material is
+    /// actually encrypted has nothing for them until the user unlocks it. The
+    /// reveal path passes the password through `revealSeedPhrase` instead.
     func storedSeedPhrase(for walletID: String) -> String? {
-        let account = resolvedSeedPhraseAccount(for: walletID)
-        guard let seedPhrase = try? SecureSeedStore.loadValue(for: account), !seedPhrase.isEmpty else { return nil }
-        return seedPhrase
+        guard let phrase = try? WalletServiceBridge.shared.walletSeedPhrase(walletID: walletID, password: nil),
+            !phrase.isEmpty
+        else { return nil }
+        return phrase
     }
     func storedPrivateKey(for walletID: String) -> String? {
-        let account = resolvedPrivateKeyAccount(for: walletID)
-        let privateKey = SecurePrivateKeyStore.loadValue(for: account)
-        return privateKey.isEmpty ? nil : privateKey
+        guard let key = try? WalletServiceBridge.shared.walletPrivateKey(walletID: walletID, password: nil),
+            !key.isEmpty
+        else { return nil }
+        return key
     }
     func walletRequiresSeedPhrasePassword(_ walletID: String) -> Bool {
-        if let descriptor = cachedSecretDescriptorsByWalletID[walletID] { return descriptor.hasPassword }
-        return SecureSeedPasswordStore.hasPassword(for: resolvedSeedPhrasePasswordAccount(for: walletID))
+        WalletServiceBridge.shared.walletSecretState(walletID: walletID)?.isSealed ?? false
     }
-    func signingMaterialAvailability(for walletID: String) -> (hasSigningMaterial: Bool, isPrivateKeyBacked: Bool) {
-        let hasSeedPhrase = storedSeedPhrase(for: walletID) != nil
-        let hasPrivateKey = storedPrivateKey(for: walletID) != nil
-        return (hasSeedPhrase || hasPrivateKey, hasPrivateKey)
-    }
+    /// Whether this wallet can sign, and with what.
+    ///
+    /// Read from the store rather than from a cached descriptor: a sealed
+    /// wallet has signing material even though `storedSeedPhrase` cannot
+    /// produce it without a password, and deriving this from that read would
+    /// report such a wallet as watch-only.
     func walletHasSigningMaterial(_ walletID: String) -> Bool {
-        if let descriptor = cachedSecretDescriptorsByWalletID[walletID] { return descriptor.hasSigningMaterial }
-        return signingMaterialAvailability(for: walletID).hasSigningMaterial
+        WalletServiceBridge.shared.walletSecretState(walletID: walletID)?.hasSigningMaterial ?? false
     }
     func isPrivateKeyBackedWallet(_ walletID: String) -> Bool {
-        if let descriptor = cachedSecretDescriptorsByWalletID[walletID] { return descriptor.hasPrivateKey }
-        return signingMaterialAvailability(for: walletID).isPrivateKeyBacked
+        WalletServiceBridge.shared.walletSecretState(walletID: walletID)?.hasPrivateKey ?? false
     }
     func deleteWalletSecrets(for walletID: String) {
-        let seedAccount = resolvedSeedPhraseAccount(for: walletID)
-        let seedPasswordAccount = resolvedSeedPhrasePasswordAccount(for: walletID)
-        let privateKeyAccount = resolvedPrivateKeyAccount(for: walletID)
-        try? SecureSeedStore.deleteValue(for: seedAccount)
-        try? SecureSeedPasswordStore.deleteValue(for: seedPasswordAccount)
-        try? SecurePrivateKeyStore.deleteValue(for: privateKeyAccount)
+        try? WalletServiceBridge.shared.deleteWalletSecrets(walletID: walletID)
         cachedSigningMaterialWalletIDs.remove(walletID)
         cachedPrivateKeyBackedWalletIDs.remove(walletID)
         cachedPasswordProtectedWalletIDs.remove(walletID)

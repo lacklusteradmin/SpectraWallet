@@ -6,7 +6,11 @@
   "actionsSectionTitle": "操作",
   "statusSectionTitle": "状态",
   "crossChainHistoryTitle": "历史来源可信度",
-  "crossChainHistoryKeywords": ["历史", "可信度", "跨链"],
+  "crossChainHistoryKeywords": [
+    "历史",
+    "可信度",
+    "跨链"
+  ],
   "historyNotRunYet": "历史诊断尚未运行。",
   "walletDiagnosticsCoveredFormat": "已覆盖的钱包诊断：%@",
   "mostUsedHistorySourceFormat": "使用最多的历史来源：%@ (%@)",
@@ -17,7 +21,7 @@
   "noEndpointChecksYet": "尚无端点检查记录。",
   "bitcoinEsploraHint": "将端点留空即可使用当前网络的内置端点集合。",
   "ethereumRPCNote": "可选。留空将使用 Spectra 默认的公共以太坊端点。如果你希望为 ETH 与 ERC-20 观察地址余额使用专属提供商，可添加你自己的 RPC 地址。",
-  "etherscanNote": "可选但推荐，用于提高 ETH 代币历史记录的稳定性。没有密钥时，Etherscan 可能会因限流返回 NOTOK 错误响应。",
+  "etherscanNote": "只有这几条链还需要它：BNB Chain、Linea、Sei、Sonic、opBNB、Hyperliquid、Base。其余 EVM 链走免密钥浏览器，不看这个字段。Cronos 和 X Layer 没有任何提供方能给出交易历史。",
   "moneroBackendNote": "在当前构建中用于门罗币的余额、历史和发送。默认后端已预配置；切换到自定义地址可覆盖。",
   "moneroAPIKeyNote": "可选的 Bearer 令牌，由你的后端使用。",
   "dogecoinTestnetNote": "生产钱包请保持关闭。只有在你明确使用 Dogecoin 测试网地址时才打开。",
