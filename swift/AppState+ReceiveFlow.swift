@@ -446,14 +446,6 @@ extension AppState {
     func derivePrivateKeyImportAddress(privateKeyHex: String, chain: Chain) -> String? {
         try? WalletRustDerivationBridge.deriveFromPrivateKey(chain: chain, privateKeyHex: privateKeyHex).address
     }
-    /// One shim, not two: the `static` half existed only to be wrapped by the
-    /// instance half, which has the single caller.
-    func deriveSeedPhraseAddress(seedPhrase: String, chain: Chain, derivationPath: String)
-        throws -> String
-    {
-        try WalletDerivationLayer.deriveAddress(
-            seedPhrase: seedPhrase, chain: chain, derivationPath: derivationPath)
-    }
     func nextDefaultWalletNameIndex() -> Int {
         (wallets.compactMap { $0.name.hasPrefix("Wallet ") ? Int($0.name.dropFirst(7)) : nil }.max() ?? 0) + 1
     }
@@ -483,13 +475,6 @@ extension AppState {
     }
     var hasLivePriceRefreshWork: Bool { !priceRequestCoins.isEmpty }
     var shouldRunScheduledPriceRefresh: Bool { selectedMainTab == .home && hasLivePriceRefreshWork }
-    var hasPendingTransactionMaintenanceWork: Bool {
-        transactions.contains { transaction in
-            guard transaction.kind == .send, transaction.transactionHash != nil else { return false }
-            if transaction.status == .pending { return true }
-            return transaction.status == .confirmed
-        }
-    }
     var pendingTransactionMaintenanceChains: Set<String> {
         Set(
             transactions.compactMap { transaction -> String? in

@@ -52,7 +52,6 @@ import UIKit
 final class AppState {
     enum HistoryPaging {
         static let endpointBatchSize = 20
-        static let uiPageSize = 10
     }
     static let persistenceEncoder = JSONEncoder()
     static let persistenceDecoder = JSONDecoder()
@@ -188,7 +187,6 @@ final class AppState {
     var cachedWalletByID: [String: ImportedWallet] { walletDerivedCache.walletByID }
     var cachedWalletByIDString: [String: ImportedWallet] { walletDerivedCache.walletByIDString }
     var cachedIncludedPortfolioWallets: [ImportedWallet] { walletDerivedCache.includedPortfolioWallets }
-    var cachedIncludedPortfolioHoldings: [Coin] { walletDerivedCache.includedPortfolioHoldings }
     var cachedIncludedPortfolioHoldingsBySymbol: [String: [Coin]] { walletDerivedCache.includedPortfolioHoldingsBySymbol }
     var cachedUniqueWalletPriceRequestCoins: [Coin] { walletDerivedCache.uniqueWalletPriceRequestCoins }
     var cachedPortfolio: [Coin] {
@@ -283,7 +281,6 @@ final class AppState {
     var tronLastSendErrorAt: Date? = nil
     let chainDiagnosticsState = WalletChainDiagnosticsState()
     @ObservationIgnored private(set) var recentPerformanceSamples: Deque<PerformanceSample> = []
-    var isOnboarded: Bool { !wallets.isEmpty }
 
     // ── Funds Finder backing storage ───────────────────────────────────────
     // Observed by FundsFinderView via AppState+FundsFinder.swift computed vars.
@@ -718,24 +715,13 @@ final class AppState {
     static let chainOwnedAddressMapDefaultsKey = "chain.ownedAddressMap.snapshot.v1"
     static let chainSyncStateDefaultsKey = "chain.sync.state.v1"
     static let installMarkerDefaultsKey = "app.install.marker.v1"
-    static let utxoDiscoveryGapLimit = 3
-    static let utxoDiscoveryMaxIndex = 40
     static let selfSendConfirmationWindowSeconds: TimeInterval = 20
-    static let activeMaintenancePollSeconds: UInt64 = 30
-    static let inactiveMaintenancePollSeconds: UInt64 = 60
-    static let activePendingRefreshInterval: TimeInterval = 60
-    static let activePriceRefreshInterval: TimeInterval = 300
     static let fiatRatesRefreshInterval: TimeInterval = 6 * 60 * 60
     /// Failure backoff so a degraded provider isn't hammered every maintenance
     /// tick. Without this, a fetch that errors out leaves `lastFiatRatesRefreshAt`
     /// nil, so the cooldown gate never trips and every caller re-fetches.
     static let fiatRatesRetryBackoff: TimeInterval = 60
-    static let backgroundMaintenanceInterval: TimeInterval = 15 * 60
-    static let constrainedBackgroundMaintenanceInterval: TimeInterval = 30 * 60
-    static let lowPowerBackgroundMaintenanceInterval: TimeInterval = 45 * 60
-    static let lowBatteryBackgroundMaintenanceInterval: TimeInterval = 60 * 60
     static let foregroundFullRefreshStalenessInterval: TimeInterval = 2 * 60
-    static let automaticChainRefreshStalenessInterval: TimeInterval = 10 * 60
     func clearWalletSecretIndex() {
         cachedSigningMaterialWalletIDs = []
         cachedPrivateKeyBackedWalletIDs = []
@@ -949,7 +935,6 @@ final class AppState {
         importDraft.canImportWallet
     }
     var resolvedTokenPreferences: [TokenPreferenceEntry] { cachedResolvedTokenPreferences }
-    var tokenPreferencesByChain: [TokenHostingChain: [TokenPreferenceEntry]] { cachedTokenPreferencesByChain }
     var enabledKnownTokenPreferences: [TokenPreferenceEntry] { cachedEnabledKnownTokenPreferences }
     func setTokenPreferenceEnabled(id: String, isEnabled: Bool) {
         guard let index = tokenPreferences.firstIndex(where: { $0.id == id }) else { return }

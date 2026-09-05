@@ -195,25 +195,6 @@ private extension TransactionRecord {
     }
 }
 private extension CoreTransactionRecord {
-    var transactionRecord: TransactionRecord? {
-        guard let resolvedID = UUID(uuidString: id) else { return nil }
-        let resolvedKind = TransactionKind(rawValue: kind) ?? .receive
-        let resolvedStatus = TransactionStatus(rawValue: status) ?? .pending
-        return TransactionRecord(
-            id: resolvedID, walletID: walletId, kind: resolvedKind, status: resolvedStatus, walletName: walletName, assetName: assetName,
-            symbol: symbol, chainName: chainName, amount: amount, address: address, transactionHash: transactionHash,
-            ethereumNonce: ethereumNonce.map { Int($0) }, receiptBlockNumber: receiptBlockNumber.map { Int($0) },
-            receiptGasUsed: receiptGasUsed, receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei,
-            receiptNetworkFeeEth: receiptNetworkFeeEth, feePriorityRaw: feePriorityRaw, feeRateDescription: feeRateDescription,
-            confirmationCount: confirmationCount.map { Int($0) }, dogecoinConfirmedNetworkFeeDoge: dogecoinConfirmedNetworkFeeDoge,
-            dogecoinEstimatedFeeRateDogePerKb: dogecoinEstimatedFeeRateDogePerKb, usedChangeOutput: usedChangeOutput,
-            sourceDerivationPath: sourceDerivationPath,
-            changeDerivationPath: changeDerivationPath, sourceAddress: sourceAddress, changeAddress: changeAddress,
-            signedTransactionPayload: signedTransactionPayload,
-            signedTransactionPayloadFormat: signedTransactionPayloadFormat, failureReason: failureReason,
-            transactionHistorySource: transactionHistorySource, createdAt: Date(timeIntervalSince1970: createdAtUnix)
-        )
-    }
 }
 private extension AppState {
 }

@@ -40,8 +40,6 @@ enum MoneroBalanceService {
         let displayName: String
         let baseURL: String
     }
-    static let backendBaseURLDefaultsKey = "monero.backend.baseURL"
-    static let backendAPIKeyDefaultsKey = "monero.backend.apiKey"
     static let defaultBackendID = "edge_lws_public"
     static let defaultPublicBackend = TrustedBackend(
         id: defaultBackendID, displayName: "Edge Monero LWS (Default)", baseURL: moneroBackendURLs[0]
@@ -70,20 +68,6 @@ enum SolanaBalanceService {
         let decimals: Int
         let coinGeckoId: String
     }
-    /// All registry-known SPL tokens, derived from `tokens.toml` via the
-    /// Rust-built registry. Single source of truth for mint → metadata lookup
-    /// when no user-configured token preferences exist.
-    static let knownTokenMetadataByMint: [String: KnownTokenMetadata] = {
-        var result: [String: KnownTokenMetadata] = [:]
-        for entry in TokenPreferenceEntry.builtIn
-        where entry.token.chain == TokenHostingChain.solana.rawValue && !entry.token.contract.isEmpty {
-            result[entry.token.contract] = KnownTokenMetadata(
-                symbol: entry.token.symbol, name: entry.token.name,
-                decimals: Int(entry.token.decimals), coinGeckoId: entry.token.coingeckoId
-            )
-        }
-        return result
-    }()
     private static let mintAddressBySymbol: [String: String] = {
         var result: [String: String] = [:]
         for entry in TokenPreferenceEntry.builtIn
@@ -111,7 +95,6 @@ enum NearBalanceService {
 // MARK: - Aptos
 // SimpleHistoryDiagnostics moved to Rust core.
 enum AptosBalanceService {
-    static let aptosCoinType = "0x1::aptos_coin::aptoscoin"
     struct KnownTokenMetadata: Equatable {
         let symbol: String
         let name: String
@@ -124,7 +107,6 @@ enum AptosBalanceService {
 // MARK: - Sui
 // SimpleHistoryDiagnostics moved to Rust core.
 enum SuiBalanceService {
-    static let suiCoinType = "0x2::sui::SUI"
     struct KnownTokenMetadata: Equatable {
         let symbol: String
         let name: String

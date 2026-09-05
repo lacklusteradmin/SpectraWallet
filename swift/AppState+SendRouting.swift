@@ -19,6 +19,7 @@ extension AppState {
         case icp
         case near
         case polkadot
+        case bittensor
     }
     func refreshSendPreview() async {
         guard let selectedSendCoin = selectedSendCoin else {

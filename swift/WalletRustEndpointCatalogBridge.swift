@@ -65,6 +65,18 @@ enum AppEndpointDirectory {
             preconditionFailure("Rust endpoint records for \(chainName) failed: \(error.localizedDescription)")
         }
     }
+    /// What the catalog says one endpoint is, as a line a settings row can
+    /// show under the URL — "Node · Balance · Fees · Broadcast".
+    ///
+    /// `nil` for an endpoint the catalog does not list, which is the honest
+    /// answer for one the user typed in themselves.
+    static func tagSummary(for endpoint: String) -> String? {
+        guard let tag = appCoreEndpointTag(endpoint: endpoint) else { return nil }
+        let kind = AppLocalization.string("endpointKind.\(tag.kind)")
+        let parts = [kind] + tag.capabilities.map { AppLocalization.string("endpointCapability.\($0)") }
+        return parts.joined(separator: " · ")
+    }
+
     static func groupedSettingsEntries(for chainName: String) -> [AppEndpointGroupedSettingsEntry] {
         entry(chainName)?.groupedSettings ?? []
     }

@@ -52,30 +52,7 @@ extension AssetHolding: Identifiable {
             name: name, symbol: symbol, coinGeckoId: coinGeckoId, chainName: chainName,
             tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUsd)
     }
-    var hasVisibleBalance: Bool { amount > 0 }
     var holdingKey: String { "\(chainName)|\(symbol)" }
-    var accentMarks: [String] {
-        switch symbol {
-        case "BTC": return ["L1", "S", "P"]
-        case "LTC": return ["L1", "S", "F"]
-        case "ETH": return ["SC", "VM", "D"]
-        case "SOL": return ["F", "RT", "+"]
-        case "MATIC": return ["L2", "ZK", "G"]
-        case "AVAX": return ["C", "X", "S"]
-        case "HYPE": return ["L1", "DEX", "P"]
-        case "ARB": return ["L2", "OP", "A"]
-        case "BNB": return ["B", "DEX", "+"]
-        case "DOGE": return ["M", "P2P", "+"]
-        case "ADA": return ["POS", "SC", "L1"]
-        case "TRX": return ["TVM", "NET", "+"]
-        case "XMR": return ["PRV", "POW", "S"]
-        case "SUI": return ["OBJ", "MOVE", "ZK"]
-        case "APT": return ["MOVE", "ACC", "L1"]
-        case "ICP": return ["NS", "LED", "L1"]
-        case "NEAR": return ["SHD", "ACC", "POS"]
-        default: return ["+", "+", "+"]
-        }
-    }
     var chain: Chain? { Chain(displayName: chainName) }
     var isUTXOChain: Bool { chain?.supportsDeepUTXODiscovery ?? false }
     var isEVMChain: Bool { chain?.isEVM ?? false }
@@ -100,8 +77,6 @@ extension CoreImportedWallet {
         return addresses[slot]
     }
 
-    /// The address for the wallet's own chain.
-    var primaryAddress: String? { address(forChainNamed: selectedChain) }
 
     /// Set this wallet's address for a chain. Passing `nil` clears it.
     ///
@@ -433,7 +408,6 @@ extension PriceAlertRule {
         )
     }
     var titleText: String { String(format: CommonLocalizationContent.current.priceAlertTitleFormat, assetName, chainName) }
-    var conditionText: String { "\(condition.rawValue) $\(String(format: "%.2f", targetPrice))" }
     var statusText: String {
         if !isEnabled { return AppLocalization.string("Paused") }
         return hasTriggered ? AppLocalization.string("Triggered") : AppLocalization.string("Watching")
@@ -747,10 +721,6 @@ extension TransactionRecord {
             parts.append(usedChangeOutput ? "change output" : "no change output")
         }
         return parts.isEmpty ? nil : parts.joined(separator: " • ")
-    }
-    var dogecoinConfirmationsText: String? {
-        guard chainName == "Dogecoin", let confirmationCount else { return nil }
-        return "\(confirmationCount) conf"
     }
     var fullTimestampText: String { createdAt.formatted(date: .abbreviated, time: .standard) }
     var transactionExplorerURL: URL? {

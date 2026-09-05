@@ -23,7 +23,6 @@ import Foundation
 enum CachedCoreHelpers {
     // ── Unbounded caches for fixed-domain helpers ──────────────────────
     private static var allChainsResult: [ChainEntry]?
-    private static var allTokensResult: [TokenEntry]?
     private static var assetWikiResult: [AssetWikiEntry]?
     private static var assetWikiBySymbol: [String: AssetWikiEntry]?
     private static var chainWikiResult: [ChainWikiEntry]?
@@ -31,7 +30,6 @@ enum CachedCoreHelpers {
     private static var seedDerivationChainRaws: [String: String?] = [:]
     private static var evmSeedDerivationChainNames: [String: String?] = [:]
     private static var receiveAddressResolvers: [String: ReceiveAddressResolverKind] = [:]
-    private static var resolvedChainIds: [String: String] = [:]
 
     // ── Bounded cache for user-input helpers ───────────────────────────
     private static var privateKeyHexIsLikelyCache: [String: Bool] = [:]

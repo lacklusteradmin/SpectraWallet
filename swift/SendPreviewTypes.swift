@@ -98,6 +98,7 @@ extension SendPreview {
         case .icp(let p): self = .icp(preview: p)
         case .near(let p): self = .near(preview: p)
         case .polkadot(let p): self = .polkadot(preview: p)
+        case .bittensor(let p): self = .bittensor(preview: p)
         }
     }
 
@@ -120,6 +121,7 @@ extension SendPreview {
         case .icp(let p): return p.estimatedNetworkFee
         case .near(let p): return p.estimatedNetworkFee
         case .polkadot(let p): return p.estimatedNetworkFee
+        case .bittensor(let p): return p.estimatedNetworkFee
         case .ethereum(let p): return p.estimatedNetworkFee
         }
     }

@@ -107,7 +107,6 @@ final class WalletImportDraft {
     private(set) var selectedChainNames: [String] = []
     var isCreateMode: Bool { mode == .createNew }
     var isPrivateKeyImportMode: Bool { mode == .importExisting && !isEditingWallet && !isWatchOnlyMode && secretImportMode == .privateKey }
-    var supportedPrivateKeyChainNames: [String] { Chain.mainnets.filter(\.derivesFromPrivateKey).map(\.displayName) }
     var unsupportedPrivateKeyChainNames: [String] {
         let supported = Self.supportedPrivateKeyChainNameSet
         return selectedChainNames.filter { !supported.contains($0) }

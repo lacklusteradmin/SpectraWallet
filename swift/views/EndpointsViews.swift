@@ -66,16 +66,30 @@ struct EndpointCatalogSettingsView: View {
         if !trimmed.isEmpty { return trimmed }
         return AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: chainID)
     }
+    /// One endpoint: the URL, and what the catalog says it is.
+    ///
+    /// The tag line is why the `kind` / `capabilities` split exists — six
+    /// identical-looking URLs under one chain gave no way to tell the node
+    /// that answers balances from the indexer that answers history. An
+    /// endpoint the user typed has no catalog row and shows the URL alone.
     @ViewBuilder
+    private func endpointRow(_ endpoint: String) -> some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(endpoint).font(.caption.monospaced()).textSelection(.enabled).lineLimit(3)
+            if let summary = AppEndpointDirectory.tagSummary(for: endpoint) {
+                Text(summary).font(.caption2).foregroundStyle(.secondary)
+            }
+        }
+    }
     private func endpointRows(_ endpoints: [String]) -> some View {
-        ForEach(endpoints, id: \.self) { endpoint in Text(endpoint).font(.caption.monospaced()).textSelection(.enabled).lineLimit(3) }
+        ForEach(endpoints, id: \.self) { endpoint in endpointRow(endpoint) }
     }
     @ViewBuilder
     private func namedEndpointGroup(title: String, endpoints: [String]) -> some View {
         if !endpoints.isEmpty {
             VStack(alignment: .leading, spacing: 8) {
                 Text(title).font(.subheadline.weight(.semibold))
-                ForEach(endpoints, id: \.self) { endpoint in Text(endpoint).font(.caption.monospaced()).textSelection(.enabled).lineLimit(3)
+                ForEach(endpoints, id: \.self) { endpoint in endpointRow(endpoint)
                 }
             }.padding(.vertical, 2)
         }

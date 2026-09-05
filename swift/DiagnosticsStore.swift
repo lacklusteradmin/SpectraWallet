@@ -17,15 +17,6 @@ extension AppState {
     func endpointHealth(for chainName: String) -> WalletChainDiagnosticsState.EndpointHealth {
         chainDiagnosticsState.endpointHealthByChain[chainName] ?? .init()
     }
-    /// Writable, non-optional access for one chain.
-    ///
-    /// A subscript rather than `endpointHealth[x, default: .init()]` because a
-    /// key path cannot carry a `default:` — its subscript index has to be
-    /// Hashable — and the generic diagnostics runners take key paths.
-    var historyRuns: [String: WalletChainDiagnosticsState.HistoryRun] {
-        get { chainDiagnosticsState.historyRunByChain }
-        set { chainDiagnosticsState.historyRunByChain = newValue }
-    }
     /// Record one wallet's history-run row.
     ///
     /// One row goes across the boundary, not the chain's whole map: reading

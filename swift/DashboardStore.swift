@@ -1,7 +1,6 @@
 import Foundation
 import SwiftUI
 extension AppState {
-    static let pinnedDashboardAssetSymbolsDefaultsKey = "dashboardPinnedAssetSymbols"
     private var defaultPinnedDashboardAssetSymbols: [String] { ["BTC", "ETH", "USDT", "USDC"] }
     private static let dashboardPinPrototypes: [Coin] = {
         let allChains = listAllChains()
@@ -45,7 +44,6 @@ extension AppState {
         }
         return order.compactMap { grouped[$0] }
     }
-    var availableDashboardPinOptions: [DashboardPinOption] { cachedAvailableDashboardPinOptions }
     func isDashboardAssetPinned(_ symbol: String) -> Bool { pinnedDashboardAssetSymbols.contains(symbol.uppercased()) }
     func setDashboardAssetPinned(_ isPinned: Bool, symbol: String) {
         let normalized = symbol.uppercased()
