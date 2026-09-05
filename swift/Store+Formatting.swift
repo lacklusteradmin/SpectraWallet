@@ -68,9 +68,8 @@ extension AppState {
     }
     private func formatFiatAmount(amount: Double, currency: FiatCurrency) -> String {
         let formatter = fiatFormatter(for: currency)
-        // Previously called `formattingFiatAmountRules` again here on every
-        // fiat render (thousands of times on the dashboard). Read from the
-        // memoized cache instead.
+        // Memoized: this runs on every fiat render, thousands of times on the
+        // dashboard.
         let minimumVisibleAmount = fiatAmountRules(for: currency).minimumVisible
         if amount > 0, amount < minimumVisibleAmount, let thresholdString = formatter.string(from: NSNumber(value: minimumVisibleAmount)) {
             return "<\(thresholdString)"

@@ -5,10 +5,6 @@
 // send the `StateCommand` and update the projection, so direct assignment to
 // `self.wallets`, `self.transactions` or `self.addressBook` is a bug — it
 // desynchronises the projection from the store rather than failing loudly.
-//
-// This comment used to say the opposite ("Swift's arrays are the canonical
-// store … There is no Rust round-trip"), and `docs/ARCHITECTURE.md` quoted it
-// as evidence for a claim that had also stopped being true.
 
 import Foundation
 

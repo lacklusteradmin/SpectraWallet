@@ -8,7 +8,7 @@ import SwiftUI
 /// A SwiftUI view that renders a token image from Assets.xcassets.
 /// Falls back to `nil` content when the image is unavailable so callers can provide their own fallback.
 
-// MARK: ─ (merged from views/IconUIHelpers.swift)
+// MARK: ─ Icon helpers
 
 #if canImport(UIKit)
     import UIKit
@@ -17,21 +17,38 @@ import SwiftUI
 /// otherwise falls back to a solid circle with the first letter of
 /// `fallbackText`. No custom photos, no multi-letter disambiguation.
 struct CoinBadge: View {
-    let assetIdentifier: String?
-    let fallbackText: String
-    let color: Color
-    var size: CGFloat = 40
+    /// The bundled artwork to draw, empty when the coin ships none. Not
+    /// private: `CoinBadgeArtworkTests` asserts every coin the app can hold
+    /// resolves to one that `UIImage(named:)` can load, and the resolution is
+    /// the whole of what broke.
+    let assetName: String
+    private let fallbackText: String
+    private let color: Color
+    private let size: CGFloat
+
+    /// From artwork core already named — the wiki's rows carry one per coin.
+    init(assetName: String, fallbackText: String, color: Color, size: CGFloat = 40) {
+        self.assetName = assetName
+        self.fallbackText = fallbackText
+        self.color = color
+        self.size = size
+    }
+
+    /// From an icon identifier, which core resolves by the coin's own symbol.
+    ///
+    /// Two Swift tables did this before, and between them they could not draw
+    /// a coin held off its home chain: the native table was keyed on the host
+    /// chain's ticker, so USDC on Aptos missed it, and a `native:` identifier
+    /// was then refused the token table outright. Thirty-one of the wiki's
+    /// sixty-six coins drew a letter.
+    init(assetIdentifier: String?, fallbackText: String, color: Color, size: CGFloat = 40) {
+        self.init(
+            assetName: coreIconAssetName(identifier: assetIdentifier ?? fallbackText),
+            fallbackText: fallbackText, color: color, size: size)
+    }
+
     var body: some View {
-        let identifier: String =
-            assetIdentifier.map { Coin.normalizedIconIdentifier($0) } ?? "generic:\(fallbackText.lowercased())"
-        let assetName: String? = {
-            if let raw = assetIdentifier {
-                if let direct = Coin.nativeIconAssetName(forAssetIdentifier: raw) { return direct }
-                if raw.hasPrefix("native:") { return nil }
-            }
-            return TokenVisualRegistryEntry.entry(matchingAssetIdentifier: identifier)?.assetName
-        }()
-        let displayImage: UIImage? = assetName.flatMap { UIImage(named: $0) }
+        let displayImage: UIImage? = assetName.isEmpty ? nil : UIImage(named: assetName)
         return Group {
             if let displayImage {
                 Image(uiImage: displayImage).resizable().interpolation(.high).scaledToFit().frame(width: size, height: size)

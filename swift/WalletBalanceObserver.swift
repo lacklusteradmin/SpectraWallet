@@ -1,9 +1,9 @@
-// Rust→Swift observer bridges.
+// Rust→Swift observer bridge for the balance refresh engine.
 //
-// The wallet/transactions/address_book event bus has been removed; Swift now
-// owns those collections directly. Only the per-chain balance refresh
-// observer remains — it pushes balance updates from the Rust refresh engine
-// into AppState's `@Observable` mirrors on the main actor.
+// Core calls these; nothing in Swift does. `onBalanceUpdated` carries one
+// wallet's native balance, which `applyRustBalance` merges into the holding
+// and writes back through a `StateCommand` — the collections themselves are
+// core's (see `AppState+CoreStateStore.swift`).
 
 import Foundation
 

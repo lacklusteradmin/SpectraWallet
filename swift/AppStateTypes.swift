@@ -1,8 +1,5 @@
-// Nested type declarations for AppState, extracted out of AppState.swift to
-// keep that file focused on state + orchestration wiring. All types here used
-// to live directly inside `class AppState { ... }`; lifting them to an
-// `extension AppState` preserves every call site (`AppState.ResetScope`,
-// `AppState.ChainKeypoolState`, etc.) unchanged.
+// Nested type declarations for AppState, kept out of AppState.swift so that
+// file stays state + orchestration wiring.
 //
 // Nothing here owns runtime state — just value-type schemas, enums, and the
 // typealiases that went with them.

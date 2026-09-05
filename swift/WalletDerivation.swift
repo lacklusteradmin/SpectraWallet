@@ -1,7 +1,5 @@
 import Foundation
 
-// MARK: ─ (merged from WalletDerivationLayer.swift)
-
 struct WalletDerivationRequestedOutputs: OptionSet, Sendable {
     let rawValue: Int
     static let address = WalletDerivationRequestedOutputs(rawValue: 1 << 0)

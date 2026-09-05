@@ -2,9 +2,8 @@ import Foundation
 
 /// The per-chain facts an EVM send needs, sourced from the registry.
 ///
-/// It is a struct now, built from `coreEvmChainContext`. Adding an EVM chain is
-/// a registry edit and nothing here changes. The named statics are kept so the
-/// existing `EVMChainContext.arbitrum` call sites read the same.
+/// Built from `coreEvmChainContext`, so adding an EVM chain is a registry edit
+/// and nothing here changes.
 struct EVMChainContext: Equatable {
     let displayName: String
     /// EIP-155 chain id, checked against what the RPC reports before signing.
@@ -30,8 +29,8 @@ struct EVMChainContext: Equatable {
     var defaultRPCEndpoints: [String] { AppEndpointDirectory.evmRPCEndpoints(for: displayName) }
 }
 
-// Send preview types are now UniFFI-generated from Rust (core/src/wallet_core.rs).
-// Swift owns only the send *result* types (not yet lifted) + chain-specific enums used by the UI.
+// Preview types are UniFFI-generated from `core/src/send/`. What is left here
+// is the send *result* types and the chain-specific enums the UI switches on.
 
 struct EvmSendResult: Equatable {
     let fromAddress: String

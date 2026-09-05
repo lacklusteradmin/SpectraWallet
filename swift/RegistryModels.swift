@@ -114,9 +114,7 @@ struct ChainRegistryEntry: Identifiable {
     let derivationPath: [ChainDerivationPathEntry]
     var assetIdentifier: String { Coin.iconIdentifier(symbol: symbol, chainName: name) }
     var nativeIconDescriptor: NativeChainIconDescriptor {
-        NativeChainIconDescriptor(
-            registryID: id, title: name, symbol: symbol, chainName: name, color: color, assetName: assetName
-        )
+        NativeChainIconDescriptor(registryID: id, title: name, symbol: symbol, chainName: name, color: color)
     }
     static let all: [ChainRegistryEntry] = {
         listAllChains()
@@ -140,7 +138,6 @@ struct TokenVisualRegistryEntry: Identifiable {
     let symbol: String
     let referenceChain: TokenHostingChain
     let color: Color
-    let assetName: String
     var id: String { symbol }
     var assetIdentifier: String {
         Coin.iconIdentifier(symbol: symbol, chainName: referenceChain.rawValue, tokenStandard: referenceChain.tokenStandard)
@@ -149,16 +146,9 @@ struct TokenVisualRegistryEntry: Identifiable {
     private static let entriesByLowercasedSymbol: [String: TokenVisualRegistryEntry] = Dictionary(
         uniqueKeysWithValues: all.map { ($0.symbol.lowercased(), $0) }
     )
-    private static let assetIdentifierFragments: [(fragment: String, entry: TokenVisualRegistryEntry)] = all.map {
-        (":\($0.symbol.lowercased())", $0)
-    }
     static func entry(symbol: String) -> TokenVisualRegistryEntry? {
         let normalized = symbol.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return entriesByLowercasedSymbol[normalized]
-    }
-    static func entry(matchingAssetIdentifier assetIdentifier: String) -> TokenVisualRegistryEntry? {
-        let normalized = assetIdentifier.lowercased()
-        return assetIdentifierFragments.first { normalized.contains($0.fragment) }?.entry
     }
 }
 typealias TokenPreferenceCategory = CoreTokenPreferenceCategory
@@ -209,32 +199,11 @@ struct NativeChainIconDescriptor: Identifiable {
     let symbol: String
     let chainName: String
     let color: Color
-    let assetName: String
     var id: String { assetIdentifier }
     var assetIdentifier: String { Coin.iconIdentifier(symbol: symbol, chainName: chainName) }
 }
 extension Coin {
     static let nativeChainIconDescriptors: [NativeChainIconDescriptor] = ChainRegistryEntry.all.map(\.nativeIconDescriptor)
-    // Per-key indexes to turn O(n) linear scans into O(1) dictionary lookups.
-    // Hot path: `CoinBadge.body` calls these 2-3× per cell × N visible cells.
-    private static let nativeChainIconDescriptorByAssetIdentifier: [String: NativeChainIconDescriptor] =
-        Dictionary(
-            nativeChainIconDescriptors.map { ($0.assetIdentifier, $0) },
-            uniquingKeysWith: { first, _ in first })
-    private static let nativeIconAssetNameByAssetIdentifier: [String: String] = {
-        var result: [String: String] = [:]
-        for entry in listAllChains() where !entry.assetName.isEmpty && !entry.name.isEmpty {
-            let key = iconIdentifier(symbol: entry.symbol, chainName: entry.name)
-            result[key] = entry.assetName
-        }
-        return result
-    }()
-    static func nativeIconAssetName(forAssetIdentifier assetIdentifier: String) -> String? {
-        nativeIconAssetNameByAssetIdentifier[assetIdentifier]
-    }
-    static func nativeChainIconDescriptor(forAssetIdentifier assetIdentifier: String) -> NativeChainIconDescriptor? {
-        nativeChainIconDescriptorByAssetIdentifier[assetIdentifier]
-    }
     static func nativeChainIconDescriptor(chainName: String) -> NativeChainIconDescriptor? {
         let normalizedChainName = chainName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedChainName.isEmpty else { return nil }
@@ -266,9 +235,6 @@ extension Coin {
         coreIconIdentifier(
             symbol: symbol, chainName: chainName, contractAddress: contractAddress, tokenStandard: tokenStandard)
     }
-    static func normalizedIconIdentifier(_ identifier: String) -> String {
-        coreNormalizedIconIdentifier(identifier: identifier)
-    }
     /// A coin's colour, from whichever catalog vouches for it.
     ///
     /// Four hardcoded symbols stood between these two lookups. `MATIC` is in
@@ -299,7 +265,7 @@ extension Coin {
     }
 }
 
-// MARK: ─ (merged from ChainBackendModels.swift)
+// MARK: ─ Backend option models
 
 struct ChainBroadcastProviderOption: Identifiable, Hashable, Decodable {
     let id: String

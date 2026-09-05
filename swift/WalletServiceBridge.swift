@@ -426,8 +426,7 @@ extension WalletServiceBridge {
     }
     /// Where the next history fetch for this (chain, wallet) starts.
     ///
-    /// One call rather than three getters. `advanceHistoryPage` went with them:
-    /// it had a wrapper here and no caller anywhere.
+    /// One call rather than three getters.
     nonisolated func historyCursor(chainId: String, walletId: String) -> HistoryCursor {
         MainActor.assumeIsolated {
             WalletServiceBridge._syncService?.historyCursor(chainId: chainId, walletId: walletId)
@@ -457,7 +456,7 @@ private extension WalletServiceBridge {
         var payloads: [ChainEndpoints] = []
         // A chain's id is its name, resolved by the registry — stating both was
         // 30 rows of `chainId: <id>, chainName: "X"`. Whether its endpoints come
-        // from the EVM list or the generic record list is `coreIsEvmChain`.
+        // from the EVM list or the generic record list is `Chain.isEVM`.
         for chainName in AppEndpointDirectory.liveChainNames {
             var payload =
                 (Chain(displayName: chainName)?.isEVM ?? false)

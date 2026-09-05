@@ -295,7 +295,7 @@ extension AppState {
             let plannedWalletIDs: [UUID]
             if isWatchOnlyImport {
                 // `ImportDraft` already keeps the inputs as one table, and
-                // `coreIsEvmChain` already answers EVM membership — the 22-row
+                // `Chain.isEVM` already answers EVM membership — the 22-row
                 // copy and the 23-name EVM set that used to be here restated
                 // both. An EVM chain's entries live under Ethereum because the
                 // whole family shares that address slot.

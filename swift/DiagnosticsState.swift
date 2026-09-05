@@ -243,11 +243,9 @@ final class WalletDiagnosticsState {
     }
 }
 
-// The 24 per-wallet diagnostic dictionaries that previously lived as stored
-// properties on this class now live in the Rust registry
-// (`core/src/diagnostics/registry.rs`). Swift presents the same `[String: T]`
-// dict-shaped API via writable computed vars that delegate to UniFFI, so
-// every existing call site and `ReferenceWritableKeyPath` continues to work.
+// The per-wallet diagnostic dictionaries are not stored here: they live in
+// the Rust registry (`core/src/diagnostics/registry.rs`) and the `[String: T]`
+// vars below are writable computed delegates over UniFFI.
 //
 // SwiftUI reactivity: mutations bump `diagnosticsRevision`. Because this type
 // is `@Observable`, any view reading the revision (or reading through

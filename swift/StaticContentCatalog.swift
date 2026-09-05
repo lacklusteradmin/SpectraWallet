@@ -15,10 +15,10 @@ private final class LockedValue<Value>: @unchecked Sendable {
 }
 enum StaticContentCatalog {
     private final class BundleMarker {}
-    // Memoize decoded resources across the app. `XxxContentCopy.current` is
-    // accessed from inside view bodies (hot path) and each lookup used to hit
-    // Rust FFI + JSON decode. Keyed by `(localeSignature, baseName, typeID)`
-    // so a language switch invalidates automatically on the next read.
+    // Memoize decoded resources across the app: `XxxContentCopy.current` is
+    // read from inside view bodies, and an uncached lookup is a Rust FFI call
+    // plus a JSON decode. Keyed by `(localeSignature, baseName, typeID)` so a
+    // language switch invalidates on the next read.
     private static let decodedResourceCache = LockedValue<[String: Any]>([:])
     private static func cacheKey(baseName: String, typeID: String) -> String {
         let signature = AppLocalization.preferredLocalizationIdentifiers().joined(separator: ",")
@@ -244,7 +244,7 @@ enum TokenVisualRegistryCatalog {
             entries.append(
                 TokenVisualRegistryEntry(
                     title: token.name, symbol: token.symbol, referenceChain: referenceChain,
-                    color: RegistryColorLookup.color(named: token.color), assetName: token.assetName
+                    color: RegistryColorLookup.color(named: token.color)
                 )
             )
         }

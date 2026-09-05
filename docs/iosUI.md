@@ -45,7 +45,7 @@ The radius communicates hierarchy:
 Shared values and helpers live in:
 
 - [`SpectraLayout` and `spectraCardFill`](../swift/views/ImageRendering.swift)
-- [`spectraInputFieldStyle` and `spectraDetailCard`](../swift/ViewExtensions.swift)
+- [`spectraInputFieldStyle` and `spectraDetailCard`](../swift/views/ViewExtensions.swift)
 
 ## Source map
 

@@ -1,6 +1,5 @@
 import SwiftUI
 
-// MARK: - FundsFinderView
 
 struct FundsFinderView: View {
     let store: AppState

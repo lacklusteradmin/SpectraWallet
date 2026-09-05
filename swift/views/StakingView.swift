@@ -138,8 +138,8 @@ private enum StakingDetailSection: String, CaseIterable, Identifiable {
 
 extension Chain {
     /// `nil` for a chain that does not stake, which `Chain.stakingChains`
-    /// already filters out — `everyStakingChainHasADescriptor` is what keeps the
-    /// two in step.
+    /// already filters out — `testEveryStakingChainHasADescriptor` is what
+    /// keeps the two in step.
     var stakingDescriptor: StakingChainDescriptor? {
         switch self {
         case .solana:
@@ -226,8 +226,8 @@ struct ChainStakingDetailView: View {
     var body: some View {
         // `Chain.stakingChains` is the only way in, so a missing descriptor
         // means the registry gained a staking chain and this file did not.
-        // `everyStakingChainHasADescriptor` fails before a user sees a blank
-        // page.
+        // `testEveryStakingChainHasADescriptor` fails before a user sees a
+        // blank page.
         if let descriptor = chain.stakingDescriptor {
             content(descriptor: descriptor)
         }

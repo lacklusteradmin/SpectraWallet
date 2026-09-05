@@ -171,18 +171,14 @@ final class AppState {
     // `rebuildWalletDerivedState`, `rebuildDashboardDerivedState` and
     // `rebuildTokenPreferenceDerivedState`.
     //
-    // Twelve of them used to bump a `cachesRevision` counter on every write,
-    // with a `batchCacheUpdates` depth counter to coalesce the bumps. Nothing
-    // read it. Under `@Observable` a view already tracks the properties it
-    // reads, so the counter could only ever have made things worse: a view
-    // that did observe it would invalidate on every unrelated cache write.
-    // `walletsRevision` above is different — two views watch it with
-    // `onChange`, which needs a value that changes.
-    /// Bundled derived state of the wallet collection. Recomputed by
-    /// `_rebuildWalletDerivedStateBody` as a single value, so the rebuild
-    /// reads as one assignment instead of 17 sequential mutations. The
-    /// individual `cached*` properties below are thin computed accessors
-    /// preserved for call-site compatibility.
+    // No revision counter here. Under `@Observable` a view already tracks the
+    // properties it reads, so a counter bumped on every cache write could only
+    // make things worse: a view that observed it would invalidate on every
+    // unrelated write. `walletsRevision` above is different — two views watch
+    // it with `onChange`, which needs a value that changes.
+    /// Bundled derived state of the wallet collection. Rebuilt as a single
+    /// value, so the rebuild is one assignment rather than 17 mutations; the
+    /// `cached*` properties below read fields out of it.
     var walletDerivedCache: WalletDerivedCache = .empty
     var cachedWalletByID: [String: ImportedWallet] { walletDerivedCache.walletByID }
     var cachedWalletByIDString: [String: ImportedWallet] { walletDerivedCache.walletByIDString }
@@ -699,7 +695,6 @@ final class AppState {
     static let walletsCoreSnapshotAccount = "wallets.core.snapshot.v1"
 
 
-    static let tokenPreferencesDefaultsKey = "settings.tokenPreferences.v1"
     /// The four preferences this platform keeps for itself — see
     /// `PlatformPreferences`. The twenty keys that stood beside it, one per
     /// setting, went with the settings into core.
@@ -822,16 +817,25 @@ final class AppState {
         }
         applyVerificationNotice(verificationNoticeForLastSent(snapshot: snapshot))
     }
-    private static let utxoPostSendChains: Set<String> = [
-        "Bitcoin", "Bitcoin Cash", "Bitcoin SV", "Litecoin", "Dogecoin"
-    ]
     func runPostSendRefreshActions(for chainName: String, verificationStatus: SendBroadcastVerificationStatus) async {
         applySendVerificationStatus(verificationStatus, chainName: chainName)
         noteSendBroadcastVerification(
             chainName: chainName, verificationStatus: verificationStatus,
             transactionHash: lastSentTransaction?.chainName == chainName ? lastSentTransaction?.transactionHash : nil
         )
-        let usePending = isEVMChain(chainName) || Self.utxoPostSendChains.contains(chainName)
+        // Which chains poll for a pending status after a send is
+        // `Chain::pending_status_poll`, and asking it brings the testnets with
+        // their mainnets. The five names that stood here were the mainnets
+        // only, so a send on Bitcoin Testnet, Testnet4, Signet, Litecoin
+        // Testnet, Bitcoin Cash Testnet, Bitcoin SV Testnet or Dogecoin
+        // Testnet took the history refresh instead of the pending one — the
+        // registry answers for twelve chains and the list named five.
+        let usePending: Bool = {
+            switch Chain(displayName: chainName)?.pendingStatusPoll {
+            case .utxo, .evmReceipt: return true
+            default: return false
+            }
+        }()
         let descriptor = WalletChainID(chainName).flatMap { Self.chainRefreshDescriptors[$0] }
         async let balanceRefresh: () = refreshBalances()
         async let chainRefresh: () = {
@@ -1026,13 +1030,12 @@ final class AppState {
     func normalizedKnownTokenIdentifier(for chain: TokenHostingChain, contractAddress: String) -> String {
         normalizeTokenIdentifier(contractAddress: contractAddress, chainName: chain.rawValue) ?? ""
     }
-    /// Map a `TokenHostingChain` to the user's currently-enabled known tokens for that chain.
-    /// All 12 EVM chains share this helper; routing via `TokenHostingChain.forChainName(...)`
-    /// at the call site picks the right chain.
     /// The user's enabled tokens for a chain, contracts normalised.
     ///
-    /// Built a `ChainTokenRegistryEntry` — a fourth record for one token, with
-    /// its own spelling of every field. The preference carries the token now.
+    /// One helper for every token-hosting chain; `TokenHostingChain` is what
+    /// the call site resolves the name to. It returns the preference entries
+    /// themselves rather than a record built from them — a token had four
+    /// spellings across four record types before it did.
     func enabledKnownTokens(for chain: TokenHostingChain) -> [TokenPreferenceEntry] {
         enabledTokenPreferences(for: chain).map { e in
             var normalised = e

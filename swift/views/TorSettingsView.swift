@@ -41,7 +41,6 @@ struct TorStatusBadge: View {
     }
 }
 
-// MARK: - TorSettingsView
 
 struct TorSettingsView: View {
     @Bindable var store: AppState

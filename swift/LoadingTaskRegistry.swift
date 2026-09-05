@@ -1,27 +1,10 @@
 import Foundation
 
-// MARK: - LoadingTaskRegistry
+// Counts in-flight tasks by string ID, for the case where the same operation
+// can run more than once at a time and a caller needs "is *this* one pending".
+// A single "exactly one of these can run" flag is better as a Bool.
 //
-// Replaces the proliferation of `is…ing` Bools (`isImportingWallet`,
-// `isPreparingEthereumSend`, `isResolvingReceiveAddress`, …) for the
-// case where the same operation can fire concurrently or where callers
-// need to check "is *this specific* operation pending."
-//
-// Each registered task is keyed by a string ID. A reader trying to
-// answer "is the app busy with X?" calls `registry.contains("X")`.
-// "Is the app busy with anything?" is `!registry.isEmpty`. State
-// transitions go through `start`/`finish` so flipping a bool twice in
-// a row becomes detectable (the registry records cardinality).
-//
-// Adoption is incremental — singleton "exactly one of these can run"
-// flags are fine staying as Bools; the registry is for cases where
-// "one of N concurrent" is the actual semantic. Audit pass:
-//   * `isImportingWallet` → singleton, keep as Bool
-//   * `isPreparingEthereumSend` → could fire per-wallet, candidate
-//   * `isResolvingReceiveAddress` → singleton (one receive flow at a
-//     time), keep as Bool
-//   * `isRefreshingChainBalances` → singleton, keep as Bool
-//   * `isRefreshingLivePrices` → singleton, keep as Bool
+// Nothing calls this yet.
 @MainActor
 final class LoadingTaskRegistry {
     private var inflight: [String: Int] = [:]

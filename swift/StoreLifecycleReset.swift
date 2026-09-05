@@ -146,12 +146,8 @@ extension AppState {
         UserDefaults.standard.removeObject(forKey: Self.chainOwnedAddressMapDefaultsKey)
         clearAllTransactions()
         resetAllHistoryPagination()
-        // `diagnosticsClearAll` empties the whole Rust-owned registry, so the
-        // per-chain history clears this used to spell out — twenty-two chains
-        // times four lines, described in a comment as belt-and-suspenders over
-        // exactly this call — said nothing it does not. Nor did the two lines
-        // that followed it for Tron and Solana: those tables read and write
-        // through the same registry, so the call had already emptied them.
+        // Clears the Rust-owned per-wallet history registry. The four lines
+        // below are the diagnostics state that is still Swift's own.
         diagnosticsClearAll()
         chainDiagnosticsState.historyRunByChain = [:]
         chainDiagnosticsState.endpointHealthByChain = [:]
@@ -193,10 +189,8 @@ extension AppState {
     private func resetDashboardCustomizationState() { resetPinnedDashboardAssets() }
     private func resetSettingsAndEndpointsState() async {
         // The settings core owns are reset by assigning the properties below,
-        // which commit. The `UserDefaults` keys that used to be cleared here —
-        // one per setting, twenty-two of them — have had no writer since
-        // settings moved into SQLite, so removing them removed nothing.
-        UserDefaults.standard.removeObject(forKey: Self.tokenPreferencesDefaultsKey)
+        // which commit. What is removed here is the UserDefaults that still
+        // has a writer: prices, rates and the four Tor keys.
         UserDefaults.standard.removeObject(forKey: Self.fiatRatesFromUSDDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.livePricesDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.torEnabledDefaultsKey)

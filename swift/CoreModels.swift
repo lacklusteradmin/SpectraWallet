@@ -34,8 +34,8 @@ struct SendPreviewDetails: Equatable {
 }
 /// `Coin` is the Rust-defined `AssetHolding`. Chain identity is the
 /// `(chainName, tokenStandard, contractAddress)` triple — use the
-/// existing `assetIdentityKey` / `Coin.normalizedIconIdentifier` helpers
-/// rather than parsing the strings ad-hoc.
+/// existing `assetIdentityKey` / `Coin.iconIdentifier` helpers rather than
+/// parsing the strings ad-hoc.
 typealias Coin = AssetHolding
 extension AssetHolding: Identifiable {
     /// The list key, from what identifies the holding. Was a stored field each

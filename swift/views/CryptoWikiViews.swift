@@ -8,11 +8,7 @@ extension AssetWikiEntry: Identifiable {
     public var id: String { symbol }
     var accentColor: Color { RegistryColorLookup.color(named: color) }
     var face: WikiCoinFace {
-        WikiCoinFace(
-            name: name, symbol: symbol,
-            assetIdentifier: Coin.iconIdentifier(
-                symbol: symbol, chainName: livesOn.first?.chainName ?? name),
-            color: accentColor)
+        WikiCoinFace(name: name, symbol: symbol, assetName: assetName, color: accentColor)
     }
     var nativePlaces: [AssetWikiPlace] { livesOn.filter(\.isNative) }
 }

@@ -8,10 +8,15 @@ import SwiftUI
 
 /// What the rotating coin and the badge need, so both wikis can draw one
 /// without the views knowing whether they were handed a coin or a chain.
+///
+/// `assetName` is the artwork core already names on the row — no identifier is
+/// built to be taken apart again. The wiki is indexed by coin and a coin's row
+/// leads with wherever it lives first, so the identifier it used to build said
+/// "USDC, native to Aptos" and drew nothing.
 struct WikiCoinFace: Equatable {
     let name: String
     let symbol: String
-    let assetIdentifier: String?
+    let assetName: String
     let color: Color
 }
 
@@ -292,7 +297,7 @@ struct WikiCoinBadge: View {
     let size: CGFloat
     var body: some View {
         CoinBadge(
-            assetIdentifier: face.assetIdentifier, fallbackText: face.symbol,
+            assetName: face.assetName, fallbackText: face.symbol,
             color: face.color, size: size
         )
     }
