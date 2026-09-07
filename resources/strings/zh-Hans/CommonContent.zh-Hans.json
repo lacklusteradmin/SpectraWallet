@@ -6,7 +6,6 @@
   "transactionSubtitleFormat": "%@（%@） • %@",
   "invalidAddressFormat": "%@ 地址无效。",
   "invalidDestinationAddressPromptFormat": "请输入有效的 %@ 目标地址。",
-  "rpcErrorFormat": "%@ RPC 错误：%@",
   "walletImportErrorTitle": "钱包导入错误",
   "sendErrorTitle": "发送错误",
   "securityNoticeTitle": "安全提示",

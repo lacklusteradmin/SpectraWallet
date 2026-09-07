@@ -133,24 +133,6 @@ struct ChainRegistryEntry: Identifiable {
         entriesByLowercasedID[id.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()]
     }
 }
-struct TokenVisualRegistryEntry: Identifiable {
-    let title: String
-    let symbol: String
-    let referenceChain: TokenHostingChain
-    let color: Color
-    var id: String { symbol }
-    var assetIdentifier: String {
-        Coin.iconIdentifier(symbol: symbol, chainName: referenceChain.rawValue, tokenStandard: referenceChain.tokenStandard)
-    }
-    static let all: [TokenVisualRegistryEntry] = TokenVisualRegistryCatalog.loadEntries()
-    private static let entriesByLowercasedSymbol: [String: TokenVisualRegistryEntry] = Dictionary(
-        uniqueKeysWithValues: all.map { ($0.symbol.lowercased(), $0) }
-    )
-    static func entry(symbol: String) -> TokenVisualRegistryEntry? {
-        let normalized = symbol.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return entriesByLowercasedSymbol[normalized]
-    }
-}
 typealias TokenPreferenceCategory = CoreTokenPreferenceCategory
 extension CoreTokenPreferenceCategory: RawRepresentable, CaseIterable, Codable, Identifiable {
     public typealias RawValue = String
@@ -235,17 +217,18 @@ extension Coin {
         coreIconIdentifier(
             symbol: symbol, chainName: chainName, contractAddress: contractAddress, tokenStandard: tokenStandard)
     }
-    /// A coin's colour, from whichever catalog vouches for it.
-    ///
-    /// Four hardcoded symbols stood between these two lookups. `MATIC` is in
-    /// neither catalog since POL replaced it; `ARB` could never be reached,
-    /// because the chain descriptor above matches Arbitrum first; and `TRX`
-    /// and `USDT` restated the colour the catalog already gives, `red` and
-    /// `green`. Four arms, none of them doing anything the catalogs do not.
+    private static let tokenColorsBySymbol: [String: Color] = {
+        var colors: [String: Color] = [:]
+        for token in listAllBuiltinTokens() where colors[token.symbol.lowercased()] == nil {
+            colors[token.symbol.lowercased()] = RegistryColorLookup.color(named: token.color)
+        }
+        return colors
+    }()
+    /// Native chain colors take precedence over token colors for shared symbols.
     static func displayColor(for symbol: String) -> Color {
         if let nativeDescriptor = nativeChainIconDescriptor(symbol: symbol) { return nativeDescriptor.color }
-        if let tokenEntry = TokenVisualRegistryEntry.entry(symbol: symbol) { return tokenEntry.color }
-        return .gray
+        let normalized = symbol.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        return tokenColorsBySymbol[normalized] ?? .gray
     }
     var iconIdentifier: String {
         Self.iconIdentifier(symbol: symbol, chainName: chainName, contractAddress: contractAddress, tokenStandard: tokenStandard)

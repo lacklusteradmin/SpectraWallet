@@ -59,27 +59,26 @@ extension AppState {
             estimatedTransactionBytes: c.estimatedTransactionBytes.map(Int.init), selectedInputCount: c.selectedInputCount.map(Int.init),
             usesChangeOutput: c.usesChangeOutput, maxSendable: c.maxSendable)
     }
+    private var parsedCustomEthereumFees: Result<EvmCustomFeeConfiguration, Error>? {
+        guard useCustomEthereumFees, selectedSendCoin?.chainName == "Ethereum" else { return nil }
+        return Result {
+            try parseEvmCustomFees(
+                maxFeeGweiRaw: customEthereumMaxFeeGwei,
+                priorityFeeGweiRaw: customEthereumPriorityFeeGwei)
+        }
+    }
     var customEthereumFeeValidationError: String? {
-        let code = coreEthereumCustomFeeValidation(
-            useCustomFees: useCustomEthereumFees,
-            isEthereumChain: selectedSendCoin?.chainName == "Ethereum",
-            maxFeeGweiRaw: customEthereumMaxFeeGwei,
-            priorityFeeGweiRaw: customEthereumPriorityFeeGwei
-        )
-        switch code {
-        case .none: return nil
-        case .invalidMaxFee: return localizedStoreString("Enter a valid Max Fee in gwei.")
-        case .invalidPriorityFee: return localizedStoreString("Enter a valid Priority Fee in gwei.")
-        case .maxBelowPriority: return localizedStoreString("Max Fee must be greater than or equal to Priority Fee.")
+        guard case .failure(let error)? = parsedCustomEthereumFees else { return nil }
+        switch error {
+        case EvmCustomFeeError.InvalidMaxFee: return localizedStoreString("Enter a valid Max Fee in gwei.")
+        case EvmCustomFeeError.InvalidPriorityFee: return localizedStoreString("Enter a valid Priority Fee in gwei.")
+        case EvmCustomFeeError.MaxBelowPriority: return localizedStoreString("Max Fee must be greater than or equal to Priority Fee.")
+        default: return error.localizedDescription
         }
     }
     func customEthereumFeeConfiguration() -> EvmCustomFeeConfiguration? {
-        guard useCustomEthereumFees else { return nil }
-        guard customEthereumFeeValidationError == nil else { return nil }
-        guard let maxFee = Double(customEthereumMaxFeeGwei.trimmingCharacters(in: .whitespacesAndNewlines)),
-            let priorityFee = Double(customEthereumPriorityFeeGwei.trimmingCharacters(in: .whitespacesAndNewlines))
-        else { return nil }
-        return EvmCustomFeeConfiguration(maxFeePerGasGwei: maxFee, maxPriorityFeePerGasGwei: priorityFee)
+        guard case .success(let fees)? = parsedCustomEthereumFees else { return nil }
+        return fees
     }
     var customEthereumNonceValidationError: String? {
         let code = coreEthereumManualNonceValidation(

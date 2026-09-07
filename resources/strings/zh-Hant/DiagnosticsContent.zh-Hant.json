@@ -9,7 +9,6 @@
     "跨鏈"
   ],
   "crossChainHistoryTitle": "歷史來源可信度",
-  "crossChainSectionTitle": "跨鏈",
   "dogecoinTestnetNote": "生產錢包請保持關閉。只有在你明確使用狗狗幣測試網地址時才打開。",
   "endpointHealthFormat": "端點健康度：%@/%@ 可達",
   "ethereumRPCNote": "可選。留空將使用 Spectra 默認的公共以太坊端點。如果你希望為 ETH 與 ERC-20 觀察地址餘額使用專屬提供商，可添加你自己的 RPC 位址。",

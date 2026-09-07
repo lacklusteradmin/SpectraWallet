@@ -1,8 +1,5 @@
 import Foundation
 import SwiftUI
-private enum LocalizationCatalogReferenceKeeper {
-    static let strings: [String] = []
-}
 private final class LockedValue<Value>: @unchecked Sendable {
     private let lock = NSLock()
     private var value: Value
@@ -16,8 +13,7 @@ private final class LockedValue<Value>: @unchecked Sendable {
 enum StaticContentCatalog {
     private final class BundleMarker {}
     // Memoize decoded resources across the app: `XxxContentCopy.current` is
-    // read from inside view bodies, and an uncached lookup is a Rust FFI call
-    // plus a JSON decode. Keyed by `(localeSignature, baseName, typeID)` so a
+    // read from view bodies. Keyed by `(localeSignature, baseName, typeID)` so a
     // language switch invalidates on the next read.
     private static let decodedResourceCache = LockedValue<[String: Any]>([:])
     private static func cacheKey(baseName: String, typeID: String) -> String {
@@ -113,7 +109,6 @@ struct DiagnosticsContentCopy: Decodable {
     let navigationTitle: String
     let searchPrompt: String
     let chainsSectionTitle: String
-    let crossChainSectionTitle: String
     let actionsSectionTitle: String
     let statusSectionTitle: String
     let historyNotRunYet: String
@@ -156,8 +151,6 @@ struct ImportFlowContent: Decodable {
     let editWalletSubtitle: String
     let chooseNameAndChainsSubtitle: String
     let chooseNameAndChainSubtitle: String
-    let seedImportMethodDescription: String
-    let privateKeyImportMethodDescription: String
     let importSeedLengthTitle: String
     let importSeedLengthSubtitle: String
     let createSeedLengthTitle: String
@@ -171,7 +164,6 @@ struct ImportFlowContent: Decodable {
     let backupVerifiedMessage: String
     let backupVerificationHint: String
     let watchOnlyFixedMessage: String
-    let publicAddressOnlyMessage: String
     let moneroWatchUnsupportedMessage: String
     let addressesToWatchTitle: String
     let addressesToWatchSubtitle: String
@@ -186,7 +178,6 @@ struct CommonLocalizationContent: Decodable {
     let transactionSubtitleFormat: String
     let invalidAddressFormat: String
     let invalidDestinationAddressPromptFormat: String
-    let rpcErrorFormat: String
     let walletImportErrorTitle: String
     let sendErrorTitle: String
     let securityNoticeTitle: String
@@ -203,8 +194,8 @@ enum CommonLocalization {
         String(format: CommonLocalizationContent.current.invalidDestinationAddressPromptFormat, chainName)
     }
 }
-/// Maps a human-readable color string (stored in `core/tokens.toml`
-/// and `core/chains.toml`) to a SwiftUI `Color`.
+/// Maps a human-readable color string (stored in `core/data/tokens.toml`
+/// and `core/data/chains.toml`) to a SwiftUI `Color`.
 enum RegistryColorLookup {
     static func color(named name: String) -> Color {
         switch name.lowercased() {
@@ -222,28 +213,6 @@ enum RegistryColorLookup {
         case "mint": return .mint
         default: return .accentColor
         }
-    }
-}
-enum TokenVisualRegistryCatalog {
-    /// Token visuals now derive from the single source of truth — the Rust
-    /// `list_builtin_tokens` registry — rather than a separate JSON file.
-    /// Dedupes by symbol because the TOML has one row per (chain, symbol)
-    /// pair and visual metadata is symbol-level.
-    static func loadEntries() -> [TokenVisualRegistryEntry] {
-        var seen = Set<String>()
-        var entries: [TokenVisualRegistryEntry] = []
-        for token in listAllBuiltinTokens() {
-            let normalizedSymbol = token.symbol.uppercased()
-            guard seen.insert(normalizedSymbol).inserted else { continue }
-            guard let referenceChain = tokenHostingChainFor(token.chain) else { continue }
-            entries.append(
-                TokenVisualRegistryEntry(
-                    title: token.name, symbol: token.symbol, referenceChain: referenceChain,
-                    color: RegistryColorLookup.color(named: token.color)
-                )
-            )
-        }
-        return entries
     }
 }
 /// App-wide links that do NOT vary by locale — same URL regardless of the
@@ -280,7 +249,6 @@ struct DonationDestinationSeed: Decodable {
 }
 struct DonationsContentCopy: Decodable {
     let navigationTitle: String
-    let heroTitle: String
     let heroSubtitle: String
     let destinations: [DonationDestinationSeed]
     static var current: DonationsContentCopy {

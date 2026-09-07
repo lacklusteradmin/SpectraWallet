@@ -6,7 +6,6 @@
   "transactionSubtitleFormat": "%@ on %@ • %@",
   "invalidAddressFormat": "The %@ address is not valid.",
   "invalidDestinationAddressPromptFormat": "Enter a valid %@ destination address.",
-  "rpcErrorFormat": "%@ RPC error: %@",
   "walletImportErrorTitle": "Wallet Import Error",
   "sendErrorTitle": "Send Error",
   "securityNoticeTitle": "Security Notice",

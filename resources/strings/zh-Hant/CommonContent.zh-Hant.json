@@ -6,7 +6,6 @@
   "transactionSubtitleFormat": "%@（%@） • %@",
   "invalidAddressFormat": "%@ 地址無效。",
   "invalidDestinationAddressPromptFormat": "請輸入有效的 %@ 目標地址。",
-  "rpcErrorFormat": "%@ RPC 錯誤：%@",
   "walletImportErrorTitle": "錢包導入錯誤",
   "sendErrorTitle": "發送錯誤",
   "securityNoticeTitle": "安全提示",
