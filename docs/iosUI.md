@@ -1,8 +1,8 @@
 # iOS UI reference
 
-Spectra targets iOS 26 with a fintech-native visual language: Coinbase / Robinhood / Revolut DNA, system typography, rich color, and Liquid Glass used more aggressively than Apple uses it in first-party apps.
+Spectra targets iOS 26 with system typography, rich color and Liquid Glass.
 
-This document is the source of truth for Spectra's iOS UI rules. [AGENTS.md](../AGENTS.md) only points here to avoid duplicating design guidance.
+This document is the source of truth for Spectra's iOS UI rules.
 
 ## Product decision
 
@@ -47,155 +47,23 @@ Shared values and helpers live in:
 - [`SpectraLayout` and `spectraCardFill`](../swift/views/ImageRendering.swift)
 - [`spectraInputFieldStyle` and `spectraDetailCard`](../swift/views/ViewExtensions.swift)
 
-## Source map
+## Examples in the app
 
-Use these files as current examples. This list intentionally avoids line numbers because UI files move frequently.
+- [DashboardViews.swift](../swift/views/DashboardViews.swift): top-level tab,
+  hero cards and asset detail rows.
+- [ReceiveFlowViews.swift](../swift/views/ReceiveFlowViews.swift): business detail layout.
+- [ChainWikiViews.swift](../swift/views/ChainWikiViews.swift): compact interactive cards.
 
-Top-level tab patterns:
+Use `SpectraLayout` for top-level spacing and padding. Main business details use
+20pt horizontal, 16pt top and 24pt bottom padding, with 16pt between cards;
+card content has 20pt padding. Detail navigation titles are inline.
 
-- [DashboardViews.swift](../swift/views/DashboardViews.swift)
-- [HistoryView.swift](../swift/views/HistoryView.swift)
-- [StakingView.swift](../swift/views/StakingView.swift)
-- [SettingsViews.swift](../swift/views/SettingsViews.swift)
+Detail key/value rows use an orange SF Symbol, a secondary label and a primary
+value, 12pt row spacing and dividers at 0.4 opacity. Group adjacent glass actions
+with `GlassEffectContainer(spacing: 12)`.
 
-Hero and detail card patterns:
+## Additional constraints
 
-- [DashboardViews.swift](../swift/views/DashboardViews.swift) for asset details
-- [WalletFlowViews.swift](../swift/views/WalletFlowViews.swift) for wallet details
-- [StakingView.swift](../swift/views/StakingView.swift) for staking details
-- [ReceiveFlowViews.swift](../swift/views/ReceiveFlowViews.swift) for receive details
-- [ChainWikiViews.swift](../swift/views/ChainWikiViews.swift) for compact interactive cards
-- [DonationsView.swift](../swift/views/DonationsView.swift) and [AboutView.swift](../swift/views/AboutView.swift) for informational pages
-
-Artwork and backdrop:
-
-- [ImageRendering.swift](../swift/views/ImageRendering.swift)
-
-## Patterns
-
-### Top-level tab
-
-```swift
-NavigationStack {
-    ZStack {
-        SpectraBackdrop().ignoresSafeArea()
-        ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: SpectraLayout.sectionSpacing) {
-                contentCard
-            }
-            .padding(.horizontal, SpectraLayout.screenHorizontal)
-            .padding(.top, SpectraLayout.screenTop)
-            .padding(.bottom, SpectraLayout.screenBottom)
-        }
-    }
-    .navigationTitle(...)
-    .toolbarBackground(.hidden, for: .navigationBar)
-    .toolbar {
-        ToolbarItem(placement: .topBarTrailing) {
-            Button { ... } label: { Image(systemName: "plus") }
-        }
-    }
-}
-```
-
-Top-level cards use the shared `28pt` radius:
-
-```swift
-VStack { ... }
-    .padding(SpectraLayout.cardPadding)
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .glassEffect(
-        .regular.tint(.white.opacity(0.03)),
-        in: .rect(cornerRadius: SpectraLayout.cardCornerRadius)
-    )
-```
-
-### Main business detail
-
-```swift
-ScrollView(showsIndicators: false) {
-    LazyVStack(spacing: 16) {
-        heroCard
-        statsCard
-        contentCard
-    }
-    .padding(.horizontal, 20)
-    .padding(.top, 16)
-    .padding(.bottom, 24)
-}
-.background(SpectraBackdrop().ignoresSafeArea())
-.navigationTitle(...)
-.navigationBarTitleDisplayMode(.inline)
-.toolbarBackground(.hidden, for: .navigationBar)
-```
-
-Hero cards use `28pt` and a slightly stronger tint:
-
-```swift
-HStack { ... }
-    .padding(20)
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
-```
-
-Ordinary detail cards use `24pt`:
-
-```swift
-VStack { ... }
-    .padding(20)
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
-```
-
-### Stat card
-
-Detail-page key/value rows use an orange SF Symbol, a secondary label, and a primary value:
-
-```swift
-VStack(alignment: .leading, spacing: 12) {
-    statRow(label: "Total Amount", value: "...", icon: "scalemass.fill")
-    Divider().opacity(0.4)
-    statRow(label: "Total Value", value: "...", icon: "dollarsign.circle.fill")
-}
-.padding(20)
-.frame(maxWidth: .infinity, alignment: .leading)
-.glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
-```
-
-### Action buttons
-
-Use glass button styles outside toolbars:
-
-```swift
-GlassEffectContainer(spacing: 12) {
-    HStack(spacing: 12) {
-        Button { ... } label: { ... }
-            .buttonStyle(.glass)
-
-        Button { ... } label: { ... }
-            .buttonStyle(.glassProminent)
-    }
-}
-```
-
-Tint stand-alone actions semantically:
-
-```swift
-Button { ... } label: { Label("Edit Name", systemImage: "pencil") }
-    .buttonStyle(.glass)
-    .tint(.orange)
-
-Button(role: .destructive) { ... } label: { Label("Delete", systemImage: "trash") }
-    .buttonStyle(.glass)
-    .tint(.red)
-```
-
-## Don'ts
-
-- Do not add `.buttonStyle(.glass)` to `ToolbarItem` buttons.
-- Do not use `Color.primary.opacity(...)` in text foreground styles.
-- Do not use rounded black display typography outside icon artwork.
-- Do not replace a top-level tab with `Form` or `List(.insetGrouped)`.
-- Do not remove `SpectraBackdrop` from top-level tabs or main business detail roots.
-- Do not stack custom glass effects unnecessarily or apply them to every small element.
-- Do not add new `.ultraThinMaterial` or `.thinMaterial` surfaces when `.glassEffect` is appropriate.
+- Rounded black display typography is reserved for icon artwork.
+- Avoid custom glass on every small element or stacked glass surfaces.
+- Do not add `.ultraThinMaterial` or `.thinMaterial` where `.glassEffect` is appropriate.

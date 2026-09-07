@@ -19,14 +19,9 @@
   ],
   "reportProblemDescription": "使用此页面打开未来的支持表单或问题跟踪器。下方链接目前仍是占位地址。",
   "reportProblemActionTitle": "打开反馈表单",
-  "buyProvidersIntro": "这些是官方法币入金服务商，支持使用现金或绑定的银行卡/支付卡付款，并将加密资产直接发送到钱包地址。不同提供商的可用性、费用、身份验证、支持网络和地区覆盖范围会有所不同。",
-  "buyWarning": "Spectra 不处理购买流程。付款前请务必再次确认钱包地址、所选链和资产，因为加密转账通常不可逆。",
-  "moonpayName": "MoonPay",
-  "moonpayDescription": "Card, bank transfer, Apple Pay, and Google Pay on-ramp that asks for your wallet address during checkout and sends the crypto there.",
-  "rampNetworkName": "Ramp Network",
-  "rampNetworkDescription": "Direct-to-wallet on-ramp for U.S. users. You enter your wallet address and Ramp sends the purchased asset there.",
-  "transakName": "Transak",
-  "transakDescription": "Direct wallet on-ramp. You enter your wallet address or open it from a supported wallet integration and Transak delivers the crypto there.",
-  "banxaName": "Banxa",
-  "banxaDescription": "Fiat on-ramp that can send purchased crypto to the wallet address you provide when the partner flow does not use a built-in wallet."
+  "buyProvidersIntro": "把现金换成加密资产有两条路。各家的可用性、费用、身份验证、支持的网络和地区覆盖都不一样，付款前请先确认。",
+  "buyOnrampNote": "入金服务商会把你买到的币直接发到你填写的钱包地址，不需要第二步就能到账 Spectra。",
+  "buyExchangeNote": "交易所把你买到的币存在它们的账户里。想自己保管，之后需要提币到你的某个 Spectra 地址。",
+  "buyListingNote": "按字母顺序排列。Spectra 与其中任何一家都无关联，也不从中收取费用。",
+  "buyWarning": "Spectra 不处理购买流程。付款前请务必再次确认钱包地址、所选链和资产，因为加密转账通常不可逆。"
 }

@@ -19,14 +19,9 @@
   ],
   "reportProblemDescription": "Use this page to open the future support form or issue tracker. The link below is a placeholder for now.",
   "reportProblemActionTitle": "Open Report Form",
-  "buyProvidersIntro": "These are official on-ramp providers that support paying with real cash or linked bank/card funding and sending crypto directly to a wallet address. Availability, fees, identity checks, supported networks, and state coverage vary by provider.",
-  "buyWarning": "Spectra does not process purchases. Always double-check the wallet address, selected chain, and asset before paying, because crypto transfers are typically irreversible.",
-  "moonpayName": "MoonPay",
-  "moonpayDescription": "Card, bank transfer, Apple Pay, and Google Pay on-ramp that asks for your wallet address during checkout and sends the crypto there.",
-  "rampNetworkName": "Ramp Network",
-  "rampNetworkDescription": "Direct-to-wallet on-ramp for U.S. users. You enter your wallet address and Ramp sends the purchased asset there.",
-  "transakName": "Transak",
-  "transakDescription": "Direct wallet on-ramp. You enter your wallet address or open it from a supported wallet integration and Transak delivers the crypto there.",
-  "banxaName": "Banxa",
-  "banxaDescription": "Fiat on-ramp that can send purchased crypto to the wallet address you provide when the partner flow does not use a built-in wallet."
+  "buyProvidersIntro": "Two ways to turn cash into crypto. Availability, fees, identity checks, supported networks and regional coverage differ by provider — check before you pay.",
+  "buyOnrampNote": "On-ramps send what you buy straight to a wallet address you enter, so the coins arrive in Spectra without a second step.",
+  "buyExchangeNote": "Exchanges hold what you buy in an account of theirs. To hold it yourself, withdraw to one of your Spectra addresses afterwards.",
+  "buyListingNote": "Listed alphabetically. Spectra is not affiliated with any of them and does not receive a fee.",
+  "buyWarning": "Spectra does not process purchases. Always double-check the wallet address, selected chain, and asset before paying, because crypto transfers are typically irreversible."
 }

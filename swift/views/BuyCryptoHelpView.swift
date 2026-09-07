@@ -1,45 +1,60 @@
 import Foundation
 import SwiftUI
+
 struct BuyCryptoHelpView: View {
     private var copy: SettingsContentCopy { .current }
-    private struct BuyCryptoProvider: Identifiable {
-        let id = UUID()
-        let name: String
-        let description: String
-        let url: URL
-        let urlLabel: String
-    }
-    private let providers: [BuyCryptoProvider] = {
-        let links = AppLinks.current
-        let copy = SettingsContentCopy.current
-        let raw: [(name: String, description: String, urlString: String, urlLabel: String)] = [
-            (copy.moonpayName, copy.moonpayDescription, links.moonpayBuy, links.moonpayBuyLabel),
-            (copy.rampNetworkName, copy.rampNetworkDescription, links.rampNetworkBuy, links.rampNetworkBuyLabel),
-            (copy.transakName, copy.transakDescription, links.transakBuy, links.transakBuyLabel),
-            (copy.banxaName, copy.banxaDescription, links.banxaBuy, links.banxaBuyLabel),
-        ]
-        return raw.compactMap { item in
-            guard let url = URL(string: item.urlString) else { return nil }
-            return BuyCryptoProvider(name: item.name, description: item.description, url: url, urlLabel: item.urlLabel)
+
+    /// Resolved once for the process, not once per `body`.
+    ///
+    /// The rows used to be built in a stored property whose element `id` was a
+    /// fresh `UUID()`. `SettingsView` holds `@Bindable var store`, so its body
+    /// re-evaluates on every balance and price change and rebuilt this view —
+    /// which minted new identities, and `ForEach` replaced every row mid-tap.
+    /// A `Link` cannot fire if the row under the finger is torn down first.
+    private static let directory = BuyProviders.current
+
+    private func section(_ title: String, _ note: String, _ providers: [BuyProviderSeed]) -> some View {
+        Section {
+            Text(note).font(.caption).foregroundStyle(.secondary)
+            ForEach(providers) { provider in
+                if let url = URL(string: provider.url) {
+                    Link(destination: url) {
+                        HStack(alignment: .firstTextBaseline) {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(provider.name).font(.body)
+                                Text(provider.label)
+                                    .font(.caption.monospaced())
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer(minLength: 12)
+                            Image(systemName: "arrow.up.right")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        } header: {
+            Text(title)
         }
-    }()
+    }
+
     var body: some View {
         Form {
             Section {
                 Text(copy.buyProvidersIntro).font(.caption).foregroundStyle(.secondary)
             }
-            Section(AppLocalization.string("Options")) {
-                ForEach(providers) { provider in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Link(destination: provider.url) {
-                            Label(provider.name, systemImage: "arrow.up.right.square").font(.headline)
-                        }
-                        Text(provider.description).font(.subheadline).foregroundStyle(.primary)
-                        Text(provider.urlLabel).font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
-                    }.padding(.vertical, 4)
-                }
+            section(
+                AppLocalization.string("On-ramps"), copy.buyOnrampNote, Self.directory.onramps)
+            section(
+                AppLocalization.string("Exchanges"), copy.buyExchangeNote, Self.directory.exchanges)
+            Section(AppLocalization.string("Reminder")) {
+                Text(copy.buyWarning).font(.caption).foregroundStyle(.secondary)
+                Text(copy.buyListingNote).font(.caption).foregroundStyle(.secondary)
             }
-            Section(AppLocalization.string("Reminder")) { Text(copy.buyWarning).font(.caption).foregroundStyle(.secondary) }
-        }.navigationTitle(AppLocalization.string("Where can I buy crypto?"))
+        }
+        .navigationTitle(AppLocalization.string("Where can I buy crypto?"))
     }
 }

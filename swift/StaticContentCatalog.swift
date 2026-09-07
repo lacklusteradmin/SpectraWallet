@@ -104,14 +104,9 @@ struct SettingsContentCopy: Decodable {
     let reportProblemActionTitle: String
     let buyProvidersIntro: String
     let buyWarning: String
-    let moonpayName: String
-    let moonpayDescription: String
-    let rampNetworkName: String
-    let rampNetworkDescription: String
-    let transakName: String
-    let transakDescription: String
-    let banxaName: String
-    let banxaDescription: String
+    let buyOnrampNote: String
+    let buyExchangeNote: String
+    let buyListingNote: String
     static var current: SettingsContentCopy { StaticContentCatalog.loadRequiredResource("SettingsContent", as: SettingsContentCopy.self) }
 }
 struct DiagnosticsContentCopy: Decodable {
@@ -257,15 +252,26 @@ enum TokenVisualRegistryCatalog {
 /// to consume this — it's purely a Swift-side UI link).
 struct AppLinks: Decodable {
     let reportProblem: String
-    let moonpayBuy: String
-    let moonpayBuyLabel: String
-    let rampNetworkBuy: String
-    let rampNetworkBuyLabel: String
-    let transakBuy: String
-    let transakBuyLabel: String
-    let banxaBuy: String
-    let banxaBuyLabel: String
     static var current: AppLinks { StaticContentCatalog.loadRequiredResource("AppLinks", as: AppLinks.self) }
+}
+
+/// The buy/exchange directory, from `resources/BuyProviders.json`.
+///
+/// Names, URLs and domains do not translate, so the list is one
+/// locale-independent file rather than four keys per provider in every
+/// `SettingsContent.*.json`. Only the section notes are copy. Adding a
+/// provider is one row here.
+struct BuyProviderSeed: Decodable, Identifiable {
+    let id: String
+    let name: String
+    let url: String
+    let label: String
+}
+
+struct BuyProviders: Decodable {
+    let onramps: [BuyProviderSeed]
+    let exchanges: [BuyProviderSeed]
+    static var current: BuyProviders { StaticContentCatalog.loadRequiredResource("BuyProviders", as: BuyProviders.self) }
 }
 struct DonationDestinationSeed: Decodable {
     let chainName: String
