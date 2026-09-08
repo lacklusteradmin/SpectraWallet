@@ -118,7 +118,7 @@ extension AppState {
                     chainId: Chain.icp.id, chainName: "Internet Computer",
                     derivationPath: wallet.seedDerivationPaths.path(for: .icp),
                     seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
-                    amount: amount, amountStr: amountStr,
+                    amountStr: amountStr,
                     contractAddress: nil, tokenDecimals: nil, feeRateSvb: nil, feeSat: nil, gasBudget: nil, feeAmount: nil,
                     evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                 ),
@@ -146,7 +146,7 @@ extension AppState {
                     chainId: Chain.bitcoin.id, chainName: "Bitcoin",
                     derivationPath: walletDerivationPath(for: wallet, chain: .bitcoin),
                     seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
-                    amount: amount, amountStr: amountStr,
+                    amountStr: amountStr,
                     contractAddress: nil, tokenDecimals: nil, feeRateSvb: feeRateSvB, feeSat: nil, gasBudget: nil, feeAmount: nil,
                     evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                 ),
@@ -191,7 +191,7 @@ extension AppState {
                         chainId: Chain.dogecoin.id, chainName: "Dogecoin",
                         derivationPath: walletDerivationPath(for: wallet, chain: .dogecoin),
                         seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
-                        amount: dogecoinAmount, amountStr: sendAmount,
+                        amountStr: sendAmount,
                         contractAddress: nil, tokenDecimals: nil, feeRateSvb: feeRateDogePerKb, feeSat: nil, gasBudget: nil, feeAmount: nil,
                         evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                     ))
@@ -277,7 +277,7 @@ extension AppState {
                 request: SendExecutionRequest(
                     chainId: Chain.tron.id, chainName: "Tron", derivationPath: wallet.seedDerivationPaths.path(for: .tron),
                     seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
-                    amount: amount, amountStr: amountStr,
+                    amountStr: amountStr,
                     contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
                     feeAmount: nil, evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                 ),
@@ -335,7 +335,7 @@ extension AppState {
                     chainId: Chain.solana.id, chainName: "Solana",
                     derivationPath: walletDerivationPath(for: wallet, chain: .solana),
                     seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
-                    amount: amount, amountStr: amountStr,
+                    amountStr: amountStr,
                     contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
                     feeAmount: nil, evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                 ),
@@ -370,7 +370,7 @@ extension AppState {
                 request: SendExecutionRequest(
                     chainId: Chain.near.id, chainName: "NEAR", derivationPath: walletDerivationPath(for: wallet, chain: .near),
                     seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
-                    amount: amount, amountStr: amountStr,
+                    amountStr: amountStr,
                     contractAddress: contractAddress, tokenDecimals: UInt32(decimals), feeRateSvb: nil, feeSat: nil, gasBudget: nil,
                     feeAmount: nil, evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                 ),
@@ -428,7 +428,7 @@ extension AppState {
                     return
                 }
                 let customFees = customEthereumFeeConfiguration()
-                let explicitNonce = explicitEthereumNonce()
+                let explicitNonce = try explicitEthereumNonce()
                 let evmDerivationChain = WalletDerivationLayer.evmSeedDerivationChain(for: holding.chainName) ?? .ethereum
                 let evmOverrides = evmSendOverrides(nonce: explicitNonce, customFees: customFees)
                 guard let chainId = Chain(displayName: holding.chainName)?.id else {
@@ -456,7 +456,7 @@ extension AppState {
                         chainId: chainId, chainName: holding.chainName,
                         derivationPath: walletDerivationPath(for: wallet, chain: evmDerivationChain),
                         seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
-                        amount: amount, amountStr: amountStr,
+                        amountStr: amountStr,
                         contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
                         feeAmount: nil, evmOverrides: evmOverrides, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
                     ))
@@ -608,7 +608,7 @@ extension AppState {
                     chainId: chainID, chainName: chainName,
                     derivationPath: derivationPath,
                     seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress,
-                    toAddress: destinationAddress, amount: amount, amountStr: amountStr,
+                    toAddress: destinationAddress, amountStr: amountStr,
                     contractAddress: nil, tokenDecimals: nil, feeRateSvb: nil,
                     feeSat: shape.feeField == .feeSats ? UInt64(fee * 1e8) : nil,
                     gasBudget: shape.feeField == .gasBudget ? fee : nil,

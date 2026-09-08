@@ -122,7 +122,7 @@ extension AppState {
             let dataHex = assembly.dataHex
             sendPreviewStore.evmSendPreview = try await WalletServiceBridge.shared.fetchEvmSendPreviewTyped(
                 chainId: chainId, from: fromAddress, to: toAddress, valueWei: valueWei, dataHex: dataHex,
-                explicitNonce: explicitEthereumNonce().map(Int64.init),
+                explicitNonce: try explicitEthereumNonce().map(Int64.init),
                 customFees: customEthereumFeeConfiguration()
             )
             if sendPreviewStore.evmSendPreview != nil {

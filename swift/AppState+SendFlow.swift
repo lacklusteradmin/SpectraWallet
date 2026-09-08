@@ -81,20 +81,22 @@ extension AppState {
         return fees
     }
     var customEthereumNonceValidationError: String? {
-        let code = coreEthereumManualNonceValidation(
-            manualNonceEnabled: ethereumManualNonceEnabled, nonceRaw: ethereumManualNonce
-        )
-        switch code {
-        case .none: return nil
-        case .empty: return localizedStoreString("Enter a nonce value for manual nonce mode.")
-        case .notNonNegativeInteger: return localizedStoreString("Nonce must be a non-negative integer.")
-        case .tooLarge: return localizedStoreString("Nonce value is too large.")
+        do {
+            _ = try explicitEthereumNonce()
+            return nil
+        } catch EvmNonceError.Empty {
+            return localizedStoreString("Enter a nonce value for manual nonce mode.")
+        } catch EvmNonceError.InvalidInteger {
+            return localizedStoreString("Nonce must be a non-negative integer.")
+        } catch EvmNonceError.TooLarge {
+            return localizedStoreString("Nonce value is too large.")
+        } catch {
+            return error.localizedDescription
         }
     }
-    func explicitEthereumNonce() -> Int? {
+    func explicitEthereumNonce() throws -> Int? {
         guard ethereumManualNonceEnabled else { return nil }
-        guard customEthereumNonceValidationError == nil else { return nil }
-        return Int(ethereumManualNonce.trimmingCharacters(in: .whitespacesAndNewlines))
+        return Int(try parseEvmNonce(raw: ethereumManualNonce))
     }
     func selectedWalletForSend() -> ImportedWallet? { wallet(for: sendWalletID) }
     func selectedPendingEthereumSendTransaction() -> TransactionRecord? {
