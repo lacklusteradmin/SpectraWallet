@@ -6,11 +6,10 @@ final class SendAmountBridgeTests: XCTestCase {
         let service = try WalletService.newTyped(endpoints: [])
         for amount in ["0.000000001", "-1", "NaN", "1.é"] {
             let request = SendExecutionRequest(
-                chainId: "bitcoin", chainName: "Bitcoin", derivationPath: "",
-                seedPhrase: nil, privateKeyHex: nil, fromAddress: "", toAddress: "",
+                chainId: "bitcoin", walletId: "missing", password: nil, toAddress: "",
                 amountStr: amount, contractAddress: nil, tokenDecimals: nil,
                 feeRateSvb: nil, feeSat: nil, gasBudget: nil, feeAmount: nil,
-                evmOverrides: nil, moneroPriority: nil, derivationOverrides: nil
+                evmOverrides: nil, moneroPriority: nil
             )
             do {
                 _ = try await service.executeSend(request: request)
@@ -22,4 +21,20 @@ final class SendAmountBridgeTests: XCTestCase {
             }
         }
     }
+    func testMissingWalletIsRefusedBeforeSecretStoreOrNetwork() async throws {
+        let service = try WalletService.newTyped(endpoints: [])
+        let request = SendExecutionRequest(
+            chainId: "ethereum", walletId: "missing", password: nil,
+            toAddress: "0x9858effd232b4033e47d90003d41ec34ecaeda94", amountStr: "1",
+            contractAddress: nil, tokenDecimals: nil, feeRateSvb: nil, feeSat: nil,
+            gasBudget: nil, feeAmount: nil, evmOverrides: nil, moneroPriority: nil
+        )
+        do {
+            _ = try await service.executeSend(request: request)
+            XCTFail("Missing wallet must fail")
+        } catch SpectraBridgeError.InvalidInput(let message) {
+            XCTAssertTrue(message.contains("wallet does not exist"))
+        }
+    }
+
 }

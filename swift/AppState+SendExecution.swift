@@ -101,26 +101,14 @@ extension AppState {
         }
         if preflight.submitKind == "icp" {
             if sendPreviewStore.taggedPreview(forChainNamed: "Internet Computer") == nil { await refreshSendPreview(forChainNamed: "Internet Computer") }
-            guard wallets.contains(where: { $0.id == wallet.id }), let sourceAddress = resolvedICPAddress(for: wallet)
-            else {
-                sendError = "Unable to resolve this wallet's ICP address."
-                return
-            }
-            let privateKey = storedPrivateKey(for: wallet.id)
-            let seedPhrase = storedSeedPhrase(for: wallet.id)
-            guard privateKey != nil || seedPhrase != nil else {
-                sendError = "This wallet's signing secret is unavailable."
-                return
-            }
             await broadcastPreparedSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
                 request: SendExecutionRequest(
-                    chainId: Chain.icp.id, chainName: "Internet Computer",
-                    derivationPath: wallet.seedDerivationPaths.path(for: .icp),
-                    seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
+                    chainId: Chain.icp.id, walletId: wallet.id, password: nil,
+                    toAddress: destinationAddress,
                     amountStr: amountStr,
                     contractAddress: nil, tokenDecimals: nil, feeRateSvb: nil, feeSat: nil, gasBudget: nil, feeAmount: nil,
-                    evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
+                    evmOverrides: nil, moneroPriority: nil
                 ),
                 clearPreview: { self.sendPreviewStore.clearPreview(forChainNamed: "Internet Computer") })
             return
@@ -130,25 +118,16 @@ extension AppState {
                 sendError = "Enter a valid amount"
                 return
             }
-            guard let seedPhrase = storedSeedPhrase(for: wallet.id) else {
-                sendError = "This wallet's seed phrase is unavailable."
-                return
-            }
-            guard let sourceAddress = resolvedNetworkModeAddress(for: wallet, family: "bitcoin", fallback: .bitcoin) else {
-                sendError = "Unable to resolve this wallet's Bitcoin address from the seed phrase."
-                return
-            }
             if sendPreviewStore.bitcoinSendPreview == nil { await refreshBitcoinSendPreview() }
             let feeRateSvB: Double = Double(sendPreviewStore.bitcoinSendPreview?.estimatedFeeRateSatVb ?? 10)
             await broadcastPreparedSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
                 request: SendExecutionRequest(
-                    chainId: Chain.bitcoin.id, chainName: "Bitcoin",
-                    derivationPath: walletDerivationPath(for: wallet, chain: .bitcoin),
-                    seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
+                    chainId: Chain.bitcoin.id, walletId: wallet.id, password: nil,
+                    toAddress: destinationAddress,
                     amountStr: amountStr,
                     contractAddress: nil, tokenDecimals: nil, feeRateSvb: feeRateSvB, feeSat: nil, gasBudget: nil, feeAmount: nil,
-                    evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
+                    evmOverrides: nil, moneroPriority: nil
                 ),
                 clearPreview: { self.sendPreviewStore.bitcoinSendPreview = nil })
             return
@@ -161,10 +140,6 @@ extension AppState {
             }
             guard isValidAddressForPolicy(destinationAddress, chainName: holding.chainName, wallet: wallet) else {
                 sendError = CommonLocalization.invalidDestinationAddressPrompt("Dogecoin")
-                return
-            }
-            guard let seedPhrase = storedSeedPhrase(for: wallet.id) else {
-                sendError = "This wallet's seed phrase is unavailable."
                 return
             }
             guard resolvedNetworkModeAddress(for: wallet, family: "dogecoin", fallback: .dogecoin) != nil else {
@@ -188,12 +163,11 @@ extension AppState {
                 let feeRateDogePerKb = sendPreviewStore.dogecoinSendPreview?.estimatedFeeRateDogePerKb ?? 0.01
                 let result = try await WalletServiceBridge.shared.executeSend(
                     SendExecutionRequest(
-                        chainId: Chain.dogecoin.id, chainName: "Dogecoin",
-                        derivationPath: walletDerivationPath(for: wallet, chain: .dogecoin),
-                        seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
+                    chainId: Chain.dogecoin.id, walletId: wallet.id, password: nil,
+                    toAddress: destinationAddress,
                         amountStr: sendAmount,
                         contractAddress: nil, tokenDecimals: nil, feeRateSvb: feeRateDogePerKb, feeSat: nil, gasBudget: nil, feeAmount: nil,
-                        evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
+                        evmOverrides: nil, moneroPriority: nil
                     ))
                 let transaction = decoratePendingSendTransaction(
                     TransactionRecord(
@@ -234,16 +208,6 @@ extension AppState {
             return
         }
         if preflight.submitKind == "tron" {
-            let seedPhrase = storedSeedPhrase(for: wallet.id)
-            let privateKey = storedPrivateKey(for: wallet.id)
-            guard seedPhrase != nil || privateKey != nil else {
-                sendError = "This wallet's signing key is unavailable."
-                return
-            }
-            guard let sourceAddress = resolvedTronAddress(for: wallet) else {
-                sendError = "Unable to resolve this wallet's Tron signing address."
-                return
-            }
             if sendPreviewStore.taggedPreview(forChainNamed: "Tron") == nil { await refreshTronSendPreview() }
             guard let preview = sendPreviewStore.tronSendPreview else {
                 sendError = sendError ?? "Unable to estimate Tron network fee."
@@ -275,11 +239,11 @@ extension AppState {
             await broadcastPreparedSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
                 request: SendExecutionRequest(
-                    chainId: Chain.tron.id, chainName: "Tron", derivationPath: wallet.seedDerivationPaths.path(for: .tron),
-                    seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
+                    chainId: Chain.tron.id, walletId: wallet.id, password: nil,
+                    toAddress: destinationAddress,
                     amountStr: amountStr,
                     contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
-                    feeAmount: nil, evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
+                    feeAmount: nil, evmOverrides: nil, moneroPriority: nil
                 ),
                 clearPreview: {
                     self.sendPreviewStore.clearPreview(forChainNamed: "Tron")
@@ -293,14 +257,6 @@ extension AppState {
         // Core already routed this send in the preflight above; asking the
         // question a second time on this side is how the two could disagree.
         if preflight.submitKind == "solana" {
-            guard let seedPhrase = storedSeedPhrase(for: wallet.id) else {
-                sendError = "This wallet's seed phrase is unavailable."
-                return
-            }
-            guard let sourceAddress = resolvedSolanaAddress(for: wallet) else {
-                sendError = "Unable to resolve this wallet's Solana signing address from the seed phrase."
-                return
-            }
             if sendPreviewStore.taggedPreview(forChainNamed: "Solana") == nil { await refreshSendPreview(forChainNamed: "Solana") }
             guard let preview = sendPreviewStore.solanaSendPreview else {
                 sendError = sendError ?? "Unable to estimate Solana network fee."
@@ -332,12 +288,11 @@ extension AppState {
             await broadcastPreparedSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
                 request: SendExecutionRequest(
-                    chainId: Chain.solana.id, chainName: "Solana",
-                    derivationPath: walletDerivationPath(for: wallet, chain: .solana),
-                    seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
+                    chainId: Chain.solana.id, walletId: wallet.id, password: nil,
+                    toAddress: destinationAddress,
                     amountStr: amountStr,
                     contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
-                    feeAmount: nil, evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
+                    feeAmount: nil, evmOverrides: nil, moneroPriority: nil
                 ),
                 clearPreview: { self.sendPreviewStore.clearPreview(forChainNamed: "Solana") })
             return
@@ -351,12 +306,6 @@ extension AppState {
         if preflight.submitKind == "near", holding.symbol != "NEAR",
             let contractAddress = holding.contractAddress
         {
-            guard let seedPhrase = storedSeedPhrase(for: wallet.id) else {
-                sendError = "This wallet's seed phrase is unavailable."; return
-            }
-            guard let sourceAddress = resolvedNearAddress(for: wallet) else {
-                sendError = "Unable to resolve this wallet's NEAR signing address from the seed phrase."; return
-            }
             let nearNativeBalance = wallet.holdings.first(where: { $0.chainName == "NEAR" && $0.symbol == "NEAR" })?.amount ?? 0
             if nearNativeBalance < 0.001 {
                 sendError = "Insufficient NEAR balance to cover the network fee for this \(holding.symbol) transfer."; return
@@ -368,11 +317,11 @@ extension AppState {
             await broadcastPreparedSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
                 request: SendExecutionRequest(
-                    chainId: Chain.near.id, chainName: "NEAR", derivationPath: walletDerivationPath(for: wallet, chain: .near),
-                    seedPhrase: seedPhrase, privateKeyHex: nil, fromAddress: sourceAddress, toAddress: destinationAddress,
+                    chainId: Chain.near.id, walletId: wallet.id, password: nil,
+                    toAddress: destinationAddress,
                     amountStr: amountStr,
                     contractAddress: contractAddress, tokenDecimals: UInt32(decimals), feeRateSvb: nil, feeSat: nil, gasBudget: nil,
-                    feeAmount: nil, evmOverrides: nil, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
+                    feeAmount: nil, evmOverrides: nil, moneroPriority: nil
                 ),
                 clearPreview: { self.sendPreviewStore.clearPreview(forChainNamed: "NEAR") })
             return
@@ -393,12 +342,6 @@ extension AppState {
             // core checked in the preflight above — this named ETH and BNB, so
             // it refused a zero-amount send of AVAX, HYPE, ETC, POL, MNT, S,
             // BERA, CELO, CRO, SEI or OKB that core had just permitted.
-            let seedPhrase = storedSeedPhrase(for: wallet.id)
-            let privateKey = storedPrivateKey(for: wallet.id)
-            guard seedPhrase != nil || privateKey != nil else {
-                sendError = "This wallet's signing key is unavailable."
-                return
-            }
             let nativeSymbol = preflight.nativeEvmSymbol ?? "ETH"
             let nativeBalance =
                 wallet.holdings.first(where: { $0.chainName == holding.chainName && $0.symbol == nativeSymbol })?.amount ?? 0
@@ -429,14 +372,9 @@ extension AppState {
                 }
                 let customFees = customEthereumFeeConfiguration()
                 let explicitNonce = try explicitEthereumNonce()
-                let evmDerivationChain = WalletDerivationLayer.evmSeedDerivationChain(for: holding.chainName) ?? .ethereum
                 let evmOverrides = evmSendOverrides(nonce: explicitNonce, customFees: customFees)
                 guard let chainId = Chain(displayName: holding.chainName)?.id else {
                     sendError = "\(holding.symbol) transfers on \(holding.chainName) are not enabled yet."
-                    return
-                }
-                guard let sourceAddress = resolvedEVMAddress(for: wallet, chainName: holding.chainName) else {
-                    sendError = "Unable to resolve this wallet's \(holding.chainName) signing address."
                     return
                 }
                 let contractAddress: String?
@@ -453,12 +391,11 @@ extension AppState {
                 }
                 let result = try await WalletServiceBridge.shared.executeSend(
                     SendExecutionRequest(
-                        chainId: chainId, chainName: holding.chainName,
-                        derivationPath: walletDerivationPath(for: wallet, chain: evmDerivationChain),
-                        seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress, toAddress: destinationAddress,
+                    chainId: chainId, walletId: wallet.id, password: nil,
+                    toAddress: destinationAddress,
                         amountStr: amountStr,
                         contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
-                        feeAmount: nil, evmOverrides: evmOverrides, moneroPriority: nil, derivationOverrides: wallet.derivationOverrides
+                        feeAmount: nil, evmOverrides: evmOverrides, moneroPriority: nil
                     ))
                 let fallbackNonce = explicitNonce.map(Int64.init) ?? sendPreviewStore.evmSendPreview?.nonce ?? 0
                 let typed = result.evm ?? EvmSendResultDecoded(txid: "", rawTxHex: "", nonce: fallbackNonce, gasLimit: 0)
@@ -557,23 +494,6 @@ extension AppState {
         guard !sendingChains.contains(chainName) else { return }
         guard let chainID = Chain(displayName: chainName)?.id, !chainID.isEmpty else { return }
 
-        let seedPhrase = storedSeedPhrase(for: wallet.id)
-        let privateKey = shape.supportsPrivateKey ? storedPrivateKey(for: wallet.id) : nil
-        let isMonero = chainName == "Monero"
-        if !isMonero {
-            if shape.supportsPrivateKey {
-                guard seedPhrase != nil || privateKey != nil else {
-                    sendError = "This wallet's signing key is unavailable."
-                    return
-                }
-            } else {
-                guard seedPhrase != nil else { sendError = "This wallet's seed phrase is unavailable."; return }
-            }
-        }
-        guard let sourceAddress = resolvedAddress(for: wallet, chainName: chainName) else {
-            sendError = "Unable to resolve this wallet's \(symbol) signing address."
-            return
-        }
         if sendPreviewStore.estimatedFee(forChainNamed: chainName) == nil {
             await refreshSendPreview(forChainNamed: chainName)
         }
@@ -589,32 +509,18 @@ extension AppState {
             sendError = err
             return
         }
-        // Monero has no derivation chain: it signs from stored key material,
-        // not a path, and the arm this replaced passed an empty string. Every
-        // other routed chain resolves one, so a missing path there is a real
-        // failure rather than something to send blank.
-        let derivationPath =
-            seedDerivationChain(for: chainName)
-            .map { walletDerivationPath(for: wallet, chain: $0) }
-        guard let derivationPath = derivationPath ?? (isMonero ? "" : nil) else {
-            sendError = "Unable to resolve this wallet's \(symbol) derivation path."
-            return
-        }
         sendingChains.insert(chainName)
         defer { sendingChains.remove(chainName) }
         do {
             let result = try await WalletServiceBridge.shared.executeSend(
                 SendExecutionRequest(
-                    chainId: chainID, chainName: chainName,
-                    derivationPath: derivationPath,
-                    seedPhrase: seedPhrase, privateKeyHex: privateKey, fromAddress: sourceAddress,
+                    chainId: chainID, walletId: wallet.id, password: nil,
                     toAddress: destinationAddress, amountStr: amountStr,
                     contractAddress: nil, tokenDecimals: nil, feeRateSvb: nil,
                     feeSat: shape.feeField == .feeSats ? UInt64(fee * 1e8) : nil,
                     gasBudget: shape.feeField == .gasBudget ? fee : nil,
                     feeAmount: shape.feeField == .feeAmount ? fee : nil,
-                    evmOverrides: nil, moneroPriority: nil,
-                    derivationOverrides: wallet.derivationOverrides
+                    evmOverrides: nil, moneroPriority: nil
                 ))
             await recordSuccessfulBroadcast(
                 wallet: wallet, holding: holding, destinationAddress: destinationAddress, amount: amount,
