@@ -74,7 +74,7 @@ extension AppState {
         // Only the chains that genuinely differ get an arm: Bitcoin reads its
         // stored address rather than deriving, Dogecoin and the unmatched case
         // have none, and the EVM family needs the chain name to pick a network.
-        // Everything else is `resolvedChainAddress(for:chain:)`.
+        // Everything else is `resolvedAddress(for:chainName:)`.
         //
         // Through `mainnetCounterpart` because that is what
         // `core_receive_address_resolver` dispatches on — a testnet coin gets
@@ -82,7 +82,7 @@ extension AppState {
         switch CachedCoreHelpers.receiveAddressResolver(symbol: receiveCoin.symbol, chainName: receiveCoin.chainName, isEvmChain: isEvm) {
         case .bitcoinLegacy: chainAddress = wallet.bitcoinAddress
         case .dogecoinNone, .none: chainAddress = nil
-        case .evm: chainAddress = resolvedEVMAddress(for: wallet, chainName: receiveCoin.chainName)
+        case .evm: chainAddress = resolvedAddress(for: wallet, chainName: receiveCoin.chainName)
         default:
             chainAddress = resolvedAddress(
                 for: wallet,
@@ -102,7 +102,7 @@ extension AppState {
             receiveResolvedAddress = ""; return
         }
         if isEVMChain(receiveCoin.chainName) {
-            guard let evmAddress = resolvedEVMAddress(for: wallet, chainName: receiveCoin.chainName) else {
+            guard let evmAddress = resolvedAddress(for: wallet, chainName: receiveCoin.chainName) else {
                 receiveResolvedAddress = ""; return
             }
             guard !isResolvingReceiveAddress else { return }

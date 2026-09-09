@@ -18,9 +18,9 @@ extension AppState {
         sendAmount = ""; sendAddress = ""; sendError = nil; sendDestinationRiskWarning = nil; sendDestinationInfoMessage = nil;
         isCheckingSendDestinationBalance = false
         clearSendVerificationNotice()
-        useCustomEthereumFees = false; customEthereumMaxFeeGwei = ""; customEthereumPriorityFeeGwei = ""
+        useCustomEvmFees = false; customEvmMaxFeeGwei = ""; customEvmPriorityFeeGwei = ""
         sendAdvancedMode = false; sendUTXOMaxInputCount = 0; sendEnableRBF = true; sendEnableCPFP = false
-        sendLitecoinChangeStrategy = .derivedChange; ethereumManualNonceEnabled = false; ethereumManualNonce = ""
+        sendLitecoinChangeStrategy = .derivedChange; evmManualNonceEnabled = false; evmManualNonce = ""
         lastSentTransaction = nil
         clearAllChainSendState()
     }
@@ -35,11 +35,15 @@ extension AppState {
     func syncSendAssetSelection() {
         let availableHoldingKeys = availableSendCoins(for: sendWalletID).map(\.holdingKey)
         if !availableHoldingKeys.contains(sendHoldingKey) { sendHoldingKey = availableHoldingKeys.first ?? "" }
-        if selectedSendCoin?.chainName != "Ethereum" {
-            useCustomEthereumFees = false; customEthereumMaxFeeGwei = ""; customEthereumPriorityFeeGwei = "";
-            ethereumManualNonceEnabled = false; ethereumManualNonce = ""
+        // EIP-1559 fees and a manual nonce belong to the EVM family, which is
+        // a registry fact, not to the chain named "Ethereum". Clearing them on
+        // a move to Arbitrum — while the composer still offered both toggles
+        // there — is half of why they were silently dropped on 22 chains.
+        if selectedSendCoin?.isEVMChain != true {
+            useCustomEvmFees = false; customEvmMaxFeeGwei = ""; customEvmPriorityFeeGwei = "";
+            evmManualNonceEnabled = false; evmManualNonce = ""
         }
-        if selectedSendCoin?.chainName != "Litecoin" { sendLitecoinChangeStrategy = .derivedChange }
+        if selectedSendCoin?.chain != .litecoin { sendLitecoinChangeStrategy = .derivedChange }
         lastSentTransaction = nil
         clearAllChainSendState()
         sendDestinationRiskWarning = nil; sendDestinationInfoMessage = nil; isCheckingSendDestinationBalance = false
@@ -59,16 +63,20 @@ extension AppState {
             estimatedTransactionBytes: c.estimatedTransactionBytes.map(Int.init), selectedInputCount: c.selectedInputCount.map(Int.init),
             usesChangeOutput: c.usesChangeOutput, maxSendable: c.maxSendable)
     }
-    private var parsedCustomEthereumFees: Result<EvmCustomFeeConfiguration, Error>? {
-        guard useCustomEthereumFees, selectedSendCoin?.chainName == "Ethereum" else { return nil }
+    private var parsedCustomEvmFees: Result<EvmCustomFeeConfiguration, Error>? {
+        // No chain test: the toggle is cleared when the selection leaves the
+        // EVM family, and only the EVM preview and submit paths read this. The
+        // test that was here named the chain "Ethereum", so fees typed on the
+        // other 22 EVM chains were parsed, shown as applied, and dropped.
+        guard useCustomEvmFees else { return nil }
         return Result {
             try parseEvmCustomFees(
-                maxFeeGweiRaw: customEthereumMaxFeeGwei,
-                priorityFeeGweiRaw: customEthereumPriorityFeeGwei)
+                maxFeeGweiRaw: customEvmMaxFeeGwei,
+                priorityFeeGweiRaw: customEvmPriorityFeeGwei)
         }
     }
-    var customEthereumFeeValidationError: String? {
-        guard case .failure(let error)? = parsedCustomEthereumFees else { return nil }
+    var customEvmFeeValidationError: String? {
+        guard case .failure(let error)? = parsedCustomEvmFees else { return nil }
         switch error {
         case EvmCustomFeeError.InvalidMaxFee: return localizedStoreString("Enter a valid Max Fee in gwei.")
         case EvmCustomFeeError.InvalidPriorityFee: return localizedStoreString("Enter a valid Priority Fee in gwei.")
@@ -76,13 +84,13 @@ extension AppState {
         default: return error.localizedDescription
         }
     }
-    func customEthereumFeeConfiguration() -> EvmCustomFeeConfiguration? {
-        guard case .success(let fees)? = parsedCustomEthereumFees else { return nil }
+    func customEvmFeeConfiguration() -> EvmCustomFeeConfiguration? {
+        guard case .success(let fees)? = parsedCustomEvmFees else { return nil }
         return fees
     }
-    var customEthereumNonceValidationError: String? {
+    var evmNonceValidationError: String? {
         do {
-            _ = try explicitEthereumNonce()
+            _ = try explicitEvmNonce()
             return nil
         } catch EvmNonceError.Empty {
             return localizedStoreString("Enter a nonce value for manual nonce mode.")
@@ -94,82 +102,120 @@ extension AppState {
             return error.localizedDescription
         }
     }
-    func explicitEthereumNonce() throws -> Int? {
-        guard ethereumManualNonceEnabled else { return nil }
-        return Int(try parseEvmNonce(raw: ethereumManualNonce))
+    func explicitEvmNonce() throws -> Int? {
+        guard evmManualNonceEnabled else { return nil }
+        return Int(try parseEvmNonce(raw: evmManualNonce))
     }
     func selectedWalletForSend() -> ImportedWallet? { wallet(for: sendWalletID) }
-    func selectedPendingEthereumSendTransaction() -> TransactionRecord? {
-        guard let wallet = selectedWalletForSend() else { return nil }
-        return transactions.first { record in
-            record.walletID == wallet.id
-                && record.chainName == "Ethereum"
-                && record.kind == .send
-                && record.status == .pending
-                && record.transactionHash != nil
+    /// The pending send the composer can replace as it stands: core's rule,
+    /// scoped to the wallet and chain the composer is on.
+    ///
+    /// The rule — an EVM chain, a send, still pending, carrying a hash — is
+    /// `replaceable_sends`, derived where the records are. Swift asked it of
+    /// its own projection and asked it only of the chain *named* "Ethereum",
+    /// so a pending Arbitrum or Base send offered neither speed-up nor cancel.
+    /// What is left here is the lookup. The chain has to match: a replacement
+    /// is the pending send's nonce re-signed *on its own chain*, and the
+    /// composer signs for whichever chain it is showing.
+    var replaceableSendForSelectedWallet: ReplaceableSend? {
+        guard let selectedSendCoin else { return nil }
+        return replaceableSends.first {
+            $0.walletId.caseInsensitiveCompare(sendWalletID) == .orderedSame
+                && $0.chainName == selectedSendCoin.chainName
         }
     }
-    func pendingEthereumSendTransaction(with transactionID: UUID) -> TransactionRecord? {
-        transactions.first { record in
-            record.id == transactionID
-                && record.chainName == "Ethereum"
-                && record.kind == .send
-                && record.status == .pending
-                && record.transactionHash != nil
+    func replaceableSend(forTransaction transactionID: UUID) -> ReplaceableSend? {
+        replaceableSends.first {
+            $0.transactionId.caseInsensitiveCompare(transactionID.uuidString) == .orderedSame
         }
     }
-    func prepareEthereumReplacementContext(cancel: Bool) async {
-        guard let pendingTransaction = selectedPendingEthereumSendTransaction() else {
-            sendError = localizedStoreString("No pending Ethereum transaction found for this wallet.")
+    /// The gas asset a replacement on this pending send's chain is paid and —
+    /// when it is a cancel — sent in.
+    private func replacementHolding(for pending: ReplaceableSend) -> Coin? {
+        availableSendCoins(for: sendWalletID).first {
+            $0.chainName == pending.chainName && $0.isNativeCoin
+        }
+    }
+    func prepareReplacementContext(cancel: Bool) async {
+        guard let pending = replaceableSendForSelectedWallet else {
+            sendError = localizedStoreString("No pending transaction found for this wallet.")
             return
         }
-        await prepareEthereumReplacementContext(pendingTransaction: pendingTransaction, cancel: cancel)
+        await prepareReplacementContext(pending: pending, cancel: cancel)
     }
-    func openEthereumReplacementComposer(for transactionID: UUID, cancel: Bool) async -> String? {
-        guard let pendingTransaction = pendingEthereumSendTransaction(with: transactionID) else {
-            let message = localizedStoreString("This Ethereum transaction is no longer pending, so replacement/cancel is unavailable.")
+    func openReplacementComposer(for transactionID: UUID, cancel: Bool) async -> String? {
+        guard let pending = replaceableSend(forTransaction: transactionID) else {
+            let message = localizedStoreString(
+                "This transaction is no longer pending, so replacement and cancel are unavailable.")
             sendError = message
             return message
         }
-        guard let walletID = pendingTransaction.walletID, wallets.contains(where: { $0.id == walletID }) else {
+        guard let wallet = wallets.first(where: { $0.id.caseInsensitiveCompare(pending.walletId) == .orderedSame })
+        else {
             let message = localizedStoreString("The wallet for this pending transaction is not available.")
             sendError = message
             return message
         }
-        sendWalletID = walletID
-        if let ethereumHolding = availableSendCoins(for: sendWalletID).first(where: { $0.chainName == "Ethereum" && $0.symbol == "ETH" })
-            ?? availableSendCoins(for: sendWalletID).first(where: { $0.chainName == "Ethereum" })
-        {
-            sendHoldingKey = ethereumHolding.holdingKey
+        sendWalletID = wallet.id
+        // The composer is moved to the chain the pending send is on, not to
+        // Ethereum, and to that chain's gas asset — the one a replacement is
+        // signed in.
+        guard let holding = replacementHolding(for: pending) else {
+            let message = AppLocalization.format(
+                "This wallet has no %@ holding on %@ to replace that transaction with.",
+                Chain(id: pending.chainId)?.gasTokenSymbol ?? "", pending.chainName)
+            sendError = message
+            return message
         }
+        sendHoldingKey = holding.holdingKey
         syncSendAssetSelection()
         selectedMainTab = .home
         await Task.yield()
         isShowingSendSheet = true
-        await prepareEthereumReplacementContext(pendingTransaction: pendingTransaction, cancel: cancel)
+        await prepareReplacementContext(pending: pending, cancel: cancel)
         return sendError
     }
-    func prepareEthereumReplacementContext(pendingTransaction: TransactionRecord, cancel: Bool) async {
-        guard let txHash = pendingTransaction.transactionHash else {
-            sendError = localizedStoreString("No pending Ethereum transaction found for this wallet.")
+    func prepareReplacementContext(pending: ReplaceableSend, cancel: Bool) async {
+        // A speed-up re-signs the same transfer, and only a native one can be
+        // rebuilt from a record — the token's contract is not in it. This used
+        // to compose a *native* transfer of the token's amount to the token's
+        // recipient, so speeding up a 100 USDC send offered to send 100 ETH.
+        // Cancelling needs none of that and stays available.
+        guard cancel || pending.canSpeedUp else {
+            sendError = AppLocalization.format(
+                "Speed Up is unavailable for a pending %@ transfer. Cancel it to free the nonce, then send again.",
+                pending.symbol)
             return
         }
-        isPreparingEthereumReplacementContext = true; defer { isPreparingEthereumReplacementContext = false }
+        guard let wallet = wallets.first(where: { $0.id.caseInsensitiveCompare(pending.walletId) == .orderedSame }),
+            let ownAddress = wallet.address(forChainNamed: pending.chainName)
+        else {
+            sendError = localizedStoreString("Select a wallet first."); return
+        }
+        isPreparingReplacementContext = true; defer { isPreparingReplacementContext = false }
         do {
-            let nonce = try await WalletServiceBridge.shared.fetchEVMTxNonce(chainId: Chain.ethereum.id, txHash: txHash)
-            guard let walletID = pendingTransaction.walletID, let wallet = wallets.first(where: { $0.id == walletID }) else {
-                sendError = localizedStoreString("Select a wallet first."); return
-            }
-            sendAddress = cancel ? (wallet.ethereumAddress ?? "") : pendingTransaction.address
-            sendAmount = cancel ? "0" : String(format: "%.8f", pendingTransaction.amount)
-            ethereumManualNonceEnabled = true; ethereumManualNonce = String(nonce); useCustomEthereumFees = true
+            let nonce = try await WalletServiceBridge.shared.fetchEVMTxNonce(
+                chainId: pending.chainId, txHash: pending.transactionHash)
+            sendAddress = cancel ? ownAddress : pending.toAddress
+            sendAmount = cancel ? "0" : String(format: "%.8f", pending.amount)
+            evmManualNonceEnabled = true; evmManualNonce = String(nonce)
+            // The fee to beat is the one this chain is charging now. The pair
+            // of constants below was written for Ethereum and is under the
+            // base fee on some chains and far over it on others, so the live
+            // estimate is loaded first and bumped; the constants are what is
+            // left when no estimate loads.
+            useCustomEvmFees = false
+            customEvmMaxFeeGwei = ""; customEvmPriorityFeeGwei = ""
+            await refreshEvmSendPreview()
+            let estimate = sendPreviewStore.evmSendPreview
             let bump = coreEvmReplacementFeeBump(
-                existingMaxFeeGwei: customEthereumMaxFeeGwei,
-                existingPriorityFeeGwei: customEthereumPriorityFeeGwei,
+                existingMaxFeeGwei: estimate.map { String($0.maxFeePerGasGwei) },
+                existingPriorityFeeGwei: estimate.map { String($0.maxPriorityFeePerGasGwei) },
                 defaultMaxFeeGwei: 4.0, defaultPriorityFeeGwei: 2.0
             )
-            customEthereumMaxFeeGwei = bump.maxFeeGwei
-            customEthereumPriorityFeeGwei = bump.priorityFeeGwei
+            useCustomEvmFees = true
+            customEvmMaxFeeGwei = bump.maxFeeGwei
+            customEvmPriorityFeeGwei = bump.priorityFeeGwei
             sendError = localizedStoreString(
                 cancel ? "Cancellation context loaded. Review fees and tap Send." : "Replacement context loaded. Review fees and tap Send.")
             await refreshSendPreview()
@@ -177,14 +223,14 @@ extension AppState {
             sendError = AppLocalization.format("Unable to prepare replacement context: %@", error.localizedDescription)
         }
     }
-    func prepareEthereumSpeedUpContext() async { await prepareEthereumReplacementContext(cancel: false) }
-    func prepareEthereumCancelContext() async { await prepareEthereumReplacementContext(cancel: true) }
+    func prepareSpeedUpContext() async { await prepareReplacementContext(cancel: false) }
+    func prepareCancelContext() async { await prepareReplacementContext(cancel: true) }
     func isCancelledRequest(_ error: Error) -> Bool {
         if error is CancellationError { return true }
         if let urlError = error as? URLError, urlError.code == .cancelled { return true }
         return false
     }
-    func mapEthereumSendError(_ error: Error) -> String {
+    func mapEvmSendError(_ error: Error) -> String {
         let message = error.localizedDescription
         switch coreEthereumSendErrorCode(message: message) {
         case .nonceTooLow:
@@ -427,11 +473,30 @@ extension AppState {
         }
     }
     /// Run a chain's synchronous self-test suite and record the outcome.
-    func runSelfTests(for chainName: String) {
+    /// One chain's self-tests: the offline suite core keeps for every chain in
+    /// the catalog, plus — on an EVM chain — a probe of the endpoint it is
+    /// actually pointed at.
+    ///
+    /// `runEthereumSelfTests` stood beside this: the same bookkeeping wired to
+    /// one chain, with three extra probes. Two of them are gone. The
+    /// JSON-shape check tested core's own document builder, which core tests
+    /// where it is built; the portfolio fetch was the balance refresh with a
+    /// different error message, and it named Ethereum in four more places. The
+    /// third says something the offline suite cannot — whether the node this
+    /// chain is pointed at is that chain's node — so it runs for the whole EVM
+    /// family rather than for the one chain that had a button.
+    func runSelfTests(for chainName: String) async {
         guard !selfTests(for: chainName).isRunning else { return }
         selfTests[chainName, default: .init()].isRunning = true
-        let results = ChainSelfTests.run(chainName)
-        selfTests[chainName] = .init(results: results, isRunning: false, lastRunAt: Date())
+        defer { selfTests[chainName, default: .init()].isRunning = false }
+        var results = ChainSelfTests.run(chainName)
+        if let chain = Chain(displayName: chainName), chain.isEVM,
+            let rpc = configuredEVMRPCEndpointURL(for: chainName)?.absoluteString
+                ?? AppEndpointDirectory.evmRPCEndpoints(for: chainName).first
+        {
+            results += await selfTestsRunEvmRpc(chainId: chain.id, rpcUrl: rpc, rpcLabel: rpc)
+        }
+        selfTests[chainName] = .init(results: results, isRunning: true, lastRunAt: Date())
 
         let failedCount = results.filter { !$0.passed }.count
         let abbrev = Chain(displayName: chainName)?.gasTokenSymbol ?? chainName
@@ -440,50 +505,6 @@ extension AppState {
             message: failedCount == 0
                 ? "\(abbrev) self-tests passed (\(results.count) checks)."
                 : "\(abbrev) self-tests completed with \(failedCount) failure(s).")
-    }
-    func runEthereumSelfTests() async {
-        guard !selfTests(for: "Ethereum").isRunning else { return }
-        selfTests["Ethereum", default: .init()].isRunning = true
-        defer { selfTests["Ethereum", default: .init()].isRunning = false }
-        var results = ChainSelfTests.run("Ethereum")
-        let rpcURL = configuredEVMRPCEndpointURL(for: "Ethereum")?.absoluteString ?? "https://ethereum.publicnode.com"
-        let rpcLabel = configuredEVMRPCEndpointURL(for: "Ethereum")?.absoluteString ?? "default RPC pool"
-        results.append(contentsOf: await selfTestsRunEthereumRpc(rpcUrl: rpcURL, rpcLabel: rpcLabel))
-        if let firstEthereumWallet = wallets.first(where: { $0.selectedChain == "Ethereum" }),
-            let ethereumAddress = resolvedEthereumAddress(for: firstEthereumWallet)
-        {
-            do {
-                _ = try await fetchEthereumPortfolio(for: ethereumAddress)
-                results.append(
-                    ChainSelfTestResult(
-                        name: "ETH Portfolio Probe", passed: true, chainLabel: "Ethereum",
-                        outcome: .custom(text: "Successfully fetched ETH/ERC-20 portfolio for \(firstEthereumWallet.name).")))
-            } catch {
-                results.append(
-                    ChainSelfTestResult(
-                        name: "ETH Portfolio Probe", passed: false, chainLabel: "Ethereum",
-                        outcome: .custom(text: "Portfolio probe failed for \(firstEthereumWallet.name): \(error.localizedDescription)")))
-            }
-        } else {
-            results.append(
-                ChainSelfTestResult(
-                    name: "ETH Portfolio Probe", passed: true, chainLabel: "Ethereum",
-                    outcome: .custom(text: "Skipped: no imported wallet with Ethereum enabled.")))
-        }
-        let diagnosticsOK = diagnosticsJSON(for: "Ethereum").map { coreDiagnosticsJsonShapeOk(json: $0) } ?? false
-        results.append(
-            ChainSelfTestResult(
-                name: "ETH Diagnostics JSON Shape", passed: diagnosticsOK, chainLabel: "Ethereum",
-                outcome: .custom(
-                    text: diagnosticsOK
-                        ? "Diagnostics JSON contains expected top-level keys."
-                        : "Diagnostics JSON missing expected keys (history/endpoints).")))
-        selfTests["Ethereum"] = .init(results: results, isRunning: true, lastRunAt: Date())
-        let failedCount = results.filter { !$0.passed }.count
-        appendChainOperationalEvent(
-            failedCount == 0 ? .info : .warning, chainName: "Ethereum",
-            message: failedCount == 0
-                ? "ETH diagnostics passed (\(results.count) checks)." : "ETH diagnostics completed with \(failedCount) failure(s).")
     }
     func operationalEvents(for chainName: String) async -> [ChainOperationalEvent] {
         await WalletServiceBridge.shared.operationalEvents(chainName: chainName)
@@ -882,12 +903,10 @@ extension AppState {
     }
     /// The wallet's keypool state for this chain, merged with the baseline.
     ///
-    /// Core holds the table and does the merge under its own lock — Swift only
-    /// supplies the baseline, which depends on transaction and owned-address
-    /// history it still computes.
-    func keypoolState(for wallet: ImportedWallet, chainName: String) async -> ChainKeypoolState {
+    /// Core derives the baseline and refuses incomplete history reads.
+    func keypoolState(for wallet: ImportedWallet, chainName: String) async throws -> ChainKeypoolState {
         ChainKeypoolState(
-            keypool: await WalletServiceBridge.shared.keypoolState(
+            keypool: try await WalletServiceBridge.shared.keypoolState(
                 walletID: wallet.id, chainName: chainName))
     }
     /// Reserve the next receive index, or return the one already reserved.
@@ -927,22 +946,27 @@ extension AppState {
         guard let chain = Chain(displayName: chainName), chain.supportsDeepUTXODiscovery else {
             return resolvedAddress(for: wallet, chainName: chainName)
         }
-        let address = try? await WalletServiceBridge.shared.utxoReceiveAddress(
-            walletID: wallet.id, chainId: chain.id, reserve: false)
-        return address ?? resolvedAddress(for: wallet, chainName: chainName)
+        do {
+            let address = try await WalletServiceBridge.shared.utxoReceiveAddress(
+                walletID: wallet.id, chainId: chain.id, reserve: false)
+            return address ?? resolvedAddress(for: wallet, chainName: chainName)
+        } catch { return nil }
     }
     func reservedReceiveAddress(for wallet: ImportedWallet, chainName: String, reserveIfMissing: Bool) async -> String? {
         // Core reserves, derives and records in one call. The floor of 1 —
         // deep-UTXO chains never hand out index 0 as a receive address — is
         // its rule now rather than an argument passed from here.
         if let chain = Chain(displayName: chainName), chain.supportsDeepUTXODiscovery {
-            let address = try? await WalletServiceBridge.shared.utxoReceiveAddress(
-                walletID: wallet.id, chainId: chain.id, reserve: reserveIfMissing)
-            return address ?? resolvedAddress(for: wallet, chainName: chainName)
+            do {
+                let address = try await WalletServiceBridge.shared.utxoReceiveAddress(
+                    walletID: wallet.id, chainId: chain.id, reserve: reserveIfMissing)
+                return address ?? resolvedAddress(for: wallet, chainName: chainName)
+            } catch { return nil }
         }
-        if reserveIfMissing { _ = await reserveReceiveIndex(for: wallet, chainName: chainName) }
+        if reserveIfMissing, await reserveReceiveIndex(for: wallet, chainName: chainName) == nil { return nil }
         guard let address = resolvedAddress(for: wallet, chainName: chainName) else { return nil }
-        let reservedIndex = await keypoolState(for: wallet, chainName: chainName).reservedReceiveIndex
+        guard let pool = try? await keypoolState(for: wallet, chainName: chainName) else { return nil }
+        let reservedIndex = pool.reservedReceiveIndex
         registerOwnedAddress(
             chainName: chainName, address: address, walletID: wallet.id,
             derivationPath: reservedReceiveDerivationPath(for: wallet, chainName: chainName, index: reservedIndex), index: reservedIndex,
@@ -956,7 +980,7 @@ extension AppState {
         guard let address else { return "" }
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "" }
-        let reservedIndex = await reserveReceiveIndex(for: wallet, chainName: chainName)
+        guard let reservedIndex = await reserveReceiveIndex(for: wallet, chainName: chainName) else { return "" }
         registerOwnedAddress(
             chainName: chainName, address: trimmed, walletID: wallet.id,
             derivationPath: derivationPath ?? reservedReceiveDerivationPath(for: wallet, chainName: chainName, index: reservedIndex),

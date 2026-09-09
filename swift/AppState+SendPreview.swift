@@ -49,7 +49,7 @@ extension AppState {
 
     func refreshEvmSendPreview() async {
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, isEVMChain(selectedSendCoin.chainName),
-            let fromAddress = resolvedEVMAddress(for: wallet, chainName: selectedSendCoin.chainName), let amount = Double(sendAmount),
+            let fromAddress = resolvedAddress(for: wallet, chainName: selectedSendCoin.chainName), let amount = Double(sendAmount),
             // Whether a zero amount previews is `allows_zero_amount`, which core
             // derives from `is_native_evm_asset`. Three symbols were named here
             // — the third place this rule has been written down — so a
@@ -61,8 +61,8 @@ extension AppState {
             sendPreviewStore.evmSendPreview = nil
             return
         }
-        if let customEthereumNonceValidationError = customEthereumNonceValidationError {
-            sendError = customEthereumNonceValidationError
+        if let evmNonceValidationError = evmNonceValidationError {
+            sendError = evmNonceValidationError
             sendPreviewStore.evmSendPreview = nil
             return
         }
@@ -122,8 +122,8 @@ extension AppState {
             let dataHex = assembly.dataHex
             sendPreviewStore.evmSendPreview = try await WalletServiceBridge.shared.fetchEvmSendPreviewTyped(
                 chainId: chainId, from: fromAddress, to: toAddress, valueWei: valueWei, dataHex: dataHex,
-                explicitNonce: try explicitEthereumNonce().map(Int64.init),
-                customFees: customEthereumFeeConfiguration()
+                explicitNonce: try explicitEvmNonce().map(Int64.init),
+                customFees: customEvmFeeConfiguration()
             )
             if sendPreviewStore.evmSendPreview != nil {
                 sendError = nil
@@ -155,7 +155,7 @@ extension AppState {
             return
         }
         await withSendPreviewInFlight("Dogecoin", retry: { await self.refreshDogecoinSendPreview() }) {
-        guard let address = resolvedNetworkModeAddress(for: wallet, family: "dogecoin", fallback: .dogecoin) else {
+        guard let address = resolvedAddress(for: wallet, chainName: "Dogecoin") else {
             sendPreviewStore.dogecoinSendPreview = nil
             return
         }
@@ -188,7 +188,7 @@ extension AppState {
         let xpub = wallet?.bitcoinXpub?.trimmingCharacters(in: .whitespacesAndNewlines)
         await refreshUTXOChainPreview(
             chainName: "Bitcoin", chainId: Chain.bitcoin.id,
-            resolveAddress: { self.resolvedNetworkModeAddress(for: $0, family: "bitcoin", fallback: .bitcoin) },
+            resolveAddress: { self.resolvedAddress(for: $0, chainName: "Bitcoin") },
             fetch: { chainId, address in
                 if let xpub, !xpub.isEmpty {
                     return try await WalletServiceBridge.shared.fetchBitcoinHdSendPreviewTyped(xpub: xpub)
@@ -291,7 +291,7 @@ extension AppState {
             sendPreviewStore.clearPreview(forChainNamed: "Tron")
             return
         }
-        guard let sourceAddress = resolvedTronAddress(for: wallet) else {
+        guard let sourceAddress = resolvedAddress(for: wallet, chainName: "Tron") else {
             sendPreviewStore.clearPreview(forChainNamed: "Tron")
             return
         }

@@ -283,15 +283,15 @@ struct SendView: View {
         case .amount:
             return (Double(store.sendAmount) ?? 0) > 0
         case .network:
-            return store.customEthereumFeeValidationError == nil && store.customEthereumNonceValidationError == nil
+            return store.customEvmFeeValidationError == nil && store.evmNonceValidationError == nil
         case .confirm:
             return !isSendBusy
                 && store.selectedWalletForSend() != nil
                 && selectedCoin != nil
                 && !store.sendAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 && (Double(store.sendAmount) ?? 0) > 0
-                && store.customEthereumFeeValidationError == nil
-                && store.customEthereumNonceValidationError == nil
+                && store.customEvmFeeValidationError == nil
+                && store.evmNonceValidationError == nil
         case .result:
             return true
         }
@@ -315,11 +315,11 @@ struct SendView: View {
             store.sendHoldingKey,
             store.sendAddress,
             store.sendAmount,
-            store.useCustomEthereumFees.description,
-            store.customEthereumMaxFeeGwei,
-            store.customEthereumPriorityFeeGwei,
-            store.ethereumManualNonceEnabled.description,
-            store.ethereumManualNonce,
+            store.useCustomEvmFees.description,
+            store.customEvmMaxFeeGwei,
+            store.customEvmPriorityFeeGwei,
+            store.evmManualNonceEnabled.description,
+            store.evmManualNonce,
         ].joined(separator: "|")
     }
 
@@ -690,46 +690,48 @@ struct SendView: View {
     private func evmNetworkContent(selectedCoin: Coin) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             networkSectionHeader(AppLocalization.format("%@ Network", selectedCoin.chainName))
-            Toggle(AppLocalization.string("Use Custom Fees"), isOn: $store.useCustomEthereumFees)
-            if store.useCustomEthereumFees {
-                TextField(AppLocalization.string("Max Fee (gwei)"), text: $store.customEthereumMaxFeeGwei)
+            Toggle(AppLocalization.string("Use Custom Fees"), isOn: $store.useCustomEvmFees)
+            if store.useCustomEvmFees {
+                TextField(AppLocalization.string("Max Fee (gwei)"), text: $store.customEvmMaxFeeGwei)
                     .keyboardType(.decimalPad).padding(.horizontal, 12).padding(.vertical, 10)
                     .spectraInputFieldStyle(cornerRadius: 14)
-                TextField(AppLocalization.string("Priority Fee (gwei)"), text: $store.customEthereumPriorityFeeGwei)
+                TextField(AppLocalization.string("Priority Fee (gwei)"), text: $store.customEvmPriorityFeeGwei)
                     .keyboardType(.decimalPad).padding(.horizontal, 12).padding(.vertical, 10)
                     .spectraInputFieldStyle(cornerRadius: 14)
-                if let customEthereumFeeValidationError = store.customEthereumFeeValidationError {
-                    Text(customEthereumFeeValidationError).font(.caption).foregroundStyle(.red)
+                if let customEvmFeeValidationError = store.customEvmFeeValidationError {
+                    Text(customEvmFeeValidationError).font(.caption).foregroundStyle(.red)
                 } else {
                     Text(AppLocalization.string("Custom EIP-1559 fees are applied to this send and preview."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            Toggle(AppLocalization.string("Manual Nonce"), isOn: $store.ethereumManualNonceEnabled)
-            if store.ethereumManualNonceEnabled {
-                TextField(AppLocalization.string("Nonce"), text: $store.ethereumManualNonce)
+            Toggle(AppLocalization.string("Manual Nonce"), isOn: $store.evmManualNonceEnabled)
+            if store.evmManualNonceEnabled {
+                TextField(AppLocalization.string("Nonce"), text: $store.evmManualNonce)
                     .keyboardType(.numberPad).padding(.horizontal, 12).padding(.vertical, 10)
                     .spectraInputFieldStyle(cornerRadius: 14)
-                if let customEthereumNonceValidationError = store.customEthereumNonceValidationError {
-                    Text(customEthereumNonceValidationError).font(.caption).foregroundStyle(.red)
+                if let evmNonceValidationError = store.evmNonceValidationError {
+                    Text(evmNonceValidationError).font(.caption).foregroundStyle(.red)
                 }
             }
-            if selectedCoin.chain == .ethereum {
-                if store.isPreparingEthereumReplacementContext {
-                    SpectraLoadingRow(title: "Preparing replacement/cancel context...")
-                } else if store.hasPendingEthereumSendForSelectedWallet {
+            // Replacement is offered wherever core says a pending send can
+            // still be replaced — every EVM chain, not the one named Ethereum.
+            if store.isPreparingReplacementContext {
+                SpectraLoadingRow(title: "Preparing replacement/cancel context...")
+            } else if let pending = store.replaceableSendForSelectedWallet {
+                if pending.canSpeedUp {
                     Button(AppLocalization.string("Speed Up Pending Transaction")) {
                         spectraHaptic(.medium)
-                        Task { await store.prepareEthereumSpeedUpContext() }
-                    }
-                    Button(AppLocalization.string("Cancel Pending Transaction")) {
-                        spectraHaptic(.medium)
-                        Task { await store.prepareEthereumCancelContext() }
+                        Task { await store.prepareSpeedUpContext() }
                     }
                 }
-                if let ethereumReplacementNonceStateMessage = store.ethereumReplacementNonceStateMessage {
-                    Text(ethereumReplacementNonceStateMessage).font(.caption).foregroundStyle(.secondary)
+                Button(AppLocalization.string("Cancel Pending Transaction")) {
+                    spectraHaptic(.medium)
+                    Task { await store.prepareCancelContext() }
                 }
+            }
+            if let replacementNonceStateMessage = store.replacementNonceStateMessage {
+                Text(replacementNonceStateMessage).font(.caption).foregroundStyle(.secondary)
             }
             if store.preparingChains.contains("Ethereum") {
                 SpectraLoadingRow(title: "Loading nonce and fee estimate...")

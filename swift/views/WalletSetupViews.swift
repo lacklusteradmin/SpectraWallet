@@ -821,17 +821,6 @@ struct SetupView: View {
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
     }
-    @ViewBuilder
-    private var primaryActionButton: some View {
-        if !isShowingAdvancedPage {
-            Button(action: performPrimaryAction) {
-                HStack {
-                    Text(primaryActionTitle).font(.headline)
-                    Spacer()
-                }.foregroundStyle(Color.primary).padding().frame(maxWidth: .infinity)
-            }.buttonStyle(.glassProminent).disabled(!isPrimaryActionEnabled).opacity(isPrimaryActionEnabled ? 1.0 : 0.55)
-        }
-    }
     private func performPrimaryAction() {
         // Special transition: entering backup verification needs a side
         // effect (challenge prep). Handle it before generic flow advance.
@@ -988,11 +977,6 @@ struct SetupView: View {
                 Label(AppLocalization.string("Copy"), systemImage: "doc.on.doc").font(.caption.weight(.semibold))
             }.buttonStyle(.glass).tint(.orange).disabled(draft.seedPhraseWords.isEmpty)
         }
-    }
-    @ViewBuilder
-    private var privateKeyImportSection: some View {
-        importSecretModePicker
-        privateKeyImportFields
     }
     @ViewBuilder
     private var privateKeyImportFields: some View {

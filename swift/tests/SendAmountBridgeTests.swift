@@ -37,4 +37,35 @@ final class SendAmountBridgeTests: XCTestCase {
         }
     }
 
+    func testInvalidKeypoolBaselineThrowsAcrossAsyncBinding() async throws {
+        let service = try WalletService.newTyped(endpoints: [])
+        // Inject an out-of-range in-memory record to exercise the throwing read.
+        try await service.registerOwnedAddress(
+            walletId: "fault", chainName: "Bitcoin", address: "fixture",
+            derivationPath: nil, branch: "external", branchIndex: Int64.max)
+        do {
+            _ = try await service.keypoolState(walletId: "fault", chainName: "Bitcoin")
+            XCTFail("An invalid baseline must not become index zero")
+        } catch SpectraBridgeError.Failure(let message) {
+            XCTAssertTrue(message.contains("index out of range"))
+        }
+        do {
+            _ = try await service.reserveReceiveIndex(walletId: "fault", chainName: "Bitcoin", minimumIndex: 1)
+            XCTFail("Cannot reserve from an invalid baseline")
+        } catch SpectraBridgeError.Failure(let message) {
+            XCTAssertTrue(message.contains("index out of range"))
+        }
+    }
+
+    func testUnavailableEvmPreviewDoesNotReturnDefaults() async throws {
+        let service = try WalletService.newTyped(endpoints: [])
+        do {
+            _ = try await service.fetchEvmSendPreviewTyped(
+                chainId: "ethereum", from: "from", to: "to", valueWei: "1", dataHex: "0x", explicitNonce: nil, customFees: nil)
+            XCTFail("Unavailable RPCs must not produce a default preview")
+        } catch SpectraBridgeError.Failure(let message) {
+            XCTAssertTrue(message.contains("no endpoints configured"))
+        }
+    }
+
 }

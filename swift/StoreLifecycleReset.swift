@@ -4,10 +4,6 @@ extension AppState {
     func restorePersistedRuntimeConfigurationAndState() {
         // The eighteen settings core owns are not seeded here. They arrive with
         // `open_state`, through `applyCoreState`.
-        if let storedFiatRates = UserDefaults.standard.dictionary(forKey: Self.fiatRatesFromUSDDefaultsKey) as? [String: Double] {
-            fiatRatesFromUSD = storedFiatRates
-        }
-        fiatRatesFromUSD[FiatCurrency.usd.rawValue] = 1.0
         suppressWalletSideEffects = true
         // Price alerts + address book are loaded async via
         // `reloadPersistedStateFromSQLite()` from the typed Rust SQLite store.
@@ -34,21 +30,7 @@ extension AppState {
         }
         startNetworkPathMonitorIfNeeded()
         resetLargeMovementAlertBaseline()
-        // Restore Tor preferences. Booleans default to false in UserDefaults, so
-        // we only overwrite if a key was explicitly stored. `torEnabled` defaults
-        // to true on first install — the guard prevents silently forcing it off.
-        if UserDefaults.standard.object(forKey: Self.torEnabledDefaultsKey) != nil {
-            torEnabled = UserDefaults.standard.bool(forKey: Self.torEnabledDefaultsKey)
-        }
-        if UserDefaults.standard.object(forKey: Self.torUseCustomProxyDefaultsKey) != nil {
-            torUseCustomProxy = UserDefaults.standard.bool(forKey: Self.torUseCustomProxyDefaultsKey)
-        }
-        if let addr = UserDefaults.standard.string(forKey: Self.torCustomProxyAddressDefaultsKey), !addr.isEmpty {
-            torCustomProxyAddress = addr
-        }
-        if UserDefaults.standard.object(forKey: Self.torKillSwitchDefaultsKey) != nil {
-            torKillSwitch = UserDefaults.standard.bool(forKey: Self.torKillSwitchDefaultsKey)
-        }
+        // Tor preferences arrive with core settings through adoptAppSettings.
         startTorIfEnabled()
     }
     func clearPersistedSecureDataOnFreshInstallIfNeeded() {
@@ -105,17 +87,17 @@ extension AppState {
         isShowingHighRiskSendConfirmation = false
         isCheckingSendDestinationBalance = false
         clearSendVerificationNotice()
-        useCustomEthereumFees = false
-        customEthereumMaxFeeGwei = ""
-        customEthereumPriorityFeeGwei = ""
+        useCustomEvmFees = false
+        customEvmMaxFeeGwei = ""
+        customEvmPriorityFeeGwei = ""
         sendAdvancedMode = false
         sendUTXOMaxInputCount = 0
         sendEnableRBF = true
         sendEnableCPFP = false
         sendLitecoinChangeStrategy = .derivedChange
-        ethereumManualNonceEnabled = false
-        ethereumManualNonce = ""
-        isPreparingEthereumReplacementContext = false
+        evmManualNonceEnabled = false
+        evmManualNonce = ""
+        isPreparingReplacementContext = false
         lastSentTransaction = nil
         sendPreviewStore.resetAll()
         sendingChains = []
@@ -190,13 +172,8 @@ extension AppState {
     private func resetSettingsAndEndpointsState() async {
         // The settings core owns are reset by assigning the properties below,
         // which commit. What is removed here is the UserDefaults that still
-        // has a writer: prices, rates and the four Tor keys.
-        UserDefaults.standard.removeObject(forKey: Self.fiatRatesFromUSDDefaultsKey)
+        // has a writer: live prices.
         UserDefaults.standard.removeObject(forKey: Self.livePricesDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.torEnabledDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.torUseCustomProxyDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.torCustomProxyAddressDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.torKillSwitchDefaultsKey)
         tokenPreferences = TokenPreferenceEntry.builtIn
         livePrices = [:]
         quoteRefreshError = nil

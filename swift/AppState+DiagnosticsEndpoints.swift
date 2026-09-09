@@ -23,13 +23,6 @@ extension AppState {
         guard !btcWallets.isEmpty else { self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date(); return }
         for wallet in btcWallets { await runBitcoinXpubHistoryDiagnosticsInner(for: wallet) }
     }
-    func runBitcoinXpubHistoryDiagnostics(for walletID: String) async {
-        guard !self[historyRunFor: "Bitcoin"].isRunning else { return }
-        guard let wallet = wallets.first(where: { $0.id == walletID }), wallet.selectedChain == "Bitcoin" else { return }
-        self[historyRunFor: "Bitcoin"].isRunning = true
-        defer { self[historyRunFor: "Bitcoin"].isRunning = false }
-        await runBitcoinXpubHistoryDiagnosticsInner(for: wallet)
-    }
     private func runBitcoinXpubHistoryDiagnosticsInner(for wallet: ImportedWallet) async {
         let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? wallet.name
         do {
@@ -64,140 +57,46 @@ extension AppState {
 
     // MARK: Chain-agnostic diagnostics dispatch
 
-    /// The three diagnostics runs for one chain.
+    /// Run one chain's history diagnostics.
     ///
-    /// Each closure is handed the `Chain` the row is keyed by, so a row never
-    /// spells its own key a second time.
-    struct ChainDiagnosticsDescriptor {
-        let runHistory: (AppState, Chain) async -> Void
-        let runHistoryForWallet: ((AppState, Chain, String) async -> Void)?
-        let runEndpoints: (AppState, Chain) async -> Void
-        init(
-            runHistory: @escaping (AppState, Chain) async -> Void,
-            runHistoryForWallet: ((AppState, Chain, String) async -> Void)? = nil,
-            runEndpoints: @escaping (AppState, Chain) async -> Void
-        ) {
-            self.runHistory = runHistory; self.runHistoryForWallet = runHistoryForWallet; self.runEndpoints = runEndpoints
-        }
-    }
-    static let chainDiagDescriptors: [Chain: ChainDiagnosticsDescriptor] = [
-        .bitcoin: .init(
-            runHistory: { store, _ in await store.runBitcoinXpubHistoryDiagnostics() },
-            runHistoryForWallet: { store, _, id in await store.runBitcoinXpubHistoryDiagnostics(for: id) },
-            runEndpoints: { store, _ in await store.runBitcoinEndpointReachabilityDiagnostics() }
-        ),
-        .dogecoin: .init(
-            runHistory: { store, chain in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainName: chain.displayName,
-                resolveAddress: { store.resolvedNetworkModeAddress(for: $0, family: "dogecoin", fallback: .dogecoin) }) },
-            runEndpoints: { store, chain in await store.runCatalogEndpointReachabilityDiagnostics(for: chain.displayName) }
-        ),
-        .tron: .init(
-            runHistory: { store, chain in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainName: chain.displayName,
-                resolveAddress: { store.resolvedTronAddress(for: $0) }) },
-            runHistoryForWallet: { store, chain, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainName: chain.displayName,
-                resolveAddress: { store.resolvedTronAddress(for: $0) }) },
-            runEndpoints: { store, chain in await store.runCatalogEndpointReachabilityDiagnostics(for: chain.displayName) }
-        ),
-        .solana: .init(
-            runHistory: { store, chain in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainName: chain.displayName,
-                resolveAddress: { store.resolvedSolanaAddress(for: $0) }) },
-            runHistoryForWallet: { store, chain, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainName: chain.displayName,
-                resolveAddress: { store.resolvedSolanaAddress(for: $0) }) },
-            runEndpoints: { store, chain in await store.runCatalogEndpointReachabilityDiagnostics(for: chain.displayName) }
-        ),
-        .monero: .init(
-            runHistory: { store, chain in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainName: chain.displayName,
-                resolveAddress: { store.resolvedMoneroAddress(for: $0) }) },
-            runHistoryForWallet: { store, chain, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainName: chain.displayName,
-                resolveAddress: { store.resolvedMoneroAddress(for: $0) }) },
-            runEndpoints: { store, _ in await store.runMoneroEndpointReachabilityDiagnostics() }
-        ),
-        .near: .init(
-            runHistory: { store, chain in await store.runRustHistoryDiagnosticsForAllWallets(
-                chainName: chain.displayName,
-                resolveAddress: { store.resolvedNearAddress(for: $0) }) },
-            runHistoryForWallet: { store, chain, id in await store.runRustHistoryDiagnosticsForWallet(
-                walletID: id, chainName: chain.displayName,
-                resolveAddress: { store.resolvedNearAddress(for: $0) }) },
-            runEndpoints: { store, _ in await store.runNearEndpointReachabilityDiagnostics() }
-        ),
-        .ethereum: .init(
-            runHistory: { store, chain in await store.runEVMHistoryDiagnosticsForAllWallets(
-                chainName: chain.displayName,
-                resolveAddress: { store.resolvedEthereumAddress(for: $0) }) },
-            runHistoryForWallet: { store, chain, id in await store.runEVMHistoryDiagnosticsForWallet(
-                walletID: id, chainName: chain.displayName,
-                resolveAddress: { store.resolvedEthereumAddress(for: $0) }) },
-            runEndpoints: { store, _ in await store.runEthereumEndpointReachabilityDiagnostics() }
-        ),
-        .bnbChain: .init(
-            runHistory: { store, chain in await store.runEVMHistoryDiagnosticsForAllWallets(
-                chainName: chain.displayName,
-                resolveAddress: { store.resolvedEVMAddress(for: $0, chainName: chain.displayName) }) },
-            runHistoryForWallet: { store, chain, id in await store.runEVMHistoryDiagnosticsForWallet(
-                walletID: id, chainName: chain.displayName,
-                resolveAddress: { store.resolvedEVMAddress(for: $0, chainName: chain.displayName) }) },
-            runEndpoints: { store, _ in await store.runBNBEndpointReachabilityDiagnostics() }
-        ),
-    ]
-    /// The EVM family's diagnostics, for chains without a descriptor of their
-    /// own. Five rows said this, byte-identical but for the chain name;
-    /// Ethereum and BNB Chain keep theirs because their endpoint probes parse
-    /// JSON-RPC inline rather than just reaching the host.
-    private func runEVMChainDiagnostics(chainName: String, walletID: String? = nil) async {
-        let resolve: (ImportedWallet) -> String? = { [self] in resolvedEVMAddress(for: $0, chainName: chainName) }
-        if let walletID {
-            await runEVMHistoryDiagnosticsForWallet(
-                walletID: walletID, chainName: chainName, resolveAddress: resolve)
-        } else {
-            await runEVMHistoryDiagnosticsForAllWallets(chainName: chainName, resolveAddress: resolve)
-        }
-    }
-    /// Every chain without a descriptor of its own except the EVM family:
-    /// fetch each wallet's history count for its address. UTXO chains and
-    /// account chains ran this separately, through two functions and two
-    /// runners that differed only in the record type they built.
-    private func runChainHistoryDiagnostics(chainName: String, walletID: String? = nil) async {
-        let resolve: (ImportedWallet) -> String? = { [self] in resolvedAddress(for: $0, chainName: chainName) }
-        if let walletID {
-            await runRustHistoryDiagnosticsForWallet(
-                walletID: walletID, chainName: chainName, resolveAddress: resolve)
-        } else {
-            await runRustHistoryDiagnosticsForAllWallets(chainName: chainName, resolveAddress: resolve)
-        }
-    }
-
+    /// A table of eight rows stood here, keyed by `Chain`, each naming its own
+    /// history driver and its own address resolver. Six had become the generic
+    /// path written out: `resolvedAddress(for:chainName:)` resolves every
+    /// chain — the EVM family included, which shares one address — so the
+    /// resolver column was one expression spelled eight ways, and which fetch
+    /// to make is `chain.isEVM`. Bitcoin is the row that still differs: its
+    /// diagnostics read an xpub's history page rather than one address's
+    /// summary.
     func runHistoryDiagnostics(for chain: Chain) async {
-        guard let descriptor = Self.chainDiagDescriptors[chain] else {
-            if chain.isEVM {
-                return await runEVMChainDiagnostics(chainName: chain.displayName)
-            }
-            return await runChainHistoryDiagnostics(chainName: chain.displayName)
-        }
-        await descriptor.runHistory(self, chain)
+        guard chain != .bitcoin else { return await runBitcoinXpubHistoryDiagnostics() }
+        let chainName = chain.displayName
+        // An EVM row shows "running" while its indexer call is in flight; the
+        // other chains make one summary request and record its result.
+        let placeholder: ((String, String) -> HistoryDiagnostics)? =
+            chain.isEVM ? { diagnosticsMakeEvmRunning(walletId: $0, address: $1) } : nil
+        await runAddressHistoryDiagnosticsForAllWallets(
+            chainName: chainName,
+            resolveAddress: { [self] in resolvedAddress(for: $0, chainName: chainName) },
+            placeholder: placeholder,
+            fetchDiagnostics: { [self] walletID, address in
+                if chain.isEVM {
+                    return await rustEVMHistoryDiagnostics(
+                        chainName: chainName, walletID: walletID, address: address)
+                }
+                return await rustHistoryFetch(chainId: chain.id, walletID: walletID, address: address)
+            })
     }
-    func runHistoryDiagnostics(for chain: Chain, walletID: String) async {
-        guard let descriptor = Self.chainDiagDescriptors[chain] else {
-            if chain.isEVM {
-                return await runEVMChainDiagnostics(chainName: chain.displayName, walletID: walletID)
-            }
-            return await runChainHistoryDiagnostics(
-                chainName: chain.displayName, walletID: walletID)
-        }
-        await descriptor.runHistoryForWallet?(self, chain, walletID)
-    }
+    /// Bitcoin probes its Esplora endpoints and Monero its configured backend;
+    /// every other chain's endpoints are the ones the catalog lists, probed the
+    /// way the catalog says. Six of the eight rows that used to say this named
+    /// the catalog run, two of them through a wrapper that passed the chain's
+    /// own name back to it.
     func runEndpointDiagnostics(for chain: Chain) async {
-        guard let descriptor = Self.chainDiagDescriptors[chain] else {
-            return await runCatalogEndpointReachabilityDiagnostics(for: chain.displayName)
+        switch chain {
+        case .bitcoin: await runBitcoinEndpointReachabilityDiagnostics()
+        case .monero: await runMoneroEndpointReachabilityDiagnostics()
+        default: await runCatalogEndpointReachabilityDiagnostics(for: chain.displayName)
         }
-        await descriptor.runEndpoints(self, chain)
     }
 
     // MARK: Generic history-diagnostic drivers
@@ -207,6 +106,7 @@ extension AppState {
     /// argument the same call already carries is the argument passed twice.
     private func runAddressHistoryDiagnosticsForAllWallets(
         chainName: String, resolveAddress: (ImportedWallet) -> String?,
+        placeholder: ((String, String) -> HistoryDiagnostics)? = nil,
         fetchDiagnostics: (String, String) async -> HistoryDiagnostics
     ) async {
         let markUpdated = { self[historyRunFor: chainName].lastUpdatedAt = Date() }
@@ -219,23 +119,13 @@ extension AppState {
         }
         guard !walletsToRefresh.isEmpty else { markUpdated(); return }
         for (wallet, address) in walletsToRefresh {
+            if let placeholder {
+                recordHistoryDiagnostics(chainName: chainName, placeholder(wallet.id, address))
+                markUpdated()
+            }
             recordHistoryDiagnostics(chainName: chainName, await fetchDiagnostics(wallet.id, address))
         }
         markUpdated()
-    }
-    private func runAddressHistoryDiagnosticsForWallet(
-        walletID: String, chainName: String,
-        resolveAddress: (ImportedWallet) -> String?,
-        fetchDiagnostics: (String, String) async -> HistoryDiagnostics
-    ) async {
-        guard !self[historyRunFor: chainName].isRunning else { return }
-        guard let wallet = wallets.first(where: { $0.id == walletID }), wallet.selectedChain == chainName,
-            let address = resolveAddress(wallet)
-        else { return }
-        self[historyRunFor: chainName].isRunning = true
-        defer { self[historyRunFor: chainName].isRunning = false }
-        recordHistoryDiagnostics(chainName: chainName, await fetchDiagnostics(wallet.id, address))
-        self[historyRunFor: chainName].lastUpdatedAt = Date()
     }
 
     // MARK: Custom reachability probes that need inline JSON-RPC parsing
@@ -286,12 +176,6 @@ extension AppState {
                     label: "", endpoint: baseURL.absoluteString, reachable: probe.reachable, statusCode: probe.statusCode, detail: probe.detail)
             ])
         }
-    }
-    func runNearEndpointReachabilityDiagnostics() async {
-        await runCatalogEndpointReachabilityDiagnostics(for: "NEAR")
-    }
-    func runPolkadotEndpointReachabilityDiagnostics() async {
-        await runCatalogEndpointReachabilityDiagnostics(for: "Polkadot")
     }
 
     /// Probe every endpoint the catalog lists for a chain, each the way the
@@ -356,47 +240,6 @@ extension AppState {
 
     // MARK: EVM history diagnostics
 
-    private func runEVMHistoryDiagnosticsForAllWallets(
-        chainName: String, resolveAddress: (ImportedWallet) -> String?
-    ) async {
-        guard !self[historyRunFor: chainName].isRunning else { return }
-        self[historyRunFor: chainName].isRunning = true
-        defer { self[historyRunFor: chainName].isRunning = false }
-        let walletsToRefresh = wallets.compactMap { w -> (ImportedWallet, String)? in
-            guard w.selectedChain == chainName, let a = resolveAddress(w) else { return nil }; return (w, a)
-        }
-        guard !walletsToRefresh.isEmpty else { self[historyRunFor: chainName].lastUpdatedAt = Date(); return }
-        for (wallet, address) in walletsToRefresh {
-            recordHistoryDiagnostics(
-                chainName: chainName,
-                diagnosticsMakeEvmRunning(walletId: wallet.id, address: address))
-            self[historyRunFor: chainName].lastUpdatedAt = Date()
-            recordHistoryDiagnostics(
-                chainName: chainName,
-                await rustEVMHistoryDiagnostics(
-                    chainName: chainName, walletID: wallet.id, address: address))
-        }
-        self[historyRunFor: chainName].lastUpdatedAt = Date()
-    }
-    private func runEVMHistoryDiagnosticsForWallet(
-        walletID: String, chainName: String, resolveAddress: (ImportedWallet) -> String?
-    ) async {
-        guard !self[historyRunFor: chainName].isRunning else { return }
-        guard let wallet = wallets.first(where: { $0.id == walletID }), wallet.selectedChain == chainName,
-            let address = resolveAddress(wallet)
-        else { return }
-        self[historyRunFor: chainName].isRunning = true
-        defer { self[historyRunFor: chainName].isRunning = false }
-        recordHistoryDiagnostics(
-            chainName: chainName,
-            diagnosticsMakeEvmRunning(walletId: wallet.id, address: address))
-        self[historyRunFor: chainName].lastUpdatedAt = Date()
-        recordHistoryDiagnostics(
-            chainName: chainName,
-            await rustEVMHistoryDiagnostics(
-                chainName: chainName, walletID: wallet.id, address: address))
-        self[historyRunFor: chainName].lastUpdatedAt = Date()
-    }
     /// Bridge to Rust: fused history-fetch-then-build call. Rust owns both
     /// the HTTP fetch and the diagnostics record construction so Swift never
     /// sees the intermediate JSON. Unsupported chain → error record built
@@ -410,14 +253,6 @@ extension AppState {
             ?? diagnosticsMakeEvmRunning(walletId: walletID, address: address)
     }
 
-    // MARK: EVM endpoint reachability
-
-    func runEthereumEndpointReachabilityDiagnostics() async {
-        await runCatalogEndpointReachabilityDiagnostics(for: "Ethereum")
-    }
-    func runBNBEndpointReachabilityDiagnostics() async {
-        await runCatalogEndpointReachabilityDiagnostics(for: "BNB Chain")
-    }
     /// `setResults` and `markUpdated` were two closures called one after the
     /// other, at the one call site each caller had — a pair, so the pair is one
     /// argument, and it is the same `publish` `withEndpointCheck` hands out.
@@ -562,29 +397,8 @@ extension AppState {
         }
     }
 
-    // MARK: Rust-history-fetch bridges (generic)
+    // MARK: Rust-history-fetch bridge
 
-    /// The chain id and the two key paths used to be parameters, and all three
-    /// were functions of `chainName`: `Chain(displayName:)?.id`,
-    /// `\.[historyRunFor: chainName].isRunning` and `.lastUpdatedAt`. Passing
-    /// them alongside the name they are built from is the name passed four
-    /// times, and every descriptor row paid it twice.
-    private func runRustHistoryDiagnosticsForAllWallets(
-        chainName: String, resolveAddress: @escaping (ImportedWallet) -> String?
-    ) async {
-        guard let chainId = Chain(displayName: chainName)?.id else { return }
-        await runAddressHistoryDiagnosticsForAllWallets(
-            chainName: chainName, resolveAddress: resolveAddress,
-            fetchDiagnostics: { await self.rustHistoryFetch(chainId: chainId, walletID: $0, address: $1) })
-    }
-    private func runRustHistoryDiagnosticsForWallet(
-        walletID: String, chainName: String, resolveAddress: @escaping (ImportedWallet) -> String?
-    ) async {
-        guard let chainId = Chain(displayName: chainName)?.id else { return }
-        await runAddressHistoryDiagnosticsForWallet(
-            walletID: walletID, chainName: chainName, resolveAddress: resolveAddress,
-            fetchDiagnostics: { await self.rustHistoryFetch(chainId: chainId, walletID: $0, address: $1) })
-    }
     /// One history-summary call, as a diagnostics row.
     ///
     /// Took a `make` closure so each chain could build its own record shape.

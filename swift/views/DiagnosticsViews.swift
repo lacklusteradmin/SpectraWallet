@@ -117,6 +117,7 @@ struct StandardChainDiagnosticsView: View {
     @State private var cachedHistorySourceRows: [StandardHistorySourceRow] = []
     /// Keypool state now lives in core, so it is loaded rather than read
     /// synchronously — see `.task` below.
+    @State private var keypoolError: String?
     @State private var cachedKeypoolDiagnostics: [AppState.ChainKeypoolDiagnostic] = []
     /// Operational events live in core now, so they load rather than read
     /// synchronously — same `.task` as the keypool rows.
@@ -148,17 +149,6 @@ struct StandardChainDiagnosticsView: View {
     var body: some View {
         Form {
             Section(copy.actionsSectionTitle) {
-                if chain == .ethereum {
-                    Button(
-                        store.selfTests(for: "Ethereum").isRunning
-                            ? AppLocalization.format("Running %@ Diagnostics...", diagnosticsLabel)
-                            : AppLocalization.format("Run %@ Diagnostics", diagnosticsLabel)
-                    ) {
-                        Task {
-                            await store.runEthereumSelfTests()
-                        }
-                    }.disabled(store.selfTests(for: "Ethereum").isRunning)
-                }
                 Button(
                     isRunningHistory
                         ? AppLocalization.format("Running %@ History Diagnostics...", diagnosticsLabel)
@@ -243,7 +233,13 @@ struct StandardChainDiagnosticsView: View {
             if chain == .monero { syncSelectedMoneroBackendIDFromStore() }
             rebuildCachedRows()
         }.task(id: chain.id) {
-            cachedKeypoolDiagnostics = await store.chainKeypoolDiagnostics(for: chain.displayName)
+            do {
+                cachedKeypoolDiagnostics = try await store.chainKeypoolDiagnostics(for: chain.displayName)
+                keypoolError = nil
+            } catch {
+                cachedKeypoolDiagnostics = []
+                keypoolError = error.localizedDescription
+            }
             cachedOperationalEvents = await store.operationalEvents(for: chain.displayName)
         }.onChange(of: copiedDiagnosticsNotice) { _, newValue in
             guard newValue != nil else { return }
@@ -426,11 +422,15 @@ struct StandardChainDiagnosticsView: View {
         case .monero: moneroSettingsSection
         default: EmptyView()
         }
-        if supportsUTXOChainActions {
-            Section(AppLocalization.string("Chain Actions")) {
-                Button(isRunningChainSelfTests ? AppLocalization.string("Running Self-Tests...") : chainSelfTestTitle) {
-                    runChainSelfTests()
-                }.disabled(isRunningChainSelfTests)
+        // Core keeps a self-test suite for every chain in the catalog, so
+        // every chain's screen offers it. The button used to be inside the
+        // UTXO block, which left the suite unreachable everywhere else except
+        // Ethereum, which had a second button of its own.
+        Section(AppLocalization.string("Chain Actions")) {
+            Button(isRunningChainSelfTests ? AppLocalization.string("Running Self-Tests...") : chainSelfTestTitle) {
+                Task { await runChainSelfTests() }
+            }.disabled(isRunningChainSelfTests)
+            if supportsUTXOChainActions {
                 Button(isRunningChainRescan ? chainRescanInFlightTitle : chainRescanTitle) {
                     Task {
                         await runChainRescan()
@@ -457,7 +457,9 @@ struct StandardChainDiagnosticsView: View {
         }
         Section(AppLocalization.string("Owned Address Management")) {
             let diagnostics = cachedKeypoolDiagnostics
-            if diagnostics.isEmpty {
+            if let keypoolError {
+                Text(keypoolError).font(.caption).foregroundStyle(.red)
+            } else if diagnostics.isEmpty {
                 Text(AppLocalization.string("No owned-address management state recorded yet.")).font(.caption).foregroundStyle(.secondary)
             } else {
                 ForEach(diagnostics) { item in
@@ -503,7 +505,7 @@ struct StandardChainDiagnosticsView: View {
     private var chainRescanInFlightTitle: String {
         utxoActions?.rescanInFlightTitle ?? AppLocalization.string("Rescanning...")
     }
-    private func runChainSelfTests() { store.runSelfTests(for: chain.displayName) }
+    private func runChainSelfTests() async { await store.runSelfTests(for: chain.displayName) }
     private func runChainRescan() async { await store.runUTXORescan(chainName: chain.displayName) }
 }
 private func formatCopy(_ format: String, _ arguments: CVarArg...) -> String {

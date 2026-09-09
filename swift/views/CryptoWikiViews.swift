@@ -10,7 +10,6 @@ extension AssetWikiEntry: Identifiable {
     var face: WikiCoinFace {
         WikiCoinFace(name: name, symbol: symbol, assetName: assetName, color: accentColor)
     }
-    var nativePlaces: [AssetWikiPlace] { livesOn.filter(\.isNative) }
 }
 
 extension AssetWikiPlace: Identifiable {

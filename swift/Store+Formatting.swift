@@ -195,6 +195,7 @@ extension AppState {
     /// an index into the projection, so it stays local.
     func rebuildTransactionDerivedState() async {
         cachedTransactionByID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
+        replaceableSends = await WalletServiceBridge.shared.replaceableSends()
         let earliest = await WalletServiceBridge.shared.earliestTransactionDates()
         cachedFirstActivityDateByWalletID = Dictionary(
             uniqueKeysWithValues: earliest.map {

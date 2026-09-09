@@ -107,6 +107,10 @@ final class AppState {
     var normalizedHistoryIndex: [NormalizedHistoryEntry] = [] {
         didSet { normalizedHistoryRevision &+= 1 }
     }
+    /// The pending sends core says can still be replaced on their chain.
+    /// Adopted with the rest of the transaction-derived views; observed,
+    /// because the composer's Speed Up / Cancel buttons read it.
+    var replaceableSends: [ReplaceableSend] = []
     private(set) var transactionRevision: UInt64 = 0
     private(set) var normalizedHistoryRevision: UInt64 = 0
     @ObservationIgnored var cachedTransactionByID: [UUID: TransactionRecord] = [:]
@@ -238,7 +242,7 @@ final class AppState {
     var selectedMainTab: MainAppTab = .home
     var isAppLocked: Bool = false
     var appLockError: String? = nil
-    var isPreparingEthereumReplacementContext: Bool = false
+    var isPreparingReplacementContext: Bool = false
     /// Chains currently computing a send fee preview. Observed by send UI to show loading state.
     var preparingChains: Set<String> = []
     @ObservationIgnored var pendingSelfSendConfirmation: AppState.PendingSelfSendConfirmation?
@@ -292,10 +296,10 @@ final class AppState {
     ///
     /// Core answers without recording, so reporting the state never reserves
     /// anything.
-    func chainKeypoolDiagnostics(for chainName: String) async -> [ChainKeypoolDiagnostic] {
+    func chainKeypoolDiagnostics(for chainName: String) async throws -> [ChainKeypoolDiagnostic] {
         var rows: [ChainKeypoolDiagnostic] = []
         for wallet in wallets where wallet.selectedChain == chainName || walletHasAddress(for: wallet, chainName: chainName) {
-            let state = await keypoolState(for: wallet, chainName: chainName)
+            let state = try await keypoolState(for: wallet, chainName: chainName)
             let reservedIndex = state.reservedReceiveIndex
             rows.append(
                 ChainKeypoolDiagnostic(
@@ -368,6 +372,7 @@ final class AppState {
         coreAddressBook = state.addressBook
         if state.tokenPreferences != tokenPreferences { tokenPreferences = state.tokenPreferences }
         if state.priceAlerts != priceAlerts { priceAlerts = state.priceAlerts }
+        if state.fiatRatesFromUsd != fiatRatesFromUSD { fiatRatesFromUSD = state.fiatRatesFromUsd }
         // Synchronous on purpose: the render path reads this, and adopting it a
         // tick later quotes a testnet at mainnet prices in between.
         let unpriced = Set(coreUnpricedChainNames(settings: state.settings))
@@ -544,6 +549,8 @@ final class AppState {
             rebuildDashboardDerivedState()
         }
     }
+    /// USD → display-currency rates, as core holds them. A projection: core
+    /// fetches, merges and stores them, and `applyCoreState` adopts the result.
     var fiatRatesFromUSD: [String: Double] = [:]
     var fiatRatesRefreshError: String? = nil
     var quoteRefreshError: String? = nil
@@ -583,16 +590,16 @@ final class AppState {
     /// `chainName|symbol`; the Rust side is a pure function of those two
     /// inputs, so the cache is good for the app lifetime.
     @ObservationIgnored var cachedTokenPreferenceLookupKeys: [String: String] = [:]
-    var useCustomEthereumFees: Bool = false
-    var customEthereumMaxFeeGwei: String = ""
-    var customEthereumPriorityFeeGwei: String = ""
+    var useCustomEvmFees: Bool = false
+    var customEvmMaxFeeGwei: String = ""
+    var customEvmPriorityFeeGwei: String = ""
     var sendAdvancedMode: Bool = false
     var sendUTXOMaxInputCount: Int = 0
     var sendEnableRBF: Bool = true
     var sendEnableCPFP: Bool = false
     var sendLitecoinChangeStrategy: LitecoinChangeStrategy = .derivedChange
-    var ethereumManualNonceEnabled: Bool = false
-    var ethereumManualNonce: String = ""
+    var evmManualNonceEnabled: Bool = false
+    var evmManualNonce: String = ""
     var bitcoinEsploraEndpoints: String = "" {
         didSet {
             commitAppSettingsSoon()
@@ -642,11 +649,16 @@ final class AppState {
     /// Live Tor bootstrap/connection state polled from Rust. Drives the
     /// dashboard indicator and the settings status row.
     var torStatus: TorStatus = .stopped
-    /// Whether Tor is turned on. Persisted via UserDefaults; default false.
+    // The four below are core settings, mirrored here the way every other
+    // setting is. They were `UserDefaults` keys — state no other front end and
+    // no test could see, in the one place `PLAN.md` says domain state must not
+    // live. The kill switch in particular had no reader at all: core enforces
+    // it in the HTTP layer now.
+    /// Whether Tor is turned on.
     var torEnabled: Bool = false {
         didSet {
             guard torEnabled != oldValue else { return }
-            UserDefaults.standard.set(torEnabled, forKey: Self.torEnabledDefaultsKey)
+            commitAppSettingsSoon()
             handleTorEnabledChange()
         }
     }
@@ -654,22 +666,24 @@ final class AppState {
     var torUseCustomProxy: Bool = false {
         didSet {
             guard torUseCustomProxy != oldValue else { return }
-            UserDefaults.standard.set(torUseCustomProxy, forKey: Self.torUseCustomProxyDefaultsKey)
+            commitAppSettingsSoon()
             handleTorEnabledChange()
         }
     }
-    /// SOCKS5 URL for the custom proxy mode. Defaults to Orbot's port.
+    /// SOCKS5 URL for the custom proxy mode. Core validates it and keeps the
+    /// stored one when a new value is not a SOCKS5 endpoint.
     var torCustomProxyAddress: String = "socks5://127.0.0.1:9150" {
         didSet {
             guard torCustomProxyAddress != oldValue else { return }
-            UserDefaults.standard.set(torCustomProxyAddress, forKey: Self.torCustomProxyAddressDefaultsKey)
+            commitAppSettingsSoon()
         }
     }
-    /// Kill switch: block all outbound requests when Tor is not ready.
+    /// Kill switch: core refuses outbound requests while Tor is wanted and not
+    /// ready, rather than falling back to a direct connection.
     var torKillSwitch: Bool = false {
         didSet {
             guard torKillSwitch != oldValue else { return }
-            UserDefaults.standard.set(torKillSwitch, forKey: Self.torKillSwitchDefaultsKey)
+            commitAppSettingsSoon()
         }
     }
     /// Background task that polls `torStatus()` from Rust every second.
@@ -688,7 +702,6 @@ final class AppState {
     // Versioned keys end in `.vN` and bump when the codable shape changes
     // incompatibly; the previous key is left here briefly for any
     // migration-read code that still references it.
-    static let fiatRatesFromUSDDefaultsKey = "pricing.fiatRatesFromUSD.v1"
     static let livePricesDefaultsKey = "pricing.livePrices.v1"
 
     static let walletsAccount = "wallets.snapshot"
@@ -700,10 +713,6 @@ final class AppState {
     /// setting, went with the settings into core.
     static let platformPreferencesDefaultsKey = "settings.platform.v1"
 
-    static let torEnabledDefaultsKey = "tor.enabled"
-    static let torUseCustomProxyDefaultsKey = "tor.useCustomProxy"
-    static let torCustomProxyAddressDefaultsKey = "tor.customProxyAddress"
-    static let torKillSwitchDefaultsKey = "tor.killSwitch"
 
     static let operationalLogsDefaultsKey = "operational.logs.v1"
     static let chainKeypoolDefaultsKey = "chain.keypool.snapshot.v1"
@@ -734,12 +743,6 @@ final class AppState {
             !phrase.isEmpty
         else { return nil }
         return phrase
-    }
-    func storedPrivateKey(for walletID: String) -> String? {
-        guard let key = try? WalletServiceBridge.shared.walletPrivateKey(walletID: walletID, password: nil),
-            !key.isEmpty
-        else { return nil }
-        return key
     }
     func walletRequiresSeedPhrasePassword(_ walletID: String) -> Bool {
         WalletServiceBridge.shared.walletSecretState(walletID: walletID)?.isSealed ?? false

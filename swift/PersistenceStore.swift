@@ -36,10 +36,6 @@ extension AppState {
         // Reserves receive indices, so it runs only after core's keypool is in
         // memory — reserving against an unloaded table would reissue addresses.
         await syncChainOwnedAddressManagementState()
-        if let rates = await loadCodableFromSQLite([String: Double].self, key: Self.fiatRatesFromUSDDefaultsKey), !rates.isEmpty {
-            fiatRatesFromUSD = rates
-            fiatRatesFromUSD[FiatCurrency.usd.rawValue] = 1.0
-        }
         // The eighteen settings core owns arrive with `loadCoreOwnedState()`
         // above, through `applyCoreState`. What is left here is the four this
         // platform keeps: hiding balances, Face ID, auto-lock and

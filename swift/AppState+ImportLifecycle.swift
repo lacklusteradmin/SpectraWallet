@@ -195,25 +195,26 @@ extension AppState {
         guard let selectedSendCoin else { return [] }
         return addressBook.filter { $0.chainName == selectedSendCoin.chainName }
     }
-    var hasPendingEthereumSendForSelectedWallet: Bool { selectedPendingEthereumSendTransaction() != nil }
-    var ethereumReplacementNonceStateMessage: String? {
-        guard selectedSendCoin?.chainName == "Ethereum" else { return nil }
-        guard let pendingTransaction = selectedPendingEthereumSendTransaction() else {
-            return localizedStoreString(
-                "No pending Ethereum send found for this wallet. Replacement and cancel are available only for pending transactions.")
+    var replacementNonceStateMessage: String? {
+        guard let selectedSendCoin, selectedSendCoin.isEVMChain else { return nil }
+        guard let pending = replaceableSendForSelectedWallet else {
+            return AppLocalization.format(
+                "No pending %@ send found for this wallet. Replacement and cancel are available only for pending transactions.",
+                selectedSendCoin.chainName)
         }
-        var message = AppLocalization.format("Pending %@ transaction detected", pendingTransaction.symbol)
-        if let nonce = pendingTransaction.ethereumNonce {
+        var message = AppLocalization.format("Pending %@ transaction detected", pending.symbol)
+        if let nonce = pending.recordedNonce {
             message += AppLocalization.format("send.replacement.pendingNonceSuffix", nonce)
         } else {
             message += "."
         }
-        if let transactionHash = pendingTransaction.transactionHash {
-            let shortHash = transactionHash.count > 14 ? "\(transactionHash.prefix(10))...\(transactionHash.suffix(4))" : transactionHash
-            message += AppLocalization.format("send.replacement.transactionSuffix", shortHash)
-        }
+        let hash = pending.transactionHash
+        let shortHash = hash.count > 14 ? "\(hash.prefix(10))...\(hash.suffix(4))" : hash
+        message += AppLocalization.format("send.replacement.transactionSuffix", shortHash)
         message += localizedStoreString(
-            " Use Speed Up to resend with higher fees or Cancel to submit a 0-value self-transfer using the same nonce.")
+            pending.canSpeedUp
+                ? " Use Speed Up to resend with higher fees or Cancel to submit a 0-value self-transfer using the same nonce."
+                : " Use Cancel to submit a 0-value self-transfer using the same nonce. A token transfer cannot be rebuilt from its record, so it cannot be sped up.")
         return message
     }
 }

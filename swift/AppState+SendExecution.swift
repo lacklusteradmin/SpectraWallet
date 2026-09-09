@@ -142,7 +142,7 @@ extension AppState {
                 sendError = CommonLocalization.invalidDestinationAddressPrompt("Dogecoin")
                 return
             }
-            guard resolvedNetworkModeAddress(for: wallet, family: "dogecoin", fallback: .dogecoin) != nil else {
+            guard resolvedAddress(for: wallet, chainName: "Dogecoin") != nil else {
                 sendError = "Unable to resolve this wallet's Dogecoin signing address from the seed phrase."
                 return
             }
@@ -155,7 +155,7 @@ extension AppState {
             }
             sendingChains.insert(holding.chainName)
             defer { sendingChains.remove(holding.chainName) }
-            guard let sourceAddress = resolvedNetworkModeAddress(for: wallet, family: "dogecoin", fallback: .dogecoin) else {
+            guard let sourceAddress = resolvedAddress(for: wallet, chainName: "Dogecoin") else {
                 sendError = "Unable to resolve this wallet's Dogecoin signing address."
                 return
             }
@@ -334,8 +334,8 @@ extension AppState {
                 sendError = "An \(holding.chainName) send is already in progress for this wallet."
                 return
             }
-            if customEthereumNonceValidationError != nil {
-                sendError = customEthereumNonceValidationError
+            if evmNonceValidationError != nil {
+                sendError = evmNonceValidationError
                 return
             }
             // Whether a zero amount is allowed is `allows_zero_amount`, which
@@ -366,12 +366,12 @@ extension AppState {
                 activeEthereumSendWalletIDs.remove(wallet.id)
             }
             do {
-                if customEthereumFeeValidationError != nil {
-                    sendError = customEthereumFeeValidationError
+                if customEvmFeeValidationError != nil {
+                    sendError = customEvmFeeValidationError
                     return
                 }
-                let customFees = customEthereumFeeConfiguration()
-                let explicitNonce = try explicitEthereumNonce()
+                let customFees = customEvmFeeConfiguration()
+                let explicitNonce = try explicitEvmNonce()
                 let evmOverrides = evmSendOverrides(nonce: explicitNonce, customFees: customFees)
                 guard let chainId = Chain(displayName: holding.chainName)?.id else {
                     sendError = "\(holding.symbol) transfers on \(holding.chainName) are not enabled yet."
@@ -406,7 +406,7 @@ extension AppState {
                     payloadFormat: "evm.raw_hex", ethereumNonce: Int(evmResult.preview.nonce),
                     verificationStatus: evmResult.verificationStatus)
             } catch {
-                sendError = mapEthereumSendError(error)
+                sendError = mapEvmSendError(error)
                 noteSendBroadcastFailure(for: holding.chainName, message: sendError ?? error.localizedDescription)
             }
             return

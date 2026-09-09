@@ -150,20 +150,16 @@ extension AppState {
         }
     }
 
+    /// Tell the engine the wallet list changed. Core builds the entries.
+    ///
+    /// This used to map the wallet projection into `(chain, wallet, address)`
+    /// triples and hand them over — resolving each address by deriving it from
+    /// the seed, so a sealed wallet or one this platform could not resolve was
+    /// dropped from the refresh with a `print` and no other trace.
     func updateRefreshEngineEntries() {
-        let entries: [RefreshEntry] = wallets.compactMap { wallet in
-            guard let chainId = Chain(displayName: wallet.selectedChain)?.id,
-                let address = resolvedRefreshAddress(for: wallet)
-            else {
-                print("[BalanceRefresh] dropped wallet '\(wallet.name)' chain=\(wallet.selectedChain) chainId=\(Chain(displayName: wallet.selectedChain)?.id ?? "nil") addr=\(resolvedRefreshAddress(for: wallet) ?? "nil")")
-                return nil
-            }
-            return RefreshEntry(chainId: chainId, walletId: wallet.id, address: address)
-        }
-        print("[BalanceRefresh] setEntries count=\(entries.count) walletCount=\(wallets.count)")
         Task(priority: .utility) {
-            try? WalletServiceBridge.shared.setRefreshEntriesTyped(entries)
-            if !entries.isEmpty {
+            let count = (try? await WalletServiceBridge.shared.syncRefreshEntries()) ?? 0
+            if count > 0 {
                 try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
             }
         }
@@ -212,31 +208,4 @@ extension AppState {
         try? await WalletServiceBridge.shared.startBalanceRefresh(intervalSecs: intervalSecs)
     }
 
-    private func resolvedRefreshAddress(for wallet: ImportedWallet) -> String? {
-        if wallet.selectedChain == "Bitcoin",
-           let xpub = wallet.bitcoinXpub,
-           !xpub.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return xpub
-        }
-        return resolvedAddress(for: wallet, chainName: wallet.selectedChain)
-    }
-
-    // EVM helpers kept because they're still called from SendFlow / DiagnosticsEndpoints.
-    func fetchEthereumPortfolio(for address: String) async throws -> (nativeBalance: Double, tokenBalances: [TokenBalanceResult]) {
-        // Was `?? .ethereum`, which resolved to a *fabricated* context with
-        // chain id 0 when the registry lookup missed — a fallback that can only
-        // fire when the registry has no Ethereum, and then reports mainnet as
-        // not-mainnet. `false` says the same thing without inventing a chain.
-        let isEthereumMainnet = EVMChainContext(chainName: "Ethereum")?.isEthereumMainnet ?? false
-        let summary = try await WalletServiceBridge.shared.fetchNativeBalanceSummary(chainId: Chain.ethereum.id, address: address)
-        let nativeBalance = Double(summary.amountDisplay) ?? 0
-        let tokenBalances =
-            isEthereumMainnet
-            ? ((try? await WalletServiceBridge.shared.fetchTokenBalances(
-                chainId: Chain.ethereum.id, address: address,
-                tokens: enabledKnownTokens(for: .ethereum).map { TokenDescriptor(contract: $0.token.contract, symbol: $0.token.symbol, decimals: UInt8($0.token.decimals), name: nil) }
-            )) ?? [])
-            : []
-        return (nativeBalance, tokenBalances)
-    }
 }

@@ -143,8 +143,8 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func fetchPricesViaRust(coins: [PriceRequestCoin]) async throws -> [String: Double] {
         try await service().fetchPricesTyped(coins: coins)
     }
-    func fetchFiatRatesViaRust(currencies: [String]) async throws -> [String: Double] {
-        try await service().fetchFiatRatesTyped(currencies: currencies)
+    func refreshFiatRatesViaRust() async throws -> [String: Double] {
+        try await service().refreshFiatRates()
     }
     func registerSecretStore(_ store: SecretStore) throws { try service().setSecretStore(store: store) }
     nonisolated func setEtherscanAPIKey(_ key: String) {
@@ -244,6 +244,11 @@ extension WalletServiceBridge {
     func activeWalletTransactionIDs() async -> [String] {
         guard let service = try? service() else { return [] }
         return await service.activeWalletTransactionIds()
+    }
+    /// The pending sends core says are still replaceable, newest first.
+    func replaceableSends() async -> [ReplaceableSend] {
+        guard let service = try? service() else { return [] }
+        return await service.replaceableSends()
     }
 
     // ── Maintenance ───────────────────────────────────────────────────────
@@ -347,11 +352,8 @@ extension WalletServiceBridge {
     // Reservation is read-modify-write, so it happens inside core under one
     // lock, over a baseline it computes from its own tables.
 
-    func keypoolState(walletID: String, chainName: String) async -> KeypoolState {
-        guard let service = try? service() else {
-            return KeypoolState(nextExternalIndex: 0, nextChangeIndex: 0, reservedReceiveIndex: nil)
-        }
-        return await service.keypoolState(walletId: walletID, chainName: chainName)
+    func keypoolState(walletID: String, chainName: String) async throws -> KeypoolState {
+        try await service().keypoolState(walletId: walletID, chainName: chainName)
     }
 
     func reserveReceiveIndex(walletID: String, chainName: String, minimumIndex: Int64) async throws
@@ -530,8 +532,24 @@ extension WalletServiceBridge {
         return engine
     }
     func setBalanceObserver(_ observer: BalanceObserver) throws { try balanceRefreshEngine().setObserver(observer: observer) }
-    func setRefreshEntriesTyped(_ entries: [RefreshEntry]) throws {
-        try balanceRefreshEngine().setEntriesTyped(entries: entries)
+    /// Fetch and merge one chain's history for the wallets core holds.
+    func refreshChainHistory(chainId: String, walletIDs: [String]) async throws
+        -> HistoryRefreshOutcome
+    {
+        try await service().refreshChainHistory(chainId: chainId, walletIds: walletIDs)
+    }
+
+    /// Fetch and merge one EVM chain's history page for the wallets core holds.
+    func refreshEVMChainHistory(
+        chainId: String, walletIDs: [String], loadMore: Bool, pageSize: UInt32?
+    ) async throws -> EvmHistoryRefreshOutcome {
+        try await service().refreshEvmChainHistory(
+            chainId: chainId, walletIds: walletIDs, loadMore: loadMore, pageSize: pageSize)
+    }
+
+    /// Rebuild the refresh list from the wallets core holds; answers the count.
+    func syncRefreshEntries() async throws -> UInt32 {
+        try await balanceRefreshEngine().syncEntries(walletId: nil)
     }
     func startBalanceRefresh(intervalSecs: UInt64) async throws { try await balanceRefreshEngine().start(intervalSecs: intervalSecs) }
     func stopBalanceRefresh() throws { try balanceRefreshEngine().stop() }

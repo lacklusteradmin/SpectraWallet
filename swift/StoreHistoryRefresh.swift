@@ -89,87 +89,43 @@ extension AppState {
 
     // ── Generic normalized refresh (covers BCH, BSV, LTC, XRP, XLM, ADA, DOT,
     //    SOL, TRX, SUI, APT, TON, NEAR, ICP, XMR and any future account-based chain)
+    /// Fetch and merge one chain's history for its wallets.
+    ///
+    /// Core plans which wallets to fetch for, fetches them, builds the records
+    /// and merges them. This used to do all four: it mapped its wallet
+    /// projection into a planning request and handed it back for core to
+    /// filter, fetched per target, minted a record per entry — id, wallet
+    /// name, source tag and all — and sent the result back to be merged. What
+    /// is left is the banner, which is presentation.
     func refreshNormalizedChainTransactions(
         chainName: String,
         chainId: String,
-        resolveAddress: (ImportedWallet) -> String?,
         loadMore: Bool = false,
         targetWalletIDs: Set<String>? = nil
     ) async {
-        let walletSnapshot = wallets
-        let targets = coreRefreshTargets(
-            request: RefreshTargetsRequest(
-                chainName: chainName,
-                wallets: walletSnapshot.map { wallet in
-                    // Resolve only for the wallets actually on this chain.
-                    // `plan_refresh_targets` drops the rest by `selectedChain`
-                    // anyway, and resolving is not free: it reads the seed out
-                    // of the Keychain and derives a key. A wallet is on one
-                    // chain, so asking a Bitcoin wallet for its Ethereum
-                    // address derived something nothing would ever use.
-                    RefreshWalletInput(
-                        walletId: wallet.id, selectedChain: wallet.selectedChain,
-                        addresses: wallet.selectedChain == chainName
-                            ? [resolveAddress(wallet)].compactMap { $0 }
-                            : [])
-                },
-                allowedWalletIds: targetWalletIDs.map(Array.init)
-            )
-        )
-        guard !targets.isEmpty else { return }
-        let walletByID = Dictionary(uniqueKeysWithValues: walletSnapshot.map { ($0.id, $0) })
-        let results: [(records: [TransactionRecord], error: Bool)] = await withTaskGroup(
-            of: (records: [TransactionRecord], error: Bool).self,
-            returning: [(records: [TransactionRecord], error: Bool)].self
-        ) { group in
-            for target in targets {
-                // The single-address family supplies one entry; `plan_refresh_targets`
-                // drops a wallet with none, so `first` is present.
-                guard let wallet = walletByID[target.walletId], let address = target.addresses.first
-                else { continue }
-                let walletSnapshot = wallet
-                group.addTask {
-                    do {
-                        let entries = try await WalletServiceBridge.shared.fetchNormalizedHistory(chainId: chainId, address: address)
-                        let records = entries.map { entry in
-                            TransactionRecord(
-                                walletID: walletSnapshot.id,
-                                kind: TransactionKind(rawValue: entry.kind) ?? .send,
-                                status: TransactionStatus(rawValue: entry.status) ?? .confirmed,
-                                walletName: walletSnapshot.name, assetName: entry.assetName, symbol: entry.symbol,
-                                chainName: entry.chainName, amount: entry.amount, address: entry.counterparty,
-                                transactionHash: entry.txHash.isEmpty ? nil : entry.txHash,
-                                receiptBlockNumber: entry.blockHeight.map(Int.init), transactionHistorySource: "rust",
-                                createdAt: entry.createdAtDate
-                            )
-                        }
-                        return (records: records, error: false)
-                    } catch { return (records: [], error: true) }
-                }
-            }
-            var collected: [(records: [TransactionRecord], error: Bool)] = []
-            for await result in group { collected.append(result) }
-            return collected
-        }
-        var discovered: [TransactionRecord] = []
-        var hadErrors = false
-        for result in results {
-            discovered.append(contentsOf: result.records)
-            if result.error { hadErrors = true }
-        }
-        guard !discovered.isEmpty else {
-            if hadErrors { markChainDegraded(chainName, detail: "\(chainName) history refresh failed. Using cached history.") }
+        let outcome: HistoryRefreshOutcome
+        do {
+            outcome = try await WalletServiceBridge.shared.refreshChainHistory(
+                chainId: chainId, walletIDs: targetWalletIDs.map(Array.init) ?? [])
+        } catch {
+            markChainDegraded(chainName, detail: "\(chainName) history refresh failed. Using cached history.")
             return
         }
-        upsertTransactions(discovered, chainName: chainName)
-        if hadErrors {
-            markChainDegraded(chainName, detail: "\(chainName) history loaded with partial provider failures.")
+        guard outcome.walletsRefreshed > 0 || outcome.walletsFailed > 0 else { return }
+        if outcome.added > 0 || outcome.updated > 0 {
+            await refreshTransactionProjection()
+        }
+        if outcome.walletsFailed > 0 {
+            markChainDegraded(
+                chainName,
+                detail: outcome.walletsRefreshed == 0
+                    ? "\(chainName) history refresh failed. Using cached history."
+                    : "\(chainName) history loaded with partial provider failures.")
         } else {
             markChainHealthy(chainName)
         }
     }
 
-    /// Fetch one chain's history through the normalized path.
     func refreshNormalizedTransactions(
         chainName: String, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil
     ) async {
@@ -177,7 +133,6 @@ extension AppState {
         guard !chainID.isEmpty else { return }
         await refreshNormalizedChainTransactions(
             chainName: chainName, chainId: chainID,
-            resolveAddress: { [self] in resolvedAddress(for: $0, chainName: chainName) },
             loadMore: loadMore, targetWalletIDs: targetWalletIDs)
     }
 }
@@ -403,194 +358,58 @@ extension AppState {
 // EVM (special: token + native transfers, page-based pagination)
 // ────────────────────────────────────────────────────────────────────────────
 extension AppState {
+    /// Fetch and merge one EVM chain's history page for its wallets.
+    ///
+    /// Eight steps used to be here: plan the wallets, group them by normalized
+    /// address, reset or advance each group's page, build the token descriptor
+    /// list from this mirror of the token preferences, fetch, plan the records,
+    /// convert them, merge. All eight are `refresh_evm_chain_history` now, over
+    /// the wallets, preferences and cursors core already owns. What is left is
+    /// the diagnostics rows and the banner, which are this screen's.
     func refreshEVMTokenTransactions(
         chainName: String, maxResults: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil
     ) async {
-        guard EVMChainContext(chainName: chainName) != nil else { return }
-        let walletSnapshot = wallets
-        let walletsToRefresh =
-            plannedEVMHistoryWallets(
-                chainName: chainName, walletSnapshot: walletSnapshot, targetWalletIDs: targetWalletIDs
-            )
-            ?? walletSnapshot.compactMap { wallet -> (ImportedWallet, String)? in
-                guard wallet.selectedChain == chainName, let address = resolvedEVMAddress(for: wallet, chainName: chainName) else {
-                    return nil
-                }
-                if let targetWalletIDs, !targetWalletIDs.contains(wallet.id) { return nil }
-                return (wallet, address)
-            }
-        guard !walletsToRefresh.isEmpty else { return }
-        let refreshedWalletIDs = Set(walletsToRefresh.map { $0.0.id })
-        let historyTargets: [([ImportedWallet], String, String)] =
-            plannedEVMHistoryGroups(
-                chainName: chainName, walletSnapshot: walletSnapshot, loadMore: loadMore, targetWalletIDs: targetWalletIDs
-            )
-            ?? {
-                if loadMore {
-                    return walletsToRefresh.map { ([$0.0], $0.1, normalizeEVMAddress($0.1)) }
-                }
-                return Dictionary(grouping: walletsToRefresh) {
-                    normalizeEVMAddress($0.1)
-                }
-                .values.compactMap { group in
-                    guard let first = group.first else { return nil }
-                    return (group.map(\.0), first.1, normalizeEVMAddress(first.1))
-                }
-            }()
-        var syncedTransactions: [TransactionRecord] = []
-        var encounteredErrors = false
-        let unknownTimestamp = Date.distantPast
-        let requestedPageSize = max(20, min(maxResults ?? HistoryPaging.endpointBatchSize, 500))
-        let evmChainId: String = Chain(displayName: chainName)?.id ?? Chain.bnbChain.id
-        if !loadMore {
-            for walletID in Set(walletsToRefresh.map { $0.0.id }) {
-                resetHistoryPagination(chainId: evmChainId, walletId: walletID)
-                setHistoryPage(chainId: evmChainId, walletId: walletID, page: 1, isExhausted: false)
-            }
-        }
-        for (targetWallets, _, normalizedAddress) in historyTargets {
-            guard let representativeWallet = targetWallets.first else { continue }
-            if loadMore && historyPaginationExhausted(chainId: evmChainId, walletId: representativeWallet.id) { continue }
-            let currentPage = max(1, historyPaginationPage(chainId: evmChainId, walletId: representativeWallet.id))
-            let page = loadMore ? (currentPage + 1) : currentPage
-            let knownTokens: [TokenPreferenceEntry] =
-                TokenHostingChain.forChainName(chainName).map { enabledKnownTokens(for: $0) } ?? []
-            var decodedPage = EvmHistoryPageDecoded(tokens: [], native: [])
-            var tokenTransferCount: Int32?
-            var tokenSourceUsed: String?
-            var tokenHistoryError: Error?
-            guard let chainId = Chain(displayName: chainName)?.id else {
-                encounteredErrors = true
-                continue
-            }
-            let tokenDescriptors: [TokenDescriptor] = knownTokens.map {
-                TokenDescriptor(
-                    contract: $0.token.contract, symbol: $0.token.symbol,
-                    decimals: UInt8(clamping: $0.token.decimals), name: $0.token.name)
-            }
-            do {
-                decodedPage = try await WalletServiceBridge.shared.fetchEVMHistoryPage(
-                    chainId: chainId, address: normalizedAddress, tokens: tokenDescriptors, page: page, pageSize: requestedPageSize
-                )
-                tokenTransferCount = Int32(decodedPage.tokens.count)
-                tokenSourceUsed = "rust/etherscan"
-            } catch {
-                tokenHistoryError = error
-                encounteredErrors = true
-            }
-            // The record above is built for *every* EVM chain, and this used to
-            // decide where it went: Ethereum and its testnets to Ethereum,
-            // Arbitrum to Arbitrum, Optimism to Optimism, and the other twenty
-            // EVM mainnets nowhere — computed, then dropped. The diagnostics
-            // registry is keyed by chain and takes any of them, so a chain's
-            // token-transfer diagnostics go under its own mainnet. That is the
-            // rule the Ethereum-family arm was already applying; it just had
-            // two hand-written exceptions and no general case.
-            let diagnosticsChainName: String? = Chain(displayName: chainName)?.mainnetCounterpart.displayName
-            if let diagnosticsChainName {
-                // One row per wallet, not one row written under every wallet
-                // id: the row carries the id it belongs to.
-                let source = tokenSourceUsed ?? (tokenHistoryError == nil ? nil : "none")
-                if let source {
-                    for wallet in targetWallets {
-                        recordHistoryDiagnostics(
-                            chainName: diagnosticsChainName,
-                            HistoryDiagnostics(
-                                walletId: wallet.id, identifier: normalizedAddress,
-                                sourceUsed: source, transactionCount: tokenTransferCount ?? 0,
-                                scannedCount: nil, nextCursor: nil,
-                                error: tokenHistoryError?.localizedDescription,
-                                perSource: [
-                                    HistoryDiagnosticsSource(
-                                        name: "etherscan", count: tokenTransferCount ?? 0,
-                                        error: tokenHistoryError?.localizedDescription)
-                                ]))
-                    }
-                }
-                self[historyRunFor: diagnosticsChainName].lastUpdatedAt = Date()
-            }
-            let isLastPage = decodedPage.tokens.count < requestedPageSize && decodedPage.native.count < requestedPageSize
-            for wallet in targetWallets {
-                setHistoryPage(
-                    chainId: evmChainId, walletId: wallet.id, page: page, isExhausted: isLastPage)
-            }
-            let nativeAsset = historyEvmNativeAsset(chainName: chainName) ?? EvmNativeAsset(assetName: "Ether", symbol: "ETH")
-            let plannedRecords = planEvmTransactionRecords(
-                request: EvmTransactionRecordRequest(
-                    decodedPage: decodedPage,
-                    normalizedAddress: normalizedAddress,
-                    chainName: chainName,
-                    tokenSourceUsed: tokenSourceUsed,
-                    nativeAssetName: nativeAsset.assetName,
-                    nativeAssetSymbol: nativeAsset.symbol,
-                    wallets: targetWallets.map { EvmTransactionRecordWalletInput(walletId: $0.id, walletName: $0.name) },
-                    unknownTimestampSentinelUnix: unknownTimestamp.timeIntervalSince1970
-                )
-            )
-            syncedTransactions.append(
-                contentsOf: plannedRecords.map { record in
-                    let amount = (Decimal(string: record.amountDecimal) ?? 0) as NSDecimalNumber
-                    return TransactionRecord(
-                        walletID: record.walletId, kind: TransactionKind(rawValue: record.kind) ?? .send, status: .confirmed,
-                        walletName: record.walletName, assetName: record.assetName, symbol: record.symbol, chainName: record.chainName,
-                        amount: amount.doubleValue, address: record.counterparty, transactionHash: record.transactionHash,
-                        receiptBlockNumber: Int(record.blockNumber), sourceAddress: record.sourceAddress,
-                        transactionHistorySource: record.sourceUsed, createdAt: Date(timeIntervalSince1970: record.createdAtUnix)
-                    )
-                })
-        }
-        guard !syncedTransactions.isEmpty else {
-            if encounteredErrors {
-                let hasCachedHistory = transactions.contains { transaction in
-                    guard transaction.chainName == chainName, let walletID = transaction.walletID else { return false }
-                    return refreshedWalletIDs.contains(walletID)
-                }
-                if hasCachedHistory { markChainDegraded(chainName, detail: "\(chainName) history refresh failed. Using cached history.") }
-            }
+        guard let chain = Chain(displayName: chainName), chain.isEVM else { return }
+        let outcome: EvmHistoryRefreshOutcome
+        do {
+            outcome = try await WalletServiceBridge.shared.refreshEVMChainHistory(
+                chainId: chain.id,
+                walletIDs: targetWalletIDs.map(Array.init) ?? [],
+                loadMore: loadMore,
+                pageSize: maxResults.map { UInt32(max(0, $0)) })
+        } catch {
+            markChainDegraded(chainName, detail: "\(chainName) history refresh failed. Using cached history.")
             return
         }
-        upsertTransactions(syncedTransactions, chainName: chainName)
-        if encounteredErrors {
-            markChainDegraded(chainName, detail: "\(chainName) history loaded with partial provider failures.")
-        } else {
-            markChainHealthy(chainName)
+        // The diagnostics registry is keyed by chain and takes any of them, so
+        // a chain's token-transfer rows go under its own mainnet.
+        let diagnosticsChainName = chain.mainnetCounterpart.displayName
+        for row in outcome.diagnostics {
+            recordHistoryDiagnostics(
+                chainName: diagnosticsChainName,
+                HistoryDiagnostics(
+                    walletId: row.walletId, identifier: row.address,
+                    sourceUsed: row.sourceUsed, transactionCount: Int32(row.transactionCount),
+                    scannedCount: nil, nextCursor: nil, error: row.error,
+                    perSource: [
+                        HistoryDiagnosticsSource(
+                            name: "etherscan", count: Int32(row.transactionCount), error: row.error)
+                    ]))
         }
-    }
-    private func plannedEVMRefresh(
-        chainName: String, walletSnapshot: [ImportedWallet], groupByNormalizedAddress: Bool, targetWalletIDs: Set<String>?
-    ) -> EvmRefreshPlan? {
-        let request = EvmRefreshTargetsRequest(
-            chainName: chainName,
-            wallets: walletSnapshot.map { wallet in
-                RefreshWalletInput(
-                    walletId: wallet.id, selectedChain: wallet.selectedChain,
-                    addresses: [resolvedEVMAddress(for: wallet, chainName: chainName)].compactMap { $0 })
-            },
-            allowedWalletIds: targetWalletIDs.map(Array.init),
-            groupByNormalizedAddress: groupByNormalizedAddress
-        )
-        return coreEvmRefreshTargets(request: request)
-    }
-    private func plannedEVMHistoryWallets(chainName: String, walletSnapshot: [ImportedWallet], targetWalletIDs: Set<String>?) -> [(
-        ImportedWallet, String
-    )]? {
-        guard
-            let plan = plannedEVMRefresh(
-                chainName: chainName, walletSnapshot: walletSnapshot, groupByNormalizedAddress: false, targetWalletIDs: targetWalletIDs)
-        else { return nil }
-        return plan.walletTargets.compactMap { t in walletSnapshot.first(where: { $0.id == t.walletId }).map { ($0, t.address) } }
-    }
-    private func plannedEVMHistoryGroups(chainName: String, walletSnapshot: [ImportedWallet], loadMore: Bool, targetWalletIDs: Set<String>?)
-        -> [([ImportedWallet], String, String)]?
-    {
-        guard
-            let plan = plannedEVMRefresh(
-                chainName: chainName, walletSnapshot: walletSnapshot, groupByNormalizedAddress: !loadMore, targetWalletIDs: targetWalletIDs)
-        else { return nil }
-        let walletByID = Dictionary(uniqueKeysWithValues: walletSnapshot.map { ($0.id, $0) })
-        return plan.groupedTargets.compactMap { t in
-            let wallets = t.walletIds.compactMap { walletByID[$0] }
-            return wallets.isEmpty ? nil : (wallets, t.address, t.normalizedAddress)
+        if !outcome.diagnostics.isEmpty {
+            self[historyRunFor: diagnosticsChainName].lastUpdatedAt = Date()
+        }
+        if outcome.added > 0 || outcome.updated > 0 {
+            await refreshTransactionProjection()
+        }
+        if outcome.walletsFailed > 0 {
+            markChainDegraded(
+                chainName,
+                detail: outcome.walletsRefreshed == 0
+                    ? "\(chainName) history refresh failed. Using cached history."
+                    : "\(chainName) history loaded with partial provider failures.")
+        } else if outcome.walletsRefreshed > 0 {
+            markChainHealthy(chainName)
         }
     }
 }

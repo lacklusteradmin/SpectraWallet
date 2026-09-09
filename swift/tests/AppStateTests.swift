@@ -104,6 +104,34 @@ import Foundation
             XCTAssertEqual(unresolved, [], "no address, so the refresh engine drops the wallet")
         }
 
+        /// A wallet answers for the chains it was imported for and for no
+        /// others.
+        ///
+        /// The resolver used to derive on demand, so it answered for every
+        /// chain in the catalog from any wallet's seed — including chains the
+        /// user never imported, which is not an address that wallet has. It
+        /// reads what core stored now: the EVM family shares one slot, so an
+        /// Ethereum wallet still answers for all 23 EVM mainnets, and a
+        /// Solana wallet is not asked to produce a Bitcoin address.
+        func testAWalletAnswersForItsOwnChainsAndNoOthers() async {
+            let store = AppState()
+            store.importDraft.walletName = "Catalog Coverage"
+            store.importDraft.setSeedPhraseForTesting(
+                "test test test test test test test test test test test junk")
+            store.importDraft.selectedChainNamesStorage = ["Ethereum"]
+            await store.importWallet()
+            XCTAssertNil(store.importError)
+            guard let wallet = store.wallets.first else { return XCTFail("no wallet") }
+
+            let resolved = Chain.mainnets.filter {
+                store.resolvedAddress(for: wallet, chainName: $0.displayName) != nil
+            }
+            XCTAssertEqual(
+                Set(resolved), Set(Chain.mainnets.filter(\.isEVM)),
+                "an Ethereum wallet answers for the EVM family — Ethereum Classic included, "
+                    + "which has its own slot and one key — and for nothing else")
+        }
+
         /// A rename lands after a delete without bringing the wallet back.
         ///
         /// The rename write is detached, so it can arrive after the user has
@@ -202,13 +230,16 @@ import Foundation
                 AddressValidation.isValid(stored, kind: (Chain(id: "bitcoin")?.addressValidationKind ?? "")),
                 "storage holds the mainnet-derived address"
             )
-            // What the user is shown is derived for the selected network.
-            let shown = store.wallets.first.flatMap { store.resolvedNetworkModeAddress(for: $0, family: "bitcoin", fallback: .bitcoin) } ?? ""
+            // What the user is shown is the address core stored for the network
+            // the wallet is on. It used to be re-derived from the seed on every
+            // read, so a sealed wallet showed the mainnet address on testnet.
+            let shown = store.wallets.first.flatMap { store.resolvedAddress(for: $0, chainName: "Bitcoin") } ?? ""
             XCTAssertTrue(
                 AddressValidation.isValid(
                     shown, kind: Chain(id: "bitcoin-testnet-4")?.addressValidationKind ?? ""),
                 "the displayed address is testnet4, got \(shown)"
             )
+            XCTAssertNotEqual(shown, stored, "the two networks are different keys")
         }
         func testBitcoinDisplayNetworkNameUsesSelectedMode() async {
             let store = AppState()

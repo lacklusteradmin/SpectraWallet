@@ -453,12 +453,3 @@ private func receiveQRCodePlaceholder(size: CGFloat) -> some View {
     }
     .frame(width: size, height: size)
 }
-
-private var receiveAddressPlaceholder: some View {
-    VStack(alignment: .leading, spacing: 8) {
-        SpectraLoadingRow(title: "Resolving receive address...")
-        SpectraShimmer(cornerRadius: 5, height: 13).frame(maxWidth: .infinity)
-        SpectraShimmer(cornerRadius: 5, height: 13).frame(maxWidth: .infinity)
-        SpectraShimmer(cornerRadius: 5, height: 13).frame(maxWidth: 180, alignment: .leading)
-    }
-}

@@ -58,15 +58,7 @@ extension AppState {
             lastFiatRatesAttemptAt = Date()
         }
         do {
-            let fetchedRates = try await WalletServiceBridge.shared.fetchFiatRatesViaRust(
-                currencies: FiatCurrency.allCases.map(\.rawValue))
-            let rates = priceMergeFiatRateUpdates(
-                fetched: fetchedRates, existing: fiatRatesFromUSD,
-                currencies: FiatCurrency.allCases.map(\.rawValue),
-                baseCurrency: FiatCurrency.usd.rawValue
-            )
-            fiatRatesFromUSD = rates
-            persistCodableToSQLite(rates, key: Self.fiatRatesFromUSDDefaultsKey)
+            fiatRatesFromUSD = try await WalletServiceBridge.shared.refreshFiatRatesViaRust()
             fiatRatesRefreshError = nil
             lastFiatRatesRefreshAt = Date()
         } catch {

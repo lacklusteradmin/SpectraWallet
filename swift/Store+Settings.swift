@@ -85,6 +85,12 @@ extension AppState {
              known.map { Int($0.bitcoinStopGap) } == bitcoinStopGap)
         push(.useStrictRpcOnly(value: preferences.useStrictRPCOnly),
              known?.useStrictRpcOnly == preferences.useStrictRPCOnly)
+        push(.torEnabled(value: torEnabled), known?.torEnabled == torEnabled)
+        push(.torUseCustomProxy(value: torUseCustomProxy),
+             known?.torUseCustomProxy == torUseCustomProxy)
+        push(.torCustomProxyAddress(value: torCustomProxyAddress),
+             known?.torCustomProxyAddress == torCustomProxyAddress)
+        push(.torKillSwitch(value: torKillSwitch), known?.torKillSwitch == torKillSwitch)
         push(.backgroundSyncProfile(value: backgroundSyncProfile.rawValue),
              known?.backgroundSyncProfile == backgroundSyncProfile.rawValue)
         push(
@@ -138,6 +144,14 @@ extension AppState {
         if settings.useStrictRpcOnly != preferences.useStrictRPCOnly {
             preferences.useStrictRPCOnly = settings.useStrictRpcOnly
         }
+        if settings.torEnabled != torEnabled { torEnabled = settings.torEnabled }
+        if settings.torUseCustomProxy != torUseCustomProxy {
+            torUseCustomProxy = settings.torUseCustomProxy
+        }
+        if settings.torCustomProxyAddress != torCustomProxyAddress {
+            torCustomProxyAddress = settings.torCustomProxyAddress
+        }
+        if settings.torKillSwitch != torKillSwitch { torKillSwitch = settings.torKillSwitch }
         if Int(settings.automaticRefreshFrequencyMinutes)
             != preferences.automaticRefreshFrequencyMinutes
         {

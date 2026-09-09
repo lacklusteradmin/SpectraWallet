@@ -5,7 +5,7 @@ struct HistoryDetailView: View {
     let store: AppState
     let transaction: TransactionRecord
     @State private var didCopyAddress = false
-    @State private var ethereumReplacementMessage: String?
+    @State private var replacementMessage: String?
     @State private var liveTransaction: TransactionRecord?
     @State private var liveOwnedAddresses: Set<String> = []
     /// Core answers the owned-address question asynchronously, so the view
@@ -128,27 +128,32 @@ struct HistoryDetailView: View {
                             detailRow(label: "Failure", value: failureReason)
                         }
                     }
-                    if displayedTransaction.chainName == "Ethereum", displayedTransaction.kind == .send,
-                        displayedTransaction.status == .pending
-                    {
-                        spectraDetailCard(title: "Ethereum Mempool Actions") {
-                            if store.isPreparingEthereumReplacementContext {
+                    // Core says which rows can still be replaced; this row is
+                    // one of them or it is not. The old test — the chain named
+                    // "Ethereum", a send, pending — left every other EVM chain
+                    // without the actions and offered Speed Up on token
+                    // transfers it could not rebuild.
+                    if let pending = store.replaceableSend(forTransaction: displayedTransaction.id) {
+                        spectraDetailCard(title: AppLocalization.format("%@ Mempool Actions", pending.chainName)) {
+                            if store.isPreparingReplacementContext {
                                 SpectraLoadingRow(title: "Preparing replacement/cancel context...")
                             } else {
+                                if pending.canSpeedUp {
+                                    Button {
+                                        Task {
+                                            replacementMessage = await store.openReplacementComposer(
+                                                for: displayedTransaction.id, cancel: false
+                                            )
+                                        }
+                                    } label: {
+                                        Text(AppLocalization.string("Speed Up This Transaction")).font(.headline).frame(maxWidth: .infinity)
+                                            .padding(.vertical, 12)
+                                    }.buttonStyle(.glassProminent)
+                                        .spectraPressable()
+                                }
                                 Button {
                                     Task {
-                                        ethereumReplacementMessage = await store.openEthereumReplacementComposer(
-                                            for: displayedTransaction.id, cancel: false
-                                        )
-                                    }
-                                } label: {
-                                    Text(AppLocalization.string("Speed Up This Transaction")).font(.headline).frame(maxWidth: .infinity).padding(
-                                        .vertical, 12)
-                                }.buttonStyle(.glassProminent)
-                                    .spectraPressable()
-                                Button {
-                                    Task {
-                                        ethereumReplacementMessage = await store.openEthereumReplacementComposer(
+                                        replacementMessage = await store.openReplacementComposer(
                                             for: displayedTransaction.id, cancel: true
                                         )
                                     }
@@ -159,12 +164,14 @@ struct HistoryDetailView: View {
                                     .spectraPressable()
                                 Text(
                                     AppLocalization.string(
-                                        "This opens the Send composer with the same nonce and higher fee defaults so you can safely speed up or cancel the pending transaction."
+                                        pending.canSpeedUp
+                                            ? "This opens the Send composer with the same nonce and higher fee defaults so you can safely speed up or cancel the pending transaction."
+                                            : "This opens the Send composer with the same nonce and higher fee defaults so you can cancel the pending transfer. A token transfer cannot be rebuilt from its record, so it cannot be sped up."
                                     )
                                 ).font(.caption).foregroundStyle(.secondary)
                             }
-                            if let ethereumReplacementMessage {
-                                Text(ethereumReplacementMessage).font(.caption).foregroundStyle(.secondary)
+                            if let replacementMessage {
+                                Text(replacementMessage).font(.caption).foregroundStyle(.secondary)
                             }
                         }
                     }

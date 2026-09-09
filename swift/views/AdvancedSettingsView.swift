@@ -49,30 +49,15 @@ struct AdvancedSettingsView: View {
                     isRunningMaintenance
                         ? AppLocalization.string("Running Diagnostics...") : AppLocalization.string("Run All Endpoint Checks")
                 ) {
+                    // "All" is the list the diagnostics hub offers, which is
+                    // the catalog's mainnets. Twenty-two calls stood here, six
+                    // of them through a per-chain wrapper, and the list had
+                    // been written before Base, Polygon, Zcash, Kaspa, Dash,
+                    // Decred, Bitcoin SV, Bitcoin Gold, Dogecoin, Sei and the
+                    // newer rollups existed here — so "Run All" skipped them.
                     Task {
                         isRunningMaintenance = true
-                        await store.runBitcoinEndpointReachabilityDiagnostics()
-                        await store.runEndpointDiagnostics(for: .bitcoinCash)
-                        await store.runEndpointDiagnostics(for: .litecoin)
-                        await store.runEthereumEndpointReachabilityDiagnostics()
-                        await store.runEndpointDiagnostics(for: .ethereumClassic)
-                        await store.runEndpointDiagnostics(for: .arbitrum)
-                        await store.runEndpointDiagnostics(for: .optimism)
-                        await store.runBNBEndpointReachabilityDiagnostics()
-                        await store.runEndpointDiagnostics(for: .avalanche)
-                        await store.runEndpointDiagnostics(for: .hyperliquid)
-                        await store.runEndpointDiagnostics(for: .tron)
-                        await store.runEndpointDiagnostics(for: .solana)
-                        await store.runEndpointDiagnostics(for: .cardano)
-                        await store.runEndpointDiagnostics(for: .xrp)
-                        await store.runMoneroEndpointReachabilityDiagnostics()
-                        await store.runEndpointDiagnostics(for: .sui)
-                        await store.runEndpointDiagnostics(for: .aptos)
-                        await store.runEndpointDiagnostics(for: .ton)
-                        await store.runEndpointDiagnostics(for: .icp)
-                        await store.runNearEndpointReachabilityDiagnostics()
-                        await store.runPolkadotEndpointReachabilityDiagnostics()
-                        await store.runEndpointDiagnostics(for: .stellar)
+                        for chain in Chain.mainnets { await store.runEndpointDiagnostics(for: chain) }
                         isRunningMaintenance = false
                         maintenanceNotice = AppLocalization.string("Endpoint checks completed.")
                     }
