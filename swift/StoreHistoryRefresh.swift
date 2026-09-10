@@ -1,11 +1,5 @@
 import Foundation
 
-struct BitcoinHistoryPage {
-    let snapshots: [CoreBitcoinHistorySnapshot]
-    let nextCursor: String?
-    let sourceUsed: String
-}
-
 extension AppState {
     private var wsb: WalletServiceBridge { WalletServiceBridge.shared }
     func historyPaginationExhausted(chainId: String, walletId: String) -> Bool {
@@ -142,107 +136,54 @@ extension AppState {
 // Bitcoin (special: HD xpub address expansion + single-address fallback)
 // ────────────────────────────────────────────────────────────────────────────
 extension AppState {
-    func fetchBitcoinHistoryPage(for wallet: ImportedWallet, limit: Int, cursor: String?) async throws -> BitcoinHistoryPage {
-        if cursor == nil, let seedPhrase = storedSeedPhrase(for: wallet.id),
-            !seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        {
-            let pathParts = wallet.seedDerivationPaths.path(for: .bitcoin).split(separator: "/")
-            let accountPath = String(pathParts.prefix(4).joined(separator: "/"))
-            if let xpub = try? WalletServiceBridge.shared.deriveBitcoinAccountXpub(
-                mnemonicPhrase: seedPhrase, passphrase: "", accountPath: accountPath
-            ) {
-                let page = try await fetchBitcoinHDHistoryPage(xpub: xpub, limit: limit)
-                if !page.snapshots.isEmpty { return page }
-            }
-        }
-        if let bitcoinAddress = wallet.bitcoinAddress?.trimmingCharacters(in: .whitespacesAndNewlines), !bitcoinAddress.isEmpty {
-            let entries = try await WalletServiceBridge.shared.fetchNormalizedHistory(
-                chainId: Chain.bitcoin.id, address: bitcoinAddress)
-            return decodeBitcoinNormalizedPage(entries: entries, limit: limit)
-        }
-        if let bitcoinXpub = wallet.bitcoinXpub?.trimmingCharacters(in: .whitespacesAndNewlines), !bitcoinXpub.isEmpty {
-            return try await fetchBitcoinHDHistoryPage(xpub: bitcoinXpub, limit: limit)
-        }
-        throw URLError(.fileDoesNotExist)
-    }
-    private func fetchBitcoinHDHistoryPage(xpub: String, limit: Int) async throws -> BitcoinHistoryPage {
-        let mergedSnapshots = try await WalletServiceBridge.shared.fetchBitcoinHdHistoryPage(xpub: xpub, limit: UInt64(limit))
-        return BitcoinHistoryPage(snapshots: mergedSnapshots, nextCursor: nil, sourceUsed: "rust.hd")
-    }
-    private func decodeBitcoinNormalizedPage(entries: [NormalizedHistoryItem], limit: Int) -> BitcoinHistoryPage {
-        guard !entries.isEmpty else { return BitcoinHistoryPage(snapshots: [], nextCursor: nil, sourceUsed: "rust") }
-        let snapshots: [CoreBitcoinHistorySnapshot] = Array(entries.prefix(limit)).map { e in
-            CoreBitcoinHistorySnapshot(
-                txid: e.txHash, amountBtc: e.amount, kind: e.kind, status: e.status,
-                counterpartyAddress: e.counterparty, blockHeight: e.blockHeight,
-                createdAtUnix: e.timestamp > 0 ? e.timestamp : Date().timeIntervalSince1970
-            )
-        }
-        let nextCursor = entries.count > limit ? entries[limit - 1].txHash : nil
-        return BitcoinHistoryPage(snapshots: snapshots, nextCursor: nextCursor, sourceUsed: "rust")
-    }
+    /// Fetch and merge Bitcoin history for its wallets.
+    ///
+    /// Bitcoin is the one chain with an account xpub, so its history is the HD
+    /// range's rather than one address's. Three arms used to live here: read
+    /// the seed out of the Keychain, cut the account path out of the wallet's
+    /// derivation path by string surgery, derive the xpub and walk the range;
+    /// fall back to the stored address; fall back to a stored xpub. All three
+    /// are `refresh_bitcoin_history`, over the seed, paths and cursors core
+    /// already holds. What is left is the diagnostics rows and the banner.
     func refreshBitcoinTransactions(limit: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil) async {
-        let walletSnapshot = wallets
-        let bitcoinWallets = walletSnapshot.filter { wallet in
-            guard wallet.selectedChain == "Bitcoin" else { return false }
-            guard let targetWalletIDs else { return true }
-            return targetWalletIDs.contains(wallet.id)
-        }
-        guard !bitcoinWallets.isEmpty else { return }
-        let requestedLimit = max(10, min(limit ?? HistoryPaging.endpointBatchSize, 100))
-        if !loadMore {
-            for walletID in Set(bitcoinWallets.map(\.id)) { resetHistoryPagination(chainId: Chain.bitcoin.id, walletId: walletID) }
-        }
-        var discoveredTransactions: [TransactionRecord] = []
-        var encounteredErrors = false
-        for wallet in bitcoinWallets {
-            if loadMore && historyPaginationExhausted(chainId: Chain.bitcoin.id, walletId: wallet.id) { continue }
-            let cursor = loadMore ? historyPaginationCursor(chainId: Chain.bitcoin.id, walletId: wallet.id) : nil
-            do {
-                let page = try await fetchBitcoinHistoryPage(for: wallet, limit: requestedLimit, cursor: cursor)
-                let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? wallet.name
-                setHistoryCursor(chainId: Chain.bitcoin.id, walletId: wallet.id, cursor: page.nextCursor)
-                recordHistoryDiagnostics(
-                    chainName: "Bitcoin",
-                    HistoryDiagnostics(
-                        walletId: wallet.id, identifier: identifier, sourceUsed: page.sourceUsed,
-                        transactionCount: Int32(page.snapshots.count), scannedCount: nil,
-                        nextCursor: page.nextCursor, error: nil, perSource: []))
-                self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
-                discoveredTransactions.append(
-                    contentsOf: page.snapshots.map { snapshot in
-                        TransactionRecord(
-                            walletID: wallet.id, kind: TransactionKind(rawValue: snapshot.kind) ?? .send,
-                            status: TransactionStatus(rawValue: snapshot.status) ?? .pending, walletName: wallet.name, assetName: "Bitcoin",
-                            symbol: "BTC", chainName: "Bitcoin", amount: snapshot.amountBtc, address: snapshot.counterpartyAddress,
-                            transactionHash: snapshot.txid, receiptBlockNumber: snapshot.blockHeight.map(Int.init),
-                            transactionHistorySource: page.sourceUsed, createdAt: Date(timeIntervalSince1970: snapshot.createdAtUnix)
-                        )
-                    }
-                )
-            } catch {
-                encounteredErrors = true
-                setHistoryCursor(chainId: Chain.bitcoin.id, walletId: wallet.id, cursor: nil)
-                let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? ""
-                recordHistoryDiagnostics(
-                    chainName: "Bitcoin",
-                    HistoryDiagnostics(
-                        walletId: wallet.id, identifier: identifier, sourceUsed: "none",
-                        transactionCount: 0, scannedCount: nil, nextCursor: nil,
-                        error: error.localizedDescription, perSource: []))
-                self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
-            }
-        }
-        if !discoveredTransactions.isEmpty {
-            upsertTransactions(discoveredTransactions, chainName: "Bitcoin")
-            if encounteredErrors {
-                markChainDegraded("Bitcoin", detail: "Bitcoin history loaded with partial provider failures.")
-            } else {
-                markChainHealthy("Bitcoin")
-            }
-        } else if encounteredErrors {
+        let outcome: HistoryRefreshOutcome
+        do {
+            outcome = try await WalletServiceBridge.shared.refreshBitcoinHistory(
+                walletIDs: targetWalletIDs.map(Array.init) ?? [],
+                loadMore: loadMore,
+                limit: limit.map { UInt32(max(0, $0)) })
+        } catch {
             markChainDegraded("Bitcoin", detail: "Bitcoin history refresh failed. Using cached history.")
+            return
         }
+        recordBitcoinHistoryDiagnostics(outcome.diagnostics)
+        guard outcome.walletsRefreshed > 0 || outcome.walletsFailed > 0 else { return }
+        if outcome.added > 0 || outcome.updated > 0 {
+            await refreshTransactionProjection()
+        }
+        if outcome.walletsFailed > 0 {
+            markChainDegraded(
+                "Bitcoin",
+                detail: outcome.walletsRefreshed == 0
+                    ? "Bitcoin history refresh failed. Using cached history."
+                    : "Bitcoin history loaded with partial provider failures.")
+        } else {
+            markChainHealthy("Bitcoin")
+        }
+    }
+
+    /// Put a refresh's own account of itself on the diagnostics screen.
+    func recordBitcoinHistoryDiagnostics(_ rows: [HistoryWalletDiagnostics]) {
+        guard !rows.isEmpty else { return }
+        for row in rows {
+            recordHistoryDiagnostics(
+                chainName: "Bitcoin",
+                HistoryDiagnostics(
+                    walletId: row.walletId, identifier: row.identifier, sourceUsed: row.sourceUsed,
+                    transactionCount: Int32(row.transactionCount), scannedCount: nil,
+                    nextCursor: row.nextCursor, error: row.error, perSource: []))
+        }
+        self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
     }
 }
 
@@ -259,97 +200,45 @@ extension AppState {
     /// Bitcoin Cash and Bitcoin SV went through the single-address refresh:
     /// their wallets have many addresses and only the first one's history was
     /// ever fetched.
+    /// Fetch and merge one UTXO chain's history across each wallet's known
+    /// addresses.
+    ///
+    /// A UTXO wallet spends from many addresses, so one transaction arrives
+    /// once per address it touched and the records are netted per transaction
+    /// before they are stored. This used to ask core for the addresses, hand
+    /// them straight back inside a planning request, fetch per address, call
+    /// core's aggregator, build the records and send them to be merged — six
+    /// crossings for data core already had. The addresses are its keypool.
     func refreshMultiAddressUTXOTransactions(
         chainName: String, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil
     ) async {
         guard let chain = Chain(displayName: chainName) else { return }
-        let chainID = chain.id
-        let walletSnapshot = wallets
-        var walletsToRefresh = await plannedMultiAddressHistoryWallets(
-            chainName: chainName, walletSnapshot: walletSnapshot, targetWalletIDs: targetWalletIDs) ?? []
-        if walletsToRefresh.isEmpty {
-            for wallet in walletSnapshot {
-                guard wallet.selectedChain == chainName else { continue }
-                if let targetWalletIDs, !targetWalletIDs.contains(wallet.id) { continue }
-                let addresses = await knownUTXOAddresses(for: wallet, chainName: chainName)
-                guard !addresses.isEmpty else { continue }
-                walletsToRefresh.append((wallet, addresses))
-            }
-        }
-        guard !walletsToRefresh.isEmpty else { return }
-        if !loadMore {
-            for walletID in Set(walletsToRefresh.map { $0.0.id }) {
-                resetHistoryPagination(chainId: chainID, walletId: walletID)
-            }
-        }
-        var syncedTransactions: [TransactionRecord] = []
-        var encounteredErrors = false
-        for (wallet, addresses) in walletsToRefresh {
-            if loadMore && historyPaginationExhausted(chainId: chainID, walletId: wallet.id) { continue }
-            var collected: [NormalizedHistoryItem] = []
-            for address in addresses {
-                do {
-                    let entries = try await WalletServiceBridge.shared.fetchNormalizedHistory(
-                        chainId: chainID, address: address)
-                    collected.append(contentsOf: entries)
-                    // These fetches return the whole history in one call, so
-                    // the page just written is also the last one.
-                    setHistoryPage(chainId: chainID, walletId: wallet.id, page: 1, isExhausted: true)
-                } catch { encounteredErrors = true; continue }
-            }
-            let aggregates = historyAggregateByTransaction(
-                input: MultiAddressAggregateInput(ownAddresses: addresses, entries: collected))
-            guard !aggregates.isEmpty else { continue }
-            syncedTransactions.append(
-                contentsOf: aggregates.map { agg in
-                    TransactionRecord(
-                        walletID: wallet.id,
-                        kind: TransactionKind(rawValue: agg.kind) ?? .send,
-                        status: TransactionStatus(rawValue: agg.status) ?? .confirmed,
-                        walletName: wallet.name, assetName: chain.displayName, symbol: chain.gasTokenSymbol,
-                        chainName: chainName, amount: agg.amount, address: agg.counterparty,
-                        transactionHash: agg.hash, receiptBlockNumber: agg.blockNumber.map(Int.init),
-                        transactionHistorySource: "\(chainID).providers",
-                        createdAt: agg.createdAtUnix > 0 ? Date(timeIntervalSince1970: agg.createdAtUnix) : Date.distantPast
-                    )
-                })
-        }
-        guard !syncedTransactions.isEmpty else {
-            if encounteredErrors {
-                markChainDegraded(chainName, detail: AppLocalization.format(
-                    "%@ history refresh failed. Using cached history.", chainName))
-            }
+        let outcome: HistoryRefreshOutcome
+        do {
+            outcome = try await WalletServiceBridge.shared.refreshUTXOChainHistory(
+                chainId: chain.id,
+                walletIDs: targetWalletIDs.map(Array.init) ?? [],
+                loadMore: loadMore)
+        } catch {
+            markChainDegraded(
+                chainName,
+                detail: AppLocalization.format("%@ history refresh failed. Using cached history.", chainName))
             return
         }
-        upsertTransactions(syncedTransactions, chainName: chainName)
-        if encounteredErrors {
-            markChainDegraded(chainName, detail: AppLocalization.format(
-                "%@ history loaded with partial provider failures.", chainName))
+        guard outcome.walletsRefreshed > 0 || outcome.walletsFailed > 0 else { return }
+        if outcome.added > 0 || outcome.updated > 0 {
+            await refreshTransactionProjection()
+        }
+        if outcome.walletsFailed > 0 {
+            markChainDegraded(
+                chainName,
+                detail: AppLocalization.format(
+                    outcome.walletsRefreshed == 0
+                        ? "%@ history refresh failed. Using cached history."
+                        : "%@ history loaded with partial provider failures.",
+                    chainName))
         } else {
             markChainHealthy(chainName)
-        }
-    }
-
-    private func plannedMultiAddressHistoryWallets(
-        chainName: String, walletSnapshot: [ImportedWallet], targetWalletIDs: Set<String>?
-    ) async -> [(ImportedWallet, [String])]? {
-        var inputs: [RefreshWalletInput] = []
-        for wallet in walletSnapshot {
-            inputs.append(
-                RefreshWalletInput(
-                    walletId: wallet.id, selectedChain: wallet.selectedChain,
-                    addresses: await knownUTXOAddresses(for: wallet, chainName: chainName)
-                ))
-        }
-        let targets = coreRefreshTargets(
-            request: RefreshTargetsRequest(
-                chainName: chainName, wallets: inputs,
-                allowedWalletIds: targetWalletIDs.map(Array.init)))
-        guard !targets.isEmpty else { return nil }
-        let walletByID = Dictionary(uniqueKeysWithValues: walletSnapshot.map { ($0.id, $0) })
-        return targets.compactMap { target in
-            guard let wallet = walletByID[target.walletId] else { return nil }
-            return (wallet, target.addresses)
         }
     }
 }
@@ -370,7 +259,7 @@ extension AppState {
         chainName: String, maxResults: Int? = nil, loadMore: Bool = false, targetWalletIDs: Set<String>? = nil
     ) async {
         guard let chain = Chain(displayName: chainName), chain.isEVM else { return }
-        let outcome: EvmHistoryRefreshOutcome
+        let outcome: HistoryRefreshOutcome
         do {
             outcome = try await WalletServiceBridge.shared.refreshEVMChainHistory(
                 chainId: chain.id,
@@ -388,7 +277,7 @@ extension AppState {
             recordHistoryDiagnostics(
                 chainName: diagnosticsChainName,
                 HistoryDiagnostics(
-                    walletId: row.walletId, identifier: row.address,
+                    walletId: row.walletId, identifier: row.identifier,
                     sourceUsed: row.sourceUsed, transactionCount: Int32(row.transactionCount),
                     scannedCount: nil, nextCursor: nil, error: row.error,
                     perSource: [

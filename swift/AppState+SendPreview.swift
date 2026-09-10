@@ -187,19 +187,27 @@ extension AppState {
         let wallet = wallet(for: sendWalletID)
         let xpub = wallet?.bitcoinXpub?.trimmingCharacters(in: .whitespacesAndNewlines)
         await refreshUTXOChainPreview(
-            chainName: "Bitcoin", chainId: Chain.bitcoin.id,
+            chainName: "Bitcoin",
             resolveAddress: { self.resolvedAddress(for: $0, chainName: "Bitcoin") },
             fetch: { chainId, address in
                 if let xpub, !xpub.isEmpty {
-                    return try await WalletServiceBridge.shared.fetchBitcoinHdSendPreviewTyped(xpub: xpub)
+                    return try await WalletServiceBridge.shared.fetchBitcoinHdSendPreviewTyped(
+                        chainId: chainId, xpub: xpub)
                 }
                 return try await decodedUTXOFeePreview(
                     chainId: chainId, address: address, satPerCoin: 100_000_000)
             },
             setPreview: { self.sendPreviewStore.bitcoinSendPreview = $0 })
     }
+    /// The preview is priced on the network the wallet is on.
+    ///
+    /// The chain id used to come in from the caller as the family's mainnet,
+    /// which cost only a wrong fee estimate while a send signed for mainnet
+    /// too. Now that `execute_send` follows `WalletSummary::network_chain`, a
+    /// testnet send would have been priced — and its spendable balance read —
+    /// against mainnet. One rule, resolved from the wallet this is previewing.
     private func refreshUTXOChainPreview(
-        chainName: String, chainId: String,
+        chainName: String,
         resolveAddress: @escaping (ImportedWallet) -> String?,
         adjust: @escaping (BitcoinSendPreview) -> BitcoinSendPreview = { $0 },
         fetch: (@MainActor (String, String) async throws -> BitcoinSendPreview?)? = nil,
@@ -211,6 +219,7 @@ extension AppState {
             let amount = parseAmountInput(text: sendAmount, maxDecimals: chain.nativeDecimals),
             amount > 0
         else { setPreview(nil); return }
+        let chainId = walletNetworkChainID(for: wallet, family: chain.mainnetCounterpart.id)
         let trimmedDestination = sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmedDestination.isEmpty,
             !isValidAddressForPolicy(trimmedDestination, chainName: chainName, wallet: wallet)
@@ -224,7 +233,7 @@ extension AppState {
             chainName,
             retry: { [weak self] in
                 await self?.refreshUTXOChainPreview(
-                    chainName: chainName, chainId: chainId, resolveAddress: resolveAddress,
+                    chainName: chainName, resolveAddress: resolveAddress,
                     adjust: adjust, fetch: fetch, setPreview: setPreview)
             }
         ) {
@@ -259,7 +268,7 @@ extension AppState {
     func refreshUTXOSendPreview(for chain: Chain) async {
         let chainName = chain.displayName
         await refreshUTXOChainPreview(
-            chainName: chainName, chainId: chain.id,
+            chainName: chainName,
             resolveAddress: { [self] in resolvedAddress(for: $0, chainName: chainName) },
             adjust: { [self] preview in
                 let overhead = Int64(

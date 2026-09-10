@@ -65,9 +65,6 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func fetchHistorySummary(chainId: String, address: String) async throws -> HistorySummary {
         try await service().fetchHistorySummary(chainId: chainId, address: address)
     }
-    func fetchBitcoinHdHistoryPage(xpub: String, limit: UInt64) async throws -> [CoreBitcoinHistorySnapshot] {
-        try await service().fetchBitcoinHdHistoryPage(xpub: xpub, limit: limit)
-    }
     func fetchEVMHistoryPage(
         chainId: String, address: String, tokens: [TokenDescriptor], page: Int, pageSize: Int
     ) async throws -> EvmHistoryPageDecoded {
@@ -114,9 +111,6 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func sendDestinationRisk(chainId: String, address: String, token: TokenDescriptor?) async throws -> SendDestinationRisk {
         try await service().sendDestinationRisk(chainId: chainId, address: address, token: token)
     }
-    func evmTransactionStatus(chainId: String, txHash: String) async throws -> EvmReceiptClassification? {
-        try await service().evmTransactionStatus(chainId: chainId, txHash: txHash)
-    }
     func fetchTronSendPreviewTyped(address: String, symbol: String, contractAddress: String) async throws -> TronSendPreview? {
         try await service().fetchTronSendPreviewTyped(address: address, symbol: symbol, contractAddress: contractAddress)
     }
@@ -126,8 +120,9 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func fetchDogecoinSendPreviewTyped(address: String, requestedAmount: Double, feePriority: String) async throws -> DogecoinSendPreview? {
         try await service().fetchDogecoinSendPreviewTyped(address: address, requestedAmount: requestedAmount, feePriority: feePriority)
     }
-    func fetchBitcoinHdSendPreviewTyped(xpub: String, receiveCount: UInt32 = 20, changeCount: UInt32 = 20) async throws -> BitcoinSendPreview? {
-        try await service().fetchBitcoinHdSendPreviewTyped(xpub: xpub, receiveCount: receiveCount, changeCount: changeCount)
+    func fetchBitcoinHdSendPreviewTyped(chainId: String, xpub: String, receiveCount: UInt32 = 20, changeCount: UInt32 = 20) async throws -> BitcoinSendPreview? {
+        try await service().fetchBitcoinHdSendPreviewTyped(
+            chainId: chainId, xpub: xpub, receiveCount: receiveCount, changeCount: changeCount)
     }
     func fetchSimpleChainSendPreviewTyped(chainId: String, address: String) async throws -> SimpleChainPreview {
         try await service().fetchSimpleChainSendPreviewTyped(chainId: chainId, address: address)
@@ -320,14 +315,8 @@ extension WalletServiceBridge {
     // `TransactionStatusPollConfig` on every call — how often to re-poll and
     // when to give up, decided on this side and handed over each time.
 
-    func transactionsDueForStatusPoll(ids: [String]) async throws -> [String] {
-        try await service().transactionsDueForStatusPoll(transactionIds: ids)
-    }
 
     /// Record what one confirmation poll found.
-    func recordStatusPoll(id: String, outcome: StatusPollOutcome) async throws {
-        try await service().recordStatusPoll(transactionId: id, outcome: outcome)
-    }
 
     func resetStatusTracker(id: String, clearFinality: Bool) async throws {
         try await service().resetStatusTracker(
@@ -378,10 +367,9 @@ extension WalletServiceBridge {
         try await service().importWallets(commit: commit)
     }
 
-    func applyResolvedPendingStatuses(
-        chainName: String, resolutions: [ResolvedPendingStatus]
-    ) async throws -> [TransactionStatusChange] {
-        try await service().applyResolvedPendingStatuses(chainName: chainName, resolutions: resolutions)
+    /// Poll one chain's pending transactions; answers what changed.
+    func pollPendingTransactions(chainId: String) async throws -> [TransactionStatusChange] {
+        try await service().pollPendingTransactions(chainId: chainId)
     }
 
 
@@ -445,9 +433,6 @@ extension WalletServiceBridge {
     /// Forget history pagination, for as much of it as `scope` names. Four
     /// methods stood for the four cases.
     nonisolated func resetHistory(_ scope: HistoryScope) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.resetHistory(scope: scope) } }
-    func fetchUtxoTxStatusTyped(chainId: String, txid: String) async throws -> UtxoTxStatus {
-        try await service().fetchUtxoTxStatusTyped(chainId: chainId, txid: txid)
-    }
     private func sqliteDbPath() -> String {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? NSTemporaryDirectory()
         return "\(docs)/spectra_state.db"
@@ -539,10 +524,26 @@ extension WalletServiceBridge {
         try await service().refreshChainHistory(chainId: chainId, walletIds: walletIDs)
     }
 
+    /// Fetch and merge Bitcoin history for the wallets core holds.
+    func refreshBitcoinHistory(walletIDs: [String], loadMore: Bool, limit: UInt32?) async throws
+        -> HistoryRefreshOutcome
+    {
+        try await service().refreshBitcoinHistory(
+            walletIds: walletIDs, loadMore: loadMore, limit: limit)
+    }
+
+    /// Fetch and merge one UTXO chain's history across each wallet's addresses.
+    func refreshUTXOChainHistory(chainId: String, walletIDs: [String], loadMore: Bool) async throws
+        -> HistoryRefreshOutcome
+    {
+        try await service().refreshUtxoChainHistory(
+            chainId: chainId, walletIds: walletIDs, loadMore: loadMore)
+    }
+
     /// Fetch and merge one EVM chain's history page for the wallets core holds.
     func refreshEVMChainHistory(
         chainId: String, walletIDs: [String], loadMore: Bool, pageSize: UInt32?
-    ) async throws -> EvmHistoryRefreshOutcome {
+    ) async throws -> HistoryRefreshOutcome {
         try await service().refreshEvmChainHistory(
             chainId: chainId, walletIds: walletIDs, loadMore: loadMore, pageSize: pageSize)
     }

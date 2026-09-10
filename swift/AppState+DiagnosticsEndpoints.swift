@@ -15,43 +15,27 @@ import SwiftUI
 extension AppState {
     // MARK: Bitcoin-family history diagnostics
 
+    /// Bitcoin's history diagnostics: run the refresh and show what it says.
+    ///
+    /// This used to fetch a page per wallet through a second copy of the
+    /// refresh's own source selection — HD xpub, stored address, stored xpub —
+    /// read the result for a diagnostics row and throw the page away. The
+    /// refresh reports which source answered, how many records and what
+    /// failed, so this runs it and writes the rows. The page it fetched is
+    /// merged rather than discarded, which is what the button on this screen
+    /// says it is for.
     func runBitcoinXpubHistoryDiagnostics() async {
         guard !self[historyRunFor: "Bitcoin"].isRunning else { return }
         self[historyRunFor: "Bitcoin"].isRunning = true
         defer { self[historyRunFor: "Bitcoin"].isRunning = false }
-        let btcWallets = wallets.filter { $0.selectedChain == "Bitcoin" }
-        guard !btcWallets.isEmpty else { self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date(); return }
-        for wallet in btcWallets { await runBitcoinXpubHistoryDiagnosticsInner(for: wallet) }
-    }
-    private func runBitcoinXpubHistoryDiagnosticsInner(for wallet: ImportedWallet) async {
-        let identifier = wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? wallet.name
-        do {
-            let page = try await withTimeout(seconds: 20) {
-                try await self.fetchBitcoinHistoryPage(for: wallet, limit: HistoryPaging.endpointBatchSize, cursor: nil)
-            }
-            if identifier.isEmpty {
-                recordHistoryDiagnostics(
-                    chainName: "Bitcoin",
-                    HistoryDiagnostics(
-                        walletId: wallet.id, identifier: "missing address/xpub",
-                        sourceUsed: "none", transactionCount: 0,
-                        scannedCount: nil, nextCursor: nil, error: "Wallet has no BTC address or xpub configured.", perSource: []))
-            } else {
-                recordHistoryDiagnostics(
-                    chainName: "Bitcoin",
-                    HistoryDiagnostics(
-                        walletId: wallet.id, identifier: identifier,
-                        sourceUsed: page.sourceUsed, transactionCount: Int32(page.snapshots.count),
-                        scannedCount: nil, nextCursor: page.nextCursor, error: nil, perSource: []))
-            }
-        } catch {
-            recordHistoryDiagnostics(
-                chainName: "Bitcoin",
-                HistoryDiagnostics(
-                        walletId: wallet.id, identifier: wallet.bitcoinAddress ?? wallet.bitcoinXpub ?? "unknown",
-                        sourceUsed: "none", transactionCount: 0,
-                        scannedCount: nil, nextCursor: nil, error: error.localizedDescription, perSource: []))
+        guard wallets.contains(where: { $0.selectedChain == "Bitcoin" }) else {
+            self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
+            return
         }
+        // Bounded like every other probe on this screen. Without it a refresh
+        // that never answers leaves `isRunning` set and the button dead for
+        // the rest of the session; the rows the refresh already wrote stand.
+        try? await withTimeout(seconds: 20) { await self.refreshBitcoinTransactions() }
         self[historyRunFor: "Bitcoin"].lastUpdatedAt = Date()
     }
 
@@ -275,126 +259,24 @@ extension AppState {
             }
         } catch { return (false, nil, error.localizedDescription) }
     }
-    // MARK: Pending transaction refresh (AppState mutation; Swift-native)
+    // MARK: Pending transaction refresh
 
     /// Poll one chain's pending transactions for a final status.
     ///
-    /// How a chain reaches finality is a registry fact — eighteen wrappers
-    /// used to state it, each naming a chain, a chain id, an address resolver
-    /// and up to two flags. Adding a chain is a registry edit now.
+    /// Three loops used to live here, one per poll shape — a UTXO status
+    /// endpoint, an address history naming confirmed txids, an EVM receipt.
+    /// Each selected the records to poll from this projection of core's store,
+    /// asked core whether each was due, fetched, told core the outcome,
+    /// collected the resolutions and handed them back to be applied: five
+    /// crossings per transaction, for a store core owns. What comes back is
+    /// what changed, and this writes the event and the notification — the two
+    /// things that are genuinely this platform's.
     func refreshPendingTransactions(chainName: String) async {
-        let chainID = Chain(displayName: chainName)?.id ?? ""
-        guard !chainID.isEmpty else { return }
-        switch (Chain(displayName: chainName)?.pendingStatusPoll ?? .none) {
-        case .utxo(let tracksFinality, let requireSendKind):
-            await refreshPendingUTXOChainTransactions(
-                chainName: chainName, chainId: chainID,
-                requireSendKind: requireSendKind, tracksFinality: tracksFinality)
-        case .historyTxids:
-            await refreshPendingRustHistoryChainTransactions(chainName: chainName, chainId: chainID)
-        case .evmReceipt:
-            await refreshPendingEVMChainTransactions(chainName: chainName, chainId: chainID)
-        case .none:
-            break
-        }
-    }
-
-    private func refreshPendingUTXOChainTransactions(
-        chainName: String, chainId: String, requireSendKind: Bool = true, tracksFinality: Bool = false
-    ) async {
-        let tracked = transactions.filter {
-            guard requireSendKind ? $0.kind == .send : true,
-                $0.chainName == chainName, $0.transactionHash != nil else { return false }
-            if tracksFinality { return $0.status == .pending || $0.status == .confirmed }
-            return $0.status == .pending
-        }
-        // Core drops trackers for transactions nothing polls any more; it reads
-        // its own transaction table and the chain's poll shape to decide, so
-        // the set is not computed here and sent over.
-        try? await WalletServiceBridge.shared.pruneStatusTrackers()
-        if tracked.isEmpty { return }
-        var resolved: [UUID: PendingTransactionStatusResolution] = [:]
-        for transaction in tracked {
-            guard let hash = transaction.transactionHash, await shouldPollTransactionStatus(for: transaction) else { continue }
-            do {
-                let status = try await WalletServiceBridge.shared.fetchUtxoTxStatusTyped(chainId: chainId, txid: hash)
-                let confirmed = status.confirmed
-                let confirmations = tracksFinality ? (status.confirmations.map(Int.init) ?? transaction.confirmationCount) : nil
-                await markTransactionStatusPollSuccess(
-                    for: transaction, resolvedStatus: confirmed ? .confirmed : .pending,
-                    confirmations: confirmations)
-                resolved[transaction.id] = PendingTransactionStatusResolution(
-                    status: confirmed ? .confirmed : .pending,
-                    receiptBlockNumber: status.blockHeight.map(Int.init),
-                    confirmations: confirmations,
-                    dogecoinNetworkFeeDoge: nil)
-            } catch { await markTransactionStatusPollFailure(for: transaction) }
-        }
-        await applyResolvedPendingStatuses(chainName: chainName, resolutions: resolved)
-    }
-
-    /// Poll one EVM chain's pending sends by transaction receipt.
-    ///
-    /// A receipt is the only thing that separates a mined-and-reverted send
-    /// from a successful one: the history summary its sibling uses can say the
-    /// hash appeared, and would call a revert a confirmation. Core does the
-    /// fetch and the classification; this walks the wallet's pending sends and
-    /// forwards each outcome to the poll schedule.
-    ///
-    /// This arm called `refreshPendingTransactions(chainName:)` — the function
-    /// containing it, with the same argument — from the commit that collapsed
-    /// eighteen per-chain wrappers into the registry switch. It replaced a
-    /// `refreshPendingEVMTransactions` that was deleted in the same commit.
-    private func refreshPendingEVMChainTransactions(chainName: String, chainId: String) async {
-        let tracked = transactions.filter { transaction in
-            transaction.kind == .send
-                && transaction.chainName == chainName
-                && transaction.status == .pending
-                && transaction.transactionHash != nil
-        }
-        guard !tracked.isEmpty else { return }
-        var resolved: [UUID: PendingTransactionStatusResolution] = [:]
-        for transaction in tracked {
-            guard let hash = transaction.transactionHash,
-                await shouldPollTransactionStatus(for: transaction)
-            else { continue }
-            let classification: EvmReceiptClassification?
-            do {
-                classification = try await WalletServiceBridge.shared.evmTransactionStatus(
-                    chainId: chainId, txHash: hash)
-            } catch {
-                await markTransactionStatusPollFailure(for: transaction)
-                continue
-            }
-            // No receipt yet is pending, not a failed poll: the node answered.
-            guard let classification, classification.isConfirmed else {
-                await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: .pending)
-                continue
-            }
-            let status: TransactionStatus = classification.isFailed ? .failed : .confirmed
-            await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: status)
-            resolved[transaction.id] = PendingTransactionStatusResolution(
-                status: status, receiptBlockNumber: classification.blockNumber.map(Int.init),
-                confirmations: nil, dogecoinNetworkFeeDoge: nil)
-        }
-        await applyResolvedPendingStatuses(chainName: chainName, resolutions: resolved)
-    }
-
-    private func refreshPendingRustHistoryChainTransactions(chainName: String, chainId: String) async {
-        // `resolvedAddress(for:chainName:)` already dispatches per chain, so the
-        // twelve `resolved<Chain>Address` arguments these wrappers threaded
-        // through were naming a function the callee could look up itself.
-        await refreshPendingHistoryBackedTransactions(
-            chainName: chainName,
-            addressResolver: { [self] in resolvedAddress(for: $0, chainName: chainName) }
-        ) { address in
-            guard let summary = try? await WalletServiceBridge.shared.fetchHistorySummary(chainId: chainId, address: address) else {
-                return ([:], true)
-            }
-            let map: [String: TransactionStatus] = Dictionary(
-                uniqueKeysWithValues: summary.confirmedTxids.map { ($0, TransactionStatus.confirmed) })
-            return (map, false)
-        }
+        guard let chain = Chain(displayName: chainName) else { return }
+        let changes = (try? await WalletServiceBridge.shared.pollPendingTransactions(
+            chainId: chain.id)) ?? []
+        guard !changes.isEmpty else { return }
+        await applyPendingStatusChanges(changes)
     }
 
     // MARK: Rust-history-fetch bridge

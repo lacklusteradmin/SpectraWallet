@@ -158,12 +158,6 @@ extension AppState {
         let branch: String?
     }
 
-    struct PendingTransactionStatusResolution {
-        let status: TransactionStatus
-        let receiptBlockNumber: Int?
-        let confirmations: Int?
-        let dogecoinNetworkFeeDoge: Double?
-    }
 
     struct ChainDegradedBanner: Identifiable {
         let chainName: String

@@ -149,52 +149,19 @@ extension AppState {
             "%@ transaction appears stuck and could not be confirmed after extended retries.", transaction.chainName
         )
     }
-    // Core owns the confirmation-poll backoff table. These forward the poll
-    // outcome and read back the schedule; nothing about it is cached here.
+    // Core owns the confirmation-poll backoff table, the fetch and the store.
+    // What is left on this side is the two things a platform has: the localized
+    // text of an operational event, and a notification.
 
-    func shouldPollTransactionStatus(for transaction: TransactionRecord) async -> Bool {
-        let due = try? await WalletServiceBridge.shared.transactionsDueForStatusPoll(
-            ids: [transaction.id.uuidString])
-        // An unreachable core must not wedge polling off permanently.
-        return due.map { !$0.isEmpty } ?? true
-    }
-    func markTransactionStatusPollSuccess(
-        for transaction: TransactionRecord, resolvedStatus: TransactionStatus,
-        confirmations: Int? = nil
-    ) async {
-        let outcome: StatusPollOutcome =
-            switch resolvedStatus {
-            case .confirmed: .confirmed(confirmations: confirmations.map { UInt32(max(0, $0)) })
-            case .pending: .pending
-            default: .unresolved
-            }
-        try? await WalletServiceBridge.shared.recordStatusPoll(
-            id: transaction.id.uuidString, outcome: outcome)
-    }
-    func markTransactionStatusPollFailure(for transaction: TransactionRecord) async {
-        try? await WalletServiceBridge.shared.recordStatusPoll(
-            id: transaction.id.uuidString, outcome: .failed)
-    }
-    /// Hand core one chain's resolved statuses; it stores the results and says
-    /// what changed.
+    /// Adopt the projection and say what changed, out loud.
     ///
-    /// Core computes its own stale failures and writes its own records, so what
-    /// is left here is the two things this platform owns: the localized text of
-    /// an operational event, and a notification.
-    func applyResolvedPendingStatuses(
-        chainName: String, resolutions: [UUID: PendingTransactionStatusResolution]
-    ) async {
+    /// Core polled, stored and decided; the two things left are this
+    /// platform's: the localized text of an operational event, and a
+    /// notification. The resolutions used to be built here and handed over —
+    /// core reads its own store now, so what arrives is the outcome.
+    func applyPendingStatusChanges(_ changes: [TransactionStatusChange]) async {
         let oldByID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
-        let inputs = resolutions.map { id, resolution in
-            ResolvedPendingStatus(
-                id: id.uuidString, status: resolution.status.rawValue,
-                confirmations: resolution.confirmations.map { UInt32(max(0, $0)) },
-                receiptBlockNumber: resolution.receiptBlockNumber.map(Int64.init),
-                dogecoinNetworkFeeDoge: resolution.dogecoinNetworkFeeDoge)
-        }
-        let changes = (try? await WalletServiceBridge.shared.applyResolvedPendingStatuses(
-            chainName: chainName, resolutions: inputs)) ?? []
-        guard !changes.isEmpty else { return }
+
         if let stored = try? await WalletServiceBridge.shared.storedTransactions() {
             adoptTransactionsFromCore(stored.compactMap(TransactionRecord.init(snapshot:)))
         }
@@ -254,42 +221,6 @@ extension AppState {
         default:
             return AppLocalization.format("Transaction reached finality (%d confirmations).", confirmations)
         }
-    }
-    func refreshPendingHistoryBackedTransactions(
-        chainName: String, addressResolver: (ImportedWallet) -> String?,
-        fetchStatuses: @escaping (String) async -> ([String: TransactionStatus], Bool)
-    ) async {
-        let trackedTransactions = transactions.filter { transaction in
-            transaction.kind == .send
-                && transaction.chainName == chainName
-                && transaction.status == .pending
-                && transaction.transactionHash != nil
-        }
-        guard !trackedTransactions.isEmpty else { return }
-        let walletsByID = Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) })
-        let groupedTransactions = Dictionary(grouping: trackedTransactions) { transaction in
-            transaction.walletID.flatMap { walletsByID[$0] }.flatMap(addressResolver)
-        }
-        var resolvedStatuses: [UUID: PendingTransactionStatusResolution] = [:]
-        for (address, group) in groupedTransactions {
-            guard let address else { continue }
-            let (statusByHash, hadError) = await fetchStatuses(address)
-            if hadError {
-                for transaction in group { await markTransactionStatusPollFailure(for: transaction) }
-                continue
-            }
-            for transaction in group {
-                guard await shouldPollTransactionStatus(for: transaction),
-                    let transactionHash = transaction.transactionHash?.lowercased()
-                else { continue }
-                let resolvedStatus = statusByHash[transactionHash] ?? .pending
-                await markTransactionStatusPollSuccess(for: transaction, resolvedStatus: resolvedStatus)
-                resolvedStatuses[transaction.id] = PendingTransactionStatusResolution(
-                    status: resolvedStatus, receiptBlockNumber: nil, confirmations: nil, dogecoinNetworkFeeDoge: nil
-                )
-            }
-        }
-        await applyResolvedPendingStatuses(chainName: chainName, resolutions: resolvedStatuses)
     }
     func addPriceAlert(for coin: Coin, targetPrice: Double, condition: PriceAlertCondition) {
         let normalizedTargetPrice = (targetPrice * 100).rounded() / 100

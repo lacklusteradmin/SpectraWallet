@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 # Syncs all icon sources from resources/ into swift/Assets.xcassets/:
 #
-#   resources/appicon/   → AppIcon.appiconset/   (SVG → 1024×1024 PNG)
-#   resources/coinicon/  → coinicon/              (SVG imageset, no namespace)
-#   resources/fiaticon/  → fiaticon/              (SVG imageset, provides-namespace)
+#   resources/appicon/    → AppIcon.appiconset/  (SVG → 1024×1024 PNG)
+#   resources/cryptoicon/ → cryptoicon/           (SVG imageset, no namespace)
+#   resources/fiaticon/   → fiaticon/             (SVG imageset, provides-namespace)
 #
-# Rules (coinicon + fiaticon):
+# Rules (cryptoicon + fiaticon):
 #   - Creates a new .imageset for every SVG not yet in the catalog.
 #   - Updates the SVG inside an existing .imageset when the source has changed.
 #   - Removes .imageset folders that no longer have a matching source SVG.
@@ -20,11 +20,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 APPICON_SRC="$REPO_ROOT/resources/appicon"
-COINICON_SRC="$REPO_ROOT/resources/coinicon"
+CRYPTOICON_SRC="$REPO_ROOT/resources/cryptoicon"
 FIATICON_SRC="$REPO_ROOT/resources/fiaticon"
 
 APPICON_DEST="$REPO_ROOT/swift/Assets.xcassets/AppIcon.appiconset"
-COINICON_DEST="$REPO_ROOT/swift/Assets.xcassets/coinicon"
+CRYPTOICON_DEST="$REPO_ROOT/swift/Assets.xcassets/cryptoicon"
 FIATICON_DEST="$REPO_ROOT/swift/Assets.xcassets/fiaticon"
 
 # ── helpers ────────────────────────────────────────────────────────────────────
@@ -166,8 +166,8 @@ sync_appicon() {
 echo "syncing appicon..."
 sync_appicon "$APPICON_SRC" "$APPICON_DEST"
 
-echo "syncing coinicon..."
-sync_svg_group "$COINICON_SRC" "$COINICON_DEST" "false" "coinicon"
+echo "syncing cryptoicon..."
+sync_svg_group "$CRYPTOICON_SRC" "$CRYPTOICON_DEST" "false" "cryptoicon"
 
 echo "syncing fiaticon..."
 sync_svg_group "$FIATICON_SRC" "$FIATICON_DEST" "true" "fiaticon"
