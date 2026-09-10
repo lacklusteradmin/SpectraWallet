@@ -162,14 +162,9 @@ extension AppState {
     }
     func isPricedAsset(_ coin: Coin) -> Bool { isPricedChain(coin.chainName) }
     /// The history list the UI renders, as core normalizes it.
-    func rebuildNormalizedHistoryIndex() async {
-        // Nothing to normalize, and no reason to read the store to find out.
-        if transactions.isEmpty {
-            if !normalizedHistoryIndex.isEmpty { normalizedHistoryIndex = [] }
-            return
-        }
+    func rebuildNormalizedHistoryIndex() async throws {
         let startedAt = CFAbsoluteTimeGetCurrent()
-        let entries = await WalletServiceBridge.shared.normalizedHistory(
+        let entries = try await WalletServiceBridge.shared.normalizedHistory(
             unknownLabel: localizedStoreString("Unknown"))
         normalizedHistoryIndex = entries.compactMap { entry in
             guard let transactionID = UUID(uuidString: entry.transactionId),
@@ -195,18 +190,31 @@ extension AppState {
     /// an index into the projection, so it stays local.
     func rebuildTransactionDerivedState() async {
         cachedTransactionByID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
-        replaceableSends = await WalletServiceBridge.shared.replaceableSends()
-        let earliest = await WalletServiceBridge.shared.earliestTransactionDates()
-        cachedFirstActivityDateByWalletID = Dictionary(
-            uniqueKeysWithValues: earliest.map {
-                ($0.walletId, Date(timeIntervalSince1970: $0.earliestCreatedAtUnix))
-            })
-        await rebuildNormalizedHistoryIndex()
+        do {
+            let sends = try await WalletServiceBridge.shared.replaceableSends()
+            let earliest = try await WalletServiceBridge.shared.earliestTransactionDates()
+            try await rebuildNormalizedHistoryIndex()
+            replaceableSends = sends
+            cachedFirstActivityDateByWalletID = Dictionary(
+                uniqueKeysWithValues: earliest.map {
+                    ($0.walletId, Date(timeIntervalSince1970: $0.earliestCreatedAtUnix))
+                })
+            historyReadError = nil
+        } catch {
+            historyReadError = localizedStoreString("Unable to read transaction history. Existing records have been kept.")
+        }
     }
+
     /// Drop transactions whose wallet is gone. Core answers which those are,
     /// from the wallets and the records it holds.
     func pruneTransactionsForActiveWallets() async {
-        let kept = Set(await WalletServiceBridge.shared.activeWalletTransactionIDs())
+        let kept: Set<String>
+        do {
+            kept = Set(try await WalletServiceBridge.shared.activeWalletTransactionIDs())
+        } catch {
+            historyReadError = localizedStoreString("Unable to read transaction history. Existing records have been kept.")
+            return
+        }
         let droppedIDs = transactions.filter { !kept.contains($0.id.uuidString) }.map(\.id)
         guard !droppedIDs.isEmpty else { return }
         removeTransactions(withIDs: droppedIDs)

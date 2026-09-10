@@ -113,51 +113,25 @@ final class WalletImportDraft {
     }
     private var allowsMultipleChainSelection: Bool { !isEditingWallet && !isWatchOnlyMode && !isPrivateKeyImportMode }
     func isSelected(_ chainName: String) -> Bool { isSelectedChain(chainName) }
-    var seedPhraseValidationError: String? {
-        guard !isEditingWallet else { return nil }
-        guard isSeedPhraseEntryComplete else { return nil }
-        guard invalidSeedWords.isEmpty else { return nil }
-        let words = seedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
-        guard words.count == selectedSeedPhraseWordCount else { return "Seed phrase must be \(selectedSeedPhraseWordCount) words." }
-        guard WalletServiceBridge.shared.rustValidateMnemonic(seedPhrase) else {
-            return "Invalid seed phrase checksum. Please verify your words."
-        }
-        return nil
+    /// Everything core has to say about the entry grid, decided in one pass.
+    /// Edit mode resets the grid, so an empty entry answers "nothing to say"
+    /// without a mode guard of its own.
+    var seedPhraseVerdict: SeedPhraseVerdict {
+        coreCheckSeedPhrase(
+            check: SeedPhraseCheck(
+                words: seedPhraseEntries,
+                language: seedPhraseLanguage,
+                expectedWordCount: UInt32(selectedSeedPhraseWordCount)))
     }
-    var hasValidSeedPhraseChecksum: Bool {
-        guard !isEditingWallet else { return false }
-        guard isSeedPhraseEntryComplete else { return false }
-        guard invalidSeedWords.isEmpty else { return false }
-        let words = seedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
-        guard words.count == selectedSeedPhraseWordCount else { return false }
-        return WalletServiceBridge.shared.rustValidateMnemonic(seedPhrase)
-    }
-    var seedPhraseWords: [String] {
-        seedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
-    }
+    /// The entry grid as words. `seedPhrase` is kept in sync with the grid,
+    /// so this reads the same phrase either way.
+    var seedPhraseWords: [String] { seedPhraseVerdict.words }
     var normalizedWalletPassword: String? {
         let trimmed = walletPassword.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
     var walletPasswordValidationError: String? {
         coreValidateWalletPassword(password: walletPassword, confirmation: walletPasswordConfirmation)
-    }
-    var invalidSeedWords: [String] {
-        guard !isEditingWallet else { return [] }
-        let wordset = BIP39WordList.words(for: seedPhraseLanguage)
-        let words = seedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
-        return words.filter { !wordset.contains($0) }
-    }
-    var seedPhraseLengthWarning: String? {
-        guard !isEditingWallet else { return nil }
-        return coreValidateSeedPhraseWordCount(wordCount: UInt32(selectedSeedPhraseWordCount))
-    }
-    private var isSeedPhraseEntryComplete: Bool {
-        guard selectedSeedPhraseWordCount > 0 else { return false }
-        guard seedPhraseEntries.count >= selectedSeedPhraseWordCount else { return false }
-        return seedPhraseEntries.prefix(selectedSeedPhraseWordCount).allSatisfy {
-            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        }
     }
     init() {
         refreshSelectionState()
@@ -221,12 +195,7 @@ final class WalletImportDraft {
         )
     }
     var canImportWallet: Bool {
-        let hasValidSeedPhrase =
-            !isEditingWallet
-            && seedPhraseWords.count == selectedSeedPhraseWordCount
-            && seedPhraseValidationError == nil
-            && invalidSeedWords.isEmpty
-            && hasValidSeedPhraseChecksum
+        let hasValidSeedPhrase = !isEditingWallet && seedPhraseVerdict.checksumValid
         let trimmedXpub = bitcoinXpubInput.trimmingCharacters(in: .whitespacesAndNewlines)
         let watchEntries = WalletImportWatchOnlyEntries(
             bySlot: watchOnlyEntriesBySlot,
@@ -472,48 +441,5 @@ final class WalletImportDraft {
         if !backupVerificationWordIndices.isEmpty, !isBackupVerificationComplete {
             backupVerificationEntries = Array(repeating: "", count: backupVerificationWordIndices.count)
         }
-    }
-}
-
-/// Bundled validation result for `WalletImportDraft`.
-///
-/// Replaces the read-time recomputation in scattered properties
-/// (`seedPhraseValidationError`, `walletPasswordValidationError`,
-/// `invalidSeedWords`, `unsupportedPrivateKeyChainNames`, etc.) with one
-/// struct that names every error mode in a single type. Views read
-/// `draft.validation.password` etc. — the rule for "is this field
-/// invalid" lives in `WalletImportDraft.validate()` instead of being
-/// spread across N computed properties.
-struct WalletImportDraftValidation {
-    /// Words the user typed that aren't in the BIP-39 wordlist.
-    var invalidSeedWords: [String] = []
-    /// Length / format / checksum problem with the seed phrase.
-    var seedPhraseError: String? = nil
-    /// True when the seed phrase parses, has no invalid words, and the
-    /// BIP-39 checksum verifies.
-    var hasValidSeedPhraseChecksum: Bool = false
-    /// Length / mismatch problem with the wallet password.
-    var passwordError: String? = nil
-    /// User selected chains the chosen private-key import mode can't sign for.
-    var unsupportedPrivateKeyChainNames: [String] = []
-    /// Non-standard mnemonic length warning (separate from `seedPhraseError`
-    /// because it's advisory, not blocking).
-    var seedPhraseLengthWarning: String? = nil
-}
-
-extension WalletImportDraft {
-    /// One-shot validation snapshot. Mirrors the live state at call time;
-    /// re-call after any mutation. Reading individual `*ValidationError`
-    /// properties is equivalent to reading the matching field on this
-    /// struct — they're shims.
-    func validate() -> WalletImportDraftValidation {
-        var result = WalletImportDraftValidation()
-        result.invalidSeedWords = invalidSeedWords
-        result.seedPhraseError = seedPhraseValidationError
-        result.hasValidSeedPhraseChecksum = hasValidSeedPhraseChecksum
-        result.passwordError = walletPasswordValidationError
-        result.unsupportedPrivateKeyChainNames = unsupportedPrivateKeyChainNames
-        result.seedPhraseLengthWarning = seedPhraseLengthWarning
-        return result
     }
 }

@@ -27,22 +27,6 @@ enum WalletRustDerivationBridge {
             address: result.address, publicKeyHex: result.publicKeyHex, privateKeyHex: result.privateKeyHex)
     }
 
-    // MARK: — Private-key derive
-
-    /// Was a thirty-arm switch naming which chains derive by which algorithm,
-    /// calling six per-chain exports. Core dispatches that by chain now, so the
-    /// list of families lives with the registry that defines them.
-    static func deriveFromPrivateKey(
-        chain: Chain, privateKeyHex: String
-    ) throws -> WalletRustDerivationResponseModel {
-        let result = try coreDeriveFromPrivateKey(
-            chainName: chain.displayName, privateKeyHex: privateKeyHex,
-            wantAddress: true, wantPublicKey: false)
-        return WalletRustDerivationResponseModel(
-            address: result?.address, publicKeyHex: result?.publicKeyHex,
-            privateKeyHex: result?.privateKeyHex)
-    }
-
     // MARK: — Script type from path
 
     private static func bitcoinScriptType(from path: String) -> BitcoinScriptType {

@@ -134,7 +134,6 @@ protocol WalletServiceBridgeProtocol: Sendable {}
         try await service().fetchSimpleChainSendPreviewTyped(chainId: chainId, address: address)
     }
     nonisolated func rustGenerateMnemonic(wordCount: Int) -> String { MainActor.assumeIsolated { generateMnemonic(wordCount: UInt32(wordCount)) } }
-    nonisolated func rustValidateMnemonic(_ phrase: String) -> Bool { MainActor.assumeIsolated { validateMnemonic(phrase: phrase) } }
     func broadcastRawExtract(chainId: String, payload: String, resultField: String) async throws -> String {
         try await service().broadcastRawExtract(chainId: chainId, payload: payload, resultField: resultField)
     }
@@ -234,22 +233,18 @@ extension WalletServiceBridge {
     }
 
     // ── Views of the transaction store, derived where the store is ────────
-    func normalizedHistory(unknownLabel: String) async -> [CoreNormalizedHistoryEntry] {
-        guard let service = try? service() else { return [] }
-        return await service.normalizedHistory(unknownLabel: unknownLabel)
+    func normalizedHistory(unknownLabel: String) async throws -> [CoreNormalizedHistoryEntry] {
+        return try await service().normalizedHistory(unknownLabel: unknownLabel)
     }
-    func earliestTransactionDates() async -> [WalletEarliestTransactionDate] {
-        guard let service = try? service() else { return [] }
-        return await service.earliestTransactionDates()
+    func earliestTransactionDates() async throws -> [WalletEarliestTransactionDate] {
+        return try await service().earliestTransactionDates()
     }
-    func activeWalletTransactionIDs() async -> [String] {
-        guard let service = try? service() else { return [] }
-        return await service.activeWalletTransactionIds()
+    func activeWalletTransactionIDs() async throws -> [String] {
+        return try await service().activeWalletTransactionIds()
     }
     /// The pending sends core says are still replaceable, newest first.
-    func replaceableSends() async -> [ReplaceableSend] {
-        guard let service = try? service() else { return [] }
-        return await service.replaceableSends()
+    func replaceableSends() async throws -> [ReplaceableSend] {
+        return try await service().replaceableSends()
     }
 
     // ── Maintenance ───────────────────────────────────────────────────────

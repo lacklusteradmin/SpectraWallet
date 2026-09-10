@@ -157,7 +157,12 @@ extension AppState {
         lastObservedPortfolioTotalUSD = nil
         // Ten lines naming the five UTXO chains, which is the map itself.
         utxoRescanStateByChain = [:]
-        await rebuildNormalizedHistoryIndex()
+        do {
+            try await rebuildNormalizedHistoryIndex()
+            historyReadError = nil
+        } catch {
+            historyReadError = localizedStoreString("Unable to read transaction history. Existing records have been kept.")
+        }
     }
     private func resetAlertsAndContactsState() {
         // Core-owned: assigning sends `SetPriceAlerts`, which clears the store.

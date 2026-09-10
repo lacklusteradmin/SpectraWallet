@@ -62,7 +62,10 @@ struct HistoryView: View {
                     LazyVStack(alignment: .leading, spacing: SpectraLayout.sectionSpacing) {
                         historySummaryCard
                         activeFilterStrip
-                        if visibleTransactions.isEmpty {
+                        if let error = store.historyReadError {
+                            Text(error).font(.subheadline).foregroundStyle(.red)
+                        }
+                        if visibleTransactions.isEmpty && store.historyReadError == nil {
                             historyEmptyStateCard
                         }
                         ForEach(groupedSections) { section in

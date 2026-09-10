@@ -174,20 +174,22 @@ struct SetupView: View {
         return copy.chooseNameAndChainsSubtitle
     }
     private var seedPhraseStatusText: String {
-        if draft.seedPhraseWords.isEmpty { return "" }
-        if !draft.invalidSeedWords.isEmpty {
-            return AppLocalization.format("import_flow.seed_phrase_invalid_words_format", draft.invalidSeedWords.joined(separator: ", "))
+        let verdict = draft.seedPhraseVerdict
+        if verdict.words.isEmpty { return "" }
+        if !verdict.invalidWords.isEmpty {
+            return AppLocalization.format("import_flow.seed_phrase_invalid_words_format", verdict.invalidWords.joined(separator: ", "))
         }
-        if draft.seedPhraseWords.count < draft.selectedSeedPhraseWordCount {
+        if verdict.words.count < draft.selectedSeedPhraseWordCount {
             return AppLocalization.format(
-                "import_flow.seed_phrase_progress_format", draft.seedPhraseWords.count, draft.selectedSeedPhraseWordCount)
+                "import_flow.seed_phrase_progress_format", verdict.words.count, draft.selectedSeedPhraseWordCount)
         }
-        if let validationError = draft.seedPhraseValidationError { return validationError }
+        if let error = verdict.error { return error }
         return AppLocalization.string("import_flow.seed_phrase_valid_status")
     }
     private var seedPhraseStatusColor: Color {
-        if draft.seedPhraseWords.isEmpty || draft.seedPhraseWords.count < draft.selectedSeedPhraseWordCount { return .white.opacity(0.7) }
-        if !draft.invalidSeedWords.isEmpty || draft.seedPhraseValidationError != nil { return .red.opacity(0.9) }
+        let verdict = draft.seedPhraseVerdict
+        if verdict.words.count < draft.selectedSeedPhraseWordCount { return .white.opacity(0.7) }
+        if !verdict.invalidWords.isEmpty || verdict.error != nil { return .red.opacity(0.9) }
         return .green.opacity(0.9)
     }
     private func seedPhraseBinding(for index: Int) -> Binding<String> {
@@ -219,12 +221,7 @@ struct SetupView: View {
                 && draft.selectedChainNames.count == 1
                 && !store.isImportingWallet
         }
-        let hasValidSeedPhrase =
-            draft.seedPhraseWords.count == draft.selectedSeedPhraseWordCount
-            && draft.seedPhraseValidationError == nil
-            && draft.invalidSeedWords.isEmpty
-            && draft.hasValidSeedPhraseChecksum
-        return hasChains && hasValidSeedPhrase && !store.isImportingWallet
+        return hasChains && draft.seedPhraseVerdict.checksumValid && !store.isImportingWallet
     }
     private var canContinueToBackupVerification: Bool {
         canContinueFromSecretStep
@@ -291,10 +288,9 @@ struct SetupView: View {
         }
     }
     @ViewBuilder
-    private func seedPhraseField(at index: Int) -> some View {
+    private func seedPhraseField(at index: Int, invalidWords: Set<String>) -> some View {
         let entry = draft.seedPhraseEntry(at: index).trimmingCharacters(in: .whitespacesAndNewlines)
-        let isInvalidWord = !entry.isEmpty && !BIP39WordList.words(for: draft.seedPhraseLanguage).contains(entry.lowercased())
-        numberedSeedPhraseRow(index: index, isInvalidWord: isInvalidWord)
+        numberedSeedPhraseRow(index: index, isInvalidWord: invalidWords.contains(entry.lowercased()))
     }
     @ViewBuilder
     private func watchedAddressEditor(text: Binding<String>) -> some View {
@@ -397,7 +393,7 @@ struct SetupView: View {
                 }
             }
             seedPhraseCustomLengthField
-            if let seedPhraseLengthWarning = draft.seedPhraseLengthWarning {
+            if let seedPhraseLengthWarning = draft.seedPhraseVerdict.lengthWarning {
                 Label(seedPhraseLengthWarning, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(
                     .orange.opacity(0.92))
             }
@@ -912,8 +908,11 @@ struct SetupView: View {
         seedPhraseLanguagePicker
         Text(copy.seedPhraseEntryHelp).font(.footnote).foregroundStyle(.secondary)
         seedPhraseEntryHeader
+        let invalidWords = Set(draft.seedPhraseVerdict.invalidWords)
         LazyVGrid(columns: seedPhraseGridColumns, spacing: 6) {
-            ForEach(0..<draft.selectedSeedPhraseWordCount, id: \.self) { index in seedPhraseField(at: index) }
+            ForEach(0..<draft.selectedSeedPhraseWordCount, id: \.self) { index in
+                seedPhraseField(at: index, invalidWords: invalidWords)
+            }
         }
         if !seedPhraseStatusText.isEmpty { Text(seedPhraseStatusText).font(.footnote).foregroundStyle(seedPhraseStatusColor) }
     }
@@ -934,7 +933,8 @@ struct SetupView: View {
     private var seedPhraseEntryHeader: some View {
         let filled = draft.seedPhraseWords.count
         let total = draft.selectedSeedPhraseWordCount
-        let isComplete = filled >= total && draft.invalidSeedWords.isEmpty && draft.seedPhraseValidationError == nil
+        let verdict = draft.seedPhraseVerdict
+        let isComplete = filled >= total && verdict.invalidWords.isEmpty && verdict.error == nil
         HStack(spacing: 10) {
             HStack(spacing: 6) {
                 Image(systemName: isComplete ? "checkmark.circle.fill" : "circle.dashed").font(.caption.weight(.semibold))

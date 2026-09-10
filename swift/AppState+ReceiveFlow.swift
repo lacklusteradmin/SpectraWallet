@@ -216,32 +216,15 @@ extension AppState {
         // comes from derivation or validation below — see the slot map.
         let resolvedBitcoinXPub =
             (selectedChains.contains("Bitcoin") && !trimmedBitcoinXPub.isEmpty) ? trimmedBitcoinXPub : nil
-        // A private-key import selects exactly one chain — core's
-        // `plan_signing_import` refuses more — so this is one address, derived
-        // once here and recorded below rather than derived twice.
-        var privateKeyAddress: String?
+        // The key's shape is a field rule, so it is checked while the user is
+        // still on the form. Whether the key derives an address is core's, and
+        // core refuses the commit — deriving here as well was the last place
+        // either front end still derived an import address itself.
         if isPrivateKeyImport {
             guard CachedCoreHelpers.privateKeyHexIsLikely(rawValue: trimmedPrivateKey) else {
                 importError = "Enter a valid 32-byte hex key."
                 return
             }
-            // The picker is built from `coreSupportedPrivateKeyChainNames`, so
-            // this can only fire if a selection outlived the list it came from.
-            // Kept because it is a key path: refuse before deriving.
-            let unsupported = importDraft.unsupportedPrivateKeyChainNames
-            guard unsupported.isEmpty else {
-                importError = AppLocalization.format(
-                    "Private key import is not available for: %@.", unsupported.joined(separator: ", "))
-                return
-            }
-            guard
-                let primaryChain = Chain(displayName: primarySelectedChainName),
-                let address = derivePrivateKeyImportAddress(privateKeyHex: trimmedPrivateKey, chain: primaryChain)
-            else {
-                importError = "Unable to derive an address from this key."
-                return
-            }
-            privateKeyAddress = address
         }
         // Monero derives from the seed like every other chain; what it does not
         // have is a *watched* form, which is what `supports_watch_only_import`
@@ -270,22 +253,12 @@ extension AppState {
             // 25-row slot map restating them. Both branches below fill it and
             // `WalletImportAddresses.slotMap` turns it into slots, so adding a
             // chain touches neither.
-            var addressByChainName: [String: String] = [:]
-            func record(_ chainName: String, _ address: String?) {
-                guard let address, !address.isEmpty else { return }
-                addressByChainName[chainName] = address
-            }
-            // A seed import leaves `addressByChainName` empty: core derives one
-            // address per selected chain from the seed on the commit, so the
+            // Neither a seed import nor a private-key import fills this: core
+            // derives from whichever secret the commit carries, so the
             // address-slot rules stay in core rather than in the importer.
-            if let privateKeyAddress {
-                // Core dispatches private-key derivation by chain, so there is
-                // nothing to switch on: one address, for the one chain a
-                // private-key import may select. Both EVM slots used to be
-                // filled here too — core fills the sibling from the wallet's
-                // own address now, in both directions.
-                record(primarySelectedChainName, privateKeyAddress)
-            }
+            // Only the watch-only path supplies addresses, and it supplies
+            // typed ones, through `watchOnlyEntries`.
+            let addressByChainName: [String: String] = [:]
             // Core mints the ids for the wallets it creates. Supplying them
             // meant predicting how many there would be — which for a
             // watch-only import meant parsing the address entries the same way
@@ -327,7 +300,8 @@ extension AppState {
                         seedDerivationPaths: selectedDerivationPaths,
                         derivationOverrides: draft.resolvedDerivationOverrides,
                         networkChainByFamily: networkChainByFamily,
-                        seedPhrase: requiresSeedPhrase ? trimmedSeedPhrase : nil
+                        seedPhrase: requiresSeedPhrase ? trimmedSeedPhrase : nil,
+                        privateKey: isPrivateKeyImport ? trimmedPrivateKey : nil
                     )
                 )
             } catch {
@@ -417,14 +391,6 @@ extension AppState {
     /// The address a raw private key yields on `chain`, or `nil` when the key
     /// does not produce one there.
     ///
-    /// Was a seventeen-field record and a twenty-arm switch on chain names —
-    /// twelve of whose arms named chains core cannot derive from a key, and
-    /// which was missing Decred, which core can. `Chain::derives_from_private_key`
-    /// is the one answer now, and the picker is built from it, so a chain the
-    /// user can select is a chain this returns an address for.
-    func derivePrivateKeyImportAddress(privateKeyHex: String, chain: Chain) -> String? {
-        try? WalletRustDerivationBridge.deriveFromPrivateKey(chain: chain, privateKeyHex: privateKeyHex).address
-    }
     func nextDefaultWalletNameIndex() -> Int {
         (wallets.compactMap { $0.name.hasPrefix("Wallet ") ? Int($0.name.dropFirst(7)) : nil }.max() ?? 0) + 1
     }

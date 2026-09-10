@@ -24,6 +24,24 @@ import Foundation
             try await super.tearDown()
         }
 
+        func testUnopenedHistoryReadsThrowAcrossBinding() async throws {
+            let service = try WalletService.newTyped(endpoints: [])
+            let reads: [() async throws -> Void] = [
+                { _ = try await service.normalizedHistory(unknownLabel: "Unknown") },
+                { _ = try await service.earliestTransactionDates() },
+                { _ = try await service.activeWalletTransactionIds() },
+                { _ = try await service.replaceableSends() },
+            ]
+            for read in reads {
+                do {
+                    try await read()
+                    XCTFail("An unopened history store must not return an empty success")
+                } catch SpectraBridgeError.Failure(let message) {
+                    XCTAssertTrue(message.contains("not opened"))
+                }
+            }
+        }
+
         private func record(
             chain: String, symbol: String, kind: TransactionKind = .send,
             status: TransactionStatus = .pending, hash: String? = "0xfeed", nonce: Int? = 7
@@ -49,7 +67,7 @@ import Foundation
                 record(chain: "Bitcoin", symbol: "BTC"),
                 record(chain: "Solana", symbol: "SOL"),
             ])
-            let sends = await WalletServiceBridge.shared.replaceableSends()
+            let sends = try await WalletServiceBridge.shared.replaceableSends()
             XCTAssertEqual(Set(sends.map(\.chainId)), ["arbitrum", "base"])
             let arbitrum = try XCTUnwrap(sends.first { $0.chainId == "arbitrum" })
             XCTAssertEqual(arbitrum.recordedNonce, 7)
@@ -62,7 +80,7 @@ import Foundation
         /// gas is `ETH`, which is the pair that has to come apart.
         func testOnlyANativeTransferCanBeSpedUp() async throws {
             try await store([record(chain: "Arbitrum", symbol: "ARB")])
-            let sends = await WalletServiceBridge.shared.replaceableSends()
+            let sends = try await WalletServiceBridge.shared.replaceableSends()
             let pending = try XCTUnwrap(sends.first)
             XCTAssertEqual(pending.symbol, "ARB")
             XCTAssertFalse(pending.canSpeedUp)
@@ -75,7 +93,7 @@ import Foundation
                 record(chain: "Ethereum", symbol: "ETH", status: .failed),
                 record(chain: "Ethereum", symbol: "ETH", hash: nil),
             ])
-            let sends = await WalletServiceBridge.shared.replaceableSends()
+            let sends = try await WalletServiceBridge.shared.replaceableSends()
             XCTAssertTrue(sends.isEmpty, "offered \(sends.map(\.transactionId))")
         }
     }

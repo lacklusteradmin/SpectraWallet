@@ -104,6 +104,7 @@ final class AppState {
     func setTransactionProjection(_ records: [TransactionRecord]) {
         transactions = records
     }
+    var historyReadError: String? = nil
     var normalizedHistoryIndex: [NormalizedHistoryEntry] = [] {
         didSet { normalizedHistoryRevision &+= 1 }
     }

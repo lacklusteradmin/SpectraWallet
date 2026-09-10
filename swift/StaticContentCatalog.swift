@@ -276,21 +276,6 @@ extension TokenPreferenceEntry {
         }
     }()
 }
-enum BIP39WordList {
-    private static let cache = LockedValue<[String: Set<String>]>([:])
-    static func words(for language: String) -> Set<String> {
-        let key = language.lowercased()
-        if let hit = cache.withLock({ $0[key] }) { return hit }
-        let text = bip39Wordlist(language: language)
-        let set = Set(
-            text.split(whereSeparator: \.isWhitespace)
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-                .filter { !$0.isEmpty }
-        )
-        cache.withLock { $0[key] = set }
-        return set
-    }
-}
 enum AppLocalization {
     private final class BundleMarker {}
     private struct LocalizationState {

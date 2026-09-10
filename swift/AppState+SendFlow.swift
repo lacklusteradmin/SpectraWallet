@@ -1077,7 +1077,7 @@ extension AppState {
         guard probeID == "\(sendWalletID)|\(sendHoldingKey)|\(sendAddress)" else { return }
         guard let risk else {
             sendDestinationRiskWarning = nil
-            sendDestinationInfoMessage = nil
+            sendDestinationInfoMessage = localizedStoreString("Unable to verify this address's activity. Try again later.")
             return
         }
         let messages = chainRiskProbeMessages(
