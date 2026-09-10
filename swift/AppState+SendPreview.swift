@@ -2,12 +2,14 @@ import Foundation
 
 // MARK: - Private pure helpers (no store state)
 
-private func decodedUTXOFeePreview(chainId: String, address: String, satPerCoin: Double, feeRateSvb: UInt64 = 0) async throws
-    -> BitcoinSendPreview
-{
+private func decodedUTXOFeePreview(
+    chainId: String, address: String, satPerCoin: Double, feeRateSvb: UInt64 = 0,
+    destination: String = ""
+) async throws -> BitcoinSendPreview {
     guard
         let preview = try await WalletServiceBridge.shared.fetchUtxoFeePreviewTyped(
-            chainId: chainId, address: address, feeRateSvb: feeRateSvb)
+            chainId: chainId, address: address, feeRateSvb: feeRateSvb,
+            destinationAddress: destination)
     else {
         throw NSError(domain: "UTXOFeePreview", code: 1, userInfo: [NSLocalizedDescriptionKey: "Insufficient funds"])
     }
@@ -209,7 +211,6 @@ extension AppState {
     private func refreshUTXOChainPreview(
         chainName: String,
         resolveAddress: @escaping (ImportedWallet) -> String?,
-        adjust: @escaping (BitcoinSendPreview) -> BitcoinSendPreview = { $0 },
         fetch: (@MainActor (String, String) async throws -> BitcoinSendPreview?)? = nil,
         setPreview: @escaping (BitcoinSendPreview?) -> Void
     ) async {
@@ -234,7 +235,7 @@ extension AppState {
             retry: { [weak self] in
                 await self?.refreshUTXOChainPreview(
                     chainName: chainName, resolveAddress: resolveAddress,
-                    adjust: adjust, fetch: fetch, setPreview: setPreview)
+                    fetch: fetch, setPreview: setPreview)
             }
         ) {
             do {
@@ -246,9 +247,10 @@ extension AppState {
                     preview = try await fetch(chainId, sourceAddress)
                 } else {
                     preview = try await decodedUTXOFeePreview(
-                        chainId: chainId, address: sourceAddress, satPerCoin: 100_000_000)
+                        chainId: chainId, address: sourceAddress, satPerCoin: 100_000_000,
+                        destination: trimmedDestination)
                 }
-                setPreview(preview.map(adjust))
+                setPreview(preview)
                 sendError = nil
             } catch {
                 if isCancelledRequest(error) { return }
@@ -270,23 +272,10 @@ extension AppState {
         await refreshUTXOChainPreview(
             chainName: chainName,
             resolveAddress: { [self] in resolvedAddress(for: $0, chainName: chainName) },
-            adjust: { [self] preview in
-                let overhead = Int64(
-                    extraOutputOverheadBytes(chainName: chainName, destination: sendAddress))
-                guard overhead > 0 else { return preview }
-                let additionalFee =
-                    Double(overhead) * Double(preview.estimatedFeeRateSatVb) / 100_000_000.0
-                return BitcoinSendPreview(
-                    estimatedFeeRateSatVb: preview.estimatedFeeRateSatVb,
-                    estimatedNetworkFee: preview.estimatedNetworkFee + additionalFee,
-                    feeRateDescription: preview.feeRateDescription,
-                    spendableBalance: preview.spendableBalance,
-                    estimatedTransactionBytes: (preview.estimatedTransactionBytes ?? 0) + overhead,
-                    selectedInputCount: preview.selectedInputCount,
-                    usesChangeOutput: preview.usesChangeOutput,
-                    maxSendable: preview.maxSendable.map { max(0, $0 - additionalFee) }
-                )
-            },
+            // An extra output's bytes — Litecoin's MWEB peg-in is the one the
+            // registry names — are priced by the preview core builds. The
+            // arithmetic used to be here, beside a registry fact fetched to do
+            // it, and had no test.
             setPreview: { [self] preview in
                 sendPreviewStore.apply(
                     preview.map { SendPreview.utxo(preview: $0) }, forChainNamed: chainName)
@@ -294,8 +283,15 @@ extension AppState {
     }
 
     func refreshTronSendPreview() async {
-        guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, selectedSendCoin.chainName == "Tron",
-            (selectedSendCoin.symbol == "TRX" || selectedSendCoin.symbol == "USDT"), let amount = Double(sendAmount), amount > 0
+        // Which Tron assets have a preview is `route_send_asset`'s answer, the
+        // same one the submit path takes. It was `TRX || USDT` written out
+        // here — a third copy of that rule, and the one that would keep
+        // refusing if core's router were widened.
+        let routedToTron = await WalletServiceBridge.shared.sendAssetRouting(
+            walletID: sendWalletID, holdingKey: sendHoldingKey)?.previewKind == "tron"
+        guard routedToTron, let wallet = wallet(for: sendWalletID),
+            let selectedSendCoin = selectedSendCoin,
+            let amount = Double(sendAmount), amount > 0
         else {
             sendPreviewStore.clearPreview(forChainNamed: "Tron")
             return

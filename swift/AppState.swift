@@ -1046,19 +1046,6 @@ final class AppState {
             return normalised
         }
     }
-    func solanaKnownTokens(includeDisabled: Bool = false) -> [String: SolanaBalanceService.KnownTokenMetadata] {
-        var result: [String: SolanaBalanceService.KnownTokenMetadata] = [:]
-        let entries = includeDisabled
-            ? tokenPreferences.filter { $0.token.chain == TokenHostingChain.solana.rawValue }
-            : enabledTokenPreferences(for: .solana)
-        for entry in entries {
-            result[entry.token.contract] = SolanaBalanceService.KnownTokenMetadata(
-                symbol: entry.token.symbol, name: entry.token.name, decimals: Int(entry.token.decimals),
-                coinGeckoId: entry.token.coingeckoId
-            )
-        }
-        return result
-    }
     var moneroBackendBaseURLValidationError: String? {
         endpointValidationError(field: .moneroBackend, raw: moneroBackendBaseURL)
     }

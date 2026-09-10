@@ -36,46 +36,30 @@ enum StaticContentCatalog {
         }
         fatalError("Missing required resource: \(baseName).json")
     }
+    /// Every content file sits at the bundle's resource root, so the locale
+    /// lives in the file name and nowhere else.
+    ///
+    /// `resources/` is the app target's synchronized group, and Xcode copies
+    /// such a group in flat: `resources/strings/CommonContent.en.json` ships as
+    /// `CommonContent.en.json`. Three path shapes were built per lookup —
+    /// the flat one plus `Resources/strings/<locale>/` and `strings/<locale>/`
+    /// — guesses at a nested layout the bundle has never had. Only the flat one
+    /// ever opened a file; the source tree is now flat to match.
     private static func candidateJSONURLs(for baseName: String, localeIdentifiers: [String]) -> [URL] {
         var candidates: [URL] = []
         var seen = Set<String>()
-        func append(_ url: URL) {
-            let key = url.standardizedFileURL.path
-            guard seen.insert(key).inserted else { return }
+        func append(_ name: String, in resourceURL: URL) {
+            let url = resourceURL.appendingPathComponent(name, isDirectory: false)
+            guard seen.insert(url.standardizedFileURL.path).inserted else { return }
             candidates.append(url)
         }
         for bundle in candidateBundles {
             guard let resourceURL = bundle.resourceURL else { continue }
             for localeIdentifier in localeIdentifiers {
-                if localeIdentifier == "Base" {
-                    append(resourceURL.appendingPathComponent("\(baseName).json", isDirectory: false))
-                    append(
-                        resourceURL.appendingPathComponent("Resources", isDirectory: true).appendingPathComponent(
-                            "strings", isDirectory: true
-                        ).appendingPathComponent("base", isDirectory: true).appendingPathComponent("\(baseName).json", isDirectory: false))
-                    append(
-                        resourceURL.appendingPathComponent("strings", isDirectory: true).appendingPathComponent("base", isDirectory: true)
-                            .appendingPathComponent("\(baseName).json", isDirectory: false))
-                } else {
-                    append(resourceURL.appendingPathComponent("\(baseName).\(localeIdentifier).json", isDirectory: false))
-                    append(
-                        resourceURL.appendingPathComponent("Resources", isDirectory: true).appendingPathComponent(
-                            "strings", isDirectory: true
-                        ).appendingPathComponent(localeIdentifier, isDirectory: true).appendingPathComponent(
-                            "\(baseName).\(localeIdentifier).json", isDirectory: false))
-                    append(
-                        resourceURL.appendingPathComponent("strings", isDirectory: true).appendingPathComponent(
-                            localeIdentifier, isDirectory: true
-                        ).appendingPathComponent("\(baseName).\(localeIdentifier).json", isDirectory: false))
-                }
+                let name = localeIdentifier == "Base" ? "\(baseName).json" : "\(baseName).\(localeIdentifier).json"
+                append(name, in: resourceURL)
             }
-            append(resourceURL.appendingPathComponent("\(baseName).json", isDirectory: false))
-            append(
-                resourceURL.appendingPathComponent("Resources", isDirectory: true).appendingPathComponent("strings", isDirectory: true)
-                    .appendingPathComponent("base", isDirectory: true).appendingPathComponent("\(baseName).json", isDirectory: false))
-            append(
-                resourceURL.appendingPathComponent("strings", isDirectory: true).appendingPathComponent("base", isDirectory: true)
-                    .appendingPathComponent("\(baseName).json", isDirectory: false))
+            append("\(baseName).json", in: resourceURL)
         }
         return candidates
     }
@@ -462,19 +446,12 @@ enum AppLocalization {
         let decoder = JSONDecoder()
         for bundle in candidateBundles {
             guard let resourceURL = bundle.resourceURL else { continue }
-            let candidateDirs = [
-                resourceURL.appendingPathComponent("Resources", isDirectory: true).appendingPathComponent("strings", isDirectory: true),
-                resourceURL.appendingPathComponent("strings", isDirectory: true),
-                resourceURL,
-            ]
-            for dir in candidateDirs {
-                let url = dir.appendingPathComponent("RuntimeStrings.manifest.json")
-                guard let data = try? Data(contentsOf: url), let manifest = try? decoder.decode(RuntimeStringManifest.self, from: data)
-                else { continue }
-                runtimeManifest.withLock { $0 = manifest }
-                runtimeStringsBaseURL.withLock { $0 = dir }
-                return manifest
-            }
+            let url = resourceURL.appendingPathComponent("RuntimeStrings.manifest.json")
+            guard let data = try? Data(contentsOf: url), let manifest = try? decoder.decode(RuntimeStringManifest.self, from: data)
+            else { continue }
+            runtimeManifest.withLock { $0 = manifest }
+            runtimeStringsBaseURL.withLock { $0 = resourceURL }
+            return manifest
         }
         return nil
     }

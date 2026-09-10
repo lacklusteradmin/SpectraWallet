@@ -99,20 +99,6 @@ extension AppState {
                 amount: amount, amountStr: amountStr)
             return
         }
-        if preflight.submitKind == "icp" {
-            if sendPreviewStore.taggedPreview(forChainNamed: "Internet Computer") == nil { await refreshSendPreview(forChainNamed: "Internet Computer") }
-            await broadcastPreparedSend(
-                holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
-                request: SendExecutionRequest(
-                    chainId: Chain.icp.id, walletId: wallet.id, password: nil,
-                    toAddress: destinationAddress,
-                    amountStr: amountStr,
-                    contractAddress: nil, tokenDecimals: nil, feeRateSvb: nil, feeSat: nil, gasBudget: nil, feeAmount: nil,
-                    evmOverrides: nil, moneroPriority: nil
-                ),
-                clearPreview: { self.sendPreviewStore.clearPreview(forChainNamed: "Internet Computer") })
-            return
-        }
         if preflight.submitKind == "bitcoin" {
             guard amount > 0 else {
                 sendError = "Enter a valid amount"
@@ -220,19 +206,15 @@ extension AppState {
             ))) {
                 sendError = err; return
             }
-            // Six decimals were hardcoded for every Tron token. That is right
-            // for USDT and wrong for the other four in the catalog — BTT, TUSD,
-            // USD1 and USDD are all eighteen — so the raw amount would have
-            // been 10^12 too small. It has not fired because `route_send_asset`
-            // lets only TRX and USDT reach here, which means an obvious-looking
-            // widening of that router would have armed it. The token's own
-            // decimals now.
-            let tronToken = supportedToken(for: holding)
-            let contractAddress: String? =
-                holding.symbol == Chain.tron.gasTokenSymbol ? nil : holding.contractAddress
-            let tokenDecimals: UInt32? =
-                contractAddress == nil ? nil : tronToken.map { UInt32($0.token.decimals) }
-            if contractAddress != nil, tokenDecimals == nil {
+            // The token core resolved, with its own decimals. Six were
+            // hardcoded here for every Tron token — right for USDT and wrong
+            // for the other four in the catalog, which are all eighteen — and
+            // the lookup that replaced them was this side's mirror of a list
+            // core owns. A token core cannot identify never reaches here:
+            // `submitKind` is the route it refused.
+            let contractAddress = preflight.tokenContractAddress
+            let tokenDecimals = preflight.tokenDecimals
+            if holding.symbol != Chain.tron.gasTokenSymbol, contractAddress == nil {
                 sendError = "\(holding.symbol) is not a known Tron token."
                 return
             }
@@ -269,21 +251,14 @@ extension AppState {
             ))) {
                 sendError = err; return
             }
-            let contractAddress: String?
-            let tokenDecimals: UInt32?
-            if holding.symbol == "SOL" {
-                contractAddress = nil
-                tokenDecimals = nil
-            } else {
-                let solanaTokenMetadataByMint = solanaKnownTokens(includeDisabled: true)
-                guard let mintAddress = holding.contractAddress ?? SolanaBalanceService.mintAddress(for: holding.symbol),
-                    let tokenMetadata = solanaTokenMetadataByMint[mintAddress]
-                else {
-                    sendError = "\(holding.symbol) on Solana is not configured for sending yet."
-                    return
-                }
-                contractAddress = mintAddress
-                tokenDecimals = UInt32(tokenMetadata.decimals)
+            // The mint and its decimals as core resolved them. This used to
+            // read a second token map of its own — one that included disabled
+            // entries, so a token the user had turned off could still be sent.
+            let contractAddress = preflight.tokenContractAddress
+            let tokenDecimals = preflight.tokenDecimals
+            if holding.symbol != Chain.solana.gasTokenSymbol, contractAddress == nil {
+                sendError = "\(holding.symbol) on Solana is not configured for sending yet."
+                return
             }
             await broadcastPreparedSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
@@ -310,17 +285,20 @@ extension AppState {
             if nearNativeBalance < 0.001 {
                 sendError = "Insufficient NEAR balance to cover the network fee for this \(holding.symbol) transfer."; return
             }
-            let tokenPref = (cachedTokenPreferencesByChain[.near] ?? []).first {
-                $0.token.contract.lowercased() == contractAddress.lowercased()
+            // The token's own decimals, as core resolved them. This looked the
+            // contract up in a mirror of core's list and fell back to six for
+            // a token it could not find — a scale, guessed, on the funds path.
+            guard let decimals = preflight.tokenDecimals else {
+                sendError = "\(holding.symbol) on NEAR is not configured for sending yet."
+                return
             }
-            let decimals = min(Int(tokenPref?.token.decimals ?? 6), 18)
             await broadcastPreparedSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
                 request: SendExecutionRequest(
                     chainId: Chain.near.id, walletId: wallet.id, password: nil,
                     toAddress: destinationAddress,
                     amountStr: amountStr,
-                    contractAddress: contractAddress, tokenDecimals: UInt32(decimals), feeRateSvb: nil, feeSat: nil, gasBudget: nil,
+                    contractAddress: contractAddress, tokenDecimals: decimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
                     feeAmount: nil, evmOverrides: nil, moneroPriority: nil
                 ),
                 clearPreview: { self.sendPreviewStore.clearPreview(forChainNamed: "NEAR") })
@@ -382,9 +360,13 @@ extension AppState {
                 if preflight.isNativeEvmAsset {
                     contractAddress = nil
                     tokenDecimals = nil
-                } else if let token = supportedToken(for: holding) {
-                    contractAddress = token.token.contract
-                    tokenDecimals = token.token.decimals
+                } else if let contract = preflight.tokenContractAddress,
+                    let decimals = preflight.tokenDecimals
+                {
+                    // Core's answer, not a second lookup in this side's mirror
+                    // of the token list.
+                    contractAddress = contract
+                    tokenDecimals = decimals
                 } else {
                     sendError = "\(holding.symbol) transfers on \(holding.chainName) are not enabled yet."
                     return
@@ -498,7 +480,14 @@ extension AppState {
             await refreshSendPreview(forChainNamed: chainName)
         }
         let previewFee = sendPreviewStore.estimatedFee(forChainNamed: chainName)
-        guard let fee = previewFee ?? (shape.feeFallback > 0 ? shape.feeFallback : nil) else {
+        let fee = previewFee ?? (shape.feeFallback > 0 ? shape.feeFallback : nil)
+        // A chain whose `feeField` is `none` computes its own fee when it
+        // signs, so an estimate is a display and an affordability input — not
+        // something the send needs. Refusing without one blocked Stellar, XRP
+        // and Internet Computer whenever no preview had loaded, which is why
+        // Internet Computer had an arm of its own that skipped this function
+        // entirely.
+        guard let fee = fee ?? (shape.feeField == .none ? 0 : nil) else {
             sendError = sendError ?? "Unable to estimate \(chainName) network fee."
             return
         }

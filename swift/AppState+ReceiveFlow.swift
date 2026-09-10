@@ -281,43 +281,22 @@ extension AppState {
             if let privateKeyAddress {
                 // Core dispatches private-key derivation by chain, so there is
                 // nothing to switch on: one address, for the one chain a
-                // private-key import may select.
+                // private-key import may select. Both EVM slots used to be
+                // filled here too — core fills the sibling from the wallet's
+                // own address now, in both directions.
                 record(primarySelectedChainName, privateKeyAddress)
-                // An EVM key is the same address on both EVM slots. Ethereum
-                // Classic has its own — `Chain::address_slot` says so — and
-                // `addresses_for_chain` reads whichever slot the planned
-                // wallet's chain names, so fill both and let core pick.
-                if Chain(displayName: primarySelectedChainName)?.isEVM == true {
-                    record("Ethereum", privateKeyAddress)
-                    record("Ethereum Classic", privateKeyAddress)
-                }
             }
-            let plannedWalletIDs: [UUID]
-            if isWatchOnlyImport {
-                // `ImportDraft` already keeps the inputs as one table, and
-                // `Chain.isEVM` already answers EVM membership — the 22-row
-                // copy and the 23-name EVM set that used to be here restated
-                // both. An EVM chain's entries live under Ethereum because the
-                // whole family shares that address slot.
-                let watchOnlyWalletCount: Int = {
-                    if primarySelectedChainName == "Bitcoin", let x = resolvedBitcoinXPub, !x.isEmpty { return 1 }
-                    let sourceChain =
-                        (Chain(displayName: primarySelectedChainName)?.isEVM ?? false) ? "Ethereum" : primarySelectedChainName
-                    let input = draft.watchOnlyInputsByChainName[sourceChain] ?? ""
-                    return draft.watchOnlyEntries(from: input).count
-                }()
-                guard watchOnlyWalletCount > 0 else {
-                    importError = "Enter at least one valid address to import."
-                    return
-                }
-                plannedWalletIDs = (0..<watchOnlyWalletCount).map { _ in UUID() }
-            } else {
-                plannedWalletIDs = selectedChainNames.map { _ in UUID() }
-            }
+            // Core mints the ids for the wallets it creates. Supplying them
+            // meant predicting how many there would be — which for a
+            // watch-only import meant parsing the address entries the same way
+            // the planner does, under a second copy of the "which chain's
+            // input holds them" rule, and being refused when the two counts
+            // disagreed. An import with no valid entry is still refused, by
+            // the planner that read them.
             let importPlanRequest = WalletImportRequest(
                 walletName: trimmedWalletName, defaultWalletNameStartIndex: UInt64(defaultWalletNameStartIndex),
                 primarySelectedChainName: primarySelectedChainName, selectedChainNames: selectedChainNames,
-                plannedWalletIds: plannedWalletIDs.map(\.uuidString), isWatchOnlyImport: isWatchOnlyImport,
+                plannedWalletIds: [], isWatchOnlyImport: isWatchOnlyImport,
                 isPrivateKeyImport: isPrivateKeyImport, hasWalletPassword: trimmedWalletPassword != nil,
                 resolvedAddresses: WalletImportAddresses(
                     bySlot: addressSlotMap(addressByChainName),

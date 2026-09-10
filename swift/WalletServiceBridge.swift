@@ -114,8 +114,14 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func fetchTronSendPreviewTyped(address: String, symbol: String, contractAddress: String) async throws -> TronSendPreview? {
         try await service().fetchTronSendPreviewTyped(address: address, symbol: symbol, contractAddress: contractAddress)
     }
-    func fetchUtxoFeePreviewTyped(chainId: String, address: String, feeRateSvb: UInt64) async throws -> BitcoinSendPreview? {
-        try await service().fetchUtxoFeePreviewTyped(chainId: chainId, address: address, feeRateSvb: feeRateSvb)
+    /// `destinationAddress` prices an extra output where the chain has one —
+    /// Litecoin's MWEB peg-in — so the preview core builds already includes it.
+    func fetchUtxoFeePreviewTyped(
+        chainId: String, address: String, feeRateSvb: UInt64, destinationAddress: String
+    ) async throws -> BitcoinSendPreview? {
+        try await service().fetchUtxoFeePreviewTyped(
+            chainId: chainId, address: address, feeRateSvb: feeRateSvb,
+            destinationAddress: destinationAddress)
     }
     func fetchDogecoinSendPreviewTyped(address: String, requestedAmount: Double, feePriority: String) async throws -> DogecoinSendPreview? {
         try await service().fetchDogecoinSendPreviewTyped(address: address, requestedAmount: requestedAmount, feePriority: feePriority)
