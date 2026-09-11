@@ -111,7 +111,7 @@ struct StandardChainDiagnosticsView: View {
     @Bindable var store: AppState
     let chain: Chain
     private let copy = DiagnosticsContentCopy.current
-    @State private var copiedDiagnosticsNotice: String?
+    @State private var copiedDiagnosticsNotice: SpectraTransientNotice?
     @State private var selectedMoneroBackendID: String = MoneroBalanceService.defaultBackendID
     @State private var cachedEndpointRows: [StandardEndpointRow] = []
     @State private var cachedHistorySourceRows: [StandardHistorySourceRow] = []
@@ -161,9 +161,11 @@ struct StandardChainDiagnosticsView: View {
                 Button(AppLocalization.format("Copy %@ Diagnostics JSON", diagnosticsLabel)) {
                     if let payload = diagnosticsJSON {
                         UIPasteboard.general.string = payload
-                        copiedDiagnosticsNotice = AppLocalization.format("%@ diagnostics JSON copied.", diagnosticsLabel)
+                        copiedDiagnosticsNotice = SpectraTransientNotice(
+                            AppLocalization.format("%@ diagnostics JSON copied.", diagnosticsLabel))
                     } else {
-                        copiedDiagnosticsNotice = AppLocalization.format("No %@ diagnostics available to copy.", diagnosticsLabel)
+                        copiedDiagnosticsNotice = SpectraTransientNotice(
+                            AppLocalization.format("No %@ diagnostics available to copy.", diagnosticsLabel))
                     }
                 }
                 Button(
@@ -175,7 +177,9 @@ struct StandardChainDiagnosticsView: View {
                         await runEndpointDiagnostics()
                     }
                 }.disabled(isCheckingEndpoints)
-                if let copiedDiagnosticsNotice { Text(copiedDiagnosticsNotice).font(.caption).foregroundStyle(.secondary) }
+                if let copiedDiagnosticsNotice {
+                    Text(copiedDiagnosticsNotice.text).font(.caption).foregroundStyle(.secondary)
+                }
             }
             Section(copy.statusSectionTitle) {
                 if let updatedAt = historyLastUpdatedAt {
@@ -241,13 +245,7 @@ struct StandardChainDiagnosticsView: View {
                 keypoolError = error.localizedDescription
             }
             cachedOperationalEvents = await store.operationalEvents(for: chain.displayName)
-        }.onChange(of: copiedDiagnosticsNotice) { _, newValue in
-            guard newValue != nil else { return }
-            Task {
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                copiedDiagnosticsNotice = nil
-            }
-        }.onChange(of: selectedMoneroBackendID) { _, newValue in
+        }.spectraTransientNotice($copiedDiagnosticsNotice).onChange(of: selectedMoneroBackendID) { _, newValue in
             guard chain == .monero else { return }
             if newValue == moneroCustomBackendID { return }
             if newValue == MoneroBalanceService.defaultBackendID {

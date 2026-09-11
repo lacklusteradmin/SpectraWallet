@@ -115,7 +115,6 @@ struct SetupView: View {
     private let seedPhraseGridColumns = [
         GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6),
     ]
-    private let setupCardCornerRadius: CGFloat = 24
     init(store: AppState, draft: WalletImportDraft) {
         self.store = store
         self.draft = draft
@@ -128,100 +127,18 @@ struct SetupView: View {
     private var usesSeedPhraseFlow: Bool { !isEditingWallet && !draft.isWatchOnlyMode }
     private var isPrivateKeyImportMode: Bool { draft.isPrivateKeyImportMode }
     private var usesWatchAddressesFlow: Bool { !isEditingWallet && draft.isWatchOnlyMode }
-    private var isShowingDetailsPage: Bool { setupPage == .details }
-    private var isShowingSeedPhrasePage: Bool { setupPage == .seedPhrase }
-    private var isShowingWatchAddressesPage: Bool { setupPage == .watchAddresses }
-    private var isShowingPasswordPage: Bool { setupPage == .password }
-    private var isShowingBackupVerificationPage: Bool { setupPage == .backupVerification }
-    private var isShowingAdvancedPage: Bool { setupPage == .advanced }
-    private var isShowingWalletNamePage: Bool { setupPage == .walletName }
     private var isSimpleSetupSelected: Bool { draft.setupModeChoice == .simple }
-    private var setupTitle: String {
-        if isShowingWalletNamePage { return AppLocalization.string("import_flow.name_your_wallet") }
-        if isShowingBackupVerificationPage { return copy.backupVerificationTitle }
-        if isShowingAdvancedPage { return copy.advancedTitle }
-        if isShowingPasswordPage { return AppLocalization.string("import_flow.wallet_password_title") }
-        if isShowingWatchAddressesPage { return copy.watchAddressesTitle }
-        if isShowingSeedPhrasePage {
-            if isCreateMode { return copy.recordSeedPhraseTitle }
-            return isPrivateKeyImportMode ? copy.enterPrivateKeyTitle : copy.enterSeedPhraseTitle
-        }
-        if isEditingWallet { return copy.editWalletTitle }
-        // Details page is now chains-only: name the page after its purpose.
-        if isShowingDetailsPage && !isEditingWallet {
-            return AppLocalization.string("import_flow.choose_chains")
-        }
-        if isCreateMode { return copy.createWalletTitle }
-        return isWatchAddressesImportMode ? copy.watchAddressesTitle : copy.importWalletTitle
+    private var pageCopy: WalletSetupPageCopy {
+        setupPage.copy(
+            copy,
+            mode: WalletSetupMode(
+                isEditingWallet: isEditingWallet, isCreateMode: isCreateMode,
+                isPrivateKeyImport: isPrivateKeyImportMode))
     }
-    private var setupSubtitle: String {
-        if isShowingWalletNamePage { return AppLocalization.string("import_flow.wallet_name_hint") }
-        if isShowingBackupVerificationPage { return copy.backupVerificationSubtitle }
-        if isShowingAdvancedPage { return copy.advancedSubtitle }
-        if isShowingPasswordPage { return AppLocalization.string("import_flow.wallet_password_subtitle") }
-        if isShowingWatchAddressesPage { return copy.watchAddressesSubtitle }
-        if isShowingSeedPhrasePage {
-            if isPrivateKeyImportMode { return copy.privateKeySubtitle }
-            return isCreateMode ? copy.saveRecoveryPhraseSubtitle : copy.enterRecoveryPhraseSubtitle
-        }
-        if isEditingWallet { return copy.editWalletSubtitle }
-        // Chain-selection-only details page subtitle.
-        if isShowingDetailsPage && !isEditingWallet {
-            return AppLocalization.string("import_flow.choose_chains_subtitle")
-        }
-        if isCreateMode { return copy.chooseNameAndChainsSubtitle }
-        if isWatchAddressesImportMode { return copy.chooseNameAndChainSubtitle }
-        return copy.chooseNameAndChainsSubtitle
-    }
-    private var seedPhraseStatusText: String {
-        let verdict = draft.seedPhraseVerdict
-        if verdict.words.isEmpty { return "" }
-        if !verdict.invalidWords.isEmpty {
-            return AppLocalization.format("import_flow.seed_phrase_invalid_words_format", verdict.invalidWords.joined(separator: ", "))
-        }
-        if verdict.words.count < draft.selectedSeedPhraseWordCount {
-            return AppLocalization.format(
-                "import_flow.seed_phrase_progress_format", verdict.words.count, draft.selectedSeedPhraseWordCount)
-        }
-        if let error = verdict.error { return error }
-        return AppLocalization.string("import_flow.seed_phrase_valid_status")
-    }
-    private var seedPhraseStatusColor: Color {
-        let verdict = draft.seedPhraseVerdict
-        if verdict.words.count < draft.selectedSeedPhraseWordCount { return .white.opacity(0.7) }
-        if !verdict.invalidWords.isEmpty || verdict.error != nil { return .red.opacity(0.9) }
-        return .green.opacity(0.9)
-    }
-    private func seedPhraseBinding(for index: Int) -> Binding<String> {
-        Binding(
-            get: { draft.seedPhraseEntry(at: index) },
-            set: { newValue in
-                let shouldAdvance = newValue.last?.isWhitespace == true
-                let trimmedValue = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                draft.updateSeedPhraseEntry(at: index, with: trimmedValue)
-                guard shouldAdvance, !trimmedValue.isEmpty else { return }
-                focusedSeedPhraseIndex = (index + 1) < draft.selectedSeedPhraseWordCount ? (index + 1) : nil
-            }
-        )
-    }
-    private func backupVerificationBinding(for index: Int) -> Binding<String> {
-        Binding(
-            get: {
-                guard draft.backupVerificationEntries.indices.contains(index) else { return "" }
-                return draft.backupVerificationEntries[index]
-            }, set: { draft.updateBackupVerificationEntry(at: index, with: $0) }
-        )
-    }
+    private var setupTitle: String { pageCopy.title }
+    private var setupSubtitle: String { pageCopy.subtitle }
     private var canContinueFromSecretStep: Bool {
-        let hasChains = !draft.selectedChainNames.isEmpty
-        if draft.isPrivateKeyImportMode {
-            return hasChains
-                && CachedCoreHelpers.privateKeyHexIsLikely(rawValue: draft.privateKeyInput)
-                && draft.unsupportedPrivateKeyChainNames.isEmpty
-                && draft.selectedChainNames.count == 1
-                && !store.isImportingWallet
-        }
-        return hasChains && draft.seedPhraseVerdict.checksumValid && !store.isImportingWallet
+        walletSetupCanContinueFromSecretStep(draft: draft, isImporting: store.isImportingWallet)
     }
     private var canContinueToBackupVerification: Bool {
         canContinueFromSecretStep
@@ -238,37 +155,61 @@ struct SetupView: View {
         if usesWatchAddressesFlow { return !draft.selectedChainNames.isEmpty && !store.isImportingWallet }
         return store.canImportWallet && !store.isImportingWallet
     }
-    private var primaryActionTitle: String {
-        if isShowingDetailsPage && (usesSeedPhraseFlow || usesWatchAddressesFlow) { return AppLocalization.string("import_flow.next") }
-        if isShowingAdvancedPage { return "" }
-        if isShowingSeedPhrasePage { return AppLocalization.string("import_flow.next") }
-        if isShowingPasswordPage && isCreateMode { return AppLocalization.string("import_flow.continue_to_backup_verification") }
-        // Password / watchAddresses / backupVerification advance to the new
-        // wallet-name step instead of submitting; the wallet-name step
-        // performs the final submit.
-        if !isShowingWalletNamePage && advancesToWalletName { return AppLocalization.string("import_flow.next") }
+    /// What the primary button says on the page that submits rather than
+    /// advances. Shared by every page that reaches the end of its flow.
+    private var submitActionTitle: String {
         if isEditingWallet { return AppLocalization.string("import_flow.save_wallet") }
         if isCreateMode { return AppLocalization.string("import_flow.create_wallet") }
         return isWatchAddressesImportMode
             ? AppLocalization.string("import_flow.watch_addresses") : AppLocalization.string("import_flow.import_wallet")
     }
-    private var isPrimaryActionEnabled: Bool {
-        if isShowingDetailsPage && (usesSeedPhraseFlow || usesWatchAddressesFlow) { return canAdvanceFromDetailsPage }
-        if isShowingAdvancedPage { return false }
-        if isShowingSeedPhrasePage { return canContinueFromSecretStep }
-        if isShowingPasswordPage && isCreateMode { return canContinueToBackupVerification }
-        if isShowingPasswordPage { return canSubmitFromPasswordStep || advancesToWalletName }
-        if isShowingWatchAddressesPage { return canAdvanceFromWatchAddressesPage }
-        return store.canImportWallet && !store.isImportingWallet
+    private var canSubmitSetup: Bool { store.canImportWallet && !store.isImportingWallet }
+    private var primaryActionTitle: String {
+        let next = AppLocalization.string("import_flow.next")
+        switch setupPage {
+        case .advanced:
+            return ""
+        case .seedPhrase:
+            return next
+        case .details:
+            return (usesSeedPhraseFlow || usesWatchAddressesFlow) ? next : submitActionTitle
+        case .password:
+            if isCreateMode { return AppLocalization.string("import_flow.continue_to_backup_verification") }
+            return advancesToWalletName ? next : submitActionTitle
+        // Both advance to the wallet-name step rather than submitting; that
+        // step performs the final submit.
+        case .watchAddresses, .backupVerification:
+            return advancesToWalletName ? next : submitActionTitle
+        case .walletName:
+            return submitActionTitle
+        }
     }
-    /// True when the current page should advance to the new `.walletName`
-    /// step (the new last-step) rather than submitting directly.
+    private var isPrimaryActionEnabled: Bool {
+        switch setupPage {
+        case .advanced:
+            return false
+        case .seedPhrase:
+            return canContinueFromSecretStep
+        case .details:
+            return (usesSeedPhraseFlow || usesWatchAddressesFlow) ? canAdvanceFromDetailsPage : canSubmitSetup
+        case .password:
+            return isCreateMode ? canContinueToBackupVerification : (canSubmitFromPasswordStep || advancesToWalletName)
+        case .watchAddresses:
+            return canAdvanceFromWatchAddressesPage
+        case .backupVerification, .walletName:
+            return canSubmitSetup
+        }
+    }
+    /// True when the current page should advance to the `.walletName` step
+    /// rather than submitting directly.
     private var advancesToWalletName: Bool {
-        if isEditingWallet { return false }
-        if isShowingPasswordPage && !isCreateMode { return canSubmitFromPasswordStep }
-        if isShowingBackupVerificationPage { return true }
-        if isShowingWatchAddressesPage { return canAdvanceFromWatchAddressesPage }
-        return false
+        guard !isEditingWallet else { return false }
+        switch setupPage {
+        case .password: return isCreateMode ? false : canSubmitFromPasswordStep
+        case .backupVerification: return true
+        case .watchAddresses: return canAdvanceFromWatchAddressesPage
+        case .details, .seedPhrase, .walletName, .advanced: return false
+        }
     }
     private var canAdvanceFromWatchAddressesPage: Bool {
         store.canImportWallet && !store.isImportingWallet
@@ -288,11 +229,6 @@ struct SetupView: View {
         }
     }
     @ViewBuilder
-    private func seedPhraseField(at index: Int, invalidWords: Set<String>) -> some View {
-        let entry = draft.seedPhraseEntry(at: index).trimmingCharacters(in: .whitespacesAndNewlines)
-        numberedSeedPhraseRow(index: index, isInvalidWord: invalidWords.contains(entry.lowercased()))
-    }
-    @ViewBuilder
     private func watchedAddressEditor(text: Binding<String>) -> some View {
         TextEditor(text: text).textInputAutocapitalization(.never).autocorrectionDisabled().scrollContentBackground(.hidden).frame(
             minHeight: 88
@@ -303,7 +239,7 @@ struct SetupView: View {
         // `glassOpacity` kept for call-site compatibility but no longer used —
         // flat fill replaces the Liquid Glass pass to avoid ~10 stacked shader
         // passes on the setup screen.
-        content().padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: setupCardCornerRadius)
+        content().padding(16).spectraBubbleFill().spectraCardFill()
     }
     @ViewBuilder
     private var walletPasswordStepSection: some View {
@@ -360,157 +296,16 @@ struct SetupView: View {
                 Spacer(minLength: 0)
             }.frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, 10).padding(.horizontal, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous).fill(
-                        isSelected ? descriptor.color.opacity(0.14) : Color.white.opacity(colorScheme == .light ? 0.55 : 0.04))
-                ).overlay(
-                    RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(
-                        isSelected ? descriptor.color.opacity(0.9) : Color.primary.opacity(colorScheme == .light ? 0.10 : 0.07),
-                        lineWidth: isSelected ? 1.8 : 1)
-                )
+                .glassEffect(
+                    .regular.tint(isSelected ? descriptor.color.opacity(0.14) : SpectraLayout.GlassTint.elevated),
+                    in: .rect(cornerRadius: SpectraLayout.Radius.compact)
+                ).overlay {
+                    if isSelected {
+                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.compact, style: .continuous)
+                            .stroke(descriptor.color.opacity(0.9), lineWidth: 1.8)
+                    }
+                }
         }.buttonStyle(.plain).contentShape(Rectangle())
-    }
-    @ViewBuilder
-    private func seedPhraseLengthPicker(title: String, subtitle: String, showsRegenerateButton: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(localizedWalletFlowString(title)).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-                    Text(localizedWalletFlowString(subtitle)).font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-                if showsRegenerateButton {
-                    Button {
-                        draft.regenerateSeedPhrase()
-                    } label: {
-                        Label(AppLocalization.string("Regenerate"), systemImage: "arrow.clockwise").font(.caption.weight(.semibold))
-                    }.buttonStyle(.glass).tint(.orange).disabled(![12, 15, 18, 21, 24].contains(draft.selectedSeedPhraseWordCount))
-                }
-            }
-            HStack(spacing: 6) {
-                ForEach([12, 15, 18, 21, 24], id: \.self) { wordCount in
-                    seedPhraseLengthChip(wordCount: wordCount)
-                }
-            }
-            seedPhraseCustomLengthField
-            if let seedPhraseLengthWarning = draft.seedPhraseVerdict.lengthWarning {
-                Label(seedPhraseLengthWarning, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(
-                    .orange.opacity(0.92))
-            }
-        }
-    }
-    @ViewBuilder
-    private func seedPhraseLengthChip(wordCount: Int) -> some View {
-        let isSelected = draft.selectedSeedPhraseWordCount == wordCount
-        let entropyBits: Int = {
-            switch wordCount {
-            case 12: return 128
-            case 15: return 160
-            case 18: return 192
-            case 21: return 224
-            case 24: return 256
-            default: return 0
-            }
-        }()
-        Button {
-            draft.selectedSeedPhraseWordCount = wordCount
-            customSeedPhraseWordCountInput = String(wordCount)
-        } label: {
-            VStack(spacing: 2) {
-                Text("\(wordCount)").font(.title3.weight(.bold).monospacedDigit()).foregroundStyle(
-                    isSelected ? Color.white : Color.primary)
-                Text("\(entropyBits)b").font(.caption2.weight(.semibold)).foregroundStyle(
-                    isSelected ? Color.white.opacity(0.8) : .secondary)
-            }.frame(maxWidth: .infinity, minHeight: 56).background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(
-                    isSelected ? Color.orange : Color.white.opacity(colorScheme == .light ? 0.55 : 0.05))
-            ).overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(
-                    isSelected ? Color.orange : Color.primary.opacity(colorScheme == .light ? 0.10 : 0.07),
-                    lineWidth: isSelected ? 0 : 1)
-            )
-        }.buttonStyle(.plain)
-    }
-    @ViewBuilder
-    private var seedPhraseCustomLengthField: some View {
-        let standardLengths = [12, 15, 18, 21, 24]
-        let isCustomSelected = !standardLengths.contains(draft.selectedSeedPhraseWordCount)
-        DisclosureGroup {
-            HStack(spacing: 8) {
-                TextField(localizedWalletFlowString("Custom word count"), text: $customSeedPhraseWordCountInput).keyboardType(.numberPad)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled().padding(.horizontal, 12).padding(.vertical, 10).frame(
-                        maxWidth: .infinity, alignment: .leading
-                    ).spectraInputFieldStyle()
-                Button(AppLocalization.string("Apply")) {
-                    draft.applyCustomSeedPhraseWordCount(customSeedPhraseWordCountInput)
-                    customSeedPhraseWordCountInput = String(draft.selectedSeedPhraseWordCount)
-                }.buttonStyle(.glass).tint(.orange)
-            }.padding(.top, 4)
-        } label: {
-            HStack(spacing: 6) {
-                Image(systemName: "slider.horizontal.3").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                Text(AppLocalization.string("Custom length")).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                if isCustomSelected {
-                    Text("\(draft.selectedSeedPhraseWordCount)").font(.caption.weight(.bold)).foregroundStyle(.orange).padding(
-                        .horizontal, 8
-                    ).padding(.vertical, 2).background(Capsule(style: .continuous).fill(Color.orange.opacity(0.14)))
-                }
-            }
-        }.tint(.secondary)
-    }
-    private static let seedPhraseLanguageOptions: [(code: String, label: String)] = [
-        ("en", "English"), ("cs", "Czech"), ("fr", "French"), ("it", "Italian"),
-        ("ja", "Japanese"), ("ko", "Korean"), ("pt", "Portuguese"), ("es", "Spanish"),
-        ("zh-cn", "Chinese (Simplified)"), ("zh-tw", "Chinese (Traditional)"),
-    ]
-    @ViewBuilder
-    private var seedPhraseLanguagePicker: some View {
-        let isNonEnglish = draft.seedPhraseLanguage != "en"
-        HStack(spacing: 6) {
-            Image(systemName: "globe").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            Picker("Wordlist", selection: $draft.seedPhraseLanguage) {
-                ForEach(Self.seedPhraseLanguageOptions, id: \.code) { option in
-                    Text(option.label).tag(option.code)
-                }
-            }
-            .pickerStyle(.menu)
-            .font(.caption.weight(.semibold))
-            .tint(.secondary)
-            Spacer()
-            if isNonEnglish {
-                Text(draft.seedPhraseLanguage).font(.caption.weight(.bold)).foregroundStyle(.orange).padding(
-                    .horizontal, 8
-                ).padding(.vertical, 2).background(Capsule(style: .continuous).fill(Color.orange.opacity(0.14)))
-            }
-        }
-    }
-    @ViewBuilder
-    private func numberedSeedPhraseRow(index: Int, text: String? = nil, isInvalidWord: Bool = false) -> some View {
-        let validEntryColor: Color = colorScheme == .light ? Color.black.opacity(0.85) : .white
-        let isFocused = focusedSeedPhraseIndex == index
-        let accentColor: Color = isInvalidWord ? Color.red.opacity(0.85) : Color.orange.opacity(0.7)
-        HStack(spacing: 4) {
-            Text("\(index + 1)").font(.system(size: 10, weight: .bold)).foregroundStyle(.tertiary)
-                .frame(width: 14, alignment: .trailing).monospacedDigit()
-            if let text {
-                Text(text).font(.system(.footnote, design: .monospaced).weight(.medium))
-                    .foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.7)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                TextField("", text: seedPhraseBinding(for: index)).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    .keyboardType(.asciiCapable)
-                    .font(.system(.footnote, design: .monospaced).weight(.medium))
-                    .foregroundStyle(isInvalidWord ? .red.opacity(0.95) : validEntryColor)
-                    .focused($focusedSeedPhraseIndex, equals: index)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .frame(maxWidth: .infinity, minHeight: 30)
-        .padding(.horizontal, 8).padding(.vertical, 5)
-        .background(.white.opacity(isFocused ? 0.1 : 0.05), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous)
-            .stroke((isFocused || isInvalidWord) ? accentColor : Color.clear, lineWidth: 1))
-        .animation(.easeInOut(duration: 0.15), value: isFocused)
     }
     @ViewBuilder
     private func watchedAddressSection(
@@ -561,11 +356,19 @@ struct SetupView: View {
         case .watchAddresses:
             if !isEditingWallet, draft.isWatchOnlyMode { watchAddressesPageContent }
         case .seedPhrase:
-            if !draft.isWatchOnlyMode { seedPhrasePageContent }
+            if !draft.isWatchOnlyMode {
+                setupCard {
+                    WalletSecretStep(
+                        store: store, draft: draft, showsBackupVerification: false,
+                        onOpenAdvanced: { withAnimation { setupPage = .advanced } })
+                }
+            }
         case .password:
             passwordPageContent
         case .backupVerification:
-            backupVerificationStepSection
+            WalletSecretStep(
+                store: store, draft: draft, showsBackupVerification: true,
+                onOpenAdvanced: { withAnimation { setupPage = .advanced } })
         case .walletName:
             walletNamePageContent
         case .advanced:
@@ -592,11 +395,10 @@ struct SetupView: View {
                     Spacer()
                     Text(chainSelectionSummary).font(.caption.weight(.semibold)).foregroundStyle(
                         selectedChainCount == 0 ? Color.secondary : .orange
-                    ).padding(.horizontal, 12).padding(.vertical, 7).background(
-                        Capsule(style: .continuous).fill(
-                            selectedChainCount == 0
-                                ? Color.white.opacity(colorScheme == .light ? 0.55 : 0.08) : Color.orange.opacity(0.12))
-                    )
+                    ).padding(.horizontal, 12).padding(.vertical, 7).glassEffect(
+                        .regular.tint(
+                            selectedChainCount == 0 ? SpectraLayout.GlassTint.elevated : Color.orange.opacity(0.12)),
+                        in: .capsule)
                 }
                 LazyVGrid(columns: chainSelectionColumns, spacing: 8) {
                     ForEach(popularChainSelectionDescriptors) { descriptor in chainSelectionCard(descriptor) }
@@ -611,7 +413,7 @@ struct SetupView: View {
                                 .font(.title3.weight(.semibold))
                                 .foregroundStyle(.orange)
                                 .frame(width: 36, height: 36)
-                                .background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+                                .background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous))
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(AppLocalization.format("Browse all %lld chains", Self.chainSelectionDescriptors.count))
                                     .font(.subheadline.weight(.semibold))
@@ -630,7 +432,7 @@ struct SetupView: View {
                 }
             }
             .padding(20)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+            .spectraCardFill()
             chainSelectionFooterNote
         }.tint(.orange)
         .navigationDestination(isPresented: $isShowingAllChainsPage) {
@@ -785,16 +587,10 @@ struct SetupView: View {
                         Button { draft.walletName = "" } label: {
                             Image(systemName: "xmark.circle.fill").font(.system(size: 18, weight: .semibold))
                                 .foregroundStyle(.secondary)
-                        }.buttonStyle(.plain).accessibilityLabel("Clear wallet name")
+                        }.buttonStyle(.plain).accessibilityLabel(AppLocalization.string("Clear wallet name"))
                     }
                 }.padding(14).spectraInputFieldStyle()
             }
-        }
-    }
-    @ViewBuilder
-    private var seedPhrasePageContent: some View {
-        setupCard {
-            VStack(alignment: .leading, spacing: 14) { walletSecretStepSection }
         }
     }
     @ViewBuilder
@@ -820,7 +616,7 @@ struct SetupView: View {
     private func performPrimaryAction() {
         // Special transition: entering backup verification needs a side
         // effect (challenge prep). Handle it before generic flow advance.
-        if isShowingPasswordPage && isCreateMode {
+        if setupPage == .password && isCreateMode {
             draft.prepareBackupVerificationChallenge()
             withAnimation { setupPage = .backupVerification }
             return
@@ -856,251 +652,6 @@ struct SetupView: View {
     private var advancedDescriptionText: String {
         AppLocalization.string("Control the derivation path used for each selected chain. Pick a testnet from the chain list to use a testnet wallet.")
     }
-    @ViewBuilder
-    private var derivationAdvancedButton: some View {
-        if !isEditingWallet && !draft.selectedChainNames.isEmpty {
-            Button {
-                withAnimation {
-                    setupPage = .advanced
-                }
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "slider.horizontal.3").font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(
-                        width: 26, height: 26
-                    ).background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(AppLocalization.string("Advanced")).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-                        Text(advancedButtonSubtitle).font(.caption2).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                }.padding(.horizontal, 12).padding(.vertical, 10).spectraInputFieldStyle()
-            }.buttonStyle(.plain)
-        }
-    }
-    private var advancedButtonSubtitle: String {
-        AppLocalization.string("Adjust derivation paths.")
-    }
-    @ViewBuilder
-    private var importSecretModePicker: some View {
-        if !isEditingWallet && !isCreateMode && !draft.isWatchOnlyMode {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(localizedWalletFlowString("Import Method")).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                Picker("Import Method", selection: importSecretModeBinding) {
-                    ForEach(WalletSecretImportMode.allCases) { mode in Text(mode.localizedTitle).tag(mode) }
-                }.pickerStyle(.segmented)
-            }
-        }
-    }
-    private var importSecretModeBinding: Binding<WalletSecretImportMode> {
-        Binding(
-            get: { draft.secretImportMode },
-            set: { newValue in
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    draft.secretImportMode = newValue
-                }
-            }
-        )
-    }
-    @ViewBuilder
-    private var newWalletSeedPhraseSection: some View {
-        seedPhraseLengthPicker(title: copy.importSeedLengthTitle, subtitle: copy.importSeedLengthSubtitle)
-        seedPhraseLanguagePicker
-        Text(copy.seedPhraseEntryHelp).font(.footnote).foregroundStyle(.secondary)
-        seedPhraseEntryHeader
-        let invalidWords = Set(draft.seedPhraseVerdict.invalidWords)
-        LazyVGrid(columns: seedPhraseGridColumns, spacing: 6) {
-            ForEach(0..<draft.selectedSeedPhraseWordCount, id: \.self) { index in
-                seedPhraseField(at: index, invalidWords: invalidWords)
-            }
-        }
-        if !seedPhraseStatusText.isEmpty { Text(seedPhraseStatusText).font(.footnote).foregroundStyle(seedPhraseStatusColor) }
-    }
-    @ViewBuilder
-    private var createWalletSeedPhraseSection: some View {
-        seedPhraseLengthPicker(
-            title: copy.createSeedLengthTitle, subtitle: copy.createSeedLengthSubtitle, showsRegenerateButton: true
-        )
-        Text(copy.createSeedPhraseWarning).font(.footnote).foregroundStyle(.secondary)
-        seedPhraseDisplayHeader
-        LazyVGrid(columns: seedPhraseGridColumns, spacing: 6) {
-            ForEach(draft.seedPhraseWords.indices, id: \.self) { index in
-                numberedSeedPhraseRow(index: index, text: draft.seedPhraseWords[index])
-            }
-        }
-    }
-    @ViewBuilder
-    private var seedPhraseEntryHeader: some View {
-        let filled = draft.seedPhraseWords.count
-        let total = draft.selectedSeedPhraseWordCount
-        let verdict = draft.seedPhraseVerdict
-        let isComplete = filled >= total && verdict.invalidWords.isEmpty && verdict.error == nil
-        HStack(spacing: 10) {
-            HStack(spacing: 6) {
-                Image(systemName: isComplete ? "checkmark.circle.fill" : "circle.dashed").font(.caption.weight(.semibold))
-                    .foregroundStyle(isComplete ? .green : .orange)
-                Text("\(filled) / \(total)").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(
-                    isComplete ? .green : .orange)
-            }.padding(.horizontal, 10).padding(.vertical, 6).background(
-                Capsule(style: .continuous).fill((isComplete ? Color.green : Color.orange).opacity(0.12))
-            )
-            Spacer()
-            Button {
-                if let pasted = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines), !pasted.isEmpty {
-                    draft.updateSeedPhraseEntry(at: 0, with: pasted)
-                    focusedSeedPhraseIndex = nil
-                }
-            } label: {
-                Label(AppLocalization.string("Paste"), systemImage: "doc.on.clipboard").font(.caption.weight(.semibold))
-            }.buttonStyle(.glass).tint(.orange)
-            if filled > 0 {
-                Button(role: .destructive) {
-                    for index in 0..<total { draft.updateSeedPhraseEntry(at: index, with: "") }
-                    focusedSeedPhraseIndex = 0
-                } label: {
-                    Image(systemName: "xmark.circle.fill").font(.body.weight(.semibold))
-                }.buttonStyle(.plain).foregroundStyle(.secondary)
-            }
-        }
-    }
-    @ViewBuilder
-    private var seedPhraseDisplayHeader: some View {
-        HStack(spacing: 10) {
-            Label(AppLocalization.string("Recovery Phrase"), systemImage: "key.fill").font(.caption.weight(.semibold)).foregroundStyle(
-                .orange
-            ).padding(.horizontal, 10).padding(.vertical, 6).background(
-                Capsule(style: .continuous).fill(Color.orange.opacity(0.12)))
-            Spacer()
-            Button {
-                UIPasteboard.general.string = draft.seedPhraseWords.joined(separator: " ")
-            } label: {
-                Label(AppLocalization.string("Copy"), systemImage: "doc.on.doc").font(.caption.weight(.semibold))
-            }.buttonStyle(.glass).tint(.orange).disabled(draft.seedPhraseWords.isEmpty)
-        }
-    }
-    @ViewBuilder
-    private var privateKeyImportFields: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
-                Text(copy.privateKeyTitle).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                Spacer()
-                Button {
-                    if let pasted = UIPasteboard.general.string?.trimmingCharacters(in: .whitespacesAndNewlines), !pasted.isEmpty {
-                        draft.privateKeyInput = pasted
-                    }
-                } label: {
-                    Label(AppLocalization.string("Paste"), systemImage: "doc.on.clipboard").font(.caption.weight(.semibold))
-                }.buttonStyle(.glass).tint(.orange)
-            }
-            Text(copy.privateKeyPrompt).font(.footnote).foregroundStyle(.secondary)
-            privateKeyEditor
-            privateKeyMetadataRow
-            if !draft.unsupportedPrivateKeyChainNames.isEmpty {
-                Text(
-                    AppLocalization.format(
-                        "Private key import is not available for: %@.", draft.unsupportedPrivateKeyChainNames.joined(separator: ", "))
-                ).font(.footnote).foregroundStyle(.orange.opacity(0.9))
-            } else if let validation = privateKeyValidationFeedback {
-                Label(validation.message, systemImage: validation.icon).font(.footnote.weight(.medium)).foregroundStyle(validation.color)
-            }
-        }
-    }
-    @ViewBuilder
-    private var privateKeyEditor: some View {
-        let trimmed = draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        let isLikelyValid = !trimmed.isEmpty && CachedCoreHelpers.privateKeyHexIsLikely(rawValue: draft.privateKeyInput)
-        let isInvalidShape = !trimmed.isEmpty && !isLikelyValid
-        let borderColor: Color? =
-            isInvalidShape
-            ? Color.red.opacity(0.85) : (isLikelyValid ? Color.green.opacity(0.55) : nil)
-        ZStack(alignment: .topLeading) {
-            TextEditor(text: $draft.privateKeyInput).textInputAutocapitalization(.never).autocorrectionDisabled().scrollContentBackground(
-                .hidden
-            ).font(.system(.footnote, design: .monospaced)).foregroundStyle(Color.primary).frame(minHeight: 96).padding(.horizontal, 10)
-                .padding(.vertical, 10).spectraInputFieldStyle(borderColor: borderColor)
-            if trimmed.isEmpty {
-                Text(copy.privateKeyPlaceholder).font(.system(.footnote, design: .monospaced)).foregroundStyle(.secondary).padding(
-                    .horizontal, 16
-                ).padding(.vertical, 18).allowsHitTesting(false)
-            }
-        }
-    }
-    @ViewBuilder
-    private var privateKeyMetadataRow: some View {
-        let hexCount = draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).count
-        HStack(spacing: 10) {
-            Text(AppLocalization.string("32-byte hex (64 chars)")).font(.caption2).foregroundStyle(.secondary)
-            Spacer()
-            Text("\(hexCount) / 64").font(.caption2.monospacedDigit()).foregroundStyle(
-                hexCount == 0 ? Color.secondary : (hexCount == 64 ? Color.green : Color.orange))
-            if hexCount > 0 {
-                Button(role: .destructive) { draft.privateKeyInput = "" } label: {
-                    Image(systemName: "xmark.circle.fill").font(.caption.weight(.semibold))
-                }.buttonStyle(.plain).foregroundStyle(.secondary)
-            }
-        }
-    }
-    private var privateKeyValidationFeedback: (message: String, icon: String, color: Color)? {
-        let trimmed = draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        if !CachedCoreHelpers.privateKeyHexIsLikely(rawValue: draft.privateKeyInput) {
-            return (
-                AppLocalization.string("Enter a valid 32-byte hex private key."), "exclamationmark.triangle.fill",
-                .red.opacity(0.92)
-            )
-        }
-        return (AppLocalization.string("Looks like a valid private key."), "checkmark.seal.fill", .green.opacity(0.92))
-    }
-    @ViewBuilder
-    private var walletSecretStepSection: some View {
-        if isCreateMode {
-            createWalletSeedPhraseSection
-            if !isSimpleSetupSelected { derivationAdvancedButton }
-        } else {
-            importSecretModePicker
-            Group {
-                if isPrivateKeyImportMode {
-                    privateKeyImportFields
-                } else {
-                    VStack(alignment: .leading, spacing: 16) {
-                        newWalletSeedPhraseSection
-                        if !isSimpleSetupSelected { derivationAdvancedButton }
-                    }
-                }
-            }.id(draft.secretImportMode).transition(.opacity).animation(.easeInOut(duration: 0.2), value: draft.secretImportMode)
-        }
-    }
-    @ViewBuilder
-    private var backupVerificationStepSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(copy.backupVerificationTitle).font(.headline).foregroundStyle(Color.primary)
-            if !draft.backupVerificationPromptLabel.isEmpty {
-                Text(draft.backupVerificationPromptLabel).font(.subheadline).foregroundStyle(.secondary)
-            }
-            if draft.backupVerificationWordIndices.isEmpty {
-                Button(copy.backupVerificationButtonTitle) {
-                    draft.prepareBackupVerificationChallenge()
-                }.buttonStyle(.glass)
-            } else {
-                ForEach(draft.backupVerificationWordIndices.indices, id: \.self) { offset in
-                    let wordIndex = draft.backupVerificationWordIndices[offset]
-                    HStack(spacing: 8) {
-                        Text(AppLocalization.format("Word #%lld", wordIndex + 1)).font(.caption.weight(.bold)).foregroundStyle(.secondary).frame(width: 72, alignment: .leading)
-                        TextField("", text: backupVerificationBinding(for: offset)).textInputAutocapitalization(
-                            .never
-                        ).autocorrectionDisabled()
-                        .font(.system(.footnote, design: .monospaced).weight(.medium))
-                        .foregroundStyle(Color.primary)
-                    }.padding(.horizontal, 10).padding(.vertical, 7).spectraInputFieldStyle(cornerRadius: 12)
-                }
-                if draft.isBackupVerificationComplete {
-                    Text(copy.backupVerifiedMessage).font(.footnote).foregroundStyle(.green.opacity(0.9))
-                } else {
-                    Text(copy.backupVerificationHint).font(.footnote).foregroundStyle(.secondary)
-                }
-            }
-        }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: 24)
-    }
     var body: some View {
         ZStack {
             SpectraBackdrop().ignoresSafeArea()
@@ -1125,7 +676,7 @@ struct SetupView: View {
             }
     }
     private func performBackNavigation() {
-        if isShowingAdvancedPage {
+        if setupPage == .advanced {
             withAnimation { setupPage = .seedPhrase }
             return
         }
@@ -1140,11 +691,11 @@ struct SetupView: View {
         }
     }
     private var canGoBack: Bool {
-        isShowingAdvancedPage || setupFlow.previous(before: setupPage) != nil
+        setupPage == .advanced || setupFlow.previous(before: setupPage) != nil
     }
     @ViewBuilder
     private var setupBottomActionBar: some View {
-        if !isShowingAdvancedPage {
+        if setupPage != .advanced {
             VStack(spacing: 0) {
                 Divider().opacity(0.4)
                 HStack(spacing: 12) {
@@ -1163,7 +714,7 @@ struct SetupView: View {
                             .padding(.vertical, 10)
                     }.buttonStyle(.glassProminent).controlSize(.large).disabled(!isPrimaryActionEnabled)
                 }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 16)
-            }.glassEffect(.regular.tint(.white.opacity(0.04)), in: Rectangle())
+            }.glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: Rectangle())
         }
     }
 }
@@ -1179,9 +730,9 @@ private struct PowerUserOverridesSection: View {
             stage1Overrides
             stage2Overrides
         }.padding(14).background(
-            RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.orange.opacity(0.08))
+            RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous).fill(Color.orange.opacity(0.08))
         ).overlay(
-            RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Color.orange.opacity(0.35), lineWidth: 1)
+            RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous).stroke(Color.orange.opacity(0.35), lineWidth: 1)
         )
     }
     private var header: some View {
@@ -1277,9 +828,9 @@ private struct AdvancedOverrideTextField: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             inputField.font(.subheadline.monospaced()).padding(.horizontal, 10).padding(.vertical, 8)
-                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.06)))
+                .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.control)
                 .overlay(
-                    RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
+                    RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
             Text(detail).font(.caption2).foregroundStyle(.secondary)
         }
     }
@@ -1314,9 +865,9 @@ private struct AdvancedOverridePicker: View {
                     Spacer()
                     Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundStyle(.secondary)
                 }.padding(.horizontal, 10).padding(.vertical, 8)
-                    .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color.white.opacity(0.06)))
+                    .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.control)
                     .overlay(
-                        RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
+                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
             }.buttonStyle(.plain)
             Text(detail).font(.caption2).foregroundStyle(.secondary)
         }

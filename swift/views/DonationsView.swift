@@ -21,7 +21,7 @@ struct DonationsView: View {
             Text(copy.navigationTitle).font(.title.weight(.bold)).foregroundStyle(Color.primary)
             Text(copy.heroSubtitle).font(.subheadline).foregroundStyle(.secondary)
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
+            .spectraElevatedFill()
     }
     private var addressesCard: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -34,7 +34,7 @@ struct DonationsView: View {
             }
             Text(AppLocalization.string("Tap an address to copy it.")).font(.caption).foregroundStyle(.secondary)
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+            .spectraCardFill()
     }
     @ViewBuilder
     private func donationRow(chainName: String, title: String, address: String) -> some View {

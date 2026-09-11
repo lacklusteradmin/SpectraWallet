@@ -32,14 +32,14 @@ struct AboutView: View {
                     )
                 ).frame(width: 220, height: 220).blur(radius: 26).rotationEffect(.degrees(isAnimatingHero ? 360 : 0)).animation(
                     .linear(duration: 18).repeatForever(autoreverses: false), value: isAnimatingHero)
-                Circle().fill(Color.white.opacity(0.08)).frame(width: 178, height: 178).glassEffect(.regular.tint(.white.opacity(0.05)), in: .circle)
+                Circle().fill(Color.white.opacity(0.08)).frame(width: 178, height: 178).glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: .circle)
                 SpectraLogo(size: 96)
             }
             VStack(spacing: 8) {
                 Text(copy.aboutTitle).font(.largeTitle.weight(.bold)).foregroundStyle(Color.primary)
                 Text(copy.aboutSubtitle).font(.subheadline).multilineTextAlignment(.center).foregroundStyle(.secondary)
             }.frame(maxWidth: .infinity)
-        }.padding(24).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.033)), in: .rect(cornerRadius: 28))
+        }.padding(24).spectraBubbleFill().spectraCardFill(cornerRadius: SpectraLayout.Radius.hero)
     }
     private var aboutNarrativeCard: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -47,8 +47,7 @@ struct AboutView: View {
             ForEach(copy.aboutNarrativeParagraphs, id: \.self) { paragraph in
                 Text(paragraph).font(.subheadline).foregroundStyle(.secondary)
             }
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading).spectraBubbleFill().glassEffect(
-            .regular.tint(.white.opacity(0.028)), in: .rect(cornerRadius: 24))
+        }.padding(20).frame(maxWidth: .infinity, alignment: .leading).spectraBubbleFill().spectraCardFill()
     }
     private func aboutCard(title: String, lines: [String]) -> some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -59,7 +58,6 @@ struct AboutView: View {
                     Text(line).font(.subheadline).foregroundStyle(.secondary)
                 }
             }
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading).spectraBubbleFill().glassEffect(
-            .regular.tint(.white.opacity(0.028)), in: .rect(cornerRadius: 24))
+        }.padding(20).frame(maxWidth: .infinity, alignment: .leading).spectraBubbleFill().spectraCardFill()
     }
 }

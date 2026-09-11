@@ -5,22 +5,10 @@ extension AppState {
     func historyPaginationExhausted(chainId: String, walletId: String) -> Bool {
         wsb.historyCursor(chainId: chainId, walletId: walletId).isExhausted
     }
-    func historyPaginationCursor(chainId: String, walletId: String) -> String? {
-        wsb.historyCursor(chainId: chainId, walletId: walletId).nextCursor
-    }
-    func historyPaginationPage(chainId: String, walletId: String) -> Int {
-        Int(wsb.historyCursor(chainId: chainId, walletId: walletId).nextPage)
-    }
-    func setHistoryCursor(chainId: String, walletId: String, cursor: String?) {
-        wsb.advanceHistoryCursor(chainId: chainId, walletId: walletId, nextCursor: cursor)
-    }
     /// The page just fetched, and whether it was the last one.
     func setHistoryPage(chainId: String, walletId: String, page: Int, isExhausted: Bool) {
         wsb.setHistoryPage(
             chainId: chainId, walletId: walletId, page: UInt32(max(0, page)), isExhausted: isExhausted)
-    }
-    func resetHistoryPagination(chainId: String, walletId: String) {
-        wsb.resetHistory(.chainAndWallet(chainId: chainId, walletId: walletId))
     }
     func resetHistoryPaginationForWallet(_ walletId: String) {
         wsb.resetHistory(.wallet(walletId: walletId))

@@ -21,6 +21,11 @@ extension AppState {
             let batch = self.pendingBalanceUpdates
             self.pendingBalanceUpdates = []
             guard !batch.isEmpty else { return }
+            // Strong `self`, and a task of its own, both on purpose: the batch
+            // has already been drained from `pendingBalanceUpdates`, so the
+            // flush is the only thing that can still apply it. Inlining the
+            // await would put the flush inside the debounce task that the next
+            // `applyRustBalance` cancels, and the batch would be dropped.
             Task { @MainActor in await self.flushBalanceBatch(batch) }
         }
     }

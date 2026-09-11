@@ -15,25 +15,8 @@ nonisolated extension NetworkChoice: Identifiable {
     public var id: String { chainId }
 }
 
-// MARK: - Stellar
-// SimpleHistoryDiagnostics moved to Rust core.
-
-// MARK: - ICP
-// SimpleHistoryDiagnostics moved to Rust core.
-
-// MARK: - XRP
-// SimpleHistoryDiagnostics moved to Rust core.
-
-// MARK: - Cardano
-// SimpleHistoryDiagnostics moved to Rust core.
-
-// MARK: - Polkadot
-// SimpleHistoryDiagnostics moved to Rust core.
-enum PolkadotBalanceService {
-}
-
 // MARK: - Monero
-// SimpleHistoryDiagnostics moved to Rust core.
+
 enum MoneroBalanceService {
     struct TrustedBackend: Identifiable, Hashable {
         let id: String
@@ -54,78 +37,6 @@ enum MoneroBalanceService {
             id: "edge_lws_public_3", displayName: "Edge Monero LWS (Fallback 2)", baseURL: moneroBackendURLs[2]
         ),
     ]
-}
-
-
-
-
-// MARK: - Solana
-// SolanaHistoryDiagnostics moved to Rust core.
-enum SolanaBalanceService {
-    struct KnownTokenMetadata {
-        let symbol: String
-        let name: String
-        let decimals: Int
-        let coinGeckoId: String
-    }
-    private static let mintAddressBySymbol: [String: String] = {
-        var result: [String: String] = [:]
-        for entry in TokenPreferenceEntry.builtIn
-        where entry.token.chain == TokenHostingChain.solana.rawValue && !entry.token.contract.isEmpty {
-            result[entry.token.symbol.uppercased()] = entry.token.contract
-        }
-        return result
-    }()
-    static func mintAddress(for symbol: String) -> String? { mintAddressBySymbol[symbol.uppercased()] }
-    static func isValidAddress(_ address: String) -> Bool { AddressValidation.isValid(address, kind: "solana") }
-}
-
-// MARK: - NEAR
-// SimpleHistoryDiagnostics moved to Rust core.
-enum NearBalanceService {
-    struct KnownTokenMetadata: Equatable {
-        let symbol: String
-        let name: String
-        let tokenStandard: String
-        let decimals: Int
-        let coinGeckoId: String
-    }
-}
-
-// MARK: - Aptos
-// SimpleHistoryDiagnostics moved to Rust core.
-enum AptosBalanceService {
-    struct KnownTokenMetadata: Equatable {
-        let symbol: String
-        let name: String
-        let tokenStandard: String
-        let decimals: Int
-        let coinGeckoId: String
-    }
-}
-
-// MARK: - Sui
-// SimpleHistoryDiagnostics moved to Rust core.
-enum SuiBalanceService {
-    struct KnownTokenMetadata: Equatable {
-        let symbol: String
-        let name: String
-        let tokenStandard: String
-        let decimals: Int
-        let coinGeckoId: String
-    }
-}
-
-// MARK: - TON
-// SimpleHistoryDiagnostics moved to Rust core.
-enum TONBalanceService {
-    struct KnownTokenMetadata: Equatable {
-        let symbol: String
-        let name: String
-        let tokenStandard: String
-        let decimals: Int
-        let coinGeckoId: String
-    }
 }
 
 // MARK: - Transactions & price alerts (Rust-owned enums)

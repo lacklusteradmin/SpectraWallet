@@ -116,28 +116,6 @@ extension AppState {
     }
 
     func appendTransaction(_ transaction: TransactionRecord) { recordTransaction(transaction) }
-    /// Merge freshly fetched history for a chain into the store.
-    ///
-    /// One entry point for every chain: the merge strategy and whether the
-    /// identity includes the asset symbol are per-chain facts core reads from
-    /// its registry. This replaced eighteen wrappers that each named a chain
-    /// and a strategy by hand.
-    func upsertTransactions(_ newTransactions: [TransactionRecord], chainName: String) {
-        let command = TransactionCommand.merge(
-            incoming: newTransactions.map(\.rustBridgeRecord),
-            chainName: chainName,
-            // Account-based and EVM merges preserve a sentinel createdAt for
-            // records the app created locally before the chain confirmed them.
-            preserveCreatedAtSentinelUnix: Date.distantPast.timeIntervalSince1970
-        )
-        Task { @MainActor [weak self] in
-            guard
-                let change = try? await WalletServiceBridge.shared.applyTransactionCommand(command),
-                !change.added.isEmpty || !change.updated.isEmpty || !change.removed.isEmpty
-            else { return }
-            await self?.refreshTransactionProjection()
-        }
-    }
     func markChainHealthy(_ chainName: String) { diagnostics.markChainHealthy(chainName) }
     func noteChainSuccessfulSync(_ chainName: String) { diagnostics.noteChainSuccessfulSync(chainName) }
     func normalizedWalletChainName(_ chainName: String) -> String {

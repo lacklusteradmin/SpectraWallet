@@ -69,7 +69,7 @@ struct HistoryDetailView: View {
                             Text(amountText).font(.title.weight(.bold)).foregroundStyle(Color.primary)
                                 .spectraNumericTextLayout(minimumScaleFactor: 0.5)
                         }
-                    }.padding(20).spectraBubbleFill().spectraCardFill(cornerRadius: 28)
+                    }.padding(20).spectraBubbleFill().spectraCardFill(cornerRadius: SpectraLayout.Radius.hero)
                     transactionTimelineCard
                     spectraDetailCard(title: "Overview") {
                         detailRow(label: "Type", value: displayedTransaction.kind == .send ? AppLocalization.string("Send") : AppLocalization.string("Receive"))
@@ -186,7 +186,7 @@ struct HistoryDetailView: View {
                             Text(transactionHash).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(
                                 .enabled
                             ).padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                                .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 18))
+                                .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.input)
                             if let transactionExplorerURL = displayedTransaction.transactionExplorerURL,
                                 let transactionExplorerLabel = displayedTransaction.transactionExplorerLabel
                             {
@@ -205,18 +205,25 @@ struct HistoryDetailView: View {
                             Text(rawTransactionHexText).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(
                                 .enabled
                             ).padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                                .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 18))
+                                .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.input)
                         }
                     }
                 }.padding(20)
             }
-        }.navigationTitle(AppLocalization.string("Transaction")).navigationBarTitleDisplayMode(.inline).task {
-            await rebuildDisplayedTransactionState()
-        }.onChange(of: store.transactionRevision) { _, _ in
-            Task { await rebuildDisplayedTransactionState() }
-        }.onChange(of: store.walletsRevision) { _, _ in
-            Task { await rebuildDisplayedTransactionState() }
-        }
+        }.navigationTitle(AppLocalization.string("Transaction")).navigationBarTitleDisplayMode(.inline)
+            .task(id: refreshKey) { await rebuildDisplayedTransactionState() }
+    }
+    /// The two revision counters the rebuild depends on, bundled because
+    /// `.task(id:)` takes one `Equatable` value. One cancellable task replaces
+    /// a `.task` plus two `onChange` closures that each spawned a detached one:
+    /// a revision arriving mid-rebuild now cancels the stale pass instead of
+    /// racing it to the `live*` assignments.
+    private var refreshKey: RefreshKey {
+        RefreshKey(transactions: store.transactionRevision, wallets: store.walletsRevision)
+    }
+    private struct RefreshKey: Equatable {
+        let transactions: UInt64
+        let wallets: UInt64
     }
     private var statusChip: some View {
         Text(displayedTransaction.statusText).font(.caption.bold()).foregroundStyle(Color.primary).padding(.horizontal, 10).padding(
@@ -248,7 +255,7 @@ struct HistoryDetailView: View {
             }
             Text(value).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(.enabled).padding(14).frame(
                 maxWidth: .infinity, alignment: .leading
-            ).glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 18))
+            ).spectraElevatedFill(cornerRadius: SpectraLayout.Radius.input)
             Button {
                 UIPasteboard.general.string = value
                 didCopyAddress = true

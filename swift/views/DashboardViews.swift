@@ -24,6 +24,11 @@ struct DashboardView: View {
                     VStack(spacing: SpectraLayout.sectionSpacing) {
                         portfolioHeader
                         actionButtons
+                        Picker(AppLocalization.string("Dashboard Section"), selection: $dashboardPage) {
+                            Text(AppLocalization.string("Assets")).tag(DashboardPage.assets)
+                            Text(AppLocalization.string("Wallets")).tag(DashboardPage.wallets)
+                        }
+                        .pickerStyle(.segmented)
                         assetsOrWalletsCard
                     }.padding(.horizontal, SpectraLayout.screenHorizontal).padding(.top, SpectraLayout.screenTop).padding(
                         .bottom, SpectraLayout.screenBottom)
@@ -171,7 +176,7 @@ struct DashboardView: View {
                 }
             }.padding(.vertical, 4)
         }.frame(maxWidth: .infinity).glassEffect(
-            .regular.tint(.white.opacity(0.03)).interactive(), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
+            .regular.tint(SpectraLayout.GlassTint.content).interactive(), in: .rect(cornerRadius: SpectraLayout.Radius.hero))
     }
     private var dashboardCardCountText: String {
         let count = dashboardPage == .assets ? visiblePortfolio.count : store.wallets.count
@@ -180,9 +185,7 @@ struct DashboardView: View {
     @ViewBuilder
     private func walletsCardRows(wallets: [ImportedWallet]) -> some View {
         if wallets.isEmpty {
-            emptyCardState(title: "No wallets yet",
-                           message: "Tap the + button in the top right to add your first wallet.",
-                           systemImage: "wallet.pass")
+            addWalletEmptyState
         } else {
             ForEach(Array(wallets.enumerated()), id: \.element.id) { index, wallet in
                 let badge = Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, .mint)
@@ -207,7 +210,9 @@ struct DashboardView: View {
     }
     @ViewBuilder
     private func assetsCardRows(portfolio: [DashboardAssetGroup]) -> some View {
-        if portfolio.isEmpty {
+        if store.wallets.isEmpty {
+            addWalletEmptyState
+        } else if portfolio.isEmpty {
             emptyCardState(title: "No assets to display yet",
                            message: "Import a wallet or pull to refresh to load chain balances.",
                            systemImage: "chart.pie")
@@ -227,6 +232,14 @@ struct DashboardView: View {
         SpectraEmptyStateContent(title: title, message: message, systemImage: systemImage)
             .padding(.horizontal, SpectraLayout.rowHorizontal)
             .padding(.vertical, 12)
+    }
+    private var addWalletEmptyState: some View {
+        VStack(spacing: 16) {
+            emptyCardState(title: "No wallets yet", message: "Add a wallet to start receiving and sending assets.", systemImage: "wallet.pass")
+            Button(AppLocalization.string("Add Wallet")) { store.isShowingAddWalletEntry = true }
+                .buttonStyle(.glassProminent)
+                .tint(.orange)
+        }.padding(20)
     }
     private var visiblePortfolio: [DashboardAssetGroup] { store.cachedDashboardAssetGroups }
     private func visibleAssetPresentations(portfolio: [DashboardAssetGroup]) -> [DashboardAssetRowPresentation] {
@@ -251,10 +264,6 @@ struct DashboardView: View {
     }
     private var dashboardSectionMenu: some View {
         Menu {
-            Picker(AppLocalization.string("Dashboard Section"), selection: $dashboardPage) {
-                Text(AppLocalization.string("Assets")).tag(DashboardPage.assets)
-                Text(AppLocalization.string("Wallets")).tag(DashboardPage.wallets)
-            }
             if dashboardPage == .assets {
                 Divider()
                 Button(AppLocalization.string("Pin Assets")) {
@@ -356,7 +365,6 @@ struct AssetGroupDetailView: View {
         ScrollView(showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: 16) {
                 AssetDetailHeroCard(assetGroup: assetGroup, store: store)
-                AssetDetailHubCard(assetGroup: assetGroup, contractCount: places.filter { !$0.contract.isEmpty }.count)
                 AssetSummaryStatsCard(assetGroup: assetGroup, store: store)
                 AssetChainBreakdownCard(assetGroup: assetGroup, store: store)
             }.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
@@ -372,56 +380,6 @@ struct AssetGroupDetailView: View {
                     }
                 }
             }
-    }
-}
-private struct AssetDetailHubCard: View {
-    let assetGroup: DashboardAssetGroup
-    let contractCount: Int
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text(AppLocalization.string("Asset Hub"))
-                    .font(.headline)
-                Spacer()
-                if assetGroup.isPinned {
-                    Label(AppLocalization.string("Pinned"), systemImage: "pin.fill")
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(.red)
-                        .padding(.horizontal, 9)
-                        .padding(.vertical, 4)
-                        .background(Color.red.opacity(0.12), in: Capsule())
-                }
-            }
-
-            HStack(spacing: 10) {
-                hubMetric(
-                    title: "Networks", value: "\(assetGroup.holdings.count)", icon: "point.3.connected.trianglepath.dotted")
-                hubMetric(title: "Contracts", value: "\(contractCount)", icon: "doc.text.magnifyingglass")
-                hubMetric(title: "Symbol", value: assetGroup.symbol, icon: "tag.fill")
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
-    }
-
-    private func hubMetric(title: String, value: String, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: icon)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.orange)
-            Text(value)
-                .font(.subheadline.weight(.bold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.7)
-            Text(AppLocalization.string(title))
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
     }
 }
 struct AssetContractsDetailView: View {
@@ -464,7 +422,7 @@ private struct AssetDetailHeroCard: View {
             }
             Spacer(minLength: 0)
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
+            .spectraElevatedFill()
     }
 }
 private struct AssetSummaryStatsCard: View {
@@ -483,7 +441,7 @@ private struct AssetSummaryStatsCard: View {
                 value: store.formattedFiatAmountOrZero(fromUSD: assetGroup.totalValueUSD),
                 icon: "dollarsign.circle.fill")
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+            .spectraCardFill()
     }
     @ViewBuilder
     private func statRow(label: String, value: String, icon: String) -> some View {
@@ -526,7 +484,7 @@ private struct AssetChainBreakdownCard: View {
                 if index < assetGroup.holdings.count - 1 { Divider().opacity(0.3) }
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+            .spectraCardFill()
     }
 }
 
@@ -762,7 +720,7 @@ private struct DashboardPortfolioHeader: View {
                 Spacer()
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
             }.padding(SpectraLayout.cardPadding).frame(maxWidth: .infinity, alignment: .leading)
-                .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
+                .spectraElevatedFill()
         }.buttonStyle(.plain)
     }
 }

@@ -197,6 +197,16 @@ extension AppState {
                 )
             )
         }
+        if let secretStoreRegistrationError = secretStoreRegistrationError?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !secretStoreRegistrationError.isEmpty
+        {
+            notices.append(
+                AppNoticeItem(
+                    title: localizedStoreString("Secure Storage Unavailable"), message: secretStoreRegistrationError,
+                    severity: .error, systemImage: "lock.trianglebadge.exclamationmark"
+                )
+            )
+        }
         if let appLockError = appLockError?.trimmingCharacters(in: .whitespacesAndNewlines), !appLockError.isEmpty {
             notices.append(
                 AppNoticeItem(

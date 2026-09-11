@@ -49,13 +49,11 @@
 		90F002000000000000000031 /* StoreLifecycleReset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000031 /* StoreLifecycleReset.swift */; };
 		90F002000000000000000032 /* StorePersistenceNormalization.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000032 /* StorePersistenceNormalization.swift */; };
 		90F002000000000000000035 /* WalletDerivedCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000035 /* WalletDerivedCache.swift */; };
-		90F002000000000000000036 /* WalletRustDerivationBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000036 /* WalletRustDerivationBridge.swift */; };
 		90F002000000000000000037 /* WalletRustEndpointCatalogBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000037 /* WalletRustEndpointCatalogBridge.swift */; };
 		90F002000000000000000038 /* WalletServiceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000038 /* WalletServiceBridge.swift */; };
 		90F002000000000000000039 /* AppState+TorLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000039 /* AppState+TorLifecycle.swift */; };
 		90F00200000000000000003B /* SetupFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003B /* SetupFlow.swift */; };
 		90F00200000000000000003C /* ImportDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003C /* ImportDraft.swift */; };
-		90F00200000000000000003E /* WalletDerivation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003E /* WalletDerivation.swift */; };
 		90F00200000000000000003F /* AppState+FundsFinder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003F /* AppState+FundsFinder.swift */; };
 		90F002000000000000000041 /* StakingBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000041 /* StakingBridge.swift */; };
 		90F002000000000000000100 /* Chain+Registry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000100 /* Chain+Registry.swift */; };
@@ -136,13 +134,11 @@
 		90F001000000000000000031 /* StoreLifecycleReset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StoreLifecycleReset.swift; sourceTree = "<group>"; };
 		90F001000000000000000032 /* StorePersistenceNormalization.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorePersistenceNormalization.swift; sourceTree = "<group>"; };
 		90F001000000000000000035 /* WalletDerivedCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletDerivedCache.swift; sourceTree = "<group>"; };
-		90F001000000000000000036 /* WalletRustDerivationBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRustDerivationBridge.swift; sourceTree = "<group>"; };
 		90F001000000000000000037 /* WalletRustEndpointCatalogBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRustEndpointCatalogBridge.swift; sourceTree = "<group>"; };
 		90F001000000000000000038 /* WalletServiceBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletServiceBridge.swift; sourceTree = "<group>"; };
 		90F001000000000000000039 /* AppState+TorLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TorLifecycle.swift"; sourceTree = "<group>"; };
 		90F00100000000000000003B /* SetupFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlow.swift; sourceTree = "<group>"; };
 		90F00100000000000000003C /* ImportDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportDraft.swift; sourceTree = "<group>"; };
-		90F00100000000000000003E /* WalletDerivation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletDerivation.swift; sourceTree = "<group>"; };
 		90F00100000000000000003F /* AppState+FundsFinder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+FundsFinder.swift"; sourceTree = "<group>"; };
 		90F001000000000000000041 /* StakingBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StakingBridge.swift; sourceTree = "<group>"; };
 		90F001000000000000000100 /* Chain+Registry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Chain+Registry.swift"; sourceTree = "<group>"; };
@@ -258,7 +254,6 @@
 				90F00100000000000000002C /* StaticContentCatalog.swift */,
 				90F00100000000000000002F /* StoreDiagnosticsExport.swift */,
 				90F001000000000000000035 /* WalletDerivedCache.swift */,
-				90F001000000000000000036 /* WalletRustDerivationBridge.swift */,
 				90F001000000000000000037 /* WalletRustEndpointCatalogBridge.swift */,
 				90F001000000000000000038 /* WalletServiceBridge.swift */,
 				90F001000000000000000001 /* AppState+AddressResolution.swift */,
@@ -282,7 +277,6 @@
 				90F001000000000000000032 /* StorePersistenceNormalization.swift */,
 				90F00100000000000000003B /* SetupFlow.swift */,
 				90F00100000000000000003C /* ImportDraft.swift */,
-				90F00100000000000000003E /* WalletDerivation.swift */,
 				90F00100000000000000003F /* AppState+FundsFinder.swift */,
 				90F001000000000000000041 /* StakingBridge.swift */,
 				9074916B2F56D1E500D098D2 /* tests */,
@@ -505,12 +499,10 @@
 				90F00200000000000000002C /* StaticContentCatalog.swift in Sources */,
 				90F00200000000000000002F /* StoreDiagnosticsExport.swift in Sources */,
 				90F002000000000000000035 /* WalletDerivedCache.swift in Sources */,
-				90F002000000000000000036 /* WalletRustDerivationBridge.swift in Sources */,
 				90F002000000000000000037 /* WalletRustEndpointCatalogBridge.swift in Sources */,
 				90F002000000000000000038 /* WalletServiceBridge.swift in Sources */,
 				90F00200000000000000003B /* SetupFlow.swift in Sources */,
 				90F00200000000000000003C /* ImportDraft.swift in Sources */,
-				90F00200000000000000003E /* WalletDerivation.swift in Sources */,
 				90F00200000000000000003F /* AppState+FundsFinder.swift in Sources */,
 				90F002000000000000000041 /* StakingBridge.swift in Sources */,
 				90F002000000000000000001 /* AppState+AddressResolution.swift in Sources */,

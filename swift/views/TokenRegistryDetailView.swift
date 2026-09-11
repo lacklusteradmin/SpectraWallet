@@ -30,9 +30,9 @@ struct TokenRegistryDetailView: View {
                 Section(AppLocalization.string("Chain Support")) {
                     ForEach(groupEntries) { entry in
                         TokenRegistryEntryCardView(
-                            entry: entry, setEnabled: { store.setTokenPreferenceEnabled(id: entry.id, isEnabled: $0) },
-                            updateDecimals: { store.updateCustomTokenPreferenceDecimals(id: entry.id, decimals: $0) },
-                            removeToken: { store.removeCustomTokenPreference(id: entry.id) }
+                            entry: entry, setEnabled: { store.setTokenPreferenceEnabled(entry, isEnabled: $0) },
+                            updateDecimals: { store.updateCustomTokenPreferenceDecimals(entry, decimals: $0) },
+                            removeToken: { store.removeCustomTokenPreference(entry) }
                         )
                     }
                 }

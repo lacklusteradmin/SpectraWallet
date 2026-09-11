@@ -4,7 +4,11 @@ private struct SpectraInputFieldChrome: ViewModifier {
     let cornerRadius: CGFloat
     let borderColor: Color?
     func body(content: Content) -> some View {
-        content.glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: cornerRadius))
+        content.spectraElevatedFill(cornerRadius: cornerRadius).overlay {
+            if let borderColor {
+                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).stroke(borderColor, lineWidth: 1)
+            }
+        }
     }
 }
 extension View {
@@ -26,7 +30,7 @@ func spectraDetailCard(title: String? = nil, @ViewBuilder content: () -> some Vi
     VStack(alignment: .leading, spacing: 12) {
         if let title { Text(AppLocalization.string(title)).font(.headline) }
         VStack(alignment: .leading, spacing: 12) { content() }
-    }.padding(20).spectraBubbleFill().glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+    }.padding(20).spectraBubbleFill().spectraCardFill()
 }
 struct ContentView: View {
     @State private var store: AppState
@@ -64,7 +68,7 @@ struct ContentView: View {
                         Label(AppLocalization.string("content.locked.unlock"), systemImage: "faceid")
                             .font(.body.weight(.semibold)).frame(maxWidth: 220).padding(.vertical, 6)
                     }.buttonStyle(.glassProminent).controlSize(.large)
-                }.padding(28).glassEffect(.regular.tint(.white.opacity(0.05)), in: .rect(cornerRadius: 28)).padding(28)
+                }.padding(28).spectraElevatedFill().padding(28)
             }
         }.preferredColorScheme(store.preferences.appearanceMode == .dark ? .dark : store.preferences.appearanceMode == .light ? .light : nil)
         .onAppear {
@@ -125,30 +129,74 @@ extension Color {
 }
 
 // MARK: — Haptic helpers
+//
+// Generators are kept and re-prepared rather than built per tap. A generator
+// constructed at the moment of the tap has to warm the Taptic Engine before it
+// can fire, and that warm-up is the gap between the touch and the feedback;
+// `prepare()` after each use means the next tap fires immediately.
+//
+// Nothing here checks whether haptics are wanted: `UIFeedbackGenerator` already
+// honours the system haptics setting.
+//
+// These stay imperative on purpose. Almost every call sits inside a `Button`
+// action, and `.sensoryFeedback` would need a `@State` trigger per site that
+// exists only to be mutated — more state for the same tap. Feedback driven by
+// a value changing rather than by a tap does use `.sensoryFeedback`; see the
+// tag picker in `CryptoWikiViews`.
+@MainActor
+private enum SpectraHaptics {
+    private static var impactByStyle: [UIImpactFeedbackGenerator.FeedbackStyle: UIImpactFeedbackGenerator] = [:]
+    private static let notification = UINotificationFeedbackGenerator()
+
+    static func impact(_ style: UIImpactFeedbackGenerator.FeedbackStyle) {
+        let generator: UIImpactFeedbackGenerator
+        if let existing = impactByStyle[style] {
+            generator = existing
+        } else {
+            generator = UIImpactFeedbackGenerator(style: style)
+            impactByStyle[style] = generator
+        }
+        generator.impactOccurred()
+        generator.prepare()
+    }
+
+    static func notify(_ type: UINotificationFeedbackGenerator.FeedbackType) {
+        notification.notificationOccurred(type)
+        notification.prepare()
+    }
+}
+
 @MainActor func spectraHaptic(_ style: UIImpactFeedbackGenerator.FeedbackStyle = .medium) {
-    UIImpactFeedbackGenerator(style: style).impactOccurred()
+    SpectraHaptics.impact(style)
 }
 @MainActor func spectraNotificationHaptic(_ type: UINotificationFeedbackGenerator.FeedbackType = .success) {
-    UINotificationFeedbackGenerator().notificationOccurred(type)
+    SpectraHaptics.notify(type)
 }
 
 // MARK: — Shimmer loading placeholder
 struct SpectraShimmer: View {
-    var cornerRadius: CGFloat = 8
+    /// A placeholder bar's own rounding, not a step on
+    /// `SpectraLayout.Radius`: the scale describes surfaces in the
+    /// hierarchy, and this is a 12-14pt bar standing in for a line of text.
+    var cornerRadius: CGFloat = 6
     var height: CGFloat = 16
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var phase: CGFloat = -1
     var body: some View {
         GeometryReader { geo in
             ZStack {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).fill(Color.primary.opacity(0.08))
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).fill(
-                    LinearGradient(colors: [.clear, Color.white.opacity(0.18), .clear], startPoint: .leading, endPoint: .trailing)
-                ).offset(x: geo.size.width * (phase + 1))
+                if !reduceMotion {
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).fill(
+                        LinearGradient(colors: [.clear, Color.white.opacity(0.18), .clear], startPoint: .leading, endPoint: .trailing)
+                    ).offset(x: geo.size.width * (phase + 1))
+                }
             }
         }
         .frame(height: height)
         .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
         .onAppear {
+            guard !reduceMotion else { return }
             withAnimation(.linear(duration: 1.4).repeatForever(autoreverses: false)) { phase = 1 }
         }
     }
@@ -220,14 +268,14 @@ struct SpectraLoadingCard: View {
             SpectraLoadingRow(title: title, subtitle: subtitle, tint: tint)
             VStack(alignment: .leading, spacing: 8) {
                 ForEach(0..<max(1, lineCount), id: \.self) { index in
-                    SpectraShimmer(cornerRadius: 6, height: index == lineCount - 1 ? 12 : 14)
+                    SpectraShimmer(height: index == lineCount - 1 ? 12 : 14)
                         .frame(maxWidth: index == lineCount - 1 ? 190 : .infinity, alignment: .leading)
                 }
             }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+        .spectraCardFill()
     }
 }
 
@@ -255,7 +303,7 @@ struct SpectraEmptyStateCard: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+        .spectraCardFill()
     }
 }
 
@@ -270,7 +318,7 @@ struct SpectraEmptyStateContent: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.orange)
                 .frame(width: 40, height: 40)
-                .glassEffect(.regular.tint(.white.opacity(0.04)), in: .circle)
+                .glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: .circle)
             VStack(alignment: .leading, spacing: 4) {
                 Text(AppLocalization.string(title))
                     .font(.headline)
@@ -305,7 +353,7 @@ func spectraPageHeader(title: String, subtitle: String, systemImage: String) -> 
             .font(.title2.weight(.semibold))
             .foregroundStyle(.orange)
             .frame(width: 42, height: 42)
-            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .circle)
+            .glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: .circle)
 
         VStack(alignment: .leading, spacing: 4) {
             Text(AppLocalization.string(title)).font(.title2.weight(.bold))

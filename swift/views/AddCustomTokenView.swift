@@ -34,18 +34,23 @@ struct AddCustomTokenView: View {
             Section {
                 if let formMessage { Text(formMessage).font(.caption).foregroundStyle(.secondary) }
                 Button(AppLocalization.string("Add Token")) {
-                    let message = store.addCustomTokenPreference(
-                        chain: selectedChain, symbol: symbolInput, name: nameInput, contractAddress: contractInput,
-                        coinGeckoId: coinGeckoIdInput, decimals: decimalsInput
-                    )
-                    if let message {
-                        formMessage = message
-                    } else {
-                        formMessage = AppLocalization.string("Token added.")
-                        symbolInput = ""
-                        nameInput = ""
-                        contractInput = ""
-                        coinGeckoIdInput = ""
+                    // Core decides, so the answer arrives with the state it
+                    // changed rather than before it.
+                    Task { @MainActor in
+                        let message = await store.addCustomTokenPreference(
+                            chain: selectedChain, symbol: symbolInput, name: nameInput,
+                            contractAddress: contractInput,
+                            coinGeckoId: coinGeckoIdInput, decimals: decimalsInput
+                        )
+                        if let message {
+                            formMessage = message
+                        } else {
+                            formMessage = AppLocalization.string("Token added.")
+                            symbolInput = ""
+                            nameInput = ""
+                            contractInput = ""
+                            coinGeckoIdInput = ""
+                        }
                     }
                 }
             }

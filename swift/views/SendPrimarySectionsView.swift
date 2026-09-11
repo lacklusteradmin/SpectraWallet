@@ -31,6 +31,7 @@ fileprivate struct SendComposerPresentation {
 @MainActor
 struct SendFromPage: View {
     @Bindable var store: AppState
+    @ScaledMetric(relativeTo: .body) private var chipWidth = 142.0
 
     private var presentation: SendComposerPresentation { SendComposerPresentation(store: store) }
 
@@ -95,7 +96,7 @@ struct SendFromPage: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
+        .spectraElevatedFill()
     }
 
     private func coinChip(coin: Coin, isSelected: Bool) -> some View {
@@ -119,16 +120,16 @@ struct SendFromPage: View {
                     .foregroundStyle(.secondary)
                     .spectraNumericTextLayout()
             }
-            .frame(width: 142, alignment: .leading)
+            .frame(width: chipWidth, alignment: .leading)
             .padding(14)
             .background(
                 isSelected
                     ? coin.color.opacity(0.18)
                     : Color.primary.opacity(0.06),
-                in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.input, style: .continuous)
             )
             .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                RoundedRectangle(cornerRadius: SpectraLayout.Radius.input, style: .continuous)
                     .strokeBorder(isSelected ? coin.color.opacity(0.5) : Color.clear, lineWidth: 1)
             )
         }
@@ -142,6 +143,11 @@ struct SendRecipientPage: View {
     @Binding var selectedAddressBookEntryID: String
     @Binding var isShowingQRScanner: Bool
     @Binding var qrScannerErrorMessage: String?
+    let validationError: String?
+    let isValidating: Bool
+    let isValidated: Bool
+    let retryValidation: () -> Void
+    @FocusState private var addressFocused: Bool
 
     private var presentation: SendComposerPresentation { SendComposerPresentation(store: store) }
 
@@ -166,9 +172,11 @@ struct SendRecipientPage: View {
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .font(.subheadline.monospaced())
+                    .focused($addressFocused)
+                    .submitLabel(.done)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 12)
-                    .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 16))
+                    .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.chip)
 
                 Button {
                     guard DataScannerViewController.isSupported else {
@@ -205,11 +213,21 @@ struct SendRecipientPage: View {
                 }
             }
 
+            if isValidating {
+                ProgressView(AppLocalization.string("Checking recipient..."))
+            } else if let validationError {
+                Label(validationError, systemImage: "exclamationmark.triangle.fill")
+                    .font(.subheadline).foregroundStyle(.red)
+                Button(AppLocalization.string("Retry"), action: retryValidation).buttonStyle(.glass)
+            } else if isValidated {
+                Label(AppLocalization.string("Address format verified for this network"), systemImage: "checkmark.circle")
+                    .font(.subheadline).foregroundStyle(.secondary)
+            }
             recipientMessages
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
+        .spectraElevatedFill()
     }
 
     @ViewBuilder
@@ -223,7 +241,7 @@ struct SendRecipientPage: View {
            store.sendAddress.hasPrefix("ltcmweb1") || store.sendAddress.hasPrefix("tmweb1") {
             HStack(spacing: 6) {
                 Image(systemName: "lock.shield.fill").font(.caption2.weight(.semibold))
-                Text("MWEB · Privacy Send").font(.caption.weight(.semibold))
+                Text(AppLocalization.string("MWEB · Privacy Send")).font(.caption.weight(.semibold))
             }
             .foregroundStyle(.white)
             .padding(.horizontal, 10).padding(.vertical, 5)
@@ -251,6 +269,8 @@ struct SendRecipientPage: View {
 @MainActor
 struct SendAmountPage: View {
     @Bindable var store: AppState
+    let quoteIsCurrent: Bool
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var presentation: SendComposerPresentation { SendComposerPresentation(store: store) }
 
@@ -268,10 +288,13 @@ struct SendAmountPage: View {
 
     private var amountCard: some View {
         VStack(spacing: 16) {
-            HStack(spacing: 12) {
+            (dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .trailing, spacing: 12))
+                : AnyLayout(HStackLayout(spacing: 12))) {
                 TextField("0", text: $store.sendAmount)
                     .keyboardType(.decimalPad)
-                    .font(.system(size: 42, weight: .semibold, design: .rounded))
+                    .font(.largeTitle.weight(.semibold))
+                    .accessibilityLabel(AppLocalization.string("Amount"))
                     .multilineTextAlignment(.trailing)
                     .spectraNumericTextLayout()
                     .frame(maxWidth: .infinity)
@@ -295,9 +318,9 @@ struct SendAmountPage: View {
 
             Divider().opacity(0.3)
 
-            HStack {
+            VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(AppLocalization.string("Available")).font(.caption).foregroundStyle(.secondary)
+                    Text(AppLocalization.string("Balance")).font(.caption).foregroundStyle(.secondary)
                     if let amountText = presentation.selectedCoinAmountText {
                         Text(amountText)
                             .font(.subheadline.weight(.semibold))
@@ -305,10 +328,22 @@ struct SendAmountPage: View {
                     }
                 }
                 Spacer()
+                if quoteIsCurrent, let maximum = store.sendShortcutAmount(percentage: 100), let coin = presentation.selectedCoin {
+                    Text(AppLocalization.format("Estimated maximum: %@ %@", maximum, coin.symbol))
+                        .font(.subheadline).foregroundStyle(.secondary)
+                        .fixedSize(horizontal: false, vertical: true)
+                } else {
+                    Text(AppLocalization.string("A fee estimate is required for amount shortcuts. Enter an amount to continue."))
+                        .font(.subheadline).foregroundStyle(.secondary)
+                }
+                if !store.sendAmount.isEmpty && !store.sendAmountIsValid {
+                    Text(AppLocalization.string("Enter a positive decimal amount within this asset's precision."))
+                        .font(.subheadline).foregroundStyle(.red)
+                }
                 if let selectedCoin = presentation.selectedCoin, selectedCoin.amount > 0 {
                     HStack(spacing: 6) {
-                        ForEach([0.1, 0.5, 1.0], id: \.self) { fraction in
-                            percentButton(fraction: fraction, coin: selectedCoin)
+                        ForEach([UInt32(10), 50, 100], id: \.self) { percentage in
+                            percentButton(percentage: percentage)
                         }
                     }
                 }
@@ -316,31 +351,24 @@ struct SendAmountPage: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity)
-        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
+        .spectraElevatedFill()
     }
 
-    private func percentButton(fraction: Double, coin: Coin) -> some View {
-        let label = fraction == 1.0 ? "MAX" : "\(Int(fraction * 100))%"
-        let isActive: Bool = {
-            guard let current = Double(store.sendAmount), coin.amount > 0 else { return false }
-            return abs(current - coin.amount * fraction) < 1e-12
-        }()
+    private func percentButton(percentage: UInt32) -> some View {
+        let amount = quoteIsCurrent ? store.sendShortcutAmount(percentage: percentage) : nil
         return Button {
-            let value = coin.amount * fraction
-            store.sendAmount = value.truncatingRemainder(dividingBy: 1) == 0
-                ? String(format: "%.0f", value)
-                : String(value)
+            guard let amount else { return }
+            store.sendAmount = amount
             spectraHaptic(.light)
         } label: {
-            Text(label)
-                .font(.caption.weight(.bold))
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(
-                    isActive ? coin.color.opacity(0.28) : Color.primary.opacity(0.08),
-                    in: Capsule()
-                )
-                .foregroundStyle(isActive ? coin.color : Color.secondary)
+            Text(percentage == 100 ? "MAX" : "\(percentage)%")
+                .font(.subheadline.weight(.semibold))
+                .frame(maxWidth: .infinity, minHeight: 44)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(.glass)
+        .disabled(amount == nil)
+        .accessibilityLabel(percentage == 100
+            ? AppLocalization.string("Maximum after estimated fees")
+            : AppLocalization.format("%lld percent of estimated maximum", Int(percentage)))
     }
 }

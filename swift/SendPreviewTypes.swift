@@ -51,11 +51,6 @@ enum LitecoinChangeStrategy: String, CaseIterable, Identifiable {
         }
     }
 }
-enum SolanaDerivationPreference {
-    case standard
-    case legacy
-}
-
 // MARK: - EVM address utilities (moved from Send/Engines/EVM/)
 
 enum EthereumWalletEngineError: LocalizedError {

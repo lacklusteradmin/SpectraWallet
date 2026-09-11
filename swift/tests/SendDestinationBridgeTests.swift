@@ -70,4 +70,41 @@ final class SendDestinationBridgeTests: XCTestCase {
             XCTAssertTrue(message.contains("Bitcoin"), "got \(message)")
         }
     }
+    func testTonDestinationRejectsChecksumAndMainnetTestOnlyFlag() async throws {
+        let service = try WalletService.newTyped(endpoints: [])
+        for input in [String(repeating: "A", count: 48),
+                      "EQDKbjIcfM6ezt8KjKJJLshZJJSqX7XOA4ff-W72r5gqPrHA",
+                      "kQDKbjIcfM6ezt8KjKJJLshZJJSqX7XOA4ff-W72r5gqPgpP"] {
+            do {
+                _ = try await service.resolveSendDestination(chainId: "ton", input: input)
+                XCTFail("Invalid TON destination accepted")
+            } catch SpectraBridgeError.InvalidInput { }
+        }
+        let valid = "EQDKbjIcfM6ezt8KjKJJLshZJJSqX7XOA4ff-W72r5gqPrHF"
+        let result = try await service.resolveSendDestination(chainId: "ton", input: valid)
+        XCTAssertEqual(result.address, valid)
+    }
+
+    func testPendingPollingPropagatesUnopenedStorageAcrossAsyncBinding() async throws {
+        let service = try WalletService.newTyped(endpoints: [])
+        do {
+            _ = try await service.pollPendingTransactions(chainId: "ethereum")
+            XCTFail("Unopened storage must not appear as no pending transactions")
+        } catch SpectraBridgeError.Failure { }
+    }
+
+    func testReviewedDestinationMustStillMatchAcrossBinding() async throws {
+        let service = try WalletService.newTyped(endpoints: [])
+        let old = "0x1111111111111111111111111111111111111111"
+        let new = "0x2222222222222222222222222222222222222222"
+        let same = try await service.verifySendDestination(chainId: "ethereum", input: old, expectedAddress: old)
+        XCTAssertEqual(same.address, old)
+        do {
+            _ = try await service.verifySendDestination(chainId: "ethereum", input: new, expectedAddress: old)
+            XCTFail("A changed destination must require a new review")
+        } catch SpectraBridgeError.InvalidInput(let message) {
+            XCTAssertTrue(message.contains("Review"))
+        }
+    }
+
 }

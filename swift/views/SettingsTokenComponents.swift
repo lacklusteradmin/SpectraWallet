@@ -30,7 +30,6 @@ struct TokenRegistryGroup: Identifiable {
     let entries: [TokenPreferenceEntry]
     var id: String { key }
     var representativeEntry: TokenPreferenceEntry { entries[0] }
-    var allEntryIDs: [String] { entries.map(\.id) }
     var isEnabled: Bool { entries.contains(where: \.isEnabled) }
 }
 struct TokenRegistryGroupRowView: View {

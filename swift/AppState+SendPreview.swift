@@ -56,7 +56,7 @@ extension AppState {
             // reaches the assembler is the typed string, because a Double
             // cannot carry 18 decimals: 1.1 assembled 1100000000000000089 wei
             // while the send signed 1100000000000000000.
-            let amountMagnitude = Double(sendAmount),
+            let amountMagnitude = Double(sendPreviewAmountInput),
             // Whether a zero amount previews is `allows_zero_amount`, which core
             // derives from `is_native_evm_asset`. Three symbols were named here
             // — the third place this rule has been written down — so a
@@ -98,7 +98,7 @@ extension AppState {
         // Ethereum's. Asking for the slot rather than spelling it keeps that a
         // registry fact instead of a fourth copy of it.
         let slot = SendPreviewStore.previewSlot(forChainNamed: selectedSendCoin.chainName) ?? "Ethereum"
-        await withSendPreviewInFlight(slot, retry: { await self.refreshEvmSendPreview() }) {
+        await withSendPreviewInFlight(slot, retry: { [weak self] in await self?.refreshEvmSendPreview() }) {
         guard let chainId = Chain(displayName: selectedSendCoin.chainName)?.id else {
             sendPreviewStore.evmSendPreview = nil
             return
@@ -115,7 +115,7 @@ extension AppState {
                     input: EvmSendAssemblyInput(
                         chainName: selectedSendCoin.chainName, symbol: selectedSendCoin.symbol,
                         fromAddress: fromAddress, resolvedDestination: previewDestination,
-                        amount: sendAmount.trimmingCharacters(in: .whitespaces),
+                        amount: sendPreviewAmountInput.trimmingCharacters(in: .whitespaces),
                         token: assemblyToken
                     ))
             } catch {
@@ -143,7 +143,7 @@ extension AppState {
     }
     func refreshDogecoinSendPreview() async {
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, selectedSendCoin.chainName == "Dogecoin",
-            selectedSendCoin.symbol == "DOGE", let amount = parseAmountInput(text: sendAmount, maxDecimals: Chain.dogecoin.nativeDecimals), amount > 0
+            selectedSendCoin.symbol == "DOGE", let amount = parseAmountInput(text: sendPreviewAmountInput, maxDecimals: Chain.dogecoin.nativeDecimals), amount > 0
         else {
             sendPreviewStore.dogecoinSendPreview = nil
             return
@@ -159,7 +159,7 @@ extension AppState {
             sendPreviewStore.dogecoinSendPreview = nil
             return
         }
-        await withSendPreviewInFlight("Dogecoin", retry: { await self.refreshDogecoinSendPreview() }) {
+        await withSendPreviewInFlight("Dogecoin", retry: { [weak self] in await self?.refreshDogecoinSendPreview() }) {
         guard let address = resolvedAddress(for: wallet, chainName: "Dogecoin") else {
             sendPreviewStore.dogecoinSendPreview = nil
             return
@@ -220,7 +220,7 @@ extension AppState {
         guard let chain = Chain(displayName: chainName) else { setPreview(nil); return }
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin,
             selectedSendCoin.chainName == chainName, selectedSendCoin.symbol == chain.gasTokenSymbol,
-            let amount = parseAmountInput(text: sendAmount, maxDecimals: chain.nativeDecimals),
+            let amount = parseAmountInput(text: sendPreviewAmountInput, maxDecimals: chain.nativeDecimals),
             amount > 0
         else { setPreview(nil); return }
         let chainId = walletNetworkChainID(for: wallet, family: chain.mainnetCounterpart.id)
@@ -294,7 +294,7 @@ extension AppState {
             walletID: sendWalletID, holdingKey: sendHoldingKey)?.previewKind == "tron"
         guard routedToTron, let wallet = wallet(for: sendWalletID),
             let selectedSendCoin = selectedSendCoin,
-            let amount = Double(sendAmount), amount > 0
+            let amount = Double(sendPreviewAmountInput), amount > 0
         else {
             sendPreviewStore.clearPreview(forChainNamed: "Tron")
             return
@@ -308,7 +308,7 @@ extension AppState {
         // one was in flight was dropped rather than retried — the preview then
         // showed the fee for the previous amount. It coalesces like the other
         // two now.
-        await withSendPreviewInFlight("Tron", retry: { await self.refreshTronSendPreview() }) {
+        await withSendPreviewInFlight("Tron", retry: { [weak self] in await self?.refreshTronSendPreview() }) {
             do {
                 sendPreviewStore.tronSendPreview = try await WalletServiceBridge.shared.fetchTronSendPreviewTyped(
                     address: sourceAddress, symbol: selectedSendCoin.symbol,
@@ -341,7 +341,7 @@ extension AppState {
         guard let wallet = wallet(for: sendWalletID), let coin = selectedSendCoin,
             await cfg.coinCheck(self, coin),
             let amount = parseAmountInput(
-                text: sendAmount,
+                text: sendPreviewAmountInput,
                 maxDecimals: Chain(displayName: cfg.chainName)?.nativeDecimals ?? 18),
             amount > 0
         else { cfg.applyPreview(self, nil); return }

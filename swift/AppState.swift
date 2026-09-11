@@ -77,7 +77,6 @@ final class AppState {
     // instead of being a magic number buried in an async closure.
     @ObservationIgnored private let priceAlertsPersist = DebouncedAction(intervalMilliseconds: 100)
     @ObservationIgnored private let livePricesPersist = DebouncedAction(intervalMilliseconds: 200)
-    @ObservationIgnored private let tokenPreferencesPersist = DebouncedAction(intervalMilliseconds: 50)
     @ObservationIgnored private let tokenPreferenceRebuild = DebouncedAction(intervalMilliseconds: 30)
     @ObservationIgnored private let transactionRebuild = DebouncedAction(intervalMilliseconds: 30)
     /// Recorded transactions.
@@ -228,6 +227,7 @@ final class AppState {
     var sendHoldingKey: String = ""
     var sendAmount: String = ""
     var sendAddress: String = ""
+    var reviewedSendDestination: (input: String, chain: String, address: String)?
     var sendError: String? = nil
     var sendDestinationRiskWarning: String? = nil
     var sendDestinationInfoMessage: String? = nil
@@ -243,6 +243,10 @@ final class AppState {
     var selectedMainTab: MainAppTab = .home
     var isAppLocked: Bool = false
     var appLockError: String? = nil
+    /// Set when core could not be given the keychain-backed secret store.
+    /// Observed: nothing that touches a seed or a private key works without
+    /// it, so the failure has to reach the user rather than only the log.
+    var secretStoreRegistrationError: String? = nil
     var isPreparingReplacementContext: Bool = false
     /// Chains currently computing a send fee preview. Observed by send UI to show loading state.
     var preparingChains: Set<String> = []
@@ -475,9 +479,26 @@ final class AppState {
     private func onNetworkChainChanged(family: String) {
         let name = (Chain(id: family)?.displayName ?? family)
         resetHistoryPaginationForChain(family)
-        Task {
-            try? await WalletServiceBridge.shared.deleteKeypoolForChain(chainName: name)
-            try? await WalletServiceBridge.shared.deleteOwnedAddressesForChain(chainName: name)
+        // A `didSet` cannot await, so the drop runs in a task; `[weak self]`
+        // because nothing here needs the store kept alive for it.
+        Task { [weak self] in await self?.dropDerivationStateForChain(named: name) }
+    }
+    /// Drops what a chain accumulated on the network it was just moved off:
+    /// the keypool's reserved indices and the discovered owned addresses.
+    ///
+    /// One core call, not two. Swift used to issue the two deletes itself and
+    /// could leave one side behind when the second failed; core now takes both
+    /// tables in a single transaction, which is the only place the guarantee
+    /// can live. What is left here is reporting the failure rather than
+    /// dropping it.
+    private func dropDerivationStateForChain(named name: String) async {
+        do {
+            try await WalletServiceBridge.shared.resetChainDerivationState(chainName: name)
+        } catch {
+            appendOperationalLog(
+                .error, category: "Network Switch",
+                message: "Derivation state for \(name) survived a network switch: \(String(describing: error))",
+                chainName: name)
         }
     }
     var etherscanAPIKey: String = "" {
@@ -522,13 +543,15 @@ final class AppState {
     private(set) var coreAddressBook: [AddressBookEntry] = []
     /// Why core refused the last address-book change, if it did.
     var addressBookError: String?
-    var tokenPreferences: [TokenPreferenceEntry] = [] {
+    @ObservationIgnored var addressBookCommandTask: Task<Void, Never>?
+    /// The tracked-token list, as core holds it. A projection, like
+    /// `coreAddressBook`: change it with `addCustomTokenPreference` /
+    /// `removeCustomTokenPreference` / `setTokenPreferencesEnabled`, which
+    /// send commands. It used to be writable here and debounce-persisted, so
+    /// this side decided what a valid token was and core stored the answer.
+    private(set) var tokenPreferences: [TokenPreferenceEntry] = [] {
         didSet {
             guard tokenPreferences != oldValue else { return }
-            // Core is the store. It also clamps the decimal fields, so the
-            // normalised list comes back and lands here again — the guard above
-            // stops that second pass, since by then it matches.
-            tokenPreferencesPersist.fire { [weak self] in self?.commitTokenPreferences() }
             // Token-decimals overrides feed into the Rust asset-decimals
             // resolver, so drop the memoized cache when the overrides change.
             cachedAssetDecimals = [:]
@@ -540,6 +563,8 @@ final class AppState {
             }
         }
     }
+    /// Why core refused the last token-preference change, if it did.
+    var tokenPreferenceError: String?
     var livePrices: [String: Double] = [:] {
         didSet {
             guard livePrices != oldValue else { return }
@@ -851,6 +876,7 @@ final class AppState {
     func resetSendComposerState(afterSend extraReset: (() -> Void)? = nil) {
         sendAmount = ""
         sendAddress = ""
+        reviewedSendDestination = nil
         extraReset?()
         sendError = nil
     }
@@ -876,6 +902,8 @@ final class AppState {
         }
         preferences.refreshFrequencyChangedHandler = { [weak self] in
             guard let self else { return }
+            // The enclosing closure already weakened the capture; `self` here
+            // is the value that guard produced, held only for the restart.
             Task { await self.restartBalanceRefreshForCurrentConfiguration() }
         }
         clearPersistedSecureDataOnFreshInstallIfNeeded()
@@ -900,10 +928,25 @@ final class AppState {
     /// "called once per launch" vs "called per user tap" by file
     /// position. New launch-only work belongs here; new per-interaction
     /// work belongs on the relevant `+*` extension.
+    /// Registers the secret store before any launch work that might read a
+    /// seed or a private key, and records the failure where both the user and
+    /// a diagnostics export can see it.
+    private func registerSecretStoreWithBridge() async {
+        do {
+            try await SpectraSecretStoreAdapter.registerWithBridge()
+            secretStoreRegistrationError = nil
+        } catch {
+            let message = String(describing: error)
+            secretStoreRegistrationError = message
+            appendOperationalLog(
+                .error, category: "Secret Store", message: "Secret store registration failed: \(message)",
+                source: "SpectraSecretStoreAdapter.registerWithBridge")
+        }
+    }
     private func warmUpAfterLaunch() async {
         await rebuildTransactionDerivedState()
         startMaintenanceLoopIfNeeded()
-        SpectraSecretStoreAdapter.registerWithBridge()
+        await registerSecretStoreWithBridge()
         setupRustRefreshEngine()
         async let sqliteReload: () = reloadPersistedStateFromSQLite()
         async let fiatRefresh: () = refreshFiatExchangeRatesIfNeeded()
@@ -924,7 +967,6 @@ final class AppState {
         walletSideEffectsDebounce.cancel()
         transactionRebuild.cancel()
         tokenPreferenceRebuild.cancel()
-        tokenPreferencesPersist.cancel()
         livePricesPersist.cancel()
         priceAlertsPersist.cancel()
         #if canImport(Network)
@@ -943,96 +985,103 @@ final class AppState {
     }
     var resolvedTokenPreferences: [TokenPreferenceEntry] { cachedResolvedTokenPreferences }
     var enabledKnownTokenPreferences: [TokenPreferenceEntry] { cachedEnabledKnownTokenPreferences }
-    func setTokenPreferenceEnabled(id: String, isEnabled: Bool) {
-        guard let index = tokenPreferences.firstIndex(where: { $0.id == id }) else { return }
-        tokenPreferences[index].isEnabled = isEnabled
+    /// A token is addressed by what it is — its contract on its chain —
+    /// rather than by an id this side and core would each have to spell the
+    /// same way.
+    private func tokenKey(_ entry: TokenPreferenceEntry) -> CoreTokenPreferenceKey {
+        CoreTokenPreferenceKey(chainName: entry.token.chain, contract: entry.token.contract)
     }
-    func setTokenPreferencesEnabled(ids: [String], isEnabled: Bool) {
-        let targetIDs = Set(ids)
-        for index in tokenPreferences.indices where targetIDs.contains(tokenPreferences[index].id) {
-            tokenPreferences[index].isEnabled = isEnabled
+    func setTokenPreferenceEnabled(_ entry: TokenPreferenceEntry, isEnabled: Bool) {
+        setTokenPreferencesEnabled([entry], isEnabled: isEnabled)
+    }
+    func setTokenPreferencesEnabled(_ entries: [TokenPreferenceEntry], isEnabled: Bool) {
+        let keys = entries.map(tokenKey)
+        guard !keys.isEmpty else { return }
+        Task { @MainActor [weak self] in
+            await self?.sendTokenPreferenceCommand(
+                .setTokenPreferencesEnabled(tokens: keys, isEnabled: isEnabled))
         }
     }
-    func removeCustomTokenPreference(id: String) {
-        guard let entry = tokenPreferences.first(where: { $0.id == id }), !entry.isBuiltIn else { return }
-        tokenPreferences.removeAll { $0.id == id }
+    func removeCustomTokenPreference(_ entry: TokenPreferenceEntry) {
+        Task { @MainActor [weak self] in
+            await self?.sendTokenPreferenceCommand(
+                .removeCustomToken(chainName: entry.token.chain, contract: entry.token.contract))
+        }
     }
-    func updateCustomTokenPreferenceDecimals(id: String, decimals: Int) {
-        guard let index = tokenPreferences.firstIndex(where: { $0.id == id && !$0.isBuiltIn }) else { return }
-        tokenPreferences[index].token.decimals = UInt32(min(max(decimals, 0), 30))
+    func updateCustomTokenPreferenceDecimals(_ entry: TokenPreferenceEntry, decimals: Int) {
+        // Negative is not a precision. Everything else — including a number no
+        // token has — is core's to refuse, where this used to clamp it into
+        // range and read every later balance at the wrong scale.
+        guard decimals >= 0 else { return }
+        Task { @MainActor [weak self] in
+            await self?.sendTokenPreferenceCommand(
+                .setCustomTokenDecimals(
+                    chainName: entry.token.chain, contract: entry.token.contract,
+                    decimals: UInt32(decimals)))
+        }
     }
-    @discardableResult
+    /// Send a token-preference command and mirror the result.
+    ///
+    /// Same shape as `sendAddressBookCommand`: core decides, the refusal comes
+    /// back as an event carrying its reason, and this side supplies the words.
+    private func sendTokenPreferenceCommand(_ command: StateCommand) async {
+        let epoch = beginCoreStateRead()
+        guard let transition = try? await WalletServiceBridge.shared.applyStateCommand(command)
+        else { return }
+        applyCoreState(transition.state, epoch: epoch)
+        tokenPreferenceError = transition.events
+            .first(where: { $0.kind == "tokenPreferenceRejected" })?
+            .subjectId
+            .map(tokenPreferenceRejectionMessage)
+    }
+    func tokenPreferenceRejectionMessage(_ reason: String) -> String {
+        switch reason {
+        case "unknownChain": return localizedStoreString("That network cannot hold tokens.")
+        case "emptySymbol": return localizedStoreString("Symbol is required.")
+        case "symbolTooLong": return localizedStoreString("Symbol is too long.")
+        case "emptyName": return localizedStoreString("Token name is required.")
+        case "emptyContract": return localizedStoreString("Contract address is required.")
+        case "invalidContract": return localizedStoreString("That contract is not valid for this network.")
+        case "duplicateToken": return localizedStoreString("This network already knows this token.")
+        case "tooManyDecimals": return localizedStoreString("That is more decimal places than a token has.")
+        case "builtInToken": return localizedStoreString("Built-in tokens cannot be edited or removed.")
+        case "unknownToken": return localizedStoreString("That token is no longer in the list.")
+        default: return localizedStoreString("This token could not be saved.")
+        }
+    }
+    /// Teach the wallet a token the catalog does not ship.
+    ///
+    /// Returns the refusal to show beside the form, or `nil` once core has
+    /// accepted it. Every rule behind that answer — the symbol, the contract's
+    /// format for the chain that would host it, the duplicate, the precision,
+    /// and where the row sorts — is the reducer's. This method held all of
+    /// them, including a seven-arm switch over the hosting chains whose
+    /// `default` assumed EVM.
     func addCustomTokenPreference(
         chain: TokenHostingChain, symbol: String, name: String, contractAddress: String,
         coinGeckoId: String = "", decimals: Int
-    ) -> String? {
-        let normalizedSymbol = symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()
-        guard !normalizedSymbol.isEmpty else { return localizedStoreString("Symbol is required.") }
-        guard normalizedSymbol.count <= 12 else { return localizedStoreString("Symbol is too long.") }
-        let normalizedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalizedName.isEmpty else { return localizedStoreString("Token name is required.") }
-        let normalizedContract = contractAddress.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalizedContract.isEmpty else { return localizedStoreString("Contract address is required.") }
-        // The named cases are the chains whose contract identifier is not an
-        // address in the chain's own format — a Sui coin type, an Aptos coin
-        // type — or that have their own word for it. Everything else is EVM,
-        // and the registry's `addressValidationKind` is what says so: this arm
-        // used to hand-list twelve EVM chains, so the ten the hosting list
-        // gained would have fallen through to nothing.
-        switch chain {
-        case .solana:
-            guard AddressValidation.isValid(normalizedContract, kind: "solana") else {
-                return localizedStoreString("Enter a valid Solana token mint address.")
-            }
-        case .sui:
-            let isLikelySuiIdentifier =
-                normalizedContract.hasPrefix("0x")
-                && (normalizedContract.contains("::") || normalizedContract.count > 2)
-            guard isLikelySuiIdentifier else { return localizedStoreString("Enter a valid Sui coin type or package address.") }
-        case .aptos:
-            guard AddressValidation.isValidAptosTokenType(normalizedContract) else {
-                return localizedStoreString("Enter a valid Aptos coin type.")
-            }
-        case .ton:
-            guard AddressValidation.isValid(normalizedContract, kind: "ton") else {
-                return localizedStoreString("Enter a valid TON jetton master address.")
-            }
-        case .near:
-            guard AddressValidation.isValid(normalizedContract, kind: "near") else {
-                return localizedStoreString("Enter a valid NEAR token contract account ID.")
-            }
-        case .tron:
-            guard AddressValidation.isValid(normalizedContract, kind: "tron") else {
-                return localizedStoreString("Enter a valid Tron TRC-20 contract address.")
-            }
-        default:
-            guard chain.chain?.addressValidationKind == "evm",
-                AddressValidation.isValid(normalizedContract, kind: "evm")
-            else {
-                return AppLocalization.format("Enter a valid %@ token contract address.", chain.rawValue)
-            }
+    ) async -> String? {
+        guard decimals >= 0 else { return localizedStoreString("That is not a number of decimal places.") }
+        let epoch = beginCoreStateRead()
+        guard
+            let transition = try? await WalletServiceBridge.shared.applyStateCommand(
+                .addCustomToken(
+                    chainName: chain.rawValue, symbol: symbol, name: name,
+                    contract: contractAddress, coingeckoId: coinGeckoId,
+                    decimals: UInt32(decimals)))
+        else { return localizedStoreString("This token could not be saved.") }
+        applyCoreState(transition.state, epoch: epoch)
+        guard
+            let reason = transition.events
+                .first(where: { $0.kind == "tokenPreferenceRejected" })?
+                .subjectId
+        else {
+            tokenPreferenceError = nil
+            return nil
         }
-        let duplicateExists = tokenPreferences.contains { entry in
-            entry.token.chain == chain.rawValue
-                && normalizedKnownTokenIdentifier(for: chain, contractAddress: entry.token.contract)
-                    == normalizedKnownTokenIdentifier(for: chain, contractAddress: normalizedContract)
-        }
-        guard !duplicateExists else { return AppLocalization.format("%@ already knows this token.", chain.rawValue) }
-        tokenPreferences.append(
-            TokenPreferenceEntry(
-                token: TokenEntry(
-                    chain: chain.rawValue, name: normalizedName, symbol: normalizedSymbol,
-                    tokenStandard: chain.tokenStandard, contract: normalizedContract,
-                    coingeckoId: coinGeckoId.trimmingCharacters(in: .whitespacesAndNewlines),
-                    decimals: UInt32(min(max(decimals, 0), 30)), tags: [],
-                    color: "", assetName: "", enabled: true),
-                category: .custom, isBuiltIn: false, isEnabled: true))
-        tokenPreferences.sort { lhs, rhs in
-            if lhs.token.chain != rhs.token.chain { return lhs.token.chain < rhs.token.chain }
-            if lhs.isBuiltIn != rhs.isBuiltIn { return lhs.isBuiltIn && !rhs.isBuiltIn }
-            return lhs.token.symbol < rhs.token.symbol
-        }
-        return nil
+        let message = tokenPreferenceRejectionMessage(reason)
+        tokenPreferenceError = message
+        return message
     }
     func enabledTokenPreferences(for chain: TokenHostingChain) -> [TokenPreferenceEntry] {
         enabledKnownTokenPreferences.filter { $0.token.chain == chain.rawValue }

@@ -52,8 +52,9 @@ struct HistoryView: View {
     @State private var selectedSortOrder: HistorySortOrder = .newest
     @State private var selectedWalletID: String?
     @State private var searchText: String = ""
-    @State private var currentPageIndex: Int = 0
-    private let entriesPerPage = 10
+    @State private var visibleLimit = 20
+    @State private var isRetrying = false
+    @State private var recheckingIDs: Set<UUID> = []
     var body: some View {
         NavigationStack {
             ZStack {
@@ -63,7 +64,19 @@ struct HistoryView: View {
                         historySummaryCard
                         activeFilterStrip
                         if let error = store.historyReadError {
-                            Text(error).font(.subheadline).foregroundStyle(.red)
+                            VStack(alignment: .leading, spacing: 12) {
+                                Label(AppLocalization.string("Unable to load history"), systemImage: "exclamationmark.triangle")
+                                    .font(.headline)
+                                Text(error).font(.subheadline).foregroundStyle(.secondary)
+                                Button(AppLocalization.string("Retry")) {
+                                    isRetrying = true
+                                    Task {
+                                        await store.rebuildTransactionDerivedState()
+                                        await store.performUserInitiatedRefresh()
+                                        isRetrying = false
+                                    }
+                                }.buttonStyle(.glass).disabled(isRetrying)
+                            }.padding(20).spectraCardFill()
                         }
                         if visibleTransactions.isEmpty && store.historyReadError == nil {
                             historyEmptyStateCard
@@ -106,12 +119,27 @@ struct HistoryView: View {
                                                     }
                                                 }
                                             }
+                                            if (row.transaction.status == .pending || row.transaction.status == .failed), row.transaction.supportsStatusRecheck {
+                                                Button {
+                                                    recheckingIDs.insert(row.id)
+                                                    Task {
+                                                        _ = await store.retryUTXOTransactionStatus(for: row.id)
+                                                        recheckingIDs.remove(row.id)
+                                                    }
+                                                } label: {
+                                                    Label(AppLocalization.string("Recheck"), systemImage: "arrow.clockwise")
+                                                        .frame(minHeight: 44)
+                                                }
+                                                .buttonStyle(.glass)
+                                                .disabled(recheckingIDs.contains(row.id))
+                                                .padding(.bottom, 12)
+                                            }
                                             if index < section.rows.count - 1 { Divider().padding(.leading, 64).opacity(0.25) }
                                         }
                                     }.padding(.vertical, 4)
                                 }.frame(maxWidth: .infinity).glassEffect(
-                                    .regular.tint(.white.opacity(0.03)).interactive(),
-                                    in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
+                                    .regular.tint(SpectraLayout.GlassTint.content).interactive(),
+                                    in: .rect(cornerRadius: SpectraLayout.Radius.hero))
                             }
                         if shouldShowPagingControls { historyPagingControls }
                     }.padding(.horizontal, SpectraLayout.screenHorizontal).padding(.top, SpectraLayout.screenTop).padding(
@@ -134,8 +162,6 @@ struct HistoryView: View {
                 resetPaging()
             }.onChange(of: searchText) { _, _ in
                 resetPaging()
-            }.onChange(of: currentPageIndex) { _, _ in
-                prefetchHistoryIfNeeded()
             }
         }
     }
@@ -180,7 +206,7 @@ struct HistoryView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
+        .spectraElevatedFill()
     }
 
     private var activeFilterStrip: some View {
@@ -229,7 +255,7 @@ struct HistoryView: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(12)
-        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous))
     }
 
     private var sendVisibleCount: Int {
@@ -239,21 +265,16 @@ struct HistoryView: View {
     private var pendingVisibleCount: Int {
         visibleTransactions.filter { $0.status == .pending }.count
     }
-    private var clampedPageIndex: Int {
-        guard totalLoadedPages > 0 else { return 0 }
-        return min(currentPageIndex, totalLoadedPages - 1)
+    private var historyWalletIDs: Set<String> {
+        if let selectedWalletID { return [selectedWalletID] }
+        return Set(store.wallets.map(\.id))
     }
-    private var totalLoadedPages: Int { max(1, Int(ceil(Double(visibleTransactions.count) / Double(entriesPerPage)))) }
-    private var hasNextLoadedPage: Bool { clampedPageIndex < totalLoadedPages - 1 }
-    private var loadedHistoryWalletIDs: Set<String> { Set(visibleTransactions.compactMap(\.walletID)) }
-    private var canLoadMoreVisibleHistory: Bool { store.canLoadMoreOnChainHistory(for: loadedHistoryWalletIDs) }
+    private var canLoadMoreVisibleHistory: Bool { store.canLoadMoreOnChainHistory(for: historyWalletIDs) }
     private var shouldShowPagingControls: Bool {
-        !visibleRows.isEmpty
-            && (clampedPageIndex > 0 || hasNextLoadedPage || canLoadMoreVisibleHistory || store.isLoadingMoreOnChainHistory)
+        visibleTransactions.count > visibleLimit || canLoadMoreVisibleHistory || store.isLoadingMoreOnChainHistory
     }
     private var pagedRows: [HistoryRowPresentation] {
-        let startIndex = clampedPageIndex * entriesPerPage
-        return Array(visibleRows.dropFirst(startIndex).prefix(entriesPerPage))
+        visibleTransactions.prefix(visibleLimit).map(historyRowPresentation)
     }
     private var groupedSections: [HistoryPresentationSection] {
         let calendar = Calendar.current
@@ -299,70 +320,23 @@ struct HistoryView: View {
         case .oldest: return Array(filteredTransactions.reversed())
         }
     }
-    private var visibleRows: [HistoryRowPresentation] {
-        visibleTransactions.map(historyRowPresentation)
-    }
-    private func resetPaging() {
-        currentPageIndex = 0
-    }
-    private func prefetchHistoryIfNeeded() {
-        let candidateWalletIDs = historyPrefetchCandidateWalletIDs()
-        guard !candidateWalletIDs.isEmpty else { return }
-        Task {
-            await store.loadMoreOnChainHistory(for: candidateWalletIDs)
-        }
-    }
-    private func historyPrefetchCandidateWalletIDs() -> Set<String> {
-        let currentPageWalletIDs = Set(pagedRows.compactMap(\.transaction.walletID))
-        guard !currentPageWalletIDs.isEmpty else { return [] }
-        let nextLoadedTransactions = Array(visibleTransactions.dropFirst((clampedPageIndex + 1) * entriesPerPage))
-        var remainingCountByWallet: [String: Int] = [:]
-        for transaction in nextLoadedTransactions {
-            guard let walletID = transaction.walletID else { continue }
-            remainingCountByWallet[walletID, default: 0] += 1
-        }
-        let candidateWalletIDs = currentPageWalletIDs.filter { walletID in remainingCountByWallet[walletID, default: 0] <= entriesPerPage }
-        return Set(candidateWalletIDs.filter { store.canLoadMoreOnChainHistory(for: [$0]) })
-    }
+    private func resetPaging() { visibleLimit = 20 }
     private var historyPagingControls: some View {
-        HStack(spacing: 14) {
-            Button {
-                currentPageIndex = max(0, clampedPageIndex - 1)
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: "chevron.left")
-                    Text(AppLocalization.string("Last"))
-                }.font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-            }.buttonStyle(.plain).disabled(clampedPageIndex == 0 || store.isLoadingMoreOnChainHistory).opacity(
-                (clampedPageIndex == 0 || store.isLoadingMoreOnChainHistory) ? 0.4 : 1)
-            Text(AppLocalization.format("Page %lld", clampedPageIndex + 1)).font(.caption.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 14).padding(.vertical, 8).background(Color.white.opacity(0.06), in: Capsule())
-            Button {
-                Task {
-                    if hasNextLoadedPage {
-                        currentPageIndex = clampedPageIndex + 1
-                        return
-                    }
-                    let candidateWalletIDs = historyPrefetchCandidateWalletIDs()
-                    guard !candidateWalletIDs.isEmpty else { return }
-                    let previousPageCount = totalLoadedPages
-                    await store.loadMoreOnChainHistory(for: candidateWalletIDs)
-                    if totalLoadedPages > previousPageCount {
-                        currentPageIndex = min(clampedPageIndex + 1, totalLoadedPages - 1)
-                    }
+        Button {
+            Task {
+                if visibleTransactions.count <= visibleLimit {
+                    await store.loadMoreOnChainHistory(for: historyWalletIDs)
                 }
-            } label: {
-                HStack(spacing: 6) {
-                    Text(store.isLoadingMoreOnChainHistory ? AppLocalization.string("Loading") : AppLocalization.string("Next"))
-                    if store.isLoadingMoreOnChainHistory {
-                        SpectraLoadingGlyph(size: 18, tint: .white)
-                    } else {
-                        Image(systemName: "chevron.right")
-                    }
-                }.font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-            }.buttonStyle(.plain).disabled((!hasNextLoadedPage && !canLoadMoreVisibleHistory) || store.isLoadingMoreOnChainHistory).opacity(
-                ((!hasNextLoadedPage && !canLoadMoreVisibleHistory) || store.isLoadingMoreOnChainHistory) ? 0.4 : 1)
-        }.padding(.horizontal, 16).padding(.vertical, 12).frame(maxWidth: .infinity)
-            .background(Color.primary.opacity(0.06), in: Capsule())
+                visibleLimit += 20
+            }
+        } label: {
+            HStack {
+                if store.isLoadingMoreOnChainHistory { ProgressView() }
+                Text(AppLocalization.string(store.isLoadingMoreOnChainHistory ? "Loading" : "Load more"))
+            }.frame(maxWidth: .infinity, minHeight: 44)
+        }
+        .buttonStyle(.glass)
+        .disabled(store.isLoadingMoreOnChainHistory)
     }
     private var historyEmptyStateCard: some View {
         SpectraEmptyStateCard(
@@ -396,7 +370,7 @@ struct HistoryView: View {
                 Text(value).font(.caption.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
             }
             Image(systemName: "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
-        }.padding(.horizontal, 12).padding(.vertical, 10).spectraInputFieldStyle(cornerRadius: 16)
+        }.padding(.horizontal, 12).padding(.vertical, 10).spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.chip)
     }
     private func historyRowPresentation(for transaction: TransactionRecord) -> HistoryRowPresentation {
         HistoryRowPresentation(

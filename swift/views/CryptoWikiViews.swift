@@ -73,7 +73,7 @@ struct CryptoWikiLibraryView: View {
         .searchable(text: $searchText, prompt: AppLocalization.string("Search coins and chains"))
         .textInputAutocapitalization(.never).autocorrectionDisabled()
         .toolbarBackground(.hidden, for: .navigationBar)
-        .onChange(of: selectedTag) { spectraHaptic(.light) }
+        .sensoryFeedback(.impact(weight: .light), trigger: selectedTag)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
@@ -109,7 +109,8 @@ private struct CryptoWikiRowCard: View, Equatable {
         }
         .padding(.horizontal, 18).padding(.vertical, 14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)).interactive(), in: .rect(cornerRadius: 22))
+        .glassEffect(
+            .regular.tint(SpectraLayout.GlassTint.content).interactive(), in: .rect(cornerRadius: SpectraLayout.Radius.compact))
     }
     private var subtitle: String {
         let places = asset.livesOn.count
@@ -169,7 +170,7 @@ struct AssetWikiDetailView: View {
             }
         }
         .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
+        .spectraElevatedFill()
     }
 
     /// A supply cap is the coin's, so it is on the coin's page. It used to be
@@ -187,7 +188,7 @@ struct AssetWikiDetailView: View {
                 .fixedSize(horizontal: false, vertical: true).padding(.leading, 32)
         }
         .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+        .spectraCardFill()
     }
 }
 

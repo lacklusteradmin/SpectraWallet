@@ -46,7 +46,7 @@ struct AssetPlacesCard: View {
             }
         }
         .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+        .spectraCardFill()
     }
 
     @ViewBuilder
@@ -73,6 +73,6 @@ struct AssetPlacesCard: View {
         }
         .padding(.vertical, 4)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("\(symbol) on \(place.chainName)")
+        .accessibilityLabel(AppLocalization.format("%@ on %@", symbol, place.chainName))
     }
 }

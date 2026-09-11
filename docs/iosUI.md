@@ -23,7 +23,12 @@ Official references:
 - **Top-level tabs:** Use `ScrollView` plus glass cards with internal dividers. Do not use `List(.insetGrouped)` or `Form` for a main tab.
 - **Chrome:** Hide the navigation bar background with `.toolbarBackground(.hidden, for: .navigationBar)` when content should scroll beneath it.
 - **Toolbar actions:** Use standard `ToolbarItem` buttons and menus. iOS 26 places toolbar items on Liquid Glass automatically, so do not add `.buttonStyle(.glass)` inside a toolbar.
-- **Cards:** Use a subtle white glass tint. Hero cards use `0.04`; ordinary content cards use `0.03`.
+- **Cards:** Use a subtle white glass tint, and only these two steps.
+  `SpectraLayout.GlassTint.elevated` (`0.04`) covers hero and header cards and
+  the smaller interactive surfaces that sit above content — inputs, chips,
+  icon backplates. `SpectraLayout.GlassTint.content` (`0.03`) covers ordinary
+  content cards. Accent-tinted glass — an orange or red notice — carries its
+  own colour and is not one of these steps.
 - **Buttons:** Use `.buttonStyle(.glass)` and `.buttonStyle(.glassProminent)` for stand-alone actions outside toolbars. Tint primary actions orange and destructive actions red.
 - **Typography:** Use system text styles such as `.largeTitle.weight(.bold)`, `.title`, `.headline`, and `.body`.
 - **Text colors:** Use semantic styles such as `.primary`, `.secondary`, `.tertiary`, and `.quaternary`. Do not use `Color.primary.opacity(...)` for text.
@@ -33,18 +38,27 @@ Official references:
 
 The radius communicates hierarchy:
 
-| Radius | Usage |
-| --- | --- |
-| 28pt | Top-level tab cards and hero/header cards |
-| 24pt | Ordinary detail cards, nested content cards, `spectraCardFill`, and `spectraDetailCard` |
-| 22pt | Compact interactive row cards |
-| 16–18pt | Inputs, inset address blocks, chips, and small nested surfaces |
-| 10–14pt | Inline pills, icon backplates, and dense controls |
-| size-relative | Icon artwork such as the `SpectraLogo` backing |
+| Token | Radius | Usage |
+| --- | --- | --- |
+| `Radius.hero` | 28pt | Top-level tab cards and hero/header cards |
+| `Radius.card` | 24pt | Ordinary detail cards, nested content cards, grouped list containers, `spectraCardFill`, `spectraDetailCard` |
+| `Radius.compact` | 22pt | Compact row cards and inline notice banners |
+| `Radius.input` | 18pt | Full-size inputs and inset address blocks |
+| `Radius.chip` | 16pt | Compact inputs, chips, and small nested surfaces |
+| `Radius.pill` | 14pt | Inline pills, dense inputs, and small tinted surfaces |
+| `Radius.control` | 10pt | Dense controls, icon backplates, and single-character slots |
+| size-relative | — | Icon artwork such as the `SpectraLogo` backing |
+
+Write the token, never the number. A component's own internal geometry is not a
+step on this scale — `SpectraShimmer` rounds a 12–14pt placeholder bar by 6pt,
+which it owns — but a surface in the hierarchy always is.
+
+`scripts/check-design-tokens.sh` (also `make check-ui`) fails when a view
+restates a radius or a white glass tint that `SpectraLayout` owns.
 
 Shared values and helpers live in:
 
-- [`SpectraLayout` and `spectraCardFill`](../swift/views/ImageRendering.swift)
+- [`SpectraLayout`, `spectraCardFill` and `spectraElevatedFill`](../swift/views/SpectraLayout.swift)
 - [`spectraInputFieldStyle` and `spectraDetailCard`](../swift/views/ViewExtensions.swift)
 
 ## Examples in the app

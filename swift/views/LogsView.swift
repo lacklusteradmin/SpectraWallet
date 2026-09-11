@@ -7,7 +7,7 @@ struct LogsView: View {
     @State private var selectedLevelFilter: LogLevelFilter = .all
     private let allCategoryFilter = "__all__"
     @State private var selectedCategoryFilter: String = "__all__"
-    @State private var copiedNotice: String?
+    @State private var copiedNotice: SpectraTransientNotice?
     @State private var cachedAvailableCategories: [String] = ["__all__"]
     @State private var cachedFilteredLogs: [AppState.OperationalLogEvent] = []
     private var diagnosticsState: WalletDiagnosticsState { store.diagnostics }
@@ -75,7 +75,7 @@ struct LogsView: View {
                     .foregroundStyle(.secondary)
                 Text(store.networkSyncStatusText).font(.caption).foregroundStyle(.secondary)
                 Text(summaryText).font(.caption).foregroundStyle(.secondary)
-                if let copiedNotice { Text(copiedNotice).font(.caption).foregroundStyle(.secondary) }
+                if let copiedNotice { Text(copiedNotice.text).font(.caption).foregroundStyle(.secondary) }
             }
             Section(AppLocalization.string("Filters")) {
                 Picker(AppLocalization.string("Level"), selection: $selectedLevelFilter) {
@@ -138,17 +138,11 @@ struct LogsView: View {
             rebuildLogPresentation()
         }.onChange(of: searchText) { _, _ in
             rebuildLogPresentation()
-        }.onChange(of: copiedNotice) { _, newValue in
-            guard newValue != nil else { return }
-            Task {
-                try? await Task.sleep(nanoseconds: 2_000_000_000)
-                copiedNotice = nil
-            }
-        }.toolbar {
+        }.spectraTransientNotice($copiedNotice).toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(AppLocalization.string("Copy")) {
                     UIPasteboard.general.string = store.exportOperationalLogsText(events: filteredLogs)
-                    copiedNotice = AppLocalization.format("Copied %lld log entries", filteredLogs.count)
+                    copiedNotice = SpectraTransientNotice(AppLocalization.format("Copied %lld log entries", filteredLogs.count))
                 }.disabled(filteredLogs.isEmpty)
             }
             ToolbarItem(placement: .topBarTrailing) {

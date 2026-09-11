@@ -248,9 +248,3 @@ extension Coin {
     }
 }
 
-// MARK: ─ Backend option models
-
-struct ChainBroadcastProviderOption: Identifiable, Hashable, Decodable {
-    let id: String
-    let title: String
-}

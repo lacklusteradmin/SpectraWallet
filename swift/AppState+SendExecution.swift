@@ -65,11 +65,18 @@ extension AppState {
         // this is the same question `isEVMChain` used to ask — from the route.
         if preflight.submitKind == "ethereum" {
             do {
-                let resolved = try await resolveSendDestination(input: destinationInput, for: holding.chainName)
+                let review = reviewedSendDestination
+                let expected = review.flatMap { $0.input == destinationInput && $0.chain == holding.chainName ? $0.address : nil }
+                let resolved = try await resolveSendDestination(input: destinationInput, for: holding.chainName, expectedAddress: expected)
+                if resolved.usedEns && expected == nil {
+                    sendError = "Review the resolved recipient address before sending."
+                    return
+                }
                 destinationAddress = resolved.address
                 usedENSResolution = resolved.usedEns
                 if usedENSResolution { sendDestinationInfoMessage = "Resolved ENS \(destinationInput) to \(destinationAddress)." }
             } catch {
+                bypassHighRiskSendConfirmation = false
                 sendError = (error as? LocalizedError)?.errorDescription ?? "Enter a valid \(holding.chainName) destination."
                 return
             }

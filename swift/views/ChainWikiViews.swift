@@ -51,7 +51,7 @@ struct ChainWikiDetailView: View {
             }
         }
         .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
+        .spectraElevatedFill()
     }
 
     private var wikiIdentityCard: some View {
@@ -65,7 +65,7 @@ struct ChainWikiDetailView: View {
             wikiStatRow(label: AppLocalization.string("State Model"), value: chain.stateModel, icon: "cylinder.split.1x2.fill")
         }
         .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+        .spectraCardFill()
     }
 
     private var wikiDerivationCard: some View {
@@ -101,7 +101,7 @@ struct ChainWikiDetailView: View {
             }
         }
         .padding(20).frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+        .spectraCardFill()
     }
 
     private func wikiStatRow(label: String, value: String, icon: String) -> some View {

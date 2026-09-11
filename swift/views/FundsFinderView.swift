@@ -92,7 +92,7 @@ struct FundsFinderView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: 22)
+        .spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
     }
 
     private var seedPhraseCard: some View {
@@ -125,7 +125,7 @@ struct FundsFinderView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: 22)
+        .spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
     }
 
     private func wordSlotView(index: Int, slotCount: Int) -> some View {
@@ -157,8 +157,8 @@ struct FundsFinderView: View {
             .onSubmit { if index < slotCount - 1 { focusedSlot = index + 1 } }
         }
         .padding(.horizontal, 8).padding(.vertical, 7)
-        .background(.white.opacity(focusedSlot == index ? 0.1 : 0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous)
+        .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.control)
+        .overlay(RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous)
             .stroke(focusedSlot == index ? Color.yellow.opacity(0.5) : Color.clear, lineWidth: 1))
         .animation(.easeInOut(duration: 0.15), value: focusedSlot == index)
     }
@@ -193,13 +193,13 @@ struct FundsFinderView: View {
                 }
             }
             .padding(12)
-            .spectraInputFieldStyle(cornerRadius: 12)
+            .spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.pill)
             Text(AppLocalization.string("A passphrase creates a different wallet. Leave blank unless you set one up."))
                 .font(.caption).foregroundStyle(.secondary)
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: 22)
+        .spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
     }
 
     private var disclaimerCard: some View {
@@ -214,7 +214,7 @@ struct FundsFinderView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: 18)
+        .spectraCardFill(cornerRadius: SpectraLayout.Radius.input)
     }
 
     private var startButton: some View {
@@ -233,7 +233,7 @@ struct FundsFinderView: View {
         }
         .buttonStyle(.borderedProminent)
         .disabled(!canStart)
-        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: SpectraLayout.Radius.input, style: .continuous))
     }
 
     // MARK: - Progress section
@@ -281,7 +281,7 @@ struct FundsFinderView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: 22)
+        .spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
     }
 
     // MARK: - Hits section
@@ -300,7 +300,7 @@ struct FundsFinderView: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: 22)
+        .spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
     }
 
     // MARK: - Empty & error
@@ -316,7 +316,7 @@ struct FundsFinderView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity)
-        .spectraCardFill(cornerRadius: 22)
+        .spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
     }
 
     @ViewBuilder
@@ -327,7 +327,7 @@ struct FundsFinderView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: 18)
+        .spectraCardFill(cornerRadius: SpectraLayout.Radius.input)
     }
 }
 
@@ -383,6 +383,6 @@ private struct FundsFinderHitRow: View {
                 .truncationMode(.middle)
         }
         .padding(12)
-        .background(.white.opacity(0.04), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+        .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.pill)
     }
 }

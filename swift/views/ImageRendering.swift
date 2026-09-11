@@ -98,30 +98,6 @@ struct SpectraBackdrop: View {
         ]
     }
 }
-enum SpectraLayout {
-    static let screenHorizontal: CGFloat = 14
-    static let screenTop: CGFloat = 6
-    static let screenBottom: CGFloat = 20
-    static let sectionSpacing: CGFloat = 14
-    static let cardPadding: CGFloat = 16
-    static let cardHeaderVertical: CGFloat = 12
-    static let rowHorizontal: CGFloat = 16
-    static let rowVertical: CGFloat = 9
-    static let cardCornerRadius: CGFloat = 28
-}
-extension View {
-    func spectraNumericTextLayout(minimumScaleFactor: CGFloat = 0.62) -> some View {
-        lineLimit(1).minimumScaleFactor(minimumScaleFactor).allowsTightening(true)
-    }
-    /// iOS 26 Liquid Glass card fill. Routes all legacy `spectraCardFill`
-    /// usages through a proper `.glassEffect` so every card in the app
-    /// participates in the Liquid Glass design language — not a flat tinted
-    /// rectangle. The subtle white tint gives the glass a visible edge
-    /// without competing with the card's own content.
-    func spectraCardFill(cornerRadius: CGFloat = 24) -> some View {
-        glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: cornerRadius))
-    }
-}
 struct SpectraLogo: View {
     var size: CGFloat = 78
     var body: some View {
@@ -141,7 +117,7 @@ struct SpectraLogo: View {
                     }
                 ).overlay(
                     RoundedRectangle(cornerRadius: size * 0.28, style: .continuous).strokeBorder(Color.white.opacity(0.28), lineWidth: 1)
-                ).glassEffect(.regular.tint(.white.opacity(0.044)), in: .rect(cornerRadius: size * 0.28))
+                ).spectraElevatedFill(cornerRadius: size * 0.28)
             Text("S").font(.system(size: size * 0.62, weight: .black, design: .rounded)).foregroundStyle(Color.primary).shadow(
                 color: .black.opacity(0.18), radius: 8, y: 2
             ).rotationEffect(.degrees(-8))

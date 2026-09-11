@@ -52,6 +52,30 @@ extension AppState {
     var selectedSendCoin: Coin? {
         availableSendCoins(for: sendWalletID).first(where: { $0.holdingKey == sendHoldingKey })
     }
+    var sendAmountDecimals: UInt32? {
+        guard let coin = selectedSendCoin else { return nil }
+        if coin.isNativeCoin { return Chain(displayName: coin.chainName)?.nativeDecimals }
+        return supportedToken(for: coin)?.token.decimals
+    }
+    var sendAmountIsValid: Bool {
+        guard let decimals = sendAmountDecimals else { return false }
+        return parseAmountInput(text: sendAmount, maxDecimals: decimals) != nil
+    }
+    // A provisional quote can load before the user types; it never changes the
+    // amount field and is replaced by a quote for the entered amount.
+    var sendPreviewAmountInput: String {
+        guard sendAmount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let coin = selectedSendCoin, let decimals = sendAmountDecimals else { return sendAmount }
+        return sendAmountShortcut(maximum: coin.amount, decimals: decimals, percentage: 10) ?? "0"
+    }
+    func sendShortcutAmount(percentage: UInt32) -> String? {
+        guard let coin = selectedSendCoin, preparingChains.isEmpty else { return nil }
+        return quotedSendAmount(
+            preview: sendPreviewStore.taggedPreview(forChainNamed: coin.chainName),
+            chainName: coin.chainName, symbol: coin.symbol,
+            tokenDecimals: supportedToken(for: coin)?.token.decimals, percentage: percentage)
+    }
+
     func sendPreviewDetails(for coin: Coin) -> SendPreviewDetails? {
         guard
             let c = computeSendPreviewDetails(
@@ -288,16 +312,12 @@ extension AppState {
     }
     /// The address this send is going to, from whatever is in the field.
     ///
-    /// Three call sites here each spelled the ENS rule as
-    /// `chainName == "Ethereum"`, and this one also kept the resolved-name
-    /// cache. Both belong to core — the rule is `Chain::resolves_ens_names`
-    /// and the cache is the service's — so what is left is the call and the
-    /// chain id it is asked about.
-    func resolveSendDestination(input: String, for chainName: String) async throws -> SendDestinationResolution {
+    /// Core owns resolution; the optional address binds the visible review.
+    func resolveSendDestination(input: String, for chainName: String, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
         guard let chainId = Chain(displayName: chainName)?.id else {
             throw EthereumWalletEngineError.invalidAddress
         }
-        return try await WalletServiceBridge.shared.resolveSendDestination(chainId: chainId, input: input)
+        return try await WalletServiceBridge.shared.resolveSendDestination(chainId: chainId, input: input, expectedAddress: expectedAddress)
     }
     /// Warnings about an EVM recipient, localized.
     ///
@@ -417,12 +437,9 @@ extension AppState {
     /// rejects duplicates; the UI does not pre-check beyond disabling the
     /// button via `canSaveAddressBookEntry`.
     func addAddressBookEntry(name: String, address: String, chainName: String, note: String = "") {
-        Task { @MainActor [weak self] in
-            await self?.sendAddressBookCommand(
-                .addAddressBookEntry(
-                    id: UUID().uuidString, name: name, chainName: chainName,
-                    address: address, note: note))
-        }
+        enqueueAddressBookCommand(.addAddressBookEntry(
+            id: UUID().uuidString, name: name, chainName: chainName,
+            address: address, note: note))
     }
     func canSaveLastSentRecipientToAddressBook() -> Bool {
         guard let tx = lastSentTransaction, tx.kind == .send else { return false }
@@ -433,14 +450,24 @@ extension AppState {
         addAddressBookEntry(name: "\(tx.symbol) Recipient", address: tx.address, chainName: tx.chainName, note: "Saved from recent send")
     }
     func renameAddressBookEntry(id: String, to newName: String) {
-        Task { @MainActor [weak self] in
-            await self?.sendAddressBookCommand(.renameAddressBookEntry(id: id, name: newName))
-        }
+        enqueueAddressBookCommand(.renameAddressBookEntry(id: id, name: newName))
     }
     func removeAddressBookEntry(id: String) {
-        Task { @MainActor [weak self] in
-            await self?.sendAddressBookCommand(.removeAddressBookEntry(id: id))
+        enqueueAddressBookCommand(.removeAddressBookEntry(id: id))
+    }
+
+    /// Preserve UI intent order across actor reentrancy. Core still owns every
+    /// mutation; this task chain only orders the shell's forwarding and adoption.
+    private func enqueueAddressBookCommand(_ command: StateCommand) {
+        let previous = addressBookCommandTask
+        addressBookCommandTask = Task { @MainActor [weak self] in
+            await previous?.value
+            await self?.sendAddressBookCommand(command)
         }
+    }
+
+    func awaitPendingAddressBookCommands() async {
+        await addressBookCommandTask?.value
     }
 
     /// Send an address-book command and mirror the result.
@@ -448,10 +475,11 @@ extension AppState {
     /// A refusal arrives as an `addressBookRejected` event carrying the reason
     /// core decided on; surfacing it beats silently doing nothing.
     private func sendAddressBookCommand(_ command: StateCommand) async {
-        let epoch = beginCoreStateRead()
         guard let transition = try? await WalletServiceBridge.shared.applyStateCommand(command)
         else { return }
-        applyCoreState(transition.state, epoch: epoch)
+        // A read begun while the write was pending may hold the old contacts.
+        // Invalidate it when the committed command returns, not when it starts.
+        applyCoreState(transition.state, epoch: beginCoreStateRead())
         if let reason = transition.events.first(where: { $0.kind == "addressBookRejected" })?
             .subjectId
         {
@@ -630,12 +658,17 @@ extension AppState {
         }
         return await withCheckedContinuation { continuation in
             context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, error in
-                Task { @MainActor in
+                // `resume` sits outside the optional chain on purpose: the
+                // continuation must be resumed exactly once even if the store
+                // is gone by the time the prompt returns, and a `guard let
+                // self else { return }` here would leak it instead.
+                Task { @MainActor [weak self] in
                     if success {
-                        self.appLockError = nil
+                        self?.appLockError = nil
                     } else {
                         let message = error?.localizedDescription ?? "Authentication cancelled."
-                        self.sendError = message; self.appLockError = message
+                        self?.sendError = message
+                        self?.appLockError = message
                     }
                     continuation.resume(returning: success)
                 }
@@ -823,10 +856,21 @@ extension AppState {
         let kind = Chain(id: selected)?.addressValidationKind ?? ""
         return !kind.isEmpty && AddressValidation.isValid(address, kind: kind)
     }
-    func knownUTXOAddresses(for wallet: ImportedWallet, chainName: String) async -> [String] {
+    /// `nil` when the lookup failed, which is a different answer from an
+    /// empty list. Collapsing the two let a transient failure read as "this
+    /// wallet owns no addresses" — and the self-send guard, which asks exactly
+    /// that question, then waved the send through.
+    func knownUTXOAddresses(for wallet: ImportedWallet, chainName: String) async -> [String]? {
         guard let chain = Chain(displayName: chainName) else { return [] }
-        return (try? await WalletServiceBridge.shared.knownUTXOAddresses(
-            walletID: wallet.id, chainId: chain.id)) ?? []
+        do {
+            return try await WalletServiceBridge.shared.knownUTXOAddresses(walletID: wallet.id, chainId: chain.id)
+        } catch {
+            appendOperationalLog(
+                .error, category: "Owned Addresses",
+                message: "Known \(chainName) addresses could not be read: \(String(describing: error))",
+                chainName: chainName, walletID: wallet.id)
+            return nil
+        }
     }
 
     /// Walk the wallet's derived addresses and record the used ones.
@@ -835,10 +879,20 @@ extension AppState {
     /// only readable from Swift. Core reads the seed, the derivation path, the
     /// keypool bound, the balance and the history, so the loop is core's and
     /// the phrase no longer crosses for it.
-    func discoverUTXOAddresses(for wallet: ImportedWallet, chainName: String) async -> [String] {
+    /// `nil` when discovery failed — see `knownUTXOAddresses`. The caller
+    /// keeps whatever it discovered last rather than recording the failure as
+    /// an empty result.
+    func discoverUTXOAddresses(for wallet: ImportedWallet, chainName: String) async -> [String]? {
         guard let chain = Chain(displayName: chainName) else { return [] }
-        return (try? await WalletServiceBridge.shared.discoverUTXOAddresses(
-            walletID: wallet.id, chainId: chain.id)) ?? []
+        do {
+            return try await WalletServiceBridge.shared.discoverUTXOAddresses(walletID: wallet.id, chainId: chain.id)
+        } catch {
+            appendOperationalLog(
+                .error, category: "Owned Addresses",
+                message: "\(chainName) address discovery failed: \(String(describing: error))",
+                chainName: chainName, walletID: wallet.id)
+            return nil
+        }
     }
     func refreshUTXOAddressDiscovery(chainName: String) async {
         guard supportsDeepUTXODiscovery(chainName: chainName) else {
@@ -850,15 +904,24 @@ extension AppState {
             discoveredUTXOAddressesByChain[chainName] = [:]
             return
         }
-        let discovered = await withTaskGroup(of: (String, [String]).self, returning: [String: [String]].self) { group in
+        let previous = discoveredUTXOAddressesByChain[chainName] ?? [:]
+        let discovered = await withTaskGroup(of: (String, [String]?).self, returning: [String: [String]].self) { group in
             for wallet in utxoWallets {
                 group.addTask { [wallet] in
-                    let addresses = await self.discoverUTXOAddresses(for: wallet, chainName: chainName)
-                    return (wallet.id, addresses)
+                    (wallet.id, await self.discoverUTXOAddresses(for: wallet, chainName: chainName))
                 }
             }
             var mapping: [String: [String]] = [:]
-            for await (walletID, addresses) in group { mapping[walletID] = addresses }
+            for await (walletID, addresses) in group {
+                // A wallet whose discovery failed keeps what it had. Writing
+                // the empty result would turn one failed refresh into "this
+                // wallet has no addresses" until the next successful one.
+                if let addresses {
+                    mapping[walletID] = addresses
+                } else if let carried = previous[walletID] {
+                    mapping[walletID] = carried
+                }
+            }
             return mapping
         }
         discoveredUTXOAddressesByChain[chainName] = discovered
@@ -888,11 +951,22 @@ extension AppState {
     ) {
         guard let address, let walletID, !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
         else { return }
-        Task {
-            try? await WalletServiceBridge.shared.registerOwnedAddress(
-                walletID: walletID, chainName: chainName, address: address,
-                derivationPath: derivationPath, branch: branch,
-                branchIndex: index.map(Int64.init))
+        // The failure is logged rather than dropped: an address core never
+        // learned about is one it cannot attribute a later transfer to. The
+        // log is the only thing here that needs the store, so `[weak self]`
+        // — a store that went away has nowhere to write anyway.
+        Task { [weak self] in
+            do {
+                try await WalletServiceBridge.shared.registerOwnedAddress(
+                    walletID: walletID, chainName: chainName, address: address,
+                    derivationPath: derivationPath, branch: branch,
+                    branchIndex: index.map(Int64.init))
+            } catch {
+                await self?.appendOperationalLog(
+                    .error, category: "Owned Addresses",
+                    message: "Registering an owned address failed: \(String(describing: error))",
+                    chainName: chainName, walletID: walletID)
+            }
         }
     }
     func ownedAddresses(for walletID: String, chainName: String) async -> [String] {

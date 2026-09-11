@@ -134,15 +134,18 @@ enum SecurePrivateKeyStore {
 }
 
 final class SpectraSecretStoreAdapter: SecretStore, @unchecked Sendable {
-    static func registerWithBridge() {
-        let adapter = SpectraSecretStoreAdapter()
-        Task {
-            try? await WalletServiceBridge.shared.registerSecretStore(adapter)
-        }
+    /// Hands core the keychain-backed secret store.
+    ///
+    /// Awaited rather than fired into a detached task, and throwing rather
+    /// than `try?`: everything core does with a seed or a private key reads
+    /// through this adapter, so anything running before the registration
+    /// lands finds no store at all. The detached task let launch continue
+    /// into state reload while registration was still in flight, and the
+    /// swallowed error left a permanent failure looking like an unopenable
+    /// wallet with nothing in the logs to say why.
+    static func registerWithBridge() async throws {
+        try await WalletServiceBridge.shared.registerSecretStore(SpectraSecretStoreAdapter())
     }
-
-
-
 
     func loadSecret(kind: SecretClass, key: String) throws -> String {
         switch kind {

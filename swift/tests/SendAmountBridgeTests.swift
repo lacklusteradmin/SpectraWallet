@@ -2,6 +2,13 @@ import XCTest
 @testable import Spectra
 
 final class SendAmountBridgeTests: XCTestCase {
+    func testFeeAdjustedShortcutIsFlooredAcrossBinding() {
+        XCTAssertEqual(sendAmountShortcut(maximum: 0.99999, decimals: 8, percentage: 100), "0.99998999")
+        XCTAssertNil(sendAmountShortcut(maximum: .infinity, decimals: 8, percentage: 100))
+        XCTAssertNil(quotedSendAmount(preview: nil, chainName: "Bitcoin", symbol: "BTC", tokenDecimals: nil, percentage: 100))
+        XCTAssertNil(parseAmountInput(text: "340282366920938463463374607431768211456", maxDecimals: 0))
+    }
+
     func testInvalidExactAmountIsRefusedBeforeSigningMaterialAcrossAsyncBinding() async throws {
         let service = try WalletService.newTyped(endpoints: [])
         for amount in ["0.000000001", "-1", "NaN", "1.é"] {

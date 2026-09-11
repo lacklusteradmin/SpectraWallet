@@ -103,7 +103,14 @@ extension AppState {
     func requiresSelfSendConfirmation(wallet: ImportedWallet, holding: Coin, destinationAddress: String, amount: Double) async -> Bool {
         let ownAddresses: [String]
         if holding.chainName == "Dogecoin" {
-            ownAddresses = await knownUTXOAddresses(for: wallet, chainName: "Dogecoin")
+            // Ownership unknown is not ownership ruled out. With no answer the
+            // guard asks rather than assumes, because the cost of asking is a
+            // tap and the cost of assuming is a send to yourself.
+            guard let known = await knownUTXOAddresses(for: wallet, chainName: "Dogecoin") else {
+                sendError = AppLocalization.string("send.self_send.ownership_unknown")
+                return true
+            }
+            ownAddresses = known
         } else {
             ownAddresses = await knownOwnedAddresses(for: wallet.id)
         }

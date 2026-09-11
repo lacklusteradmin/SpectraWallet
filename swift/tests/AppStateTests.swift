@@ -468,7 +468,30 @@ import Foundation
             for id in store.addressBook.map(\.id) {
                 store.removeAddressBookEntry(id: id)
             }
-            await waitUntil("address book to empty") { store.addressBook.isEmpty }
+            await store.awaitPendingAddressBookCommands()
+            XCTAssertTrue(store.addressBook.isEmpty)
+        }
+
+        func testQueuedContactWritesCannotBeUndoneByAnOlderRead() async throws {
+            let store = AppState()
+            await store.loadCoreOwnedState()
+            await clearAddressBook(store)
+            for index in 1...3 {
+                store.addAddressBookEntry(
+                    name: "Contact \(index)",
+                    address: "0x" + String(repeating: String(index), count: 40),
+                    chainName: "Ethereum")
+            }
+            await store.awaitPendingAddressBookCommands()
+            XCTAssertEqual(store.addressBook.count, 3)
+            let stale = try await WalletServiceBridge.shared.appState()
+            let oldEpoch = store.beginCoreStateRead()
+            for entry in store.addressBook { store.removeAddressBookEntry(id: entry.id) }
+            await store.awaitPendingAddressBookCommands()
+            store.applyCoreState(stale, epoch: oldEpoch)
+            XCTAssertTrue(store.addressBook.isEmpty, "an earlier read must not resurrect removed contacts")
+            let persisted = try await WalletServiceBridge.shared.appState()
+            XCTAssertTrue(persisted.addressBook.isEmpty)
         }
 
         func testAddingAContactGoesThroughCoreAndPersists() async throws {

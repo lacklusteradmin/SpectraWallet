@@ -402,8 +402,8 @@ struct WalletDetailView: View {
                                     "Write this down and keep it offline. Anyone with this phrase can control your funds.")
                             ).font(.subheadline).foregroundStyle(.secondary)
                             Text(revealedSeedPhrase).font(.body.monospaced()).foregroundStyle(Color.primary).privacySensitive().padding(12)
-                                .frame(maxWidth: .infinity, alignment: .leading).spectraInputFieldStyle(cornerRadius: 16)
-                        }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: 24)
+                                .frame(maxWidth: .infinity, alignment: .leading).spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.chip)
+                        }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: SpectraLayout.Radius.card)
                             .padding(20)
                     }
                 }.navigationTitle(localizedWalletFlowString("Seed Phrase")).navigationBarTitleDisplayMode(.inline).toolbar {
@@ -438,7 +438,7 @@ struct WalletDetailView: View {
                     .spectraNumericTextLayout(minimumScaleFactor: 0.7)
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
+            .spectraElevatedFill()
     }
     @ViewBuilder
     private var walletStatsCard: some View {
@@ -457,7 +457,7 @@ struct WalletDetailView: View {
             Divider().opacity(0.25)
             walletStatRow(label: localizedWalletFlowString("First Activity"), value: firstActivityDateText, icon: "clock.fill")
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+            .spectraCardFill()
     }
     @ViewBuilder
     private func walletStatRow(label: String, value: String, icon: String) -> some View {
@@ -497,7 +497,7 @@ struct WalletDetailView: View {
                 }
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+            .spectraCardFill()
     }
     @ViewBuilder
     private func walletAddressCard(walletAddress: String) -> some View {
@@ -520,10 +520,10 @@ struct WalletDetailView: View {
             Text(walletAddress).font(.footnote.monospaced()).foregroundStyle(.secondary).textSelection(
                 .enabled
             ).padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading).background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.primary.opacity(0.04))
+                RoundedRectangle(cornerRadius: SpectraLayout.Radius.pill, style: .continuous).fill(Color.primary.opacity(0.04))
             )
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+            .spectraCardFill()
     }
     @ViewBuilder
     private var walletActionsStack: some View {
@@ -620,7 +620,7 @@ private struct WalletAdvancedDetailsView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         WalletDetailRow(label: "Wallet ID", value: walletID)
                         if let derivationPathsText { WalletDetailRow(label: "Derivation Paths", value: derivationPathsText) }
-                    }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: 24)
+                    }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: SpectraLayout.Radius.card)
                 }.padding(20)
             }
         }.navigationTitle(localizedWalletFlowString("Advanced")).navigationBarTitleDisplayMode(.inline)
@@ -665,7 +665,7 @@ struct SeedPathSlotEditor: View {
                                     get: { String(segment.value) }, set: { updateSegment(at: index, value: $0) }
                                 )
                             ).keyboardType(.numberPad).font(.caption.monospaced()).foregroundStyle(Color.primary).padding(.horizontal, 10)
-                                .padding(.vertical, 8).spectraInputFieldStyle(cornerRadius: 12)
+                                .padding(.vertical, 8).spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.pill)
                             if segment.isHardened {
                                 Text(verbatim: "'").font(.caption.monospaced().weight(.bold)).foregroundStyle(.secondary)
                             }

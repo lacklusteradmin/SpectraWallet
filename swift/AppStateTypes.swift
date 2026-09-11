@@ -149,16 +149,6 @@ extension AppState {
         var reservedReceiveIndex: Int?
     }
 
-    struct ChainOwnedAddressRecord: Codable, Equatable {
-        let chainName: String
-        let address: String?
-        let walletID: String
-        let derivationPath: String?
-        let index: Int?
-        let branch: String?
-    }
-
-
     struct ChainDegradedBanner: Identifiable {
         let chainName: String
         let message: String
@@ -171,17 +161,6 @@ extension AppState {
         let degradedMessages: [String: String]
         let lastGoodSyncUnix: [String: TimeInterval]
         static let currentVersion = 1
-    }
-
-    struct DogecoinKeypoolDiagnostic: Identifiable, Equatable {
-        let walletID: String
-        let walletName: String
-        let reservedReceiveIndex: Int?
-        let reservedReceivePath: String?
-        let reservedReceiveAddress: String?
-        let nextExternalIndex: Int
-        let nextChangeIndex: Int
-        var id: String { walletID }
     }
 
     struct ChainKeypoolDiagnostic: Identifiable, Equatable {

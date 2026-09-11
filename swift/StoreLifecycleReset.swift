@@ -7,10 +7,9 @@ extension AppState {
         suppressWalletSideEffects = true
         // Price alerts + address book are loaded async via
         // `reloadPersistedStateFromSQLite()` from the typed Rust SQLite store.
-        // Built-in tokens only. The user's known-token list is core state and
-        // arrives in `reloadPersistedStateFromSQLite()`; reading a second copy
-        // from UserDefaults here would race it and usually win.
-        tokenPreferences = TokenPreferenceEntry.builtIn
+        // The known-token list is core state and arrives with `open_state`,
+        // which seeds the catalog itself — a second copy assembled here would
+        // race that and usually win.
         rebuildTokenPreferenceDerivedState()
         livePrices = loadPersistedLivePrices()
         // Keypool, owned addresses and operational events all load from core in
@@ -52,7 +51,7 @@ extension AppState {
             return
         }
         let plan = coreResetDispatch(scopes: scopes.map(\.rawValue))
-        if plan.resetWalletsAndSecrets { resetWalletsAndSecretsState() }
+        if plan.resetWalletsAndSecrets { await resetWalletsAndSecretsState() }
         if plan.resetHistoryAndCache { await resetHistoryAndCacheState() }
         if plan.resetAlertsAndContacts { resetAlertsAndContactsState() }
         if plan.resetSettingsAndEndpoints { await resetSettingsAndEndpointsState() }
@@ -61,7 +60,21 @@ extension AppState {
         if plan.clearNetworkAndTransportCaches { clearNetworkAndTransportCaches() }
         UserDefaults.standard.set(true, forKey: Self.installMarkerDefaultsKey)
     }
-    private func resetWalletsAndSecretsState() {
+    /// Runs one core-side cleanup step to completion and records a failure
+    /// rather than dropping it. A reset that reports success while records
+    /// survive is the one outcome a wipe must not have, and a detached
+    /// `Task { try? await ... }` produced exactly that: the caller's `await`
+    /// returned before the step ran, and a failure left no trace.
+    private func runResetStep(_ name: String, _ step: () async throws -> Void) async {
+        do {
+            try await step()
+        } catch {
+            appendOperationalLog(
+                .error, category: "Reset", message: "\(name) failed during reset: \(String(describing: error))",
+                source: "resetSelectedData")
+        }
+    }
+    private func resetWalletsAndSecretsState() async {
         let existingWalletIDs = wallets.map(\.id)
         existingWalletIDs.forEach { deleteWalletSecrets(for: $0) }
         SecureStore.deleteValue(for: Self.walletsAccount)
@@ -110,7 +123,7 @@ extension AppState {
         lastSendDestinationProbeInfoMessage = nil
         bypassHighRiskSendConfirmation = false
         // A reset leaves no transactions, so pruning drops every tracker.
-        Task { try? await WalletServiceBridge.shared.pruneStatusTrackers() }
+        await runResetStep("Prune status trackers") { try await WalletServiceBridge.shared.pruneStatusTrackers() }
         isShowingWalletImporter = false
         isShowingAddWalletEntry = false
         isShowingSendSheet = false
@@ -120,7 +133,7 @@ extension AppState {
         cancelWalletImport()
     }
     private func resetHistoryAndCacheState() async {
-        Task { try? await WalletServiceBridge.shared.clearAllHistoryRecords() }
+        await runResetStep("Clear history records") { try await WalletServiceBridge.shared.clearAllHistoryRecords() }
         UserDefaults.standard.removeObject(forKey: Self.chainSyncStateDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.operationalLogsDefaultsKey)
         UserDefaults.standard.removeObject(forKey: Self.chainKeypoolDefaultsKey)
@@ -134,7 +147,9 @@ extension AppState {
         chainDiagnosticsState.endpointHealthByChain = [:]
         diagnostics.chainDegradedMessages = [:]
         diagnostics.lastGoodChainSyncByName = [:]
-        Task { try? await WalletServiceBridge.shared.clearOperationalEvents(chainName: nil) }
+        await runResetStep("Clear operational events") {
+            try await WalletServiceBridge.shared.clearOperationalEvents(chainName: nil)
+        }
         selfTests = [:]
         diagnostics.clearOperationalLogs()
         // Nothing clears `isRunning`/`isChecking` per chain below this point:
@@ -178,10 +193,17 @@ extension AppState {
         // which commit. What is removed here is the UserDefaults that still
         // has a writer: live prices.
         UserDefaults.standard.removeObject(forKey: Self.livePricesDefaultsKey)
-        tokenPreferences = TokenPreferenceEntry.builtIn
         livePrices = [:]
         quoteRefreshError = nil
         fiatRatesRefreshError = nil
+        // The token list goes back through core too: the catalog is core's and
+        // so is which of its rows the user turned off.
+        if let transition = try? await WalletServiceBridge.shared.applyStateCommand(
+            .resetTokenPreferences)
+        {
+            let epoch = beginCoreStateRead()
+            applyCoreState(transition.state, epoch: epoch)
+        }
         // Every setting core owns, back to core's own defaults.
         if let transition = try? await WalletServiceBridge.shared.applyStateCommand(.resetAppSettings) {
             let epoch = beginCoreStateRead()

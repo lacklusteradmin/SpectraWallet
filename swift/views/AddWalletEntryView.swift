@@ -75,7 +75,7 @@ struct AddWalletEntryView: View {
                     ? AppLocalization.string("Recommended defaults and fewer required choices.")
                     : AppLocalization.string("Configure derivation paths, networks, and power-user overrides.")
             ).font(.caption).foregroundStyle(.secondary)
-        }.padding(16).frame(maxWidth: .infinity, alignment: .leading).spectraCardFill(cornerRadius: 22)
+        }.padding(16).frame(maxWidth: .infinity, alignment: .leading).spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
     }
     private func actionCard(
         title: String, subtitle: String, icon: String, tint: Color, action: @escaping () -> Void
@@ -91,6 +91,6 @@ struct AddWalletEntryView: View {
                 Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(.tertiary).padding(
                     .top, 4)
             }.padding(16).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
-        }.buttonStyle(.plain).spectraBubbleFill().spectraCardFill(cornerRadius: 22)
+        }.buttonStyle(.plain).spectraBubbleFill().spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
     }
 }

@@ -1,7 +1,6 @@
 import SwiftUI
 
 struct StakingView: View {
-    @Environment(\.colorScheme) private var colorScheme
     var body: some View {
         NavigationStack {
             ZStack {
@@ -27,7 +26,7 @@ struct StakingView: View {
             Text(AppLocalization.string("Pick a chain below to delegate, manage positions, and claim rewards — all non-custodial."))
                 .font(.subheadline).foregroundStyle(.secondary)
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
+            .spectraElevatedFill()
     }
     @ViewBuilder
     private var chainPickerCard: some View {
@@ -46,7 +45,7 @@ struct StakingView: View {
                 }
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
+            .spectraCardFill(cornerRadius: SpectraLayout.Radius.hero)
             .navigationDestination(for: Chain.self) { chain in
                 ChainStakingDetailView(chain: chain)
             }
@@ -73,13 +72,7 @@ struct StakingView: View {
             }
             Text(descriptor.shortMechanic).font(.caption2).foregroundStyle(.secondary).lineLimit(2).fixedSize(
                 horizontal: false, vertical: true)
-        }.padding(14).frame(maxWidth: .infinity, alignment: .leading).background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous).fill(
-                Color.white.opacity(colorScheme == .light ? 0.55 : 0.05))
-        ).overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(
-                Color.primary.opacity(colorScheme == .light ? 0.10 : 0.07), lineWidth: 1)
-        )
+        }.padding(14).frame(maxWidth: .infinity, alignment: .leading).spectraElevatedFill(cornerRadius: SpectraLayout.Radius.input)
     }
     @ViewBuilder
     private var philosophyCard: some View {
@@ -96,7 +89,7 @@ struct StakingView: View {
                 )
             ).font(.subheadline).foregroundStyle(.secondary)
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: SpectraLayout.cardCornerRadius))
+            .spectraCardFill(cornerRadius: SpectraLayout.Radius.hero)
     }
 }
 
@@ -215,7 +208,6 @@ struct ChainStakingDetailView: View {
     let chain: Chain
     @State private var vm: StakingViewModel
     @State private var selectedSection: StakingDetailSection = .overview
-    @Environment(\.colorScheme) private var colorScheme
 
     init(chain: Chain) {
         self.chain = chain
@@ -276,7 +268,7 @@ struct ChainStakingDetailView: View {
         }
         .pickerStyle(.segmented)
         .padding(6)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 18))
+        .spectraCardFill(cornerRadius: SpectraLayout.Radius.input)
     }
 
     @ViewBuilder
@@ -315,7 +307,7 @@ struct ChainStakingDetailView: View {
                 SpectraLoadingGlyph(size: 30, tint: .orange)
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
+            .spectraElevatedFill()
     }
 
     @ViewBuilder
@@ -335,7 +327,7 @@ struct ChainStakingDetailView: View {
                 )
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+            .spectraCardFill()
     }
 
     @ViewBuilder
@@ -372,7 +364,7 @@ struct ChainStakingDetailView: View {
                     .font(.caption).foregroundStyle(.secondary)
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+            .spectraCardFill()
     }
 
     @ViewBuilder
@@ -389,7 +381,7 @@ struct ChainStakingDetailView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+        .spectraCardFill()
     }
 
     @ViewBuilder
@@ -408,7 +400,7 @@ struct ChainStakingDetailView: View {
                 .padding(.vertical, 4)
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+            .spectraCardFill()
     }
 
     @ViewBuilder
@@ -421,7 +413,7 @@ struct ChainStakingDetailView: View {
                 }
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+            .spectraCardFill()
     }
 
     @ViewBuilder
@@ -433,17 +425,11 @@ struct ChainStakingDetailView: View {
             HStack(spacing: 12) {
                 Image(systemName: action.systemIconName).font(.title3.weight(.semibold)).foregroundStyle(.orange).frame(
                     width: 28, height: 28
-                ).background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                ).background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous))
                 Text(action.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
                 Spacer()
                 Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.secondary)
-            }.padding(.horizontal, 12).padding(.vertical, 12).background(
-                RoundedRectangle(cornerRadius: 14, style: .continuous).fill(
-                    Color.white.opacity(colorScheme == .light ? 0.55 : 0.05))
-            ).overlay(
-                RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(
-                    Color.primary.opacity(colorScheme == .light ? 0.10 : 0.07), lineWidth: 1)
-            )
+            }.padding(.horizontal, 12).padding(.vertical, 12).spectraElevatedFill(cornerRadius: SpectraLayout.Radius.pill)
         }.buttonStyle(.plain)
             .spectraPressable()
     }
@@ -454,7 +440,7 @@ struct ChainStakingDetailView: View {
             Text(AppLocalization.string("How it works")).font(.headline)
             Text(descriptor.detailedExplanation).font(.subheadline).foregroundStyle(.secondary)
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+            .spectraCardFill()
     }
 }
 

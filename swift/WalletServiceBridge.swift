@@ -65,14 +65,6 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func fetchHistorySummary(chainId: String, address: String) async throws -> HistorySummary {
         try await service().fetchHistorySummary(chainId: chainId, address: address)
     }
-    func fetchEVMHistoryPage(
-        chainId: String, address: String, tokens: [TokenDescriptor], page: Int, pageSize: Int
-    ) async throws -> EvmHistoryPageDecoded {
-        try await service().fetchEvmHistoryPage(
-            chainId: chainId, address: address, tokens: tokens,
-            page: UInt32(max(1, page)), pageSize: UInt32(max(1, pageSize))
-        )
-    }
     func fetchEVMHistoryDiagnostics(
         chainId: String, walletID: String, address: String
     ) async throws -> HistoryDiagnostics {
@@ -94,11 +86,12 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func deriveBitcoinAccountXpub(mnemonicPhrase: String, passphrase: String = "", accountPath: String) throws -> String {
         try service().deriveBitcoinAccountXpubTyped(mnemonicPhrase: mnemonicPhrase, passphrase: passphrase, accountPath: accountPath)
     }
-    /// The address a send to this input would go to, and whether a name
-    /// lookup produced it. Which chains look a name up, and the cache that
-    /// keeps a debounced composer from asking twice, are core's.
-    func resolveSendDestination(chainId: String, input: String) async throws -> SendDestinationResolution {
-        try await service().resolveSendDestination(chainId: chainId, input: input)
+    /// Core resolves afresh and optionally verifies the address the user reviewed.
+    func resolveSendDestination(chainId: String, input: String, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
+        if let expectedAddress {
+            return try await service().verifySendDestination(chainId: chainId, input: input, expectedAddress: expectedAddress)
+        }
+        return try await service().resolveSendDestination(chainId: chainId, input: input)
     }
     func fetchEVMTxNonce(chainId: String, txHash: String) async throws -> Int {
         Int(try await service().fetchEvmTxNonceTyped(chainId: chainId, txHash: txHash))
@@ -392,8 +385,10 @@ extension WalletServiceBridge {
     func deleteKeypoolForWallet(walletId: String) async throws {
         try await service().deleteKeypoolForWallet(walletId: walletId)
     }
-    func deleteKeypoolForChain(chainName: String) async throws {
-        try await service().deleteKeypoolForChain(chainName: chainName)
+    /// The single call a network switch makes: core drops the chain's keypool
+    /// and its owned addresses in one transaction.
+    func resetChainDerivationState(chainName: String) async throws {
+        try await service().resetChainDerivationState(chainName: chainName)
     }
     func registerOwnedAddress(
         walletID: String, chainName: String, address: String, derivationPath: String?,
@@ -407,9 +402,6 @@ extension WalletServiceBridge {
     func ownedAddresses(walletID: String, chainName: String? = nil) async -> [String] {
         guard let service = try? service() else { return [] }
         return await service.ownedAddressesForWallet(walletId: walletID, chainName: chainName)
-    }
-    func deleteOwnedAddressesForChain(chainName: String) async throws {
-        try await service().deleteOwnedAddressesForChain(chainName: chainName)
     }
     func deleteWalletRelationalData(walletId: String) async throws {
         try await service().deleteWalletRelationalData(walletId: walletId)

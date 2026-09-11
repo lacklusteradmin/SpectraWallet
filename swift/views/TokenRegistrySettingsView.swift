@@ -67,7 +67,7 @@ struct TokenRegistrySettingsView: View {
                             Toggle(
                                 isOn: Binding(
                                     get: { group.isEnabled },
-                                    set: { store.setTokenPreferencesEnabled(ids: group.allEntryIDs, isEnabled: $0) }
+                                    set: { store.setTokenPreferencesEnabled(group.entries, isEnabled: $0) }
                                 )
                             ) { EmptyView() }.labelsHidden().scaleEffect(0.9)
                         }

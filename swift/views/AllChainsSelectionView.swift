@@ -83,15 +83,8 @@ struct AllChainsSelectionView: View {
                 }
             }
         }
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(Color.white.opacity(colorScheme == .light ? 0.55 : 0.05))
-        )
-        .overlay(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .stroke(Color.primary.opacity(colorScheme == .light ? 0.08 : 0.06), lineWidth: 1)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+        .spectraCardFill()
+        .clipShape(RoundedRectangle(cornerRadius: SpectraLayout.Radius.card, style: .continuous))
     }
     @ViewBuilder
     private var searchAndCounter: some View {
@@ -173,7 +166,7 @@ struct AllChainsSelectionView: View {
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.orange.opacity(0.08))
+                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous).fill(Color.orange.opacity(0.08))
                     )
                     VStack(alignment: .leading, spacing: 10) {
                         Label(AppLocalization.string("L2s and Native Tokens"), systemImage: "square.stack.3d.up.fill")
@@ -189,7 +182,7 @@ struct AllChainsSelectionView: View {
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.blue.opacity(0.08))
+                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous).fill(Color.blue.opacity(0.08))
                     )
                     VStack(alignment: .leading, spacing: 10) {
                         Label(AppLocalization.string("Missing a Chain?"), systemImage: "plus.circle.fill")
@@ -205,7 +198,7 @@ struct AllChainsSelectionView: View {
                     .padding(16)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
-                        RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color.purple.opacity(0.08))
+                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous).fill(Color.purple.opacity(0.08))
                     )
                 }
                 .padding(20)

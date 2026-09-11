@@ -57,7 +57,7 @@ struct ReceiveView: View {
     }
 
     var body: some View {
-        ZStack(alignment: .bottom) {
+        ZStack {
             SpectraBackdrop().ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
@@ -68,11 +68,11 @@ struct ReceiveView: View {
                         .transition(stepTransition)
                 }
                 .padding(20)
-                .padding(.bottom, 96)
+
             }
 
-            receiveBottomBar
         }
+        .safeAreaInset(edge: .bottom, spacing: 0) { receiveBottomBar }
         .navigationTitle(AppLocalization.string(currentStep.title))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -127,12 +127,12 @@ struct ReceiveView: View {
                 .padding(.vertical, 8)
                 .background(
                     step == currentStep ? Color.orange.opacity(0.18) : Color.primary.opacity(0.05),
-                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.pill, style: .continuous)
                 )
             }
         }
         .padding(6)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 22))
+        .spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
     }
 
     private var stepTransition: AnyTransition {
@@ -187,11 +187,19 @@ struct ReceiveView: View {
         let wallet = selectedWallet
         let coin = selectedCoin
         return VStack(spacing: 16) {
+            if let coin {
+                Label(coin.chainName, systemImage: "network")
+                    .font(.headline)
+                    .foregroundStyle(.orange)
+                Text(AppLocalization.format("Receive only %@ assets on this network. Check the sender's network before transferring.", coin.chainName))
+                    .font(.subheadline)
+                    .multilineTextAlignment(.center)
+            }
             if canUseResolvedAddress {
                 QRCodeImage(address: resolvedAddress)
                     .frame(width: 184, height: 184)
                     .padding(16)
-                    .background(Color.white, in: RoundedRectangle(cornerRadius: 26, style: .continuous))
+                    .background(Color.white, in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.card, style: .continuous))
             } else {
                 receiveQRCodePlaceholder(size: 216)
             }
@@ -217,13 +225,13 @@ struct ReceiveView: View {
             Text(resolvedAddress)
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
-                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
                 .multilineTextAlignment(.center)
                 .textSelection(.enabled)
         }
         .frame(maxWidth: .infinity)
         .padding(24)
-        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 28))
+        .spectraElevatedFill()
     }
 
     /// Share and save. Copy is the bottom bar's primary action rather than a
@@ -271,7 +279,7 @@ struct ReceiveView: View {
         }
         .padding(20)
         .frame(maxWidth: .infinity)
-        .glassEffect(.regular.tint(.white.opacity(0.03)), in: .rect(cornerRadius: 24))
+        .spectraCardFill()
     }
 
     private var receiveBottomBar: some View {
@@ -315,7 +323,7 @@ struct ReceiveView: View {
                     )
                     .font(.headline)
                     .frame(maxWidth: .infinity)
-                    .frame(height: 46)
+                    .frame(minHeight: 46)
                 }
                 .buttonStyle(.glassProminent)
                 .spectraPressable()
@@ -425,7 +433,7 @@ private struct WalletReceiveCard: View {
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(.regular.tint(.white.opacity(0.04)), in: .rect(cornerRadius: 22))
+        .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.compact)
     }
 
     /// The address stored for the wallet's own chain.
@@ -439,14 +447,14 @@ private struct WalletReceiveCard: View {
 
 private func receiveQRCodePlaceholder(size: CGFloat) -> some View {
     ZStack {
-        RoundedRectangle(cornerRadius: 28, style: .continuous)
+        RoundedRectangle(cornerRadius: SpectraLayout.Radius.hero, style: .continuous)
             .fill(Color.white.opacity(0.82))
         VStack(spacing: 14) {
             SpectraLoadingGlyph(size: 42, tint: .orange)
             VStack(spacing: 8) {
-                SpectraShimmer(cornerRadius: 6, height: 14)
+                SpectraShimmer(height: 14)
                     .frame(width: size * 0.58)
-                SpectraShimmer(cornerRadius: 6, height: 14)
+                SpectraShimmer(height: 14)
                     .frame(width: size * 0.42)
             }
         }

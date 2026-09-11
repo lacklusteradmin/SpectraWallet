@@ -111,21 +111,6 @@ extension AppState {
         }
     }
     /// Send the known-token list to core, which clamps it and stores it.
-    func commitTokenPreferences() {
-        let entries = tokenPreferences
-        let epoch = beginCoreStateRead()
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            guard
-                let transition = try? await WalletServiceBridge.shared.applyStateCommand(
-                    .setTokenPreferences(entries: entries))
-            else {
-                self.finishCoreStateRead(epoch)
-                return
-            }
-            self.applyCoreState(transition.state, epoch: epoch)
-        }
-    }
     // ── Settings ──────────────────────────────────────────────────────────────
     /// Debounced — a slider drag or a typed endpoint would otherwise be one
     /// command per frame or per keystroke.
