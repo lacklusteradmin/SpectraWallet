@@ -94,8 +94,11 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func deriveBitcoinAccountXpub(mnemonicPhrase: String, passphrase: String = "", accountPath: String) throws -> String {
         try service().deriveBitcoinAccountXpubTyped(mnemonicPhrase: mnemonicPhrase, passphrase: passphrase, accountPath: accountPath)
     }
-    func resolveENSName(_ name: String) async throws -> String? {
-        try await service().resolveEnsNameTyped(name: name)
+    /// The address a send to this input would go to, and whether a name
+    /// lookup produced it. Which chains look a name up, and the cache that
+    /// keeps a debounced composer from asking twice, are core's.
+    func resolveSendDestination(chainId: String, input: String) async throws -> SendDestinationResolution {
+        try await service().resolveSendDestination(chainId: chainId, input: input)
     }
     func fetchEVMTxNonce(chainId: String, txHash: String) async throws -> Int {
         Int(try await service().fetchEvmTxNonceTyped(chainId: chainId, txHash: txHash))
@@ -108,8 +111,13 @@ protocol WalletServiceBridgeProtocol: Sendable {}
             chainId: chainId, from: from, to: to, valueWei: valueWei, dataHex: dataHex,
             explicitNonce: explicitNonce, customFees: customFees)
     }
-    func sendDestinationRisk(chainId: String, address: String, token: TokenDescriptor?) async throws -> SendDestinationRisk {
-        try await service().sendDestinationRisk(chainId: chainId, address: address, token: token)
+    /// What the destination looks like for the asset this holding sends.
+    /// Which contract the asset is, and whether it is the chain's own, are
+    /// core's to work out from the holding — the composer used to read the
+    /// token list and hand a descriptor back.
+    func sendDestinationRisk(walletID: String, holdingKey: String, destination: String) async throws -> SendDestinationRisk {
+        try await service().sendDestinationRisk(
+            walletId: walletID, holdingKey: holdingKey, destinationInput: destination)
     }
     func fetchTronSendPreviewTyped(address: String, symbol: String, contractAddress: String) async throws -> TronSendPreview? {
         try await service().fetchTronSendPreviewTyped(address: address, symbol: symbol, contractAddress: contractAddress)

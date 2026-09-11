@@ -16,6 +16,15 @@ import XCTest
 /// catalog → `UIImage`, and only a file on disk ends it.
 @MainActor
 final class CoinBadgeArtworkTests: XCTestCase {
+    /// A mark that is named has to load; a coin that names none draws its
+    /// letter, which `CoinBadge` does for an empty name. The catalog carries
+    /// tokens with no artwork on purpose, so "not nil" alone would fail on a
+    /// row that is behaving correctly.
+    private func assertDrawsItsMark(_ badge: CoinBadge, _ what: @autoclosure () -> String) {
+        guard !badge.assetName.isEmpty else { return }
+        XCTAssertNotNil(UIImage(named: badge.assetName), "\(what()) drew a letter, not its mark")
+    }
+
     /// Every coin, on every chain it lives on, drawn the way the dashboard's
     /// per-chain breakdown rows draw it — `iconIdentifier(symbol:chainName:)`
     /// with no contract, which is what produced `native:aptos:usdc`.
@@ -27,9 +36,7 @@ final class CoinBadgeArtworkTests: XCTestCase {
                 let badge = CoinBadge(
                     assetIdentifier: Coin.iconIdentifier(symbol: entry.symbol, chainName: place.chainName),
                     fallbackText: entry.symbol, color: .orange)
-                XCTAssertNotNil(
-                    UIImage(named: badge.assetName),
-                    "\(entry.symbol) on \(place.chainName) drew a letter, not its mark")
+                assertDrawsItsMark(badge, "\(entry.symbol) on \(place.chainName)")
             }
         }
     }
@@ -47,7 +54,7 @@ final class CoinBadgeArtworkTests: XCTestCase {
                 XCTAssertEqual(
                     held.assetName, entry.face.assetName,
                     "\(entry.symbol) on \(place.chainName) draws one mark held and another in the wiki")
-                XCTAssertNotNil(UIImage(named: held.assetName))
+                assertDrawsItsMark(held, "\(entry.symbol) on \(place.chainName)")
             }
         }
     }
@@ -58,12 +65,13 @@ final class CoinBadgeArtworkTests: XCTestCase {
         for entry in CachedCoreHelpers.assetWiki() {
             let badge = CoinBadge(
                 assetName: entry.face.assetName, fallbackText: entry.symbol, color: .orange)
-            XCTAssertNotNil(UIImage(named: badge.assetName), "\(entry.symbol)'s wiki face drew a letter")
+            assertDrawsItsMark(badge, "\(entry.symbol)'s wiki face")
         }
         for chain in CachedCoreHelpers.chainWiki() {
             let badge = CoinBadge(
                 assetName: chain.face.assetName, fallbackText: chain.symbol, color: .orange)
-            XCTAssertNotNil(UIImage(named: badge.assetName), "\(chain.name)'s wiki face drew a letter")
+            XCTAssertNotNil(
+                UIImage(named: badge.assetName), "\(chain.name)'s wiki face drew a letter")
         }
     }
 

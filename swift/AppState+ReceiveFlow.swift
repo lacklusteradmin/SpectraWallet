@@ -69,32 +69,36 @@ extension AppState {
         guard let wallet = wallet(for: receiveWalletID), let receiveCoin = selectedReceiveCoin(for: receiveWalletID) else {
             return "Select a wallet and chain"
         }
-        let isEvm = isEVMChain(receiveCoin.chainName)
         let chainAddress: String?
-        // Only the chains that genuinely differ get an arm: Bitcoin reads its
-        // stored address rather than deriving, Dogecoin and the unmatched case
-        // have none, and the EVM family needs the chain name to pick a network.
-        // Everything else is `resolvedAddress(for:chainName:)`.
+        // Three rules, which is what the twenty-five-variant resolver this
+        // switch replaced actually distinguished: Bitcoin reads its stored
+        // account address rather than deriving, Dogecoin resolves nothing of
+        // its own, and everything else reads the address stored for the chain.
         //
-        // Through `mainnetCounterpart` because that is what
-        // `core_receive_address_resolver` dispatches on — a testnet coin gets
-        // its mainnet's case, so it needs its mainnet's resolver.
-        switch CachedCoreHelpers.receiveAddressResolver(symbol: receiveCoin.symbol, chainName: receiveCoin.chainName, isEvmChain: isEvm) {
-        case .bitcoinLegacy: chainAddress = wallet.bitcoinAddress
-        case .dogecoinNone, .none: chainAddress = nil
-        case .evm: chainAddress = resolvedAddress(for: wallet, chainName: receiveCoin.chainName)
-        default:
+        // Through `mainnetCounterpart` because a testnet shares its family's
+        // slot, and the EVM family shares Ethereum's — which is the same
+        // address the chain's own name resolved to before.
+        switch CachedCoreHelpers.receiveAddressSource(chainName: receiveCoin.chainName) {
+        case .bitcoinAccount: chainAddress = wallet.bitcoinAddress
+        case .unavailable: chainAddress = nil
+        case .storedForChain:
             chainAddress = resolvedAddress(
                 for: wallet,
                 chainName: Chain(displayName: receiveCoin.chainName)?.mainnetCounterpart.displayName
                     ?? receiveCoin.chainName)
         }
-        let hasWatchAddress = wallet.dogecoinAddress?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
+        // This chain's watch address, not Dogecoin's. The flag is named for
+        // the chain being shown and was filled from `dogecoinAddress` whatever
+        // that chain was; only core's Dogecoin arm reads it, so the two agreed
+        // by luck rather than by construction.
+        let hasWatchAddress =
+            wallet.address(forChainNamed: receiveCoin.chainName)?
+            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
         return receiveAddressMessage(
             input: ReceiveAddressMessageInput(
-                chainName: receiveCoin.chainName, symbol: receiveCoin.symbol, isEvmChain: isEvm, resolvedAddress: receiveResolvedAddress,
-                chainAddress: chainAddress, hasSeed: storedSeedPhrase(for: wallet.id) != nil, hasWatchAddress: hasWatchAddress,
-                isResolving: isResolvingReceiveAddress
+                chainName: receiveCoin.chainName, resolvedAddress: receiveResolvedAddress,
+                chainAddress: chainAddress, hasSeed: storedSeedPhrase(for: wallet.id) != nil,
+                hasWatchAddress: hasWatchAddress, isResolving: isResolvingReceiveAddress
             ))
     }
     func refreshReceiveAddress() async {

@@ -9,52 +9,12 @@ enum TokenRegistryGrouping {
 }
 struct TokenRegistrySettingsView: View {
     let store: AppState
-    private enum TokenRegistryChainFilter: CaseIterable, Identifiable {
-        case all
-        case ethereum
-        case arbitrum
-        case optimism
-        case bnb
-        case avalanche
-        case hyperliquid
-        case polygon
-        case base
-        case linea
-        case scroll
-        case blast
-        case mantle
-        case solana
-        case sui
-        case aptos
-        case ton
-        case near
-        case tron
-        var id: Self { self }
-        var title: String { chain?.filterDisplayName ?? AppLocalization.string("All") }
-        var chain: TokenHostingChain? {
-            switch self {
-            case .all: return nil
-            case .ethereum: return .ethereum
-            case .arbitrum: return .arbitrum
-            case .optimism: return .optimism
-            case .bnb: return .bnb
-            case .avalanche: return .avalanche
-            case .hyperliquid: return .hyperliquid
-            case .polygon: return .polygon
-            case .base: return .base
-            case .linea: return .linea
-            case .scroll: return .scroll
-            case .blast: return .blast
-            case .mantle: return .mantle
-            case .solana: return .solana
-            case .sui: return .sui
-            case .aptos: return .aptos
-            case .ton: return .ton
-            case .near: return .near
-            case .tron: return .tron
-            }
-        }
-    }
+    /// The chain filter is `TokenHostingChain?`, `nil` meaning every chain.
+    /// It was a parallel enum with a case per chain and a switch mapping each
+    /// one back — eighteen chains hard-coded beside a list core already owns,
+    /// which is how the picker came to offer eighteen of twenty-eight.
+    private static let chainFilterOptions: [TokenHostingChain?] =
+        [nil] + TokenHostingChain.allCases.map { Optional($0) }
     private enum TokenRegistrySourceFilter: CaseIterable, Identifiable {
         case all
         case builtIn
@@ -69,20 +29,22 @@ struct TokenRegistrySettingsView: View {
         }
     }
     @State private var searchText: String = ""
-    @State private var chainFilter: TokenRegistryChainFilter = .all
+    @State private var chainFilter: TokenHostingChain? = nil
     @State private var sourceFilter: TokenRegistrySourceFilter = .all
     var body: some View {
         Form {
             Section(AppLocalization.string("Filters")) {
                 Picker(AppLocalization.string("Network"), selection: $chainFilter) {
-                    ForEach(TokenRegistryChainFilter.allCases) { filter in Text(filter.title).tag(filter) }
+                    ForEach(Self.chainFilterOptions, id: \.self) { chain in
+                        Text(chain?.filterDisplayName ?? AppLocalization.string("All")).tag(chain)
+                    }
                 }
                 Picker(AppLocalization.string("Source"), selection: $sourceFilter) {
                     ForEach(TokenRegistrySourceFilter.allCases) { filter in Text(filter.title).tag(filter) }
                 }
-                if chainFilter != .all || sourceFilter != .all {
+                if chainFilter != nil || sourceFilter != .all {
                     Button(AppLocalization.string("Clear Filters")) {
-                        chainFilter = .all
+                        chainFilter = nil
                         sourceFilter = .all
                     }
                 }
@@ -125,14 +87,6 @@ struct TokenRegistrySettingsView: View {
                 }
             }
     }
-    private func entries(for chain: TokenHostingChain) -> [TokenPreferenceEntry] {
-        store.resolvedTokenPreferences.filter { $0.token.chain == chain.rawValue }
-            .sorted { lhs, rhs in
-                if lhs.isBuiltIn != rhs.isBuiltIn { return lhs.isBuiltIn && !rhs.isBuiltIn }
-                if lhs.category != rhs.category { return lhs.category.rawValue < rhs.category.rawValue }
-                return lhs.token.symbol < rhs.token.symbol
-            }
-    }
     private var filteredGroups: [TokenRegistryGroup] {
         let allEntries = store.resolvedTokenPreferences
         let grouped = Dictionary(grouping: allEntries, by: TokenRegistryGrouping.key(for:))
@@ -150,7 +104,7 @@ struct TokenRegistrySettingsView: View {
             )
         }
         let filtered: [TokenRegistryGroup] = groups.filter { group in
-            if let selectedChain = chainFilter.chain, !group.entries.contains(where: { $0.token.chain == selectedChain.rawValue }) {
+            if let selectedChain = chainFilter, !group.entries.contains(where: { $0.token.chain == selectedChain.rawValue }) {
                 return false
             }
             switch sourceFilter {

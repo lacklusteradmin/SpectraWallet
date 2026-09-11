@@ -107,12 +107,12 @@ extension CoreImportedWallet {
     // them is `address(forChainNamed:)` with the name it already had. Those are
     // gone, and with them nineteen shims that had no reader left.
     //
-    // These five remain because something genuinely reads them for that chain:
-    // Bitcoin falls back to its account xpub, Dogecoin has a watch address,
-    // Ethereum backs the EVM family, and Cardano and Monero prefer a stored
-    // address to a derived one.
+    // These four remain because something genuinely reads them for that chain:
+    // Bitcoin falls back to its account xpub, Ethereum backs the EVM family,
+    // and Cardano and Monero prefer a stored address to a derived one.
+    // Dogecoin's went when the receive screen stopped asking for Dogecoin's
+    // watch address while showing some other chain.
     var bitcoinAddress: String? { address(forChainNamed: "Bitcoin") }
-    var dogecoinAddress: String? { address(forChainNamed: "Dogecoin") }
     var ethereumAddress: String? { address(forChainNamed: "Ethereum") }
     var moneroAddress: String? { address(forChainNamed: "Monero") }
     var cardanoAddress: String? { address(forChainNamed: "Cardano") }

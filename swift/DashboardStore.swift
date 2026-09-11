@@ -1,7 +1,10 @@
 import Foundation
 import SwiftUI
 extension AppState {
-    private var defaultPinnedDashboardAssetSymbols: [String] { ["BTC", "ETH", "USDT", "USDC"] }
+    // Core's, not a list of four this side kept: the same defaults decide
+    // which rows core's dashboard grouping orders first and gives a row to.
+    private static let defaultPinnedDashboardAssets: [String] = dashboardDefaultPinnedAssets()
+    private var defaultPinnedDashboardAssetSymbols: [String] { Self.defaultPinnedDashboardAssets }
     private static let dashboardPinPrototypes: [Coin] = {
         let allChains = listAllChains()
         let chainNameById = Dictionary(uniqueKeysWithValues: allChains.map { ($0.id, $0.name) })

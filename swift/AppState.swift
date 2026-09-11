@@ -251,7 +251,6 @@ final class AppState {
     @ObservationIgnored var lastSendDestinationProbeKey: String?
     @ObservationIgnored var lastSendDestinationProbeWarning: String?
     @ObservationIgnored var lastSendDestinationProbeInfoMessage: String?
-    var cachedResolvedENSAddresses: [String: String] = [:]
     @ObservationIgnored var bypassHighRiskSendConfirmation = false
     @ObservationIgnored var isRefreshingLivePrices = false
     @ObservationIgnored var isRefreshingFiatRates = false
@@ -974,11 +973,13 @@ final class AppState {
         guard !normalizedName.isEmpty else { return localizedStoreString("Token name is required.") }
         let normalizedContract = contractAddress.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedContract.isEmpty else { return localizedStoreString("Contract address is required.") }
+        // The named cases are the chains whose contract identifier is not an
+        // address in the chain's own format — a Sui coin type, an Aptos coin
+        // type — or that have their own word for it. Everything else is EVM,
+        // and the registry's `addressValidationKind` is what says so: this arm
+        // used to hand-list twelve EVM chains, so the ten the hosting list
+        // gained would have fallen through to nothing.
         switch chain {
-        case .ethereum, .arbitrum, .optimism, .bnb, .avalanche, .hyperliquid, .polygon, .base, .linea, .scroll, .blast, .mantle:
-            guard AddressValidation.isValid(normalizedContract, kind: "evm") else {
-                return AppLocalization.format("Enter a valid %@ token contract address.", chain.rawValue)
-            }
         case .solana:
             guard AddressValidation.isValid(normalizedContract, kind: "solana") else {
                 return localizedStoreString("Enter a valid Solana token mint address.")
@@ -1003,6 +1004,12 @@ final class AppState {
         case .tron:
             guard AddressValidation.isValid(normalizedContract, kind: "tron") else {
                 return localizedStoreString("Enter a valid Tron TRC-20 contract address.")
+            }
+        default:
+            guard chain.chain?.addressValidationKind == "evm",
+                AddressValidation.isValid(normalizedContract, kind: "evm")
+            else {
+                return AppLocalization.format("Enter a valid %@ token contract address.", chain.rawValue)
             }
         }
         let duplicateExists = tokenPreferences.contains { entry in

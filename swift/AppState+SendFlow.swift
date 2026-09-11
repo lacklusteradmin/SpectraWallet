@@ -286,21 +286,18 @@ extension AppState {
     func normalizedAddress(_ address: String, for chainName: String) -> String {
         normalizedSendAddress(chainName: chainName, address: address)
     }
-    func isENSNameCandidate(_ value: String) -> Bool {
-        isEnsNameCandidate(value: value)
-    }
-    func resolveEVMRecipientAddress(input: String, for chainName: String) async throws -> (address: String, usedENS: Bool) {
-        let trimmed = input.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { throw EthereumWalletEngineError.invalidAddress }
-        if AddressValidation.isValid(trimmed, kind: "evm") { return (normalizeEVMAddress(trimmed), false) }
-        guard chainName == "Ethereum", isENSNameCandidate(trimmed) else { throw EthereumWalletEngineError.invalidAddress }
-        let cacheKey = trimmed.lowercased()
-        if let cached = cachedResolvedENSAddresses[cacheKey] { return (cached, true) }
-        guard let resolved = try await WalletServiceBridge.shared.resolveENSName(trimmed) else {
-            throw EthereumWalletEngineError.rpcFailure("Unable to resolve ENS name '\(trimmed)'.")
+    /// The address this send is going to, from whatever is in the field.
+    ///
+    /// Three call sites here each spelled the ENS rule as
+    /// `chainName == "Ethereum"`, and this one also kept the resolved-name
+    /// cache. Both belong to core — the rule is `Chain::resolves_ens_names`
+    /// and the cache is the service's — so what is left is the call and the
+    /// chain id it is asked about.
+    func resolveSendDestination(input: String, for chainName: String) async throws -> SendDestinationResolution {
+        guard let chainId = Chain(displayName: chainName)?.id else {
+            throw EthereumWalletEngineError.invalidAddress
         }
-        cachedResolvedENSAddresses[cacheKey] = resolved
-        return (resolved, true)
+        return try await WalletServiceBridge.shared.resolveSendDestination(chainId: chainId, input: input)
     }
     /// Warnings about an EVM recipient, localized.
     ///
@@ -1024,23 +1021,16 @@ extension AppState {
         let trimmedDestination = sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
         func clearProbe() { sendDestinationRiskWarning = nil; sendDestinationInfoMessage = nil; isCheckingSendDestinationBalance = false }
         guard !trimmedDestination.isEmpty else { clearProbe(); return }
-        var destinationForProbe = trimmedDestination
-        var ensResolutionInfo: String?
-        if !isValidAddress(trimmedDestination, for: coin.chainName) {
-            // ENS resolves on Ethereum and nowhere else — `resolveEVMRecipientAddress`
-            // refuses any other chain — so the twelve-name EVM list that stood
-            // here was routing eleven chains into a call that throws and lands
-            // in the same `clearProbe()` the `else` does. Say the rule instead.
-            if coin.chainName == "Ethereum", isENSNameCandidate(trimmedDestination) {
-                do {
-                    let resolved = try await resolveEVMRecipientAddress(input: trimmedDestination, for: coin.chainName)
-                    destinationForProbe = resolved.address
-                    ensResolutionInfo = resolved.usedENS ? "Resolved ENS \(trimmedDestination) to \(resolved.address)." : nil
-                } catch { clearProbe(); return }
-            } else {
-                clearProbe(); return
-            }
+        // Anything the composer cannot turn into an address — a half-typed
+        // one, a name on a chain that registers none — is core refusing, and
+        // there is nothing to probe until it stops.
+        guard let resolved = try? await resolveSendDestination(input: trimmedDestination, for: coin.chainName) else {
+            clearProbe()
+            return
         }
+        let destinationForProbe = resolved.address
+        let ensResolutionInfo: String? =
+            resolved.usedEns ? "Resolved ENS \(trimmedDestination) to \(destinationForProbe)." : nil
         let addressProbeKey = "\(coin.chainName)|\(coin.symbol)|\(destinationForProbe.lowercased())"
         if lastSendDestinationProbeKey == addressProbeKey {
             sendDestinationRiskWarning = lastSendDestinationProbeWarning
@@ -1053,27 +1043,15 @@ extension AppState {
             isCheckingSendDestinationBalance = false
             return
         }
-        guard let chain = Chain(displayName: coin.chainName), !chain.id.isEmpty else { clearProbe(); return }
-        // Native when the coin is what the chain charges gas in, the catalog's
-        // entry when it is a token on it. Neither means there is no balance to
-        // ask about, which is what the EVM arm already did for an unvouched
-        // token — the other three arms probed the *chain's* asset instead and
-        // reported its balance as though it were the one being sent.
-        let token: TokenDescriptor?
-        if coin.symbol == chain.gasTokenSymbol {
-            token = nil
-        } else if let entry = supportedToken(for: coin) {
-            token = TokenDescriptor(
-                contract: entry.token.contract, symbol: entry.token.symbol,
-                decimals: UInt8(clamping: entry.token.decimals), name: nil)
-        } else {
-            clearProbe()
-            return
-        }
         isCheckingSendDestinationBalance = true
         defer { isCheckingSendDestinationBalance = false }
+        // Native or token, which contract the token is, and what to do when it
+        // is one nothing vouches for are all catalog questions — core reads its
+        // own token list rather than being handed one back. An asset it cannot
+        // identify is an error here, where the composer used to clear the probe
+        // and show nothing at all, which reads as "checked, and fine".
         let risk = try? await WalletServiceBridge.shared.sendDestinationRisk(
-            chainId: chain.id, address: destinationForProbe, token: token)
+            walletID: sendWalletID, holdingKey: coin.holdingKey, destination: destinationForProbe)
         guard probeID == "\(sendWalletID)|\(sendHoldingKey)|\(sendAddress)" else { return }
         guard let risk else {
             sendDestinationRiskWarning = nil
@@ -1081,7 +1059,7 @@ extension AppState {
             return
         }
         let messages = chainRiskProbeMessages(
-            chainName: chain.displayName, symbol: coin.symbol,
+            chainName: coin.chainName, symbol: coin.symbol,
             balanceIsZero: risk.balanceIsZero, hasHistory: risk.hasHistory)
         sendDestinationRiskWarning = messages.warning
         sendDestinationInfoMessage = [messages.info, ensResolutionInfo].compactMap { $0 }.joined(separator: " ")

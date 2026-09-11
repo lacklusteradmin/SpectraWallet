@@ -18,9 +18,7 @@ extension AppState {
         }
         do {
             let rustInputs = requestedCoins.map { coin in
-                PriceRequestCoin(
-                    holdingKey: coin.holdingKey, symbol: coin.symbol, coinGeckoId: coin.coinGeckoId
-                )
+                PriceRequestCoin(holdingKey: coin.holdingKey, coinGeckoId: coin.coinGeckoId)
             }
             let fetchedPrices = try await WalletServiceBridge.shared.fetchPricesViaRust(coins: rustInputs)
             guard !fetchedPrices.isEmpty else {

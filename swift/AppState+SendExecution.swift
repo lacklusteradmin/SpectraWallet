@@ -16,6 +16,18 @@ private func evmSendResult(from typed: EvmSendResultDecoded) -> EvmSendResult {
     )
 }
 
+/// The wallet's balance of the asset `chain` pays fees in, or nil when it
+/// holds none.
+///
+/// Three submit branches wrote the pair out as literals — ("Tron", "TRX"),
+/// ("Solana", "SOL"), ("NEAR", "NEAR") — while the EVM branch beside them
+/// already took its symbol off core's preflight. The catalog holds the pair.
+private func gasBalance(of chain: Chain, in wallet: ImportedWallet) -> Double? {
+    wallet.holdings.first {
+        $0.chainName == chain.displayName && $0.symbol == chain.gasTokenSymbol
+    }?.amount
+}
+
 // MARK: - AppState send execution
 
 extension AppState {
@@ -53,9 +65,9 @@ extension AppState {
         // this is the same question `isEVMChain` used to ask — from the route.
         if preflight.submitKind == "ethereum" {
             do {
-                let resolvedDestination = try await resolveEVMRecipientAddress(input: destinationInput, for: holding.chainName)
-                destinationAddress = resolvedDestination.address
-                usedENSResolution = resolvedDestination.usedENS
+                let resolved = try await resolveSendDestination(input: destinationInput, for: holding.chainName)
+                destinationAddress = resolved.address
+                usedENSResolution = resolved.usedEns
                 if usedENSResolution { sendDestinationInfoMessage = "Resolved ENS \(destinationInput) to \(destinationAddress)." }
             } catch {
                 sendError = (error as? LocalizedError)?.errorDescription ?? "Enter a valid \(holding.chainName) destination."
@@ -202,7 +214,7 @@ extension AppState {
             if let err = sendAffordabilityMessage(sendAffordability(input: SendAffordabilityInput(
                 chainName: holding.chainName, symbol: holding.symbol, amount: amount,
                 networkFee: preview.estimatedNetworkFee, holdingBalance: holding.amount,
-                gasBalance: wallet.holdings.first(where: { $0.chainName == "Tron" && $0.symbol == "TRX" })?.amount
+                gasBalance: gasBalance(of: .tron, in: wallet)
             ))) {
                 sendError = err; return
             }
@@ -247,7 +259,7 @@ extension AppState {
             if let err = sendAffordabilityMessage(sendAffordability(input: SendAffordabilityInput(
                 chainName: holding.chainName, symbol: holding.symbol, amount: amount,
                 networkFee: preview.estimatedNetworkFee, holdingBalance: holding.amount,
-                gasBalance: wallet.holdings.first(where: { $0.chainName == "Solana" && $0.symbol == "SOL" })?.amount
+                gasBalance: gasBalance(of: .solana, in: wallet)
             ))) {
                 sendError = err; return
             }
@@ -281,8 +293,12 @@ extension AppState {
         if preflight.submitKind == "near", holding.symbol != "NEAR",
             let contractAddress = holding.contractAddress
         {
-            let nearNativeBalance = wallet.holdings.first(where: { $0.chainName == "NEAR" && $0.symbol == "NEAR" })?.amount ?? 0
-            if nearNativeBalance < 0.001 {
+            // What a NEP-141 send needs in NEAR before it can land, as core
+            // states it. `0.001` was written here, beside the balance it was
+            // compared with — a number about a chain, kept by the front end.
+            if let reserve = preflight.tokenSendGasReserve,
+                (gasBalance(of: .near, in: wallet) ?? 0) < reserve
+            {
                 sendError = "Insufficient NEAR balance to cover the network fee for this \(holding.symbol) transfer."; return
             }
             // The token's own decimals, as core resolved them. This looked the

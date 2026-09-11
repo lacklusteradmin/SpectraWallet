@@ -108,7 +108,6 @@ extension AppState {
         lastSendDestinationProbeKey = nil
         lastSendDestinationProbeWarning = nil
         lastSendDestinationProbeInfoMessage = nil
-        cachedResolvedENSAddresses = [:]
         bypassHighRiskSendConfirmation = false
         // A reset leaves no transactions, so pruning drops every tracker.
         Task { try? await WalletServiceBridge.shared.pruneStatusTrackers() }

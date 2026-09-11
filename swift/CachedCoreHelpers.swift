@@ -29,7 +29,7 @@ enum CachedCoreHelpers {
     private static var chainWikiByID: [String: ChainWikiEntry]?
     private static var seedDerivationChainRaws: [String: String?] = [:]
     private static var evmSeedDerivationChainNames: [String: String?] = [:]
-    private static var receiveAddressResolvers: [String: ReceiveAddressResolverKind] = [:]
+    private static var receiveAddressSources: [String: ReceiveAddressSource] = [:]
 
     // ── Bounded cache for user-input helpers ───────────────────────────
     private static var privateKeyHexIsLikelyCache: [String: Bool] = [:]
@@ -105,9 +105,9 @@ enum CachedCoreHelpers {
             Chain(displayName: chainName)?.evmSeedDerivationChain
         }
     }
-    static func receiveAddressResolver(symbol: String, chainName: String, isEvmChain: Bool) -> ReceiveAddressResolverKind {
-        cached(in: &receiveAddressResolvers, key: "\(symbol)|\(chainName)|\(isEvmChain ? "1" : "0")") {
-            coreReceiveAddressResolver(symbol: symbol, chainName: chainName, isEvmChain: isEvmChain)
+    static func receiveAddressSource(chainName: String) -> ReceiveAddressSource {
+        cached(in: &receiveAddressSources, key: chainName) {
+            coreReceiveAddressSource(chainName: chainName)
         }
     }
     static func privateKeyHexIsLikely(rawValue: String) -> Bool {

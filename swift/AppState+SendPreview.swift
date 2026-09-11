@@ -51,14 +51,19 @@ extension AppState {
 
     func refreshEvmSendPreview() async {
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, isEVMChain(selectedSendCoin.chainName),
-            let fromAddress = resolvedAddress(for: wallet, chainName: selectedSendCoin.chainName), let amount = Double(sendAmount),
+            let fromAddress = resolvedAddress(for: wallet, chainName: selectedSendCoin.chainName),
+            // `Double` only decides *whether* to preview here. The amount that
+            // reaches the assembler is the typed string, because a Double
+            // cannot carry 18 decimals: 1.1 assembled 1100000000000000089 wei
+            // while the send signed 1100000000000000000.
+            let amountMagnitude = Double(sendAmount),
             // Whether a zero amount previews is `allows_zero_amount`, which core
             // derives from `is_native_evm_asset`. Three symbols were named here
             // — the third place this rule has been written down — so a
             // zero-amount preview was refused on the twenty EVM chains whose
             // gas token is none of ETH, ETC or BNB.
             ((selectedSendCoin.symbol == Chain(displayName: selectedSendCoin.chainName)?.gasTokenSymbol)
-                ? amount >= 0 : amount > 0)
+                ? amountMagnitude >= 0 : amountMagnitude > 0)
         else {
             sendPreviewStore.evmSendPreview = nil
             return
@@ -69,27 +74,24 @@ extension AppState {
             return
         }
         let trimmedDestination = sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        // An empty field previews against the sender: a quote needs an output
+        // to price and the user has not named one yet. Anything typed is
+        // core's to turn into an address — validity, the ENS rule and the
+        // resolved-name cache were all stated again here.
         let previewDestination: String
         if trimmedDestination.isEmpty {
             previewDestination = fromAddress
         } else {
-            if AddressValidation.isValid(trimmedDestination, kind: "evm") {
-                previewDestination = normalizeEVMAddress(trimmedDestination)
-            } else if selectedSendCoin.chainName == "Ethereum", isENSNameCandidate(trimmedDestination) {
-                do {
-                    guard let resolved = try await WalletServiceBridge.shared.resolveENSName(trimmedDestination) else {
-                        sendPreviewStore.evmSendPreview = nil
-                        return
-                    }
-                    previewDestination = resolved
-                    sendDestinationInfoMessage = "Resolved ENS \(trimmedDestination) to \(resolved)."
-                } catch {
-                    sendPreviewStore.evmSendPreview = nil
-                    return
-                }
-            } else {
+            guard
+                let resolved = try? await resolveSendDestination(
+                    input: trimmedDestination, for: selectedSendCoin.chainName)
+            else {
                 sendPreviewStore.evmSendPreview = nil
                 return
+            }
+            previewDestination = resolved.address
+            if resolved.usedEns {
+                sendDestinationInfoMessage = "Resolved ENS \(trimmedDestination) to \(resolved.address)."
             }
         }
         // The in-flight key is the preview *slot*, and every EVM chain shares
@@ -112,7 +114,8 @@ extension AppState {
                 assembly = try prepareEvmSendAssembly(
                     input: EvmSendAssemblyInput(
                         chainName: selectedSendCoin.chainName, symbol: selectedSendCoin.symbol,
-                        fromAddress: fromAddress, resolvedDestination: previewDestination, amount: amount,
+                        fromAddress: fromAddress, resolvedDestination: previewDestination,
+                        amount: sendAmount.trimmingCharacters(in: .whitespaces),
                         token: assemblyToken
                     ))
             } catch {
