@@ -92,7 +92,7 @@ extension AppState {
         guard !isRefreshingChainBalances else { return }
         isRefreshingChainBalances = true
         try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
-        if includeHistoryRefreshes { await runHistoryRefreshes(for: refreshableChainIDs, interval: historyRefreshInterval) }
+        if includeHistoryRefreshes { await runHistoryRefreshes(interval: historyRefreshInterval) }
     }
     func withBalanceRefreshWindow(_ operation: () async -> Void) async {
         let previousState = allowsBalanceNetworkRefresh

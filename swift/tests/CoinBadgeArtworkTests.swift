@@ -69,7 +69,7 @@ final class CoinBadgeArtworkTests: XCTestCase {
         }
         for chain in CachedCoreHelpers.chainWiki() {
             let badge = CoinBadge(
-                assetName: chain.face.assetName, fallbackText: chain.symbol, color: .orange)
+                assetName: chain.face.assetName, fallbackText: chain.name, color: .orange)
             XCTAssertNotNil(
                 UIImage(named: badge.assetName), "\(chain.name)'s wiki face drew a letter")
         }
@@ -86,7 +86,7 @@ final class CoinBadgeArtworkTests: XCTestCase {
             XCTAssertNotNil(UIImage(named: badge.assetName), "\(descriptor.title) drew a letter")
         }
         let base = CoinBadge(
-            assetIdentifier: Coin.iconIdentifier(symbol: "BASE", chainName: "Base"),
+            assetIdentifier: "network:base",
             fallbackText: "BASE", color: .orange)
         let etherOnBase = CoinBadge(
             assetIdentifier: Coin.iconIdentifier(symbol: "ETH", chainName: "Base"),

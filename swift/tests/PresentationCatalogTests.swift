@@ -7,8 +7,8 @@ final class PresentationCatalogTests: XCTestCase {
         XCTAssertEqual(Coin.displayColor(for: "  usdt \n"), .green)
         XCTAssertEqual(Coin.displayColor(for: "AAVE"), .indigo)
         XCTAssertEqual(Coin.displayColor(for: "not-a-catalog-asset"), .gray)
-        for descriptor in Coin.nativeChainIconDescriptors {
-            XCTAssertEqual(Coin.displayColor(for: descriptor.symbol), descriptor.color)
+        for token in listTokens(chainId: "") where !token.coingeckoId.isEmpty {
+            XCTAssertEqual(Coin.displayColor(for: token.symbol), RegistryColorLookup.color(named: token.color))
         }
     }
 

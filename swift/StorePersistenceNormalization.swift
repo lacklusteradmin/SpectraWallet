@@ -5,13 +5,9 @@ extension AppState {
             tokenPreferences
         cachedResolvedTokenPreferences = resolvedPreferences
         cachedTokenPreferencesByChain = Dictionary(grouping: resolvedPreferences, by: { TokenHostingChain.forChainName($0.token.chain) ?? .ethereum })
-        cachedResolvedTokenPreferencesBySymbol = Dictionary(
-            grouping: resolvedPreferences, by: { $0.token.symbol.uppercased() }
-        )
         cachedEnabledKnownTokenPreferences = resolvedPreferences.filter(\.isEnabled)
-        cachedTokenPreferenceByChainAndSymbol = resolvedPreferences.reduce(into: [:]) { partialResult, entry in
-            partialResult[tokenPreferenceLookupKey(chainName: entry.token.chain, symbol: entry.token.symbol)] = entry
-        }
+        cachedTokenPreferenceByDeploymentID = Dictionary(
+            resolvedPreferences.map { ($0.token.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
     func rebuildWalletDerivedState() {
         Task { @MainActor [weak self] in await self?.rebuildWalletDerivedStateFromCore() }
@@ -141,6 +137,7 @@ extension AppState {
 private extension TransactionRecord {
     var rustBridgeRecord: CoreTransactionRecord {
         CoreTransactionRecord(
+            deploymentId: deploymentID,
             id: id.uuidString, walletId: walletID, kind: kind.rawValue, status: status.rawValue, walletName: walletName,
             assetName: assetName, symbol: symbol, chainName: chainName, amount: amount, address: address, transactionHash: transactionHash,
             ethereumNonce: ethereumNonce.map { Int64($0) }, receiptBlockNumber: receiptBlockNumber.map { Int64($0) },

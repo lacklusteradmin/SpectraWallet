@@ -24,7 +24,7 @@ private func evmSendResult(from typed: EvmSendResultDecoded) -> EvmSendResult {
 /// already took its symbol off core's preflight. The catalog holds the pair.
 private func gasBalance(of chain: Chain, in wallet: ImportedWallet) -> Double? {
     wallet.holdings.first {
-        $0.chainName == chain.displayName && $0.symbol == chain.gasTokenSymbol
+        $0.chainName == chain.displayName && $0.isNativeCoin
     }?.amount
 }
 
@@ -128,7 +128,7 @@ extension AppState {
             await broadcastPreparedSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
                 request: SendExecutionRequest(
-                    chainId: Chain.bitcoin.id, walletId: wallet.id, password: nil,
+                    chainId: holding.chain?.id ?? "", walletId: wallet.id, password: nil,
                     toAddress: destinationAddress,
                     amountStr: amountStr,
                     contractAddress: nil, tokenDecimals: nil, feeRateSvb: feeRateSvB, feeSat: nil, gasBudget: nil, feeAmount: nil,
@@ -168,7 +168,7 @@ extension AppState {
                 let feeRateDogePerKb = sendPreviewStore.dogecoinSendPreview?.estimatedFeeRateDogePerKb ?? 0.01
                 let result = try await WalletServiceBridge.shared.executeSend(
                     SendExecutionRequest(
-                    chainId: Chain.dogecoin.id, walletId: wallet.id, password: nil,
+                    chainId: holding.chain?.id ?? "", walletId: wallet.id, password: nil,
                     toAddress: destinationAddress,
                         amountStr: sendAmount,
                         contractAddress: nil, tokenDecimals: nil, feeRateSvb: feeRateDogePerKb, feeSat: nil, gasBudget: nil, feeAmount: nil,
@@ -180,7 +180,7 @@ extension AppState {
                 clearSendVerificationNotice()
                 appendChainOperationalEvent(
                     .info, chainName: "Dogecoin", message: "DOGE send broadcast.", transactionHash: result.transactionHash)
-                await refreshMultiAddressUTXOTransactions(chainName: holding.chainName)
+                await refreshHistory(chainName: holding.chainName)
                 // The shared post-send routine the other eight broadcasts reach
                 // through `recordSuccessfulBroadcast`. This branch records its
                 // own transaction — a Dogecoin row carries a fee rate, a change
@@ -209,6 +209,7 @@ extension AppState {
                 return
             }
             if let err = sendAffordabilityMessage(sendAffordability(input: SendAffordabilityInput(
+                isNative: holding.isNativeCoin,
                 chainName: holding.chainName, symbol: holding.symbol, amount: amount,
                 networkFee: preview.estimatedNetworkFee, holdingBalance: holding.amount,
                 gasBalance: gasBalance(of: .tron, in: wallet)
@@ -223,14 +224,14 @@ extension AppState {
             // `submitKind` is the route it refused.
             let contractAddress = preflight.tokenContractAddress
             let tokenDecimals = preflight.tokenDecimals
-            if holding.symbol != Chain.tron.gasTokenSymbol, contractAddress == nil {
+            if !holding.isNativeCoin, contractAddress == nil {
                 sendError = "\(holding.symbol) is not a known Tron token."
                 return
             }
             await broadcastPreparedSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
                 request: SendExecutionRequest(
-                    chainId: Chain.tron.id, walletId: wallet.id, password: nil,
+                    chainId: holding.chain?.id ?? "", walletId: wallet.id, password: nil,
                     toAddress: destinationAddress,
                     amountStr: amountStr,
                     contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
@@ -254,6 +255,7 @@ extension AppState {
                 return
             }
             if let err = sendAffordabilityMessage(sendAffordability(input: SendAffordabilityInput(
+                isNative: holding.isNativeCoin,
                 chainName: holding.chainName, symbol: holding.symbol, amount: amount,
                 networkFee: preview.estimatedNetworkFee, holdingBalance: holding.amount,
                 gasBalance: gasBalance(of: .solana, in: wallet)
@@ -265,14 +267,14 @@ extension AppState {
             // entries, so a token the user had turned off could still be sent.
             let contractAddress = preflight.tokenContractAddress
             let tokenDecimals = preflight.tokenDecimals
-            if holding.symbol != Chain.solana.gasTokenSymbol, contractAddress == nil {
+            if !holding.isNativeCoin, contractAddress == nil {
                 sendError = "\(holding.symbol) on Solana is not configured for sending yet."
                 return
             }
             await broadcastPreparedSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
                 request: SendExecutionRequest(
-                    chainId: Chain.solana.id, walletId: wallet.id, password: nil,
+                    chainId: holding.chain?.id ?? "", walletId: wallet.id, password: nil,
                     toAddress: destinationAddress,
                     amountStr: amountStr,
                     contractAddress: contractAddress, tokenDecimals: tokenDecimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
@@ -308,7 +310,7 @@ extension AppState {
             await broadcastPreparedSend(
                 holding: holding, wallet: wallet, destinationAddress: destinationAddress, amount: amount,
                 request: SendExecutionRequest(
-                    chainId: Chain.near.id, walletId: wallet.id, password: nil,
+                    chainId: holding.chain?.id ?? "", walletId: wallet.id, password: nil,
                     toAddress: destinationAddress,
                     amountStr: amountStr,
                     contractAddress: contractAddress, tokenDecimals: decimals, feeRateSvb: nil, feeSat: nil, gasBudget: nil,
@@ -342,6 +344,7 @@ extension AppState {
                 return
             }
             if let err = sendAffordabilityMessage(sendAffordability(input: SendAffordabilityInput(
+                isNative: holding.isNativeCoin,
                 chainName: holding.chainName,
                 symbol: preflight.isNativeEvmAsset ? nativeSymbol : holding.symbol, amount: amount,
                 networkFee: preview.estimatedNetworkFee,
@@ -501,6 +504,7 @@ extension AppState {
             return
         }
         if let err = sendAffordabilityMessage(sendAffordability(input: SendAffordabilityInput(
+                isNative: holding.isNativeCoin,
             chainName: chainName, symbol: symbol, amount: amount, networkFee: fee,
             holdingBalance: holding.amount, gasBalance: nil
         ))) {

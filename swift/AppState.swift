@@ -75,7 +75,7 @@ final class AppState {
     // Each `DebouncedAction` captures its target's coalescing window at
     // construction so the interval is visible next to the field declaration
     // instead of being a magic number buried in an async closure.
-    @ObservationIgnored private let priceAlertsPersist = DebouncedAction(intervalMilliseconds: 100)
+    @ObservationIgnored let priceAlertsPersist = DebouncedAction(intervalMilliseconds: 100)
     @ObservationIgnored private let tokenPreferenceRebuild = DebouncedAction(intervalMilliseconds: 30)
     @ObservationIgnored private let transactionRebuild = DebouncedAction(intervalMilliseconds: 30)
     /// Recorded transactions.
@@ -371,7 +371,7 @@ final class AppState {
         applyQuoteProjection(state)
         // Synchronous on purpose: the render path reads this, and adopting it a
         // tick later quotes a testnet at mainnet prices in between.
-        let unpriced = Set(coreUnpricedChainNames(settings: state.settings))
+        let unpriced = Set(coreUnpricedChainNames())
         if unpriced != unpricedChainNames { unpricedChainNames = unpriced }
         if state.settings.feePriorityByChain != feePriorityByChain {
             feePriorityByChain = state.settings.feePriorityByChain
@@ -382,9 +382,9 @@ final class AppState {
         if state.settings.networkChainByFamily != networkChainByFamily {
             networkChainByFamily = state.settings.networkChainByFamily
         }
-        let pins = state.settings.pinnedDashboardAssetSymbols
-        if pins != cachedPinnedDashboardAssetSymbols {
-            cachedPinnedDashboardAssetSymbols = pins
+        let pins = state.settings.pinnedDashboardTokenIds
+        if pins != cachedPinnedDashboardTokenIds {
+            cachedPinnedDashboardTokenIds = pins
             rebuildDashboardDerivedState()
         }
     }
@@ -394,10 +394,7 @@ final class AppState {
         didSet {
             guard rpcEndpointByChain != oldValue else { return }
             commitAppSettingsSoon()
-            // The service holds its own endpoint list; without this the setting
-            // is stored and read by nothing that fetches.
-            let endpoints = rpcEndpointByChain
-            Task { await WalletServiceBridge.shared.updateEndpoints(custom: endpoints) }
+
         }
     }
 
@@ -476,7 +473,6 @@ final class AppState {
         didSet {
             guard etherscanAPIKey != oldValue else { return }
             commitAppSettingsSoon()
-            WalletServiceBridge.shared.setEtherscanAPIKey(etherscanAPIKey)
         }
     }
     var moneroBackendBaseURL: String = "" {
@@ -525,7 +521,6 @@ final class AppState {
             guard tokenPreferences != oldValue else { return }
             // Token-decimals overrides feed into the Rust asset-decimals
             // resolver, so drop the memoized cache when the overrides change.
-            cachedAssetDecimals = [:]
             tokenPreferenceRebuild.fire { [weak self] in
                 guard let self else { return }
                 self.rebuildTokenPreferenceDerivedState()
@@ -552,17 +547,15 @@ final class AppState {
     var fiatRatesFromUSD: [String: Double] = [:]
     var fiatRatesRefreshError: String? = nil
     var quoteRefreshError: String? = nil
-    /// Projection of `CoreAppState.settings.pinnedDashboardAssetSymbols`.
+    /// Projection of `CoreAppState.settings.pinnedDashboardTokenIds`.
     /// Written only by `applyCoreState`; change it with `setPinnedDashboardAssets`.
-    private(set) var cachedPinnedDashboardAssetSymbols: [String] = []
-    var cachedDashboardPinOptionBySymbol: [String: DashboardPinOption] = [:]
+    private(set) var cachedPinnedDashboardTokenIds: [String] = []
     var cachedAvailableDashboardPinOptions: [DashboardPinOption] = []
     var cachedDashboardAssetGroups: [DashboardAssetGroup] = []
     var cachedResolvedTokenPreferences: [TokenPreferenceEntry] = []
     var cachedTokenPreferencesByChain: [TokenHostingChain: [TokenPreferenceEntry]] = [:]
-    var cachedResolvedTokenPreferencesBySymbol: [String: [TokenPreferenceEntry]] = [:]
     var cachedEnabledKnownTokenPreferences: [TokenPreferenceEntry] = []
-    var cachedTokenPreferenceByChainAndSymbol: [String: TokenPreferenceEntry] = [:]
+    var cachedTokenPreferenceByDeploymentID: [String: TokenPreferenceEntry] = [:]
     @ObservationIgnored var cachedCurrencyFormatters: [String: NumberFormatter] = [:]
     @ObservationIgnored var cachedDecimalFormatters: [String: NumberFormatter] = [:]
     // ── Memoized Rust-FFI lookups (hot path). Every asset row / wallet card
@@ -571,15 +564,10 @@ final class AppState {
     // invalidate when the inputs (display-decimals prefs, token prefs,
     // selected fiat currency) change.
     @ObservationIgnored var cachedFiatAmountRules: [String: FiatAmountRules] = [:]
-    @ObservationIgnored var cachedAssetDecimals: [String: UInt32] = [:]
-/// Chains whose selected network is a testnet, so their coins are not quoted.
-///
+    /// Concrete testnets are never quoted.
+    ///
     /// Core decides; this is the projection the render path reads.
     private(set) var unpricedChainNames: Set<String> = []
-    /// Memoizes `formattingTokenPreferenceLookupKey`. Keyed by
-    /// `chainName|symbol`; the Rust side is a pure function of those two
-    /// inputs, so the cache is good for the app lifetime.
-    @ObservationIgnored var cachedTokenPreferenceLookupKeys: [String: String] = [:]
     var useCustomEvmFees: Bool = false
     var customEvmMaxFeeGwei: String = ""
     var customEvmPriorityFeeGwei: String = ""
@@ -693,8 +681,6 @@ final class AppState {
     // incompatibly; the previous key is left here briefly for any
     // migration-read code that still references it.
 
-    static let walletsAccount = "wallets.snapshot"
-    static let walletsCoreSnapshotAccount = "wallets.core.snapshot.v1"
 
 
     /// The four preferences this platform keeps for itself — see
@@ -703,10 +689,6 @@ final class AppState {
     static let platformPreferencesDefaultsKey = "settings.platform.v1"
 
 
-    static let operationalLogsDefaultsKey = "operational.logs.v1"
-    static let chainKeypoolDefaultsKey = "chain.keypool.snapshot.v1"
-    static let chainOwnedAddressMapDefaultsKey = "chain.ownedAddressMap.snapshot.v1"
-    static let chainSyncStateDefaultsKey = "chain.sync.state.v1"
     static let installMarkerDefaultsKey = "app.install.marker.v1"
     static let selfSendConfirmationWindowSeconds: TimeInterval = 20
     /// Failure backoff so a degraded provider isn't hammered every maintenance
@@ -746,13 +728,7 @@ final class AppState {
     func isPrivateKeyBackedWallet(_ walletID: String) -> Bool {
         WalletServiceBridge.shared.walletSecretState(walletID: walletID)?.hasPrivateKey ?? false
     }
-    func deleteWalletSecrets(for walletID: String) {
-        try? WalletServiceBridge.shared.deleteWalletSecrets(walletID: walletID)
-        cachedSigningMaterialWalletIDs.remove(walletID)
-        cachedPrivateKeyBackedWalletIDs.remove(walletID)
-        cachedPasswordProtectedWalletIDs.remove(walletID)
-        cachedSecretDescriptorsByWalletID[walletID] = nil
-    }
+
     func parsedBitcoinEsploraEndpoints() -> [String] { parseBitcoinEsploraEndpoints(raw: bitcoinEsploraEndpoints) }
     func effectiveBitcoinEsploraEndpoints() -> [String] {
         let configured = parsedBitcoinEsploraEndpoints()
@@ -821,13 +797,12 @@ final class AppState {
             default: return false
             }
         }()
-        let descriptor = WalletChainID(chainName).flatMap { Self.chainRefreshDescriptors[$0] }
         async let balanceRefresh: () = refreshBalances()
         async let chainRefresh: () = {
             if usePending {
                 await refreshPendingTransactions(chainName: chainName)
             } else {
-                await descriptor?.executeHistoryOnly?(self)
+                await refreshHistory(chainName: chainName)
             }
         }()
         _ = await (balanceRefresh, chainRefresh)

@@ -98,26 +98,15 @@ extension AppState {
         }
     }
 
-    func clearAllWalletsDetached() {
-        let ids = wallets.map(\.id)
-        setWalletProjection([])
-        Task.detached(priority: .utility) {
-            for id in ids {
-                _ = try? await WalletServiceBridge.shared.applyStateCommand(
-                    .removeWallet(walletId: id))
-            }
-        }
-    }
-
     /// Replace the pinned dashboard set. Core normalises and de-duplicates, so
     /// the projection that comes back is the authority, not what was sent.
-    func setPinnedDashboardAssets(_ symbols: [String]) {
+    func setPinnedDashboardAssets(_ tokenIDs: [String]) {
         Task { @MainActor [weak self] in
             guard let self else { return }
             let epoch = self.beginCoreStateRead()
             guard
                 let transition = try? await WalletServiceBridge.shared.applyStateCommand(
-                    .setPinnedDashboardAssets(symbols: symbols))
+                    .setPinnedDashboardAssets(tokenIds: tokenIDs))
             else { return }
             self.applyCoreState(transition.state, epoch: epoch)
         }

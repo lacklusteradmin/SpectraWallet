@@ -414,7 +414,7 @@ struct SendNetworkStep: View {
     }
 
     private func formattedPreviewAssetAmount(_ amount: Double, for coin: Coin) -> String {
-        store.formattedAssetAmount(amount, symbol: coin.symbol, chainName: coin.chainName)
+        store.formattedAssetAmount(amount, symbol: coin.symbol, deploymentID: coin.holdingKey)
     }
 
     private func confirmationPreferenceText(for priority: String) -> String {

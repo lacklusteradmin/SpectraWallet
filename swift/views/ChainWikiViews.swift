@@ -29,7 +29,6 @@ struct ChainWikiDetailView: View {
                 WikiCoinBadge(face: chain.face, size: 52)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(chain.name).font(.title3.weight(.semibold))
-                    Text(chain.symbol).font(.subheadline.monospaced()).foregroundStyle(.secondary)
                 }
                 Spacer(minLength: 0)
             }
@@ -53,8 +52,6 @@ struct ChainWikiDetailView: View {
 
     private var wikiIdentityCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            wikiStatRow(label: AppLocalization.string("Ticker"), value: chain.symbol, icon: "tag.fill")
-            Divider().opacity(0.4)
             wikiStatRow(label: AppLocalization.string("Family"), value: chain.family, icon: "link.circle.fill")
             Divider().opacity(0.4)
             wikiStatRow(label: AppLocalization.string("Consensus"), value: chain.consensus, icon: "checkmark.shield.fill")
@@ -118,7 +115,7 @@ extension ChainWikiEntry {
     /// A chain draws the coin it runs on, which is what the badge already was.
     var face: WikiCoinFace {
         WikiCoinFace(
-            name: name, symbol: symbol,
+            name: name, symbol: name,
             assetName: registryEntry?.assetName ?? "",
             color: registryEntry?.color ?? .accentColor)
     }

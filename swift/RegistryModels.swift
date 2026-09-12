@@ -13,7 +13,8 @@ struct WalletChainID: Hashable, Codable, Identifiable, Comparable {
     init?(_ chainNameOrID: String) {
         let trimmed = chainNameOrID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        self.init(rawValue: coreResolveChainId(input: trimmed))
+        guard let id = coreResolveChainId(input: trimmed) else { return nil }
+        self.init(rawValue: id)
     }
     static func resolved(_ chainNameOrID: String) -> WalletChainID {
         WalletChainID(chainNameOrID) ?? WalletChainID(rawValue: chainNameOrID)
@@ -112,7 +113,7 @@ struct ChainRegistryEntry: Identifiable {
     let color: Color
     let assetName: String
     let derivationPath: [ChainDerivationPathEntry]
-    var assetIdentifier: String { Coin.iconIdentifier(symbol: symbol, chainName: name) }
+    var assetIdentifier: String { "network:\(id)" }
     var nativeIconDescriptor: NativeChainIconDescriptor {
         NativeChainIconDescriptor(registryID: id, title: name, symbol: symbol, chainName: name, color: color)
     }
@@ -121,7 +122,7 @@ struct ChainRegistryEntry: Identifiable {
             .filter { !$0.name.isEmpty }
             .map { chain in
                 ChainRegistryEntry(
-                    id: chain.id, name: chain.name, symbol: chain.symbol,
+                    id: chain.id, name: chain.name, symbol: chain.gasTokenSymbol,
                     color: RegistryColorLookup.color(named: chain.color), assetName: chain.assetName,
                     derivationPath: chain.derivationPath
                 )
@@ -182,7 +183,7 @@ struct NativeChainIconDescriptor: Identifiable {
     let chainName: String
     let color: Color
     var id: String { assetIdentifier }
-    var assetIdentifier: String { Coin.iconIdentifier(symbol: symbol, chainName: chainName) }
+    var assetIdentifier: String { "network:\(registryID)" }
 }
 extension Coin {
     static let nativeChainIconDescriptors: [NativeChainIconDescriptor] = ChainRegistryEntry.all.map(\.nativeIconDescriptor)

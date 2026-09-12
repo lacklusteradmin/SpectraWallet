@@ -24,7 +24,7 @@ enum CachedCoreHelpers {
     // ── Unbounded caches for fixed-domain helpers ──────────────────────
     private static var allChainsResult: [ChainEntry]?
     private static var assetWikiResult: [AssetWikiEntry]?
-    private static var assetWikiBySymbol: [String: AssetWikiEntry]?
+    private static var assetWikiByTokenID: [String: AssetWikiEntry]?
     private static var chainWikiResult: [ChainWikiEntry]?
     private static var chainWikiByID: [String: ChainWikiEntry]?
     private static var seedDerivationChainRaws: [String: String?] = [:]
@@ -66,12 +66,12 @@ enum CachedCoreHelpers {
         assetWikiResult = value
         return value
     }
-    static func assetWikiEntry(symbol: String) -> AssetWikiEntry? {
-        if assetWikiBySymbol == nil {
-            assetWikiBySymbol = Dictionary(
-                assetWiki().map { ($0.symbol.uppercased(), $0) }, uniquingKeysWith: { first, _ in first })
+    static func assetWikiEntry(tokenID: String) -> AssetWikiEntry? {
+        if assetWikiByTokenID == nil {
+            assetWikiByTokenID = Dictionary(
+                assetWiki().map { ($0.tokenId, $0) }, uniquingKeysWith: { first, _ in first })
         }
-        return assetWikiBySymbol?[symbol.trimmingCharacters(in: .whitespacesAndNewlines).uppercased()]
+        return assetWikiByTokenID?[tokenID]
     }
     static func chainWiki() -> [ChainWikiEntry] {
         if let cached = chainWikiResult { return cached }

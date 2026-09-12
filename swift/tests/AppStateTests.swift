@@ -293,12 +293,18 @@ import Foundation
             store.selectNetworkChain("bitcoin-testnet-4")
             await store.awaitPendingCoreStateWrites()
             let coin = Coin.makeCustom(
-                name: "Bitcoin", symbol: "BTC", coinGeckoId: "bitcoin", chainName: "Bitcoin", tokenStandard: "Native",
+                name: "Bitcoin", symbol: "BTC", coinGeckoId: "", chainName: "Bitcoin Testnet4", tokenStandard: "Native",
                 contractAddress: nil, amount: 1.25, priceUsd: 64000
             )
-            XCTAssertEqual(store.assetIdentityKey(for: coin), "Bitcoin Testnet4|BTC")
+            XCTAssertEqual(store.assetIdentityKey(for: coin), "bitcoin-testnet-4:native")
+            store.livePrices[coin.holdingKey] = 64000
             XCTAssertNil(store.currentPriceIfAvailable(for: coin))
             XCTAssertNil(store.currentValueIfAvailable(for: coin))
+            let mainnet = Coin.makeCustom(
+                name: "Bitcoin", symbol: "BTC", coinGeckoId: "bitcoin", chainName: "Bitcoin", tokenStandard: "Native",
+                contractAddress: nil, amount: 1, priceUsd: 0)
+            store.livePrices[mainnet.holdingKey] = 64000
+            XCTAssertEqual(store.currentPriceIfAvailable(for: mainnet), 64000)
         }
         /// A holding nobody quoted is left out of the total and counted, not
         /// folded in at zero and not at an invented dollar.

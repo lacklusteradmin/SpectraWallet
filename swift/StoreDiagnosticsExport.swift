@@ -109,14 +109,14 @@ extension DiagnosticsBundlePayload {
     static func chainKeyed(_ byChainName: [String: String?]) -> [String: String] {
         var byChainID: [String: String] = [:]
         for (chainName, json) in byChainName {
-            let id = coreResolveChainId(input: chainName)
-            guard !id.isEmpty else { continue }
+            guard let id = coreResolveChainId(input: chainName) else { continue }
             byChainID[id] = json ?? "{}"
         }
         return byChainID
     }
 
     func diagnosticsJSON(forChainNamed chainName: String) -> String? {
-        chainDiagnosticsJson[coreResolveChainId(input: chainName)]
+        guard let id = coreResolveChainId(input: chainName) else { return nil }
+        return chainDiagnosticsJson[id]
     }
 }

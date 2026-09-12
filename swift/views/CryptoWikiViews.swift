@@ -5,7 +5,7 @@ import SwiftUI
 /// ETH is one page, not the ten it used to be. Chains keep pages of their own,
 /// one level down, for what has no coin to belong to.
 extension AssetWikiEntry: Identifiable {
-    public var id: String { symbol }
+    public var id: String { tokenId }
     var accentColor: Color { RegistryColorLookup.color(named: color) }
     var face: WikiCoinFace {
         WikiCoinFace(name: name, symbol: symbol, assetName: assetName, color: accentColor)

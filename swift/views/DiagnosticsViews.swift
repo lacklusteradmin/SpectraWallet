@@ -138,7 +138,7 @@ struct StandardChainDiagnosticsView: View {
     /// something for — the ones whose addresses HD discovery walks.
     private var utxoActions: (selfTestTitle: String, rescanTitle: String, rescanInFlightTitle: String)? {
         guard chain.supportsDeepUTXODiscovery else { return nil }
-        let ticker = chain.symbol
+        let ticker = chain.gasTokenSymbol
         return (
             AppLocalization.format("Run %@ Self-Tests", ticker),
             AppLocalization.format("Run %@ Rescan", ticker),

@@ -95,10 +95,7 @@ extension Chain: Identifiable {
     /// drifted, which core's `chain_order_matches_the_catalog` fails on.
     var entry: ChainEntry? { Self.entryByChain[self] }
 
-    /// The chain's own ticker — `ARB` on Arbitrum.
-    var symbol: String { entry?.symbol ?? "" }
-    /// The asset fees are paid in — `ETH` on Arbitrum. Distinct from `symbol`
-    /// on every L2, and it is this one that says whether a holding is native.
+    /// The network’s native token symbol, derived by core.
     var gasTokenSymbol: String { entry?.gasTokenSymbol ?? "" }
 
     /// The chain's native asset decimals, from the catalog.

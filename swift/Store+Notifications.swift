@@ -2,21 +2,10 @@ import Foundation
 import UserNotifications
 @MainActor
 extension AppState {
-    /// Hand core the live prices; it records which alerts changed state and
-    /// returns only the ones to notify about.
-    ///
-    /// The alert list itself never crosses — core owns it. Only the prices go
-    /// out, because a live price is the one input core does not have.
+    /// Core evaluates its stored alerts against its stored quotes.
     func evaluatePriceAlerts() async {
-        guard preferences.usePriceAlerts, !priceAlerts.isEmpty else { return }
-        let prices: [PriceAlertEvaluationPrice] = priceAlerts.compactMap { alert in
-            guard let coin = portfolio.first(where: { $0.holdingKey == alert.holdingKey }),
-                let livePrice = currentPriceIfAvailable(for: coin)
-            else { return nil }
-            return PriceAlertEvaluationPrice(holdingKey: alert.holdingKey, livePrice: livePrice)
-        }
         let epoch = beginCoreStateRead()
-        guard let notifications = try? await WalletServiceBridge.shared.evaluatePriceAlerts(prices: prices)
+        guard let notifications = try? await WalletServiceBridge.shared.evaluatePriceAlerts()
         else { return }
         if let state = try? await WalletServiceBridge.shared.appState() {
             applyCoreState(state, epoch: epoch)

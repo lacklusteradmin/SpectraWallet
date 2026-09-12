@@ -2,9 +2,7 @@ import Foundation
 import SwiftUI
 enum TokenRegistryGrouping {
     nonisolated static func key(for entry: TokenPreferenceEntry) -> String {
-        let geckoID = entry.token.coingeckoId.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if !geckoID.isEmpty { return "gecko:\(geckoID)" }
-        return "symbol:\(entry.token.symbol.lowercased())|\(entry.token.name.lowercased())"
+        entry.token.tokenId
     }
 }
 struct TokenRegistrySettingsView: View {

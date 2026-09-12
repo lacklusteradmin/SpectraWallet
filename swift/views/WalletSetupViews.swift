@@ -17,7 +17,7 @@ struct SetupChainSelectionDescriptor: Identifiable {
         self.symbol = symbol
         self.gasTokenSymbol = gasToken ?? symbol
         self.chainName = chainName
-        self.assetIdentifier = Coin.iconIdentifier(symbol: symbol, chainName: chainName)
+        self.assetIdentifier = "network:\(id)"
         self.color = color
         self.category = category
     }
@@ -73,9 +73,9 @@ struct SetupView: View {
     private static let chainSelectionDescriptors: [SetupChainSelectionDescriptor] = listAllChains().compactMap { chain in
         guard let category = SetupChainCategory(chain: chain) else { return nil }
         return SetupChainSelectionDescriptor(
-            id: chain.id, title: chain.name, symbol: chain.symbol, chainName: chain.name,
+            id: chain.id, title: chain.name, symbol: chain.gasTokenSymbol, chainName: chain.name,
             color: RegistryColorLookup.color(named: chain.color), category: category,
-            gasToken: chain.gasTokenSymbol == chain.symbol ? nil : chain.gasTokenSymbol
+            gasToken: chain.gasTokenSymbol == chain.gasTokenSymbol ? nil : chain.gasTokenSymbol
         )
     }
     private static let popularChainSelectionIDs: [String] = [

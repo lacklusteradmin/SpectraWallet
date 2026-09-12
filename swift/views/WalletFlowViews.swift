@@ -231,7 +231,7 @@ struct WalletDetailView: View {
         let holdingPresentations = visibleHoldings.map { entry in
             HoldingPresentation(
                 coin: entry.coin,
-                amountText: store.formattedAssetAmount(entry.coin.amount, symbol: entry.coin.symbol, chainName: entry.coin.chainName),
+                amountText: store.formattedAssetAmount(entry.coin.amount, symbol: entry.coin.symbol, deploymentID: entry.coin.holdingKey),
                 valueText: store.preferences.hideBalances
                     ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: entry.quotedValue >= 0 ? entry.quotedValue : nil)
             )

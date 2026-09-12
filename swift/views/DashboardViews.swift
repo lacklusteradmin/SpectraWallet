@@ -248,7 +248,7 @@ struct DashboardView: View {
             DashboardAssetRowPresentation(
                 assetGroup: assetGroup,
                 amountText: store.formattedAssetAmount(
-                    assetGroup.totalAmount, symbol: assetGroup.symbol, chainName: assetGroup.chainName
+                    assetGroup.totalAmount, symbol: assetGroup.symbol, deploymentID: assetGroup.holdings.first?.coin.holdingKey
                 ),
                 totalValueText: hideBalances
                     ? "••••••"
@@ -350,7 +350,7 @@ extension CoreDashboardAssetGroup: Identifiable {
 
 typealias DashboardPinOption = CoreDashboardPinOption
 extension CoreDashboardPinOption: Identifiable {
-    public var id: String { symbol }
+    public var id: String { tokenId }
     var color: Color { Coin.displayColor(for: symbol) }
 }
 struct AssetGroupDetailView: View {
@@ -359,7 +359,7 @@ struct AssetGroupDetailView: View {
     /// Where the coin lives, from core's asset wiki — the same join the wiki
     /// screen renders, rather than a second dashboard-only cache of it.
     private var places: [AssetWikiPlace] {
-        CachedCoreHelpers.assetWikiEntry(symbol: assetGroup.symbol)?.livesOn ?? []
+        CachedCoreHelpers.assetWikiEntry(tokenID: assetGroup.id)?.livesOn ?? []
     }
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -386,7 +386,7 @@ struct AssetContractsDetailView: View {
     let store: AppState
     let assetGroup: DashboardAssetGroup
     private var places: [AssetWikiPlace] {
-        CachedCoreHelpers.assetWikiEntry(symbol: assetGroup.symbol)?.livesOn ?? []
+        CachedCoreHelpers.assetWikiEntry(tokenID: assetGroup.id)?.livesOn ?? []
     }
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -433,7 +433,7 @@ private struct AssetSummaryStatsCard: View {
             statRow(
                 label: AppLocalization.string("Total Amount"),
                 value: store.formattedAssetAmount(
-                    assetGroup.totalAmount, symbol: assetGroup.symbol, chainName: assetGroup.chainName),
+                    assetGroup.totalAmount, symbol: assetGroup.symbol, deploymentID: assetGroup.holdings.first?.coin.holdingKey),
                 icon: "scalemass.fill")
             Divider().opacity(0.4)
             statRow(
@@ -477,7 +477,7 @@ private struct AssetChainBreakdownCard: View {
                     tokenStandard: holding.coin.tokenStandard,
                     amountText: store.formattedAssetAmount(
                         holding.coin.amount, symbol: holding.coin.symbol,
-                        chainName: holding.coin.chainName),
+                        deploymentID: holding.coin.holdingKey),
                     valueText: store.formattedFiatAmountOrZero(fromUSD: holding.valueUsd),
                     symbol: holding.coin.symbol
                 )
@@ -528,7 +528,7 @@ struct PinnedAssetsView: View {
         List {
             Section {
                 ForEach(filteredOptions) { option in
-                    Toggle(isOn: binding(for: option.symbol)) {
+                    Toggle(isOn: binding(for: option.tokenId)) {
                         DashboardPinnedAssetRowView(
                             option: option,
                             subtitleText: AppLocalization.format("dashboard.pinnedAsset.symbolSubtitle", option.symbol, option.subtitle)
@@ -550,9 +550,9 @@ struct PinnedAssetsView: View {
             }
         }
     }
-    private func binding(for symbol: String) -> Binding<Bool> {
+    private func binding(for tokenID: String) -> Binding<Bool> {
         Binding(
-            get: { store.isDashboardAssetPinned(symbol) }, set: { isPinned in store.setDashboardAssetPinned(isPinned, symbol: symbol) }
+            get: { store.isDashboardAssetPinned(tokenID) }, set: { isPinned in store.setDashboardAssetPinned(isPinned, tokenID: tokenID) }
         )
     }
 }

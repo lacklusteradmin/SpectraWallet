@@ -16,9 +16,6 @@ extension AppState {
         // `reloadPersistedStateFromSQLite()`. They used to be seeded here from
         // UserDefaults first, but nothing has written those keys since the move
         // to SQLite — the seed could only ever supply stale indices.
-        // `syncChainOwnedAddressManagementState` runs there too: it reserves
-        // receive indices, so it must not run before core has loaded the
-        // keypool or it would reserve against an empty table.
         // Pinned dashboard assets are a core setting now; they arrive with
         // the rest of `CoreAppState`. The UserDefaults key they used to be
         // seeded from has had no writer since that move.
@@ -34,11 +31,6 @@ extension AppState {
     }
     func clearPersistedSecureDataOnFreshInstallIfNeeded() {
         if UserDefaults.standard.bool(forKey: Self.installMarkerDefaultsKey) { return }
-        let persistedWalletIDs = wallets.map(\.id)
-        for walletID in persistedWalletIDs { deleteWalletSecrets(for: walletID) }
-        SecureStore.deleteValue(for: Self.walletsAccount)
-        SecureStore.deleteValue(for: Self.walletsCoreSnapshotAccount)
-        clearWalletSecretIndex()
         UserDefaults.standard.set(true, forKey: Self.installMarkerDefaultsKey)
     }
     func resetSelectedData(scopes: Set<ResetScope>) async {
@@ -50,38 +42,30 @@ extension AppState {
         else {
             return
         }
-        let plan = coreResetDispatch(scopes: scopes.map(\.rawValue))
+        appSettingsPersist.cancel()
+        priceAlertsPersist.cancel()
+        await walletMutationTask?.value
+        await awaitPendingAddressBookCommands()
+        let outcome: ResetOutcome
+        do {
+            outcome = try await WalletServiceBridge.shared.resetData(scopes: scopes.map(\.rawValue))
+        } catch {
+            appendOperationalLog(.error, category: "Reset", message: String(describing: error))
+            return
+        }
+        let epoch = beginCoreStateRead()
+        applyCoreState(outcome.state, epoch: epoch)
+        await refreshTransactionProjection()
+        let plan = outcome.plan
         if plan.resetWalletsAndSecrets { await resetWalletsAndSecretsState() }
         if plan.resetHistoryAndCache { await resetHistoryAndCacheState() }
-        if plan.resetAlertsAndContacts { resetAlertsAndContactsState() }
         if plan.resetSettingsAndEndpoints { await resetSettingsAndEndpointsState() }
-        if plan.resetDashboardCustomization { resetDashboardCustomizationState() }
         if plan.resetProviderState { await resetProviderState() }
         if plan.clearNetworkAndTransportCaches { clearNetworkAndTransportCaches() }
         UserDefaults.standard.set(true, forKey: Self.installMarkerDefaultsKey)
     }
-    /// Runs one core-side cleanup step to completion and records a failure
-    /// rather than dropping it. A reset that reports success while records
-    /// survive is the one outcome a wipe must not have, and a detached
-    /// `Task { try? await ... }` produced exactly that: the caller's `await`
-    /// returned before the step ran, and a failure left no trace.
-    private func runResetStep(_ name: String, _ step: () async throws -> Void) async {
-        do {
-            try await step()
-        } catch {
-            appendOperationalLog(
-                .error, category: "Reset", message: "\(name) failed during reset: \(String(describing: error))",
-                source: "resetSelectedData")
-        }
-    }
     private func resetWalletsAndSecretsState() async {
-        let existingWalletIDs = wallets.map(\.id)
-        existingWalletIDs.forEach { deleteWalletSecrets(for: $0) }
-        SecureStore.deleteValue(for: Self.walletsAccount)
-        SecureStore.deleteValue(for: Self.walletsCoreSnapshotAccount)
-        UserDefaults.standard.removeObject(forKey: Self.walletsAccount)
         clearWalletSecretIndex()
-        clearAllWalletsDetached()
         discoveredUTXOAddressesByChain = [:]
         receiveWalletID = ""
         receiveHoldingKey = ""
@@ -133,24 +117,9 @@ extension AppState {
         cancelWalletImport()
     }
     private func resetHistoryAndCacheState() async {
-        await runResetStep("Clear history records") { try await WalletServiceBridge.shared.clearAllHistoryRecords() }
-        UserDefaults.standard.removeObject(forKey: Self.chainSyncStateDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.operationalLogsDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.chainKeypoolDefaultsKey)
-        UserDefaults.standard.removeObject(forKey: Self.chainOwnedAddressMapDefaultsKey)
-        clearAllTransactions()
-        resetAllHistoryPagination()
-        // Clears the Rust-owned per-wallet history registry. The four lines
-        // below are the diagnostics state that is still Swift's own.
-        diagnosticsClearAll()
         chainDiagnosticsState.historyRunByChain = [:]
         chainDiagnosticsState.endpointHealthByChain = [:]
-        diagnostics.reset()
-        await runResetStep("Clear operational events") {
-            try await WalletServiceBridge.shared.clearOperationalEvents(chainName: nil)
-        }
         selfTests = [:]
-        diagnostics.clearOperationalLogs()
         // Nothing clears `isRunning`/`isChecking` per chain below this point:
         // the `historyRunByChain` and `endpointHealthByChain` subscripts insert
         // a default row on write, so touching them after the maps are emptied
@@ -177,30 +146,7 @@ extension AppState {
             historyReadError = localizedStoreString("Unable to read transaction history. Existing records have been kept.")
         }
     }
-    private func resetAlertsAndContactsState() {
-        // Core-owned: assigning sends `SetPriceAlerts`, which clears the store.
-        priceAlerts = []
-        // Core-owned: clear by command so the store and the mirror agree.
-        let contactIDs = addressBook.map(\.id)
-        Task { @MainActor [weak self] in
-            for id in contactIDs { self?.removeAddressBookEntry(id: id) }
-        }
-    }
-    private func resetDashboardCustomizationState() { resetPinnedDashboardAssets() }
     private func resetSettingsAndEndpointsState() async {
-        // The token list goes back through core too: the catalog is core's and
-        // so is which of its rows the user turned off.
-        if let transition = try? await WalletServiceBridge.shared.applyStateCommand(
-            .resetTokenPreferences)
-        {
-            let epoch = beginCoreStateRead()
-            applyCoreState(transition.state, epoch: epoch)
-        }
-        // Every setting core owns, back to core's own defaults.
-        if let transition = try? await WalletServiceBridge.shared.applyStateCommand(.resetAppSettings) {
-            let epoch = beginCoreStateRead()
-            applyCoreState(transition.state, epoch: epoch)
-        }
         // The five this platform keeps for itself: hiding balances, appearance,
         // Face ID, auto-lock and biometric-gated sends. No other front end has
         // a use for them, so core has no default to be the copy of.

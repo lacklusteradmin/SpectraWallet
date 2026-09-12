@@ -84,8 +84,8 @@ extension AppState {
     }
     /// Core decides how many places this amount deserves; the formatter renders
     /// them and trims the trailing zeros.
-    func formattedAssetAmount(_ amount: Double, symbol: String, chainName: String) -> String {
-        let display = assetAmountDisplay(amount, symbol: symbol, chainName: chainName)
+    func formattedAssetAmount(_ amount: Double, symbol: String, deploymentID: String?) -> String {
+        let display = assetAmountDisplay(amount, deploymentID: deploymentID)
         let places = Int(display.places)
         if display.belowThreshold {
             let thresholdFormatter = decimalFormatter(
@@ -104,21 +104,20 @@ extension AppState {
     /// The asset's own decimals — the contract's, the mint's, or the chain's
     /// `native_decimals` — paired with the amount, which is what decides how
     /// many of them are worth printing.
-    func assetAmountDisplay(_ amount: Double, symbol: String, chainName: String) -> AssetAmountDisplay {
+    func assetAmountDisplay(_ amount: Double, deploymentID: String?) -> AssetAmountDisplay {
         formattingAssetAmountDisplay(
-            amount: amount, assetDecimals: UInt32(supportedAssetDecimals(symbol: symbol, chainName: chainName)))
+            amount: amount, assetDecimals: UInt32(supportedDecimalPlaces(deploymentID: deploymentID)))
     }
     func formattedTransactionAmount(_ transaction: TransactionRecord) -> String? {
         guard transaction.amount.isFinite, transaction.amount >= 0 else { return nil }
-        return formattedAssetAmount(transaction.amount, symbol: transaction.symbol, chainName: transaction.chainName)
+        return formattedAssetAmount(transaction.amount, symbol: transaction.symbol, deploymentID: transaction.deploymentID)
     }
     func formattedTransactionDetailAmount(_ transaction: TransactionRecord) -> String? {
         guard transaction.amount.isFinite, transaction.amount >= 0 else { return nil }
         return formattedTransactionDetailAssetAmount(
-            transaction.amount, symbol: transaction.symbol, chainName: transaction.chainName
+            transaction.amount, symbol: transaction.symbol, deploymentID: transaction.deploymentID
         )
     }
-    func supportedAssetDecimals(symbol: String, chainName: String) -> Int { supportedDecimalPlaces(for: symbol, chainName: chainName) }
     func currentValue(for coin: Coin) -> Double { coin.amount * currentPrice(for: coin) }
     func currentValueIfAvailable(for coin: Coin) -> Double? {
         guard isPricedAsset(coin) else { return nil }
@@ -152,7 +151,7 @@ extension AppState {
     }
     func currentTotal(for wallet: ImportedWallet) -> Double { quotedTotal(for: wallet.holdings).total }
     func runtimeChainIdentity(for chainName: String) -> String { displayChainTitle(for: chainName) }
-    func assetIdentityKey(for coin: Coin) -> String { "\(runtimeChainIdentity(for: coin.chainName))|\(coin.symbol)" }
+    func assetIdentityKey(for coin: Coin) -> String { coin.holdingKey }
     /// Hot path — called per coin during portfolio totals and per row in the
     /// dashboard. Core hands over the whole unpriced set when the selection
     /// changes, so this is a set lookup rather than a memoized FFI call whose
@@ -219,34 +218,19 @@ extension AppState {
         guard !droppedIDs.isEmpty else { return }
         removeTransactions(withIDs: droppedIDs)
     }
-    private func formattedTransactionDetailAssetAmount(_ amount: Double, symbol: String, chainName: String) -> String {
-        let supportedDecimals = supportedDecimalPlaces(for: symbol, chainName: chainName)
+    private func formattedTransactionDetailAssetAmount(_ amount: Double, symbol: String, deploymentID: String?) -> String {
+        let supportedDecimals = supportedDecimalPlaces(deploymentID: deploymentID)
         let formatter = decimalFormatter(
             minimumFractionDigits: 0, maximumFractionDigits: supportedDecimals, usesGroupingSeparator: false
         )
         let formattedValue = formatter.string(from: NSNumber(value: amount)) ?? ""
         return "\(formattedValue) \(symbol)"
     }
-    func tokenPreferenceLookupKey(chainName: String, symbol: String) -> String {
-        let cacheKey = "\(chainName)|\(symbol)"
-        if let cached = cachedTokenPreferenceLookupKeys[cacheKey] { return cached }
-        let value = formattingTokenPreferenceLookupKey(chainName: chainName, symbol: symbol)
-        cachedTokenPreferenceLookupKeys[cacheKey] = value
-        return value
+    private func supportedDecimalPlaces(deploymentID: String?) -> Int {
+        let customDecimals = deploymentID.flatMap { cachedTokenPreferenceByDeploymentID[$0]?.token.decimals }
+        return Int(tokenDisplayDecimals(deploymentId: deploymentID, customDecimals: customDecimals))
     }
-    /// How many decimals the asset itself has — a token's from its catalog
-    /// entry, a native asset's from the chain table. Memoized; invalidated by
-    /// `tokenPreferences.didSet`.
-    private func supportedDecimalPlaces(for symbol: String, chainName: String) -> Int {
-        let cacheKey = "\(chainName)|\(symbol)"
-        if let cached = cachedAssetDecimals[cacheKey] { return Int(cached) }
-        let tokenDecimals = cachedTokenPreferenceByChainAndSymbol[
-            tokenPreferenceLookupKey(chainName: chainName, symbol: symbol)
-        ].map { UInt32(max(0, $0.token.decimals)) }
-        let value = formattingSupportedDecimalPlaces(chainName: chainName, overrideDecimals: tokenDecimals)
-        cachedAssetDecimals[cacheKey] = value
-        return Int(value)
-    }
+
 }
 
 /// The sentence a send-affordability verdict turns into.
@@ -260,6 +244,8 @@ extension AppState {
 /// asked.
 func sendAffordabilityMessage(_ verdict: SendAffordability) -> String? {
     switch verdict {
+    case .unavailable:
+        return AppLocalization.string("Unable to estimate network fee.")
     case .affordable:
         return nil
     case let .amountPlusFeeExceedsBalance(symbol, required):

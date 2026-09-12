@@ -151,7 +151,7 @@ extension AppState {
     ) async {
         guard let chain = Chain(displayName: chainName) else { setPreview(nil); return }
         guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin,
-            selectedSendCoin.chainName == chainName, selectedSendCoin.symbol == chain.gasTokenSymbol,
+            selectedSendCoin.chainName == chainName, selectedSendCoin.isNativeCoin,
             let amount = parseAmountInput(text: sendPreviewAmountInput, maxDecimals: chain.nativeDecimals),
             amount > 0
         else { setPreview(nil); return }

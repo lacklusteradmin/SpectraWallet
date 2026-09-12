@@ -72,7 +72,7 @@ extension AppState {
         guard let coin = selectedSendCoin, preparingChains.isEmpty else { return nil }
         return quotedSendAmount(
             preview: sendPreviewStore.taggedPreview(forChainNamed: coin.chainName),
-            chainName: coin.chainName, symbol: coin.symbol,
+            chainName: coin.chainName, isNative: coin.isNativeCoin,
             tokenDecimals: supportedToken(for: coin)?.token.decimals, percentage: percentage)
     }
 
@@ -289,16 +289,13 @@ extension AppState {
     func supportedToken(for coin: Coin) -> TokenPreferenceEntry? {
         guard let tokenChain = TokenHostingChain.forChainName(coin.chainName) else { return nil }
         // A chain's native asset is never one of its tokens.
-        if Chain(displayName: coin.chainName)?.gasTokenSymbol == coin.symbol { return nil }
+        if coin.isNativeCoin { return nil }
         let chainTokens = enabledKnownTokens(for: tokenChain)
-        guard let contractAddress = coin.contractAddress else {
-            return chainTokens.first { $0.token.symbol == coin.symbol }
-        }
+        guard let contractAddress = coin.contractAddress else { return nil }
         let normalized = normalizedKnownTokenIdentifier(
             for: tokenChain, contractAddress: contractAddress)
         return chainTokens.first {
-            $0.token.symbol == coin.symbol
-                && normalizedKnownTokenIdentifier(for: tokenChain, contractAddress: $0.token.contract)
+            normalizedKnownTokenIdentifier(for: tokenChain, contractAddress: $0.token.contract)
                     == normalized
         }
     }
@@ -568,14 +565,7 @@ extension AppState {
                 await self.refreshUTXOReceiveReservationState(chainName: chainName)
             },
             refreshHistory: {
-                switch chainName {
-                case "Bitcoin":
-                    await self.refreshBitcoinTransactions(limit: HistoryPaging.endpointBatchSize)
-                case let name where Chain(displayName: name)?.supportsDeepUTXODiscovery == true:
-                    await self.refreshMultiAddressUTXOTransactions(chainName: name)
-                default:
-                    await self.refreshNormalizedTransactions(chainName: chainName)
-                }
+                await self.refreshHistory(chainName: chainName)
             },
             refreshPending: { await self.refreshPendingTransactions(chainName: chainName) })
     }
@@ -830,58 +820,23 @@ extension AppState {
         }
     }
 
-    /// Walk the wallet's derived addresses and record the used ones.
-    ///
-    /// The loop was here because it needed the seed phrase, and the phrase was
-    /// only readable from Swift. Core reads the seed, the derivation path, the
-    /// keypool bound, the balance and the history, so the loop is core's and
-    /// the phrase no longer crosses for it.
-    /// `nil` when discovery failed — see `knownUTXOAddresses`. The caller
-    /// keeps whatever it discovered last rather than recording the failure as
-    /// an empty result.
-    func discoverUTXOAddresses(for wallet: ImportedWallet, chainName: String) async -> [String]? {
-        guard let chain = Chain(displayName: chainName) else { return [] }
-        do {
-            return try await WalletServiceBridge.shared.discoverUTXOAddresses(walletID: wallet.id, chainId: chain.id)
-        } catch {
-            appendOperationalLog(
-                .error, category: "Owned Addresses",
-                message: "\(chainName) address discovery failed: \(String(describing: error))",
-                chainName: chainName, walletID: wallet.id)
-            return nil
-        }
-    }
     func refreshUTXOAddressDiscovery(chainName: String) async {
-        guard supportsDeepUTXODiscovery(chainName: chainName) else {
-            discoveredUTXOAddressesByChain[chainName] = [:]
-            return
-        }
-        let utxoWallets = wallets.filter { $0.selectedChain == chainName }
-        guard !utxoWallets.isEmpty else {
-            discoveredUTXOAddressesByChain[chainName] = [:]
-            return
-        }
-        let previous = discoveredUTXOAddressesByChain[chainName] ?? [:]
-        let discovered = await withTaskGroup(of: (String, [String]?).self, returning: [String: [String]].self) { group in
-            for wallet in utxoWallets {
-                group.addTask { [wallet] in
-                    (wallet.id, await self.discoverUTXOAddresses(for: wallet, chainName: chainName))
-                }
-            }
+        guard let chain = Chain(displayName: chainName) else { return }
+        do {
+            let results = try await WalletServiceBridge.shared.discoverChainAddresses(chainId: chain.id)
+            let previous = discoveredUTXOAddressesByChain[chainName] ?? [:]
             var mapping: [String: [String]] = [:]
-            for await (walletID, addresses) in group {
-                // A wallet whose discovery failed keeps what it had. Writing
-                // the empty result would turn one failed refresh into "this
-                // wallet has no addresses" until the next successful one.
-                if let addresses {
-                    mapping[walletID] = addresses
-                } else if let carried = previous[walletID] {
-                    mapping[walletID] = carried
-                }
+            for result in results {
+                if let error = result.error {
+                    mapping[result.walletId] = previous[result.walletId]
+                    appendOperationalLog(.error, category: "Owned Addresses", message: error,
+                        chainName: chainName, walletID: result.walletId)
+                } else { mapping[result.walletId] = result.addresses }
             }
-            return mapping
+            discoveredUTXOAddressesByChain[chainName] = mapping
+        } catch {
+            appendOperationalLog(.error, category: "Owned Addresses", message: String(describing: error), chainName: chainName)
         }
-        discoveredUTXOAddressesByChain[chainName] = discovered
     }
     /// Move each wallet's reservation past a receive address that has been
     /// used.
@@ -900,35 +855,6 @@ extension AppState {
     func walletHasAddress(for wallet: ImportedWallet, chainName: String) -> Bool {
         resolvedAddress(for: wallet, chainName: chainName) != nil
     }
-    /// Record an address this wallet owns. Core holds the table — the keypool
-    /// baseline is derived from it, so a second copy here could go stale and
-    /// reissue an address.
-    func registerOwnedAddress(
-        chainName: String, address: String?, walletID: String?, derivationPath: String?, index: Int?, branch: String?
-    ) {
-        guard let address, let walletID, !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else { return }
-        // The failure is logged rather than dropped: an address core never
-        // learned about is one it cannot attribute a later transfer to. The
-        // log is the only thing here that needs the store, so `[weak self]`
-        // — a store that went away has nowhere to write anyway.
-        Task { [weak self] in
-            do {
-                try await WalletServiceBridge.shared.registerOwnedAddress(
-                    walletID: walletID, chainName: chainName, address: address,
-                    derivationPath: derivationPath, branch: branch,
-                    branchIndex: index.map(Int64.init))
-            } catch {
-                await self?.appendOperationalLog(
-                    .error, category: "Owned Addresses",
-                    message: "Registering an owned address failed: \(String(describing: error))",
-                    chainName: chainName, walletID: walletID)
-            }
-        }
-    }
-    func ownedAddresses(for walletID: String, chainName: String) async -> [String] {
-        await WalletServiceBridge.shared.ownedAddresses(walletID: walletID, chainName: chainName)
-    }
     /// The wallet's keypool state for this chain, merged with the baseline.
     ///
     /// Core derives the baseline and refuses incomplete history reads.
@@ -939,113 +865,14 @@ extension AppState {
     }
     /// Reserve the next receive index, or return the one already reserved.
     ///
-    /// Read-modify-write happens inside core: reserving from two places at once
-    /// must not hand the same address to two people.
-    /// `minimumIndex` is the floor the chain requires: the deep-UTXO path never
-    /// hands out index 0 as a receive address.
-    func reserveReceiveIndex(for wallet: ImportedWallet, chainName: String, minimumIndex: Int = 0)
-        async -> Int?
-    {
-        let reserved = try? await WalletServiceBridge.shared.reserveReceiveIndex(
-            walletID: wallet.id, chainName: chainName, minimumIndex: Int64(minimumIndex))
-        return reserved.map(Int.init)
-    }
-    func reserveChangeIndex(for wallet: ImportedWallet, chainName: String) async -> Int? {
-        let reserved = try? await WalletServiceBridge.shared.reserveChangeIndex(
-            walletID: wallet.id, chainName: chainName)
-        return reserved.map(Int.init)
-    }
-    /// The path a non-UTXO chain's receive address came from.
-    ///
-    /// Deep-UTXO chains no longer reach here: core records the path alongside
-    /// the address it derived, so there is nothing for a caller to compute.
     func reservedReceiveDerivationPath(for wallet: ImportedWallet, chainName: String, index: Int?) -> String? {
         guard let chain = seedDerivationChain(for: chainName) else { return nil }
         return walletDerivationPath(for: wallet, chain: chain)
     }
-    /// The keypool as it currently stands, recording nothing.
-    ///
-    /// The `reserveIfMissing: false` path of `reservedReceiveAddress` still
-    /// wrote — through `keypoolState` and `registerOwnedAddress`, both of which
-    /// touch observed state. This is the variant a SwiftUI `body` can call.
-    func reservedReceiveAddressForDisplay(for wallet: ImportedWallet, chainName: String) async
-        -> String?
-    {
-        guard let chain = Chain(displayName: chainName), chain.supportsDeepUTXODiscovery else {
-            return resolvedAddress(for: wallet, chainName: chainName)
-        }
-        do {
-            let address = try await WalletServiceBridge.shared.utxoReceiveAddress(
-                walletID: wallet.id, chainId: chain.id, reserve: false)
-            return address ?? resolvedAddress(for: wallet, chainName: chainName)
-        } catch { return nil }
-    }
-    func reservedReceiveAddress(for wallet: ImportedWallet, chainName: String, reserveIfMissing: Bool) async -> String? {
-        // Core reserves, derives and records in one call. The floor of 1 —
-        // deep-UTXO chains never hand out index 0 as a receive address — is
-        // its rule now rather than an argument passed from here.
-        if let chain = Chain(displayName: chainName), chain.supportsDeepUTXODiscovery {
-            do {
-                let address = try await WalletServiceBridge.shared.utxoReceiveAddress(
-                    walletID: wallet.id, chainId: chain.id, reserve: reserveIfMissing)
-                return address ?? resolvedAddress(for: wallet, chainName: chainName)
-            } catch { return nil }
-        }
-        if reserveIfMissing, await reserveReceiveIndex(for: wallet, chainName: chainName) == nil { return nil }
-        guard let address = resolvedAddress(for: wallet, chainName: chainName) else { return nil }
-        guard let pool = try? await keypoolState(for: wallet, chainName: chainName) else { return nil }
-        let reservedIndex = pool.reservedReceiveIndex
-        registerOwnedAddress(
-            chainName: chainName, address: address, walletID: wallet.id,
-            derivationPath: reservedReceiveDerivationPath(for: wallet, chainName: chainName, index: reservedIndex), index: reservedIndex,
-            branch: "external"
-        )
-        return address
-    }
-    func activateLiveReceiveAddress(_ address: String?, for wallet: ImportedWallet, chainName: String, derivationPath: String? = nil)
-        async -> String
-    {
-        guard let address else { return "" }
-        let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return "" }
-        guard let reservedIndex = await reserveReceiveIndex(for: wallet, chainName: chainName) else { return "" }
-        registerOwnedAddress(
-            chainName: chainName, address: trimmed, walletID: wallet.id,
-            derivationPath: derivationPath ?? reservedReceiveDerivationPath(for: wallet, chainName: chainName, index: reservedIndex),
-            index: reservedIndex, branch: "external"
-        )
-        return trimmed
-    }
-    /// Tell core which receive addresses each wallet owns.
-    ///
-    /// This looped over `diagnosticsChains.map(\.title)` — "Bitcoin
-    /// Diagnostics" and twenty-three others — so `resolvedAddress` missed on
-    /// every one and the whole thing was a no-op.
-    ///
-    /// Fixing the name made it real work, and real work here is not free:
-    /// reserving is a write. Two things bound it. Only chains that own their
-    /// address slot are visited, because the EVM family shares one address and
-    /// filing it under twenty-five chain names tells the keypool nothing it
-    /// does not already know from Ethereum's row. And an address core already
-    /// has is skipped, so the remaining cost falls on the first load after an
-    /// import rather than on every launch.
-    func syncChainOwnedAddressManagementState() async {
-        for wallet in wallets {
-            for chain in Chain.mainnets where chain.ownsItsAddressSlot {
-                let chainName = chain.displayName
-                guard let address = resolvedAddress(for: wallet, chainName: chainName) else { continue }
-                let known = await WalletServiceBridge.shared.ownedAddresses(
-                    walletID: wallet.id, chainName: chainName)
-                guard !known.contains(address) else { continue }
-                let reservedIndex = await reserveReceiveIndex(for: wallet, chainName: chainName)
-                registerOwnedAddress(
-                    chainName: chainName, address: address, walletID: wallet.id,
-                    derivationPath: reservedReceiveDerivationPath(
-                        for: wallet, chainName: chainName, index: reservedIndex),
-                    index: reservedIndex, branch: "external"
-                )
-            }
-        }
+    func reservedReceiveAddressForDisplay(for wallet: ImportedWallet, chainName: String) async -> String? {
+        guard let chain = Chain(displayName: chainName) else { return nil }
+        return try? await WalletServiceBridge.shared.receiveAddress(
+            walletID: wallet.id, chainId: chain.id, reserve: false)
     }
     func refreshSendDestinationRiskWarning(for coin: Coin) async {
         let probeID = "\(sendWalletID)|\(sendHoldingKey)|\(sendAddress)"

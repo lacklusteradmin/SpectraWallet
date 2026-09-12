@@ -44,10 +44,10 @@ import Foundation
 
         private func record(
             chain: String, symbol: String, kind: TransactionKind = .send,
-            status: TransactionStatus = .pending, hash: String? = "0xfeed", nonce: Int? = 7
+            status: TransactionStatus = .pending, deploymentID: String? = nil, hash: String? = "0xfeed", nonce: Int? = 7
         ) -> TransactionRecord {
             TransactionRecord(
-                walletID: "wallet-1", kind: kind, status: status, walletName: "Main",
+                walletID: "wallet-1", deploymentID: deploymentID, kind: kind, status: status, walletName: "Main",
                 assetName: chain, symbol: symbol, chainName: chain, amount: 1.5,
                 address: "0x1111111111111111111111111111111111111111",
                 transactionHash: hash, ethereumNonce: nonce)
@@ -62,8 +62,8 @@ import Foundation
         /// exactly the way a mainnet one does.
         func testEveryEVMChainOffersReplacementAndNothingElseDoes() async throws {
             try await store([
-                record(chain: "Arbitrum", symbol: "ETH"),
-                record(chain: "Base", symbol: "ETH"),
+                record(chain: "Arbitrum", symbol: "ETH", deploymentID: "arbitrum:native"),
+                record(chain: "Base", symbol: "ETH", deploymentID: "base:native"),
                 record(chain: "Bitcoin", symbol: "BTC"),
                 record(chain: "Solana", symbol: "SOL"),
             ])

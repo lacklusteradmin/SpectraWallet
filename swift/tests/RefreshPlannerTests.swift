@@ -41,7 +41,7 @@ import Foundation
 
         func testWalletChainIDResolvesStableRegistryIDFromDisplayNameAndSymbol() {
             XCTAssertEqual(WalletChainID("Ethereum")?.rawValue, "ethereum")
-            XCTAssertEqual(WalletChainID("ETH")?.rawValue, "ethereum")
+            XCTAssertNil(WalletChainID("ETH"), "a ticker cannot choose a network")
             XCTAssertEqual(WalletChainID("XRP Ledger")?.displayName, "XRP Ledger")
         }
     }

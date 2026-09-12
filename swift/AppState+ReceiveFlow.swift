@@ -97,73 +97,17 @@ extension AppState {
             ))
     }
     func refreshReceiveAddress() async {
-        guard let wallet = wallet(for: receiveWalletID), let receiveCoin = selectedReceiveCoin(for: receiveWalletID) else {
-            receiveResolvedAddress = ""; return
-        }
-        if isEVMChain(receiveCoin.chainName) {
-            guard let evmAddress = resolvedAddress(for: wallet, chainName: receiveCoin.chainName) else {
-                receiveResolvedAddress = ""; return
-            }
-            guard !isResolvingReceiveAddress else { return }
-            isResolvingReceiveAddress = true
-            defer { isResolvingReceiveAddress = false }
-            receiveResolvedAddress =
-                (try? await activateLiveReceiveAddress(receiveEVMAddress(for: evmAddress), for: wallet, chainName: receiveCoin.chainName)) ?? ""
-            return
-        }
-        // `resolvedAddress(for:chainName:)` states the four exceptions itself
-        // (Bitcoin and Dogecoin pick their derivation chain from the selected
-        // network, Cardano prefers a stored address, Monero only ever has one).
-        // The EVM family returned above; what is left is
-        // the UTXO five, which reserve a receive index below, and everything
-        // else, which resolves.
-        if let chain = Chain(displayName: receiveCoin.chainName), !chain.supportsDeepUTXODiscovery {
-            receiveResolvedAddress = await activateLiveReceiveAddress(
-                resolvedAddress(for: wallet, chainName: receiveCoin.chainName),
-                for: wallet, chainName: receiveCoin.chainName)
-            return
-        }
-        guard receiveCoin.symbol == "BTC" else {
-            // The native coin of a chain that hands out reserved receive
-            // indices. `supportsDeepUTXODiscovery` is the same fact that decides
-            // whether an index is reserved at all.
-            let receiveChain = Chain(displayName: receiveCoin.chainName)
-            if let receiveChain, receiveChain.supportsDeepUTXODiscovery,
-                receiveCoin.symbol == receiveChain.gasTokenSymbol
-            {
-                receiveResolvedAddress = await reservedReceiveAddress(for: wallet, chainName: receiveCoin.chainName, reserveIfMissing: true) ?? ""
-                return
-            }
-            receiveResolvedAddress = ""
-            return
-        }
-        if let bitcoinAddress = wallet.bitcoinAddress?.trimmingCharacters(in: .whitespacesAndNewlines), !bitcoinAddress.isEmpty,
-            storedSeedPhrase(for: wallet.id) == nil
-        {
-            receiveResolvedAddress = await activateLiveReceiveAddress(bitcoinAddress, for: wallet, chainName: receiveCoin.chainName)
-            return
-        }
-        guard !isResolvingReceiveAddress else { return }
+        guard let wallet = wallet(for: receiveWalletID),
+            let coin = selectedReceiveCoin(for: receiveWalletID),
+            let chain = Chain(displayName: coin.chainName), !isResolvingReceiveAddress else { return }
         isResolvingReceiveAddress = true
         defer { isResolvingReceiveAddress = false }
-        do {
-            let xpub: String
-            if let stored = wallet.bitcoinXpub?.trimmingCharacters(in: .whitespacesAndNewlines), !stored.isEmpty {
-                xpub = stored
-            } else if let seedPhrase = storedSeedPhrase(for: wallet.id) {
-                xpub = try WalletServiceBridge.shared.deriveBitcoinAccountXpub(
-                    mnemonicPhrase: seedPhrase, passphrase: "", accountPath: "m/84'/0'/0'")
-            } else {
-                receiveResolvedAddress = ""
-                return
-            }
-            let address = try await WalletServiceBridge.shared.fetchBitcoinNextUnusedAddressTyped(xpub: xpub)
-            receiveResolvedAddress = await activateLiveReceiveAddress(
-                address ?? wallet.bitcoinAddress ?? "", for: wallet, chainName: receiveCoin.chainName
-            )
-        } catch {
-            receiveResolvedAddress = ""
-        }
+        let walletID = wallet.id
+        let address = try? await WalletServiceBridge.shared.receiveAddress(
+            walletID: walletID, chainId: chain.id, reserve: true)
+        guard receiveWalletID == walletID,
+            selectedReceiveCoin(for: receiveWalletID)?.holdingKey == coin.holdingKey else { return }
+        receiveResolvedAddress = address ?? ""
     }
     func importWallet() async {
         guard canImportWallet else { return }

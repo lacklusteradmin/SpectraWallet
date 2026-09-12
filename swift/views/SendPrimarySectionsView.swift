@@ -17,7 +17,7 @@ fileprivate struct SendComposerPresentation {
         selectedWallet = sendWallets.first(where: { $0.id == store.sendWalletID })
         availableSendCoins = store.availableSendCoins(for: store.sendWalletID)
         selectedCoin = availableSendCoins.first(where: { $0.holdingKey == store.sendHoldingKey })
-        selectedCoinAmountText = selectedCoin.map { store.formattedAssetAmount($0.amount, symbol: $0.symbol, chainName: $0.chainName) }
+        selectedCoinAmountText = selectedCoin.map { store.formattedAssetAmount($0.amount, symbol: $0.symbol, deploymentID: $0.holdingKey) }
         let sendAmount = Double(store.sendAmount) ?? 0
         if let selectedCoin, !sendAmount.isZero {
             selectedCoinApproximateFiatText = store.formattedFiatAmount(fromNative: sendAmount, symbol: selectedCoin.symbol)
@@ -115,7 +115,7 @@ struct SendFromPage: View {
                     )
                     Text(coin.symbol).font(.headline)
                 }
-                Text(store.formattedAssetAmount(coin.amount, symbol: coin.symbol, chainName: coin.chainName))
+                Text(store.formattedAssetAmount(coin.amount, symbol: coin.symbol, deploymentID: coin.holdingKey))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .spectraNumericTextLayout()

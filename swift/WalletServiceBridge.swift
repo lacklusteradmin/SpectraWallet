@@ -11,12 +11,10 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     static let shared = WalletServiceBridge()
     private var _service: WalletService?
     private static var _syncService: WalletService?
-    private static var _pendingEtherscanAPIKey: String = ""
     private var _balanceRefreshEngine: BalanceRefreshEngine?
     private func service() throws -> WalletService {
         if let existing = _service { return existing }
-        let svc = try WalletService.newTyped(endpoints: Self.buildEndpoints())
-        svc.setEtherscanApiKey(key: Self._pendingEtherscanAPIKey)
+        let svc = try WalletService.newCatalog()
         _service = svc
         WalletServiceBridge._syncService = svc
         return svc
@@ -37,12 +35,12 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func walletPrivateKey(walletID: String, password: String?) throws -> String {
         try service().walletPrivateKey(walletId: walletID, password: password)
     }
-    func deleteWalletSecrets(walletID: String) throws {
-        try service().deleteWalletSecrets(walletId: walletID)
+    func resetData(scopes: [String]) async throws -> ResetOutcome {
+        try await service().resetData(scopes: scopes)
     }
 
-    func utxoReceiveAddress(walletID: String, chainId: String, reserve: Bool) async throws -> String? {
-        try await service().utxoReceiveAddress(walletId: walletID, chainId: chainId, reserve: reserve)
+    func receiveAddress(walletID: String, chainId: String, reserve: Bool) async throws -> String? {
+        try await service().receiveAddress(walletId: walletID, chainId: chainId, reserve: reserve)
     }
     func advanceUsedUTXOReservations(chainId: String) async throws {
         try await service().advanceUsedUtxoReservations(chainId: chainId)
@@ -50,21 +48,14 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func knownUTXOAddresses(walletID: String, chainId: String) async throws -> [String] {
         try await service().knownUtxoAddresses(walletId: walletID, chainId: chainId)
     }
-    func discoverUTXOAddresses(walletID: String, chainId: String) async throws -> [String] {
-        try await service().discoverUtxoAddresses(walletId: walletID, chainId: chainId)
+    func discoverChainAddresses(chainId: String) async throws -> [WalletAddressDiscovery] {
+        try await service().discoverChainAddresses(chainId: chainId)
     }
     func fetchNativeBalanceSummary(chainId: String, address: String) async throws -> NativeBalanceSummary {
         try await service().fetchNativeBalanceSummary(chainId: chainId, address: address)
     }
-    func fetchHistorySummary(chainId: String, address: String) async throws -> HistorySummary {
-        try await service().fetchHistorySummary(chainId: chainId, address: address)
-    }
-    func fetchEVMHistoryDiagnostics(
-        chainId: String, walletID: String, address: String
-    ) async throws -> HistoryDiagnostics {
-        try await service().fetchEvmHistoryDiagnostics(
-            chainId: chainId, walletId: walletID, address: address)
-    }
+
+
     func refreshPendingTransactions() async throws -> PendingMaintenanceResult {
         try await service().refreshPendingTransactions()
     }
@@ -77,13 +68,6 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     /// There were two of these with the same signature and complementary chain
     /// sets, so a caller had to know which family it was holding.
 
-    /// A free function in core, not a service method: deriving an xpub from a
-    /// phrase and a path reads no wallet, no database and no endpoint, so it
-    /// needs no service to reach. The bridge keeps the wrapper for the default
-    /// passphrase.
-    func deriveBitcoinAccountXpub(mnemonicPhrase: String, passphrase: String = "", accountPath: String) throws -> String {
-        try deriveBitcoinAccountXpubTyped(mnemonicPhrase: mnemonicPhrase, passphrase: passphrase, accountPath: accountPath)
-    }
     /// Core resolves afresh and optionally verifies the address the user reviewed.
     func resolveSendDestination(chainId: String, input: String, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
         if let expectedAddress {
@@ -122,9 +106,7 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     }
     nonisolated func rustGenerateMnemonic(wordCount: Int) -> String { MainActor.assumeIsolated { generateMnemonic(wordCount: UInt32(wordCount)) } }
 
-    func fetchBitcoinNextUnusedAddressTyped(xpub: String, change: UInt32 = 0, gapLimit: UInt32 = 20) async throws -> String? {
-        try await service().fetchBitcoinNextUnusedAddressTyped(xpub: xpub, change: change, gapLimit: gapLimit)
-    }
+
     func refreshOwnedPrices(force: Bool) async throws -> CoreAppState {
         try await service().refreshOwnedPrices(force: force)
     }
@@ -132,12 +114,7 @@ protocol WalletServiceBridgeProtocol: Sendable {}
         try await service().refreshOwnedFiatRates(force: force)
     }
     func registerSecretStore(_ store: SecretStore) throws { try service().setSecretStore(store: store) }
-    nonisolated func setEtherscanAPIKey(_ key: String) {
-        MainActor.assumeIsolated {
-            Self._pendingEtherscanAPIKey = key
-            Self._syncService?.setEtherscanApiKey(key: key)
-        }
-    }
+
 }
 extension WalletServiceBridge {
     // ── Owned application state ───────────────────────────────────────────
@@ -165,15 +142,18 @@ extension WalletServiceBridge {
     /// Current snapshot of the owned state.
     func appState() async throws -> CoreAppState { try await service().appState() }
     /// Core evaluates its own alerts and returns only what to notify about.
-    func evaluatePriceAlerts(prices: [PriceAlertEvaluationPrice]) async throws
+    func evaluatePriceAlerts() async throws
         -> [PriceAlertNotification]
     {
-        try await service().evaluatePriceAlerts(prices: prices)
+        try await service().evaluatePriceAlerts()
     }
-    /// The dashboard's rows. Only the live prices go out — core holds the
-    /// holdings, the known tokens, the pins and the selected networks.
-    func dashboardAssetGroups(prices: [String: Double]) async throws -> [CoreDashboardAssetGroup] {
-        try await service().dashboardAssetGroups(prices: prices)
+    /// The dashboard rows, computed from core holdings, settings and quotes.
+    func dashboardPinOptions() async throws -> [CoreDashboardPinOption] {
+        try await service().dashboardPinOptions()
+    }
+
+    func dashboardAssetGroups() async throws -> [CoreDashboardAssetGroup] {
+        try await service().dashboardAssetGroups()
     }
     /// Record something that happened on a chain. Core stamps and caps it.
     func appendChainOperationalEvent(
@@ -247,15 +227,6 @@ extension WalletServiceBridge {
         guard let service = try? service() else { return }
         await service.recordRefresh(kind: kind)
     }
-    func historyRefreshPlans(chainIDs: [String], intervalSecs: Double) async -> [String] {
-        guard let service = try? service() else { return [] }
-        return await service.historyRefreshPlans(chainIds: chainIDs, intervalSecs: intervalSecs)
-    }
-    func recordHistoryRefresh(chainID: String) async {
-        guard let service = try? service() else { return }
-        await service.recordHistoryRefresh(chainId: chainID)
-    }
-
     func operationalEvents(chainName: String) async -> [ChainOperationalEventRecord] {
         guard let service = try? service() else { return [] }
         return await service.operationalEvents(chainName: chainName)
@@ -271,16 +242,6 @@ extension WalletServiceBridge {
 
     /// Push a rebuilt endpoint list into the service.
     ///
-    /// `update_endpoints_typed` had existed unreachable since it was written,
-    /// and the service was built once and never reconfigured — so a custom RPC
-    /// the user set in Settings reached exactly one thing, the diagnostics
-    /// reachability probe. Balances, history and sends all used the catalog's
-    /// list and never saw it.
-    func updateEndpoints(custom: [String: String]) async {
-        guard let service = try? service() else { return }
-        try? await service.updateEndpointsTyped(endpoints: Self.buildEndpoints(custom: custom))
-    }
-
     func applyTransactionCommand(_ command: TransactionCommand) async throws -> TransactionChange {
         try await service().applyTransactionCommand(command: command)
     }
@@ -329,20 +290,11 @@ extension WalletServiceBridge {
         try await service().keypoolState(walletId: walletID, chainName: chainName)
     }
 
-    func reserveReceiveIndex(walletID: String, chainName: String, minimumIndex: Int64) async throws
-        -> Int64
-    {
-        try await service().reserveReceiveIndex(
-            walletId: walletID, chainName: chainName, minimumIndex: minimumIndex)
-    }
 
-    func reserveChangeIndex(walletID: String, chainName: String) async throws -> Int64 {
-        try await service().reserveChangeIndex(walletId: walletID, chainName: chainName)
-    }
 
-    func clearReservedReceiveIndex(walletID: String, chainName: String) async throws {
-        try await service().clearReservedReceiveIndex(walletId: walletID, chainName: chainName)
-    }
+
+
+
 
 
     /// Import wallets into core. Returns what was created, plus the Keychain
@@ -368,14 +320,7 @@ extension WalletServiceBridge {
     /// The single call a network switch makes: core drops the chain's keypool
     /// and its owned addresses in one transaction.
 
-    func registerOwnedAddress(
-        walletID: String, chainName: String, address: String, derivationPath: String?,
-        branch: String?, branchIndex: Int64?
-    ) async throws {
-        try await service().registerOwnedAddress(
-            walletId: walletID, chainName: chainName, address: address,
-            derivationPath: derivationPath, branch: branch, branchIndex: branchIndex)
-    }
+
     /// Omit `chainName` for every chain.
     func ownedAddresses(walletID: String, chainName: String? = nil) async -> [String] {
         guard let service = try? service() else { return [] }
@@ -400,90 +345,12 @@ extension WalletServiceBridge {
                 ?? HistoryCursor(nextCursor: nil, nextPage: 0, isExhausted: false)
         }
     }
-    nonisolated func advanceHistoryCursor(chainId: String, walletId: String, nextCursor: String?) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.advanceHistoryCursor(chainId: chainId, walletId: walletId, nextCursor: nextCursor) } }
-    nonisolated func setHistoryPage(chainId: String, walletId: String, page: UInt32, isExhausted: Bool) {
-        MainActor.assumeIsolated {
-            WalletServiceBridge._syncService?.setHistoryPage(
-                chainId: chainId, walletId: walletId, page: page, isExhausted: isExhausted)
-        }
-    }
     /// Forget history pagination, for as much of it as `scope` names. Four
     /// methods stood for the four cases.
     nonisolated func resetHistory(_ scope: HistoryScope) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.resetHistory(scope: scope) } }
     private func sqliteDbPath() -> String {
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? NSTemporaryDirectory()
         return "\(docs)/spectra_state.db"
-    }
-}
-private extension WalletServiceBridge {
-    static func buildEndpoints(custom: [String: String] = [:]) -> [ChainEndpoints] {
-        var payloads: [ChainEndpoints] = []
-        // A chain's id is its name, resolved by the registry — stating both was
-        // 30 rows of `chainId: <id>, chainName: "X"`. Whether its endpoints come
-        // from the EVM list or the generic record list is `Chain.isEVM`.
-        for chainName in AppEndpointDirectory.liveChainNames {
-            var payload =
-                (Chain(displayName: chainName)?.isEVM ?? false)
-                ? evmPayloads(chainName: chainName) : rpcPayloads(chainName: chainName)
-            // The user's own endpoint goes first: `with_fallback` walks the list
-            // in order, so "configured" means tried before the catalog's, not
-            // instead of it — a typo in the field degrades to the catalog rather
-            // than taking the chain offline.
-            if let configured = custom[chainName]?.trimmingCharacters(in: .whitespacesAndNewlines),
-                !configured.isEmpty, !payload.isEmpty
-            {
-                payload[0] = ChainEndpoints(
-                    chainId: payload[0].chainId,
-                    endpoints: [configured] + payload[0].endpoints.filter { $0 != configured },
-                    apiKey: payload[0].apiKey)
-            }
-            payloads += payload
-        }
-        // Supplemental explorer endpoints. Which chains have one is data — the
-        // catalog answers, and `explorerPayloads` returns nothing for a chain
-        // without — and which slot it lands in is a registry column.
-        //
-        // A sixteen-name table stood here. Twelve of its names have no
-        // supplement at all, and Hyperliquid, which does, was not in it.
-        for chain in Chain.all {
-            payloads += explorerPayloads(
-                chainId: endpointSlotId(chain.id, chain.supplementalEndpointSlot),
-                chainName: chain.displayName)
-        }
-        let tonV3URLs = AppEndpointDirectory.endpoints(for: ["ton.api.v3"])
-        if !tonV3URLs.isEmpty {
-            payloads.append(
-                ChainEndpoints(
-                    chainId: endpointSlotId(Chain.ton.id, .secondary), endpoints: tonV3URLs,
-                    apiKey: nil))
-        }
-        return payloads
-    }
-    static func endpointSlotId(_ chainId: String, _ slot: AppCoreEndpointSlot) -> String {
-        coreEndpointStrId(chainId: chainId, slot: slot) ?? chainId
-    }
-    static func rpcPayloads(chainName: String) -> [ChainEndpoints] {
-        let chainId = Chain(displayName: chainName)?.id ?? ""
-        guard !chainId.isEmpty else { return [] }
-        let endpoints = (
-            try? WalletRustEndpointCatalogBridge.endpointRecords(
-                for: chainName, roles: [.rpc, .balance, .backend], settingsVisibleOnly: false
-            )
-        )?.map(\.endpoint) ?? []
-        guard !endpoints.isEmpty else { return [] }
-        return [ChainEndpoints(chainId: chainId, endpoints: endpoints, apiKey: nil)]
-    }
-    static func evmPayloads(chainName: String) -> [ChainEndpoints] {
-        let chainId = Chain(displayName: chainName)?.id ?? ""
-        guard !chainId.isEmpty else { return [] }
-        let endpoints = AppEndpointDirectory.evmRPCEndpoints(for: chainName)
-        guard !endpoints.isEmpty else { return [] }
-        return [ChainEndpoints(chainId: chainId, endpoints: endpoints, apiKey: nil)]
-    }
-    static func explorerPayloads(chainId: String, chainName: String) -> [ChainEndpoints] {
-        let endpoints = AppEndpointDirectory.explorerSupplementalEndpoints(for: chainName)
-        guard !endpoints.isEmpty else { return [] }
-        return [ChainEndpoints(chainId: chainId, endpoints: endpoints, apiKey: nil)]
     }
 }
 extension WalletServiceBridge {
@@ -494,35 +361,8 @@ extension WalletServiceBridge {
         return engine
     }
     func setBalanceObserver(_ observer: BalanceObserver) throws { try balanceRefreshEngine().setObserver(observer: observer) }
-    /// Fetch and merge one chain's history for the wallets core holds.
-    func refreshChainHistory(chainId: String, walletIDs: [String]) async throws
-        -> HistoryRefreshOutcome
-    {
-        try await service().refreshChainHistory(chainId: chainId, walletIds: walletIDs)
-    }
-
-    /// Fetch and merge Bitcoin history for the wallets core holds.
-    func refreshBitcoinHistory(walletIDs: [String], loadMore: Bool, limit: UInt32?) async throws
-        -> HistoryRefreshOutcome
-    {
-        try await service().refreshBitcoinHistory(
-            walletIds: walletIDs, loadMore: loadMore, limit: limit)
-    }
-
-    /// Fetch and merge one UTXO chain's history across each wallet's addresses.
-    func refreshUTXOChainHistory(chainId: String, walletIDs: [String], loadMore: Bool) async throws
-        -> HistoryRefreshOutcome
-    {
-        try await service().refreshUtxoChainHistory(
-            chainId: chainId, walletIds: walletIDs, loadMore: loadMore)
-    }
-
-    /// Fetch and merge one EVM chain's history page for the wallets core holds.
-    func refreshEVMChainHistory(
-        chainId: String, walletIDs: [String], loadMore: Bool, pageSize: UInt32?
-    ) async throws -> HistoryRefreshOutcome {
-        try await service().refreshEvmChainHistory(
-            chainId: chainId, walletIds: walletIDs, loadMore: loadMore, pageSize: pageSize)
+    func refreshHistory(scope: HistoryRefreshScope, loadMore: Bool, interval: Double) async throws -> [ChainHistoryRefresh] {
+        try await service().refreshHistory(scope: scope, loadMore: loadMore, limit: nil, intervalSecs: interval)
     }
 
     /// Rebuild the refresh list from the wallets core holds; answers the count.

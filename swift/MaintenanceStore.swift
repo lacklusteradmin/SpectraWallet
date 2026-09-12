@@ -76,7 +76,7 @@ extension AppState {
         await withBalanceRefreshWindow {
             await refreshChainBalances(includeHistoryRefreshes: false, historyRefreshInterval: 300, forceChainRefresh: false)
         }
-        await runHistoryRefreshes(for: refreshableChainIDs, interval: 300)
+        await runHistoryRefreshes(interval: 300)
         let didRefreshPrices = shouldRunScheduledPriceRefresh ? await refreshLivePrices() : false
         await refreshFiatExchangeRatesIfNeeded()
         let currentTotal = totalBalance

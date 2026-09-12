@@ -52,15 +52,14 @@ extension AssetHolding: Identifiable {
             name: name, symbol: symbol, coinGeckoId: coinGeckoId, chainName: chainName,
             tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUsd)
     }
-    var holdingKey: String { "\(chainName)|\(symbol)" }
+    var holdingKey: String { id }
     var chain: Chain? { Chain(displayName: chainName) }
     var isUTXOChain: Bool { chain?.supportsDeepUTXODiscovery ?? false }
     var isEVMChain: Bool { chain?.isEVM ?? false }
     /// A holding is the chain's own asset when its symbol is the one fees are
     /// paid in — `ETH` on Arbitrum, not `ARB`.
     var isNativeCoin: Bool {
-        guard let chain else { return false }
-        return symbol == chain.gasTokenSymbol
+        tokenStandard == "Native" && (contractAddress?.isEmpty ?? true)
     }
 }
 typealias ImportedWallet = CoreImportedWallet
@@ -422,6 +421,7 @@ extension AddressBookEntry: Identifiable {
     }
 }
 struct TransactionRecord: Identifiable, Equatable, Sendable {
+    let deploymentID: String?
     let id: UUID
     let walletID: String?
     let kind: TransactionKind
@@ -454,7 +454,7 @@ struct TransactionRecord: Identifiable, Equatable, Sendable {
     let transactionHistorySource: String?
     let createdAt: Date
     nonisolated init(
-        id: UUID = UUID(), walletID: String? = nil, kind: TransactionKind, status: TransactionStatus, walletName: String, assetName: String,
+        id: UUID = UUID(), walletID: String? = nil, deploymentID: String? = nil, kind: TransactionKind, status: TransactionStatus, walletName: String, assetName: String,
         symbol: String, chainName: String, amount: Double, address: String, transactionHash: String? = nil, ethereumNonce: Int? = nil,
         receiptBlockNumber: Int? = nil, receiptGasUsed: String? = nil, receiptEffectiveGasPriceGwei: Double? = nil,
         receiptNetworkFeeEth: Double? = nil, feePriorityRaw: String? = nil, feeRateDescription: String? = nil,
@@ -467,6 +467,7 @@ struct TransactionRecord: Identifiable, Equatable, Sendable {
     ) {
         self.id = id
         self.walletID = walletID
+        self.deploymentID = deploymentID
         self.kind = kind
         self.status = status
         self.walletName = walletName
@@ -551,6 +552,7 @@ extension TransactionRecord {
         self.init(
             id: resolvedID,
             walletID: snapshot.walletId,
+            deploymentID: snapshot.deploymentId,
             kind: resolvedKind,
             status: resolvedStatus,
             walletName: snapshot.walletName,
@@ -584,6 +586,7 @@ extension TransactionRecord {
     }
     var persistedSnapshot: CorePersistedTransactionRecord {
         CorePersistedTransactionRecord(
+            deploymentId: deploymentID,
             id: id.uuidString,
             walletId: walletID,
             kind: kind,

@@ -29,10 +29,31 @@ final class SendAmountBridgeTests: XCTestCase {
         XCTAssertFalse(service.walletSecretState(walletId: outcome.wallets[0].id).hasSigningMaterial)
     }
 
+    func testOwnedClosureOperationsAcrossAsyncBinding() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let service = try WalletService.newTyped(endpoints: [])
+        _ = try await service.openState(dbPath: directory.appendingPathComponent("state.db").path)
+        let history = try await service.refreshHistory(scope: .all, loadMore: false, limit: 20, intervalSecs: 0)
+        XCTAssertTrue(history.isEmpty)
+        let alerts = try await service.evaluatePriceAlerts()
+        XCTAssertTrue(alerts.isEmpty)
+        let discovered = try await service.discoverChainAddresses(chainId: "bitcoin")
+        XCTAssertTrue(discovered.isEmpty)
+        do {
+            _ = try await service.receiveAddress(walletId: "missing", chainId: "bitcoin", reserve: true)
+            XCTFail("Missing wallet must fail before reserving")
+        } catch SpectraBridgeError.InvalidInput { }
+        let reset = try await service.resetData(scopes: ["walletsAndSecrets", "historyAndCache"])
+        XCTAssertTrue(reset.state.wallets.isEmpty)
+        XCTAssertTrue(reset.plan.resetHistoryAndCache)
+    }
+
     func testFeeAdjustedShortcutIsFlooredAcrossBinding() {
         XCTAssertEqual(sendAmountShortcut(maximum: 0.99999, decimals: 8, percentage: 100), "0.99998999")
         XCTAssertNil(sendAmountShortcut(maximum: .infinity, decimals: 8, percentage: 100))
-        XCTAssertNil(quotedSendAmount(preview: nil, chainName: "Bitcoin", symbol: "BTC", tokenDecimals: nil, percentage: 100))
+        XCTAssertNil(quotedSendAmount(preview: nil, chainName: "Bitcoin", isNative: true, tokenDecimals: nil, percentage: 100))
         XCTAssertNil(parseAmountInput(text: "340282366920938463463374607431768211456", maxDecimals: 0))
     }
 
