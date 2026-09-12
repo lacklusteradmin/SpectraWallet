@@ -59,9 +59,21 @@ extension AppState {
                     seedPhrase: seedPhrase,
                     passphrase: passphrase?.nonEmpty
                 )
-                let candidates = try coreGenerateFundsFinderCandidates(request: request)
-                self.fundsFinderTotalCount = candidates.count
-                await self.checkCandidates(candidates)
+                let scan = try WalletServiceBridge.shared.beginFundsScan(request: request)
+                repeat {
+                    let progress = await scan.nextBatch()
+                    guard !Task.isCancelled else { return }
+                    self.fundsFinderTotalCount = Int(progress.total)
+                    self.fundsFinderCheckedCount = Int(progress.checked)
+                    self.fundsFinderProgress = progress.total == 0 ? 1 : Double(progress.checked) / Double(progress.total)
+                    for read in progress.reads {
+                        if let error = read.error { self.fundsFinderScanError = error }
+                        if read.funded, let balance = read.balance {
+                            self.fundsFinderHits.append(FundsFinderHit(candidate: read.candidate, balanceDisplay: balance.amountDisplay, smallestUnit: balance.smallestUnit))
+                        }
+                    }
+                    if progress.complete { break }
+                } while !Task.isCancelled
             } catch {
                 if !Task.isCancelled {
                     self.fundsFinderScanError = error.localizedDescription
@@ -86,57 +98,6 @@ extension AppState {
         fundsFinderScanError = nil
     }
 
-    // ── Private scan logic ─────────────────────────────────────────────────
-
-    private func checkCandidates(_ candidates: [FundsFinderCandidate]) async {
-        // Process up to 4 candidates concurrently for speed without hammering endpoints.
-        let batchSize = 4
-        var index = 0
-        let total = candidates.count
-
-        while index < total {
-            guard !Task.isCancelled else { return }
-
-            let batch = Array(candidates[index..<min(index + batchSize, total)])
-            index += batch.count
-
-            await withTaskGroup(of: FundsFinderHit?.self) { group in
-                for candidate in batch {
-                    group.addTask { [weak self] in
-                        guard let self else { return nil }
-                        return await self.checkSingleCandidate(candidate)
-                    }
-                }
-                for await hit in group {
-                    fundsFinderCheckedCount += 1
-                    if total > 0 {
-                        fundsFinderProgress = Double(fundsFinderCheckedCount) / Double(total)
-                    }
-                    if let hit { fundsFinderHits.append(hit) }
-                }
-            }
-        }
-    }
-
-    private func checkSingleCandidate(_ candidate: FundsFinderCandidate) async -> FundsFinderHit? {
-        do {
-            let summary = try await WalletServiceBridge.shared.fetchNativeBalanceSummary(
-                chainId: candidate.chainId,
-                address: candidate.address
-            )
-            // Consider a hit if the smallest-unit balance is non-zero.
-            guard summary.smallestUnit != "0", !summary.smallestUnit.isEmpty else { return nil }
-            return FundsFinderHit(
-                candidate: candidate,
-                balanceDisplay: summary.amountDisplay,
-                smallestUnit: summary.smallestUnit
-            )
-        } catch {
-            // Network / RPC errors are silently skipped — the user can
-            // re-scan or check manually. We don't abort the whole scan.
-            return nil
-        }
-    }
 }
 
 // MARK: - Backing storage (AppState must declare these vars)

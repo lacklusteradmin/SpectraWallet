@@ -1,16 +1,7 @@
 import Foundation
 import SwiftUI
 
-// This file now forwards diagnostics decoding/aggregation to Rust
-// (`core/src/diagnostics/aggregate.rs`). The Swift layer only keeps:
-//   * per-chain AppState wiring (KeyPath-driven, tied to SwiftUI reactivity)
-//   * HTTP probes via Rust FFI (httpRequest / httpPostJson / diagnosticsProbeJsonrpc)
-//   * async orchestration + pending-transaction mutation against
-//     AppState's transaction model.
-// JSON decoding and diagnostic-record construction live in core — see
-// `diagnosticsHistoryEntryCount`, `diagnosticsHistorySummary`,
-// `diagnosticsMakeEvm{Running,Error,Success}` and `diagnosticsParseJsonrpcProbe`
-// in the generated bindings.
+// Swift holds progress and rendered diagnostics; core owns probes and status updates.
 @MainActor
 extension AppState {
     // MARK: Bitcoin-family history diagnostics
@@ -76,11 +67,7 @@ extension AppState {
     /// the catalog run, two of them through a wrapper that passed the chain's
     /// own name back to it.
     func runEndpointDiagnostics(for chain: Chain) async {
-        switch chain {
-        case .bitcoin: await runBitcoinEndpointReachabilityDiagnostics()
-        case .monero: await runMoneroEndpointReachabilityDiagnostics()
-        default: await runCatalogEndpointReachabilityDiagnostics(for: chain.displayName)
-        }
+        await runCatalogEndpointReachabilityDiagnostics(for: chain.displayName)
     }
 
     // MARK: Generic history-diagnostic drivers
@@ -127,99 +114,18 @@ extension AppState {
             self[endpointHealthFor: chainName].lastUpdatedAt = Date()
         }
     }
-    func runBitcoinEndpointReachabilityDiagnostics() async {
-        await withEndpointCheck(for: "Bitcoin") { publish in
-            var results: [EndpointHealthRow] = []
-            for endpoint in self.effectiveBitcoinEsploraEndpoints() {
-                guard let url = URL(string: endpoint) else {
-                    results.append(EndpointHealthRow(label: "", endpoint: endpoint, reachable: false, statusCode: nil, detail: "Invalid URL"))
-                    continue
-                }
-                let probe = await self.probeHTTP(url.appending(path: "blocks/tip/height"))
-                results.append(
-                    EndpointHealthRow(
-                        label: "", endpoint: endpoint, reachable: probe.reachable, statusCode: probe.statusCode, detail: probe.detail))
-                publish(results)
-            }
-        }
-    }
-    func runMoneroEndpointReachabilityDiagnostics() async {
-        await withEndpointCheck(for: "Monero") { publish in
-            let trimmedBackendURL = self.moneroBackendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-            let resolvedBackendURL = trimmedBackendURL.isEmpty ? MoneroBalanceService.defaultPublicBackend.baseURL : trimmedBackendURL
-            guard let baseURL = URL(string: resolvedBackendURL) else {
-                publish([
-                    EndpointHealthRow(
-                        label: "", endpoint: "monero.backend.baseURL", reachable: false, statusCode: nil, detail: "Monero backend is not configured.")
-                ])
-                return
-            }
-            let probe = await self.probeHTTP(baseURL.appendingPathComponent("v1/monero/balance"), profile: .diagnostics)
-            publish([
-                EndpointHealthRow(
-                    label: "", endpoint: baseURL.absoluteString, reachable: probe.reachable, statusCode: probe.statusCode, detail: probe.detail)
-            ])
-        }
-    }
-
-    /// Probe every endpoint the catalog lists for a chain, each the way the
-    /// catalog says: a JSON-RPC call when the record carries the `rpc` role,
-    /// a GET against its probe URL otherwise.
-    ///
-    /// NEAR and Polkadot each had their own copy of this, and each decided
-    /// which endpoints were RPC from a hand-written list of endpoint ids in
-    /// `ChainTypes` — beside a catalog that already carries the role. Both
-    /// lists agreed when they were written; the drift they invited is a
-    /// JSON-RPC node probed with a GET, which many answer 405 and this would
-    /// have reported as unreachable.
+    func runBitcoinEndpointReachabilityDiagnostics() async { await runCatalogEndpointReachabilityDiagnostics(for: "Bitcoin") }
+    func runMoneroEndpointReachabilityDiagnostics() async { await runCatalogEndpointReachabilityDiagnostics(for: "Monero") }
     func runCatalogEndpointReachabilityDiagnostics(for chainName: String) async {
+        guard let chain = Chain(displayName: chainName) else { return }
         await withEndpointCheck(for: chainName) { publish in
-            var results: [EndpointHealthRow] = []
-            // The one endpoint that is not in the catalog: whatever the user
-            // typed. Only Ethereum has such a setting — see "Known open items".
-            if let configured = self.configuredEVMRPCEndpointURL(for: chainName),
-                let method = Chain(displayName: chainName)?.rpcHealthMethod
-            {
-                var row = await self.probeJSONRPC(
-                    endpoint: configured.absoluteString, urlString: configured.absoluteString, rpcMethod: method)
-                row = EndpointHealthRow(
-                    label: "Configured RPC", endpoint: row.endpoint, reachable: row.reachable,
-                    statusCode: row.statusCode, detail: row.detail)
-                results.append(row)
-                publish(results)
-            }
-            for check in AppEndpointDirectory.diagnosticsChecks(for: chainName) {
-                if let method = check.rpcProbeMethod {
-                    results.append(
-                        await self.probeJSONRPC(endpoint: check.endpoint, urlString: check.endpoint, rpcMethod: method))
-                } else if let url = URL(string: check.probeUrl) {
-                    let probe = await self.probeHTTP(url, profile: .diagnostics)
-                    results.append(
-                        EndpointHealthRow(
-                            label: "", endpoint: check.endpoint, reachable: probe.reachable,
-                            statusCode: probe.statusCode, detail: probe.detail))
-                } else {
-                    results.append(
-                        EndpointHealthRow(
-                            label: "", endpoint: check.endpoint, reachable: false, statusCode: nil, detail: "Invalid URL"))
-                }
-                publish(results)
+            do {
+                let rows = try await WalletServiceBridge.shared.probeChainEndpoints(chainID: chain.id)
+                publish(rows.map { EndpointHealthRow(label: $0.checked ? "" : "Not checked", endpoint: $0.endpoint, reachable: $0.reachable, statusCode: nil, detail: $0.detail) })
+            } catch {
+                publish([EndpointHealthRow(label: "", endpoint: chainName, reachable: false, statusCode: nil, detail: error.localizedDescription)])
             }
         }
-    }
-    /// Send a JSON-RPC request to `urlString` with method `rpcMethod` and an
-    /// empty params array, then delegate to Rust for the reachability
-    /// verdict (`diagnosticsParseJsonrpcProbe`). Swift only handles
-    /// transport — parsing lives in `core::diagnostics::aggregate`.
-    // Pilot call site for the Rust HTTP migration (Phase 1).
-    // Transport + JSON-RPC parse both live in `core::http_ffi::diagnostics_probe_jsonrpc`.
-    // Swift owns nothing here beyond URL validation and result wrapping.
-    private func probeJSONRPC(endpoint: String, urlString: String, rpcMethod: String) async -> EndpointHealthRow {
-        guard URL(string: urlString) != nil else {
-            return EndpointHealthRow(label: "", endpoint: endpoint, reachable: false, statusCode: nil, detail: "Invalid URL")
-        }
-        let outcome = await diagnosticsProbeJsonrpc(url: urlString, rpcMethod: rpcMethod)
-        return EndpointHealthRow(label: "", endpoint: endpoint, reachable: outcome.reachable, statusCode: outcome.statusCode, detail: outcome.detail)
     }
 
     // MARK: EVM history diagnostics
@@ -237,28 +143,6 @@ extension AppState {
             ?? diagnosticsMakeEvmRunning(walletId: walletID, address: address)
     }
 
-    /// `setResults` and `markUpdated` were two closures called one after the
-    /// other, at the one call site each caller had — a pair, so the pair is one
-    /// argument, and it is the same `publish` `withEndpointCheck` hands out.
-    func withTimeout<T: Sendable>(seconds: Double, operation: @escaping @Sendable () async throws -> T) async throws -> T {
-        try await withThrowingTaskGroup(of: T.self) { group in
-            group.addTask { try await operation() }
-            group.addTask {
-                try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000)); throw TimeoutError.timedOut(seconds: seconds)
-            }
-            guard let first = try await group.next() else { throw TimeoutError.timedOut(seconds: seconds) }
-            group.cancelAll(); return first
-        }
-    }
-    func probeHTTP(_ url: URL, profile: HttpRetryProfile = .diagnostics) async -> (reachable: Bool, statusCode: Int32?, detail: String) {
-        do {
-            return try await withTimeout(seconds: 10) {
-                let resp = try await httpRequest(method: "GET", url: url.absoluteString, headers: [], body: nil, profile: profile)
-                let statusCode = Int32(resp.statusCode)
-                return ((200..<300).contains(statusCode), statusCode, "HTTP \(statusCode)")
-            }
-        } catch { return (false, nil, error.localizedDescription) }
-    }
     // MARK: Pending transaction refresh
 
     /// Poll one chain's pending transactions for a final status.
@@ -296,5 +180,16 @@ extension AppState {
             sourceUsed: count == nil ? "none" : "rust",
             transactionCount: Int32(count ?? 0), scannedCount: nil, nextCursor: nil,
             error: count == nil ? "History fetch failed" : nil, perSource: [])
+    }
+}
+
+/// UI deadline for the history diagnostic action; transport timeouts remain core's.
+private func withTimeout<T: Sendable>(seconds: Double, operation: @escaping @Sendable () async throws -> T) async throws -> T {
+    try await withThrowingTaskGroup(of: T.self) { group in
+        group.addTask { try await operation() }
+        group.addTask { try await Task.sleep(for: .seconds(seconds)); throw AppState.TimeoutError.timedOut(seconds: seconds) }
+        defer { group.cancelAll() }
+        guard let first = try await group.next() else { throw AppState.TimeoutError.timedOut(seconds: seconds) }
+        return first
     }
 }

@@ -58,13 +58,9 @@ extension AppState {
         let deletedWalletID = walletPendingDeletion.id
         let deletedWalletIDString = deletedWalletID
         let deletedChainName = normalizedWalletChainName(walletPendingDeletion.selectedChain)
-        deleteWalletSecrets(for: deletedWalletID)
-        try? await WalletServiceBridge.shared.deleteWalletRelationalData(walletId: deletedWalletIDString)
-        await removeWallet(id: walletPendingDeletion.id)
+        guard await removeWallet(id: walletPendingDeletion.id) else { return }
         let hasRemainingWalletsOnDeletedChain = wallets.contains { normalizedWalletChainName($0.selectedChain) == deletedChainName }
         resetLargeMovementAlertBaseline()
-        removeTransactions(forWalletID: walletPendingDeletion.id)
-        try? await WalletServiceBridge.shared.deleteKeypoolForWallet(walletId: walletPendingDeletion.id)
         for chainName in discoveredUTXOAddressesByChain.keys { discoveredUTXOAddressesByChain[chainName]?[walletPendingDeletion.id] = nil }
         clearHistoryTracking(for: walletPendingDeletion.id)
         clearDeletedWalletDiagnostics(

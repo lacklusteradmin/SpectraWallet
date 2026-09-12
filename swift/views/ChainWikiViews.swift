@@ -24,12 +24,9 @@ struct ChainWikiDetailView: View {
 
     private var wikiHeroCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            WikiRotatingCoin(face: chain.face)
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, 2)
 
             HStack(spacing: 12) {
-                WikiCoinBadge(face: chain.face, size: 38)
+                WikiCoinBadge(face: chain.face, size: 52)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(chain.name).font(.title3.weight(.semibold))
                     Text(chain.symbol).font(.subheadline.monospaced()).foregroundStyle(.secondary)

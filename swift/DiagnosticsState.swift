@@ -3,107 +3,64 @@ import Foundation
 @MainActor
 @Observable
 final class WalletDiagnosticsState {
-    static let chainSyncStateDefaultsKey = "chain.sync.state.v1"
-    static let operationalLogsDefaultsKey = "operational.logs.v1"
-    private static let persistenceEncoder = JSONEncoder()
-    private static let persistenceDecoder = JSONDecoder()
     private static let operationalLogTimestampFormatter = ISO8601DateFormatter()
-    private static let chainSyncPersistenceDelay: TimeInterval = 0.15
-    private static let operationalLogsPersistenceDelay: TimeInterval = 0.35
-    @ObservationIgnored private var pendingChainSyncPersistence: Task<Void, Never>?
-    @ObservationIgnored private var pendingOperationalLogsPersistence: Task<Void, Never>?
-    @ObservationIgnored private var suspendPersistenceScheduling = false
-    private var chainDegradedMessagesByID: [WalletChainID: String] = [:] {
-        didSet {
-            scheduleChainSyncPersistence()
-        }
-    }
-    private var lastGoodChainSyncByID: [WalletChainID: Date] = [:] {
-        didSet {
-            scheduleChainSyncPersistence()
-        }
-    }
-    var operationalLogs: [AppState.OperationalLogEvent] = [] {
-        didSet {
-            operationalLogsRevision &+= 1
-            scheduleOperationalLogsPersistence()
-        }
-    }
+    private var snapshot = DiagnosticState(degraded: [:], lastGoodUnix: [:], logs: [])
+    private(set) var operationalLogs: [AppState.OperationalLogEvent] = []
     private(set) var operationalLogsRevision: UInt64 = 0
-    init() {}
-    deinit {
-        pendingChainSyncPersistence?.cancel()
-        pendingOperationalLogsPersistence?.cancel()
+    private(set) var persistenceError: String?
+    @ObservationIgnored private var pendingCommand: Task<Void, Never>?
+    @ObservationIgnored private var revision: UInt64 = 0
+
+    private func adopt(_ state: DiagnosticState) {
+        snapshot = state
+        operationalLogs = state.logs.compactMap { log in
+            guard let id = UUID(uuidString: log.id), let level = AppState.OperationalLogEvent.Level(rawValue: log.input.level) else { return nil }
+            let input = log.input
+            return AppState.OperationalLogEvent(id: id, timestamp: Date(timeIntervalSince1970: log.timestampUnix), level: level,
+                category: input.category, message: input.message, chainName: input.chainName, walletID: input.walletId,
+                transactionHash: input.transactionHash, source: input.source, metadata: input.metadata)
+        }
+        operationalLogsRevision &+= 1
+    }
+    private func enqueue(_ command: DiagnosticCommand) {
+        revision &+= 1
+        let previous = pendingCommand
+        // A queued event finishes even when its diagnostics view is closed.
+        pendingCommand = Task { @MainActor [weak self] in
+            await previous?.value
+            do {
+                let result = try await WalletServiceBridge.shared.applyDiagnosticCommand(command)
+                self?.adopt(result)
+                self?.persistenceError = nil
+            } catch { self?.persistenceError = error.localizedDescription }
+        }
     }
     func loadFromSQLite() async {
-        async let opsLogsJSON = try? WalletServiceBridge.shared.loadState(key: Self.operationalLogsDefaultsKey)
-        async let chainSyncJSON = try? WalletServiceBridge.shared.loadState(key: Self.chainSyncStateDefaultsKey)
-        let opsJSON = await opsLogsJSON
-        let chainJSON = await chainSyncJSON
-        let loadedLogs: [AppState.OperationalLogEvent]? = {
-            guard let json = opsJSON, json != "{}", let data = json.data(using: .utf8) else { return nil }
-            return (try? Self.persistenceDecoder.decode([AppState.OperationalLogEvent].self, from: data))?.sorted {
-                $0.timestamp > $1.timestamp
-            }
-        }()
-        let loadedChainSync: (degradedMessages: [WalletChainID: String], lastGoodSyncByID: [WalletChainID: Date])? = {
-            guard let json = chainJSON, json != "{}", let data = json.data(using: .utf8),
-                let payload = try? Self.persistenceDecoder.decode(AppState.PersistedChainSyncState.self, from: data),
-                payload.version == AppState.PersistedChainSyncState.currentVersion
-            else { return nil }
-            let degradedMessages = Dictionary(
-                uniqueKeysWithValues: payload.degradedMessages.compactMap { key, value in
-                    WalletChainID(key).map { ($0, value) }
-                }
-            )
-            let dates = Dictionary(
-                uniqueKeysWithValues: payload.lastGoodSyncUnix.compactMap { key, value in
-                    WalletChainID(key).map { ($0, Date(timeIntervalSince1970: value)) }
-                }
-            )
-            return (degradedMessages, dates)
-        }()
-        suspendPersistenceScheduling = true
-        if let loadedLogs { operationalLogs = loadedLogs }
-        if let loadedChainSync {
-            chainDegradedMessagesByID = loadedChainSync.degradedMessages
-            lastGoodChainSyncByID = loadedChainSync.lastGoodSyncByID
-        }
-        suspendPersistenceScheduling = false
+        await pendingCommand?.value
+        let started = revision
+        do {
+            let state = try await WalletServiceBridge.shared.diagnosticState()
+            guard started == revision else { return }
+            adopt(state)
+        } catch { persistenceError = error.localizedDescription }
     }
-    private static func byName<V>(_ d: [WalletChainID: V]) -> [String: V] {
-        Dictionary(uniqueKeysWithValues: d.map { ($0.key.displayName, $0.value) })
-    }
-    private static func byChainID<V>(_ d: [String: V]) -> [WalletChainID: V] {
-        Dictionary(uniqueKeysWithValues: d.compactMap { k, v in WalletChainID(k).map { ($0, v) } })
-    }
-    var chainDegradedMessages: [String: String] {
-        get { Self.byName(chainDegradedMessagesByID) }
-        set { chainDegradedMessagesByID = Self.byChainID(newValue) }
-    }
+    func flushPendingPersistence() async { await pendingCommand?.value }
+    func reset() { enqueue(.reset) }
+    var chainDegradedMessages: [String: String] { snapshot.degraded }
     var chainDegradedMessagesByChainID: [WalletChainID: String] {
-        get { chainDegradedMessagesByID }
-        set { chainDegradedMessagesByID = newValue }
+        Dictionary(uniqueKeysWithValues: snapshot.degraded.compactMap { key, value in WalletChainID(key).map { ($0, value) } })
     }
-    var lastGoodChainSyncByName: [String: Date] {
-        get { Self.byName(lastGoodChainSyncByID) }
-        set { lastGoodChainSyncByID = Self.byChainID(newValue) }
-    }
+    var lastGoodChainSyncByName: [String: Date] { snapshot.lastGoodUnix.mapValues { Date(timeIntervalSince1970: $0) } }
     var lastGoodChainSyncByChainID: [WalletChainID: Date] {
-        get { lastGoodChainSyncByID }
-        set { lastGoodChainSyncByID = newValue }
+        Dictionary(uniqueKeysWithValues: lastGoodChainSyncByName.compactMap { key, value in WalletChainID(key).map { ($0, value) } })
     }
+    private var lastGoodChainSyncByID: [WalletChainID: Date] { lastGoodChainSyncByChainID }
     var chainDegradedBanners: [AppState.ChainDegradedBanner] {
-        chainDegradedMessagesByID.keys.sorted().map { chainID in
-            AppState.ChainDegradedBanner(
-                chainName: chainID.displayName,
-                message: localizedDegradedMessage(
-                    chainDegradedMessagesByID[chainID] ?? "", chainID: chainID
-                ), lastGoodSyncAt: lastGoodChainSyncByID[chainID]
-            )
+        chainDegradedMessagesByChainID.keys.sorted().map { id in
+            AppState.ChainDegradedBanner(chainName: id.displayName, message: localizedDegradedMessage(chainDegradedMessagesByChainID[id] ?? "", chainID: id), lastGoodSyncAt: lastGoodChainSyncByID[id])
         }
     }
-    func clearOperationalLogs() { operationalLogs = [] }
+    func clearOperationalLogs() { enqueue(.clearLogs(chainName: nil)) }
     func exportOperationalLogsText(networkSyncStatusText: String, events: [AppState.OperationalLogEvent]? = nil) -> String {
         let entries = events ?? operationalLogs
         let header = [
@@ -129,45 +86,12 @@ final class WalletDiagnosticsState {
         _ level: AppState.OperationalLogEvent.Level, category: String, message: String, chainName: String? = nil, walletID: String? = nil,
         transactionHash: String? = nil, source: String? = nil, metadata: String? = nil
     ) {
-        let event = AppState.OperationalLogEvent(
-            id: UUID(), timestamp: Date(), level: level, category: category.trimmingCharacters(in: .whitespacesAndNewlines),
-            message: message.trimmingCharacters(in: .whitespacesAndNewlines),
-            chainName: chainName?.trimmingCharacters(in: .whitespacesAndNewlines), walletID: walletID,
-            transactionHash: transactionHash?.trimmingCharacters(in: .whitespacesAndNewlines),
-            source: source?.trimmingCharacters(in: .whitespacesAndNewlines),
-            metadata: metadata?.trimmingCharacters(in: .whitespacesAndNewlines)
-        )
-        operationalLogs.insert(event, at: 0)
-        if operationalLogs.count > 800 { operationalLogs = Array(operationalLogs.prefix(800)) }
+        enqueue(.append(input: DiagnosticLogInput(level: level.rawValue, category: category, message: message,
+            chainName: chainName, walletId: walletID, transactionHash: transactionHash, source: source, metadata: metadata)))
     }
-    func markChainHealthy(_ chainName: String) {
-        guard let chainID = WalletChainID(chainName) else { return }
-        let chainName = chainID.displayName
-        let wasDegraded = chainDegradedMessagesByID[chainID] != nil
-        chainDegradedMessagesByID.removeValue(forKey: chainID)
-        lastGoodChainSyncByID[chainID] = Date()
-        if wasDegraded {
-            appendOperationalLog(
-                .info, category: "Chain Sync", message: localizedStoreString("Chain recovered"), chainName: chainName, source: "network"
-            )
-        }
-    }
-    func noteChainSuccessfulSync(_ chainName: String) {
-        guard let chainID = WalletChainID(chainName) else { return }
-        lastGoodChainSyncByID[chainID] = Date()
-    }
-    func markChainDegraded(_ chainName: String, detail: String) {
-        guard let chainID = WalletChainID(chainName) else { return }
-        let chainName = chainID.displayName
-        let classified = diagnosticsClassifyDegradedDetail(detail: detail)
-        if classified.indicatesLiveSuccess { lastGoodChainSyncByID[chainID] = Date() }
-        let localizedDetail = localized(classified, chainName: chainName)
-        let metadata = degradedSyncSuffix(for: chainID)
-        chainDegradedMessagesByID[chainID] = localizedDetail
-        appendOperationalLog(
-            .warning, category: "Chain Sync", message: localizedDetail, chainName: chainName, source: "network", metadata: metadata
-        )
-    }
+    func markChainHealthy(_ chainName: String) { enqueue(.healthy(chainName: chainName)) }
+    func noteChainSuccessfulSync(_ chainName: String) { enqueue(.synced(chainName: chainName)) }
+    func markChainDegraded(_ chainName: String, detail: String) { enqueue(.degraded(chainName: chainName, detail: detail)) }
     private func localizedDegradedMessage(_ message: String, chainID: WalletChainID) -> String {
         if message.isEmpty { return message }
         let detail = localized(
@@ -189,57 +113,6 @@ final class WalletDiagnosticsState {
             )
         }
         return copy.degradedNoPriorSuccessfulSyncYet
-    }
-    func flushPendingPersistence() async {
-        pendingChainSyncPersistence?.cancel()
-        pendingOperationalLogsPersistence?.cancel()
-        pendingChainSyncPersistence = nil
-        pendingOperationalLogsPersistence = nil
-        await persistChainSyncStateNow()
-        await persistOperationalLogsNow()
-    }
-    private func scheduleChainSyncPersistence() {
-        guard !suspendPersistenceScheduling else { return }
-        pendingChainSyncPersistence?.cancel()
-        pendingChainSyncPersistence = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(Self.chainSyncPersistenceDelay))
-            guard !Task.isCancelled, let self else { return }
-            await self.persistChainSyncStateNow()
-            self.pendingChainSyncPersistence = nil
-        }
-    }
-    private func scheduleOperationalLogsPersistence() {
-        guard !suspendPersistenceScheduling else { return }
-        pendingOperationalLogsPersistence?.cancel()
-        pendingOperationalLogsPersistence = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .seconds(Self.operationalLogsPersistenceDelay))
-            guard !Task.isCancelled, let self else { return }
-            await self.persistOperationalLogsNow()
-            self.pendingOperationalLogsPersistence = nil
-        }
-    }
-    private func persistOperationalLogsNow() async {
-        guard let data = try? Self.persistenceEncoder.encode(operationalLogs),
-            let json = String(data: data, encoding: .utf8)
-        else { return }
-        try? await WalletServiceBridge.shared.saveState(key: Self.operationalLogsDefaultsKey, stateJSON: json)
-    }
-    private func persistChainSyncStateNow() async {
-        let payload = AppState.PersistedChainSyncState(
-            version: AppState.PersistedChainSyncState.currentVersion,
-            degradedMessages: Dictionary(
-                uniqueKeysWithValues: chainDegradedMessagesByID.map { ($0.key.rawValue, $0.value) }
-            ),
-            lastGoodSyncUnix: Dictionary(
-                uniqueKeysWithValues: lastGoodChainSyncByID.map { key, value in
-                    (key.rawValue, value.timeIntervalSince1970)
-                }
-            )
-        )
-        guard let data = try? Self.persistenceEncoder.encode(payload),
-            let json = String(data: data, encoding: .utf8)
-        else { return }
-        try? await WalletServiceBridge.shared.saveState(key: Self.chainSyncStateDefaultsKey, stateJSON: json)
     }
 }
 

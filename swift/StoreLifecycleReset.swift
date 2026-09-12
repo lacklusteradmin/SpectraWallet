@@ -11,7 +11,7 @@ extension AppState {
         // which seeds the catalog itself — a second copy assembled here would
         // race that and usually win.
         rebuildTokenPreferenceDerivedState()
-        livePrices = loadPersistedLivePrices()
+        livePrices = [:]
         // Keypool, owned addresses and operational events all load from core in
         // `reloadPersistedStateFromSQLite()`. They used to be seeded here from
         // UserDefaults first, but nothing has written those keys since the move
@@ -145,8 +145,7 @@ extension AppState {
         diagnosticsClearAll()
         chainDiagnosticsState.historyRunByChain = [:]
         chainDiagnosticsState.endpointHealthByChain = [:]
-        diagnostics.chainDegradedMessages = [:]
-        diagnostics.lastGoodChainSyncByName = [:]
+        diagnostics.reset()
         await runResetStep("Clear operational events") {
             try await WalletServiceBridge.shared.clearOperationalEvents(chainName: nil)
         }
@@ -189,13 +188,6 @@ extension AppState {
     }
     private func resetDashboardCustomizationState() { resetPinnedDashboardAssets() }
     private func resetSettingsAndEndpointsState() async {
-        // The settings core owns are reset by assigning the properties below,
-        // which commit. What is removed here is the UserDefaults that still
-        // has a writer: live prices.
-        UserDefaults.standard.removeObject(forKey: Self.livePricesDefaultsKey)
-        livePrices = [:]
-        quoteRefreshError = nil
-        fiatRatesRefreshError = nil
         // The token list goes back through core too: the catalog is core's and
         // so is which of its rows the user turned off.
         if let transition = try? await WalletServiceBridge.shared.applyStateCommand(

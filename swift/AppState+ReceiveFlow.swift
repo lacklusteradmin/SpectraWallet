@@ -23,7 +23,10 @@ extension AppState {
     }
     func refreshPendingTransactions(includeHistoryRefreshes: Bool = true, historyRefreshInterval: TimeInterval = 120) async {
         guard !isRefreshingPendingTransactions else { return }
-        let tokenHostingChains = pendingTransactionMaintenanceChainIDs
+        let tokenHostingChains: Set<WalletChainID>
+        do {
+            tokenHostingChains = Set(try await WalletServiceBridge.shared.pendingMaintenanceChains().compactMap(WalletChainID.init))
+        } catch { return }
         guard !tokenHostingChains.isEmpty else { return }
         let startedAt = CFAbsoluteTimeGetCurrent()
         isRefreshingPendingTransactions = true
@@ -175,7 +178,7 @@ extension AppState {
         guard !isImportingWallet else { return }
         let trimmedWalletName = importDraft.walletName.trimmingCharacters(in: .whitespacesAndNewlines)
         if let editingWalletID {
-            renameWallet(id: editingWalletID, to: trimmedWalletName)
+            await renameWallet(id: editingWalletID, to: trimmedWalletName)
             return
         }
         if importDraft.requiresBackupVerification && !importDraft.isBackupVerificationComplete {
@@ -291,13 +294,13 @@ extension AppState {
                     bitcoinXpub: resolvedBitcoinXPub
                 )
             )
-            // Core plans, builds and stores the wallets in one call. What comes
-            // back is what it created, plus the Keychain writes below — the only
-            // part of an import that is genuinely platform work.
+            // Core derives addresses, stores secrets through the registered
+            // callback and commits the entire wallet batch before returning.
             let outcome: WalletImportOutcome
             do {
                 outcome = try await WalletServiceBridge.shared.importWallets(
                     WalletImportCommit(
+                        password: trimmedWalletPassword,
                         request: importPlanRequest,
                         holdings: coins,
                         seedDerivationPreset: selectedDerivationPreset,
@@ -324,48 +327,8 @@ extension AppState {
                 importError = "These addresses were not valid and were not imported: \(refused)"
             }
             let createdWallets = outcome.wallets
-            // The Keychain writes are the one part of an import that can fail
-            // after core has already committed the wallets. A failure here is
-            // reported, never swallowed: a wallet that looks imported but whose
-            // seed was never stored is worse than a visible error.
-            var secretStorageFailure: Error? = nil
-            for instruction in outcome.secretInstructions {
-                let walletID = instruction.walletId
-                // The password is the seal, not a gate beside the material:
-                // core encrypts under it and stores a verifier, so passing it
-                // here is what makes `shouldStorePasswordVerifier` mean
-                // anything. A wallet with no password is stored unsealed,
-                // which is the state the front end used to write on its own.
-                let password = instruction.shouldStorePasswordVerifier ? trimmedWalletPassword : nil
-                do {
-                    if instruction.shouldStoreSeedPhrase {
-                        try WalletServiceBridge.shared.storeWalletSeedPhrase(
-                            walletID: walletID, seedPhrase: trimmedSeedPhrase, password: password)
-                    } else if instruction.shouldStorePrivateKey {
-                        try WalletServiceBridge.shared.storeWalletPrivateKey(
-                            walletID: walletID, privateKey: trimmedPrivateKey, password: password)
-                    } else {
-                        try WalletServiceBridge.shared.deleteWalletSecrets(walletID: walletID)
-                    }
-                } catch {
-                    secretStorageFailure = error
-                    break
-                }
-            }
-            // Core already stored them; re-read the projection from core rather
-            // than appending locally, so the two cannot disagree. This runs even
-            // when the Keychain writes failed, so the list the user is looking
-            // at matches what core actually holds.
             if let stored = try? await WalletServiceBridge.shared.storedWallets() {
-                setWalletProjection(stored)
-            }
-            if let secretStorageFailure {
-                let detail = secretStorageFailure.localizedDescription
-                importError = """
-                    The wallet was created, but its signing secret could not be saved to the Keychain, so it cannot sign \
-                    transactions and the seed phrase cannot be revealed. Delete the wallet and import it again. (\(detail))
-                    """
-                return
+                adoptWalletsFromCore(stored)
             }
             importedWalletsForRefresh = createdWallets
         }
@@ -374,11 +337,10 @@ extension AppState {
         }
         scheduleImportedWalletRefresh(importedWalletsForRefresh)
     }
-    func renameWallet(id: String, to newName: String) {
-        guard var wallet = wallets.first(where: { $0.id == id }) else { return }
-        wallet.name = newName
-        updateWalletDetached(wallet)
-        finishWalletImportFlow()
+    func renameWallet(id: String, to newName: String) async {
+        changeWallet(.renameWallet(walletId: id, name: newName))
+        await walletMutationTask?.value
+        if importError == nil { finishWalletImportFlow() }
     }
     func finishWalletImportFlow() {
         importError = nil
@@ -399,44 +361,9 @@ extension AppState {
         (wallets.compactMap { $0.name.hasPrefix("Wallet ") ? Int($0.name.dropFirst(7)) : nil }.max() ?? 0) + 1
     }
     /// Build a wallet for one chain from the slot-keyed addresses Rust planned.
-    func walletByReplacingHoldings(_ wallet: ImportedWallet, with holdings: [Coin]) -> ImportedWallet {
-        var updated = wallet
-        updated.holdings = holdings
-        return updated
-    }
+
     var portfolio: [Coin] { cachedPortfolio }
-    var priceRequestCoins: [Coin] {
-        var grouped: [String: Coin] = [:]
-        var order: [String] = []
-        for coin in cachedUniqueWalletPriceRequestCoins where isPricedAsset(coin) {
-            let key = activePriceKey(for: coin)
-            grouped[key] = coin
-            order.append(key)
-        }
-        for coin in dashboardPinnedAssetPricingPrototypes
-        where selectedMainTab == .home && isPricedAsset(coin) {
-            let key = activePriceKey(for: coin)
-            guard grouped[key] == nil else { continue }
-            grouped[key] = coin
-            order.append(key)
-        }
-        return order.compactMap { grouped[$0] }
-    }
-    var hasLivePriceRefreshWork: Bool { !priceRequestCoins.isEmpty }
-    var shouldRunScheduledPriceRefresh: Bool { selectedMainTab == .home && hasLivePriceRefreshWork }
-    var pendingTransactionMaintenanceChains: Set<String> {
-        Set(
-            transactions.compactMap { transaction -> String? in
-                guard transaction.kind == .send, transaction.transactionHash != nil else { return nil }
-                if transaction.status == .pending { return transaction.chainName }
-                if transaction.chainName == "Dogecoin", transaction.status == .confirmed { return transaction.chainName }
-                return nil
-            }
-        )
-    }
-    var pendingTransactionMaintenanceChainIDs: Set<WalletChainID> {
-        Set(pendingTransactionMaintenanceChains.compactMap(WalletChainID.init))
-    }
+    var shouldRunScheduledPriceRefresh: Bool { selectedMainTab == .home }
     var refreshableChainNames: Set<String> { cachedRefreshableChainNames }
     var refreshableChainIDs: Set<WalletChainID> { Set(refreshableChainNames.compactMap(WalletChainID.init)) }
     var backgroundBalanceRefreshFrequencyMinutes: Int { max(preferences.automaticRefreshFrequencyMinutes * 3, 15) }

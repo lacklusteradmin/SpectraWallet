@@ -46,6 +46,7 @@ import Foundation
                 .error, category: "  Network  ", message: "  Request failed  ", chainName: "  Bitcoin  ", source: "  rpc  ",
                 metadata: "  timeout  "
             )
+            await state.flushPendingPersistence()
             XCTAssertEqual(state.operationalLogs.first?.category, "Network")
             XCTAssertEqual(state.operationalLogs.first?.message, "Request failed")
             XCTAssertEqual(state.operationalLogs.first?.chainName, "Bitcoin")
@@ -74,8 +75,7 @@ import Foundation
             XCTAssertTrue(text.contains("meta=cached"))
         }
         private func clearDiagnosticsSQLite() async {
-            try? await WalletServiceBridge.shared.saveState(key: WalletDiagnosticsState.chainSyncStateDefaultsKey, stateJSON: "{}")
-            try? await WalletServiceBridge.shared.saveState(key: WalletDiagnosticsState.operationalLogsDefaultsKey, stateJSON: "{}")
+            _ = try? await WalletServiceBridge.shared.applyDiagnosticCommand(.reset)
         }
     }
 #endif

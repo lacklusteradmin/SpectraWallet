@@ -2,6 +2,22 @@ import Foundation
 import SwiftUI
 @MainActor
 extension AppState {
+    /// A quote response cannot overwrite newer wallet or network settings.
+    func applyQuoteProjection(_ state: CoreAppState) {
+        let priceAttempt = state.quotes.pricesAttemptAt ?? 0
+        if priceAttempt >= projectedPriceAttempt {
+            projectedPriceAttempt = priceAttempt
+            if livePrices != state.quotes.prices { livePrices = state.quotes.prices }
+            quoteRefreshError = state.quotes.pricesError
+        }
+        let fiatAttempt = state.quotes.fiatAttemptAt ?? 0
+        if fiatAttempt >= projectedFiatAttempt {
+            projectedFiatAttempt = fiatAttempt
+            if fiatRatesFromUSD != state.fiatRatesFromUsd { fiatRatesFromUSD = state.fiatRatesFromUsd }
+            fiatRatesRefreshError = state.quotes.fiatError
+        }
+    }
+
     @discardableResult
     func refreshLivePrices() async -> Bool {
         guard !isRefreshingLivePrices else { return false }
@@ -11,63 +27,30 @@ extension AppState {
             lastLivePriceRefreshAt = Date()
         }
         var didUpdatePrices = false
-        let requestedCoins = priceRequestCoins
-        guard !requestedCoins.isEmpty else {
-            quoteRefreshError = nil
-            return false
-        }
+        let before = livePrices
         do {
-            let rustInputs = requestedCoins.map { coin in
-                PriceRequestCoin(holdingKey: coin.holdingKey, coinGeckoId: coin.coinGeckoId)
-            }
-            let fetchedPrices = try await WalletServiceBridge.shared.fetchPricesViaRust(coins: rustInputs)
-            guard !fetchedPrices.isEmpty else {
-                quoteRefreshError = localizedStoreString("No price provider had a quote for these assets.")
-                return false
-            }
-            let outcome = priceMergeLiveUpdates(existing: livePrices, fetched: fetchedPrices)
-            if outcome.hadMeaningfulChange { livePrices = outcome.updatedPrices }
-            quoteRefreshError = nil
-            didUpdatePrices = outcome.hadMeaningfulChange
+            let state = try await WalletServiceBridge.shared.refreshOwnedPrices(force: false)
+            applyQuoteProjection(state)
+            didUpdatePrices = livePrices != before
         } catch {
-            quoteRefreshError = localizedStoreString("No price provider answered.")
+            quoteRefreshError = error.localizedDescription
         }
         if didUpdatePrices { await evaluatePriceAlerts() }
         return didUpdatePrices
     }
     func refreshFiatExchangeRatesIfNeeded(force: Bool = false) async {
-        if !force, selectedFiatCurrency == .usd { return }
-        if !force, let lastFiatRatesRefreshAt,
-            Date().timeIntervalSince(lastFiatRatesRefreshAt) < Self.fiatRatesRefreshInterval
-        { return }
-        // After a failed attempt, hold off before retrying. Without this gate a
-        // degraded provider was hit on every maintenance tick + every foreground
-        // path because `lastFiatRatesRefreshAt` is only stamped on success.
-        if !force, let lastFiatRatesAttemptAt, fiatRatesRefreshError != nil,
-            Date().timeIntervalSince(lastFiatRatesAttemptAt) < Self.fiatRatesRetryBackoff
-        { return }
-        await refreshFiatExchangeRates()
-    }
-    func refreshFiatExchangeRates() async {
         guard !isRefreshingFiatRates else { return }
         isRefreshingFiatRates = true
-        defer {
-            isRefreshingFiatRates = false
-            lastFiatRatesAttemptAt = Date()
-        }
+        defer { isRefreshingFiatRates = false }
         do {
-            fiatRatesFromUSD = try await WalletServiceBridge.shared.refreshFiatRatesViaRust()
-            fiatRatesRefreshError = nil
-            lastFiatRatesRefreshAt = Date()
+            let state = try await WalletServiceBridge.shared.refreshOwnedFiatRates(force: force)
+            applyQuoteProjection(state)
         } catch {
-            if fiatRatesFromUSD.isEmpty {
-                fiatRatesFromUSD = [FiatCurrency.usd.rawValue: 1.0]
-            } else {
-                fiatRatesFromUSD[FiatCurrency.usd.rawValue] = 1.0
-            }
-            fiatRatesRefreshError = localizedStoreString(
-                "No fiat-rate provider answered. Using the last successful rates.")
+            fiatRatesRefreshError = error.localizedDescription
         }
+    }
+    func refreshFiatExchangeRates() async {
+        await refreshFiatExchangeRatesIfNeeded(force: true)
     }
     func activePriceKey(for coin: Coin) -> String { assetIdentityKey(for: coin) }
     var totalBalance: Double {
@@ -99,9 +82,7 @@ extension AppState {
 
     var portfolioQuotedTotal: QuotedTotal { quotedTotal(for: portfolio) }
     func setPortfolioInclusion(_ isIncluded: Bool, for walletID: String) {
-        guard var wallet = wallets.first(where: { $0.id == walletID }) else { return }
-        wallet.includeInPortfolioTotal = isIncluded
-        updateWalletDetached(wallet)
+        changeWallet(.setWalletPortfolioInclusion(walletId: walletID, included: isIncluded))
         resetLargeMovementAlertBaseline()
     }
     func refreshChainBalances(

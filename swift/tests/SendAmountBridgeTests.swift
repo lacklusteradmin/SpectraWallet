@@ -2,6 +2,33 @@ import XCTest
 @testable import Spectra
 
 final class SendAmountBridgeTests: XCTestCase {
+    @MainActor
+    func testImportStoresSecretThroughForeignCallbackBeforeReturningWallet() async throws {
+        let service = try WalletService.newTyped(endpoints: [])
+        let secretStore = ImportTestSecretStore()
+        service.setSecretStore(store: secretStore)
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        _ = try await service.openState(dbPath: directory.appendingPathComponent("state.db").path)
+        let outcome = try await service.importWallets(commit: WalletImportCommit(
+            password: nil,
+            request: WalletImportRequest(walletName: "Imported", defaultWalletNameStartIndex: 1,
+                primarySelectedChainName: "Ethereum", selectedChainNames: ["Ethereum"], plannedWalletIds: [],
+                isWatchOnlyImport: false, isPrivateKeyImport: false, hasWalletPassword: false,
+                resolvedAddresses: WalletImportAddresses(bySlot: [:], bitcoinXpub: nil),
+                watchOnlyEntries: WalletImportWatchOnlyEntries(bySlot: [:], bitcoinXpub: nil)),
+            holdings: [], seedDerivationPreset: .standard, seedDerivationPaths: .defaults,
+            derivationOverrides: .empty, networkChainByFamily: [:],
+            seedPhrase: "test test test test test test test test test test test junk", privateKey: nil))
+        XCTAssertEqual(outcome.wallets.count, 1)
+        XCTAssertTrue(service.walletSecretState(walletId: outcome.wallets[0].id).hasSigningMaterial)
+        let stored = try await service.walletsForDisplay()
+        XCTAssertEqual(stored.count, 1)
+        _ = try await service.applyStateCommand(command: .removeWallet(walletId: outcome.wallets[0].id))
+        XCTAssertFalse(service.walletSecretState(walletId: outcome.wallets[0].id).hasSigningMaterial)
+    }
+
     func testFeeAdjustedShortcutIsFlooredAcrossBinding() {
         XCTAssertEqual(sendAmountShortcut(maximum: 0.99999, decimals: 8, percentage: 100), "0.99998999")
         XCTAssertNil(sendAmountShortcut(maximum: .infinity, decimals: 8, percentage: 100))
@@ -64,15 +91,33 @@ final class SendAmountBridgeTests: XCTestCase {
         }
     }
 
-    func testUnavailableEvmPreviewDoesNotReturnDefaults() async throws {
+    func testOwnedEvmPreviewRefusesMissingWalletAcrossAsyncBinding() async throws {
         let service = try WalletService.newTyped(endpoints: [])
         do {
-            _ = try await service.fetchEvmSendPreviewTyped(
-                chainId: "ethereum", from: "from", to: "to", valueWei: "1", dataHex: "0x", explicitNonce: nil, customFees: nil)
-            XCTFail("Unavailable RPCs must not produce a default preview")
-        } catch SpectraBridgeError.Failure(let message) {
-            XCTAssertTrue(message.contains("no endpoints configured"))
+            _ = try await service.previewOwnedEvmSend(walletId: "missing", holdingKey: "Ethereum|ETH", amount: "1", destination: "", explicitNonce: nil, customFees: nil)
+            XCTFail("A missing wallet must not produce a preview")
+        } catch SpectraBridgeError.InvalidInput(let message) {
+            XCTAssertTrue(message.contains("wallet does not exist"))
         }
     }
+}
 
+private final class ImportTestSecretStore: SecretStore, @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [SecretClass: [String: String]] = [:]
+    func loadSecret(kind: SecretClass, key: String) throws -> String {
+        try lock.withLock {
+            guard let value = values[kind]?[key] else { throw SecretStoreError.NotFound }
+            return value
+        }
+    }
+    func saveSecret(kind: SecretClass, key: String, value: String) throws {
+        lock.withLock { values[kind, default: [:]][key] = value }
+    }
+    func deleteSecret(kind: SecretClass, key: String) throws {
+        lock.withLock { _ = values[kind]?.removeValue(forKey: key) }
+    }
+    func listKeys(kind: SecretClass, prefixFilter: String) throws -> [String] {
+        lock.withLock { Array(values[kind, default: [:]].keys).filter { $0.hasPrefix(prefixFilter) } }
+    }
 }

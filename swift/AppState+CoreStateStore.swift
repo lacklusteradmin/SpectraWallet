@@ -50,24 +50,20 @@ extension AppState {
     ///
     /// Balance refresh uses this. A refresh result can arrive after the user
     /// deleted the wallet, and an upsert would bring it back.
-    func updateWalletsIfPresent(_ records: [ImportedWallet]) async {
-        guard !records.isEmpty else { return }
-        var next = wallets
-        for record in records {
-            guard let index = next.firstIndex(where: { $0.id == record.id }) else { continue }
-            next[index] = record
-        }
-        setWalletProjection(next)
-        for record in records {
-            let summary = record.summary(isWatchOnly: isWatchOnlyWallet(record))
-            _ = try? await WalletServiceBridge.shared.applyStateCommand(
-                .updateWalletIfPresent(wallet: summary))
-        }
-    }
 
-    func removeWallet(id: String) async {
-        setWalletProjection(wallets.filter { $0.id != id })
-        _ = try? await WalletServiceBridge.shared.applyStateCommand(.removeWallet(walletId: id))
+
+    @discardableResult
+    func removeWallet(id: String) async -> Bool {
+        do {
+            _ = try await WalletServiceBridge.shared.applyStateCommand(.removeWallet(walletId: id))
+            adoptWalletsFromCore(try await WalletServiceBridge.shared.storedWallets())
+            await refreshTransactionProjection()
+            rebuildWalletDerivedState()
+            return true
+        } catch {
+            importError = error.localizedDescription
+            return false
+        }
     }
 
     /// Remove every wallet core holds.
@@ -83,31 +79,22 @@ extension AppState {
         }
     }
 
-    // Synchronous entry points for UI actions that cannot await. The
-    // projection updates now — a rename must show immediately — and only the
-    // command is deferred.
-    /// Edit a wallet core already has, without waiting for the write.
-    ///
-    /// `.updateWalletIfPresent`, not `.upsertWallet`, and the difference is a
-    /// bug rather than a preference: the write is detached, so it can land
-    /// after the user has deleted the wallet, and an upsert would bring the
-    /// deleted wallet back. Rename a wallet, delete it, and it returned.
-    ///
-    /// Both callers edit a wallet they just found in the projection — rename
-    /// and the portfolio-inclusion toggle — so neither ever needs to create
-    /// one, and an edit of a wallet that no longer exists should do nothing.
-    /// This is the same reasoning `updateWalletsIfPresent` already carried for
-    /// balance refresh; the detached path had kept the create-or-update
-    /// command.
-    func updateWalletDetached(_ record: ImportedWallet) {
-        guard let index = wallets.firstIndex(where: { $0.id == record.id }) else { return }
-        var next = wallets
-        next[index] = record
-        setWalletProjection(next)
-        let summary = record.summary(isWatchOnly: isWatchOnlyWallet(record))
-        Task.detached(priority: .utility) {
-            _ = try? await WalletServiceBridge.shared.applyStateCommand(
-                .updateWalletIfPresent(wallet: summary))
+    /// Send a field intent and adopt only the committed projection.
+    func changeWallet(_ command: StateCommand) {
+        let previous = walletMutationTask
+        walletMutationTask = Task { [weak self] in
+            await previous?.value
+            guard let self else { return }
+            let epoch = self.beginCoreStateRead()
+            do {
+                let transition = try await WalletServiceBridge.shared.applyStateCommand(command)
+                self.applyCoreState(transition.state, epoch: epoch)
+                self.adoptWalletsFromCore(try await WalletServiceBridge.shared.storedWallets())
+                self.rebuildWalletDerivedState()
+            } catch {
+                self.finishCoreStateRead(epoch)
+                self.importError = error.localizedDescription
+            }
         }
     }
 

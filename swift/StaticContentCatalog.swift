@@ -259,23 +259,6 @@ private func tokenHostingChainFor(_ value: String) -> TokenHostingChain? {
     let chain = Chain(id: normalized) ?? Chain.all.first { $0.displayName.lowercased() == normalized }
     return chain?.tokenHostingChain
 }
-extension TokenPreferenceEntry {
-    /// The catalog's tokens, as preferences with nothing changed yet.
-    ///
-    /// Went through `ChainTokenRegistryEntry` — a fourth record for one token,
-    /// built here from the catalog row and converted back to a preference at
-    /// every use.
-    static let builtIn: [TokenPreferenceEntry] = {
-        listAllBuiltinTokens().compactMap { token -> TokenPreferenceEntry? in
-            guard tokenHostingChainFor(token.chain) != nil else { return nil }
-            let category: TokenPreferenceCategory = token.tags.lazy
-                .compactMap { TokenPreferenceCategory(rawValue: $0) }
-                .first ?? .custom
-            return TokenPreferenceEntry(
-                token: token, category: category, isBuiltIn: true, isEnabled: token.enabled)
-        }
-    }()
-}
 enum AppLocalization {
     private final class BundleMarker {}
     private struct LocalizationState {

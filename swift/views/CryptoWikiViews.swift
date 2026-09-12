@@ -144,11 +144,8 @@ struct AssetWikiDetailView: View {
 
     private var heroCard: some View {
         VStack(alignment: .leading, spacing: 14) {
-            WikiRotatingCoin(face: asset.face)
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, 2)
             HStack(spacing: 12) {
-                WikiCoinBadge(face: asset.face, size: 38)
+                WikiCoinBadge(face: asset.face, size: 52)
                 VStack(alignment: .leading, spacing: 3) {
                     Text(asset.name).font(.title3.weight(.semibold))
                     Text(asset.symbol).font(.subheadline.monospaced()).foregroundStyle(.secondary)

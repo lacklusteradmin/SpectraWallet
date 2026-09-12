@@ -50,87 +50,23 @@ extension AppState {
     }
 
     func refreshEvmSendPreview() async {
-        guard let wallet = wallet(for: sendWalletID), let selectedSendCoin = selectedSendCoin, isEVMChain(selectedSendCoin.chainName),
-            let fromAddress = resolvedAddress(for: wallet, chainName: selectedSendCoin.chainName),
-            // `Double` only decides *whether* to preview here. The amount that
-            // reaches the assembler is the typed string, because a Double
-            // cannot carry 18 decimals: 1.1 assembled 1100000000000000089 wei
-            // while the send signed 1100000000000000000.
-            let amountMagnitude = Double(sendPreviewAmountInput),
-            // Whether a zero amount previews is `allows_zero_amount`, which core
-            // derives from `is_native_evm_asset`. Three symbols were named here
-            // — the third place this rule has been written down — so a
-            // zero-amount preview was refused on the twenty EVM chains whose
-            // gas token is none of ETH, ETC or BNB.
-            ((selectedSendCoin.symbol == Chain(displayName: selectedSendCoin.chainName)?.gasTokenSymbol)
-                ? amountMagnitude >= 0 : amountMagnitude > 0)
-        else {
+        guard let selectedSendCoin, isEVMChain(selectedSendCoin.chainName), !sendWalletID.isEmpty else {
             sendPreviewStore.evmSendPreview = nil
             return
         }
-        if let evmNonceValidationError = evmNonceValidationError {
-            sendError = evmNonceValidationError
-            sendPreviewStore.evmSendPreview = nil
-            return
-        }
-        let trimmedDestination = sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
-        // An empty field previews against the sender: a quote needs an output
-        // to price and the user has not named one yet. Anything typed is
-        // core's to turn into an address — validity, the ENS rule and the
-        // resolved-name cache were all stated again here.
-        let previewDestination: String
-        if trimmedDestination.isEmpty {
-            previewDestination = fromAddress
-        } else {
-            guard
-                let resolved = try? await resolveSendDestination(
-                    input: trimmedDestination, for: selectedSendCoin.chainName)
-            else {
-                sendPreviewStore.evmSendPreview = nil
-                return
-            }
-            previewDestination = resolved.address
-            if resolved.usedEns {
-                sendDestinationInfoMessage = "Resolved ENS \(trimmedDestination) to \(resolved.address)."
-            }
-        }
-        // The in-flight key is the preview *slot*, and every EVM chain shares
-        // Ethereum's. Asking for the slot rather than spelling it keeps that a
-        // registry fact instead of a fourth copy of it.
         let slot = SendPreviewStore.previewSlot(forChainNamed: selectedSendCoin.chainName) ?? "Ethereum"
         await withSendPreviewInFlight(slot, retry: { [weak self] in await self?.refreshEvmSendPreview() }) {
-        guard let chainId = Chain(displayName: selectedSendCoin.chainName)?.id else {
-            sendPreviewStore.evmSendPreview = nil
-            return
-        }
+        let walletID = sendWalletID
+        let amount = sendPreviewAmountInput
+        let destination = sendAddress
         do {
-            let assemblyToken: EvmSupportedToken? = supportedToken(for: selectedSendCoin).map {
-                EvmSupportedToken(
-                    symbol: $0.token.symbol, contractAddress: $0.token.contract,
-                    decimals: $0.token.decimals)
-            }
-            let assembly: EvmSendAssembly
-            do {
-                assembly = try prepareEvmSendAssembly(
-                    input: EvmSendAssemblyInput(
-                        chainName: selectedSendCoin.chainName, symbol: selectedSendCoin.symbol,
-                        fromAddress: fromAddress, resolvedDestination: previewDestination,
-                        amount: sendPreviewAmountInput.trimmingCharacters(in: .whitespaces),
-                        token: assemblyToken
-                    ))
-            } catch {
-                sendPreviewStore.evmSendPreview = nil
-                return
-            }
-            let valueWei = assembly.valueWei
-            let toAddress = assembly.toAddress
-            let dataHex = assembly.dataHex
-            sendPreviewStore.evmSendPreview = try await WalletServiceBridge.shared.fetchEvmSendPreviewTyped(
-                chainId: chainId, from: fromAddress, to: toAddress, valueWei: valueWei, dataHex: dataHex,
-                explicitNonce: try explicitEvmNonce().map(Int64.init),
-                customFees: customEvmFeeConfiguration()
-            )
-            if sendPreviewStore.evmSendPreview != nil {
+            let preview = try await WalletServiceBridge.shared.previewOwnedEvmSend(
+                walletID: walletID, holdingKey: selectedSendCoin.holdingKey,
+                amount: amount, destination: destination,
+                explicitNonce: try explicitEvmNonce().map(Int64.init), customFees: customEvmFeeConfiguration())
+            guard sendWalletID == walletID, sendPreviewAmountInput == amount, sendAddress == destination, self.selectedSendCoin?.holdingKey == selectedSendCoin.holdingKey else { return }
+            sendPreviewStore.evmSendPreview = preview
+            if preview != nil {
                 sendError = nil
                 clearSendVerificationNotice()
             }
@@ -152,10 +88,6 @@ extension AppState {
         if !trimmedDestination.isEmpty,
             !isValidAddressForPolicy(trimmedDestination, chainName: "Dogecoin", wallet: wallet)
         {
-            sendPreviewStore.dogecoinSendPreview = nil
-            return
-        }
-        guard storedSeedPhrase(for: wallet.id) != nil else {
             sendPreviewStore.dogecoinSendPreview = nil
             return
         }
@@ -231,7 +163,7 @@ extension AppState {
             setPreview(nil)
             return
         }
-        guard storedSeedPhrase(for: wallet.id) != nil, let sourceAddress = resolveAddress(wallet)
+        guard let sourceAddress = resolveAddress(wallet)
         else { setPreview(nil); return }
         await withSendPreviewInFlight(
             chainName,

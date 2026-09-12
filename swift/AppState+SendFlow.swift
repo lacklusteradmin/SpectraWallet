@@ -717,46 +717,16 @@ extension AppState {
     func rebroadcastSignedTransaction(for transactionID: UUID) async -> String {
         guard let transaction = transactions.first(where: { $0.id == transactionID }) else { return "Transaction not found." }
         guard transaction.kind == .send else { return "Rebroadcast is only supported for send transactions." }
-        guard let payload = transaction.rebroadcastPayload, let format = transaction.rebroadcastPayloadFormat else {
-            return "This transaction cannot be rebroadcast because signed payload data was not saved."
-        }
         guard await authenticateForSensitiveAction(reason: "Authorize transaction rebroadcast") else {
             return sendError ?? "Authentication failed."
         }
         do {
-            let (transactionHash, verificationStatus) = try await rebroadcastSignedTransaction(
-                transaction: transaction, payload: payload, format: format
-            )
-            if let index = transactions.firstIndex(where: { $0.id == transactionID }) {
-                recordTransaction(transactions[index].withRebroadcastUpdate(status: .pending, transactionHash: transactionHash))
-            }
-            if transaction.chainName == "Dogecoin" { await refreshPendingTransactions(chainName: "Dogecoin") }
-            switch verificationStatus {
-            case .verified: return "Transaction rebroadcasted and observed on the network."
-            case .deferred: return "Transaction rebroadcasted. Network indexers may take a moment to reflect it."
-            case .failed(let message): return "Rebroadcast sent, but verification warning: \(message)"
-            }
+            let transactionHash = try await WalletServiceBridge.shared.rebroadcastTransaction(id: transactionID.uuidString)
+            await refreshTransactionProjection()
+            return "Transaction rebroadcasted: \(transactionHash). Network confirmation is pending."
         } catch {
             return error.localizedDescription
         }
-    }
-    func rebroadcastSignedTransaction(transaction: TransactionRecord, payload: String, format: String) async throws -> (
-        transactionHash: String, verificationStatus: SendBroadcastVerificationStatus
-    ) {
-        let existing = transaction.transactionHash ?? ""
-        if format == "icp.signed_hex" || format == "icp.rust_json" || format == "monero.rust_json" { return (existing, .deferred) }
-        if format == "evm.raw_hex" || format == "evm.rust_json" {
-            guard let chainId = Chain(displayName: transaction.chainName)?.id else {
-                throw NSError(domain: "Spectra", code: -1, userInfo: [NSLocalizedDescriptionKey: "Unsupported EVM chain for rebroadcast."])
-            }
-            let txid = try await WalletServiceBridge.shared.broadcastRawExtract(
-                chainId: chainId, payload: payload, resultField: "txid")
-            return (txid.isEmpty ? existing : txid, .deferred)
-        }
-        let prepared = try coreRebroadcastPreparePayload(format: format, rawPayload: payload)
-        let resultValue = try await WalletServiceBridge.shared.broadcastRawExtract(
-            chainId: prepared.chainId, payload: prepared.broadcastPayload, resultField: prepared.resultField)
-        return (resultValue.isEmpty ? existing : resultValue, .deferred)
     }
     func walletDerivationPath(for wallet: ImportedWallet, chain: Chain) -> String {
         derivationResolution(for: wallet, chain: chain).normalizedPath

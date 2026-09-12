@@ -174,19 +174,9 @@ extension AppState {
                         contractAddress: nil, tokenDecimals: nil, feeRateSvb: feeRateDogePerKb, feeSat: nil, gasBudget: nil, feeAmount: nil,
                         evmOverrides: nil, moneroPriority: nil
                     ))
-                let transaction = decoratePendingSendTransaction(
-                    TransactionRecord(
-                        walletID: wallet.id, kind: .send, status: .pending, walletName: wallet.name, assetName: holding.name,
-                        symbol: holding.symbol, chainName: holding.chainName, amount: dogecoinAmount, address: destinationAddress,
-                        transactionHash: result.transactionHash,
-                        feePriorityRaw: feePriorityOption(for: "Dogecoin").rawValue,
-                        confirmationCount: 0,
-                        dogecoinEstimatedFeeRateDogePerKb: sendPreviewStore.dogecoinSendPreview?.estimatedFeeRateDogePerKb,
-                        usedChangeOutput: sendPreviewStore.dogecoinSendPreview?.usesChangeOutput, sourceAddress: sourceAddress,
-                        signedTransactionPayload: result.rebroadcastPayload,
-                        signedTransactionPayloadFormat: result.payloadFormat
-                    ), holding: holding)
-                recordPendingSentTransaction(transaction)
+                await refreshTransactionProjection()
+                lastSentTransaction = transactions.first { $0.transactionHash == result.transactionHash && $0.walletID == wallet.id }
+                requestTransactionStatusNotificationPermission()
                 clearSendVerificationNotice()
                 appendChainOperationalEvent(
                     .info, chainName: "Dogecoin", message: "DOGE send broadcast.", transactionHash: result.transactionHash)
@@ -464,14 +454,10 @@ extension AppState {
         verificationStatus: SendBroadcastVerificationStatus = .verified,
         clearPreview: (() -> Void)? = nil
     ) async {
-        let transaction = decoratePendingSendTransaction(
-            TransactionRecord(
-                walletID: wallet.id, kind: .send, status: .pending, walletName: wallet.name, assetName: holding.name,
-                symbol: holding.symbol, chainName: holding.chainName, amount: amount, address: destinationAddress,
-                transactionHash: transactionHash, ethereumNonce: ethereumNonce,
-                signedTransactionPayload: signedPayload, signedTransactionPayloadFormat: payloadFormat
-            ), holding: holding)
-        recordPendingSentTransaction(transaction)
+        await refreshTransactionProjection()
+        lastSentTransaction = transactions.first { $0.transactionHash == transactionHash && $0.walletID == wallet.id }
+        if let transaction = lastSentTransaction { noteSendBroadcastQueued(for: transaction) }
+        requestTransactionStatusNotificationPermission()
         await runPostSendRefreshActions(for: holding.chainName, verificationStatus: verificationStatus)
         resetSendComposerState(afterSend: clearPreview)
     }

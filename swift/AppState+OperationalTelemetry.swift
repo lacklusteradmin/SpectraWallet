@@ -26,12 +26,6 @@ extension AppState {
     func appendChainOperationalEvent(
         _ level: ChainOperationalEvent.Level, chainName: String, message: String, transactionHash: String? = nil
     ) {
-        // Core stamps the id and the time, applies the cap and persists.
-        Task {
-            try? await WalletServiceBridge.shared.appendChainOperationalEvent(
-                chainName: chainName, level: level, message: message,
-                transactionHash: transactionHash?.trimmingCharacters(in: .whitespacesAndNewlines))
-        }
         let mappedLevel: OperationalLogEvent.Level
         switch level {
         case .info: mappedLevel = .info
@@ -69,29 +63,7 @@ extension AppState {
     func noteSendBroadcastFailure(for chainName: String, message: String) {
         appendChainOperationalEvent(.error, chainName: chainName, message: "Send failed: \(message)")
     }
-    func decoratePendingSendTransaction(_ transaction: TransactionRecord, holding: Coin, confirmationCount: Int? = 0) -> TransactionRecord {
-        let previewDetails = sendPreviewDetails(for: holding)
-        return TransactionRecord(
-            id: transaction.id, walletID: transaction.walletID, kind: transaction.kind, status: transaction.status,
-            walletName: transaction.walletName, assetName: transaction.assetName, symbol: transaction.symbol,
-            chainName: transaction.chainName, amount: transaction.amount, address: transaction.address,
-            transactionHash: transaction.transactionHash, ethereumNonce: transaction.ethereumNonce,
-            receiptBlockNumber: transaction.receiptBlockNumber, receiptGasUsed: transaction.receiptGasUsed,
-            receiptEffectiveGasPriceGwei: transaction.receiptEffectiveGasPriceGwei, receiptNetworkFeeEth: transaction.receiptNetworkFeeEth,
-            feePriorityRaw: transaction.feePriorityRaw ?? feePriorityOption(for: holding.chainName).rawValue,
-            feeRateDescription: transaction.feeRateDescription ?? previewDetails?.feeRateDescription,
-            confirmationCount: transaction.confirmationCount ?? confirmationCount,
-            dogecoinConfirmedNetworkFeeDoge: transaction.dogecoinConfirmedNetworkFeeDoge,
-            dogecoinEstimatedFeeRateDogePerKb: transaction.dogecoinEstimatedFeeRateDogePerKb,
-            usedChangeOutput: transaction.usedChangeOutput ?? previewDetails?.usesChangeOutput,
-            sourceDerivationPath: transaction.sourceDerivationPath,
-            changeDerivationPath: transaction.changeDerivationPath, sourceAddress: transaction.sourceAddress,
-            changeAddress: transaction.changeAddress,
-            signedTransactionPayload: transaction.signedTransactionPayload,
-            signedTransactionPayloadFormat: transaction.signedTransactionPayloadFormat, failureReason: transaction.failureReason,
-            transactionHistorySource: transaction.transactionHistorySource, createdAt: transaction.createdAt
-        )
-    }
+
     func registerPendingSelfSendConfirmation(
         walletID: String, chainName: String, symbol: String, destinationAddress: String, amount: Double
     ) {

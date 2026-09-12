@@ -21,9 +21,6 @@ extension AppState {
         // loaded after it must not contradict it.
         await loadCoreOwnedState()
         await diagnostics.loadFromSQLite()
-        if let prices = await loadCodableFromSQLite([String: Double].self, key: Self.livePricesDefaultsKey), !prices.isEmpty {
-            livePrices = prices
-        }
         // Folding in the built-ins catches tokens this build added. Core does
         // the merge and stores it, so this only adopts the answer — assigning
         // through the `didSet` would send it straight back.
@@ -71,12 +68,6 @@ extension AppState {
                 await rebuildTransactionDerivedState()
             }
         }
-    }
-    func persistLivePrices() {
-        persistCodableToSQLite(livePrices, key: Self.livePricesDefaultsKey)
-    }
-    func loadPersistedLivePrices() -> [String: Double] {
-        loadCodableFromUserDefaults([String: Double].self, key: Self.livePricesDefaultsKey) ?? [:]
     }
     /// Send the alert list to core, which drops what could never fire and
     /// stores the rest.

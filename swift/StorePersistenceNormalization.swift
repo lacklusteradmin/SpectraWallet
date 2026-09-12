@@ -2,7 +2,7 @@ import Foundation
 extension AppState {
     func rebuildTokenPreferenceDerivedState() {
         let resolvedPreferences =
-            tokenPreferences.isEmpty ? TokenPreferenceEntry.builtIn : tokenPreferences
+            tokenPreferences
         cachedResolvedTokenPreferences = resolvedPreferences
         cachedTokenPreferencesByChain = Dictionary(grouping: resolvedPreferences, by: { TokenHostingChain.forChainName($0.token.chain) ?? .ethereum })
         cachedResolvedTokenPreferencesBySymbol = Dictionary(
@@ -21,16 +21,7 @@ extension AppState {
     /// hands back coins rather than indices into a list the caller has to
     /// re-walk.
     private func rebuildWalletDerivedStateFromCore() async {
-        let signing = wallets.map { wallet -> (String, (hasSigningMaterial: Bool, isPrivateKeyBacked: Bool)) in
-            let state = WalletServiceBridge.shared.walletSecretState(walletID: wallet.id)
-            return (wallet.id, (state?.hasSigningMaterial ?? false, state?.hasPrivateKey ?? false))
-        }
-        guard
-            let derived = try? await WalletServiceBridge.shared.walletDerivedState(
-                signingMaterialWalletIDs: signing.filter(\.1.hasSigningMaterial).map(\.0),
-                privateKeyBackedWalletIDs: signing.filter(\.1.isPrivateKeyBacked).map(\.0)
-            )
-        else { return }
+        guard let derived = try? await WalletServiceBridge.shared.walletDerivedState() else { return }
         applyWalletDerivedState(derived)
     }
     private func applyWalletDerivedState(_ derived: WalletDerivedState) {
@@ -122,14 +113,7 @@ extension AppState {
         WalletChainID(chainName)?.displayName ?? chainName.trimmingCharacters(in: .whitespacesAndNewlines)
     }
     func clearDeletedWalletDiagnostics(walletID: String, chainName: String, hasRemainingWalletsOnChain: Bool) {
-        diagnostics.operationalLogs.removeAll { event in
-            if event.walletID == walletID { return true }
-            guard !hasRemainingWalletsOnChain else { return false }
-            return normalizedWalletChainName(event.chainName ?? "") == chainName
-        }
-        guard !hasRemainingWalletsOnChain else { return }
-        markChainHealthy(chainName)
-        Task { try? await WalletServiceBridge.shared.clearOperationalEvents(chainName: chainName) }
+        Task { [weak self] in await self?.diagnostics.loadFromSQLite() }
         lastHistoryRefreshAtByChain[chainName] = nil
     }
     /// Drop a deleted wallet's history diagnostics.

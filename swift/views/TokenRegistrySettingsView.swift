@@ -50,7 +50,9 @@ struct TokenRegistrySettingsView: View {
                 }
             }
             Section(AppLocalization.string("Known Tokens")) {
-                if filteredGroups.isEmpty {
+                if store.tokenPreferences.isEmpty {
+                    ProgressView()
+                } else if filteredGroups.isEmpty {
                     Text(
                         searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                             ? AppLocalization.string("No known tokens match the selected filters.")

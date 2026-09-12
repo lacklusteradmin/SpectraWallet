@@ -76,7 +76,6 @@ final class AppState {
     // construction so the interval is visible next to the field declaration
     // instead of being a magic number buried in an async closure.
     @ObservationIgnored private let priceAlertsPersist = DebouncedAction(intervalMilliseconds: 100)
-    @ObservationIgnored private let livePricesPersist = DebouncedAction(intervalMilliseconds: 200)
     @ObservationIgnored private let tokenPreferenceRebuild = DebouncedAction(intervalMilliseconds: 30)
     @ObservationIgnored private let transactionRebuild = DebouncedAction(intervalMilliseconds: 30)
     /// Recorded transactions.
@@ -152,12 +151,7 @@ final class AppState {
         wallets = records
     }
     @ObservationIgnored private let walletSideEffectsDebounce = DebouncedAction(intervalMilliseconds: 30)
-    @ObservationIgnored var pendingBalanceUpdates: [PendingBalanceUpdate] = []
     @ObservationIgnored var balanceFlushTask: Task<Void, Never>?
-    struct PendingBalanceUpdate {
-        let walletId: String
-        let summary: WalletSummary
-    }
     /// Debounced trigger for `applyWalletCollectionSideEffects`. Replaces the
     /// old `withObservationTracking`-based observation loop, which leaked
     /// `self` on cancel (its `withCheckedContinuation` never resumed when the
@@ -262,8 +256,6 @@ final class AppState {
     @ObservationIgnored var allowsBalanceNetworkRefresh = false
     @ObservationIgnored var isRefreshingPendingTransactions = false
     @ObservationIgnored var lastLivePriceRefreshAt: Date?
-    @ObservationIgnored var lastFiatRatesRefreshAt: Date?
-    @ObservationIgnored var lastFiatRatesAttemptAt: Date?
     @ObservationIgnored var lastFullRefreshAt: Date?
     @ObservationIgnored var lastChainBalanceRefreshAt: Date?
     /// How long the maintenance loop sleeps before asking core again. Core
@@ -376,7 +368,7 @@ final class AppState {
         coreAddressBook = state.addressBook
         if state.tokenPreferences != tokenPreferences { tokenPreferences = state.tokenPreferences }
         if state.priceAlerts != priceAlerts { priceAlerts = state.priceAlerts }
-        if state.fiatRatesFromUsd != fiatRatesFromUSD { fiatRatesFromUSD = state.fiatRatesFromUsd }
+        applyQuoteProjection(state)
         // Synchronous on purpose: the render path reads this, and adopting it a
         // tick later quotes a testnet at mainnet prices in between.
         let unpriced = Set(coreUnpricedChainNames(settings: state.settings))
@@ -479,27 +471,6 @@ final class AppState {
     private func onNetworkChainChanged(family: String) {
         let name = (Chain(id: family)?.displayName ?? family)
         resetHistoryPaginationForChain(family)
-        // A `didSet` cannot await, so the drop runs in a task; `[weak self]`
-        // because nothing here needs the store kept alive for it.
-        Task { [weak self] in await self?.dropDerivationStateForChain(named: name) }
-    }
-    /// Drops what a chain accumulated on the network it was just moved off:
-    /// the keypool's reserved indices and the discovered owned addresses.
-    ///
-    /// One core call, not two. Swift used to issue the two deletes itself and
-    /// could leave one side behind when the second failed; core now takes both
-    /// tables in a single transaction, which is the only place the guarantee
-    /// can live. What is left here is reporting the failure rather than
-    /// dropping it.
-    private func dropDerivationStateForChain(named name: String) async {
-        do {
-            try await WalletServiceBridge.shared.resetChainDerivationState(chainName: name)
-        } catch {
-            appendOperationalLog(
-                .error, category: "Network Switch",
-                message: "Derivation state for \(name) survived a network switch: \(String(describing: error))",
-                chainName: name)
-        }
     }
     var etherscanAPIKey: String = "" {
         didSet {
@@ -565,10 +536,12 @@ final class AppState {
     }
     /// Why core refused the last token-preference change, if it did.
     var tokenPreferenceError: String?
+    @ObservationIgnored var projectedPriceAttempt: Double = 0
+    @ObservationIgnored var projectedFiatAttempt: Double = 0
+    @ObservationIgnored var walletMutationTask: Task<Void, Never>?
     var livePrices: [String: Double] = [:] {
         didSet {
             guard livePrices != oldValue else { return }
-            livePricesPersist.fire { [weak self] in self?.persistLivePrices() }
             // Prices only change on a refresh cycle and the rebuild is an
             // in-memory pass, so it is cheaper to do than to decide about.
             rebuildDashboardDerivedState()
@@ -585,15 +558,7 @@ final class AppState {
     var cachedDashboardPinOptionBySymbol: [String: DashboardPinOption] = [:]
     var cachedAvailableDashboardPinOptions: [DashboardPinOption] = []
     var cachedDashboardAssetGroups: [DashboardAssetGroup] = []
-    private var _cachedResolvedTokenPreferences: [TokenPreferenceEntry] = []
-    var cachedResolvedTokenPreferences: [TokenPreferenceEntry] {
-        get {
-            _cachedResolvedTokenPreferences.isEmpty
-                ? TokenPreferenceEntry.builtIn
-                : _cachedResolvedTokenPreferences
-        }
-        set { _cachedResolvedTokenPreferences = newValue }
-    }
+    var cachedResolvedTokenPreferences: [TokenPreferenceEntry] = []
     var cachedTokenPreferencesByChain: [TokenHostingChain: [TokenPreferenceEntry]] = [:]
     var cachedResolvedTokenPreferencesBySymbol: [String: [TokenPreferenceEntry]] = [:]
     var cachedEnabledKnownTokenPreferences: [TokenPreferenceEntry] = []
@@ -727,7 +692,6 @@ final class AppState {
     // Versioned keys end in `.vN` and bump when the codable shape changes
     // incompatibly; the previous key is left here briefly for any
     // migration-read code that still references it.
-    static let livePricesDefaultsKey = "pricing.livePrices.v1"
 
     static let walletsAccount = "wallets.snapshot"
     static let walletsCoreSnapshotAccount = "wallets.core.snapshot.v1"
@@ -745,11 +709,9 @@ final class AppState {
     static let chainSyncStateDefaultsKey = "chain.sync.state.v1"
     static let installMarkerDefaultsKey = "app.install.marker.v1"
     static let selfSendConfirmationWindowSeconds: TimeInterval = 20
-    static let fiatRatesRefreshInterval: TimeInterval = 6 * 60 * 60
     /// Failure backoff so a degraded provider isn't hammered every maintenance
     /// tick. Without this, a fetch that errors out leaves `lastFiatRatesRefreshAt`
     /// nil, so the cooldown gate never trips and every caller re-fetches.
-    static let fiatRatesRetryBackoff: TimeInterval = 60
     static let foregroundFullRefreshStalenessInterval: TimeInterval = 2 * 60
     func clearWalletSecretIndex() {
         cachedSigningMaterialWalletIDs = []
@@ -801,12 +763,7 @@ final class AppState {
         endpointValidationError(field: .bitcoinEsploraList, raw: bitcoinEsploraEndpoints)
     }
 
-    func recordPendingSentTransaction(_ transaction: TransactionRecord) {
-        appendTransaction(transaction)
-        lastSentTransaction = transaction
-        noteSendBroadcastQueued(for: transaction)
-        requestTransactionStatusNotificationPermission()
-    }
+
     private func applyVerificationNotice(_ n: SendVerificationNotice) {
         sendVerificationNotice = n.notice
         sendVerificationNoticeIsWarning = n.isWarning
@@ -967,7 +924,6 @@ final class AppState {
         walletSideEffectsDebounce.cancel()
         transactionRebuild.cancel()
         tokenPreferenceRebuild.cancel()
-        livePricesPersist.cancel()
         priceAlertsPersist.cancel()
         #if canImport(Network)
             networkPathMonitor.cancel()

@@ -31,12 +31,6 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func walletSecretState(walletID: String) -> WalletSecretState? {
         try? service().walletSecretState(walletId: walletID)
     }
-    func storeWalletSeedPhrase(walletID: String, seedPhrase: String, password: String?) throws {
-        try service().storeWalletSeedPhrase(walletId: walletID, seedPhrase: seedPhrase, password: password)
-    }
-    func storeWalletPrivateKey(walletID: String, privateKey: String, password: String?) throws {
-        try service().storeWalletPrivateKey(walletId: walletID, privateKey: privateKey, password: password)
-    }
     func walletSeedPhrase(walletID: String, password: String?) throws -> String {
         try service().walletSeedPhrase(walletId: walletID, password: password)
     }
@@ -71,18 +65,18 @@ protocol WalletServiceBridgeProtocol: Sendable {}
         try await service().fetchEvmHistoryDiagnostics(
             chainId: chainId, walletId: walletID, address: address)
     }
+    func pendingMaintenanceChains() async throws -> [String] {
+        try await service().pendingMaintenanceChains()
+    }
+    func previewOwnedEvmSend(walletID: String, holdingKey: String, amount: String, destination: String, explicitNonce: Int64?, customFees: EvmCustomFeeConfiguration?) async throws -> EvmSendPreview? {
+        try await service().previewOwnedEvmSend(walletId: walletID, holdingKey: holdingKey, amount: amount, destination: destination, explicitNonce: explicitNonce, customFees: customFees)
+    }
     func executeSend(_ request: SendExecutionRequest) async throws -> SendExecutionResult { try await service().executeSend(request: request) }
     /// Token balances for any chain that has them, EVM included.
     ///
     /// There were two of these with the same signature and complementary chain
     /// sets, so a caller had to know which family it was holding.
-    func fetchTokenBalances(
-        chainId: String, address: String, tokens: [TokenDescriptor]
-    ) async throws -> [TokenBalanceResult] {
-        guard !tokens.isEmpty else { return [] }
-        return try await service().fetchTokenBalances(
-            chainId: chainId, address: address, tokens: tokens)
-    }
+
     func deriveBitcoinAccountXpub(mnemonicPhrase: String, passphrase: String = "", accountPath: String) throws -> String {
         try service().deriveBitcoinAccountXpubTyped(mnemonicPhrase: mnemonicPhrase, passphrase: passphrase, accountPath: accountPath)
     }
@@ -96,18 +90,6 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func fetchEVMTxNonce(chainId: String, txHash: String) async throws -> Int {
         Int(try await service().fetchEvmTxNonceTyped(chainId: chainId, txHash: txHash))
     }
-    func fetchEvmSendPreviewTyped(
-        chainId: String, from: String, to: String, valueWei: String, dataHex: String,
-        explicitNonce: Int64?, customFees: EvmCustomFeeConfiguration?
-    ) async throws -> EvmSendPreview? {
-        try await service().fetchEvmSendPreviewTyped(
-            chainId: chainId, from: from, to: to, valueWei: valueWei, dataHex: dataHex,
-            explicitNonce: explicitNonce, customFees: customFees)
-    }
-    /// What the destination looks like for the asset this holding sends.
-    /// Which contract the asset is, and whether it is the chain's own, are
-    /// core's to work out from the holding — the composer used to read the
-    /// token list and hand a descriptor back.
     func sendDestinationRisk(walletID: String, holdingKey: String, destination: String) async throws -> SendDestinationRisk {
         try await service().sendDestinationRisk(
             walletId: walletID, holdingKey: holdingKey, destinationInput: destination)
@@ -135,17 +117,15 @@ protocol WalletServiceBridgeProtocol: Sendable {}
         try await service().fetchSimpleChainSendPreviewTyped(chainId: chainId, address: address)
     }
     nonisolated func rustGenerateMnemonic(wordCount: Int) -> String { MainActor.assumeIsolated { generateMnemonic(wordCount: UInt32(wordCount)) } }
-    func broadcastRawExtract(chainId: String, payload: String, resultField: String) async throws -> String {
-        try await service().broadcastRawExtract(chainId: chainId, payload: payload, resultField: resultField)
-    }
+
     func fetchBitcoinNextUnusedAddressTyped(xpub: String, change: UInt32 = 0, gapLimit: UInt32 = 20) async throws -> String? {
         try await service().fetchBitcoinNextUnusedAddressTyped(xpub: xpub, change: change, gapLimit: gapLimit)
     }
-    func fetchPricesViaRust(coins: [PriceRequestCoin]) async throws -> [String: Double] {
-        try await service().fetchPricesTyped(coins: coins)
+    func refreshOwnedPrices(force: Bool) async throws -> CoreAppState {
+        try await service().refreshOwnedPrices(force: force)
     }
-    func refreshFiatRatesViaRust() async throws -> [String: Double] {
-        try await service().refreshFiatRates()
+    func refreshOwnedFiatRates(force: Bool) async throws -> CoreAppState {
+        try await service().refreshOwnedFiatRates(force: force)
     }
     func registerSecretStore(_ store: SecretStore) throws { try service().setSecretStore(store: store) }
     nonisolated func setEtherscanAPIKey(_ key: String) {
@@ -331,12 +311,23 @@ extension WalletServiceBridge {
 
 
     /// Everything the wallet list implies, with holdings already resolved.
-    func walletDerivedState(
-        signingMaterialWalletIDs: [String], privateKeyBackedWalletIDs: [String],
-    ) async throws -> WalletDerivedState {
-        try await service().walletDerivedState(
-            signingMaterialWalletIds: signingMaterialWalletIDs,
-            privateKeyBackedWalletIds: privateKeyBackedWalletIDs)
+    func walletDerivedState() async throws -> WalletDerivedState {
+        try await service().walletDerivedState()
+    }
+    func beginFundsScan(request: FundsFinderRequest) throws -> FundsScan {
+        try service().beginFundsScan(request: request, chainId: nil)
+    }
+    func diagnosticState() async throws -> DiagnosticState {
+        await (try service()).diagnosticState()
+    }
+    func applyDiagnosticCommand(_ command: DiagnosticCommand) async throws -> DiagnosticState {
+        try await service().applyDiagnosticCommand(command: command)
+    }
+    func rebroadcastTransaction(id: String) async throws -> String {
+        try await service().rebroadcastTransaction(transactionId: id)
+    }
+    func probeChainEndpoints(chainID: String) async throws -> [EndpointProbe] {
+        try await service().probeChainEndpoints(chainId: chainID)
     }
 
     // ── Keypool ───────────────────────────────────────────────────────────
@@ -382,14 +373,10 @@ extension WalletServiceBridge {
     func fetchNormalizedHistory(chainId: String, address: String) async throws -> [NormalizedHistoryItem] {
         try await service().fetchNormalizedHistory(chainId: chainId, address: address)
     }
-    func deleteKeypoolForWallet(walletId: String) async throws {
-        try await service().deleteKeypoolForWallet(walletId: walletId)
-    }
+
     /// The single call a network switch makes: core drops the chain's keypool
     /// and its owned addresses in one transaction.
-    func resetChainDerivationState(chainName: String) async throws {
-        try await service().resetChainDerivationState(chainName: chainName)
-    }
+
     func registerOwnedAddress(
         walletID: String, chainName: String, address: String, derivationPath: String?,
         branch: String?, branchIndex: Int64?
@@ -403,9 +390,7 @@ extension WalletServiceBridge {
         guard let service = try? service() else { return [] }
         return await service.ownedAddressesForWallet(walletId: walletID, chainName: chainName)
     }
-    func deleteWalletRelationalData(walletId: String) async throws {
-        try await service().deleteWalletRelationalData(walletId: walletId)
-    }
+
     // ── Transaction history persistence (Rust SQLite) ──────────────────────────
     func fetchAllHistoryRecordsTyped() async throws -> [HistoryRecord] { try await service().fetchAllHistoryRecordsTyped() }
     /// Empty the history table.
