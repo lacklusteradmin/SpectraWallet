@@ -23,34 +23,26 @@ extension AppState {
     }
     func refreshPendingTransactions(includeHistoryRefreshes: Bool = true, historyRefreshInterval: TimeInterval = 120) async {
         guard !isRefreshingPendingTransactions else { return }
-        let tokenHostingChains: Set<WalletChainID>
-        do {
-            tokenHostingChains = Set(try await WalletServiceBridge.shared.pendingMaintenanceChains().compactMap(WalletChainID.init))
-        } catch { return }
-        guard !tokenHostingChains.isEmpty else { return }
         let startedAt = CFAbsoluteTimeGetCurrent()
         isRefreshingPendingTransactions = true
         defer {
             isRefreshingPendingTransactions = false
-            recordPerformanceSample(
-                "refresh_pending_transactions", startedAt: startedAt,
-                metadata: "chains=\(tokenHostingChains.count) include_history=\(includeHistoryRefreshes)"
-            )
+            recordPerformanceSample("refresh_pending_transactions", startedAt: startedAt)
+        }
+        let result: PendingMaintenanceResult
+        do {
+            result = try await WalletServiceBridge.shared.refreshPendingTransactions()
+        } catch {
+            appendOperationalLog(.error, category: "Pending Transactions", message: error.localizedDescription)
+            return
         }
         lastPendingTransactionRefreshAt = Date()
-        // The filter that stood here — send kind, has a hash, pending or
-        // confirmed — read core's own transaction table to tell core which
-        // trackers to keep, and it ignored the chain's poll shape: it kept
-        // `confirmed` for every chain, though only the ones that count
-        // confirmation depth still poll after the first one.
-        try? await WalletServiceBridge.shared.pruneStatusTrackers()
-        await withTaskGroup(of: Void.self) { group in
-            for descriptor in Self.chainRefreshDescriptors.values {
-                guard tokenHostingChains.contains(descriptor.chainID), let pending = descriptor.executePendingOnly else { continue }
-                group.addTask { await pending(self) }
-            }
-            await group.waitForAll()
+        for failure in result.failures {
+            appendOperationalLog(.error, category: "Pending Transactions", message: failure.message,
+                chainName: WalletChainID(failure.chainId)?.displayName)
         }
+        if !result.changes.isEmpty { await applyPendingStatusChanges(result.changes) }
+        let tokenHostingChains = Set(result.chains.compactMap(WalletChainID.init))
         let refreshLastSent: () -> Void = {
             if let lastSentTransaction = self.lastSentTransaction,
                 let refreshed = self.transactions.first(where: { $0.id == lastSentTransaction.id })

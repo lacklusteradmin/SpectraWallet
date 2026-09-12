@@ -4,17 +4,14 @@ struct WalletChainRefreshDescriptor: Sendable {
     let chainID: WalletChainID
     let executeRefresh: @Sendable (AppState, Bool) async -> Void
     let executeHistoryOnly: (@Sendable (AppState) async -> Void)?
-    let executePendingOnly: (@Sendable (AppState) async -> Void)?
     var chainName: String { chainID.displayName }
     init(
         chainID: WalletChainID, executeRefresh: @escaping @Sendable (AppState, Bool) async -> Void,
-        executeHistoryOnly: (@Sendable (AppState) async -> Void)? = nil,
-        executePendingOnly: (@Sendable (AppState) async -> Void)? = nil
+        executeHistoryOnly: (@Sendable (AppState) async -> Void)? = nil
     ) {
         self.chainID = chainID
         self.executeRefresh = executeRefresh
         self.executeHistoryOnly = executeHistoryOnly
-        self.executePendingOnly = executePendingOnly
     }
     /// The refresh steps a chain needs, decided from the registry.
     ///
@@ -62,8 +59,7 @@ struct WalletChainRefreshDescriptor: Sendable {
                 if refreshHistory { await history(store) }
                 await pending(store)
             },
-            executeHistoryOnly: history,
-            executePendingOnly: pending
+            executeHistoryOnly: history
         )
     }
 }

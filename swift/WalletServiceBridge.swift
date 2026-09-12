@@ -65,8 +65,8 @@ protocol WalletServiceBridgeProtocol: Sendable {}
         try await service().fetchEvmHistoryDiagnostics(
             chainId: chainId, walletId: walletID, address: address)
     }
-    func pendingMaintenanceChains() async throws -> [String] {
-        try await service().pendingMaintenanceChains()
+    func refreshPendingTransactions() async throws -> PendingMaintenanceResult {
+        try await service().refreshPendingTransactions()
     }
     func previewOwnedEvmSend(walletID: String, holdingKey: String, amount: String, destination: String, explicitNonce: Int64?, customFees: EvmCustomFeeConfiguration?) async throws -> EvmSendPreview? {
         try await service().previewOwnedEvmSend(walletId: walletID, holdingKey: holdingKey, amount: amount, destination: destination, explicitNonce: explicitNonce, customFees: customFees)
@@ -77,8 +77,12 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     /// There were two of these with the same signature and complementary chain
     /// sets, so a caller had to know which family it was holding.
 
+    /// A free function in core, not a service method: deriving an xpub from a
+    /// phrase and a path reads no wallet, no database and no endpoint, so it
+    /// needs no service to reach. The bridge keeps the wrapper for the default
+    /// passphrase.
     func deriveBitcoinAccountXpub(mnemonicPhrase: String, passphrase: String = "", accountPath: String) throws -> String {
-        try service().deriveBitcoinAccountXpubTyped(mnemonicPhrase: mnemonicPhrase, passphrase: passphrase, accountPath: accountPath)
+        try deriveBitcoinAccountXpubTyped(mnemonicPhrase: mnemonicPhrase, passphrase: passphrase, accountPath: accountPath)
     }
     /// Core resolves afresh and optionally verifies the address the user reviewed.
     func resolveSendDestination(chainId: String, input: String, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
@@ -292,23 +296,10 @@ extension WalletServiceBridge {
     }
 
     // ── Confirmation-poll backoff ─────────────────────────────────────────
-    // Core owns the tracker table, the schedule and the clock; these forward
-    // intent, not computed state. They used to carry `now` and a six-field
-    // `TransactionStatusPollConfig` on every call — how often to re-poll and
-    // when to give up, decided on this side and handed over each time.
-
-
-    /// Record what one confirmation poll found.
-
-    func resetStatusTracker(id: String, clearFinality: Bool) async throws {
-        try await service().resetStatusTracker(
-            transactionId: id, clearFinality: clearFinality)
+    /// Core validates and rechecks the stored transaction, then commits its result.
+    func recheckTransactionStatus(id: String) async throws -> TransactionStatusChange {
+        try await service().recheckTransactionStatus(transactionId: id)
     }
-
-    func pruneStatusTrackers() async throws {
-        try await service().pruneStatusTrackers()
-    }
-
 
     /// Everything the wallet list implies, with holdings already resolved.
     func walletDerivedState() async throws -> WalletDerivedState {

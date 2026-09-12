@@ -122,8 +122,8 @@ extension AppState {
         lastSendDestinationProbeWarning = nil
         lastSendDestinationProbeInfoMessage = nil
         bypassHighRiskSendConfirmation = false
-        // A reset leaves no transactions, so pruning drops every tracker.
-        await runResetStep("Prune status trackers") { try await WalletServiceBridge.shared.pruneStatusTrackers() }
+        // Core prunes status trackers against committed history on the next
+        // maintenance sweep, including when there is no remaining work.
         isShowingWalletImporter = false
         isShowingAddWalletEntry = false
         isShowingSendSheet = false

@@ -84,6 +84,30 @@ import Foundation
             XCTAssertTrue(flag.finished, "an EVM pending refresh must terminate rather than recurse")
         }
 
+        func testOwnedPendingMaintenanceCrossesTheAsyncBridge() async throws {
+            let result = try await WalletServiceBridge.shared.refreshPendingTransactions()
+            XCTAssertTrue(result.chains.isEmpty)
+            XCTAssertTrue(result.changes.isEmpty)
+            XCTAssertTrue(result.failures.isEmpty)
+            let store = AppState()
+            await store.refreshPendingTransactions(includeHistoryRefreshes: false)
+            XCTAssertFalse(store.isRefreshingPendingTransactions)
+            XCTAssertNotNil(store.lastPendingTransactionRefreshAt)
+        }
+
+        func testManualStatusRecheckRefusesMissingTransactionAcrossAsyncBridge() async throws {
+            let id = UUID()
+            do {
+                _ = try await WalletServiceBridge.shared.recheckTransactionStatus(id: id.uuidString)
+                XCTFail("a missing transaction must not produce a successful status")
+            } catch {
+                XCTAssertTrue(String(describing: error).contains("Transaction not found"))
+            }
+            let store = AppState()
+            let message = await store.retryUTXOTransactionStatus(for: id)
+            XCTAssertTrue(message.contains("Transaction not found"))
+        }
+
         func testEveryEVMMainnetResolvesAWalletAddress() async {
             let store = AppState()
             store.importDraft.walletName = "EVM Coverage"

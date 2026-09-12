@@ -686,34 +686,21 @@ extension AppState {
         }
     }
     func retryUTXOTransactionStatus(for transactionID: UUID) async -> String {
-        guard let transaction = transactions.first(where: { $0.id == transactionID }) else { return "Transaction not found." }
-        // Three facts, all of them `Chain::pending_status_poll`: which chains
-        // are polled this way, whether a chain keeps counting after
-        // confirmation, and whether receives are tracked too. They were a
-        // five-name list, a `== "Dogecoin"` and a blanket `kind == .send`, and
-        // the last one disagreed with the registry — Litecoin is
-        // `require_send_kind: false` because its explorer confirms receives on
-        // its own cadence, and a received Litecoin transaction could not be
-        // rechecked.
-        guard transaction.supportsStatusRecheck else {
-            return transaction.transactionHash == nil
-                ? "This transaction has no hash to recheck."
-                : "Status recheck is not available for this transaction."
+        do {
+            let change = try await WalletServiceBridge.shared.recheckTransactionStatus(id: transactionID.uuidString)
+            await applyPendingStatusChanges([change])
+            if change.statusChanged, let status = TransactionStatus(rawValue: change.newStatus) {
+                return "Status updated: \(status.localizedTitle)."
+            }
+            if change.newStatus == "pending" { return "No confirmation yet. Spectra will keep retrying automatically." }
+            return "Transaction is confirmed."
+        } catch {
+            let message = String(describing: error)
+            appendOperationalLog(.error, category: "Pending Transactions", message: message)
+            return message
         }
-        guard let chain = Chain(displayName: transaction.chainName),
-            case .utxo(let tracksFinality, _) = chain.pendingStatusPoll
-        else { return "Status recheck is not available for this transaction." }
-        try? await WalletServiceBridge.shared.resetStatusTracker(
-            id: transactionID.uuidString, clearFinality: tracksFinality)
-        // The switch this replaces had five arms and every one of them was
-        // `refreshPendingTransactions(chainName: <the same name>)`.
-        await refreshPendingTransactions(chainName: transaction.chainName)
-        guard let updated = transactions.first(where: { $0.id == transactionID }) else { return "Transaction status refresh completed." }
-        if updated.status != transaction.status { return "Status updated: \(updated.statusText)." }
-        if updated.status == .pending { return "No confirmation yet. Spectra will keep retrying automatically." }
-        if updated.status == .failed { return updated.failureReason ?? "Transaction remains failed." }
-        return "Transaction is confirmed."
     }
+
     func rebroadcastSignedTransaction(for transactionID: UUID) async -> String {
         guard let transaction = transactions.first(where: { $0.id == transactionID }) else { return "Transaction not found." }
         guard transaction.kind == .send else { return "Rebroadcast is only supported for send transactions." }

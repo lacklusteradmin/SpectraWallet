@@ -824,8 +824,11 @@ final class AppState {
         let descriptor = WalletChainID(chainName).flatMap { Self.chainRefreshDescriptors[$0] }
         async let balanceRefresh: () = refreshBalances()
         async let chainRefresh: () = {
-            guard let descriptor else { return }
-            if usePending { await descriptor.executePendingOnly?(self) } else { await descriptor.executeHistoryOnly?(self) }
+            if usePending {
+                await refreshPendingTransactions(chainName: chainName)
+            } else {
+                await descriptor?.executeHistoryOnly?(self)
+            }
         }()
         _ = await (balanceRefresh, chainRefresh)
         updateSendVerificationNoticeForLastSentTransaction()
