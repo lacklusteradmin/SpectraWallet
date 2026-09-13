@@ -1378,5 +1378,12 @@
   "wiki.asset.onChains": "在 %@ 条链上",
   "wiki.place.nativeTo": "%@ 的原生代币",
   "word %lld": "单词 %lld",
-  "xpub... / zpub...": "xpub... / zpub..."
+  "xpub... / zpub...": "xpub... / zpub...",
+  "Confirm Send": "确认发送",
+  "This destination belongs to your wallet. Confirm intentional self-send.": "该地址属于你的钱包。请确认这是有意向自己转账。",
+  "Send inputs changed. Review the transaction again.": "发送内容已更改。请重新核对交易。",
+  "Estimated network fee: %@ %@": "预计网络费用：%@ %@",
+  "Secret text is used exactly as entered, including spaces. Unsupported chain overrides are refused. Leave blank to use the chain default.": "密钥相关文本将按原样使用，包括空格。不支持的链参数会被拒绝。留空则使用链默认值。",
+  "Custom master HMAC key for supported chains. Blank uses the chain default.": "为支持的链自定义主 HMAC 密钥。留空则使用链默认值。",
+  "Adaptive": "自适应"
 }

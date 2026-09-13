@@ -166,7 +166,7 @@ extension AppState {
             return NormalizedHistoryEntry(
                 id: entry.id, transactionID: transactionID, dedupeKey: entry.dedupeKey,
                 createdAt: Date(timeIntervalSince1970: entry.createdAtUnix), kind: kind,
-                status: status, walletName: entry.walletName, assetName: entry.assetName,
+                status: status, walletName: entry.walletName, assetDisplayName: entry.assetDisplayName,
                 symbol: entry.symbol, chainName: entry.chainName, address: entry.address,
                 transactionHash: entry.transactionHash, sourceTag: entry.sourceTag,
                 providerCount: Int(entry.providerCount), searchIndex: entry.searchIndex)
@@ -210,4 +210,52 @@ extension AppState {
         return Int(tokenDisplayDecimals(deploymentId: deploymentID, customDecimals: customDecimals))
     }
 
+}
+
+func evmRecipientMessages(_ warnings: [EvmRecipientPreflightWarning]) -> [String] {
+    return warnings.compactMap { w -> String? in
+        switch w.code {
+        case "recipient_is_contract":
+            return AppLocalization.format(
+                "Recipient is a smart contract on %@. Confirm it can receive %@ safely.", w.chainName ?? "", w.symbol ?? "")
+        case "recipient_code_unknown":
+            return AppLocalization.format(
+                "Could not verify recipient contract state on %@. Review destination carefully.", w.chainName ?? "")
+        case "token_contract_missing":
+            return AppLocalization.format(
+                "Token contract %@ appears missing on %@. This may be a wrong-network token selection.",
+                w.tokenSymbol ?? "", w.chainName ?? "")
+        case "token_code_unknown":
+            return AppLocalization.format(
+                "Could not verify %@ contract bytecode on %@.", w.tokenSymbol ?? "", w.chainName ?? "")
+        default: return nil
+        }
+    }
+}
+func highRiskSendMessages(_ warnings: [HighRiskSendWarning]) -> [String] {
+    return warnings.compactMap { w -> String? in
+        switch w.code {
+        case "invalid_format": return AppLocalization.format("The destination address format does not match %@.", w.chain ?? "")
+        case "new_address": return localizedStoreString("This is a new destination address with no prior history in this wallet.")
+        case "ens_resolved":
+            return AppLocalization.format(
+                "ENS name '%@' resolved to %@. Confirm this resolved address before sending.", w.name ?? "", w.address ?? "")
+        case "large_send":
+            let formatted = (Double(w.percent ?? 0) / 100.0).formatted(.percent.precision(.fractionLength(0)))
+            return AppLocalization.format("This send is %@ of your %@ balance.", formatted, w.symbol ?? "")
+        case "non_evm_on_evm":
+            return AppLocalization.format("Destination appears to be a non-EVM address while sending on %@.", w.chain ?? "")
+        case "ens_off_ethereum":
+            return AppLocalization.format(
+                "ENS names are Ethereum-specific. For %@, verify the resolved EVM address very carefully.", w.chain ?? "")
+        case "eth_on_utxo":
+            return AppLocalization.format("Destination appears to be an Ethereum-style address while sending on %@.", w.chain ?? "")
+        case "non_tron": return localizedStoreString("Destination appears to be non-Tron format while sending on Tron.")
+        case "non_solana": return localizedStoreString("Destination appears to be non-Solana format while sending on Solana.")
+        case "non_xrp": return localizedStoreString("Destination appears to be non-XRP format while sending on XRP Ledger.")
+        case "non_monero": return localizedStoreString("Destination appears to be non-Monero format while sending on Monero.")
+        case "chain_mismatch": return localizedStoreString("Wallet-chain context mismatch detected for this send.")
+        default: return nil
+        }
+    }
 }

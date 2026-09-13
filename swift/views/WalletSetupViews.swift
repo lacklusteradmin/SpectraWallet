@@ -17,7 +17,7 @@ struct SetupChainSelectionDescriptor: Identifiable {
         self.symbol = symbol
         self.gasTokenSymbol = gasToken ?? symbol
         self.chainName = chainName
-        self.artworkName = coreNetworkIconAssetName(networkId: id)
+        self.artworkName = coreNetworkArtworkName(networkId: id)
         self.color = color
         self.category = category
     }
@@ -273,7 +273,7 @@ struct SetupView: View {
             HStack(spacing: 10) {
                 ZStack(alignment: .topTrailing) {
                     CoinBadge(
-                        assetName: descriptor.artworkName, fallbackText: descriptor.symbol,
+                        artworkName: descriptor.artworkName, fallbackText: descriptor.symbol,
                         color: descriptor.color, size: 36
                     )
                     if isSelected {
@@ -317,9 +317,9 @@ struct SetupView: View {
         if let validationMessage { Text(validationMessage).font(.caption).foregroundStyle(validationColor ?? Color.secondary) }
     }
     private func watchedAddressValidationMessage(
-        entries: [String], assetName: String, validator: (String) -> Bool
+        entries: [String], assetDisplayName: String, validator: (String) -> Bool
     ) -> (message: String, color: Color) {
-        let localizedAssetName = assetName
+        let localizedAssetName = assetDisplayName
         if entries.isEmpty {
             return (AppLocalization.format("Enter one %@ address per line.", localizedAssetName), Color.secondary)
         }
@@ -528,7 +528,7 @@ struct SetupView: View {
         let kind = watchedAddressKind(for: chain)
         let validation = watchedAddressValidationMessage(
             entries: draft.watchOnlyEntries(from: text.wrappedValue),
-            assetName: title,
+            assetDisplayName: title,
             validator: { AddressValidation.isValid($0, kind: kind) }
         )
         watchedAddressSection(
@@ -728,7 +728,6 @@ private struct PowerUserOverridesSection: View {
         VStack(alignment: .leading, spacing: 10) {
             header
             stage1Overrides
-            stage2Overrides
         }.padding(14).background(
             RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous).fill(Color.orange.opacity(0.08))
         ).overlay(
@@ -745,7 +744,7 @@ private struct PowerUserOverridesSection: View {
             }
             Text(
                 AppLocalization.string(
-                    "These fields override chain-preset derivation defaults. Incompatible combinations (e.g., ed25519 algorithm on a secp256k1 chain) will fail at import. Leave blank to use the chain default."
+                    "Secret text is used exactly as entered, including spaces. Unsupported chain overrides are refused. Leave blank to use the chain default."
                 )
             ).font(.caption).foregroundStyle(.orange.opacity(0.9))
         }
@@ -757,63 +756,10 @@ private struct PowerUserOverridesSection: View {
                 detail: AppLocalization.string("BIP-39 passphrase (\"25th word\"). Blank = none."),
                 text: $draft.overridePassphrase, isSecure: true)
             AdvancedOverrideTextField(
-                title: AppLocalization.string("Mnemonic Wordlist"),
-                detail: AppLocalization.string(
-                    "e.g. english, chinese_simplified, french, japanese, spanish. Blank = english."),
-                text: $draft.overrideMnemonicWordlist)
-            AdvancedOverrideTextField(
-                title: AppLocalization.string("PBKDF2 Iteration Count"),
-                detail: AppLocalization.string("BIP-39 PBKDF2 rounds. Blank = 2048 (standard)."),
-                text: $draft.overrideIterationCount, keyboard: .numberPad)
-            AdvancedOverrideTextField(
-                title: AppLocalization.string("Salt Prefix"),
-                detail: AppLocalization.string(
-                    "BIP-39 seed-derivation salt prefix. Blank = \"mnemonic\" (standard)."),
-                text: $draft.overrideSaltPrefix)
-            AdvancedOverrideTextField(
                 title: AppLocalization.string("HMAC Master Key"),
                 detail: AppLocalization.string(
-                    "BIP-32 master HMAC key string. Blank = \"Bitcoin seed\" (standard)."),
+                    "Custom master HMAC key for supported chains. Blank uses the chain default."),
                 text: $draft.overrideHmacKey)
-        }
-    }
-    private var stage2Overrides: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            AdvancedOverridePicker(
-                title: AppLocalization.string("Curve"),
-                detail: AppLocalization.string("Override signing curve."),
-                selection: $draft.overrideCurve,
-                options: ["secp256k1", "ed25519", "sr25519"])
-            AdvancedOverridePicker(
-                title: AppLocalization.string("Derivation Algorithm"),
-                detail: AppLocalization.string("Override the seed→child-key algorithm."),
-                selection: $draft.overrideDerivationAlgorithm,
-                options: [
-                    "bip32_secp256k1", "slip10_ed25519", "direct_seed_ed25519",
-                    "ton_mnemonic", "bip32_ed25519_icarus", "substrate_bip39", "monero_bip39",
-                ])
-            AdvancedOverridePicker(
-                title: AppLocalization.string("Address Algorithm"),
-                detail: AppLocalization.string("Override the key→address encoding."),
-                selection: $draft.overrideAddressAlgorithm,
-                options: [
-                    "bitcoin", "evm", "solana", "near_hex", "ton_raw_account_id",
-                    "cardano_shelley_enterprise", "ss58", "monero_main", "ton_v4r2",
-                    "litecoin", "dogecoin", "bitcoin_cash_legacy", "bitcoin_sv_legacy",
-                    "tron_base58_check", "xrp_base58_check", "stellar_strkey",
-                    "sui_keccak", "aptos_keccak", "icp_principal",
-                ])
-            AdvancedOverridePicker(
-                title: AppLocalization.string("Public Key Format"),
-                detail: AppLocalization.string("Override the public-key encoding format."),
-                selection: $draft.overridePublicKeyFormat,
-                options: ["compressed", "uncompressed", "x_only", "raw"])
-            AdvancedOverridePicker(
-                title: AppLocalization.string("Script Type"),
-                detail: AppLocalization.string(
-                    "UTXO script type (Bitcoin only) or \"account\" for account-model chains."),
-                selection: $draft.overrideScriptType,
-                options: ["p2pkh", "p2sh_p2wpkh", "p2wpkh", "p2tr", "account"])
         }
     }
 }
@@ -841,35 +787,6 @@ private struct AdvancedOverrideTextField: View {
         } else {
             TextField(AppLocalization.string("(default)"), text: $text)
                 .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(keyboard)
-        }
-    }
-}
-
-private struct AdvancedOverridePicker: View {
-    let title: String
-    let detail: String
-    @Binding var selection: String
-    let options: [String]
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            Menu {
-                Button(AppLocalization.string("(default)")) { selection = "" }
-                ForEach(options, id: \.self) { option in
-                    Button(option) { selection = option }
-                }
-            } label: {
-                HStack {
-                    Text(selection.isEmpty ? AppLocalization.string("(default)") : selection)
-                        .font(.subheadline.monospaced()).foregroundStyle(Color.primary)
-                    Spacer()
-                    Image(systemName: "chevron.up.chevron.down").font(.caption).foregroundStyle(.secondary)
-                }.padding(.horizontal, 10).padding(.vertical, 8)
-                    .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.control)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
-            }.buttonStyle(.plain)
-            Text(detail).font(.caption2).foregroundStyle(.secondary)
         }
     }
 }

@@ -11,7 +11,6 @@ extension AppState {
         sendPreviewStore.resetAll()
         sendingChains = []
         preparingChains = []
-        pendingSelfSendConfirmation = nil
         clearHighRiskSendConfirmation()
     }
     private func resetSendComposerFields() {
@@ -19,8 +18,7 @@ extension AppState {
         isCheckingSendDestinationBalance = false
         clearSendVerificationNotice()
         useCustomEvmFees = false; customEvmMaxFeeGwei = ""; customEvmPriorityFeeGwei = ""
-        sendAdvancedMode = false; sendUTXOMaxInputCount = 0; sendEnableRBF = true; sendEnableCPFP = false
-        sendLitecoinChangeStrategy = .derivedChange; evmManualNonceEnabled = false; evmManualNonce = ""
+        evmManualNonceEnabled = false; evmManualNonce = ""
         lastSentTransaction = nil
         clearAllChainSendState()
     }
@@ -43,7 +41,6 @@ extension AppState {
             useCustomEvmFees = false; customEvmMaxFeeGwei = ""; customEvmPriorityFeeGwei = "";
             evmManualNonceEnabled = false; evmManualNonce = ""
         }
-        if selectedSendCoin?.chain != .litecoin { sendLitecoinChangeStrategy = .derivedChange }
         lastSentTransaction = nil
         clearAllChainSendState()
         sendDestinationRiskWarning = nil; sendDestinationInfoMessage = nil; isCheckingSendDestinationBalance = false
@@ -130,7 +127,7 @@ extension AppState {
         guard evmManualNonceEnabled else { return nil }
         return Int(try parseEvmNonce(raw: evmManualNonce))
     }
-    func selectedWalletForSend() -> ImportedWallet? { wallet(for: sendWalletID) }
+    func selectedWalletForSend() -> WalletView? { wallet(for: sendWalletID) }
     /// The pending send the composer can replace as it stands: core's rule,
     /// scoped to the wallet and chain the composer is on.
     ///
@@ -235,79 +232,12 @@ extension AppState {
         }
         return try await WalletServiceBridge.shared.resolveSendDestination(chainId: chainId, input: input, expectedAddress: expectedAddress)
     }
-    /// Warnings about an EVM recipient, localized.
-    ///
-    /// Core makes the two contract-code probes itself and works out which
-    /// token the holding is from the token list it owns. This used to make
-    /// both network calls, swallow their errors, look the token up on this
-    /// side, and hand all three answers back for core to judge.
-    func evmRecipientPreflightReasons(holding: Coin, destinationAddress: String) async -> [String] {
-        let warnings = await WalletServiceBridge.shared.evmRecipientPreflight(
-            walletID: sendWalletID, holdingKey: holding.holdingKey,
-            destinationAddress: destinationAddress)
-        return warnings.compactMap { w -> String? in
-            switch w.code {
-            case "recipient_is_contract":
-                return AppLocalization.format(
-                    "Recipient is a smart contract on %@. Confirm it can receive %@ safely.", w.chainName ?? "", w.symbol ?? "")
-            case "recipient_code_unknown":
-                return AppLocalization.format(
-                    "Could not verify recipient contract state on %@. Review destination carefully.", w.chainName ?? "")
-            case "token_contract_missing":
-                return AppLocalization.format(
-                    "Token contract %@ appears missing on %@. This may be a wrong-network token selection.",
-                    w.tokenSymbol ?? "", w.chainName ?? "")
-            case "token_code_unknown":
-                return AppLocalization.format(
-                    "Could not verify %@ contract bytecode on %@.", w.tokenSymbol ?? "", w.chainName ?? "")
-            default: return nil
-            }
-        }
-    }
-    /// Why this send looks risky, localized.
-    ///
-    /// The address book and every address this wallet has sent to on the chain
-    /// used to be assembled here and passed in — both are core's own store, so
-    /// "is this a first-time destination" was only as complete as this side's
-    /// copy of the history. What crosses now is what the user did: the
-    /// destination, what they typed, and whether an ENS name got them there.
-    func evaluateHighRiskSendReasons(
-        wallet: ImportedWallet, holding: Coin, amount: Double, destinationAddress: String,
-        destinationInput: String, usedENSResolution: Bool = false
-    ) async -> [String] {
-        let warnings = await WalletServiceBridge.shared.highRiskSendReasons(
-            walletID: wallet.id, holdingKey: holding.holdingKey, amount: amount,
-            destinationAddress: destinationAddress, destinationInput: destinationInput,
-            usedENSResolution: usedENSResolution)
-        return warnings.compactMap { w -> String? in
-            switch w.code {
-            case "invalid_format": return AppLocalization.format("The destination address format does not match %@.", w.chain ?? "")
-            case "new_address": return localizedStoreString("This is a new destination address with no prior history in this wallet.")
-            case "ens_resolved":
-                return AppLocalization.format(
-                    "ENS name '%@' resolved to %@. Confirm this resolved address before sending.", w.name ?? "", w.address ?? "")
-            case "large_send":
-                let formatted = (Double(w.percent ?? 0) / 100.0).formatted(.percent.precision(.fractionLength(0)))
-                return AppLocalization.format("This send is %@ of your %@ balance.", formatted, w.symbol ?? "")
-            case "non_evm_on_evm":
-                return AppLocalization.format("Destination appears to be a non-EVM address while sending on %@.", w.chain ?? "")
-            case "ens_off_ethereum":
-                return AppLocalization.format(
-                    "ENS names are Ethereum-specific. For %@, verify the resolved EVM address very carefully.", w.chain ?? "")
-            case "eth_on_utxo":
-                return AppLocalization.format("Destination appears to be an Ethereum-style address while sending on %@.", w.chain ?? "")
-            case "non_tron": return localizedStoreString("Destination appears to be non-Tron format while sending on Tron.")
-            case "non_solana": return localizedStoreString("Destination appears to be non-Solana format while sending on Solana.")
-            case "non_xrp": return localizedStoreString("Destination appears to be non-XRP format while sending on XRP Ledger.")
-            case "non_monero": return localizedStoreString("Destination appears to be non-Monero format while sending on Monero.")
-            case "chain_mismatch": return localizedStoreString("Wallet-chain context mismatch detected for this send.")
-            default: return nil
-            }
-        }
-    }
-    func clearHighRiskSendConfirmation() { pendingHighRiskSendReasons = []; isShowingHighRiskSendConfirmation = false }
+    func clearHighRiskSendConfirmation() { pendingSendReview = nil; pendingHighRiskSendReasons = []; isShowingHighRiskSendConfirmation = false }
     func confirmHighRiskSendAndSubmit() async {
-        bypassHighRiskSendConfirmation = true; isShowingHighRiskSendConfirmation = false; await submitSend()
+        isShowingHighRiskSendConfirmation = false
+        guard let review = pendingSendReview else { return }
+        pendingSendReview = nil
+        await submitReviewedSend(review)
     }
 
     func addressBookAddressValidationMessage(for address: String, chainName: String) -> String {
@@ -456,37 +386,17 @@ extension AppState {
     func setFeePriorityOption(_ option: ChainFeePriorityOption, for chainName: String) {
         setFeePriority(option.rawValue, forChain: chainName)
     }
-    private func runUTXORescan(
-        chainName: String, abbrev: String, preWork: (() async -> Void)? = nil,
-        refreshHistory: @Sendable () async -> Void, refreshPending: @Sendable () async -> Void
-    ) async {
-        guard !self[rescanFor: chainName].isRunning else { return }
+    func runUTXORescan(chainName: String) async {
+        guard let chain = Chain(displayName: chainName), !self[rescanFor: chainName].isRunning else { return }
         self[rescanFor: chainName].isRunning = true
         defer { self[rescanFor: chainName].isRunning = false }
-        appendChainOperationalEvent(.info, chainName: chainName, message: "\(abbrev) rescan started.")
-        await preWork?()
-        async let balanceTask: () = refreshBalances()
-        async let historyTask: () = refreshHistory()
-        async let pendingTask: () = refreshPending()
-        _ = await (balanceTask, historyTask, pendingTask)
-        self[rescanFor: chainName].lastRunAt = Date()
-        appendChainOperationalEvent(.info, chainName: chainName, message: "\(abbrev) rescan completed.")
-    }
-    /// Deep-rescan one UTXO chain: rediscover addresses, then refetch
-    /// balances, history and pending status together.
-    func runUTXORescan(chainName: String) async {
-        guard (Chain(displayName: chainName)?.supportsDeepUTXODiscovery ?? false) else { return }
-        let abbrev = Chain(displayName: chainName)?.gasTokenSymbol ?? chainName
-        await runUTXORescan(
-            chainName: chainName, abbrev: abbrev,
-            preWork: {
-                await self.refreshUTXOAddressDiscovery(chainName: chainName)
-                await self.refreshUTXOReceiveReservationState(chainName: chainName)
-            },
-            refreshHistory: {
-                await self.refreshHistory(chainName: chainName)
-            },
-            refreshPending: { await self.refreshPendingTransactions(chainName: chainName) })
+        appendChainOperationalEvent(.info, chainName: chainName, message: "\(chain.gasTokenSymbol) rescan started.")
+        if await performCoreRefresh(.deepRescan(chainId: chain.id)) {
+            self[rescanFor: chainName].lastRunAt = Date()
+            appendChainOperationalEvent(.info, chainName: chainName, message: "\(chain.gasTokenSymbol) rescan completed.")
+        } else {
+            appendChainOperationalEvent(.warning, chainName: chainName, message: "\(chain.gasTokenSymbol) rescan failed or completed partially. See refresh errors.")
+        }
     }
 
     func startNetworkPathMonitorIfNeeded() {
@@ -548,14 +458,9 @@ extension AppState {
     /// One tick. Core decides what it is, from its own clock and this device's
     /// conditions; four questions and a `Date?` on this side became one.
     func runScheduledMaintenanceOnce() async {
-        let plan = await maintenancePlan()
-        lastMaintenancePollSeconds = plan.pollSeconds
-        if appIsActive { await runActiveScheduledMaintenance(plan: plan); return }
-        guard plan.runBackgroundTick else { return }
-        await WalletServiceBridge.shared.recordRefresh(kind: .backgroundTick)
-        await performBackgroundMaintenanceTick(
-            allowHeavyBackgroundWork: plan.allowHeavyBackgroundWork)
+        await performCoreRefresh(.scheduled)
     }
+
     func authenticateForSensitiveAction(reason: String, allowWhenAuthenticationUnavailable: Bool = false) async -> Bool {
         guard preferences.useFaceID, preferences.requireBiometricForSendActions else { return true }
         let context = LAContext(); var authError: NSError?
@@ -624,15 +529,15 @@ extension AppState {
             return error.localizedDescription
         }
     }
-    func walletDerivationPath(for wallet: ImportedWallet, chain: Chain) -> String {
+    func walletDerivationPath(for wallet: WalletView, chain: Chain) -> String {
         derivationResolution(for: wallet, chain: chain).normalizedPath
     }
-    func derivationResolution(for wallet: ImportedWallet, chain: Chain) -> SeedDerivationResolution {
+    func derivationResolution(for wallet: WalletView, chain: Chain) -> SeedDerivationResolution {
         chain.resolve(path: wallet.seedDerivationPaths.path(for: chain))
     }
     /// The network this wallet is on for a family: its own if it has one,
     /// otherwise whatever the app is set to.
-    func walletNetworkChainID(for wallet: ImportedWallet, family: String) -> NetworkChainID {
+    func walletNetworkChainID(for wallet: WalletView, family: String) -> NetworkChainID {
         wallet.networkChainId ?? ""
     }
 
@@ -651,7 +556,7 @@ extension AppState {
         return Chain(id: chainID)?.displayName ?? chainID
     }
     /// The part after the chain — "Testnet4" — for screens that show it alone.
-    func displayChainTitle(for wallet: ImportedWallet) -> String {
+    func displayChainTitle(for wallet: WalletView) -> String {
         guard let family = Chain(displayName: wallet.selectedChain)?.id, !family.isEmpty else {
             return wallet.selectedChain
         }
@@ -666,7 +571,7 @@ extension AppState {
     /// empty list. Collapsing the two let a transient failure read as "this
     /// wallet owns no addresses" — and the self-send guard, which asks exactly
     /// that question, then waved the send through.
-    func knownUTXOAddresses(for wallet: ImportedWallet, chainName: String) async -> [String]? {
+    func knownUTXOAddresses(for wallet: WalletView, chainName: String) async -> [String]? {
         guard let chain = Chain(displayName: chainName) else { return [] }
         do {
             return try await WalletServiceBridge.shared.knownUTXOAddresses(walletID: wallet.id, chainId: chain.id)
@@ -679,56 +584,27 @@ extension AppState {
         }
     }
 
-    func refreshUTXOAddressDiscovery(chainName: String) async {
-        guard let chain = Chain(displayName: chainName) else { return }
-        do {
-            let results = try await WalletServiceBridge.shared.discoverChainAddresses(chainId: chain.id)
-            let previous = discoveredUTXOAddressesByChain[chainName] ?? [:]
-            var mapping: [String: [String]] = [:]
-            for result in results {
-                if let error = result.error {
-                    mapping[result.walletId] = previous[result.walletId]
-                    appendOperationalLog(.error, category: "Owned Addresses", message: error,
-                        chainName: chainName, walletID: result.walletId)
-                } else { mapping[result.walletId] = result.addresses }
-            }
-            discoveredUTXOAddressesByChain[chainName] = mapping
-        } catch {
-            appendOperationalLog(.error, category: "Owned Addresses", message: String(describing: error), chainName: chainName)
-        }
-    }
-    /// Move each wallet's reservation past a receive address that has been
-    /// used.
-    ///
-    /// Reserve, derive, check, release, re-reserve — five steps that all read
-    /// or write core's tables, so they run there. Doing them from here meant a
-    /// window between releasing an index and taking the next in which nothing
-    /// stopped the same address being handed out twice.
-    func refreshUTXOReceiveReservationState(chainName: String) async {
-        guard let chain = Chain(displayName: chainName) else { return }
-        try? await WalletServiceBridge.shared.advanceUsedUTXOReservations(chainId: chain.id)
-    }
     func seedDerivationChain(for chainName: String) -> Chain? {
         CachedCoreHelpers.seedDerivationChainRaw(chainName: chainName).flatMap(Chain.init(displayName:))
     }
-    func walletHasAddress(for wallet: ImportedWallet, chainName: String) -> Bool {
+    func walletHasAddress(for wallet: WalletView, chainName: String) -> Bool {
         resolvedAddress(for: wallet, chainName: chainName) != nil
     }
     /// The wallet's keypool state for this chain, merged with the baseline.
     ///
     /// Core derives the baseline and refuses incomplete history reads.
-    func keypoolState(for wallet: ImportedWallet, chainName: String) async throws -> ChainKeypoolState {
+    func keypoolState(for wallet: WalletView, chainName: String) async throws -> ChainKeypoolState {
         ChainKeypoolState(
             keypool: try await WalletServiceBridge.shared.keypoolState(
                 walletID: wallet.id, chainName: chainName))
     }
     /// Reserve the next receive index, or return the one already reserved.
     ///
-    func reservedReceiveDerivationPath(for wallet: ImportedWallet, chainName: String, index: Int?) -> String? {
+    func reservedReceiveDerivationPath(for wallet: WalletView, chainName: String, index: Int?) -> String? {
         guard let chain = seedDerivationChain(for: chainName) else { return nil }
         return walletDerivationPath(for: wallet, chain: chain)
     }
-    func reservedReceiveAddressForDisplay(for wallet: ImportedWallet, chainName: String) async -> String? {
+    func reservedReceiveAddressForDisplay(for wallet: WalletView, chainName: String) async -> String? {
         guard let chain = Chain(displayName: chainName) else { return nil }
         return try? await WalletServiceBridge.shared.receiveAddress(
             walletID: wallet.id, chainId: chain.id, reserve: false)

@@ -38,14 +38,14 @@ extension AppState {
         editingWalletID = nil
         isShowingWalletImporter = false
     }
-    func beginEditingWallet(_ wallet: ImportedWallet) {
+    func beginEditingWallet(_ wallet: WalletView) {
         editingWalletID = wallet.id
         importError = nil
         isImportingWallet = false
         importDraft.configureForEditing(wallet: wallet)
         isShowingWalletImporter = true
     }
-    func confirmDeleteWallet(_ wallet: ImportedWallet) { walletPendingDeletion = wallet }
+    func confirmDeleteWallet(_ wallet: WalletView) { walletPendingDeletion = wallet }
     func deletePendingWallet() async {
         guard let walletPendingDeletion else { return }
         guard
@@ -60,7 +60,6 @@ extension AppState {
         let deletedChainName = normalizedWalletChainName(walletPendingDeletion.selectedChain)
         guard await removeWallet(id: walletPendingDeletion.id) else { return }
         let hasRemainingWalletsOnDeletedChain = wallets.contains { normalizedWalletChainName($0.selectedChain) == deletedChainName }
-        for chainName in discoveredUTXOAddressesByChain.keys { discoveredUTXOAddressesByChain[chainName]?[walletPendingDeletion.id] = nil }
         clearHistoryTracking(for: walletPendingDeletion.id)
         clearDeletedWalletDiagnostics(
             walletID: deletedWalletID, chainName: deletedChainName, hasRemainingWalletsOnChain: hasRemainingWalletsOnDeletedChain
@@ -81,7 +80,7 @@ extension AppState {
         self.walletPendingDeletion = nil
         if wallets.isEmpty { cancelWalletImport() }
     }
-    func wallet(for walletID: String) -> ImportedWallet? { cachedWalletByIDString[walletID] }
+    func wallet(for walletID: String) -> WalletView? { cachedWalletByIDString[walletID] }
     func knownOwnedAddresses(for walletID: String) async -> [String] {
         guard let wallet = cachedWalletByID[walletID] else { return [] }
         var candidateAddresses: [String] = []
@@ -120,9 +119,9 @@ extension AppState {
         guard let state = WalletServiceBridge.shared.walletSecretState(walletID: walletID) else { return false }
         return state.hasSigningMaterial && !state.hasPrivateKey
     }
-    func isWatchOnlyWallet(_ wallet: ImportedWallet) -> Bool { !walletHasSigningMaterial(wallet.id) }
-    func isPrivateKeyWallet(_ wallet: ImportedWallet) -> Bool { isPrivateKeyBackedWallet(wallet.id) }
-    func revealSeedPhrase(for wallet: ImportedWallet, password: String? = nil) async throws -> String {
+    func isWatchOnlyWallet(_ wallet: WalletView) -> Bool { !walletHasSigningMaterial(wallet.id) }
+    func isPrivateKeyWallet(_ wallet: WalletView) -> Bool { isPrivateKeyBackedWallet(wallet.id) }
+    func revealSeedPhrase(for wallet: WalletView, password: String? = nil) async throws -> String {
         let authenticated = await authenticateForSeedPhraseReveal(reason: "Authenticate to view seed phrase for \(wallet.name)")
         guard authenticated else { throw SeedPhraseRevealError.authenticationRequired }
         var providedPassword: String? = nil
@@ -181,8 +180,8 @@ extension AppState {
             )
         )
     }
-    var sendEnabledWallets: [ImportedWallet] { cachedSendEnabledWallets }
-    var receiveEnabledWallets: [ImportedWallet] { cachedReceiveEnabledWallets }
+    var sendEnabledWallets: [WalletView] { cachedSendEnabledWallets }
+    var receiveEnabledWallets: [WalletView] { cachedReceiveEnabledWallets }
     var canBeginSend: Bool { !sendEnabledWallets.isEmpty }
     var canBeginReceive: Bool { !receiveEnabledWallets.isEmpty }
     var alertableCoins: [Coin] { portfolio }

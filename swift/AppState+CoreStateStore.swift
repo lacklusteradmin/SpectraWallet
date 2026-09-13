@@ -70,7 +70,7 @@ extension AppState {
 
     /// Replace the projection without touching the store. Only for loading what
     /// core already has.
-    func adoptWalletsFromCore(_ records: [ImportedWallet]) {
+    func adoptWalletsFromCore(_ records: [WalletView]) {
         suppressWalletSideEffects = true
         setWalletProjection(records)
         suppressWalletSideEffects = false

@@ -86,15 +86,6 @@ extension AppState {
     func setPortfolioInclusion(_ isIncluded: Bool, for walletID: String) {
         changeWallet(.setWalletPortfolioInclusion(walletId: walletID, included: isIncluded))
     }
-    func refreshChainBalances(
-        includeHistoryRefreshes: Bool = true, historyRefreshInterval: TimeInterval = 120, forceChainRefresh: Bool = true
-    ) async {
-        _ = forceChainRefresh  // Rust always fetches fresh data
-        guard !isRefreshingChainBalances else { return }
-        isRefreshingChainBalances = true
-        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
-        if includeHistoryRefreshes { await runHistoryRefreshes(interval: historyRefreshInterval) }
-    }
     func withBalanceRefreshWindow(_ operation: () async -> Void) async {
         let previousState = allowsBalanceNetworkRefresh
         allowsBalanceNetworkRefresh = true
@@ -106,7 +97,7 @@ extension AppState {
             try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
         }
     }
-    func scheduleImportedWalletRefresh(_ createdWallets: [ImportedWallet]) {
+    func scheduleImportedWalletRefresh(_ createdWallets: [WalletView]) {
         guard !createdWallets.isEmpty else {
             return
         }

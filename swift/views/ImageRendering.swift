@@ -21,21 +21,21 @@ struct CoinBadge: View {
     /// private: `CoinBadgeArtworkTests` asserts every coin the app can hold
     /// resolves to one that `UIImage(named:)` can load, and the resolution is
     /// the whole of what broke.
-    let assetName: String
+    let artworkName: String
     private let fallbackText: String
     private let color: Color
     private let size: CGFloat
 
     /// From artwork core already named — the wiki's rows carry one per coin.
-    init(assetName: String?, fallbackText: String, color: Color, size: CGFloat = 40) {
-        self.assetName = assetName ?? ""
+    init(artworkName: String?, fallbackText: String, color: Color, size: CGFloat = 40) {
+        self.artworkName = artworkName ?? ""
         self.fallbackText = fallbackText
         self.color = color
         self.size = size
     }
 
     var body: some View {
-        let displayImage: UIImage? = assetName.isEmpty ? nil : UIImage(named: assetName)
+        let displayImage: UIImage? = artworkName.isEmpty ? nil : UIImage(named: artworkName)
         return Group {
             if let displayImage {
                 Image(uiImage: displayImage).resizable().interpolation(.high).scaledToFit().frame(width: size, height: size)

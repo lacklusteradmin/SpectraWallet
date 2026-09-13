@@ -64,7 +64,6 @@ extension AppState {
     }
     private func resetWalletsAndSecretsState() async {
         clearWalletSecretIndex()
-        discoveredUTXOAddressesByChain = [:]
         receiveWalletID = ""
         receiveHoldingKey = ""
         receiveResolvedAddress = ""
@@ -85,11 +84,6 @@ extension AppState {
         useCustomEvmFees = false
         customEvmMaxFeeGwei = ""
         customEvmPriorityFeeGwei = ""
-        sendAdvancedMode = false
-        sendUTXOMaxInputCount = 0
-        sendEnableRBF = true
-        sendEnableCPFP = false
-        sendLitecoinChangeStrategy = .derivedChange
         evmManualNonceEnabled = false
         evmManualNonce = ""
         isPreparingReplacementContext = false
@@ -98,12 +92,11 @@ extension AppState {
         sendingChains = []
         preparingChains = []
         pendingSendPreviewRefreshChains = []
-        pendingSelfSendConfirmation = nil
         activeEthereumSendWalletIDs = []
         lastSendDestinationProbeKey = nil
         lastSendDestinationProbeWarning = nil
         lastSendDestinationProbeInfoMessage = nil
-        bypassHighRiskSendConfirmation = false
+        pendingSendReview = nil
         // Core prunes status trackers against committed history on the next
         // maintenance sweep, including when there is no remaining work.
         isShowingWalletImporter = false
@@ -128,7 +121,6 @@ extension AppState {
         lastImportedDiagnosticsBundle = nil
         lastPendingTransactionRefreshAt = nil
         isRefreshingLivePrices = false
-        isRefreshingChainBalances = false
         allowsBalanceNetworkRefresh = false
         isRefreshingPendingTransactions = false
         lastLivePriceRefreshAt = nil

@@ -32,7 +32,7 @@ struct ReceiveView: View {
     @State private var qrExportMessage: String?
     @State private var qrImageSaver: PhotoLibraryImageSaver?
 
-    private var selectedWallet: ImportedWallet? {
+    private var selectedWallet: WalletView? {
         store.receiveEnabledWallets.first(where: { $0.id == store.receiveWalletID })
     }
 
@@ -207,7 +207,7 @@ struct ReceiveView: View {
             HStack(spacing: 12) {
                 if let coin {
                     CoinBadge(
-                        assetName: coin.iconAssetName,
+                        artworkName: coin.artworkName,
                         fallbackText: coin.symbol,
                         color: coin.color,
                         size: 36
@@ -346,7 +346,7 @@ struct ReceiveView: View {
         return !canUseResolvedAddress || store.isResolvingReceiveAddress
     }
 
-    private func choose(_ wallet: ImportedWallet) {
+    private func choose(_ wallet: WalletView) {
         store.receiveWalletID = wallet.id
         store.syncReceiveAssetSelection()
         spectraHaptic(.light)
@@ -367,7 +367,7 @@ struct ReceiveView: View {
 }
 
 private struct WalletReceiveCard: View {
-    let wallet: ImportedWallet
+    let wallet: WalletView
     let onShowQR: () -> Void
     @State private var didCopy: Bool = false
 
@@ -377,7 +377,7 @@ private struct WalletReceiveCard: View {
 
         HStack(spacing: 14) {
             CoinBadge(
-                assetName: badge.artworkName,
+                artworkName: badge.artworkName,
                 fallbackText: wallet.selectedChain,
                 color: badge.color,
                 size: 42
@@ -437,7 +437,7 @@ private struct WalletReceiveCard: View {
     }
 
     /// The address stored for the wallet's own chain.
-    private func walletStaticAddress(for wallet: ImportedWallet) -> String? {
+    private func walletStaticAddress(for wallet: WalletView) -> String? {
         let trimmed =
             wallet.address(forChainNamed: wallet.selectedChain)?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

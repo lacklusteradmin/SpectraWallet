@@ -30,17 +30,7 @@ struct EVMChainContext: Equatable {
 // Preview types are UniFFI-generated from `core/src/send/`. What is left here
 // is the send *result* types and the chain-specific enums the UI switches on.
 
-enum LitecoinChangeStrategy: String, CaseIterable, Identifiable {
-    case derivedChange
-    case reuseSourceAddress
-    var id: String { rawValue }
-    var displayName: String {
-        switch self {
-        case .derivedChange: return "Derived change address"
-        case .reuseSourceAddress: return "Reuse source address"
-        }
-    }
-}
+
 // MARK: - EVM address utilities (moved from Send/Engines/EVM/)
 
 enum EthereumWalletEngineError: LocalizedError {

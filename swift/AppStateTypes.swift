@@ -126,14 +126,7 @@ extension AppState {
         let metadata: String?
     }
 
-    struct PendingSelfSendConfirmation {
-        let walletID: String
-        let chainName: String
-        let symbol: String
-        let destinationAddressLowercased: String
-        let amount: Double
-        let createdAt: Date
-    }
+
 
     struct PerformanceSample: Identifiable, Codable, Equatable {
         let id: UUID

@@ -106,7 +106,7 @@ struct WalletCardView: View, Equatable {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 CoinBadge(
-                    assetName: presentation.badgeArtworkName, fallbackText: presentation.badgeMark,
+                    artworkName: presentation.badgeArtworkName, fallbackText: presentation.badgeMark,
                     color: presentation.badgeColor, size: 36)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
@@ -171,7 +171,7 @@ struct QRCodeImage: View {
 }
 struct WalletDetailView: View {
     let store: AppState
-    let wallet: ImportedWallet
+    let wallet: WalletView
     @Environment(\.dismiss) private var dismiss
     @Environment(\.scenePhase) private var scenePhase
     @State private var isShowingSeedPhrasePasswordPrompt: Bool = false
@@ -183,7 +183,7 @@ struct WalletDetailView: View {
     @State private var didCopyWalletAddress: Bool = false
     @State private var isShowingDeleteWalletAlert: Bool = false
     @State private var isShowingAdvancedPage: Bool = false
-    init(store: AppState, wallet: ImportedWallet) {
+    init(store: AppState, wallet: WalletView) {
         self.store = store
         self.wallet = wallet
     }
@@ -194,7 +194,7 @@ struct WalletDetailView: View {
         var id: String { coin.id }
     }
     private struct DetailPresentation {
-        let wallet: ImportedWallet
+        let wallet: WalletView
         let nonZeroAssetCount: Int
         let walletAddress: String?
         let derivationPathsText: String?
@@ -211,7 +211,7 @@ struct WalletDetailView: View {
     private var isWatchOnly: Bool { store.isWatchOnlyWallet(displayedWallet) }
     private var isPrivateKeyWallet: Bool { store.isPrivateKeyWallet(displayedWallet) }
     private var requiresSeedPhrasePassword: Bool { store.walletRequiresSeedPhrasePassword(displayedWallet.id) }
-    private var displayedWallet: ImportedWallet {
+    private var displayedWallet: WalletView {
         store.wallets.first(where: { $0.id == wallet.id }) ?? wallet
     }
     private var firstActivityDateText: String {
@@ -252,7 +252,7 @@ struct WalletDetailView: View {
         )
     }
     /// The wallet's configured derivation path, when it has one.
-    private func derivationPathsText(for wallet: ImportedWallet) -> String? {
+    private func derivationPathsText(for wallet: WalletView) -> String? {
         guard !isWatchOnly, !isPrivateKeyWallet,
             let chain = Chain(displayName: wallet.selectedChain)
         else { return nil }
@@ -421,7 +421,7 @@ struct WalletDetailView: View {
         let presentation = detailPresentation
         HStack(spacing: 14) {
             CoinBadge(
-                assetName: presentation.walletBadge.artworkName,
+                artworkName: presentation.walletBadge.artworkName,
                 fallbackText: presentation.wallet.selectedChain,
                 color: presentation.walletBadge.color, size: 56
             )
@@ -574,7 +574,7 @@ struct WalletDetailView: View {
     private func holdingRow(_ holding: HoldingPresentation) -> some View {
         HStack(spacing: 12) {
             CoinBadge(
-                assetName: holding.coin.iconAssetName, fallbackText: holding.coin.symbol, color: holding.coin.color, size: 34
+                artworkName: holding.coin.artworkName, fallbackText: holding.coin.symbol, color: holding.coin.color, size: 34
             )
             VStack(alignment: .leading, spacing: 3) {
                 Text(holding.coin.name).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)

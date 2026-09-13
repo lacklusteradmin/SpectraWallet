@@ -27,12 +27,6 @@ extension AppState {
         guard let chain = Chain(displayName: chainName) else { return }
         await adoptHistoryRefresh(scope: .chains(chainIds: [chain.id]))
     }
-    func runHistoryRefreshes(interval: TimeInterval) async {
-        await adoptHistoryRefresh(scope: .all, interval: interval)
-    }
-    func runPendingTransactionHistoryRefreshes(for chains: Set<WalletChainID>, interval: TimeInterval) async {
-        await adoptHistoryRefresh(scope: .chains(chainIds: chains.map(\.rawValue)), interval: interval)
-    }
     private func adoptHistoryRefresh(scope: HistoryRefreshScope, loadMore: Bool = false, interval: TimeInterval = 0) async {
         do {
             let results = try await WalletServiceBridge.shared.refreshHistory(scope: scope, loadMore: loadMore, interval: interval)
@@ -63,14 +57,7 @@ extension AppState {
         }
     }
     func performUserInitiatedRefresh(forChain chainName: String) async {
-        let startedAt = CFAbsoluteTimeGetCurrent()
-        if appIsActive { await refreshPendingTransactions(includeHistoryRefreshes: false) }
-        await withBalanceRefreshWindow {
-            await refreshBalances()
-            await refreshHistory(chainName: chainName)
-        }
-        await refreshLivePrices()
-        await refreshFiatExchangeRatesIfNeeded()
-        recordPerformanceSample("user_refresh_chain", startedAt: startedAt, metadata: chainName)
+        guard let chain = Chain(displayName: chainName) else { return }
+        await performCoreRefresh(.chain(chainId: chain.id))
     }
 }

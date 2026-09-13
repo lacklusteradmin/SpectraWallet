@@ -11,7 +11,7 @@ import XCTest
 /// service with no endpoints and no database, because none of the rules needs
 /// either.
 final class TokenPreferenceBridgeTests: XCTestCase {
-    private func service() throws -> WalletService { try WalletService.newTyped(endpoints: []) }
+    private func service() throws -> WalletService { try WalletService(endpoints: []) }
 
     private func rejection(_ transition: StateTransition) -> String? {
         transition.events.first(where: { $0.kind == "tokenPreferenceRejected" })?.subjectId

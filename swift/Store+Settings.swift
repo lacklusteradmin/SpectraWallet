@@ -49,6 +49,14 @@ extension AppState {
             let epoch = self.beginCoreStateRead()
             self.finishCoreStateRead(scheduled)
             self.applyCoreState(latest, epoch: epoch)
+            // Reconfigure only after the cadence has been committed: core
+            // reads its stored setting, not the value still in the editor.
+            if updates.contains(where: { update in
+                if case .automaticRefreshFrequencyMinutes = update { return true }
+                return false
+            }) {
+                await self.restartBalanceRefreshForCurrentConfiguration()
+            }
         }
     }
 

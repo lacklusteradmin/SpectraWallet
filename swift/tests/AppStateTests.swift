@@ -90,7 +90,7 @@ import Foundation
             XCTAssertTrue(result.changes.isEmpty)
             XCTAssertTrue(result.failures.isEmpty)
             let store = AppState()
-            await store.refreshPendingTransactions(includeHistoryRefreshes: false)
+            await store.refreshPendingTransactions()
             XCTAssertFalse(store.isRefreshingPendingTransactions)
             XCTAssertNotNil(store.lastPendingTransactionRefreshAt)
         }
@@ -165,7 +165,7 @@ import Foundation
         /// files down would occasionally see two wallets instead of one.
         func testARenameThatLandsAfterADeleteDoesNotResurrectTheWallet() async throws {
             let store = AppState()
-            let wallet = ImportedWallet(
+            let wallet = WalletView(
                 id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!, name: "Probe",
                 addresses: ["Ethereum": "0xabc123"],
                 selectedChain: "Ethereum", holdings: [], includeInPortfolioTotal: false
@@ -196,7 +196,7 @@ import Foundation
                 name: "Ethereum", symbol: "ETH", coinGeckoId: "ethereum", chainName: "Ethereum",
                 tokenStandard: "Native", contractAddress: nil, amount: 2, priceUsd: 3000
             )
-            let wallet = ImportedWallet(
+            let wallet = WalletView(
                 id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!, name: "Primary ETH", addresses: ["Ethereum": "0xabc123"],
                 selectedChain: "Ethereum", holdings: [existingHolding], includeInPortfolioTotal: false
             )
@@ -274,7 +274,7 @@ import Foundation
         /// A wallet carries its own network, so it can differ from the app's.
         func testBitcoinWalletDisplayTitleUsesWalletSpecificNetwork() {
             let store = AppState()
-            let wallet = ImportedWallet(
+            let wallet = WalletView(
                 name: "BTC Testnet4", networkChainID: "bitcoin-testnet-4",
                 addresses: ["Bitcoin": "tb1qexample"], selectedChain: "Bitcoin", holdings: []
             )
@@ -283,7 +283,7 @@ import Foundation
         func testHistoricalNetworkTitleIgnoresCurrentNetworkSelection() async {
             let store = AppState()
             let transaction = TransactionRecord(kind: .send, status: .confirmed,
-                walletName: "Historical", assetName: "Ethereum", symbol: "ETH",
+                walletName: "Historical", assetDisplayName: "Ethereum", symbol: "ETH",
                 chainName: "Ethereum Sepolia", amount: 1, address: "0x1111111111111111111111111111111111111111")
             store.selectNetworkChain("ethereum-hoodi")
             await store.awaitPendingCoreStateWrites()
@@ -418,7 +418,7 @@ import Foundation
             for chainName in ["Kaspa", "Dash", "Zcash", "TON", "Internet Computer", "Bitcoin Gold", "Bittensor"] {
                 await store.clearWalletsForTesting()
 
-                var wallet = ImportedWallet(name: "Watch \(chainName)", selectedChain: chainName)
+                var wallet = WalletView(name: "Watch \(chainName)", selectedChain: chainName)
                 wallet.setAddress("address-for-\(chainName)", forChainNamed: chainName)
                 await store.seedWalletForTesting(wallet)
 
@@ -575,13 +575,13 @@ import Foundation
             // recorded against a made-up id survives only while no load runs —
             // which is why this passed against a `walletID` of "w1" until the
             // load started doing real work.
-            let wallet = ImportedWallet(
+            let wallet = WalletView(
                 id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!, name: "W",
                 addresses: ["Bitcoin": "bc1qexample"], selectedChain: "Bitcoin")
             await store.seedWalletForTesting(wallet)
             let tx = TransactionRecord(
                 walletID: wallet.id, kind: .send, status: .pending, walletName: "W",
-                assetName: "Bitcoin", symbol: "BTC", chainName: "Bitcoin", amount: 0.1,
+                assetDisplayName: "Bitcoin", symbol: "BTC", chainName: "Bitcoin", amount: 0.1,
                 address: "bc1qexample", transactionHash: "0xhash-status-test")
 
             await store.seedTransactionForTesting(tx)
@@ -681,8 +681,8 @@ private extension AppState {
         _ = try? await WalletServiceBridge.shared.applyTransactionCommand(.upsert(records: [record.persistedSnapshot]))
         await refreshTransactionProjection()
     }
-    func seedWalletForTesting(_ wallet: ImportedWallet) async {
-        _ = try? await WalletServiceBridge.shared.applyStateCommand(.upsertWallet(wallet: wallet.summary(isWatchOnly: isWatchOnlyWallet(wallet))))
+    func seedWalletForTesting(_ wallet: WalletView) async {
+        _ = try? await WalletServiceBridge.shared.applyStateCommand(.upsertWallet(wallet: wallet.walletState(isWatchOnly: isWatchOnlyWallet(wallet))))
         if let stored = try? await WalletServiceBridge.shared.storedWallets() { adoptWalletsFromCore(stored) }
         await rebuildWalletDerivedStateFromCore()
     }
@@ -696,7 +696,7 @@ private extension AppState {
 private extension TransactionRecord {
     func withRebroadcastUpdate(status: TransactionStatus, transactionHash: String?, failureReason: String? = nil) -> TransactionRecord {
         TransactionRecord(
-            id: id, walletID: walletID, kind: kind, status: status, walletName: walletName, assetName: assetName, symbol: symbol,
+            id: id, walletID: walletID, kind: kind, status: status, walletName: walletName, assetDisplayName: assetDisplayName, symbol: symbol,
             chainName: chainName, amount: amount, address: address, transactionHash: transactionHash, ethereumNonce: ethereumNonce,
             receiptBlockNumber: receiptBlockNumber, receiptGasUsed: receiptGasUsed,
             receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei, receiptNetworkFeeEth: receiptNetworkFeeEth,

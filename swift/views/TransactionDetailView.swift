@@ -51,13 +51,13 @@ struct HistoryDetailView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 12) {
                             CoinBadge(
-                                assetName: displayedTransaction.artworkName, fallbackText: displayedTransaction.symbol,
+                                artworkName: displayedTransaction.artworkName, fallbackText: displayedTransaction.symbol,
                                 color: displayedTransaction.badgeColor, size: 42)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(displayedTransaction.titleText).font(.title3.bold()).foregroundStyle(Color.primary)
                                 Text(
                                     String(
-                                        format: CommonLocalizationContent.current.transactionSubtitleFormat, displayedTransaction.assetName,
+                                        format: CommonLocalizationContent.current.transactionSubtitleFormat, displayedTransaction.assetDisplayName,
                                         store.displayChainTitle(for: displayedTransaction), displayedTransaction.walletName
                                     )
                                 ).font(.subheadline).foregroundStyle(.secondary)
@@ -75,7 +75,7 @@ struct HistoryDetailView: View {
                         detailRow(label: "Type", value: displayedTransaction.kind == .send ? AppLocalization.string("Send") : AppLocalization.string("Receive"))
                         detailRow(label: "Status", value: displayedTransaction.statusText)
                         detailRow(label: "Wallet", value: displayedTransaction.walletName)
-                        detailRow(label: "Asset", value: displayedTransaction.assetName)
+                        detailRow(label: "Asset", value: displayedTransaction.assetDisplayName)
                         detailRow(label: "Network", value: store.displayChainTitle(for: displayedTransaction))
                         detailRow(label: "Timestamp", value: displayedTransaction.fullTimestampText)
                         if let amountText = store.formattedTransactionDetailAmount(displayedTransaction) {

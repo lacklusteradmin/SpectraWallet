@@ -12,7 +12,7 @@ struct DashboardView: View {
         }
         return AppLocalization.string("Please take note of your seed phrase because you can't recover this wallet after deletion.")
     }
-    private var selectedWallet: ImportedWallet? {
+    private var selectedWallet: WalletView? {
         guard let selectedWalletID else { return nil }
         return store.wallet(for: selectedWalletID)
     }
@@ -183,7 +183,7 @@ struct DashboardView: View {
         return "\(count)"
     }
     @ViewBuilder
-    private func walletsCardRows(wallets: [ImportedWallet]) -> some View {
+    private func walletsCardRows(wallets: [WalletView]) -> some View {
         if wallets.isEmpty {
             addWalletEmptyState
         } else {
@@ -332,7 +332,7 @@ extension CoreDashboardAssetGroup: Identifiable {
     var representative: AssetHolding? { holdings.first?.coin }
     var name: String { representative?.name ?? "" }
     var symbol: String { representative?.symbol ?? "" }
-    var iconAssetName: String { representative?.iconAssetName ?? "" }
+    var artworkName: String { representative?.artworkName ?? "" }
     var color: Color { representative?.color ?? .orange }
     var chainName: String { representative?.chainName ?? "" }
     /// Summed across every place the asset is held, not read from a field
@@ -406,7 +406,7 @@ private struct AssetDetailHeroCard: View {
     var body: some View {
         HStack(spacing: 14) {
             CoinBadge(
-                assetName: assetGroup.iconAssetName, fallbackText: assetGroup.symbol,
+                artworkName: assetGroup.artworkName, fallbackText: assetGroup.symbol,
                 color: assetGroup.color, size: compact ? 48 : 60
             )
             VStack(alignment: .leading, spacing: 4) {
@@ -473,7 +473,7 @@ private struct AssetChainBreakdownCard: View {
             ForEach(Array(assetGroup.holdings.enumerated()), id: \.offset) { index, holding in
                 AssetChainBreakdownRow(
                     chainTitle: store.displayChainTitle(for: holding.coin.chainName),
-                    artworkName: holding.coin.iconAssetName,
+                    artworkName: holding.coin.artworkName,
                     tokenStandard: holding.coin.tokenStandard,
                     amountText: store.formattedAssetAmount(
                         holding.coin.amount, symbol: holding.coin.symbol,
@@ -498,7 +498,7 @@ private struct AssetChainBreakdownRow: View {
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
             CoinBadge(
-                assetName: artworkName,
+                artworkName: artworkName,
                 fallbackText: symbol, color: .orange, size: 30)
             VStack(alignment: .leading, spacing: 2) {
                 Text(chainTitle).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
@@ -620,7 +620,7 @@ struct DashboardAssetRowView: View, Equatable {
     var body: some View {
         HStack(spacing: 12) {
             CoinBadge(
-                assetName: presentation.assetGroup.iconAssetName, fallbackText: presentation.assetGroup.symbol,
+                artworkName: presentation.assetGroup.artworkName, fallbackText: presentation.assetGroup.symbol,
                 color: presentation.assetGroup.color, size: 36
             )
             VStack(alignment: .leading, spacing: 3) {
@@ -650,7 +650,7 @@ struct DashboardPinnedAssetRowView: View, Equatable {
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.option == rhs.option && lhs.subtitleText == rhs.subtitleText }
     var body: some View {
         HStack(spacing: 12) {
-            CoinBadge(assetName: option.artworkName, fallbackText: option.symbol, color: option.color, size: 34)
+            CoinBadge(artworkName: option.artworkName, fallbackText: option.symbol, color: option.color, size: 34)
             VStack(alignment: .leading, spacing: 3) {
                 Text(option.name)
                 Text(subtitleText).font(.caption).foregroundStyle(.secondary)

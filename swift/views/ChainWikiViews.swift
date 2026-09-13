@@ -116,7 +116,7 @@ extension ChainWikiEntry {
     var face: WikiCoinFace {
         WikiCoinFace(
             name: name, symbol: name,
-            assetName: registryEntry?.assetName ?? "",
+            artworkName: registryEntry?.artworkName ?? "",
             color: registryEntry?.color ?? .accentColor)
     }
 }

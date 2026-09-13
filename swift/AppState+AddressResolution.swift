@@ -3,7 +3,7 @@ import Foundation
 @MainActor
 extension AppState {
     /// Render core's network-validated address projection.
-    func resolvedAddress(for wallet: ImportedWallet, chainName: String) -> String? {
+    func resolvedAddress(for wallet: WalletView, chainName: String) -> String? {
         walletDerivedCache.resolvedAddressesByWalletID[wallet.id]?[chainName]
     }
 }

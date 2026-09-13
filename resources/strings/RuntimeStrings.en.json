@@ -1378,5 +1378,12 @@
   "wiki.asset.onChains": "On %@ chains",
   "wiki.place.nativeTo": "Native to %@",
   "word %lld": "word %lld",
-  "xpub... / zpub...": "xpub... / zpub..."
+  "xpub... / zpub...": "xpub... / zpub...",
+  "Confirm Send": "Confirm Send",
+  "This destination belongs to your wallet. Confirm intentional self-send.": "This destination belongs to your wallet. Confirm intentional self-send.",
+  "Send inputs changed. Review the transaction again.": "Send inputs changed. Review the transaction again.",
+  "Estimated network fee: %@ %@": "Estimated network fee: %@ %@",
+  "Secret text is used exactly as entered, including spaces. Unsupported chain overrides are refused. Leave blank to use the chain default.": "Secret text is used exactly as entered, including spaces. Unsupported chain overrides are refused. Leave blank to use the chain default.",
+  "Custom master HMAC key for supported chains. Blank uses the chain default.": "Custom master HMAC key for supported chains. Blank uses the chain default.",
+  "Adaptive": "Adaptive"
 }

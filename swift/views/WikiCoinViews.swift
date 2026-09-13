@@ -4,7 +4,7 @@ import SwiftUI
 struct WikiCoinFace: Equatable {
     let name: String
     let symbol: String
-    let assetName: String
+    let artworkName: String
     let color: Color
 }
 
@@ -13,7 +13,7 @@ struct WikiCoinBadge: View {
     let size: CGFloat
     var body: some View {
         CoinBadge(
-            assetName: face.assetName, fallbackText: face.symbol,
+            artworkName: face.artworkName, fallbackText: face.symbol,
             color: face.color, size: size
         )
     }

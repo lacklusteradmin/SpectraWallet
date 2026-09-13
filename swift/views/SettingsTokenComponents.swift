@@ -9,7 +9,7 @@ extension TokenHostingChain {
     }
 }
 extension TokenPreferenceEntry {
-    var settingsArtworkName: String { coreTokenIconAssetName(tokenId: token.tokenId) }
+    var settingsArtworkName: String { coreTokenArtworkName(tokenId: token.tokenId) }
     var settingsFallbackMark: String {
         String(token.symbol.trimmingCharacters(in: .whitespacesAndNewlines).prefix(2)).uppercased()
     }
@@ -28,7 +28,7 @@ struct TokenRegistryGroupRowView: View {
     var body: some View {
         HStack(spacing: 12) {
             CoinBadge(
-                assetName: group.representativeEntry.settingsArtworkName,
+                artworkName: group.representativeEntry.settingsArtworkName,
                 fallbackText: group.representativeEntry.settingsFallbackMark,
                 color: group.representativeEntry.hostingChain?.settingsIconTint ?? .accentColor, size: 30
             )

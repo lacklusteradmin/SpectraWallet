@@ -17,7 +17,7 @@ private struct HistoryTransactionRowView: View, Equatable {
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 10) {
                 CoinBadge(
-                    assetName: row.transaction.artworkName, fallbackText: row.transaction.symbol,
+                    artworkName: row.transaction.artworkName, fallbackText: row.transaction.symbol,
                     color: row.transaction.badgeColor, size: 36)
                 VStack(alignment: .leading, spacing: 3) {
                     if let amountText = row.amountText {
@@ -376,7 +376,7 @@ struct HistoryView: View {
         HistoryRowPresentation(
             transaction: transaction, amountText: signedAmountText(for: transaction), amountColor: amountColor(for: transaction),
             subtitleText: String(
-                format: CommonLocalizationContent.current.transactionSubtitleFormat, transaction.assetName,
+                format: CommonLocalizationContent.current.transactionSubtitleFormat, transaction.assetDisplayName,
                 store.displayChainTitle(for: transaction), transaction.walletName
             ), statusText: transaction.statusText, fullTimestampText: transaction.fullTimestampText,
             metadataText: transaction.historyMetadataText

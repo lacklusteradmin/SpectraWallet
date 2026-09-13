@@ -52,74 +52,50 @@ extension AppState {
         do { try await UNUserNotificationCenter.current().add(request) }
         catch { appendOperationalLog(.error, category: "Portfolio Movement", message: error.localizedDescription) }
     }
-    func performBackgroundMaintenanceTick(allowHeavyBackgroundWork: Bool = true) async {
-        let startedAt = CFAbsoluteTimeGetCurrent()
-        logger.log("Running background maintenance tick")
-        await refreshPendingTransactions(includeHistoryRefreshes: false, historyRefreshInterval: 300)
-        if appIsActive {
-            if shouldRunScheduledPriceRefresh { await refreshLivePrices() }
-            await refreshFiatExchangeRatesIfNeeded()
-            await notifyPortfolioMovement()
-            recordPerformanceSample("background_maintenance_tick", startedAt: startedAt, metadata: "mode=active")
-            return
-        }
-        guard allowHeavyBackgroundWork else { return }
-        await withBalanceRefreshWindow {
-            await refreshChainBalances(includeHistoryRefreshes: false, historyRefreshInterval: 300, forceChainRefresh: false)
-        }
-        await runHistoryRefreshes(interval: 300)
-        if shouldRunScheduledPriceRefresh { await refreshLivePrices() }
-        await refreshFiatExchangeRatesIfNeeded()
-        await notifyPortfolioMovement()
-        lastFullRefreshAt = Date()
-        recordPerformanceSample(
-            "background_maintenance_tick", startedAt: startedAt, metadata: "mode=background chains=\(refreshableChainIDs.count)"
-        )
-    }
-    func performUserInitiatedRefresh(forceChainRefresh: Bool = true) async {
-        if let existingRefreshTask = userInitiatedRefreshTask {
-            await existingRefreshTask.value
-            return
-        }
-        let refreshTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            let startedAt = CFAbsoluteTimeGetCurrent()
-            isUserInitiatedRefreshInProgress = true
-            defer {
-                isUserInitiatedRefreshInProgress = false
-                recordPerformanceSample(
-                    "user_refresh_all", startedAt: startedAt, metadata: "force=\(forceChainRefresh) active=\(appIsActive)"
-                )
-            }
-            if appIsActive {
-                await refreshPendingTransactions(includeHistoryRefreshes: true, historyRefreshInterval: 120)
-                await withBalanceRefreshWindow {
-                    await refreshChainBalances(
-                        includeHistoryRefreshes: true, historyRefreshInterval: 120, forceChainRefresh: forceChainRefresh
-                    )
+    @discardableResult
+    func performCoreRefresh(_ intent: AppRefreshIntent) async -> Bool {
+        do {
+            let result = try await WalletServiceBridge.shared.refreshApp(intent: intent, conditions: deviceConditions())
+            lastMaintenancePollSeconds = result.pollSeconds
+            applyQuoteProjection(result.state)
+            adoptWalletsFromCore(try await WalletServiceBridge.shared.storedWallets())
+            await rebuildWalletDerivedStateFromCore()
+            rebuildDashboardDerivedState()
+            if let pending = result.pending {
+                await applyPendingStatusChanges(pending.changes)
+                for failure in pending.failures {
+                    appendOperationalLog(.error, category: "Pending Transactions", message: failure.message)
                 }
-                await refreshLivePrices()
-                await refreshFiatExchangeRatesIfNeeded()
-                await notifyPortfolioMovement()
-                lastFullRefreshAt = Date()
-            } else {
-                await performBackgroundMaintenanceTick()
+                lastPendingTransactionRefreshAt = Date()
             }
+            await refreshTransactionProjection()
+            if let sent = lastSentTransaction {
+                lastSentTransaction = transactions.first { $0.id == sent.id }
+            }
+            updateSendVerificationNoticeForLastSentTransaction()
+            for failure in result.failures {
+                appendOperationalLog(.error, category: "Refresh", message: failure)
+            }
+            await diagnostics.loadFromSQLite()
+            await evaluatePriceAlerts()
+            await notifyPortfolioMovement()
+            return result.failures.isEmpty && (result.pending?.failures.isEmpty ?? true)
+        } catch {
+            appendOperationalLog(.error, category: "Refresh", message: error.localizedDescription)
+            return false
         }
-        userInitiatedRefreshTask = refreshTask
-        await refreshTask.value
-        userInitiatedRefreshTask = nil
     }
-    func runActiveScheduledMaintenance(plan: MaintenancePlan) async {
-        if plan.refreshPendingTransactions {
-            await refreshPendingTransactions(includeHistoryRefreshes: false)
-            await WalletServiceBridge.shared.recordRefresh(kind: .pendingTransactions)
+
+    func performUserInitiatedRefresh() async {
+        if let existing = userInitiatedRefreshTask { await existing.value; return }
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.isUserInitiatedRefreshInProgress = true
+            defer { self.isUserInitiatedRefreshInProgress = false }
+            await self.performCoreRefresh(.user)
         }
-        if plan.refreshLivePrices {
-            await refreshLivePrices()
-            await WalletServiceBridge.shared.recordRefresh(kind: .livePrices)
-        }
-        await refreshFiatExchangeRatesIfNeeded()
-        await notifyPortfolioMovement()
+        userInitiatedRefreshTask = task
+        await task.value
+        userInitiatedRefreshTask = nil
     }
 }

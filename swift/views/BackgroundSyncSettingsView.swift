@@ -20,7 +20,7 @@ struct BackgroundSyncSettingsView: View {
                 LabeledContent(
                     AppLocalization.string("Active app balance refresh"), value: "\(preferences.automaticRefreshFrequencyMinutes) min")
                 LabeledContent(
-                    AppLocalization.string("Background balance refresh"), value: "\(store.backgroundBalanceRefreshFrequencyMinutes) min")
+                    AppLocalization.string("Background balance refresh"), value: AppLocalization.string("Adaptive"))
             }
             Section(AppLocalization.string("Hint")) {
                 Label(

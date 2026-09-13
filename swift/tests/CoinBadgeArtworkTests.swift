@@ -12,14 +12,14 @@ final class CoinBadgeArtworkTests: XCTestCase {
     /// tokens with no artwork on purpose, so "not nil" alone would fail on a
     /// row that is behaving correctly.
     private func assertDrawsItsMark(_ badge: CoinBadge, _ what: @autoclosure () -> String) {
-        guard !badge.assetName.isEmpty else { return }
-        XCTAssertNotNil(UIImage(named: badge.assetName), "\(what()) drew a letter, not its mark")
+        guard !badge.artworkName.isEmpty else { return }
+        XCTAssertNotNil(UIImage(named: badge.artworkName), "\(what()) drew a letter, not its mark")
     }
 
     func testCatalogTokenIdentityLoadsItsArtwork() {
         for entry in CachedCoreHelpers.assetWiki() {
-            let badge = CoinBadge(assetName: coreTokenIconAssetName(tokenId: entry.tokenId), fallbackText: entry.symbol, color: .orange)
-            XCTAssertEqual(badge.assetName, entry.face.assetName)
+            let badge = CoinBadge(artworkName: coreTokenArtworkName(tokenId: entry.tokenId), fallbackText: entry.symbol, color: .orange)
+            XCTAssertEqual(badge.artworkName, entry.face.artworkName)
             assertDrawsItsMark(badge, entry.symbol)
         }
     }
@@ -30,27 +30,21 @@ final class CoinBadgeArtworkTests: XCTestCase {
                 name: token.name, symbol: token.symbol, coinGeckoId: token.coingeckoId,
                 chainName: token.chain, tokenStandard: token.tokenStandard,
                 contractAddress: token.contract.isEmpty ? nil : token.contract, amount: 0, priceUsd: 0)
-            let badge = CoinBadge(assetName: holding.iconAssetName, fallbackText: token.symbol, color: .orange)
-            XCTAssertEqual(badge.assetName, token.assetName, token.id)
+            let badge = CoinBadge(artworkName: holding.artworkName, fallbackText: token.symbol, color: .orange)
+            XCTAssertEqual(badge.artworkName, token.artworkName, token.id)
             assertDrawsItsMark(badge, token.id)
         }
-        XCTAssertEqual(coreDeploymentIconAssetName(deploymentId: "base:native"), "ethereum")
-        XCTAssertEqual(coreDeploymentIconAssetName(deploymentId: nil), "")
+        XCTAssertEqual(coreDeploymentArtworkName(deploymentId: "base:native"), "ethereum")
+        XCTAssertEqual(coreDeploymentArtworkName(deploymentId: nil), "")
     }
 
-    /// Both wikis hand the badge core's own `assetName` rather than an
-    /// identifier to take apart. That shortcut has to reach a real file too.
-    func testEveryWikiFaceLoadsItsMark() {
-        for entry in CachedCoreHelpers.assetWiki() {
-            let badge = CoinBadge(
-                assetName: entry.face.assetName, fallbackText: entry.symbol, color: .orange)
-            assertDrawsItsMark(badge, "\(entry.symbol)'s wiki face")
-        }
+    /// Network wiki artwork must also reach real bundled images.
+    func testEveryNetworkWikiFaceLoadsItsMark() {
         for chain in CachedCoreHelpers.chainWiki() {
             let badge = CoinBadge(
-                assetName: chain.face.assetName, fallbackText: chain.name, color: .orange)
+                artworkName: chain.face.artworkName, fallbackText: chain.name, color: .orange)
             XCTAssertNotNil(
-                UIImage(named: badge.assetName), "\(chain.name)'s wiki face drew a letter")
+                UIImage(named: badge.artworkName), "\(chain.name)'s wiki face drew a letter")
         }
     }
 
@@ -60,25 +54,25 @@ final class CoinBadgeArtworkTests: XCTestCase {
     func testAChainBadgeStillDrawsTheChain() {
         for descriptor in Coin.nativeChainIconDescriptors {
             let badge = CoinBadge(
-                assetName: descriptor.artworkName, fallbackText: descriptor.symbol,
+                artworkName: descriptor.artworkName, fallbackText: descriptor.symbol,
                 color: descriptor.color)
-            XCTAssertNotNil(UIImage(named: badge.assetName), "\(descriptor.title) drew a letter")
+            XCTAssertNotNil(UIImage(named: badge.artworkName), "\(descriptor.title) drew a letter")
         }
         let base = CoinBadge(
-            assetName: coreNetworkIconAssetName(networkId: "base"),
+            artworkName: coreNetworkArtworkName(networkId: "base"),
             fallbackText: "BASE", color: .orange)
         let etherOnBase = CoinBadge(
-            assetName: coreHoldingIconAssetName(holding: AssetHolding(name: "", symbol: "ETH", coinGeckoId: "", chainName: "Base", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 0)),
+            artworkName: coreHoldingArtworkName(holding: AssetHolding(name: "", symbol: "ETH", coinGeckoId: "", chainName: "Base", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 0)),
             fallbackText: "ETH", color: .orange)
-        XCTAssertEqual(base.assetName, "base")
-        XCTAssertEqual(etherOnBase.assetName, "ethereum")
+        XCTAssertEqual(base.artworkName, "base")
+        XCTAssertEqual(etherOnBase.artworkName, "ethereum")
     }
 
     /// A custom contract cannot borrow USDC artwork by copying its symbol.
     func testAnUnknownCoinFallsBackToItsLetter() {
         let unknown = CoinBadge(
-            assetName: coreHoldingIconAssetName(holding: AssetHolding(name: "USD Coin", symbol: "USDC", coinGeckoId: "usd-coin", chainName: "Ethereum", tokenStandard: "ERC-20", contractAddress: "0xdead", amount: 0, priceUsd: 0)),
+            artworkName: coreHoldingArtworkName(holding: AssetHolding(name: "USD Coin", symbol: "USDC", coinGeckoId: "usd-coin", chainName: "Ethereum", tokenStandard: "ERC-20", contractAddress: "0xdead", amount: 0, priceUsd: 0)),
             fallbackText: "USDCE", color: .orange)
-        XCTAssertEqual(unknown.assetName, "")
+        XCTAssertEqual(unknown.artworkName, "")
     }
 }

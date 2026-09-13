@@ -18,7 +18,7 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     private func readyService() async throws -> WalletService {
         let svc = try service()
         if !stateIsOpen {
-            _ = try await svc.openState(dbPath: sqliteDbPath())
+            _ = try await svc.openState(databasePath: sqliteDbPath())
             stateIsOpen = true
         }
         return svc
@@ -64,20 +64,19 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func receiveAddress(walletID: String, chainId: String, reserve: Bool) async throws -> String? {
         try await readyService().receiveAddress(walletId: walletID, chainId: chainId, reserve: reserve)
     }
-    func advanceUsedUTXOReservations(chainId: String) async throws {
-        try await readyService().advanceUsedUtxoReservations(chainId: chainId)
-    }
+
     func knownUTXOAddresses(walletID: String, chainId: String) async throws -> [String] {
         try await readyService().knownUtxoAddresses(walletId: walletID, chainId: chainId)
     }
-    func discoverChainAddresses(chainId: String) async throws -> [WalletAddressDiscovery] {
-        try await readyService().discoverChainAddresses(chainId: chainId)
-    }
+
     func fetchNativeBalanceSummary(chainId: String, address: String) async throws -> NativeBalanceSummary {
         try await readyService().fetchNativeBalanceSummary(chainId: chainId, address: address)
     }
 
 
+    func refreshApp(intent: AppRefreshIntent, conditions: DeviceConditions) async throws -> AppRefreshResult {
+        try await readyService().refreshApp(intent: intent, conditions: conditions)
+    }
     func refreshPendingTransactions() async throws -> PendingMaintenanceResult {
         try await readyService().refreshPendingTransactions()
     }
@@ -87,18 +86,14 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func replacementDraft(transactionID: String, cancel: Bool) async throws -> OwnedReplacementDraft {
         try await readyService().replacementDraft(transactionId: transactionID, cancel: cancel)
     }
-    func executeOwnedSend(walletID: String, holdingKey: String, amount: String, destination: String, overrides: EvmSendOverridesInput?) async throws -> SendExecutionResult {
-        try await readyService().executeOwnedSend(walletId: walletID, holdingKey: holdingKey, amount: amount, destination: destination, overrides: overrides, password: nil)
+    func reviewOwnedSend(input: SendReviewInput) async throws -> OwnedSendReview {
+        try await readyService().reviewOwnedSend(input: input)
     }
-    func selfSendConfirmation(walletID: String, holdingKey: String, destination: String, amount: Double, pending: PendingSelfSendConfirmationInput?) async throws -> SelfSendConfirmationPlan {
-        try await readyService().selfSendConfirmation(walletId: walletID, holdingKey: holdingKey, destination: destination, amount: amount, pending: pending)
+    func executeOwnedSend(reviewID: String, input: SendReviewInput) async throws -> SendExecutionResult {
+        try await readyService().executeOwnedSend(reviewId: reviewID, input: input, password: nil)
     }
-    /// Token balances for any chain that has them, EVM included.
-    ///
-    /// There were two of these with the same signature and complementary chain
-    /// sets, so a caller had to know which family it was holding.
 
-    /// Core resolves afresh and optionally verifies the address the user reviewed.
+
     func resolveSendDestination(chainId: String, input: String, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
         if let expectedAddress {
             return try await readyService().verifySendDestination(chainId: chainId, input: input, expectedAddress: expectedAddress)
@@ -139,7 +134,7 @@ extension WalletServiceBridge {
     func openState() async throws -> CoreAppState {
         // Use core's serialized open for launch snapshots too: an unlocked
         // appState read could overtake an in-flight settings commit.
-        let state = try await service().openState(dbPath: sqliteDbPath())
+        let state = try await service().openState(databasePath: sqliteDbPath())
         stateIsOpen = true
         return state
     }
@@ -189,26 +184,8 @@ extension WalletServiceBridge {
     }
 
     /// Why this send looks risky, as codes to localize.
-    func highRiskSendReasons(
-        walletID: String, holdingKey: String, amount: Double, destinationAddress: String,
-        destinationInput: String, usedENSResolution: Bool
-    ) async -> [HighRiskSendWarning] {
-        guard let service = try? await readyService() else { return [] }
-        return await service.highRiskSendReasons(
-            walletId: walletID, holdingKey: holdingKey, amount: amount,
-            destinationAddress: destinationAddress, destinationInput: destinationInput,
-            usedEnsResolution: usedENSResolution)
-    }
-    /// Warnings about an EVM recipient. Core makes the contract-code probes.
-    func evmRecipientPreflight(
-        walletID: String, holdingKey: String, destinationAddress: String
-    ) async -> [EvmRecipientPreflightWarning] {
-        guard let service = try? await readyService() else { return [] }
-        return await service.evmRecipientPreflight(
-            walletId: walletID, holdingKey: holdingKey, destinationAddress: destinationAddress)
-    }
 
-    // ── Views of the transaction store, derived where the store is ────────
+
     func normalizedHistory(unknownLabel: String) async throws -> [CoreNormalizedHistoryEntry] {
         return try await readyService().normalizedHistory(unknownLabel: unknownLabel)
     }
@@ -232,10 +209,7 @@ extension WalletServiceBridge {
         }
         return await service.maintenancePlan(conditions: conditions)
     }
-    func recordRefresh(kind: RefreshKind) async {
-        guard let service = try? await readyService() else { return }
-        await service.recordRefresh(kind: kind)
-    }
+
     func operationalEvents(chainName: String) async -> [ChainOperationalEventRecord] {
         guard let service = try? await readyService() else { return [] }
         return await service.operationalEvents(chainName: chainName)
@@ -256,7 +230,7 @@ extension WalletServiceBridge {
     }
 
     /// The wallets core holds, in the shape the views render.
-    func storedWallets() async throws -> [ImportedWallet] {
+    func storedWallets() async throws -> [WalletView] {
         try await readyService().walletsForDisplay()
     }
 
@@ -377,7 +351,7 @@ extension WalletServiceBridge {
         _ = try await readyService()
         return try await balanceRefreshEngine().syncEntries(walletId: nil)
     }
-    func startBalanceRefresh(intervalSecs: UInt64) async throws { _ = try await readyService(); try await balanceRefreshEngine().start(intervalSecs: intervalSecs) }
+    func configureBalanceRefresh(appIsActive: Bool) async throws { _ = try await readyService(); try await balanceRefreshEngine().configureForDevice(appIsActive: appIsActive) }
     func stopBalanceRefresh() throws { try balanceRefreshEngine().stop() }
     func triggerImmediateBalanceRefresh() async throws { _ = try await readyService(); try await balanceRefreshEngine().triggerImmediate() }
 }

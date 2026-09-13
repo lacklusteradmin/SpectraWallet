@@ -20,6 +20,10 @@ final class WalletSetupPageCopyTests: XCTestCase {
             mode(), mode(editing: true), mode(creating: true), mode(privateKey: true),
             mode(creating: true, privateKey: true),
         ]
+        let flowPages = [SetupFlow.watchOnly, .seedPhraseImport, .createNewWallet, .editWallet].flatMap(\.pages)
+        for page in flowPages {
+            XCTAssertTrue(pages.contains(page), "Flow page \(page) is missing from the copy coverage")
+        }
         for page in pages {
             for mode in modes {
                 let copy = page.copy(content, mode: mode)
@@ -29,27 +33,18 @@ final class WalletSetupPageCopyTests: XCTestCase {
         }
     }
 
-    /// The secret page is the one whose wording the mode changes: recording a
-    /// phrase, entering one, or pasting a key are three different pages to a
-    /// reader and one case to the compiler.
     func testTheSecretPageNamesWhichSecretItIsAskingFor() {
-        let creating = WalletSetupPage.seedPhrase.copy(content, mode: mode(creating: true))
-        let importing = WalletSetupPage.seedPhrase.copy(content, mode: mode())
-        let privateKey = WalletSetupPage.seedPhrase.copy(content, mode: mode(privateKey: true))
-
-        XCTAssertEqual(creating.title, content.recordSeedPhraseTitle)
-        XCTAssertEqual(importing.title, content.enterSeedPhraseTitle)
-        XCTAssertEqual(privateKey.title, content.enterPrivateKeyTitle)
-        XCTAssertEqual(creating.subtitle, content.saveRecoveryPhraseSubtitle)
-        XCTAssertEqual(importing.subtitle, content.enterRecoveryPhraseSubtitle)
-        XCTAssertEqual(privateKey.subtitle, content.privateKeySubtitle)
-    }
-
-    /// A private-key import is still a private-key import when it is also a
-    /// creation, and the key wins: there is no phrase to record.
-    func testPastingAKeyOutranksRecordingAPhrase() {
-        let both = WalletSetupPage.seedPhrase.copy(content, mode: mode(creating: true, privateKey: true))
-        XCTAssertEqual(both.subtitle, content.privateKeySubtitle)
+        let cases = [
+            (mode(), content.enterSeedPhraseTitle, content.enterRecoveryPhraseSubtitle),
+            (mode(creating: true), content.recordSeedPhraseTitle, content.saveRecoveryPhraseSubtitle),
+            (mode(privateKey: true), content.enterPrivateKeyTitle, content.privateKeySubtitle),
+            (mode(creating: true, privateKey: true), content.enterPrivateKeyTitle, content.privateKeySubtitle),
+        ]
+        for (mode, title, subtitle) in cases {
+            let copy = WalletSetupPage.seedPhrase.copy(content, mode: mode)
+            XCTAssertEqual(copy.title, title, "\(mode)")
+            XCTAssertEqual(copy.subtitle, subtitle, "\(mode)")
+        }
     }
 
     /// The editing flow shows its edit heading on the actual name page.
@@ -60,13 +55,4 @@ final class WalletSetupPageCopyTests: XCTestCase {
             WalletSetupPage.details.copy(content, mode: mode()).title, content.editWalletTitle)
     }
 
-    /// Each flow's pages all resolve; a flow cannot contain a page the copy
-    /// resolver has no arm for.
-    func testEveryFlowsPagesResolve() {
-        for flow in [SetupFlow.watchOnly, .seedPhraseImport, .createNewWallet, .editWallet] {
-            for page in flow.pages {
-                XCTAssertFalse(page.copy(content, mode: mode()).title.isEmpty)
-            }
-        }
-    }
 }

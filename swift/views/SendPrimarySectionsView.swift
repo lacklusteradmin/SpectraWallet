@@ -4,8 +4,8 @@ import VisionKit
 
 @MainActor
 fileprivate struct SendComposerPresentation {
-    let sendWallets: [ImportedWallet]
-    let selectedWallet: ImportedWallet?
+    let sendWallets: [WalletView]
+    let selectedWallet: WalletView?
     let availableSendCoins: [Coin]
     let selectedCoin: Coin?
     let selectedCoinAmountText: String?
@@ -66,7 +66,7 @@ struct SendFromPage: View {
                 let badge = Coin.nativeChainBadge(chainName: selectedWallet.selectedChain) ?? (nil, Color.mint)
                 HStack(spacing: 12) {
                     CoinBadge(
-                        assetName: badge.artworkName,
+                        artworkName: badge.artworkName,
                         fallbackText: selectedWallet.selectedChain,
                         color: badge.color,
                         size: 38
@@ -108,7 +108,7 @@ struct SendFromPage: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     CoinBadge(
-                        assetName: coin.iconAssetName,
+                        artworkName: coin.artworkName,
                         fallbackText: coin.symbol,
                         color: coin.color,
                         size: 28

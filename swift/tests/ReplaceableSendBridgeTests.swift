@@ -25,7 +25,7 @@ import Foundation
         }
 
         func testUnopenedHistoryReadsThrowAcrossBinding() async throws {
-            let service = try WalletService.newTyped(endpoints: [])
+            let service = try WalletService(endpoints: [])
             let reads: [() async throws -> Void] = [
                 { _ = try await service.normalizedHistory(unknownLabel: "Unknown") },
                 { _ = try await service.earliestTransactionDates() },
@@ -47,7 +47,7 @@ import Foundation
         ) -> TransactionRecord {
             TransactionRecord(
                 walletID: "wallet-1", deploymentID: deploymentID, kind: kind, status: status, walletName: "Main",
-                assetName: chain, symbol: symbol, chainName: chain, amount: 1.5,
+                assetDisplayName: chain, symbol: symbol, chainName: chain, amount: 1.5,
                 address: "0x1111111111111111111111111111111111111111",
                 transactionHash: hash, ethereumNonce: nonce)
         }

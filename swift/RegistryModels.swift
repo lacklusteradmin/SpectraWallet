@@ -105,9 +105,8 @@ struct ChainRegistryEntry: Identifiable {
     let name: String
     let symbol: String
     let color: Color
-    let assetName: String
+    let artworkName: String
     let derivationPath: [ChainDerivationPathEntry]
-    var artworkName: String { assetName }
     var nativeIconDescriptor: NativeChainIconDescriptor {
         NativeChainIconDescriptor(registryID: id, title: name, symbol: symbol, chainName: name, color: color)
     }
@@ -117,7 +116,7 @@ struct ChainRegistryEntry: Identifiable {
             .map { chain in
                 ChainRegistryEntry(
                     id: chain.id, name: chain.name, symbol: chain.gasTokenSymbol,
-                    color: RegistryColorLookup.color(named: chain.color), assetName: chain.assetName,
+                    color: RegistryColorLookup.color(named: chain.color), artworkName: chain.artworkName,
                     derivationPath: chain.derivationPath
                 )
             }
@@ -177,7 +176,7 @@ struct NativeChainIconDescriptor: Identifiable {
     let chainName: String
     let color: Color
     var id: String { artworkName }
-    var artworkName: String { coreNetworkIconAssetName(networkId: registryID) }
+    var artworkName: String { coreNetworkArtworkName(networkId: registryID) }
 }
 extension Coin {
     static let nativeChainIconDescriptors: [NativeChainIconDescriptor] = ChainRegistryEntry.all.map(\.nativeIconDescriptor)
@@ -219,20 +218,6 @@ extension Coin {
         let normalized = symbol.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return tokenColorsBySymbol[normalized] ?? .gray
     }
-    var iconAssetName: String { coreHoldingIconAssetName(holding: self) }
+    var artworkName: String { coreHoldingArtworkName(holding: self) }
 
-    @MainActor init(snapshot: PersistedCoin) {
-        self = Coin.makeCustom(
-            name: snapshot.name, symbol: snapshot.symbol, coinGeckoId: snapshot.coinGeckoId,
-            chainName: snapshot.chainName, tokenStandard: snapshot.tokenStandard, contractAddress: snapshot.contractAddress,
-            amount: snapshot.amount, priceUsd: snapshot.priceUsd
-        )
-    }
-    var persistedSnapshot: PersistedCoin {
-        PersistedCoin(
-            name: name, symbol: symbol, coinGeckoId: coinGeckoId, chainName: chainName,
-            tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUsd
-        )
-    }
 }
-

@@ -74,9 +74,6 @@ struct SendNetworkStep: View {
 
     @ViewBuilder
     private func networkCardContent(selectedCoin: Coin?) -> some View {
-        if let selectedCoin, selectedCoin.isUTXOChain {
-            utxoNetworkContent(selectedCoin: selectedCoin)
-        }
         if let selectedCoin, !selectedCoin.isUTXOChain, !selectedCoin.isEVMChain {
             feePriorityContent(selectedCoin: selectedCoin)
         }
@@ -140,41 +137,6 @@ struct SendNetworkStep: View {
 
     // MARK: — Network sub-sections
 
-
-    @ViewBuilder
-    private func utxoNetworkContent(selectedCoin: Coin) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            networkSectionHeader("Advanced UTXO Mode")
-            Toggle(AppLocalization.string("Enable Advanced Controls"), isOn: $store.sendAdvancedMode)
-            if store.sendAdvancedMode {
-                Stepper(
-                    "Max Inputs: \(store.sendUTXOMaxInputCount == 0 ? "Auto" : "\(store.sendUTXOMaxInputCount)")",
-                    value: $store.sendUTXOMaxInputCount, in: 0...50
-                )
-                if selectedCoin.chain == .litecoin {
-                    let isMwebSend = store.sendAddress.hasPrefix("ltcmweb1") || store.sendAddress.hasPrefix("tmweb1")
-                    Toggle(AppLocalization.string("Enable RBF Policy"), isOn: $store.sendEnableRBF)
-                    if !isMwebSend {
-                        Picker(AppLocalization.string("Change Strategy"), selection: $store.sendLitecoinChangeStrategy) {
-                            ForEach(LitecoinChangeStrategy.allCases) { strategy in Text(strategy.displayName).tag(strategy) }
-                        }.pickerStyle(.menu)
-                    }
-                    Text(AppLocalization.string(
-                        isMwebSend
-                            ? "MWEB peg-in: coins enter the MimbleWimble sidechain. Fee covers both the on-chain peg-in output and the ~1 kB MWEB extension block. Change strategy is ignored for MWEB sends."
-                            : "For LTC sends, max input cap is applied for coin selection, RBF policy is encoded in input sequence numbers, and change strategy controls whether change uses a derived change path or your source address."
-                    )).font(.caption).foregroundStyle(.secondary)
-                } else {
-                    Toggle(AppLocalization.string("RBF Intent"), isOn: $store.sendEnableRBF)
-                    Toggle(AppLocalization.string("CPFP Intent"), isOn: $store.sendEnableCPFP)
-                    if let caption = utxoAdvancedModeCaption(for: selectedCoin.chainName) {
-                        Text(caption).font(.caption).foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        Divider().opacity(0.3).padding(.vertical, 8)
-    }
 
     @ViewBuilder
     private func feePriorityContent(selectedCoin: Coin) -> some View {
@@ -395,18 +357,6 @@ struct SendNetworkStep: View {
             return preview
         }
         return nil
-    }
-
-    private func utxoAdvancedModeCaption(for chainName: String) -> String? {
-        switch Chain(displayName: chainName) {
-        case .bitcoin:
-            return AppLocalization.string("For Bitcoin sends, advanced mode records RBF/CPFP intent and applies the max-input cap for coin selection.")
-        case .bitcoinCash:
-            return AppLocalization.string("For Bitcoin Cash sends, advanced mode records RBF intent and applies the max-input cap for coin selection.")
-        case .dogecoin:
-            return AppLocalization.string("For Dogecoin sends, advanced mode records RBF/CPFP intent and applies the max-input cap for coin selection.")
-        default: return nil
-        }
     }
 
     private func evmFeeSymbol(for chainName: String) -> String {

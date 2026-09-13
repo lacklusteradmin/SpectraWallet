@@ -74,15 +74,7 @@ final class WalletImportDraft {
     // These are converted to CoreWalletDerivationOverrides at import time via
     // `resolvedDerivationOverrides`.
     var overridePassphrase: String = ""
-    var overrideMnemonicWordlist: String = ""
-    var overrideIterationCount: String = ""
-    var overrideSaltPrefix: String = ""
     var overrideHmacKey: String = ""
-    var overrideCurve: String = ""
-    var overrideDerivationAlgorithm: String = ""
-    var overrideAddressAlgorithm: String = ""
-    var overridePublicKeyFormat: String = ""
-    var overrideScriptType: String = ""
     var seedPhraseLanguage: String = "en"
     var seedPhraseEntries: [String] = Array(repeating: "", count: 12)
     var selectedSeedPhraseWordCount: Int = 12 {
@@ -136,35 +128,10 @@ final class WalletImportDraft {
     init() {
         refreshSelectionState()
     }
-    /// Compile the 10 Advanced-mode power-user override fields into a single
-    /// `CoreWalletDerivationOverrides` record. Blank strings map to `nil`
-    /// (= "use chain preset default"); populated fields are passed verbatim
-    /// to the Rust derivation pipeline, which validates them.
+    /// Core interprets exact secret input and refuses unsupported overrides.
     var resolvedDerivationOverrides: CoreWalletDerivationOverrides {
-        func nilIfBlank(_ raw: String) -> String? {
-            let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? nil : trimmed
-        }
-        let iteration: UInt32? = {
-            let trimmed = overrideIterationCount.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? nil : UInt32(trimmed)
-        }()
-        // salt_prefix is intentionally allowed to include or consist entirely
-        // of whitespace (Rust treats `Some("")` differently from `None`), so
-        // only filter out an empty-from-the-start field.
-        let salt: String? = overrideSaltPrefix.isEmpty ? nil : overrideSaltPrefix
-        return CoreWalletDerivationOverrides(
-            passphrase: nilIfBlank(overridePassphrase),
-            mnemonicWordlist: nilIfBlank(overrideMnemonicWordlist),
-            iterationCount: iteration,
-            saltPrefix: salt,
-            hmacKey: nilIfBlank(overrideHmacKey),
-            curve: nilIfBlank(overrideCurve),
-            derivationAlgorithm: nilIfBlank(overrideDerivationAlgorithm),
-            addressAlgorithm: nilIfBlank(overrideAddressAlgorithm),
-            publicKeyFormat: nilIfBlank(overridePublicKeyFormat),
-            scriptType: nilIfBlank(overrideScriptType)
-        )
+        coreParseWalletDerivationInput(input: WalletDerivationInput(
+            passphrase: overridePassphrase, hmacKey: overrideHmacKey))
     }
     /// The selected chains, in catalog order rather than selection order.
     var selectableDerivationChains: [Chain] {
@@ -256,7 +223,7 @@ final class WalletImportDraft {
         isWatchOnlyMode = false
         regenerateSeedPhrase()
     }
-    func configureForEditing(wallet: ImportedWallet) {
+    func configureForEditing(wallet: WalletView) {
         mode = .importExisting
         isEditingWallet = false
         reset()
@@ -276,15 +243,7 @@ final class WalletImportDraft {
         seedDerivationPaths = .defaults
         setupModeChoice = .simple
         overridePassphrase = ""
-        overrideMnemonicWordlist = ""
-        overrideIterationCount = ""
-        overrideSaltPrefix = ""
         overrideHmacKey = ""
-        overrideCurve = ""
-        overrideDerivationAlgorithm = ""
-        overrideAddressAlgorithm = ""
-        overridePublicKeyFormat = ""
-        overrideScriptType = ""
         seedPhraseEntries = Array(repeating: "", count: 12)
         selectedSeedPhraseWordCount = 12
         isWatchOnlyMode = false
@@ -326,9 +285,9 @@ final class WalletImportDraft {
     }
     private static let coinsByChain: [String: Coin] = {
         var dict: [String: Coin] = [:]
-        for chain in listAllChains() where !chain.nativeAssetName.isEmpty {
+        for chain in listAllChains() where !chain.nativeAssetDisplayName.isEmpty {
             dict[chain.name] = Coin.makeCustom(
-                name: chain.nativeAssetName,
+                name: chain.nativeAssetDisplayName,
                 symbol: chain.gasTokenSymbol,
                 coinGeckoId: chain.nativeCoingeckoId,
                 chainName: chain.name,

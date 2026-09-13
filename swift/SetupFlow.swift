@@ -117,19 +117,13 @@ extension WalletSetupPage {
             return WalletSetupPageCopy(
                 title: content.watchAddressesTitle, subtitle: content.watchAddressesSubtitle)
         case .seedPhrase:
-            let title: String
-            if mode.isCreateMode {
-                title = content.recordSeedPhraseTitle
-            } else {
-                title = mode.isPrivateKeyImport ? content.enterPrivateKeyTitle : content.enterSeedPhraseTitle
-            }
-            let subtitle: String
             if mode.isPrivateKeyImport {
-                subtitle = content.privateKeySubtitle
-            } else {
-                subtitle = mode.isCreateMode ? content.saveRecoveryPhraseSubtitle : content.enterRecoveryPhraseSubtitle
+                return WalletSetupPageCopy(
+                    title: content.enterPrivateKeyTitle, subtitle: content.privateKeySubtitle)
             }
-            return WalletSetupPageCopy(title: title, subtitle: subtitle)
+            return WalletSetupPageCopy(
+                title: mode.isCreateMode ? content.recordSeedPhraseTitle : content.enterSeedPhraseTitle,
+                subtitle: mode.isCreateMode ? content.saveRecoveryPhraseSubtitle : content.enterRecoveryPhraseSubtitle)
         case .details:
             return WalletSetupPageCopy(
                 title: AppLocalization.string("import_flow.choose_chains"),

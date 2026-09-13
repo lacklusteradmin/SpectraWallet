@@ -12,7 +12,7 @@ import XCTest
 /// endpoints configured, which is to say without a request leaving the machine.
 final class SendDestinationBridgeTests: XCTestCase {
     func testATypedAddressResolvesToItsNormalizedFormAcrossAsyncBinding() async throws {
-        let service = try WalletService.newTyped(endpoints: [])
+        let service = try WalletService(endpoints: [])
         let resolved = try await service.resolveSendDestination(
             chainId: "base", input: "  0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA  ")
         XCTAssertEqual(resolved.address, "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
@@ -20,7 +20,7 @@ final class SendDestinationBridgeTests: XCTestCase {
     }
 
     func testANameIsRefusedOffTheChainThatRegistersItWithoutTheNetwork() async throws {
-        let service = try WalletService.newTyped(endpoints: [])
+        let service = try WalletService(endpoints: [])
         for chainId in ["arbitrum", "base", "polygon", "bitcoin"] {
             do {
                 _ = try await service.resolveSendDestination(chainId: chainId, input: "vitalik.eth")
@@ -33,7 +33,7 @@ final class SendDestinationBridgeTests: XCTestCase {
     }
 
     func testAnEmptyDestinationIsRefusedRatherThanResolvedToNothing() async throws {
-        let service = try WalletService.newTyped(endpoints: [])
+        let service = try WalletService(endpoints: [])
         do {
             _ = try await service.resolveSendDestination(chainId: "ethereum", input: "   ")
             XCTFail("An empty field is not an address")
@@ -47,7 +47,7 @@ final class SendDestinationBridgeTests: XCTestCase {
     /// token itself and showed no verdict at all when it could not identify
     /// one, which reads as "checked, and fine".
     func testAProbeForAnUnknownHoldingThrowsRatherThanProbingAcrossAsyncBinding() async throws {
-        let service = try WalletService.newTyped(endpoints: [])
+        let service = try WalletService(endpoints: [])
         do {
             _ = try await service.sendDestinationRisk(
                 walletId: "no-such-wallet", holdingKey: "Ethereum|ETH",
@@ -61,7 +61,7 @@ final class SendDestinationBridgeTests: XCTestCase {
     }
 
     func testAnAddressFromAnotherFamilyIsRefused() async throws {
-        let service = try WalletService.newTyped(endpoints: [])
+        let service = try WalletService(endpoints: [])
         do {
             _ = try await service.resolveSendDestination(
                 chainId: "bitcoin", input: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e")
@@ -71,7 +71,7 @@ final class SendDestinationBridgeTests: XCTestCase {
         }
     }
     func testTonDestinationRejectsChecksumAndMainnetTestOnlyFlag() async throws {
-        let service = try WalletService.newTyped(endpoints: [])
+        let service = try WalletService(endpoints: [])
         for input in [String(repeating: "A", count: 48),
                       "EQDKbjIcfM6ezt8KjKJJLshZJJSqX7XOA4ff-W72r5gqPrHA",
                       "kQDKbjIcfM6ezt8KjKJJLshZJJSqX7XOA4ff-W72r5gqPgpP"] {
@@ -86,7 +86,7 @@ final class SendDestinationBridgeTests: XCTestCase {
     }
 
     func testPendingPollingPropagatesUnopenedStorageAcrossAsyncBinding() async throws {
-        let service = try WalletService.newTyped(endpoints: [])
+        let service = try WalletService(endpoints: [])
         do {
             _ = try await service.pollPendingTransactions(chainId: "ethereum")
             XCTFail("Unopened storage must not appear as no pending transactions")
@@ -94,7 +94,7 @@ final class SendDestinationBridgeTests: XCTestCase {
     }
 
     func testReviewedDestinationMustStillMatchAcrossBinding() async throws {
-        let service = try WalletService.newTyped(endpoints: [])
+        let service = try WalletService(endpoints: [])
         let old = "0x1111111111111111111111111111111111111111"
         let new = "0x2222222222222222222222222222222222222222"
         let same = try await service.verifySendDestination(chainId: "ethereum", input: old, expectedAddress: old)

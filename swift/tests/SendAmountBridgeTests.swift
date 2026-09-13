@@ -56,8 +56,8 @@ final class SendAmountBridgeTests: XCTestCase {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        let service = try WalletService.newTyped(endpoints: [])
-        _ = try await service.openState(dbPath: directory.appendingPathComponent("state.db").path)
+        let service = try WalletService(endpoints: [])
+        _ = try await service.openState(databasePath: directory.appendingPathComponent("state.db").path)
         let history = try await service.refreshHistory(scope: .all, loadMore: false, limit: 20, intervalSecs: 0)
         XCTAssertTrue(history.isEmpty)
         let alerts = try await service.evaluatePriceAlerts()
@@ -81,7 +81,7 @@ final class SendAmountBridgeTests: XCTestCase {
     }
 
     func testInvalidExactAmountIsRefusedBeforeSigningMaterialAcrossAsyncBinding() async throws {
-        let service = try WalletService.newTyped(endpoints: [])
+        let service = try WalletService(endpoints: [])
         for amount in ["0.000000001", "-1", "NaN", "1.é"] {
             let request = SendExecutionRequest(
                 chainId: "bitcoin", walletId: "missing", password: nil, toAddress: "",
@@ -100,7 +100,7 @@ final class SendAmountBridgeTests: XCTestCase {
         }
     }
     func testMissingWalletIsRefusedBeforeSecretStoreOrNetwork() async throws {
-        let service = try WalletService.newTyped(endpoints: [])
+        let service = try WalletService(endpoints: [])
         let request = SendExecutionRequest(
             chainId: "ethereum", walletId: "missing", password: nil,
             toAddress: "0x9858effd232b4033e47d90003d41ec34ecaeda94", amountStr: "1",
@@ -116,7 +116,7 @@ final class SendAmountBridgeTests: XCTestCase {
     }
 
     func testInvalidKeypoolBaselineThrowsAcrossAsyncBinding() async throws {
-        let service = try WalletService.newTyped(endpoints: [])
+        let service = try WalletService(endpoints: [])
         // Inject an out-of-range in-memory record to exercise the throwing read.
         try await service.registerOwnedAddress(
             walletId: "fault", chainName: "Bitcoin", address: "fixture",
@@ -136,7 +136,7 @@ final class SendAmountBridgeTests: XCTestCase {
     }
 
     func testOwnedPreviewRefusesMissingWalletAcrossAsyncBinding() async throws {
-        let service = try WalletService.newTyped(endpoints: [])
+        let service = try WalletService(endpoints: [])
         do {
             _ = try await service.previewOwnedSend(walletId: "missing", holdingKey: "ethereum:native", amount: "1", destination: "", explicitNonce: nil, customFees: nil)
             XCTFail("A missing wallet must not produce a preview")
@@ -145,11 +145,11 @@ final class SendAmountBridgeTests: XCTestCase {
         }
     }
     func testAlertIntentsKeepSubcentTargetsAcrossAsyncBinding() async throws {
-        let service = try WalletService.newTyped(endpoints: [])
+        let service = try WalletService(endpoints: [])
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        _ = try await service.openState(dbPath: directory.appendingPathComponent("state.sqlite").path)
+        _ = try await service.openState(databasePath: directory.appendingPathComponent("state.sqlite").path)
         let added = try await service.applyStateCommand(command: .addPriceAlert(
             holdingKey: "ethereum:native", targetPrice: 0.000001, currencyCode: "USD", condition: .above))
         let alert = try XCTUnwrap(added.state.priceAlerts.first)
@@ -183,5 +183,39 @@ private final class ImportTestSecretStore: SecretStore, @unchecked Sendable {
     }
     func listKeys(kind: SecretClass, prefixFilter: String) throws -> [String] {
         lock.withLock { Array(values[kind, default: [:]].keys).filter { $0.hasPrefix(prefixFilter) } }
+    }
+}
+
+extension SendAmountBridgeTests {
+    @MainActor
+    func testDerivationInputPreservesSecretWhitespace() throws {
+        let draft = WalletImportDraft()
+        draft.overridePassphrase = " secret "
+        draft.overrideHmacKey = " key "
+        let parsed = draft.resolvedDerivationOverrides
+        XCTAssertEqual(parsed.passphrase, " secret ")
+        XCTAssertEqual(parsed.hmacKey, " key ")
+    }
+
+    @MainActor
+    func testOwnedRefreshAndMissingConfirmationAcrossAsyncBinding() async throws {
+        let service = try WalletService(endpoints: [])
+        let result = try await service.refreshApp(intent: .user, conditions: DeviceConditions(
+            appIsActive: true, isNetworkReachable: false, isConstrainedNetwork: false,
+            isExpensiveNetwork: false, isLowPowerMode: false, batteryLevel: 1, wantsPriceRefresh: true))
+        XCTAssertNil(result.pending)
+        XCTAssertTrue(result.failures.isEmpty)
+        let rescan = try await service.refreshApp(intent: .deepRescan(chainId: "bitcoin"), conditions: DeviceConditions(
+            appIsActive: true, isNetworkReachable: false, isConstrainedNetwork: false,
+            isExpensiveNetwork: false, isLowPowerMode: false, batteryLevel: 1, wantsPriceRefresh: false))
+        XCTAssertFalse(rescan.failures.isEmpty)
+        XCTAssertNil(rescan.pending)
+        do {
+            _ = try await service.executeOwnedSend(reviewId: "missing", input: SendReviewInput(
+                walletId: "w", holdingKey: "ethereum:native", amount: "1", destination: "0x1111111111111111111111111111111111111111", overrides: nil), password: nil)
+            XCTFail("sending requires a core-issued review")
+        } catch {
+            XCTAssertTrue(String(describing: error).contains("review missing"))
+        }
     }
 }

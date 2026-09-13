@@ -147,9 +147,9 @@ struct SendView: View {
                 quotedInputKey = key
             } catch { return }
         }
-        .alert(AppLocalization.string("High-Risk Send"), isPresented: $store.isShowingHighRiskSendConfirmation) {
+        .alert(AppLocalization.string("Confirm Send"), isPresented: $store.isShowingHighRiskSendConfirmation) {
             Button(AppLocalization.string("Cancel"), role: .cancel) { store.clearHighRiskSendConfirmation() }
-            Button(AppLocalization.string("Send Anyway"), role: .destructive) {
+            Button(AppLocalization.string("Send"), role: .destructive) {
                 Task { await store.confirmHighRiskSendAndSubmit() }
             }
         } message: {
@@ -350,11 +350,6 @@ struct SendView: View {
             store.customEvmPriorityFeeGwei,
             store.evmManualNonceEnabled.description,
             store.evmManualNonce,
-            store.sendAdvancedMode.description,
-            store.sendUTXOMaxInputCount.description,
-            store.sendEnableRBF.description,
-            store.sendEnableCPFP.description,
-            store.sendLitecoinChangeStrategy.rawValue,
             store.feePriorityByChain.description,
         ].joined(separator: "|")
     }

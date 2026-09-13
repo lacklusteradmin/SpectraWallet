@@ -61,9 +61,8 @@ extension AssetHolding: Identifiable {
         tokenStandard == "Native" && (contractAddress?.isEmpty ?? true)
     }
 }
-typealias ImportedWallet = CoreImportedWallet
-extension CoreImportedWallet: Identifiable {}
-extension CoreImportedWallet {
+extension WalletView: Identifiable {}
+extension WalletView {
     var totalBalance: Double { holdings.reduce(0) { $0 + $1.valueUSD } }
 
     /// This wallet's address for a chain, by display name. Slot resolution
@@ -97,14 +96,14 @@ extension CoreImportedWallet {
     /// The authoritative model this view model was rendered from.
     ///
     /// `isWatchOnly` is a Keychain fact the record cannot carry, so the caller
-    /// supplies it — see `WalletSummary` in `core/src/store/state.rs`.
-    func summary(isWatchOnly: Bool) -> WalletSummary {
-        coreWalletSummary(wallet: self, isWatchOnly: isWatchOnly)
+    /// supplies it — see `WalletState` in `core/src/store/state.rs`.
+    func walletState(isWatchOnly: Bool) -> WalletState {
+        coreWalletState(wallet: self, isWatchOnly: isWatchOnly)
     }
 
     /// Convenience initializer that defaults every field a caller doesn't set.
     ///
-    /// `CoreImportedWallet` is a UniFFI record, so its generated memberwise
+    /// `WalletView` is a UniFFI record, so its generated memberwise
     /// init has no defaults.
     init(
         id: UUID = UUID(),
@@ -137,8 +136,7 @@ extension CoreWalletDerivationOverrides {
     /// All-nil overrides — "use the chain's defaults".
     static var empty: CoreWalletDerivationOverrides {
         CoreWalletDerivationOverrides(
-            passphrase: nil, mnemonicWordlist: nil, iterationCount: nil, saltPrefix: nil, hmacKey: nil,
-            curve: nil, derivationAlgorithm: nil, addressAlgorithm: nil, publicKeyFormat: nil, scriptType: nil
+            passphrase: nil, hmacKey: nil
         )
     }
 }
@@ -354,7 +352,7 @@ struct NormalizedHistoryEntry: Identifiable {
     let kind: TransactionKind
     let status: TransactionStatus
     let walletName: String
-    let assetName: String
+    let assetDisplayName: String
     let symbol: String
     let chainName: String
     let address: String
@@ -375,16 +373,16 @@ extension PriceAlertRule: Identifiable {}
 
 extension PriceAlertRule {
     init(
-        holdingKey: String, assetName: String, symbol: String, chainName: String, targetPrice: Double,
+        holdingKey: String, assetDisplayName: String, symbol: String, chainName: String, targetPrice: Double,
         condition: PriceAlertCondition
     ) {
         self.init(
-            id: UUID().uuidString, holdingKey: holdingKey, assetName: assetName, symbol: symbol,
+            id: UUID().uuidString, holdingKey: holdingKey, assetDisplayName: assetDisplayName, symbol: symbol,
             chainName: chainName, targetPrice: targetPrice, condition: condition, isEnabled: true,
             hasTriggered: false
         )
     }
-    var titleText: String { String(format: CommonLocalizationContent.current.priceAlertTitleFormat, assetName, chainName) }
+    var titleText: String { String(format: CommonLocalizationContent.current.priceAlertTitleFormat, assetDisplayName, chainName) }
     var statusText: String {
         if !isEnabled { return AppLocalization.string("Paused") }
         return hasTriggered ? AppLocalization.string("Triggered") : AppLocalization.string("Watching")
@@ -405,7 +403,7 @@ struct TransactionRecord: Identifiable, Equatable, Sendable {
     let kind: TransactionKind
     let status: TransactionStatus
     let walletName: String
-    let assetName: String
+    let assetDisplayName: String
     let symbol: String
     let chainName: String
     let amount: Double
@@ -432,7 +430,7 @@ struct TransactionRecord: Identifiable, Equatable, Sendable {
     let transactionHistorySource: String?
     let createdAt: Date
     nonisolated init(
-        id: UUID = UUID(), walletID: String? = nil, deploymentID: String? = nil, kind: TransactionKind, status: TransactionStatus, walletName: String, assetName: String,
+        id: UUID = UUID(), walletID: String? = nil, deploymentID: String? = nil, kind: TransactionKind, status: TransactionStatus, walletName: String, assetDisplayName: String,
         symbol: String, chainName: String, amount: Double, address: String, transactionHash: String? = nil, ethereumNonce: Int? = nil,
         receiptBlockNumber: Int? = nil, receiptGasUsed: String? = nil, receiptEffectiveGasPriceGwei: Double? = nil,
         receiptNetworkFeeEth: Double? = nil, feePriorityRaw: String? = nil, feeRateDescription: String? = nil,
@@ -449,7 +447,7 @@ struct TransactionRecord: Identifiable, Equatable, Sendable {
         self.kind = kind
         self.status = status
         self.walletName = walletName
-        self.assetName = assetName
+        self.assetDisplayName = assetDisplayName
         self.symbol = symbol
         self.chainName = chainName
         self.amount = amount
@@ -477,7 +475,7 @@ struct TransactionRecord: Identifiable, Equatable, Sendable {
         self.createdAt = createdAt
     }
     // History with no deployment identity draws its letter.
-    var artworkName: String { coreDeploymentIconAssetName(deploymentId: deploymentID) }
+    var artworkName: String { coreDeploymentArtworkName(deploymentId: deploymentID) }
 
 }
 enum SendBroadcastVerificationStatus: Equatable {
@@ -498,7 +496,7 @@ extension TransactionRecord {
             kind: resolvedKind,
             status: resolvedStatus,
             walletName: snapshot.walletName,
-            assetName: snapshot.assetName,
+            assetDisplayName: snapshot.assetDisplayName,
             symbol: snapshot.symbol,
             chainName: snapshot.chainName,
             amount: snapshot.amount,
@@ -534,7 +532,7 @@ extension TransactionRecord {
             kind: kind,
             status: status,
             walletName: walletName,
-            assetName: assetName,
+            assetDisplayName: assetDisplayName,
             symbol: symbol,
             chainName: chainName,
             amount: amount,
@@ -570,7 +568,7 @@ extension TransactionRecord {
         }
     }
     var subtitleText: String {
-        String(format: CommonLocalizationContent.current.transactionSubtitleFormat, assetName, chainName, walletName)
+        String(format: CommonLocalizationContent.current.transactionSubtitleFormat, assetDisplayName, chainName, walletName)
     }
     var historySourceText: String? {
         guard let transactionHistorySource else { return nil }

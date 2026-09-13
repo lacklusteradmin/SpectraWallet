@@ -27,7 +27,7 @@ extension AppState {
         receiveAddressRequestID = UUID()
         isResolvingReceiveAddress = false
     }
-    func refreshPendingTransactions(includeHistoryRefreshes: Bool = true, historyRefreshInterval: TimeInterval = 120) async {
+    func refreshPendingTransactions() async {
         guard !isRefreshingPendingTransactions else { return }
         let startedAt = CFAbsoluteTimeGetCurrent()
         isRefreshingPendingTransactions = true
@@ -48,7 +48,6 @@ extension AppState {
                 chainName: WalletChainID(failure.chainId)?.displayName)
         }
         if !result.changes.isEmpty { await applyPendingStatusChanges(result.changes) }
-        let tokenHostingChains = Set(result.chains.compactMap(WalletChainID.init))
         let refreshLastSent: () -> Void = {
             if let lastSentTransaction = self.lastSentTransaction,
                 let refreshed = self.transactions.first(where: { $0.id == lastSentTransaction.id })
@@ -57,8 +56,6 @@ extension AppState {
                 self.updateSendVerificationNoticeForLastSentTransaction()
             }
         }
-        guard includeHistoryRefreshes else { refreshLastSent(); return }
-        await runPendingTransactionHistoryRefreshes(for: tokenHostingChains, interval: historyRefreshInterval)
         refreshLastSent()
     }
     var pendingTransactionRefreshStatusText: String? {
@@ -106,20 +103,8 @@ extension AppState {
         isImportingWallet = true
         defer { isImportingWallet = false }
         let coins = importDraft.selectedCoins
-        let trimmedSeedPhrase = importDraft.seedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }.joined(
-            separator: " ")
-        // One call, not two: `corePrivateKeyHex` returns the normalised key
-        // or nil, so the normaliser and the "is it one" predicate cannot
-        // disagree about what normalised means.
-        let trimmedPrivateKey = corePrivateKeyHex(rawValue: importDraft.privateKeyInput) ?? ""
         let trimmedWalletPassword = importDraft.normalizedWalletPassword
         let draft = importDraft
-        // Bitcoin's account xpub is the one typed value this flow still reads:
-        // it is not an address and has no derived counterpart. The two helpers
-        // that stood beside it — a trimmer and an entry splitter — served the
-        // per-chain address fields, and those are core's input now.
-        let trimmedBitcoinXPub = draft.bitcoinXpubInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        let selectedChains = Set(draft.selectedChainNames)
         let selectedDerivationPreset = importDraft.seedDerivationPreset
         let selectedDerivationPaths: SeedDerivationPaths = {
             var paths = importDraft.seedDerivationPaths
@@ -129,49 +114,11 @@ extension AppState {
         let isWatchOnlyImport = importDraft.isWatchOnlyMode
         let isPrivateKeyImport = importDraft.isPrivateKeyImportMode
         let selectedChainNames = importDraft.selectedChainNames
-        var importedWalletsForRefresh: [ImportedWallet] = []
+        var importedWalletsForRefresh: [WalletView] = []
         guard let primarySelectedChainName = selectedChainNames.first else {
             importError = "Select a chain first."
             return
         }
-        let requiresSeedPhrase = !selectedChains.isEmpty && !isWatchOnlyImport && !isPrivateKeyImport
-        // Bitcoin's account xpub is not an address and has no derived
-        // counterpart, so it stays a typed value. Every other chain's address
-        // comes from derivation or validation below — see the slot map.
-        let resolvedBitcoinXPub =
-            (selectedChains.contains("Bitcoin") && !trimmedBitcoinXPub.isEmpty) ? trimmedBitcoinXPub : nil
-        // The key's shape is a field rule, so it is checked while the user is
-        // still on the form. Whether the key derives an address is core's, and
-        // core refuses the commit — deriving here as well was the last place
-        // either front end still derived an import address itself.
-        if isPrivateKeyImport {
-            guard CachedCoreHelpers.privateKeyHexIsLikely(rawValue: trimmedPrivateKey) else {
-                importError = "Enter a valid 32-byte hex key."
-                return
-            }
-        }
-        // Monero derives from the seed like every other chain; what it does not
-        // have is a *watched* form, which is what `supports_watch_only_import`
-        // says and what this refuses.
-        if selectedChains.contains("Monero"), isWatchOnlyImport {
-            importError = "Monero watched addresses are not supported in this build."
-            return
-        }
-        // No per-chain address guard belongs here: on the non-watch-only path
-        // the typed per-chain fields are always empty — they exist only on the
-        // watch-addresses page, and every writer of `isWatchOnlyMode` calls
-        // `reset()` first. Watch-only entries are validated by core on the way
-        // in.
-        // The 16-row watch-only validation table, the Bitcoin address/xpub
-        // guard and the seven-chain EVM guard that used to sit here are gone.
-        // All three restated per-chain address formats the registry already
-        // holds, and core applies the same rule on the way in — including the
-        // network mode, which `ImportNetworks` now carries so a testnet watch
-        // address is still judged as testnet.
-        //
-        // What changes: core keeps the valid entries and reports the rest in
-        // `rejectedAddresses` instead of refusing the whole import on one bad
-        // line. An import with nothing left still fails.
         if editingWalletID == nil {
             // One table keyed by chain display name, not 25 optionals and a
             // 25-row slot map restating them. Both branches below fill it and
@@ -197,7 +144,7 @@ extension AppState {
                 isPrivateKeyImport: isPrivateKeyImport, hasWalletPassword: trimmedWalletPassword != nil,
                 resolvedAddresses: WalletImportAddresses(
                     bySlot: addressSlotMap(addressByChainName),
-                    bitcoinXpub: resolvedBitcoinXPub
+                    bitcoinXpub: draft.bitcoinXpubInput
                 ),
                 // `ImportDraft` already keeps the per-chain inputs as one
                 // table and maps it to slots, so this restated all 23 rows for
@@ -208,7 +155,7 @@ extension AppState {
                 // call sites were using.
                 watchOnlyEntries: WalletImportWatchOnlyEntries(
                     bySlot: draft.watchOnlyEntriesBySlot,
-                    bitcoinXpub: resolvedBitcoinXPub
+                    bitcoinXpub: draft.bitcoinXpubInput
                 )
             )
             // Core derives addresses, stores secrets through the registered
@@ -224,8 +171,8 @@ extension AppState {
                         seedDerivationPaths: selectedDerivationPaths,
                         derivationOverrides: draft.resolvedDerivationOverrides,
                         networkChainByFamily: networkChainByFamily,
-                        seedPhrase: requiresSeedPhrase ? trimmedSeedPhrase : nil,
-                        privateKey: isPrivateKeyImport ? trimmedPrivateKey : nil
+                        seedPhrase: draft.seedPhrase,
+                        privateKey: draft.privateKeyInput
                     )
                 )
             } catch {
@@ -279,17 +226,10 @@ extension AppState {
     var shouldRunScheduledPriceRefresh: Bool { selectedMainTab == .home }
     var refreshableChainNames: Set<String> { cachedRefreshableChainNames }
     var refreshableChainIDs: Set<WalletChainID> { Set(refreshableChainNames.compactMap(WalletChainID.init)) }
-    var backgroundBalanceRefreshFrequencyMinutes: Int { max(preferences.automaticRefreshFrequencyMinutes * 3, 15) }
     func refreshForForegroundIfNeeded() async {
-        guard shouldPerformForegroundFullRefresh else { return }
-        await performUserInitiatedRefresh(forceChainRefresh: false)
+        await performCoreRefresh(.foreground)
     }
-    var shouldPerformForegroundFullRefresh: Bool {
-        guard userInitiatedRefreshTask == nil else { return false }
-        guard let lastFullRefreshAt else { return true }
-        return Date().timeIntervalSince(lastFullRefreshAt) >= Self.foregroundFullRefreshStalenessInterval
-    }
-    var includedPortfolioWallets: [ImportedWallet] { cachedIncludedPortfolioWallets }
+    var includedPortfolioWallets: [WalletView] { cachedIncludedPortfolioWallets }
     func currentPriceIfAvailable(for coin: Coin) -> Double? {
         guard isPricedAsset(coin) else { return nil }
         return livePrices[activePriceKey(for: coin)]

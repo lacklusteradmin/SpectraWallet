@@ -64,46 +64,6 @@ extension AppState {
         appendChainOperationalEvent(.error, chainName: chainName, message: "Send failed: \(message)")
     }
 
-    func registerPendingSelfSendConfirmation(
-        walletID: String, chainName: String, symbol: String, destinationAddress: String, amount: Double
-    ) {
-        pendingSelfSendConfirmation = PendingSelfSendConfirmation(
-            walletID: walletID, chainName: chainName, symbol: symbol, destinationAddressLowercased: destinationAddress.lowercased(),
-            amount: amount, createdAt: Date()
-        )
-    }
-    func requiresSelfSendConfirmation(wallet: ImportedWallet, holding: Coin, destinationAddress: String, amount: Double) async -> Bool {
-        let plan: SelfSendConfirmationPlan
-        do {
-            plan = try await WalletServiceBridge.shared.selfSendConfirmation(
-                walletID: wallet.id, holdingKey: holding.holdingKey, destination: destinationAddress,
-                amount: amount, pending: pendingSelfSendConfirmation.map {
-                    PendingSelfSendConfirmationInput(
-                        walletId: $0.walletID, chainName: $0.chainName, symbol: $0.symbol,
-                        destinationAddressLowercased: $0.destinationAddressLowercased, amount: $0.amount,
-                        createdAtUnix: $0.createdAt.timeIntervalSince1970)
-                })
-        } catch {
-            sendError = error.localizedDescription
-            return true
-        }
-        if plan.clearPendingConfirmation { pendingSelfSendConfirmation = nil }
-        guard plan.requiresConfirmation else { return false }
-        if plan.consumeExistingConfirmation {
-            pendingSelfSendConfirmation = nil
-            return false
-        }
-        registerPendingSelfSendConfirmation(
-            walletID: wallet.id, chainName: holding.chainName, symbol: holding.symbol, destinationAddress: destinationAddress,
-            amount: amount
-        )
-        sendError =
-            "This \(holding.symbol) destination belongs to your wallet. Tap Send again to confirm intentional self-send."
-        if holding.chainName == "Dogecoin" {
-            appendChainOperationalEvent(.warning, chainName: "Dogecoin", message: "DOGE self-send confirmation required.")
-        }
-        return true
-    }
     func statusPollFailureMessage(for transaction: TransactionRecord) -> String {
         AppLocalization.format(
             "%@ transaction appears stuck and could not be confirmed after extended retries.", transaction.chainName

@@ -41,7 +41,7 @@ struct DonationsView: View {
         let badge = Coin.nativeChainBadge(chainName: chainName) ?? (artworkName: nil, color: Color.mint)
         let isCopied = copiedAddress == address
         HStack(spacing: 12) {
-            CoinBadge(assetName: badge.artworkName, fallbackText: title, color: badge.color, size: 32)
+            CoinBadge(artworkName: badge.artworkName, fallbackText: title, color: badge.color, size: 32)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.body.weight(.semibold)).foregroundStyle(Color.primary)
                 Text(address).font(.footnote.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)

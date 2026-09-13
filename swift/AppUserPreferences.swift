@@ -79,7 +79,6 @@ final class AppUserPreferences {
         didSet {
             guard automaticRefreshFrequencyMinutes != oldValue else { return }
             persistHandler?()
-            refreshFrequencyChangedHandler?()
         }
     }
     var largeMovementAlertPercentThreshold: Double = 10.0 {
@@ -104,7 +103,6 @@ final class AppUserPreferences {
     @ObservationIgnored var platformPersistHandler: (() -> Void)?
     @ObservationIgnored var useFaceIDDisabledHandler: (() -> Void)?
     @ObservationIgnored var notificationPermissionRequestHandler: (() -> Void)?
-    @ObservationIgnored var refreshFrequencyChangedHandler: (() -> Void)?
 
     nonisolated init() {}
 

@@ -37,7 +37,7 @@ extension AppState {
             identifier: "price-alert-\(notification.id)-\(UUID().uuidString)",
             title: AppLocalization.format("%@ price alert", notification.symbol),
             body: AppLocalization.format(
-                "%@ on %@ is now %@, which is %@ your target of %@.", notification.assetName, notification.chainName,
+                "%@ on %@ is now %@, which is %@ your target of %@.", notification.assetDisplayName, notification.chainName,
                 formattedFiatAmount(fromUSD: notification.livePrice), notification.condition.rawValue.lowercased(),
                 formattedFiatAmount(fromUSD: notification.targetPrice)
             )

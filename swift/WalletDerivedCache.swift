@@ -8,15 +8,15 @@ import Foundation
 /// and callers can reason about cache freshness as a single revision.
 struct WalletDerivedCache {
     var resolvedAddressesByWalletID: [String: [String: String]]
-    var walletByID: [String: ImportedWallet]
-    var walletByIDString: [String: ImportedWallet]
-    var includedPortfolioWallets: [ImportedWallet]
+    var walletByID: [String: WalletView]
+    var walletByIDString: [String: WalletView]
+    var includedPortfolioWallets: [WalletView]
     var includedPortfolioHoldings: [Coin]
     var portfolio: [Coin]
     var availableSendCoinsByWalletID: [String: [Coin]]
     var availableReceiveCoinsByWalletID: [String: [Coin]]
-    var sendEnabledWallets: [ImportedWallet]
-    var receiveEnabledWallets: [ImportedWallet]
+    var sendEnabledWallets: [WalletView]
+    var receiveEnabledWallets: [WalletView]
     var refreshableChainNames: Set<String>
     var signingMaterialWalletIDs: Set<String>
     var privateKeyBackedWalletIDs: Set<String>

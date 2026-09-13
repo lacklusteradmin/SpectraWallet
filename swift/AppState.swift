@@ -129,10 +129,10 @@ final class AppState {
     //
     /// Domain state: core owns the list and persists it. This is a projection
     /// of `CoreAppState.wallets`, rendered into the shape the views use — see
-    /// `WalletSummary::to_imported_wallet`. `private(set)`, because assigning
+    /// `WalletState::to_wallet_view`. `private(set)`, because assigning
     /// to it would only desynchronise it from core; change it with
     /// import and field intents, wallet deletion, or core reset.
-    private(set) var wallets: [ImportedWallet] = [] {
+    private(set) var wallets: [WalletView] = [] {
         didSet {
             walletsRevision &+= 1
             scheduleWalletCollectionSideEffects()
@@ -141,7 +141,7 @@ final class AppState {
 
     /// The only place the wallet projection is written. Everything else goes
     /// through a `StateCommand` and lands back here.
-    func setWalletProjection(_ records: [ImportedWallet]) {
+    func setWalletProjection(_ records: [WalletView]) {
         wallets = records
     }
     @ObservationIgnored private let walletSideEffectsDebounce = DebouncedAction(intervalMilliseconds: 30)
@@ -172,17 +172,17 @@ final class AppState {
     /// value, so the rebuild is one assignment rather than 17 mutations; the
     /// `cached*` properties below read fields out of it.
     var walletDerivedCache: WalletDerivedCache = .empty
-    var cachedWalletByID: [String: ImportedWallet] { walletDerivedCache.walletByID }
-    var cachedWalletByIDString: [String: ImportedWallet] { walletDerivedCache.walletByIDString }
-    var cachedIncludedPortfolioWallets: [ImportedWallet] { walletDerivedCache.includedPortfolioWallets }
+    var cachedWalletByID: [String: WalletView] { walletDerivedCache.walletByID }
+    var cachedWalletByIDString: [String: WalletView] { walletDerivedCache.walletByIDString }
+    var cachedIncludedPortfolioWallets: [WalletView] { walletDerivedCache.includedPortfolioWallets }
     var cachedPortfolio: [Coin] {
         get { walletDerivedCache.portfolio }
         set { walletDerivedCache.portfolio = newValue }
     }
     var cachedAvailableSendCoinsByWalletID: [String: [Coin]] { walletDerivedCache.availableSendCoinsByWalletID }
     var cachedAvailableReceiveCoinsByWalletID: [String: [Coin]] { walletDerivedCache.availableReceiveCoinsByWalletID }
-    var cachedSendEnabledWallets: [ImportedWallet] { walletDerivedCache.sendEnabledWallets }
-    var cachedReceiveEnabledWallets: [ImportedWallet] { walletDerivedCache.receiveEnabledWallets }
+    var cachedSendEnabledWallets: [WalletView] { walletDerivedCache.sendEnabledWallets }
+    var cachedReceiveEnabledWallets: [WalletView] { walletDerivedCache.receiveEnabledWallets }
     var cachedRefreshableChainNames: Set<String> { walletDerivedCache.refreshableChainNames }
     var cachedSigningMaterialWalletIDs: Set<String> {
         get { walletDerivedCache.signingMaterialWalletIDs }
@@ -207,7 +207,7 @@ final class AppState {
     var isShowingAddWalletEntry: Bool = false
     var isShowingSendSheet: Bool = false
     var isShowingReceiveSheet: Bool = false
-    var walletPendingDeletion: ImportedWallet?
+    var walletPendingDeletion: WalletView?
     var editingWalletID: String? = nil
     var sendWalletID: String = ""
     var sendHoldingKey: String = ""
@@ -238,19 +238,16 @@ final class AppState {
     var isPreparingReplacementContext: Bool = false
     /// Chains currently computing a send fee preview. Observed by send UI to show loading state.
     var preparingChains: Set<String> = []
-    @ObservationIgnored var pendingSelfSendConfirmation: AppState.PendingSelfSendConfirmation?
     @ObservationIgnored var activeEthereumSendWalletIDs: Set<String> = []
     @ObservationIgnored var lastSendDestinationProbeKey: String?
     @ObservationIgnored var lastSendDestinationProbeWarning: String?
     @ObservationIgnored var lastSendDestinationProbeInfoMessage: String?
-    @ObservationIgnored var bypassHighRiskSendConfirmation = false
+    var pendingSendReview: OwnedSendReview?
     @ObservationIgnored var isRefreshingLivePrices = false
     @ObservationIgnored var isRefreshingFiatRates = false
-    @ObservationIgnored var isRefreshingChainBalances = false
     @ObservationIgnored var allowsBalanceNetworkRefresh = false
     @ObservationIgnored var isRefreshingPendingTransactions = false
     @ObservationIgnored var lastLivePriceRefreshAt: Date?
-    @ObservationIgnored var lastFullRefreshAt: Date?
     @ObservationIgnored var lastChainBalanceRefreshAt: Date?
     /// How long the maintenance loop sleeps before asking core again. Core
     /// answers it with the plan; the loop used to work it out from two
@@ -553,11 +550,6 @@ final class AppState {
     var useCustomEvmFees: Bool = false
     var customEvmMaxFeeGwei: String = ""
     var customEvmPriorityFeeGwei: String = ""
-    var sendAdvancedMode: Bool = false
-    var sendUTXOMaxInputCount: Int = 0
-    var sendEnableRBF: Bool = true
-    var sendEnableCPFP: Bool = false
-    var sendLitecoinChangeStrategy: LitecoinChangeStrategy = .derivedChange
     var evmManualNonceEnabled: Bool = false
     var evmManualNonce: String = ""
     var bitcoinEsploraEndpoints: String = "" {
@@ -585,7 +577,6 @@ final class AppState {
         }
     }
     @ObservationIgnored var pendingSendPreviewRefreshChains: Set<String> = []
-    var discoveredUTXOAddressesByChain: [String: [String: [String]]] = [:]
     var isLoadingMoreOnChainHistory: Bool = false
     let diagnostics = WalletDiagnosticsState()
     /// Whether a chain's deep rescan is running, and when it last finished.
@@ -673,7 +664,6 @@ final class AppState {
     /// Failure backoff so a degraded provider isn't hammered every maintenance
     /// tick. Without this, a fetch that errors out leaves `lastFiatRatesRefreshAt`
     /// nil, so the cooldown gate never trips and every caller re-fetches.
-    static let foregroundFullRefreshStalenessInterval: TimeInterval = 2 * 60
     func clearWalletSecretIndex() {
         cachedSigningMaterialWalletIDs = []
         cachedPrivateKeyBackedWalletIDs = []
@@ -745,28 +735,9 @@ final class AppState {
             chainName: chainName, verificationStatus: verificationStatus,
             transactionHash: lastSentTransaction?.chainName == chainName ? lastSentTransaction?.transactionHash : nil
         )
-        // Which chains poll for a pending status after a send is
-        // `Chain::pending_status_poll`, and asking it brings the testnets with
-        // their mainnets. The five names that stood here were the mainnets
-        // only, so a send on Bitcoin Testnet, Testnet4, Signet, Litecoin
-        // Testnet, Bitcoin Cash Testnet, Bitcoin SV Testnet or Dogecoin
-        // Testnet took the history refresh instead of the pending one — the
-        // registry answers for twelve chains and the list named five.
-        let usePending: Bool = {
-            switch Chain(displayName: chainName)?.pendingStatusPoll {
-            case .utxo, .evmReceipt: return true
-            default: return false
-            }
-        }()
-        async let balanceRefresh: () = refreshBalances()
-        async let chainRefresh: () = {
-            if usePending {
-                await refreshPendingTransactions(chainName: chainName)
-            } else {
-                await refreshHistory(chainName: chainName)
-            }
-        }()
-        _ = await (balanceRefresh, chainRefresh)
+        if let chain = Chain(displayName: chainName) {
+            await performCoreRefresh(.afterSend(chainId: chain.id))
+        }
         updateSendVerificationNoticeForLastSentTransaction()
     }
     func resetSendComposerState(afterSend extraReset: (() -> Void)? = nil) {
@@ -795,12 +766,6 @@ final class AppState {
         }
         preferences.notificationPermissionRequestHandler = { [weak self] in
             self?.requestNotificationPermissionIfNeeded()
-        }
-        preferences.refreshFrequencyChangedHandler = { [weak self] in
-            guard let self else { return }
-            // The enclosing closure already weakened the capture; `self` here
-            // is the value that guard produced, held only for the restart.
-            Task { await self.restartBalanceRefreshForCurrentConfiguration() }
         }
         clearPersistedSecureDataOnFreshInstallIfNeeded()
         restorePersistedRuntimeConfigurationAndState()
