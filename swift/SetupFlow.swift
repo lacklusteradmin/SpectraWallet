@@ -98,6 +98,9 @@ extension WalletSetupPage {
     func copy(_ content: ImportFlowContent, mode: WalletSetupMode) -> WalletSetupPageCopy {
         switch self {
         case .walletName:
+            if mode.isEditingWallet {
+                return WalletSetupPageCopy(title: content.editWalletTitle, subtitle: content.editWalletSubtitle)
+            }
             return WalletSetupPageCopy(
                 title: AppLocalization.string("import_flow.name_your_wallet"),
                 subtitle: AppLocalization.string("import_flow.wallet_name_hint"))
@@ -128,12 +131,6 @@ extension WalletSetupPage {
             }
             return WalletSetupPageCopy(title: title, subtitle: subtitle)
         case .details:
-            // Editing never reaches this page — `SetupFlow.editWallet` is the
-            // name field alone — but the wording answered for it, so it still
-            // does rather than quietly changing what an edit would show.
-            if mode.isEditingWallet {
-                return WalletSetupPageCopy(title: content.editWalletTitle, subtitle: content.editWalletSubtitle)
-            }
             return WalletSetupPageCopy(
                 title: AppLocalization.string("import_flow.choose_chains"),
                 subtitle: AppLocalization.string("import_flow.choose_chains_subtitle"))

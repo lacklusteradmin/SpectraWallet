@@ -7,12 +7,11 @@ import Foundation
 /// see one observable update per rebuild instead of 17 ordered mutations,
 /// and callers can reason about cache freshness as a single revision.
 struct WalletDerivedCache {
+    var resolvedAddressesByWalletID: [String: [String: String]]
     var walletByID: [String: ImportedWallet]
     var walletByIDString: [String: ImportedWallet]
     var includedPortfolioWallets: [ImportedWallet]
     var includedPortfolioHoldings: [Coin]
-    var includedPortfolioHoldingsBySymbol: [String: [Coin]]
-    var uniqueWalletPriceRequestCoins: [Coin]
     var portfolio: [Coin]
     var availableSendCoinsByWalletID: [String: [Coin]]
     var availableReceiveCoinsByWalletID: [String: [Coin]]
@@ -25,12 +24,11 @@ struct WalletDerivedCache {
     var secretDescriptorsByWalletID: [String: CoreWalletRustSecretMaterialDescriptor]
 
     static let empty = WalletDerivedCache(
+        resolvedAddressesByWalletID: [:],
         walletByID: [:],
         walletByIDString: [:],
         includedPortfolioWallets: [],
         includedPortfolioHoldings: [],
-        includedPortfolioHoldingsBySymbol: [:],
-        uniqueWalletPriceRequestCoins: [],
         portfolio: [],
         availableSendCoinsByWalletID: [:],
         availableReceiveCoinsByWalletID: [:],

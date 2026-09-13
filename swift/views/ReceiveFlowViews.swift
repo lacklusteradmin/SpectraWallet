@@ -41,12 +41,12 @@ struct ReceiveView: View {
     }
 
     private var resolvedAddress: String {
-        store.receiveAddress()
+        store.receiveResolvedAddress
     }
 
     private var canUseResolvedAddress: Bool {
         !resolvedAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && resolvedAddress != AppLocalization.string("Select a wallet and chain")
+            && !store.isResolvingReceiveAddress
     }
 
     /// The QR as an image, for sharing and saving. `nil` until an address
@@ -207,7 +207,7 @@ struct ReceiveView: View {
             HStack(spacing: 12) {
                 if let coin {
                     CoinBadge(
-                        assetIdentifier: coin.iconIdentifier,
+                        assetName: coin.iconAssetName,
                         fallbackText: coin.symbol,
                         color: coin.color,
                         size: 36
@@ -222,7 +222,7 @@ struct ReceiveView: View {
                 }
             }
 
-            Text(resolvedAddress)
+            Text(canUseResolvedAddress ? resolvedAddress : (store.receiveAddressError ?? AppLocalization.string("Loading receive address…")))
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -377,7 +377,7 @@ private struct WalletReceiveCard: View {
 
         HStack(spacing: 14) {
             CoinBadge(
-                assetIdentifier: badge.assetIdentifier,
+                assetName: badge.artworkName,
                 fallbackText: wallet.selectedChain,
                 color: badge.color,
                 size: 42

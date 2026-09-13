@@ -22,14 +22,11 @@ import Foundation
 @MainActor
 enum CachedCoreHelpers {
     // ── Unbounded caches for fixed-domain helpers ──────────────────────
-    private static var allChainsResult: [ChainEntry]?
     private static var assetWikiResult: [AssetWikiEntry]?
     private static var assetWikiByTokenID: [String: AssetWikiEntry]?
     private static var chainWikiResult: [ChainWikiEntry]?
     private static var chainWikiByID: [String: ChainWikiEntry]?
     private static var seedDerivationChainRaws: [String: String?] = [:]
-    private static var evmSeedDerivationChainNames: [String: String?] = [:]
-    private static var receiveAddressSources: [String: ReceiveAddressSource] = [:]
 
     // ── Bounded cache for user-input helpers ───────────────────────────
     private static var privateKeyHexIsLikelyCache: [String: Bool] = [:]
@@ -46,12 +43,6 @@ enum CachedCoreHelpers {
     }
 
     // ── chains.* / tokens.* ───────────────────────────────────────────
-    static func allChains() -> [ChainEntry] {
-        if let cached = allChainsResult { return cached }
-        let value = listAllChains()
-        allChainsResult = value
-        return value
-    }
 
     // ── wiki.* ────────────────────────────────────────────────────────
     //
@@ -98,16 +89,6 @@ enum CachedCoreHelpers {
     static func seedDerivationChainRaw(chainName: String) -> String? {
         cached(in: &seedDerivationChainRaws, key: chainName) {
             Chain(displayName: chainName)?.seedDerivationChain
-        }
-    }
-    static func evmSeedDerivationChainName(chainName: String) -> String? {
-        cached(in: &evmSeedDerivationChainNames, key: chainName) {
-            Chain(displayName: chainName)?.evmSeedDerivationChain
-        }
-    }
-    static func receiveAddressSource(chainName: String) -> ReceiveAddressSource {
-        cached(in: &receiveAddressSources, key: chainName) {
-            coreReceiveAddressSource(chainName: chainName)
         }
     }
     static func privateKeyHexIsLikely(rawValue: String) -> Bool {

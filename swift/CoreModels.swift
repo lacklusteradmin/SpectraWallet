@@ -34,8 +34,7 @@ struct SendPreviewDetails: Equatable {
 }
 /// `Coin` is the Rust-defined `AssetHolding`. Chain identity is the
 /// `(chainName, tokenStandard, contractAddress)` triple — use the
-/// existing `assetIdentityKey` / `Coin.iconIdentifier` helpers rather than
-/// parsing the strings ad-hoc.
+/// core `holdingIdentity` helper rather than parsing strings ad-hoc.
 typealias Coin = AssetHolding
 extension AssetHolding: Identifiable {
     /// The list key, from what identifies the holding. Was a stored field each
@@ -92,29 +91,8 @@ extension CoreImportedWallet {
     }
 
 
-    // MARK: The five chains read by name
-    //
-    // Twenty-four of these existed, "so the ~150 existing
-    // `wallet.<chain>Address` call sites keep working" — and this document
-    // declined to remove them on that trade, because rewriting 150 readable
-    // reads into `address(forChainNamed:)` improves a metric and not the code.
-    //
-    // What changed is that most of those call sites were not reads. They were
-    // switches *picking between* the shims by chain name — in the receive view,
-    // the receive flow, `knownUTXOAddresses`, `knownOwnedAddresses`, the wallet
-    // detail row and the address-resolution descriptor table — and every one of
-    // them is `address(forChainNamed:)` with the name it already had. Those are
-    // gone, and with them nineteen shims that had no reader left.
-    //
-    // These four remain because something genuinely reads them for that chain:
-    // Bitcoin falls back to its account xpub, Ethereum backs the EVM family,
-    // and Cardano and Monero prefer a stored address to a derived one.
-    // Dogecoin's went when the receive screen stopped asking for Dogecoin's
-    // watch address while showing some other chain.
+    // Account-address display used by Bitcoin diagnostics.
     var bitcoinAddress: String? { address(forChainNamed: "Bitcoin") }
-    var ethereumAddress: String? { address(forChainNamed: "Ethereum") }
-    var moneroAddress: String? { address(forChainNamed: "Monero") }
-    var cardanoAddress: String? { address(forChainNamed: "Cardano") }
 
     /// The authoritative model this view model was rendered from.
     ///
@@ -498,30 +476,9 @@ struct TransactionRecord: Identifiable, Equatable, Sendable {
         self.transactionHistorySource = transactionHistorySource
         self.createdAt = createdAt
     }
-    @MainActor var assetIdentifier: String? {
-        let normalizedSymbol = symbol.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        if let nativeDescriptor = Coin.nativeChainIconDescriptor(symbol: symbol, chainName: chainName) {
-            return nativeDescriptor.assetIdentifier
-        }
-        guard let chainSlug = transactionIconChainSlug else { return nil }
-        guard !normalizedSymbol.isEmpty else { return nil }
-        return "token:\(chainSlug):\(normalizedSymbol)"
-    }
-    /// The chain part of a token's icon identifier, for chains that host
-    /// tokens.
-    ///
-    /// Six chains were named here out of the eighteen `tokenHostingChain`
-    /// knows, so a token on Polygon, Base, Sui, TON or NEAR produced no
-    /// identifier and got no icon lookup at all. The slug is not parsed —
-    /// `entry(matchingAssetIdentifier:)` matches the symbol fragment — so the
-    /// registry id serves, and BNB Chain's `"bnb-chain"` was never read as
-    /// anything but text.
-    private var transactionIconChainSlug: String? {
-        guard let chain = Chain(displayName: chainName), chain.tokenHostingChain != nil else {
-            return nil
-        }
-        return chain.id
-    }
+    // History with no deployment identity draws its letter.
+    var artworkName: String { coreDeploymentIconAssetName(deploymentId: deploymentID) }
+
 }
 enum SendBroadcastVerificationStatus: Equatable {
     case verified
@@ -530,21 +487,6 @@ enum SendBroadcastVerificationStatus: Equatable {
 }
 
 extension TransactionRecord {
-    func withRebroadcastUpdate(status: TransactionStatus, transactionHash: String?, failureReason: String? = nil) -> TransactionRecord {
-        TransactionRecord(
-            id: id, walletID: walletID, kind: kind, status: status, walletName: walletName, assetName: assetName, symbol: symbol,
-            chainName: chainName, amount: amount, address: address, transactionHash: transactionHash, ethereumNonce: ethereumNonce,
-            receiptBlockNumber: receiptBlockNumber, receiptGasUsed: receiptGasUsed,
-            receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei, receiptNetworkFeeEth: receiptNetworkFeeEth,
-            feePriorityRaw: feePriorityRaw, feeRateDescription: feeRateDescription, confirmationCount: confirmationCount,
-            dogecoinConfirmedNetworkFeeDoge: dogecoinConfirmedNetworkFeeDoge,
-            dogecoinEstimatedFeeRateDogePerKb: dogecoinEstimatedFeeRateDogePerKb,
-            usedChangeOutput: usedChangeOutput,
-            sourceDerivationPath: sourceDerivationPath, changeDerivationPath: changeDerivationPath, sourceAddress: sourceAddress,
-            changeAddress: changeAddress,
-            signedTransactionPayload: signedTransactionPayload, signedTransactionPayloadFormat: signedTransactionPayloadFormat,
-            failureReason: failureReason, transactionHistorySource: transactionHistorySource, createdAt: createdAt)
-    }
     @MainActor init?(snapshot: CorePersistedTransactionRecord) {
         guard let resolvedID = UUID(uuidString: snapshot.id) else { return nil }
         let resolvedKind = snapshot.kind

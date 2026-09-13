@@ -89,7 +89,6 @@ extension Chain: Identifiable {
     var networkChoices: [NetworkChoice] { identity?.networkChoices ?? [] }
 
     /// True when this chain's family offers more than one network.
-    var hasNetworkChoice: Bool { networkChoices.count > 1 }
 
     /// This chain's catalog row. `nil` only if the enum and the catalog have
     /// drifted, which core's `chain_order_matches_the_catalog` fails on.
@@ -119,7 +118,6 @@ extension Chain: Identifiable {
     /// so `Arbitrum` answers `false` here while `Ethereum` and
     /// `Ethereum Classic` answer `true`. Anything that indexes addresses per
     /// chain — keypools, owned-address registration — wants the owners.
-    var ownsItsAddressSlot: Bool { addressSlot == id }
 
     /// Which history-record shape this chain's diagnostics screen reads.
 

@@ -29,20 +29,15 @@ extension AppState {
     func maintenancePlan() async -> MaintenancePlan {
         await WalletServiceBridge.shared.maintenancePlan(conditions: deviceConditions())
     }
-    func maybeSendLargeMovementNotification(previousTotalUSD: Double, currentTotalUSD: Double) {
-        guard preferences.useLargeMovementNotifications else { return }
-        guard !appIsActive else { return }
-        let currentCompositionSignature = portfolioCompositionSignature()
-        guard lastObservedPortfolioCompositionSignature == currentCompositionSignature else {
-            resetLargeMovementAlertBaseline()
+    func notifyPortfolioMovement() async {
+        let evaluation: LargeMovementEvaluation
+        do {
+            guard let result = try await WalletServiceBridge.shared.evaluatePortfolioMovement(appIsActive: appIsActive) else { return }
+            evaluation = result
+        } catch {
+            appendOperationalLog(.error, category: "Portfolio Movement", message: error.localizedDescription)
             return
         }
-        guard previousTotalUSD > 0 else { return }
-        let evaluation = coreEvaluateLargeMovement(
-            previousTotalUsd: previousTotalUSD, currentTotalUsd: currentTotalUSD,
-            usdThreshold: preferences.largeMovementAlertUSDThreshold, percentThreshold: preferences.largeMovementAlertPercentThreshold
-        )
-        guard evaluation.shouldAlert else { return }
         let direction = evaluation.directionUp ? "up" : "down"
         let absoluteDelta = evaluation.absoluteDelta
         let ratio = evaluation.ratio
@@ -54,13 +49,9 @@ extension AppState {
         let request = UNNotificationRequest(
             identifier: "portfolio-movement-\(UUID().uuidString)", content: content, trigger: nil
         )
-        UNUserNotificationCenter.current().add(request)
+        do { try await UNUserNotificationCenter.current().add(request) }
+        catch { appendOperationalLog(.error, category: "Portfolio Movement", message: error.localizedDescription) }
     }
-    func resetLargeMovementAlertBaseline() {
-        lastObservedPortfolioTotalUSD = totalBalance
-        lastObservedPortfolioCompositionSignature = portfolioCompositionSignature()
-    }
-    func portfolioCompositionSignature() -> String { Spectra.portfolioCompositionSignature(holdingKeys: portfolio.map(\.holdingKey)) }
     func performBackgroundMaintenanceTick(allowHeavyBackgroundWork: Bool = true) async {
         let startedAt = CFAbsoluteTimeGetCurrent()
         logger.log("Running background maintenance tick")
@@ -68,22 +59,18 @@ extension AppState {
         if appIsActive {
             if shouldRunScheduledPriceRefresh { await refreshLivePrices() }
             await refreshFiatExchangeRatesIfNeeded()
+            await notifyPortfolioMovement()
             recordPerformanceSample("background_maintenance_tick", startedAt: startedAt, metadata: "mode=active")
             return
         }
         guard allowHeavyBackgroundWork else { return }
-        let previousTotal = lastObservedPortfolioTotalUSD ?? totalBalance
         await withBalanceRefreshWindow {
             await refreshChainBalances(includeHistoryRefreshes: false, historyRefreshInterval: 300, forceChainRefresh: false)
         }
         await runHistoryRefreshes(interval: 300)
-        let didRefreshPrices = shouldRunScheduledPriceRefresh ? await refreshLivePrices() : false
+        if shouldRunScheduledPriceRefresh { await refreshLivePrices() }
         await refreshFiatExchangeRatesIfNeeded()
-        let currentTotal = totalBalance
-        if didRefreshPrices || currentTotal != previousTotal {
-            maybeSendLargeMovementNotification(previousTotalUSD: previousTotal, currentTotalUSD: currentTotal)
-            lastObservedPortfolioTotalUSD = currentTotal
-        }
+        await notifyPortfolioMovement()
         lastFullRefreshAt = Date()
         recordPerformanceSample(
             "background_maintenance_tick", startedAt: startedAt, metadata: "mode=background chains=\(refreshableChainIDs.count)"
@@ -94,7 +81,8 @@ extension AppState {
             await existingRefreshTask.value
             return
         }
-        let refreshTask = Task { @MainActor in
+        let refreshTask = Task { @MainActor [weak self] in
+            guard let self else { return }
             let startedAt = CFAbsoluteTimeGetCurrent()
             isUserInitiatedRefreshInProgress = true
             defer {
@@ -112,6 +100,7 @@ extension AppState {
                 }
                 await refreshLivePrices()
                 await refreshFiatExchangeRatesIfNeeded()
+                await notifyPortfolioMovement()
                 lastFullRefreshAt = Date()
             } else {
                 await performBackgroundMaintenanceTick()
@@ -131,5 +120,6 @@ extension AppState {
             await WalletServiceBridge.shared.recordRefresh(kind: .livePrices)
         }
         await refreshFiatExchangeRatesIfNeeded()
+        await notifyPortfolioMovement()
     }
 }

@@ -123,6 +123,4 @@ enum AppEndpointDirectory {
         guard let explorer = entry(chainName)?.transactionExplorer else { return nil }
         return URL(string: "\(explorer.endpoint)\(transactionHash)\(explorer.txSuffix)")
     }
-    /// Every chain the registry knows.
-    static let liveChainNames: [String] = Chain.all.map(\.displayName)
 }

@@ -29,7 +29,6 @@ import Foundation
             let reads: [() async throws -> Void] = [
                 { _ = try await service.normalizedHistory(unknownLabel: "Unknown") },
                 { _ = try await service.earliestTransactionDates() },
-                { _ = try await service.activeWalletTransactionIds() },
                 { _ = try await service.replaceableSends() },
             ]
             for read in reads {

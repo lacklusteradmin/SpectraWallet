@@ -7,7 +7,7 @@ struct SetupChainSelectionDescriptor: Identifiable {
     let symbol: String
     let gasTokenSymbol: String
     let chainName: String
-    let assetIdentifier: String?
+    let artworkName: String?
     let color: Color
     let category: SetupChainCategory
     var title: String { localizedWalletFlowString(titleKey) }
@@ -17,7 +17,7 @@ struct SetupChainSelectionDescriptor: Identifiable {
         self.symbol = symbol
         self.gasTokenSymbol = gasToken ?? symbol
         self.chainName = chainName
-        self.assetIdentifier = "network:\(id)"
+        self.artworkName = coreNetworkIconAssetName(networkId: id)
         self.color = color
         self.category = category
     }
@@ -118,7 +118,7 @@ struct SetupView: View {
     init(store: AppState, draft: WalletImportDraft) {
         self.store = store
         self.draft = draft
-        _setupPage = State(initialValue: .details)
+        _setupPage = State(initialValue: draft.isEditingWallet ? .walletName : .details)
         _customSeedPhraseWordCountInput = State(initialValue: String(draft.selectedSeedPhraseWordCount))
     }
     private var isEditingWallet: Bool { draft.isEditingWallet }
@@ -273,7 +273,7 @@ struct SetupView: View {
             HStack(spacing: 10) {
                 ZStack(alignment: .topTrailing) {
                     CoinBadge(
-                        assetIdentifier: descriptor.assetIdentifier, fallbackText: descriptor.symbol,
+                        assetName: descriptor.artworkName, fallbackText: descriptor.symbol,
                         color: descriptor.color, size: 36
                     )
                     if isSelected {
@@ -670,7 +670,7 @@ struct SetupView: View {
             setupBottomActionBar
         }
             .onChange(of: draft.mode) { _, _ in
-                setupPage = .details
+                setupPage = draft.isEditingWallet ? .walletName : .details
             }.onChange(of: draft.selectedSeedPhraseWordCount) { _, newValue in
                 customSeedPhraseWordCountInput = String(newValue)
             }

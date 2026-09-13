@@ -27,24 +27,11 @@ struct CoinBadge: View {
     private let size: CGFloat
 
     /// From artwork core already named — the wiki's rows carry one per coin.
-    init(assetName: String, fallbackText: String, color: Color, size: CGFloat = 40) {
-        self.assetName = assetName
+    init(assetName: String?, fallbackText: String, color: Color, size: CGFloat = 40) {
+        self.assetName = assetName ?? ""
         self.fallbackText = fallbackText
         self.color = color
         self.size = size
-    }
-
-    /// From an icon identifier, which core resolves by the coin's own symbol.
-    ///
-    /// Two Swift tables did this before, and between them they could not draw
-    /// a coin held off its home chain: the native table was keyed on the host
-    /// chain's ticker, so USDC on Aptos missed it, and a `native:` identifier
-    /// was then refused the token table outright. Thirty-one of the wiki's
-    /// sixty-six coins drew a letter.
-    init(assetIdentifier: String?, fallbackText: String, color: Color, size: CGFloat = 40) {
-        self.init(
-            assetName: coreIconAssetName(identifier: assetIdentifier ?? fallbackText),
-            fallbackText: fallbackText, color: color, size: size)
     }
 
     var body: some View {

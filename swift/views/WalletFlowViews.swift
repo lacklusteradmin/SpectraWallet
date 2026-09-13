@@ -92,7 +92,7 @@ struct WalletCardView: View, Equatable {
         let totalValueText: String
         let assetCountText: String
         let isWatchOnly: Bool
-        let badgeAssetIdentifier: String?
+        let badgeArtworkName: String?
         let badgeMark: String
         let badgeColor: Color
     }
@@ -106,7 +106,7 @@ struct WalletCardView: View, Equatable {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 CoinBadge(
-                    assetIdentifier: presentation.badgeAssetIdentifier, fallbackText: presentation.badgeMark,
+                    assetName: presentation.badgeArtworkName, fallbackText: presentation.badgeMark,
                     color: presentation.badgeColor, size: 36)
                 VStack(alignment: .leading, spacing: 3) {
                     HStack(spacing: 6) {
@@ -198,7 +198,7 @@ struct WalletDetailView: View {
         let nonZeroAssetCount: Int
         let walletAddress: String?
         let derivationPathsText: String?
-        let walletBadge: (assetIdentifier: String?, color: Color)
+        let walletBadge: (artworkName: String?, color: Color)
         let visibleHoldingPresentations: [HoldingPresentation]
         let walletTotalValueText: String
     }
@@ -421,7 +421,7 @@ struct WalletDetailView: View {
         let presentation = detailPresentation
         HStack(spacing: 14) {
             CoinBadge(
-                assetIdentifier: presentation.walletBadge.assetIdentifier,
+                assetName: presentation.walletBadge.artworkName,
                 fallbackText: presentation.wallet.selectedChain,
                 color: presentation.walletBadge.color, size: 56
             )
@@ -574,7 +574,7 @@ struct WalletDetailView: View {
     private func holdingRow(_ holding: HoldingPresentation) -> some View {
         HStack(spacing: 12) {
             CoinBadge(
-                assetIdentifier: holding.coin.iconIdentifier, fallbackText: holding.coin.symbol, color: holding.coin.color, size: 34
+                assetName: holding.coin.iconAssetName, fallbackText: holding.coin.symbol, color: holding.coin.color, size: 34
             )
             VStack(alignment: .leading, spacing: 3) {
                 Text(holding.coin.name).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)

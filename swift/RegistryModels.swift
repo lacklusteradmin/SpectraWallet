@@ -82,12 +82,6 @@ extension CoreTokenHostingChain: CaseIterable, Codable, Identifiable {
         Self.chainEntryByName[rawValue.lowercased()]?.tokenStandard ?? ""
     }
     var filterDisplayName: String { "\(rawValue) (\(tokenStandard))" }
-    var slug: String {
-        switch self {
-        case .bnb: return "bnb"
-        default: return rawValue.lowercased()
-        }
-    }
     var contractAddressPrompt: String {
         Self.chainEntryByName[rawValue.lowercased()]?.contractAddressPrompt ?? "Contract Address"
     }
@@ -113,7 +107,7 @@ struct ChainRegistryEntry: Identifiable {
     let color: Color
     let assetName: String
     let derivationPath: [ChainDerivationPathEntry]
-    var assetIdentifier: String { "network:\(id)" }
+    var artworkName: String { assetName }
     var nativeIconDescriptor: NativeChainIconDescriptor {
         NativeChainIconDescriptor(registryID: id, title: name, symbol: symbol, chainName: name, color: color)
     }
@@ -182,15 +176,15 @@ struct NativeChainIconDescriptor: Identifiable {
     let symbol: String
     let chainName: String
     let color: Color
-    var id: String { assetIdentifier }
-    var assetIdentifier: String { "network:\(registryID)" }
+    var id: String { artworkName }
+    var artworkName: String { coreNetworkIconAssetName(networkId: registryID) }
 }
 extension Coin {
     static let nativeChainIconDescriptors: [NativeChainIconDescriptor] = ChainRegistryEntry.all.map(\.nativeIconDescriptor)
     static func nativeChainIconDescriptor(chainName: String) -> NativeChainIconDescriptor? {
         let normalizedChainName = chainName.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !normalizedChainName.isEmpty else { return nil }
-        let canonicalChainName = coreCanonicalChainComponent(chainName: normalizedChainName, symbol: "")
+        let canonicalChainName = Chain(displayName: normalizedChainName)?.id ?? normalizedChainName
         return nativeChainIconDescriptors.first { descriptor in
             descriptor.registryID.caseInsensitiveCompare(canonicalChainName) == .orderedSame
                 || descriptor.chainName.caseInsensitiveCompare(normalizedChainName) == .orderedSame
@@ -208,15 +202,9 @@ extension Coin {
                 || descriptor.title.caseInsensitiveCompare(normalizedChainName) == .orderedSame
         }
     }
-    static func nativeChainBadge(chainName: String) -> (assetIdentifier: String?, color: Color)? {
+    static func nativeChainBadge(chainName: String) -> (artworkName: String?, color: Color)? {
         guard let descriptor = nativeChainIconDescriptor(chainName: chainName) else { return nil }
-        return (descriptor.assetIdentifier, descriptor.color)
-    }
-    static func iconIdentifier(symbol: String, chainName: String, contractAddress: String? = nil, tokenStandard: String = "Native")
-        -> String
-    {
-        coreIconIdentifier(
-            symbol: symbol, chainName: chainName, contractAddress: contractAddress, tokenStandard: tokenStandard)
+        return (descriptor.artworkName, descriptor.color)
     }
     private static let tokenColorsBySymbol: [String: Color] = {
         var colors: [String: Color] = [:]
@@ -231,9 +219,8 @@ extension Coin {
         let normalized = symbol.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         return tokenColorsBySymbol[normalized] ?? .gray
     }
-    var iconIdentifier: String {
-        Self.iconIdentifier(symbol: symbol, chainName: chainName, contractAddress: contractAddress, tokenStandard: tokenStandard)
-    }
+    var iconAssetName: String { coreHoldingIconAssetName(holding: self) }
+
     @MainActor init(snapshot: PersistedCoin) {
         self = Coin.makeCustom(
             name: snapshot.name, symbol: snapshot.symbol, coinGeckoId: snapshot.coinGeckoId,

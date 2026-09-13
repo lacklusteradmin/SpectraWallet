@@ -21,61 +21,17 @@ extension AppState {
     // able to wait. The `Task`-wrapping variants exist only for the synchronous
     // UI entry points.
 
-    /// Store these wallets, adding or updating as core determines.
-    @discardableResult
-    func recordWallets(_ records: [ImportedWallet]) async -> Bool {
-        guard !records.isEmpty else { return true }
-        var next = wallets
-        for record in records {
-            if let index = next.firstIndex(where: { $0.id == record.id }) {
-                next[index] = record
-            } else {
-                next.append(record)
-            }
-        }
-        setWalletProjection(next)
-        for record in records {
-            let summary = record.summary(isWatchOnly: isWatchOnlyWallet(record))
-            guard
-                (try? await WalletServiceBridge.shared.applyStateCommand(
-                    .upsertWallet(wallet: summary))) != nil
-            else { return false }
-        }
-        return true
-    }
-
-    func recordWallet(_ record: ImportedWallet) async { await recordWallets([record]) }
-
-    /// Update wallets that core still has, creating none.
-    ///
-    /// Balance refresh uses this. A refresh result can arrive after the user
-    /// deleted the wallet, and an upsert would bring it back.
-
-
     @discardableResult
     func removeWallet(id: String) async -> Bool {
         do {
             _ = try await WalletServiceBridge.shared.applyStateCommand(.removeWallet(walletId: id))
             adoptWalletsFromCore(try await WalletServiceBridge.shared.storedWallets())
             await refreshTransactionProjection()
-            rebuildWalletDerivedState()
+            await rebuildWalletDerivedStateFromCore()
             return true
         } catch {
             importError = error.localizedDescription
             return false
-        }
-    }
-
-    /// Remove every wallet core holds.
-    ///
-    /// Reads the ids from core rather than from the projection: "clear all"
-    /// must mean all, not "the ones this instance happens to be showing".
-    func clearAllWallets() async {
-        setWalletProjection([])
-        guard let stored = try? await WalletServiceBridge.shared.storedWallets() else { return }
-        for wallet in stored {
-            _ = try? await WalletServiceBridge.shared.applyStateCommand(
-                .removeWallet(walletId: wallet.id))
         }
     }
 
@@ -90,7 +46,7 @@ extension AppState {
                 let transition = try await WalletServiceBridge.shared.applyStateCommand(command)
                 self.applyCoreState(transition.state, epoch: epoch)
                 self.adoptWalletsFromCore(try await WalletServiceBridge.shared.storedWallets())
-                self.rebuildWalletDerivedState()
+                await self.rebuildWalletDerivedStateFromCore()
             } catch {
                 self.finishCoreStateRead(epoch)
                 self.importError = error.localizedDescription
@@ -121,90 +77,12 @@ extension AppState {
     }
 
 
-    // ── Transactions ──────────────────────────────────────────────────
-    //
-    // Core owns the store. Each of these updates the projection immediately so
-    // the UI stays responsive, then sends the command that makes it durable.
-    // Nothing here computes a persistence delta: whether a record is new is a
-    // property of the store, and core answers that.
-
-    /// Store these records, adding or updating as core determines.
-    ///
-    /// Covers recording a send, merging a fetched history page, and updating a
-    /// status. Callers pass whatever they want stored; unchanged records in the
-    /// batch are harmless — the whole batch is one SQLite transaction.
-    func recordTransactions(_ records: [TransactionRecord]) {
-        guard !records.isEmpty else { return }
-        var next = transactions
-        for record in records {
-            if let index = next.firstIndex(where: { $0.id == record.id }) {
-                next[index] = record
-            } else {
-                next.insert(record, at: 0)
-            }
-        }
-        setTransactionProjection(next)
-        sendTransactionCommand(.upsert(records: records.map(\.persistedSnapshot)))
-    }
-
-    func recordTransaction(_ record: TransactionRecord) { recordTransactions([record]) }
-
-    func removeTransactions(withIDs ids: [UUID]) {
-        guard !ids.isEmpty else { return }
-        let doomed = Set(ids)
-        setTransactionProjection(transactions.filter { !doomed.contains($0.id) })
-        sendTransactionCommand(.remove(ids: ids.map { $0.uuidString.lowercased() }))
-    }
-
-    func removeTransactions(forWalletID walletID: String) {
-        setTransactionProjection(transactions.filter { $0.walletID != walletID })
-        sendTransactionCommand(.removeForWallet(walletId: walletID))
-    }
-
-    func clearAllTransactions() {
-        setTransactionProjection([])
-        sendTransactionCommand(.clear)
-    }
-
     /// Replace the projection without touching the store. Only for loading what
     /// core already has.
     func adoptTransactionsFromCore(_ records: [TransactionRecord]) {
         withSuspendedTransactionSideEffects { setTransactionProjection(records) }
     }
 
-    private func sendTransactionCommand(_ command: TransactionCommand) {
-        Task.detached(priority: .utility) {
-            try? await WalletServiceBridge.shared.applyTransactionCommand(command)
-        }
-    }
-
     // Address-book mutation helpers are gone: core owns that list, and it is
     // changed by `StateCommand` rather than by assigning to an array here.
-}
-
-/// Core's stored list, plus anything the projection gained while the read was
-/// in flight.
-///
-/// The launch load adopted core's snapshot with a wholesale replace and nothing
-/// ordering it against the optimistic writes the command helpers make: a wallet
-/// imported between issuing the read and its continuation was dropped from the
-/// projection. Nothing put it back — `updateWalletsIfPresent` starts *from* the
-/// projection, so a balance refresh could not resurrect it — and the only other
-/// readers of `storedWallets()` are the import tail and "clear all". It stayed
-/// missing until the next launch.
-///
-/// The load runs once, from `warmUpAfterLaunch`, so the projection starts
-/// empty: the only local write that can interleave is an insert, and an insert
-/// is newer than the snapshot by construction. Local therefore wins on a
-/// collision and core supplies everything local has not heard of.
-func mergeAdoptedProjection<T>(
-    stored: [T], keepingLocal local: [T], identity: (T) -> String
-) -> [T] {
-    guard !local.isEmpty else { return stored }
-    var merged = local
-    let localIDs = Set(local.map(identity))
-    for record in stored where !localIDs.contains(identity(record)) {
-        merged.append(record)
-    }
-    return merged
 }

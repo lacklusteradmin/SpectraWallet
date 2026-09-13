@@ -8,17 +8,23 @@ extension AppState {
         receiveWalletID = firstWallet.id
         receiveHoldingKey = selectedReceiveCoin(for: receiveWalletID)?.holdingKey ?? ""
         receiveResolvedAddress = ""
+        receiveAddressError = nil
+        receiveAddressRequestID = UUID()
         isResolvingReceiveAddress = false
         isShowingReceiveSheet = true
     }
     func syncReceiveAssetSelection() {
         receiveHoldingKey = selectedReceiveCoin(for: receiveWalletID)?.holdingKey ?? ""
         receiveResolvedAddress = ""
+        receiveAddressError = nil
+        receiveAddressRequestID = UUID()
         isResolvingReceiveAddress = false
     }
     func cancelReceive() {
         isShowingReceiveSheet = false
         receiveResolvedAddress = ""
+        receiveAddressError = nil
+        receiveAddressRequestID = UUID()
         isResolvingReceiveAddress = false
     }
     func refreshPendingTransactions(includeHistoryRefreshes: Bool = true, historyRefreshInterval: TimeInterval = 120) async {
@@ -60,54 +66,30 @@ extension AppState {
         let f = RelativeDateTimeFormatter(); f.unitsStyle = .short
         return AppLocalization.format("Last checked %@", f.localizedString(for: at, relativeTo: Date()))
     }
-    func receiveAddress() -> String {
-        guard let wallet = wallet(for: receiveWalletID), let receiveCoin = selectedReceiveCoin(for: receiveWalletID) else {
-            return "Select a wallet and chain"
-        }
-        let chainAddress: String?
-        // Three rules, which is what the twenty-five-variant resolver this
-        // switch replaced actually distinguished: Bitcoin reads its stored
-        // account address rather than deriving, Dogecoin resolves nothing of
-        // its own, and everything else reads the address stored for the chain.
-        //
-        // Through `mainnetCounterpart` because a testnet shares its family's
-        // slot, and the EVM family shares Ethereum's — which is the same
-        // address the chain's own name resolved to before.
-        switch CachedCoreHelpers.receiveAddressSource(chainName: receiveCoin.chainName) {
-        case .bitcoinAccount: chainAddress = wallet.bitcoinAddress
-        case .unavailable: chainAddress = nil
-        case .storedForChain:
-            chainAddress = resolvedAddress(
-                for: wallet,
-                chainName: Chain(displayName: receiveCoin.chainName)?.mainnetCounterpart.displayName
-                    ?? receiveCoin.chainName)
-        }
-        // This chain's watch address, not Dogecoin's. The flag is named for
-        // the chain being shown and was filled from `dogecoinAddress` whatever
-        // that chain was; only core's Dogecoin arm reads it, so the two agreed
-        // by luck rather than by construction.
-        let hasWatchAddress =
-            wallet.address(forChainNamed: receiveCoin.chainName)?
-            .trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false
-        return receiveAddressMessage(
-            input: ReceiveAddressMessageInput(
-                chainName: receiveCoin.chainName, resolvedAddress: receiveResolvedAddress,
-                chainAddress: chainAddress, hasSeed: storedSeedPhrase(for: wallet.id) != nil,
-                hasWatchAddress: hasWatchAddress, isResolving: isResolvingReceiveAddress
-            ))
-    }
     func refreshReceiveAddress() async {
+        let requestID = UUID()
+        receiveAddressRequestID = requestID
+        receiveResolvedAddress = ""
+        receiveAddressError = nil
+        isResolvingReceiveAddress = false
         guard let wallet = wallet(for: receiveWalletID),
             let coin = selectedReceiveCoin(for: receiveWalletID),
-            let chain = Chain(displayName: coin.chainName), !isResolvingReceiveAddress else { return }
+            let chain = Chain(displayName: coin.chainName) else { return }
         isResolvingReceiveAddress = true
-        defer { isResolvingReceiveAddress = false }
-        let walletID = wallet.id
-        let address = try? await WalletServiceBridge.shared.receiveAddress(
-            walletID: walletID, chainId: chain.id, reserve: true)
-        guard receiveWalletID == walletID,
-            selectedReceiveCoin(for: receiveWalletID)?.holdingKey == coin.holdingKey else { return }
-        receiveResolvedAddress = address ?? ""
+        defer {
+            if receiveAddressRequestID == requestID { isResolvingReceiveAddress = false }
+        }
+        do {
+            let address = try await WalletServiceBridge.shared.receiveAddress(
+                walletID: wallet.id, chainId: chain.id, reserve: true)
+            guard !Task.isCancelled, receiveAddressRequestID == requestID,
+                receiveWalletID == wallet.id, receiveHoldingKey == coin.holdingKey else { return }
+            receiveResolvedAddress = address ?? ""
+            if address == nil { receiveAddressError = AppLocalization.string("No receive address is available for this wallet and network.") }
+        } catch {
+            guard !Task.isCancelled, receiveAddressRequestID == requestID else { return }
+            receiveAddressError = error.localizedDescription
+        }
     }
     func importWallet() async {
         guard canImportWallet else { return }
@@ -147,7 +129,6 @@ extension AppState {
         let isWatchOnlyImport = importDraft.isWatchOnlyMode
         let isPrivateKeyImport = importDraft.isPrivateKeyImportMode
         let selectedChainNames = importDraft.selectedChainNames
-        let defaultWalletNameStartIndex = nextDefaultWalletNameIndex()
         var importedWalletsForRefresh: [ImportedWallet] = []
         guard let primarySelectedChainName = selectedChainNames.first else {
             importError = "Select a chain first."
@@ -210,7 +191,7 @@ extension AppState {
             // disagreed. An import with no valid entry is still refused, by
             // the planner that read them.
             let importPlanRequest = WalletImportRequest(
-                walletName: trimmedWalletName, defaultWalletNameStartIndex: UInt64(defaultWalletNameStartIndex),
+                walletName: trimmedWalletName,
                 primarySelectedChainName: primarySelectedChainName, selectedChainNames: selectedChainNames,
                 plannedWalletIds: [], isWatchOnlyImport: isWatchOnlyImport,
                 isPrivateKeyImport: isPrivateKeyImport, hasWalletPassword: trimmedWalletPassword != nil,
@@ -268,9 +249,8 @@ extension AppState {
             }
             importedWalletsForRefresh = createdWallets
         }
+        await rebuildWalletDerivedStateFromCore()
         finishWalletImportFlow()
-        withAnimation {
-        }
         scheduleImportedWalletRefresh(importedWalletsForRefresh)
     }
     func renameWallet(id: String, to newName: String) async {
@@ -293,9 +273,6 @@ extension AppState {
     /// The address a raw private key yields on `chain`, or `nil` when the key
     /// does not produce one there.
     ///
-    func nextDefaultWalletNameIndex() -> Int {
-        (wallets.compactMap { $0.name.hasPrefix("Wallet ") ? Int($0.name.dropFirst(7)) : nil }.max() ?? 0) + 1
-    }
     /// Build a wallet for one chain from the slot-keyed addresses Rust planned.
 
     var portfolio: [Coin] { cachedPortfolio }

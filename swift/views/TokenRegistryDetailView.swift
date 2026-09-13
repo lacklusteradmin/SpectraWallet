@@ -17,7 +17,7 @@ struct TokenRegistryDetailView: View {
                 Section {
                     HStack(spacing: 12) {
                         CoinBadge(
-                            assetIdentifier: representativeEntry.settingsAssetIdentifier,
+                            assetName: representativeEntry.settingsArtworkName,
                             fallbackText: representativeEntry.settingsFallbackMark,
                             color: representativeEntry.hostingChain?.settingsIconTint ?? .accentColor, size: 42
                         )

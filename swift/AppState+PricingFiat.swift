@@ -49,9 +49,6 @@ extension AppState {
             fiatRatesRefreshError = error.localizedDescription
         }
     }
-    func refreshFiatExchangeRates() async {
-        await refreshFiatExchangeRatesIfNeeded(force: true)
-    }
     func activePriceKey(for coin: Coin) -> String { assetIdentityKey(for: coin) }
     var totalBalance: Double {
         portfolio.reduce(0) { $0 + currentValue(for: $1) }
@@ -61,8 +58,13 @@ extension AppState {
     /// Load core's state and mirror it. Call once at launch.
     func loadCoreOwnedState() async {
         let epoch = beginCoreStateRead()
-        guard let state = try? await WalletServiceBridge.shared.openState() else { return }
-        applyCoreState(state, epoch: epoch)
+        do {
+            let state = try await WalletServiceBridge.shared.openState()
+            applyCoreState(state, epoch: epoch)
+        } catch {
+            finishCoreStateRead(epoch)
+            appendOperationalLog(.error, category: "Storage", message: error.localizedDescription)
+        }
     }
 
     /// Send the currency change to core and mirror the result.
@@ -83,7 +85,6 @@ extension AppState {
     var portfolioQuotedTotal: QuotedTotal { quotedTotal(for: portfolio) }
     func setPortfolioInclusion(_ isIncluded: Bool, for walletID: String) {
         changeWallet(.setWalletPortfolioInclusion(walletId: walletID, included: isIncluded))
-        resetLargeMovementAlertBaseline()
     }
     func refreshChainBalances(
         includeHistoryRefreshes: Bool = true, historyRefreshInterval: TimeInterval = 120, forceChainRefresh: Bool = true
@@ -107,7 +108,6 @@ extension AppState {
     }
     func scheduleImportedWalletRefresh(_ createdWallets: [ImportedWallet]) {
         guard !createdWallets.isEmpty else {
-            resetLargeMovementAlertBaseline()
             return
         }
         importRefreshTask?.cancel()
@@ -118,13 +118,10 @@ extension AppState {
                 _ = await self.refreshLivePrices()
             }
             await MainActor.run {
-                self.resetLargeMovementAlertBaseline()
                 self.importRefreshTask = nil
             }
         }
     }
-    #if DEBUG
-    #endif
 }
 enum FiatCurrency: String, CaseIterable, Identifiable {
     case usd = "USD"

@@ -1,9 +1,5 @@
 import Foundation
 extension AppState {
-    func loadCodableFromUserDefaults<T: Decodable>(_ type: T.Type, key: String) -> T? {
-        guard let data = UserDefaults.standard.data(forKey: key) else { return nil }
-        return try? JSONDecoder().decode(type, from: data)
-    }
     func persistCodableToSQLite<T: Encodable & Sendable>(_ value: T, key: String) {
         Task.detached(priority: .utility) {
             guard let data = try? JSONEncoder().encode(value), let json = String(data: data, encoding: .utf8) else { return }
@@ -41,48 +37,15 @@ extension AppState {
         {
             preferences.applyPlatform(platform)
         }
-        // ── Wallet projection, from the store core owns ───────────────────────
-        if let stored = try? await WalletServiceBridge.shared.storedWallets(), !stored.isEmpty {
-            adoptWalletsFromCore(
-                mergeAdoptedProjection(stored: stored, keepingLocal: wallets, identity: \.id))
+        let walletRevision = walletsRevision
+        if let stored = try? await WalletServiceBridge.shared.storedWallets(), walletsRevision == walletRevision {
+            adoptWalletsFromCore(stored)
             rebuildWalletDerivedState()
         }
-        // ── Transaction projection, from the store core owns ──────────────────
-        //
-        // No orphan prune here, unlike the two sites that follow a wallet
-        // mutation. This load reads the wallet list and the transaction list a
-        // moment apart, so a wallet recorded while it was in flight is missing
-        // from the first read and present in neither — and the prune deleted
-        // that wallet's transactions from the store, permanently, for having no
-        // wallet. Losing a record of a real send is the worse side; an orphan
-        // row shows an extra history entry until the next wallet mutation
-        // prunes it. The wallet-deletion path removes a wallet's transactions
-        // itself, so this was cleanup for a case that path already covers.
-        if let stored = try? await WalletServiceBridge.shared.storedTransactions() {
-            let records = stored.compactMap(TransactionRecord.init(snapshot:))
-            if !records.isEmpty {
-                adoptTransactionsFromCore(
-                    mergeAdoptedProjection(
-                        stored: records, keepingLocal: transactions, identity: \.id.uuidString))
-                await rebuildTransactionDerivedState()
-            }
-        }
-    }
-    /// Send the alert list to core, which drops what could never fire and
-    /// stores the rest.
-    func commitPriceAlerts() {
-        let alerts = priceAlerts
-        let epoch = beginCoreStateRead()
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            guard
-                let transition = try? await WalletServiceBridge.shared.applyStateCommand(
-                    .setPriceAlerts(alerts: alerts))
-            else {
-                self.finishCoreStateRead(epoch)
-                return
-            }
-            self.applyCoreState(transition.state, epoch: epoch)
+        let transactionSnapshot = transactions
+        if let stored = try? await WalletServiceBridge.shared.storedTransactions(), transactions == transactionSnapshot {
+            adoptTransactionsFromCore(stored.compactMap(TransactionRecord.init(snapshot:)))
+            await rebuildTransactionDerivedState()
         }
     }
     /// Tell core which network of a family the user picked.

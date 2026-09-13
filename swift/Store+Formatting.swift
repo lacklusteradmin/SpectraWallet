@@ -15,11 +15,6 @@ extension AppState {
         guard let rate = fiatRateIfAvailable(for: selectedFiatCurrency) else { return nil }
         return amountUSD * rate
     }
-    func convertSelectedFiatToUSD(_ amountInSelectedFiat: Double) -> Double {
-        let rate = fiatRate(for: selectedFiatCurrency)
-        guard rate > 0 else { return amountInSelectedFiat }
-        return amountInSelectedFiat / rate
-    }
     func formattedFiatAmount(fromUSD amountUSD: Double) -> String {
         formatFiatAmount(amount: convertUSDToSelectedFiat(amountUSD), currency: selectedFiatCurrency)
     }
@@ -149,8 +144,6 @@ extension AppState {
         }
         return QuotedTotal(total: total, unpricedCount: unpriced)
     }
-    func currentTotal(for wallet: ImportedWallet) -> Double { quotedTotal(for: wallet.holdings).total }
-    func runtimeChainIdentity(for chainName: String) -> String { displayChainTitle(for: chainName) }
     func assetIdentityKey(for coin: Coin) -> String { coin.holdingKey }
     /// Hot path — called per coin during portfolio totals and per row in the
     /// dashboard. Core hands over the whole unpriced set when the selection
@@ -204,20 +197,6 @@ extension AppState {
         }
     }
 
-    /// Drop transactions whose wallet is gone. Core answers which those are,
-    /// from the wallets and the records it holds.
-    func pruneTransactionsForActiveWallets() async {
-        let kept: Set<String>
-        do {
-            kept = Set(try await WalletServiceBridge.shared.activeWalletTransactionIDs())
-        } catch {
-            historyReadError = localizedStoreString("Unable to read transaction history. Existing records have been kept.")
-            return
-        }
-        let droppedIDs = transactions.filter { !kept.contains($0.id.uuidString) }.map(\.id)
-        guard !droppedIDs.isEmpty else { return }
-        removeTransactions(withIDs: droppedIDs)
-    }
     private func formattedTransactionDetailAssetAmount(_ amount: Double, symbol: String, deploymentID: String?) -> String {
         let supportedDecimals = supportedDecimalPlaces(deploymentID: deploymentID)
         let formatter = decimalFormatter(
@@ -231,30 +210,4 @@ extension AppState {
         return Int(tokenDisplayDecimals(deploymentId: deploymentID, customDecimals: customDecimals))
     }
 
-}
-
-/// The sentence a send-affordability verdict turns into.
-///
-/// Core decides; this only picks the wording. It replaces
-/// `AppState.validateSendBalance`, which returned the sentence itself from
-/// nine parameters — four of which were registry facts the caller looked up by
-/// hand. The "…to cover the network fee" variant that stood beside the
-/// labelled one is gone: core names the chain on every token verdict, so the
-/// two spellings of one message were only ever a difference in which caller
-/// asked.
-func sendAffordabilityMessage(_ verdict: SendAffordability) -> String? {
-    switch verdict {
-    case .unavailable:
-        return AppLocalization.string("Unable to estimate network fee.")
-    case .affordable:
-        return nil
-    case let .amountPlusFeeExceedsBalance(symbol, required):
-        return AppLocalization.format(
-            "Insufficient %@ for amount plus network fee (needs ~%@ %@).", symbol, required, symbol)
-    case let .amountExceedsBalance(symbol):
-        return AppLocalization.format("Insufficient %@ balance for this transfer.", symbol)
-    case let .feeExceedsGasBalance(gasSymbol, fee, chainName):
-        return AppLocalization.format(
-            "Insufficient %@ to cover %@ network fee (~%@ %@).", gasSymbol, chainName, fee, gasSymbol)
-    }
 }

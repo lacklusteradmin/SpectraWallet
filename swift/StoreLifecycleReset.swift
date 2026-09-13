@@ -25,7 +25,6 @@ extension AppState {
             UIDevice.current.isBatteryMonitoringEnabled = true
         }
         startNetworkPathMonitorIfNeeded()
-        resetLargeMovementAlertBaseline()
         // Tor preferences arrive with core settings through adoptAppSettings.
         startTorIfEnabled()
     }
@@ -43,7 +42,6 @@ extension AppState {
             return
         }
         appSettingsPersist.cancel()
-        priceAlertsPersist.cancel()
         await walletMutationTask?.value
         await awaitPendingAddressBookCommands()
         let outcome: ResetOutcome
@@ -136,7 +134,6 @@ extension AppState {
         lastLivePriceRefreshAt = nil
         lastChainBalanceRefreshAt = nil
         lastHistoryRefreshAtByChain = [:]
-        lastObservedPortfolioTotalUSD = nil
         // Ten lines naming the five UTXO chains, which is the map itself.
         utxoRescanStateByChain = [:]
         do {

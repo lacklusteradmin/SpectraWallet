@@ -17,7 +17,7 @@ private struct HistoryTransactionRowView: View, Equatable {
         VStack(alignment: .leading, spacing: 7) {
             HStack(spacing: 10) {
                 CoinBadge(
-                    assetIdentifier: row.transaction.assetIdentifier, fallbackText: row.transaction.symbol,
+                    assetName: row.transaction.artworkName, fallbackText: row.transaction.symbol,
                     color: row.transaction.badgeColor, size: 36)
                 VStack(alignment: .leading, spacing: 3) {
                     if let amountText = row.amountText {

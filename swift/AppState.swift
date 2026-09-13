@@ -50,11 +50,6 @@ import UIKit
 @MainActor
 @Observable
 final class AppState {
-    enum HistoryPaging {
-        static let endpointBatchSize = 20
-    }
-    static let persistenceEncoder = JSONEncoder()
-    static let persistenceDecoder = JSONDecoder()
     static let exportFilenameTimestampFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
@@ -75,7 +70,6 @@ final class AppState {
     // Each `DebouncedAction` captures its target's coalescing window at
     // construction so the interval is visible next to the field declaration
     // instead of being a magic number buried in an async closure.
-    @ObservationIgnored let priceAlertsPersist = DebouncedAction(intervalMilliseconds: 100)
     @ObservationIgnored private let tokenPreferenceRebuild = DebouncedAction(intervalMilliseconds: 30)
     @ObservationIgnored private let transactionRebuild = DebouncedAction(intervalMilliseconds: 30)
     /// Recorded transactions.
@@ -137,7 +131,7 @@ final class AppState {
     /// of `CoreAppState.wallets`, rendered into the shape the views use — see
     /// `WalletSummary::to_imported_wallet`. `private(set)`, because assigning
     /// to it would only desynchronise it from core; change it with
-    /// `recordWallets` / `removeWallet` / `clearAllWallets`.
+    /// import and field intents, wallet deletion, or core reset.
     private(set) var wallets: [ImportedWallet] = [] {
         didSet {
             walletsRevision &+= 1
@@ -181,8 +175,6 @@ final class AppState {
     var cachedWalletByID: [String: ImportedWallet] { walletDerivedCache.walletByID }
     var cachedWalletByIDString: [String: ImportedWallet] { walletDerivedCache.walletByIDString }
     var cachedIncludedPortfolioWallets: [ImportedWallet] { walletDerivedCache.includedPortfolioWallets }
-    var cachedIncludedPortfolioHoldingsBySymbol: [String: [Coin]] { walletDerivedCache.includedPortfolioHoldingsBySymbol }
-    var cachedUniqueWalletPriceRequestCoins: [Coin] { walletDerivedCache.uniqueWalletPriceRequestCoins }
     var cachedPortfolio: [Coin] {
         get { walletDerivedCache.portfolio }
         set { walletDerivedCache.portfolio = newValue }
@@ -233,6 +225,8 @@ final class AppState {
     var receiveWalletID: String = ""
     var receiveHoldingKey: String = ""
     var receiveResolvedAddress: String = ""
+    var receiveAddressError: String?
+    @ObservationIgnored var receiveAddressRequestID = UUID() // Reject stale asynchronous results.
     var isResolvingReceiveAddress: Bool = false
     var selectedMainTab: MainAppTab = .home
     var isAppLocked: Bool = false
@@ -466,7 +460,6 @@ final class AppState {
     /// The chain-scoped work a network switch implies. Reserved indices and
     /// discovered addresses belong to the network they were derived on.
     private func onNetworkChainChanged(family: String) {
-        let name = (Chain(id: family)?.displayName ?? family)
         resetHistoryPaginationForChain(family)
     }
     var etherscanAPIKey: String = "" {
@@ -488,18 +481,8 @@ final class AppState {
         }
     }
     var isUserInitiatedRefreshInProgress: Bool = false
-    /// Price alerts.
-    ///
-    /// Domain state: core owns the list, the rule that a target must be
-    /// positive, and the persistence. Same mirror shape as `tokenPreferences`
-    /// — assigning sends `SetPriceAlerts` and the stored list lands back here
-    /// through `applyCoreState`, where the guard stops the second pass.
-    var priceAlerts: [PriceAlertRule] = [] {
-        didSet {
-            guard priceAlerts != oldValue else { return }
-            priceAlertsPersist.fire { [weak self] in self?.commitPriceAlerts() }
-        }
-    }
+    /// Read-only projection adopted from core; edits send individual intents.
+    private(set) var priceAlerts: [PriceAlertRule] = []
     /// Saved recipients.
     ///
     /// Domain state: core owns the list, the rules about what may be saved, and
@@ -554,7 +537,6 @@ final class AppState {
     var cachedDashboardAssetGroups: [DashboardAssetGroup] = []
     var cachedResolvedTokenPreferences: [TokenPreferenceEntry] = []
     var cachedTokenPreferencesByChain: [TokenHostingChain: [TokenPreferenceEntry]] = [:]
-    var cachedEnabledKnownTokenPreferences: [TokenPreferenceEntry] = []
     var cachedTokenPreferenceByDeploymentID: [String: TokenPreferenceEntry] = [:]
     @ObservationIgnored var cachedCurrencyFormatters: [String: NumberFormatter] = [:]
     @ObservationIgnored var cachedDecimalFormatters: [String: NumberFormatter] = [:]
@@ -620,8 +602,6 @@ final class AppState {
     @ObservationIgnored var lastHistoryRefreshAtByChain: [String: Date] = [:]
     @ObservationIgnored var appIsActive = true
     @ObservationIgnored var maintenanceTask: Task<Void, Never>?
-    @ObservationIgnored var lastObservedPortfolioTotalUSD: Double?
-    @ObservationIgnored var lastObservedPortfolioCompositionSignature: String?
 
     // ── Tor routing ───────────────────────────────────────────────────────
     /// Live Tor bootstrap/connection state polled from Rust. Drives the
@@ -690,7 +670,6 @@ final class AppState {
 
 
     static let installMarkerDefaultsKey = "app.install.marker.v1"
-    static let selfSendConfirmationWindowSeconds: TimeInterval = 20
     /// Failure backoff so a degraded provider isn't hammered every maintenance
     /// tick. Without this, a fetch that errors out leaves `lastFiatRatesRefreshAt`
     /// nil, so the cooldown gate never trips and every caller re-fetches.
@@ -701,25 +680,13 @@ final class AppState {
         cachedPasswordProtectedWalletIDs = []
         cachedSecretDescriptorsByWalletID = [:]
     }
-    /// The phrase for an unsealed wallet, or nil.
-    ///
-    /// A sealed wallet answers nil here rather than throwing: the callers that
-    /// use this are background derivation, and a wallet whose material is
-    /// actually encrypted has nothing for them until the user unlocks it. The
-    /// reveal path passes the password through `revealSeedPhrase` instead.
-    func storedSeedPhrase(for walletID: String) -> String? {
-        guard let phrase = try? WalletServiceBridge.shared.walletSeedPhrase(walletID: walletID, password: nil),
-            !phrase.isEmpty
-        else { return nil }
-        return phrase
-    }
     func walletRequiresSeedPhrasePassword(_ walletID: String) -> Bool {
         WalletServiceBridge.shared.walletSecretState(walletID: walletID)?.isSealed ?? false
     }
     /// Whether this wallet can sign, and with what.
     ///
     /// Read from the store rather than from a cached descriptor: a sealed
-    /// wallet has signing material even though `storedSeedPhrase` cannot
+    /// wallet has signing material even though a seed reveal cannot
     /// produce it without a password, and deriving this from that read would
     /// report such a wallet as watch-only.
     func walletHasSigningMaterial(_ walletID: String) -> Bool {
@@ -729,12 +696,6 @@ final class AppState {
         WalletServiceBridge.shared.walletSecretState(walletID: walletID)?.hasPrivateKey ?? false
     }
 
-    func parsedBitcoinEsploraEndpoints() -> [String] { parseBitcoinEsploraEndpoints(raw: bitcoinEsploraEndpoints) }
-    func effectiveBitcoinEsploraEndpoints() -> [String] {
-        let configured = parsedBitcoinEsploraEndpoints()
-        if !configured.isEmpty { return configured }
-        return AppEndpointDirectory.bitcoinWalletStoreDefaultBaseURLs(forChainID: networkChainID(forFamily: "bitcoin"))
-    }
     var bitcoinEsploraEndpointsValidationError: String? {
         endpointValidationError(field: .bitcoinEsploraList, raw: bitcoinEsploraEndpoints)
     }
@@ -902,7 +863,6 @@ final class AppState {
         walletSideEffectsDebounce.cancel()
         transactionRebuild.cancel()
         tokenPreferenceRebuild.cancel()
-        priceAlertsPersist.cancel()
         #if canImport(Network)
             networkPathMonitor.cancel()
         #endif
@@ -918,7 +878,6 @@ final class AppState {
         importDraft.canImportWallet
     }
     var resolvedTokenPreferences: [TokenPreferenceEntry] { cachedResolvedTokenPreferences }
-    var enabledKnownTokenPreferences: [TokenPreferenceEntry] { cachedEnabledKnownTokenPreferences }
     /// A token is addressed by what it is — its contract on its chain —
     /// rather than by an id this side and core would each have to spell the
     /// same way.
@@ -1017,26 +976,13 @@ final class AppState {
         tokenPreferenceError = message
         return message
     }
-    func enabledTokenPreferences(for chain: TokenHostingChain) -> [TokenPreferenceEntry] {
-        enabledKnownTokenPreferences.filter { $0.token.chain == chain.rawValue }
-    }
     /// The canonical form of a known token's contract address.
-    func normalizedKnownTokenIdentifier(for chain: TokenHostingChain, contractAddress: String) -> String {
-        normalizeTokenIdentifier(contractAddress: contractAddress, chainName: chain.rawValue) ?? ""
-    }
     /// The user's enabled tokens for a chain, contracts normalised.
     ///
     /// One helper for every token-hosting chain; `TokenHostingChain` is what
     /// the call site resolves the name to. It returns the preference entries
     /// themselves rather than a record built from them — a token had four
     /// spellings across four record types before it did.
-    func enabledKnownTokens(for chain: TokenHostingChain) -> [TokenPreferenceEntry] {
-        enabledTokenPreferences(for: chain).map { e in
-            var normalised = e
-            normalised.token.contract = normalizeEVMAddress(e.token.contract)
-            return normalised
-        }
-    }
     var moneroBackendBaseURLValidationError: String? {
         endpointValidationError(field: .moneroBackend, raw: moneroBackendBaseURL)
     }

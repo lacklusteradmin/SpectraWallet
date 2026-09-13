@@ -52,10 +52,10 @@ final class WalletSetupPageCopyTests: XCTestCase {
         XCTAssertEqual(both.subtitle, content.privateKeySubtitle)
     }
 
-    /// Editing only ever reaches the name page, but the details wording still
-    /// answers for it rather than falling through to a chain-selection title.
+    /// The editing flow shows its edit heading on the actual name page.
     func testEditingNamesTheEditRatherThanTheChainPicker() {
-        XCTAssertEqual(WalletSetupPage.details.copy(content, mode: mode(editing: true)).title, content.editWalletTitle)
+        XCTAssertEqual(WalletSetupPage.walletName.copy(content, mode: mode(editing: true)).title, content.editWalletTitle)
+        XCTAssertEqual(WalletSetupPage.walletName.copy(content, mode: mode(editing: true)).subtitle, content.editWalletSubtitle)
         XCTAssertNotEqual(
             WalletSetupPage.details.copy(content, mode: mode()).title, content.editWalletTitle)
     }

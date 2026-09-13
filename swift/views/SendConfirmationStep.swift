@@ -47,7 +47,7 @@ struct SendConfirmationStep: View {
             HStack(spacing: 14) {
                 if let selectedCoin {
                     CoinBadge(
-                        assetIdentifier: selectedCoin.iconIdentifier,
+                        assetName: selectedCoin.iconAssetName,
                         fallbackText: selectedCoin.symbol,
                         color: selectedCoin.color,
                         size: 44

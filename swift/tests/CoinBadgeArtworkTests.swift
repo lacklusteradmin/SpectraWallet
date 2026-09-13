@@ -4,16 +4,7 @@ import XCTest
 
 @testable import Spectra
 
-/// The badge draws a coin, and a coin is held wherever it is held.
-///
-/// This is the regression test for the bug the core-side ones do not reach.
-/// `CoinBadge` resolved artwork through two Swift tables keyed on the *chain*,
-/// so a coin held anywhere but its home chain fell through both and drew a
-/// letter — thirty-one of the wiki's sixty-six coins, plus ETH on all nine of
-/// its rollups. Every assertion below was red before that resolution moved to
-/// `core_icon_asset_name`, and none of them can be satisfied by the catalogs
-/// agreeing with themselves: the chain goes Swift identifier → core → asset
-/// catalog → `UIImage`, and only a file on disk ends it.
+/// Verify the identity-based core lookup reaches real bundled images through Swift.
 @MainActor
 final class CoinBadgeArtworkTests: XCTestCase {
     /// A mark that is named has to load; a coin that names none draws its
@@ -25,38 +16,26 @@ final class CoinBadgeArtworkTests: XCTestCase {
         XCTAssertNotNil(UIImage(named: badge.assetName), "\(what()) drew a letter, not its mark")
     }
 
-    /// Every coin, on every chain it lives on, drawn the way the dashboard's
-    /// per-chain breakdown rows draw it — `iconIdentifier(symbol:chainName:)`
-    /// with no contract, which is what produced `native:aptos:usdc`.
-    func testEveryCoinDrawsItselfOnEveryChainItLivesOn() {
-        let wiki = CachedCoreHelpers.assetWiki()
-        XCTAssertFalse(wiki.isEmpty, "the wiki is empty, so this asserts nothing")
-        for entry in wiki {
-            for place in entry.livesOn {
-                let badge = CoinBadge(
-                    assetIdentifier: Coin.iconIdentifier(symbol: entry.symbol, chainName: place.chainName),
-                    fallbackText: entry.symbol, color: .orange)
-                assertDrawsItsMark(badge, "\(entry.symbol) on \(place.chainName)")
-            }
+    func testCatalogTokenIdentityLoadsItsArtwork() {
+        for entry in CachedCoreHelpers.assetWiki() {
+            let badge = CoinBadge(assetName: coreTokenIconAssetName(tokenId: entry.tokenId), fallbackText: entry.symbol, color: .orange)
+            XCTAssertEqual(badge.assetName, entry.face.assetName)
+            assertDrawsItsMark(badge, entry.symbol)
         }
     }
 
-    /// A held token carries its contract, so its identifier is `token:…` and
-    /// takes a different branch. It has to land on the same mark.
-    func testAHeldTokenDrawsTheSameMarkAsItsWikiRow() {
-        for entry in CachedCoreHelpers.assetWiki() {
-            for place in entry.livesOn where !place.contract.isEmpty {
-                let held = CoinBadge(
-                    assetIdentifier: Coin.iconIdentifier(
-                        symbol: entry.symbol, chainName: place.chainName,
-                        contractAddress: place.contract, tokenStandard: place.tokenStandard),
-                    fallbackText: entry.symbol, color: .orange)
-                XCTAssertEqual(
-                    held.assetName, entry.face.assetName,
-                    "\(entry.symbol) on \(place.chainName) draws one mark held and another in the wiki")
-                assertDrawsItsMark(held, "\(entry.symbol) on \(place.chainName)")
-            }
+    func testHeldDeploymentsUseTheirOwnArtwork() {
+        for token in listAllBuiltinTokens() {
+            let holding = AssetHolding(
+                name: token.name, symbol: token.symbol, coinGeckoId: token.coingeckoId,
+                chainName: token.chain, tokenStandard: token.tokenStandard,
+                contractAddress: token.contract.isEmpty ? nil : token.contract, amount: 0, priceUsd: 0)
+            let badge = CoinBadge(assetName: holding.iconAssetName, fallbackText: token.symbol, color: .orange)
+            XCTAssertEqual(badge.assetName, token.assetName, token.id)
+            assertDrawsItsMark(badge, token.id)
         }
+        XCTAssertEqual(coreDeploymentIconAssetName(deploymentId: "base:native"), "ethereum")
+        XCTAssertEqual(coreDeploymentIconAssetName(deploymentId: nil), "")
     }
 
     /// Both wikis hand the badge core's own `assetName` rather than an
@@ -81,27 +60,24 @@ final class CoinBadgeArtworkTests: XCTestCase {
     func testAChainBadgeStillDrawsTheChain() {
         for descriptor in Coin.nativeChainIconDescriptors {
             let badge = CoinBadge(
-                assetIdentifier: descriptor.assetIdentifier, fallbackText: descriptor.symbol,
+                assetName: descriptor.artworkName, fallbackText: descriptor.symbol,
                 color: descriptor.color)
             XCTAssertNotNil(UIImage(named: badge.assetName), "\(descriptor.title) drew a letter")
         }
         let base = CoinBadge(
-            assetIdentifier: "network:base",
+            assetName: coreNetworkIconAssetName(networkId: "base"),
             fallbackText: "BASE", color: .orange)
         let etherOnBase = CoinBadge(
-            assetIdentifier: Coin.iconIdentifier(symbol: "ETH", chainName: "Base"),
+            assetName: coreHoldingIconAssetName(holding: AssetHolding(name: "", symbol: "ETH", coinGeckoId: "", chainName: "Base", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 0)),
             fallbackText: "ETH", color: .orange)
         XCTAssertEqual(base.assetName, "base")
         XCTAssertEqual(etherOnBase.assetName, "ethereum")
     }
 
-    /// A coin nothing ships a mark for draws its letter rather than borrowing
-    /// someone else's. The substring match this replaced would have handed a
-    /// custom `USDCE` the USDC mark.
+    /// A custom contract cannot borrow USDC artwork by copying its symbol.
     func testAnUnknownCoinFallsBackToItsLetter() {
         let unknown = CoinBadge(
-            assetIdentifier: Coin.iconIdentifier(
-                symbol: "USDCE", chainName: "Ethereum", contractAddress: "0xdead", tokenStandard: "ERC-20"),
+            assetName: coreHoldingIconAssetName(holding: AssetHolding(name: "USD Coin", symbol: "USDC", coinGeckoId: "usd-coin", chainName: "Ethereum", tokenStandard: "ERC-20", contractAddress: "0xdead", amount: 0, priceUsd: 0)),
             fallbackText: "USDCE", color: .orange)
         XCTAssertEqual(unknown.assetName, "")
     }

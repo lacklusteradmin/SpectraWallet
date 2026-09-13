@@ -153,7 +153,6 @@ final class WalletChainDiagnosticsState {
     }
     var historyRunByChain: [String: HistoryRun] = [:]
 
-    private func bump() { diagnosticsRevision &+= 1 }
 
     // MARK: Non-dict state (unchanged)
     var lastImportedDiagnosticsBundle: DiagnosticsBundlePayload?

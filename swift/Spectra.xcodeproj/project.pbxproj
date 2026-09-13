@@ -23,7 +23,6 @@
 		90F00200000000000000000A /* AppState+SendExecution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000A /* AppState+SendExecution.swift */; };
 		90F00200000000000000000B /* AppState+SendFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000B /* AppState+SendFlow.swift */; };
 		90F00200000000000000000C /* AppState+SendPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000C /* AppState+SendPreview.swift */; };
-		90F00200000000000000000D /* AppState+SendRouting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000D /* AppState+SendRouting.swift */; };
 		90F00200000000000000000E /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000E /* AppState.swift */; };
 		90F00200000000000000000F /* AppStateTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000F /* AppStateTypes.swift */; };
 		90F002000000000000000010 /* AppUserPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000010 /* AppUserPreferences.swift */; };
@@ -39,7 +38,6 @@
 		90F002000000000000000026 /* RegistryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000026 /* RegistryModels.swift */; };
 		90F002000000000000000027 /* SecureStores.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000027 /* SecureStores.swift */; };
 		90F002000000000000000029 /* SendPreviewTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000029 /* SendPreviewTypes.swift */; };
-		90F00200000000000000002B /* StakingTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002B /* StakingTypes.swift */; };
 		90F00200000000000000002C /* StaticContentCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002C /* StaticContentCatalog.swift */; };
 		90F00200000000000000002D /* Store+Formatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002D /* Store+Formatting.swift */; };
 		90F00200000000000000002E /* Store+Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002E /* Store+Notifications.swift */; };
@@ -54,7 +52,6 @@
 		90F00200000000000000003B /* SetupFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003B /* SetupFlow.swift */; };
 		90F00200000000000000003C /* ImportDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003C /* ImportDraft.swift */; };
 		90F00200000000000000003F /* AppState+FundsFinder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003F /* AppState+FundsFinder.swift */; };
-		90F002000000000000000041 /* StakingBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000041 /* StakingBridge.swift */; };
 		90F002000000000000000100 /* Chain+Registry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000100 /* Chain+Registry.swift */; };
 		90F002000000000000000101 /* Store+Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000101 /* Store+Settings.swift */; };
 		91C100012F70000100AAA001 /* SpectraLiveActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 91C100032F70000100AAA001 /* SpectraLiveActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -107,7 +104,6 @@
 		90F00100000000000000000A /* AppState+SendExecution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendExecution.swift"; sourceTree = "<group>"; };
 		90F00100000000000000000B /* AppState+SendFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendFlow.swift"; sourceTree = "<group>"; };
 		90F00100000000000000000C /* AppState+SendPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendPreview.swift"; sourceTree = "<group>"; };
-		90F00100000000000000000D /* AppState+SendRouting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendRouting.swift"; sourceTree = "<group>"; };
 		90F00100000000000000000E /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		90F00100000000000000000F /* AppStateTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTypes.swift; sourceTree = "<group>"; };
 		90F001000000000000000010 /* AppUserPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUserPreferences.swift; sourceTree = "<group>"; };
@@ -123,7 +119,6 @@
 		90F001000000000000000026 /* RegistryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistryModels.swift; sourceTree = "<group>"; };
 		90F001000000000000000027 /* SecureStores.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureStores.swift; sourceTree = "<group>"; };
 		90F001000000000000000029 /* SendPreviewTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendPreviewTypes.swift; sourceTree = "<group>"; };
-		90F00100000000000000002B /* StakingTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StakingTypes.swift; sourceTree = "<group>"; };
 		90F00100000000000000002C /* StaticContentCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaticContentCatalog.swift; sourceTree = "<group>"; };
 		90F00100000000000000002D /* Store+Formatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Formatting.swift"; sourceTree = "<group>"; };
 		90F00100000000000000002E /* Store+Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Notifications.swift"; sourceTree = "<group>"; };
@@ -138,7 +133,6 @@
 		90F00100000000000000003B /* SetupFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlow.swift; sourceTree = "<group>"; };
 		90F00100000000000000003C /* ImportDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportDraft.swift; sourceTree = "<group>"; };
 		90F00100000000000000003F /* AppState+FundsFinder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+FundsFinder.swift"; sourceTree = "<group>"; };
-		90F001000000000000000041 /* StakingBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StakingBridge.swift; sourceTree = "<group>"; };
 		90F001000000000000000100 /* Chain+Registry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Chain+Registry.swift"; sourceTree = "<group>"; };
 		90F001000000000000000101 /* Store+Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Settings.swift"; sourceTree = "<group>"; };
 		91B000012F5B000100AAA001 /* SpectraTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpectraTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -247,7 +241,6 @@
 				90F001000000000000000026 /* RegistryModels.swift */,
 				90F001000000000000000027 /* SecureStores.swift */,
 				90F001000000000000000029 /* SendPreviewTypes.swift */,
-				90F00100000000000000002B /* StakingTypes.swift */,
 				90F00100000000000000002C /* StaticContentCatalog.swift */,
 				90F00100000000000000002F /* StoreDiagnosticsExport.swift */,
 				90F001000000000000000035 /* WalletDerivedCache.swift */,
@@ -265,7 +258,6 @@
 				90F00100000000000000000A /* AppState+SendExecution.swift */,
 				90F00100000000000000000B /* AppState+SendFlow.swift */,
 				90F00100000000000000000C /* AppState+SendPreview.swift */,
-				90F00100000000000000000D /* AppState+SendRouting.swift */,
 				90F00100000000000000002D /* Store+Formatting.swift */,
 				90F001000000000000000101 /* Store+Settings.swift */,
 				90F00100000000000000002E /* Store+Notifications.swift */,
@@ -275,7 +267,6 @@
 				90F00100000000000000003B /* SetupFlow.swift */,
 				90F00100000000000000003C /* ImportDraft.swift */,
 				90F00100000000000000003F /* AppState+FundsFinder.swift */,
-				90F001000000000000000041 /* StakingBridge.swift */,
 				9074916B2F56D1E500D098D2 /* tests */,
 			);
 			sourceTree = "<group>";
@@ -491,7 +482,6 @@
 				90F002000000000000000026 /* RegistryModels.swift in Sources */,
 				90F002000000000000000027 /* SecureStores.swift in Sources */,
 				90F002000000000000000029 /* SendPreviewTypes.swift in Sources */,
-				90F00200000000000000002B /* StakingTypes.swift in Sources */,
 				90F00200000000000000002C /* StaticContentCatalog.swift in Sources */,
 				90F00200000000000000002F /* StoreDiagnosticsExport.swift in Sources */,
 				90F002000000000000000035 /* WalletDerivedCache.swift in Sources */,
@@ -500,7 +490,6 @@
 				90F00200000000000000003B /* SetupFlow.swift in Sources */,
 				90F00200000000000000003C /* ImportDraft.swift in Sources */,
 				90F00200000000000000003F /* AppState+FundsFinder.swift in Sources */,
-				90F002000000000000000041 /* StakingBridge.swift in Sources */,
 				90F002000000000000000001 /* AppState+AddressResolution.swift in Sources */,
 				90F002000000000000000002 /* AppState+BalanceRefresh.swift in Sources */,
 				90F002000000000000000003 /* AppState+CoreStateStore.swift in Sources */,
@@ -513,7 +502,6 @@
 				90F00200000000000000000A /* AppState+SendExecution.swift in Sources */,
 				90F00200000000000000000B /* AppState+SendFlow.swift in Sources */,
 				90F00200000000000000000C /* AppState+SendPreview.swift in Sources */,
-				90F00200000000000000000D /* AppState+SendRouting.swift in Sources */,
 				90F00200000000000000002D /* Store+Formatting.swift in Sources */,
 				90F002000000000000000101 /* Store+Settings.swift in Sources */,
 				90F00200000000000000002E /* Store+Notifications.swift in Sources */,

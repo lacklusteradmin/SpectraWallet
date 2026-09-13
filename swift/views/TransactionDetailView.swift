@@ -51,7 +51,7 @@ struct HistoryDetailView: View {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 12) {
                             CoinBadge(
-                                assetIdentifier: displayedTransaction.assetIdentifier, fallbackText: displayedTransaction.symbol,
+                                assetName: displayedTransaction.artworkName, fallbackText: displayedTransaction.symbol,
                                 color: displayedTransaction.badgeColor, size: 42)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(displayedTransaction.titleText).font(.title3.bold()).foregroundStyle(Color.primary)

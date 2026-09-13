@@ -2,7 +2,6 @@ import Foundation
 import SwiftUI
 extension TokenHostingChain {
     /// The icon slug is the chain's registry id.
-    var settingsIconSlug: String { chain?.id ?? "" }
 
     /// The chain's colour, from the catalog.
     var settingsIconTint: Color {
@@ -10,15 +9,7 @@ extension TokenHostingChain {
     }
 }
 extension TokenPreferenceEntry {
-    var settingsAssetIdentifier: String {
-        let slug = hostingChain?.settingsIconSlug ?? ""
-        let lowerSymbol = token.symbol.lowercased()
-        let trimmedGeckoId = token.coingeckoId.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !trimmedGeckoId.isEmpty {
-            return "\(slug):\(trimmedGeckoId.lowercased()):\(lowerSymbol)"
-        }
-        return "\(slug):\(lowerSymbol)"
-    }
+    var settingsArtworkName: String { coreTokenIconAssetName(tokenId: token.tokenId) }
     var settingsFallbackMark: String {
         String(token.symbol.trimmingCharacters(in: .whitespacesAndNewlines).prefix(2)).uppercased()
     }
@@ -37,7 +28,7 @@ struct TokenRegistryGroupRowView: View {
     var body: some View {
         HStack(spacing: 12) {
             CoinBadge(
-                assetIdentifier: group.representativeEntry.settingsAssetIdentifier,
+                assetName: group.representativeEntry.settingsArtworkName,
                 fallbackText: group.representativeEntry.settingsFallbackMark,
                 color: group.representativeEntry.hostingChain?.settingsIconTint ?? .accentColor, size: 30
             )

@@ -23,7 +23,7 @@ struct StakingView: View {
                 Image(systemName: "link.circle.fill").font(.title3).foregroundStyle(.orange)
                 Text(AppLocalization.string("Earn While Securing Networks")).font(.title3.weight(.bold))
             }
-            Text(AppLocalization.string("Pick a chain below to delegate, manage positions, and claim rewards — all non-custodial."))
+            Text(AppLocalization.string("Explore staking networks and their validators. Transaction actions are not available in this app yet."))
                 .font(.subheadline).foregroundStyle(.secondary)
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .spectraElevatedFill()
@@ -61,7 +61,7 @@ struct StakingView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 CoinBadge(
-                    assetIdentifier: Coin.iconIdentifier(symbol: chain.gasTokenSymbol, chainName: chain.displayName),
+                    assetName: coreHoldingIconAssetName(holding: AssetHolding(name: "", symbol: "", coinGeckoId: "", chainName: chain.displayName, tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 0)),
                     fallbackText: chain.gasTokenSymbol, color: descriptor.tint, size: 36)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(chain.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
@@ -85,7 +85,7 @@ struct StakingView: View {
             ).font(.subheadline).foregroundStyle(.secondary)
             Text(
                 AppLocalization.string(
-                    "Spectra prioritizes non-custodial flows: keys stay on device, transactions are signed locally, and you pick the validator."
+                    "This page provides staking information and validator queries. It does not sign or submit staking transactions."
                 )
             ).font(.subheadline).foregroundStyle(.secondary)
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
@@ -107,14 +107,12 @@ struct StakingChainDescriptor {
     let shortMechanic: String
     let unbondingPeriod: String
     let minimumStake: String
-    let actions: [StakingActionKind]
     let detailedExplanation: String
 }
 
 private enum StakingDetailSection: String, CaseIterable, Identifiable {
     case overview
     case validators
-    case actions
     case learn
 
     var id: String { rawValue }
@@ -123,7 +121,6 @@ private enum StakingDetailSection: String, CaseIterable, Identifiable {
         switch self {
         case .overview: return "Overview"
         case .validators: return "Validators"
-        case .actions: return "Actions"
         case .learn: return "Learn"
         }
     }
@@ -140,7 +137,7 @@ extension Chain {
                 tint: .purple, apyEstimate: "~6–7% APY",
                 shortMechanic: "Delegate to a vote account; rewards each epoch (~2 days).",
                 unbondingPeriod: "2–3 days deactivation", minimumStake: "≥ 0.001 SOL recommended",
-                actions: [.stake, .unstake, .withdraw],
+
                 detailedExplanation:
                     "Each stake position is its own on-chain stake account. Spectra creates a fresh keypair, initializes the account with `StakeProgram`, and delegates to the vote account you pick. Rewards land at every epoch boundary."
             )
@@ -149,7 +146,7 @@ extension Chain {
                 tint: .indigo, apyEstimate: "~3% APY",
                 shortMechanic: "Delegate to a stake pool; rewards every 5-day epoch.",
                 unbondingPeriod: "No unbonding (instant)", minimumStake: "2 ADA registration deposit",
-                actions: [.stake, .restake, .claimRewards, .unstake],
+
                 detailedExplanation:
                     "First-time delegations register your stake address (refundable 2 ADA deposit) and attach a delegation certificate to your chosen pool. Re-delegating is just a new certificate — funds never leave your wallet."
             )
@@ -158,7 +155,7 @@ extension Chain {
                 tint: .mint, apyEstimate: "~3% APY",
                 shortMechanic: "Move call `request_add_stake` to a validator; epoch ~24h.",
                 unbondingPeriod: "Until end of current epoch", minimumStake: "1 SUI",
-                actions: [.stake, .unstake],
+
                 detailedExplanation:
                     "Staking creates a `StakedSui` object owned by your wallet. To unstake, the same object is passed to `request_withdraw_stake`; principal + rewards return at the next epoch boundary."
             )
@@ -167,7 +164,7 @@ extension Chain {
                 tint: .cyan, apyEstimate: "~7% APY",
                 shortMechanic: "Add stake to a delegation pool; epoch ~2h.",
                 unbondingPeriod: "~30-day lockup cycle", minimumStake: "11 APT to a delegation pool",
-                actions: [.stake, .unstake, .withdraw],
+
                 detailedExplanation:
                     "Calls `0x1::delegation_pool::add_stake` against a pool address. Stake activates at the next epoch. Unlock moves it to a pending-inactive bucket; after the lockup cycle (typically 30 days) it becomes withdrawable."
             )
@@ -176,7 +173,7 @@ extension Chain {
                 tint: .indigo, apyEstimate: "~9% APY",
                 shortMechanic: "`deposit_and_stake` on a `*.poolv1.near` contract.",
                 unbondingPeriod: "~52h (4 epochs)", minimumStake: "Pool-dependent",
-                actions: [.stake, .unstake, .withdraw],
+
                 detailedExplanation:
                     "Each validator runs its own staking-pool contract. Spectra calls `deposit_and_stake` with NEAR attached. Unstake places funds into a pending bucket; after 4 epochs (~52h) they're withdrawable via `withdraw`."
             )
@@ -185,7 +182,7 @@ extension Chain {
                 tint: .pink, apyEstimate: "~14% APY",
                 shortMechanic: "Bond + nominate up to 16 validators, OR join a nomination pool.",
                 unbondingPeriod: "28 days", minimumStake: "Direct: 250 DOT · Pool: 1 DOT",
-                actions: [.stake, .unstake, .withdraw, .restake],
+
                 detailedExplanation:
                     "Two paths: direct nomination (`staking::bond` + `staking::nominate`, requires the chain's active minimum bond, currently ~250 DOT) or nomination pools (`nomination_pools::join`, no minimum, recommended for smaller stakers)."
             )
@@ -194,7 +191,7 @@ extension Chain {
                 tint: .indigo, apyEstimate: "Up to ~14% APY",
                 shortMechanic: "Lock ICP into a neuron; rewards scale with dissolve delay.",
                 unbondingPeriod: "Dissolve delay (6 months – 8 years)", minimumStake: "1 ICP",
-                actions: [.stake, .restake, .claimRewards, .unstake, .withdraw],
+
                 detailedExplanation:
                     "Staking on ICP means creating an NNS neuron with a chosen dissolve delay (≥ 6 months for rewards eligibility, up to 8 years for max maturity bonus). Voting on proposals — directly or via followees — drives the reward rate."
             )
@@ -249,14 +246,7 @@ struct ChainStakingDetailView: View {
         } message: {
             Text(vm.error?.localizedDescription ?? "")
         }
-        .sheet(isPresented: Binding(
-            get: { vm.preview != nil },
-            set: { if !$0 { vm.dismissPreview() } }
-        )) {
-            if let preview = vm.preview {
-                StakingPreviewSheet(preview: preview, onDismiss: { vm.dismissPreview() })
-            }
-        }
+
     }
 
     @ViewBuilder
@@ -276,16 +266,12 @@ struct ChainStakingDetailView: View {
         switch selectedSection {
         case .overview:
             statsCard(descriptor: descriptor)
-            if !vm.positions.isEmpty { positionsCard }
         case .validators:
             if vm.validators.isEmpty {
                 loadingValidatorsCard
             } else {
                 validatorsCard
             }
-        case .actions:
-            actionsCard(descriptor: descriptor)
-            if !vm.positions.isEmpty { positionsCard }
         case .learn:
             explanationCard(descriptor: descriptor)
         }
@@ -295,7 +281,7 @@ struct ChainStakingDetailView: View {
     private func heroCard(descriptor: StakingChainDescriptor) -> some View {
         HStack(spacing: 14) {
             CoinBadge(
-                assetIdentifier: Coin.iconIdentifier(symbol: chain.gasTokenSymbol, chainName: chain.displayName),
+                assetName: coreHoldingIconAssetName(holding: AssetHolding(name: "", symbol: "", coinGeckoId: "", chainName: chain.displayName, tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 0)),
                 fallbackText: chain.gasTokenSymbol, color: descriptor.tint, size: 56)
             VStack(alignment: .leading, spacing: 4) {
                 Text(chain.displayName).font(.title3.weight(.bold)).foregroundStyle(Color.primary)
@@ -385,101 +371,11 @@ struct ChainStakingDetailView: View {
     }
 
     @ViewBuilder
-    private var positionsCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(AppLocalization.string("Your Positions")).font(.headline)
-            ForEach(vm.positions, id: \.validatorIdentifier) { pos in
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(pos.validatorDisplayName).font(.subheadline.weight(.semibold)).lineLimit(1)
-                        Text(pos.status.displayName).font(.caption).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Text(pos.stakedAmountSmallestUnit).font(.caption.weight(.semibold)).foregroundStyle(Color.primary)
-                }
-                .padding(.vertical, 4)
-            }
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .spectraCardFill()
-    }
-
-    @ViewBuilder
-    private func actionsCard(descriptor: StakingChainDescriptor) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(AppLocalization.string("Actions")).font(.headline)
-            VStack(spacing: 8) {
-                ForEach(descriptor.actions) { action in
-                    actionButton(action)
-                }
-            }
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .spectraCardFill()
-    }
-
-    @ViewBuilder
-    private func actionButton(_ action: StakingActionKind) -> some View {
-        Button {
-            spectraHaptic(.medium)
-            Task { await vm.loadValidators() }
-        } label: {
-            HStack(spacing: 12) {
-                Image(systemName: action.systemIconName).font(.title3.weight(.semibold)).foregroundStyle(.orange).frame(
-                    width: 28, height: 28
-                ).background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous))
-                Text(action.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-                Spacer()
-                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.secondary)
-            }.padding(.horizontal, 12).padding(.vertical, 12).spectraElevatedFill(cornerRadius: SpectraLayout.Radius.pill)
-        }.buttonStyle(.plain)
-            .spectraPressable()
-    }
-
-    @ViewBuilder
     private func explanationCard(descriptor: StakingChainDescriptor) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(AppLocalization.string("How it works")).font(.headline)
             Text(descriptor.detailedExplanation).font(.subheadline).foregroundStyle(.secondary)
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .spectraCardFill()
-    }
-}
-
-private struct StakingPreviewSheet: View {
-    let preview: StakingActionPreview
-    let onDismiss: () -> Void
-    var body: some View {
-        NavigationStack {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
-                    previewRow(label: AppLocalization.string("Action"), value: preview.kind.displayName)
-                    previewRow(label: AppLocalization.string("Validator"), value: preview.validatorDisplayName)
-                    previewRow(label: AppLocalization.string("Amount"), value: preview.amountDisplay)
-                    previewRow(label: AppLocalization.string("Estimated Fee"), value: preview.estimatedFeeDisplay)
-                    if preview.unbondingPeriodSeconds > 0 {
-                        let days = preview.unbondingPeriodSeconds / 86400
-                        previewRow(label: AppLocalization.string("Unbonding"), value: AppLocalization.format("%d days", days))
-                    }
-                    ForEach(preview.notes, id: \.self) { note in
-                        Text(note).font(.caption).foregroundStyle(.secondary)
-                    }
-                }.padding(20)
-            }
-            .navigationTitle(AppLocalization.string("Transaction Preview"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(AppLocalization.string("Close")) { onDismiss() }
-                }
-            }
-        }
-    }
-    @ViewBuilder
-    private func previewRow(label: String, value: String) -> some View {
-        HStack {
-            Text(label).font(.subheadline).foregroundStyle(.secondary)
-            Spacer()
-            Text(value).font(.subheadline.weight(.semibold))
-        }
-        Divider().opacity(0.4)
     }
 }

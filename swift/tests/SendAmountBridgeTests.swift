@@ -3,17 +3,39 @@ import XCTest
 
 final class SendAmountBridgeTests: XCTestCase {
     @MainActor
-    func testImportStoresSecretThroughForeignCallbackBeforeReturningWallet() async throws {
-        let service = try WalletService.newTyped(endpoints: [])
+    func testStorageOpenFailureCanBeRetriedWithoutWritingInMemory() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try Data("blocked".utf8).write(to: directory)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let bridge = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.db").path)
+        do {
+            _ = try await bridge.applyStateCommand(.setFiatCurrency(fiatCurrencyCode: "EUR"))
+            XCTFail("a failed open must refuse the command")
+        } catch {
+            XCTAssertFalse(String(describing: error).contains("call open_state first"))
+        }
+        try FileManager.default.removeItem(at: directory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let state = try await bridge.openState()
+        XCTAssertEqual(state.settings.fiatCurrencyCode, "USD")
+        _ = try await bridge.applyStateCommand(.setFiatCurrency(fiatCurrencyCode: "EUR"))
+        let reopened = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.db").path)
+        let stored = try await reopened.openState()
+        XCTAssertEqual(stored.settings.fiatCurrencyCode, "EUR")
+    }
+
+    @MainActor
+    func testColdBridgeImportOpensStorageAndPersistsBeforeReturningWallet() async throws {
         let secretStore = ImportTestSecretStore()
-        service.setSecretStore(store: secretStore)
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
-        _ = try await service.openState(dbPath: directory.appendingPathComponent("state.db").path)
-        let outcome = try await service.importWallets(commit: WalletImportCommit(
+        let path = directory.appendingPathComponent("state.db").path
+        let bridge = WalletServiceBridge(databasePath: path)
+        try bridge.registerSecretStore(secretStore)
+        let outcome = try await bridge.importWallets(WalletImportCommit(
             password: nil,
-            request: WalletImportRequest(walletName: "Imported", defaultWalletNameStartIndex: 1,
+            request: WalletImportRequest(walletName: "Imported",
                 primarySelectedChainName: "Ethereum", selectedChainNames: ["Ethereum"], plannedWalletIds: [],
                 isWatchOnlyImport: false, isPrivateKeyImport: false, hasWalletPassword: false,
                 resolvedAddresses: WalletImportAddresses(bySlot: [:], bitcoinXpub: nil),
@@ -22,11 +44,12 @@ final class SendAmountBridgeTests: XCTestCase {
             derivationOverrides: .empty, networkChainByFamily: [:],
             seedPhrase: "test test test test test test test test test test test junk", privateKey: nil))
         XCTAssertEqual(outcome.wallets.count, 1)
-        XCTAssertTrue(service.walletSecretState(walletId: outcome.wallets[0].id).hasSigningMaterial)
-        let stored = try await service.walletsForDisplay()
+        XCTAssertTrue(bridge.walletSecretState(walletID: outcome.wallets[0].id)?.hasSigningMaterial == true)
+        let reopened = WalletServiceBridge(databasePath: path)
+        let stored = try await reopened.storedWallets()
         XCTAssertEqual(stored.count, 1)
-        _ = try await service.applyStateCommand(command: .removeWallet(walletId: outcome.wallets[0].id))
-        XCTAssertFalse(service.walletSecretState(walletId: outcome.wallets[0].id).hasSigningMaterial)
+        _ = try await bridge.applyStateCommand(.removeWallet(walletId: outcome.wallets[0].id))
+        XCTAssertFalse(bridge.walletSecretState(walletID: outcome.wallets[0].id)?.hasSigningMaterial == true)
     }
 
     func testOwnedClosureOperationsAcrossAsyncBinding() async throws {
@@ -87,8 +110,8 @@ final class SendAmountBridgeTests: XCTestCase {
         do {
             _ = try await service.executeSend(request: request)
             XCTFail("Missing wallet must fail")
-        } catch SpectraBridgeError.InvalidInput(let message) {
-            XCTAssertTrue(message.contains("wallet does not exist"))
+        } catch {
+            XCTAssertTrue(String(describing: error).contains("wallet does not exist"))
         }
     }
 
@@ -112,15 +135,35 @@ final class SendAmountBridgeTests: XCTestCase {
         }
     }
 
-    func testOwnedEvmPreviewRefusesMissingWalletAcrossAsyncBinding() async throws {
+    func testOwnedPreviewRefusesMissingWalletAcrossAsyncBinding() async throws {
         let service = try WalletService.newTyped(endpoints: [])
         do {
-            _ = try await service.previewOwnedEvmSend(walletId: "missing", holdingKey: "Ethereum|ETH", amount: "1", destination: "", explicitNonce: nil, customFees: nil)
+            _ = try await service.previewOwnedSend(walletId: "missing", holdingKey: "ethereum:native", amount: "1", destination: "", explicitNonce: nil, customFees: nil)
             XCTFail("A missing wallet must not produce a preview")
-        } catch SpectraBridgeError.InvalidInput(let message) {
-            XCTAssertTrue(message.contains("wallet does not exist"))
+        } catch {
+            XCTAssertTrue(String(describing: error).contains("wallet does not exist"))
         }
     }
+    func testAlertIntentsKeepSubcentTargetsAcrossAsyncBinding() async throws {
+        let service = try WalletService.newTyped(endpoints: [])
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        _ = try await service.openState(dbPath: directory.appendingPathComponent("state.sqlite").path)
+        let added = try await service.applyStateCommand(command: .addPriceAlert(
+            holdingKey: "ethereum:native", targetPrice: 0.000001, currencyCode: "USD", condition: .above))
+        let alert = try XCTUnwrap(added.state.priceAlerts.first)
+        XCTAssertEqual(alert.targetPrice, 0.000001)
+        let duplicate = try await service.applyStateCommand(command: .addPriceAlert(
+            holdingKey: "ethereum:native", targetPrice: 0.000001, currencyCode: "USD", condition: .above))
+        XCTAssertEqual(duplicate.state.priceAlerts.count, 1)
+        XCTAssertTrue(duplicate.events.contains { $0.kind == "priceAlertRejected" })
+        let paused = try await service.applyStateCommand(command: .togglePriceAlert(id: alert.id))
+        XCTAssertFalse(try XCTUnwrap(paused.state.priceAlerts.first).isEnabled)
+        let removed = try await service.applyStateCommand(command: .removePriceAlert(id: alert.id))
+        XCTAssertTrue(removed.state.priceAlerts.isEmpty)
+    }
+
 }
 
 private final class ImportTestSecretStore: SecretStore, @unchecked Sendable {

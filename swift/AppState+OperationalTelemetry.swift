@@ -73,23 +73,20 @@ extension AppState {
         )
     }
     func requiresSelfSendConfirmation(wallet: ImportedWallet, holding: Coin, destinationAddress: String, amount: Double) async -> Bool {
-        let ownAddresses: [String]
-        if holding.chainName == "Dogecoin" {
-            // Ownership unknown is not ownership ruled out. With no answer the
-            // guard asks rather than assumes, because the cost of asking is a
-            // tap and the cost of assuming is a send to yourself.
-            guard let known = await knownUTXOAddresses(for: wallet, chainName: "Dogecoin") else {
-                sendError = AppLocalization.string("send.self_send.ownership_unknown")
-                return true
-            }
-            ownAddresses = known
-        } else {
-            ownAddresses = await knownOwnedAddresses(for: wallet.id)
+        let plan: SelfSendConfirmationPlan
+        do {
+            plan = try await WalletServiceBridge.shared.selfSendConfirmation(
+                walletID: wallet.id, holdingKey: holding.holdingKey, destination: destinationAddress,
+                amount: amount, pending: pendingSelfSendConfirmation.map {
+                    PendingSelfSendConfirmationInput(
+                        walletId: $0.walletID, chainName: $0.chainName, symbol: $0.symbol,
+                        destinationAddressLowercased: $0.destinationAddressLowercased, amount: $0.amount,
+                        createdAtUnix: $0.createdAt.timeIntervalSince1970)
+                })
+        } catch {
+            sendError = error.localizedDescription
+            return true
         }
-        let plan = rustSelfSendConfirmationPlan(
-            walletID: wallet.id, chainName: holding.chainName, symbol: holding.symbol, destinationAddress: destinationAddress,
-            amount: amount, ownedAddresses: ownAddresses
-        )
         if plan.clearPendingConfirmation { pendingSelfSendConfirmation = nil }
         guard plan.requiresConfirmation else { return false }
         if plan.consumeExistingConfirmation {
@@ -101,27 +98,11 @@ extension AppState {
             amount: amount
         )
         sendError =
-            "This \(holding.symbol) destination belongs to your wallet. Tap Send again within \(Int(Self.selfSendConfirmationWindowSeconds))s to confirm intentional self-send."
+            "This \(holding.symbol) destination belongs to your wallet. Tap Send again to confirm intentional self-send."
         if holding.chainName == "Dogecoin" {
             appendChainOperationalEvent(.warning, chainName: "Dogecoin", message: "DOGE self-send confirmation required.")
         }
         return true
-    }
-    private func rustSelfSendConfirmationPlan(
-        walletID: String, chainName: String, symbol: String, destinationAddress: String, amount: Double, ownedAddresses: [String]
-    ) -> SelfSendConfirmationPlan {
-        coreSelfSendConfirmation(
-            request: SelfSendConfirmationRequest(
-                pendingConfirmation: pendingSelfSendConfirmation.map {
-                    PendingSelfSendConfirmationInput(
-                        walletId: $0.walletID, chainName: $0.chainName, symbol: $0.symbol,
-                        destinationAddressLowercased: $0.destinationAddressLowercased, amount: $0.amount,
-                        createdAtUnix: $0.createdAt.timeIntervalSince1970
-                    )
-                }, walletId: walletID, chainName: chainName, symbol: symbol, destinationAddress: destinationAddress, amount: amount,
-                nowUnix: Date().timeIntervalSince1970, windowSeconds: Self.selfSendConfirmationWindowSeconds, ownedAddresses: ownedAddresses
-            )
-        )
     }
     func statusPollFailureMessage(for transaction: TransactionRecord) -> String {
         AppLocalization.format(
@@ -201,27 +182,18 @@ extension AppState {
             return AppLocalization.format("Transaction reached finality (%d confirmations).", confirmations)
         }
     }
-    func addPriceAlert(for coin: Coin, targetPrice: Double, condition: PriceAlertCondition) {
-        let normalizedTargetPrice = (targetPrice * 100).rounded() / 100
-        let isDuplicate = priceAlerts.contains { alert in
-            alert.holdingKey == coin.holdingKey
-                && alert.condition == condition
-                && abs(alert.targetPrice - normalizedTargetPrice) < 0.0001
+    func editPriceAlert(_ command: StateCommand) async throws {
+        let epoch = beginCoreStateRead()
+        do {
+            let transition = try await WalletServiceBridge.shared.applyStateCommand(command)
+            applyCoreState(transition.state, epoch: epoch)
+            if let rejected = transition.events.first(where: { $0.kind == "priceAlertRejected" }) {
+                throw NSError(domain: "PriceAlert", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: rejected.subjectId ?? "Unable to edit alert"])
+            }
+        } catch {
+            finishCoreStateRead(epoch)
+            throw error
         }
-        guard !isDuplicate else { return }
-        let alert = PriceAlertRule(
-            holdingKey: coin.holdingKey, assetName: coin.name, symbol: coin.symbol, chainName: coin.chainName,
-            targetPrice: normalizedTargetPrice, condition: condition
-        )
-        priceAlerts.insert(alert, at: 0)
-        requestPriceAlertNotificationPermission()
-    }
-    func togglePriceAlertEnabled(id: String) {
-        guard let index = priceAlerts.firstIndex(where: { $0.id == id }) else { return }
-        priceAlerts[index].isEnabled.toggle()
-        if !priceAlerts[index].isEnabled { priceAlerts[index].hasTriggered = false }
-    }
-    func removePriceAlert(id: String) {
-        priceAlerts.removeAll { $0.id == id }
     }
 }

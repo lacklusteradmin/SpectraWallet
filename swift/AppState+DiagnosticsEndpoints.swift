@@ -4,7 +4,6 @@ import SwiftUI
 // Swift holds progress and rendered diagnostics; core owns probes and status updates.
 @MainActor
 extension AppState {
-    func runBitcoinXpubHistoryDiagnostics() async { await runHistoryDiagnostics(for: .bitcoin) }
     func runHistoryDiagnostics(for chain: Chain) async {
         let name = chain.displayName
         guard !self[historyRunFor: name].isRunning else { return }
@@ -32,8 +31,6 @@ extension AppState {
             self[endpointHealthFor: chainName].lastUpdatedAt = Date()
         }
     }
-    func runBitcoinEndpointReachabilityDiagnostics() async { await runCatalogEndpointReachabilityDiagnostics(for: "Bitcoin") }
-    func runMoneroEndpointReachabilityDiagnostics() async { await runCatalogEndpointReachabilityDiagnostics(for: "Monero") }
     func runCatalogEndpointReachabilityDiagnostics(for chainName: String) async {
         guard let chain = Chain(displayName: chainName) else { return }
         await withEndpointCheck(for: chainName) { publish in

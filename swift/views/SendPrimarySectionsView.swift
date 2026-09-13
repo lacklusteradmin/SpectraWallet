@@ -66,7 +66,7 @@ struct SendFromPage: View {
                 let badge = Coin.nativeChainBadge(chainName: selectedWallet.selectedChain) ?? (nil, Color.mint)
                 HStack(spacing: 12) {
                     CoinBadge(
-                        assetIdentifier: badge.assetIdentifier,
+                        assetName: badge.artworkName,
                         fallbackText: selectedWallet.selectedChain,
                         color: badge.color,
                         size: 38
@@ -108,7 +108,7 @@ struct SendFromPage: View {
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 8) {
                     CoinBadge(
-                        assetIdentifier: coin.iconIdentifier,
+                        assetName: coin.iconAssetName,
                         fallbackText: coin.symbol,
                         color: coin.color,
                         size: 28

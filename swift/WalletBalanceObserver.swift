@@ -39,6 +39,7 @@ final class WalletBalanceObserver: BalanceObserver, @unchecked Sendable {
             // total reflects fresh amounts without waiting for the next
             // maintenance-loop tick (which can be up to 5 min away).
             _ = await store.refreshLivePrices()
+            await store.notifyPortfolioMovement()
         }
     }
 }

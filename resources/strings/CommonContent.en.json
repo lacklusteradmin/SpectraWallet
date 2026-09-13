@@ -4,8 +4,6 @@
   "transactionSentTitleFormat": "Sent %@",
   "transactionReceivedTitleFormat": "Received %@",
   "transactionSubtitleFormat": "%@ on %@ • %@",
-  "invalidAddressFormat": "The %@ address is not valid.",
-  "invalidDestinationAddressPromptFormat": "Enter a valid %@ destination address.",
   "walletImportErrorTitle": "Wallet Import Error",
   "sendErrorTitle": "Send Error",
   "securityNoticeTitle": "Security Notice",

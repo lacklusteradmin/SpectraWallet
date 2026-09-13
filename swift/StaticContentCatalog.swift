@@ -124,8 +124,6 @@ struct ImportFlowContent: Decodable {
     let enterPrivateKeyTitle: String
     let enterSeedPhraseTitle: String
     let editWalletTitle: String
-    let createWalletTitle: String
-    let importWalletTitle: String
     let backupVerificationSubtitle: String
     let advancedSubtitle: String
     let watchAddressesSubtitle: String
@@ -133,8 +131,6 @@ struct ImportFlowContent: Decodable {
     let saveRecoveryPhraseSubtitle: String
     let enterRecoveryPhraseSubtitle: String
     let editWalletSubtitle: String
-    let chooseNameAndChainsSubtitle: String
-    let chooseNameAndChainSubtitle: String
     let importSeedLengthTitle: String
     let importSeedLengthSubtitle: String
     let createSeedLengthTitle: String
@@ -160,22 +156,12 @@ struct CommonLocalizationContent: Decodable {
     let transactionSentTitleFormat: String
     let transactionReceivedTitleFormat: String
     let transactionSubtitleFormat: String
-    let invalidAddressFormat: String
-    let invalidDestinationAddressPromptFormat: String
     let walletImportErrorTitle: String
     let sendErrorTitle: String
     let securityNoticeTitle: String
     let tronSendDiagnosticTitle: String
     static var current: CommonLocalizationContent {
         StaticContentCatalog.loadRequiredResource("CommonContent", as: CommonLocalizationContent.self)
-    }
-}
-enum CommonLocalization {
-    static func invalidAddress(_ chainName: String) -> String {
-        String(format: CommonLocalizationContent.current.invalidAddressFormat, chainName)
-    }
-    static func invalidDestinationAddressPrompt(_ chainName: String) -> String {
-        String(format: CommonLocalizationContent.current.invalidDestinationAddressPromptFormat, chainName)
     }
 }
 /// Maps a human-readable color string (stored in `core/data/tokens.toml`
@@ -253,12 +239,6 @@ struct EndpointsContentCopy: Decodable {
     }
 }
 /// The token-hosting chain a name or id stands for.
-private func tokenHostingChainFor(_ value: String) -> TokenHostingChain? {
-    let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    guard !normalized.isEmpty else { return nil }
-    let chain = Chain(id: normalized) ?? Chain.all.first { $0.displayName.lowercased() == normalized }
-    return chain?.tokenHostingChain
-}
 enum AppLocalization {
     private final class BundleMarker {}
     private struct LocalizationState {

@@ -1,43 +1,10 @@
 import Foundation
 
-// MARK: - Responsibility
-//
-// This file holds **address-resolution logic only**: given a wallet,
-// return a derived/stored address for a particular chain. No UI state
-// (no `isResolving…` flags, no `receive…` mutations, no presentation
-// helpers) lives here. UI state for the receive flow lives in
-// `AppState+ReceiveFlow.swift`; mixing the two was a known god-object
-// problem flagged in the readability audit.
-//
-// Convention for new methods in this file: pure read of wallet + AppState
-// derivation context; return an optional `String` address; no side
-// effects. If a method needs to flip a UI flag, it belongs in
-// `AppState+ReceiveFlow` and should *call* into one of these resolvers,
-// not own the resolution logic itself.
-
-
 @MainActor
 extension AppState {
-    /// The address core stored for this wallet on `chainName`.
-    ///
-    /// A read, not a derivation. This file used to derive: per call, on the
-    /// render path, it pulled the seed out of the Keychain, resolved a path,
-    /// called the deriver and validated the result — for a value core had
-    /// already computed and stored at import. A password-sealed wallet has no
-    /// seed to pull, so it fell through to the stored mainnet address whatever
-    /// network it was on, and said nothing about it.
-    ///
-    /// The network is part of the question: a wallet on Bitcoin Testnet4 has a
-    /// different key and a different address, and core stores one per network
-    /// of the family, each under that network's own slot. The EVM family shares
-    /// Ethereum's slot, which is how an Ethereum wallet answers for Arbitrum.
-    /// A chain the wallet was never imported for has no address here, and no
-    /// seed is read to invent one.
+    /// Render core's network-validated address projection.
     func resolvedAddress(for wallet: ImportedWallet, chainName: String) -> String? {
-        guard let chain = Chain(displayName: chainName) else { return nil }
-        let network = Chain(id: walletNetworkChainID(for: wallet, family: chain.mainnetCounterpart.id))
-        return wallet.addresses[network?.addressSlot ?? chain.addressSlot]
-            ?? wallet.addresses[chain.addressSlot]
+        walletDerivedCache.resolvedAddressesByWalletID[wallet.id]?[chainName]
     }
 }
 /// Pure-function cache for `coreValidateAddress` / `coreValidateStringIdentifier`.
@@ -79,8 +46,5 @@ enum AddressValidation {
     }
     static func normalized(_ address: String, kind: String) -> String? {
         AddressValidationCache.shared.address(address, kind: kind).normalizedValue
-    }
-    static func isValidAptosTokenType(_ value: String) -> Bool {
-        AddressValidationCache.shared.address(value, kind: "aptosTokenType").isValid
     }
 }

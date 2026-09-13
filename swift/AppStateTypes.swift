@@ -156,12 +156,6 @@ extension AppState {
         var id: String { chainName }
     }
 
-    struct PersistedChainSyncState: Codable {
-        let version: Int
-        let degradedMessages: [String: String]
-        let lastGoodSyncUnix: [String: TimeInterval]
-        static let currentVersion = 1
-    }
 
     struct ChainKeypoolDiagnostic: Identifiable, Equatable {
         let walletID: String

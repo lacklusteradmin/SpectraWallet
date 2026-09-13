@@ -24,21 +24,11 @@ struct EVMChainContext: Equatable {
     }
 
     var tokenHostingChain: TokenHostingChain? { TokenHostingChain.forChainName(displayName) }
-    var defaultDerivationPath: String { derivationPath(account: 0) }
-    func derivationPath(account: UInt32) -> String { "m/44\'/\(coinType)\'/\(account)\'/0/0" }
     var defaultRPCEndpoints: [String] { AppEndpointDirectory.evmRPCEndpoints(for: displayName) }
 }
 
 // Preview types are UniFFI-generated from `core/src/send/`. What is left here
 // is the send *result* types and the chain-specific enums the UI switches on.
-
-struct EvmSendResult: Equatable {
-    let fromAddress: String
-    let transactionHash: String
-    let rawTransactionHex: String
-    let preview: EvmSendPreview
-    let verificationStatus: SendBroadcastVerificationStatus
-}
 
 enum LitecoinChangeStrategy: String, CaseIterable, Identifiable {
     case derivedChange
@@ -68,37 +58,8 @@ enum EthereumWalletEngineError: LocalizedError {
 func normalizeEVMAddress(_ address: String) -> String {
     address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 }
-func validateEVMAddress(_ address: String) throws -> String {
-    let normalized = normalizeEVMAddress(address)
-    guard AddressValidation.isValid(normalized, kind: "evm") else { throw EthereumWalletEngineError.invalidAddress }
-    return normalized
-}
-func receiveEVMAddress(for address: String) throws -> String {
-    try validateEVMAddress(address)
-}
 
 extension SendPreview {
-    /// The same preview, under the tag `SendPreviewStore` keys on.
-    init(simple: SimpleChainPreview) {
-        switch simple {
-        case .solana(let p): self = .solana(preview: p)
-        case .xrp(let p): self = .xrp(preview: p)
-        case .stellar(let p): self = .stellar(preview: p)
-        case .monero(let p): self = .monero(preview: p)
-        case .cardano(let p): self = .cardano(preview: p)
-        case .sui(let p): self = .sui(preview: p)
-        case .aptos(let p): self = .aptos(preview: p)
-        case .ton(let p): self = .ton(preview: p)
-        case .icp(let p): self = .icp(preview: p)
-        case .near(let p): self = .near(preview: p)
-        case .polkadot(let p): self = .polkadot(preview: p)
-        case .bittensor(let p): self = .bittensor(preview: p)
-        }
-    }
-
-    /// The estimated network fee, whichever shape the preview is.
-    ///
-    /// Every preview record carries one — the tags differ, the field does not.
     var estimatedNetworkFee: Double {
         switch self {
         case .utxo(let p): return p.estimatedNetworkFee
@@ -140,13 +101,6 @@ final class SendPreviewStore {
         Self.previewSlot(forChainNamed: chainName).flatMap { previewBySlot[$0] }
     }
 
-    /// A simple-chain preview arrives under its own tag; store it under the
-    /// same slot as any other. The eleven-arm switch this replaces assigned to
-    /// one of eleven fields, which is the field list written out a fifth time.
-    func apply(_ preview: SimpleChainPreview?, forChainNamed chainName: String) {
-        apply(preview.map(SendPreview.init(simple:)), forChainNamed: chainName)
-    }
-
     func clearPreview(forChainNamed chainName: String) { apply(nil as SendPreview?, forChainNamed: chainName) }
 
     /// The estimated network fee a chain's preview reports, in its own units.
@@ -183,21 +137,9 @@ final class SendPreviewStore {
         get { if case .ethereum(let p) = previewBySlot["Ethereum"] { p } else { nil } }
         set { previewBySlot["Ethereum"] = newValue.map { .ethereum(preview: $0) } }
     }
-    var bitcoinSendPreview: BitcoinSendPreview? {
-        get { if case .utxo(let p) = previewBySlot["Bitcoin"] { p } else { nil } }
-        set { previewBySlot["Bitcoin"] = newValue.map { .utxo(preview: $0) } }
-    }
     var dogecoinSendPreview: DogecoinSendPreview? {
         get { if case .dogecoin(let p) = previewBySlot["Dogecoin"] { p } else { nil } }
         set { previewBySlot["Dogecoin"] = newValue.map { .dogecoin(preview: $0) } }
-    }
-    var tronSendPreview: TronSendPreview? {
-        get { if case .tron(let p) = previewBySlot["Tron"] { p } else { nil } }
-        set { previewBySlot["Tron"] = newValue.map { .tron(preview: $0) } }
-    }
-    var solanaSendPreview: SolanaSendPreview? {
-        get { if case .solana(let p) = previewBySlot["Solana"] { p } else { nil } }
-        set { previewBySlot["Solana"] = newValue.map { .solana(preview: $0) } }
     }
     var xrpSendPreview: XrpSendPreview? {
         get { if case .xrp(let p) = previewBySlot["XRP Ledger"] { p } else { nil } }

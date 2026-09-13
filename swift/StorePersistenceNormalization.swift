@@ -5,7 +5,6 @@ extension AppState {
             tokenPreferences
         cachedResolvedTokenPreferences = resolvedPreferences
         cachedTokenPreferencesByChain = Dictionary(grouping: resolvedPreferences, by: { TokenHostingChain.forChainName($0.token.chain) ?? .ethereum })
-        cachedEnabledKnownTokenPreferences = resolvedPreferences.filter(\.isEnabled)
         cachedTokenPreferenceByDeploymentID = Dictionary(
             resolvedPreferences.map { ($0.token.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
@@ -16,7 +15,7 @@ extension AppState {
     /// coins each wallet can send or receive on. It holds the wallets, so it
     /// hands back coins rather than indices into a list the caller has to
     /// re-walk.
-    private func rebuildWalletDerivedStateFromCore() async {
+    func rebuildWalletDerivedStateFromCore() async {
         guard let derived = try? await WalletServiceBridge.shared.walletDerivedState() else { return }
         applyWalletDerivedState(derived)
     }
@@ -27,14 +26,11 @@ extension AppState {
         let preservedPasswordProtectedIDs = walletDerivedCache.passwordProtectedWalletIDs
         let preservedSecretDescriptors = walletDerivedCache.secretDescriptorsByWalletID
         walletDerivedCache = WalletDerivedCache(
+            resolvedAddressesByWalletID: derived.resolvedAddressesByWalletId,
             walletByID: walletByID,
             walletByIDString: walletByID,
             includedPortfolioWallets: wallets.filter(\.includeInPortfolioTotal),
             includedPortfolioHoldings: derived.includedPortfolioHoldings,
-            includedPortfolioHoldingsBySymbol: Dictionary(
-                grouping: derived.includedPortfolioHoldings, by: { $0.symbol.uppercased() }
-            ),
-            uniqueWalletPriceRequestCoins: derived.uniquePriceRequestCoins,
             portfolio: derived.portfolio,
             availableSendCoinsByWalletID: derived.sendCoinsByWalletId,
             availableReceiveCoinsByWalletID: derived.receiveCoinsByWalletId,
@@ -81,10 +77,6 @@ extension AppState {
         // Wallets persist themselves: every mutation goes through a
         // `StateCommand` that core writes before it returns.
         updateRefreshEngineEntries()
-        // Which transactions are orphaned is core's answer now, so this is a
-        // round trip rather than a local filter. It runs inside a debounce, so
-        // deferring it costs nothing this side was relying on.
-        Task { @MainActor [weak self] in await self?.pruneTransactionsForActiveWallets() }
     }
 
     /// Phase 3: start or stop the Rust-side balance-refresh engine and
@@ -102,7 +94,6 @@ extension AppState {
         }
     }
 
-    func appendTransaction(_ transaction: TransactionRecord) { recordTransaction(transaction) }
     func markChainHealthy(_ chainName: String) { diagnostics.markChainHealthy(chainName) }
     func noteChainSuccessfulSync(_ chainName: String) { diagnostics.noteChainSuccessfulSync(chainName) }
     func normalizedWalletChainName(_ chainName: String) -> String {
@@ -130,30 +121,6 @@ extension AppState {
     func refreshTransactionProjection() async {
         guard let stored = try? await WalletServiceBridge.shared.storedTransactions() else { return }
         adoptTransactionsFromCore(stored.compactMap(TransactionRecord.init(snapshot:)))
-        await pruneTransactionsForActiveWallets()
         await rebuildTransactionDerivedState()
     }
-}
-private extension TransactionRecord {
-    var rustBridgeRecord: CoreTransactionRecord {
-        CoreTransactionRecord(
-            deploymentId: deploymentID,
-            id: id.uuidString, walletId: walletID, kind: kind.rawValue, status: status.rawValue, walletName: walletName,
-            assetName: assetName, symbol: symbol, chainName: chainName, amount: amount, address: address, transactionHash: transactionHash,
-            ethereumNonce: ethereumNonce.map { Int64($0) }, receiptBlockNumber: receiptBlockNumber.map { Int64($0) },
-            receiptGasUsed: receiptGasUsed, receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei,
-            receiptNetworkFeeEth: receiptNetworkFeeEth, feePriorityRaw: feePriorityRaw, feeRateDescription: feeRateDescription,
-            confirmationCount: confirmationCount.map { Int64($0) }, dogecoinConfirmedNetworkFeeDoge: dogecoinConfirmedNetworkFeeDoge,
-            dogecoinEstimatedFeeRateDogePerKb: dogecoinEstimatedFeeRateDogePerKb, usedChangeOutput: usedChangeOutput,
-            sourceDerivationPath: sourceDerivationPath,
-            changeDerivationPath: changeDerivationPath, sourceAddress: sourceAddress, changeAddress: changeAddress,
-            signedTransactionPayload: signedTransactionPayload,
-            signedTransactionPayloadFormat: signedTransactionPayloadFormat, failureReason: failureReason,
-            transactionHistorySource: transactionHistorySource, createdAtUnix: createdAt.timeIntervalSince1970
-        )
-    }
-}
-private extension CoreTransactionRecord {
-}
-private extension AppState {
 }

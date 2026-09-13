@@ -6,6 +6,7 @@ struct PriceAlertsView: View {
     @State private var selectedHoldingKey: String = ""
     @State private var selectedCondition: PriceAlertCondition = .above
     @State private var targetPriceText: String = ""
+    @State private var isSubmitting = false
     @State private var formMessage: String?
     @State private var removingAlertID: String?
     private var alertableHoldingKeys: Set<String> { Set(store.alertableCoins.map(\.holdingKey)) }
@@ -58,9 +59,9 @@ struct PriceAlertsView: View {
                                 store.formattedFiatAmountOrUnavailable(fromUSD: store.currentPriceIfAvailable(for: selectedCoin)))
                         ).spectraHintText().spectraNumericTextLayout()
                     }
-                    if let formMessage { Text(formMessage).font(.caption).foregroundStyle(isDuplicateDraftAlert ? .orange : .secondary) }
+                    if let formMessage { Text(formMessage).font(.caption).foregroundStyle(.secondary) }
                     Button(AppLocalization.string("Add Alert")) {
-                        addAlert()
+                        Task { await addAlert() }
                     }.spectraPressable()
                         .disabled(!canAddAlert)
                 }
@@ -90,7 +91,7 @@ struct PriceAlertsView: View {
                             HStack {
                                 Button(alert.isEnabled ? AppLocalization.string("Pause") : AppLocalization.string("Resume")) {
                                     spectraHaptic(.light)
-                                    store.togglePriceAlertEnabled(id: alert.id)
+                                    Task { await editAlert(.togglePriceAlert(id: alert.id)) }
                                 }.buttonStyle(.borderless)
                                 Spacer()
                                 Button(AppLocalization.string("Remove"), role: .destructive) {
@@ -110,7 +111,7 @@ struct PriceAlertsView: View {
             Button(AppLocalization.string("Remove"), role: .destructive) {
                 if let id = removingAlertID {
                     spectraHaptic(.medium)
-                    store.removePriceAlert(id: id)
+                    Task { await editAlert(.removePriceAlert(id: id)) }
                 }
                 removingAlertID = nil
             }
@@ -125,36 +126,28 @@ struct PriceAlertsView: View {
         }
     }
     private var canAddAlert: Bool {
-        guard selectedCoin != nil, let targetPrice = Double(targetPriceText.trimmingCharacters(in: .whitespacesAndNewlines)),
-            targetPrice > 0
-        else { return false }
-        return !isDuplicateDraftAlert
+        selectedCoin != nil && !targetPriceText.isEmpty && !isSubmitting
     }
-    private var normalizedDraftTargetPrice: Double? {
-        guard let targetPriceInSelectedFiat = Double(targetPriceText.trimmingCharacters(in: .whitespacesAndNewlines)),
-            targetPriceInSelectedFiat > 0
-        else { return nil }
-        let targetPriceUSD = store.convertSelectedFiatToUSD(targetPriceInSelectedFiat)
-        return (targetPriceUSD * 100).rounded() / 100
+    private func editAlert(_ command: StateCommand) async {
+        do { try await store.editPriceAlert(command) }
+        catch { formMessage = error.localizedDescription }
     }
-    private var isDuplicateDraftAlert: Bool {
-        guard let selectedCoin, let normalizedDraftTargetPrice else { return false }
-        return store.priceAlerts.contains { alert in
-            alert.holdingKey == selectedCoin.holdingKey
-                && alert.condition == selectedCondition
-                && abs(alert.targetPrice - normalizedDraftTargetPrice) < 0.0001
-        }
-    }
-    private func addAlert() {
-        guard let selectedCoin, let targetPrice = normalizedDraftTargetPrice, targetPrice > 0 else { return }
-        guard !isDuplicateDraftAlert else {
-            formMessage = AppLocalization.string("An identical alert already exists for this asset.")
+    private func addAlert() async {
+        guard let selectedCoin, let target = Double(targetPriceText.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            formMessage = AppLocalization.string("Enter a valid amount")
             return
         }
-        store.addPriceAlert(for: selectedCoin, targetPrice: targetPrice, condition: selectedCondition)
-        targetPriceText = ""
-        selectedCondition = .above
-        formMessage = AppLocalization.string("Alert added. Spectra will notify you when this target is hit.")
+        isSubmitting = true
+        defer { isSubmitting = false }
+        do {
+            try await store.editPriceAlert(.addPriceAlert(
+                holdingKey: selectedCoin.holdingKey, targetPrice: target,
+                currencyCode: store.selectedFiatCurrency.rawValue, condition: selectedCondition))
+            store.requestPriceAlertNotificationPermission()
+            targetPriceText = ""
+            selectedCondition = .above
+            formMessage = AppLocalization.string("Alert added. Spectra will notify you when this target is hit.")
+        } catch { formMessage = error.localizedDescription }
     }
     private func syncSelection() {
         if !alertableHoldingKeys.contains(selectedHoldingKey) { selectedHoldingKey = store.alertableCoins.first?.holdingKey ?? "" }

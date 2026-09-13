@@ -40,7 +40,7 @@ struct AllChainsSelectionView: View {
             HStack(spacing: 12) {
                 ZStack(alignment: .bottomTrailing) {
                     CoinBadge(
-                        assetIdentifier: descriptor.assetIdentifier, fallbackText: descriptor.symbol,
+                        assetName: descriptor.artworkName, fallbackText: descriptor.symbol,
                         color: descriptor.color, size: 36
                     )
                     if isSelected {

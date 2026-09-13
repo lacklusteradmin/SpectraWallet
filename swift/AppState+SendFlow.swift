@@ -153,13 +153,6 @@ extension AppState {
             $0.transactionId.caseInsensitiveCompare(transactionID.uuidString) == .orderedSame
         }
     }
-    /// The gas asset a replacement on this pending send's chain is paid and —
-    /// when it is a cancel — sent in.
-    private func replacementHolding(for pending: ReplaceableSend) -> Coin? {
-        availableSendCoins(for: sendWalletID).first {
-            $0.chainName == pending.chainName && $0.isNativeCoin
-        }
-    }
     func prepareReplacementContext(cancel: Bool) async {
         guard let pending = replaceableSendForSelectedWallet else {
             sendError = localizedStoreString("No pending transaction found for this wallet.")
@@ -174,25 +167,6 @@ extension AppState {
             sendError = message
             return message
         }
-        guard let wallet = wallets.first(where: { $0.id.caseInsensitiveCompare(pending.walletId) == .orderedSame })
-        else {
-            let message = localizedStoreString("The wallet for this pending transaction is not available.")
-            sendError = message
-            return message
-        }
-        sendWalletID = wallet.id
-        // The composer is moved to the chain the pending send is on, not to
-        // Ethereum, and to that chain's gas asset — the one a replacement is
-        // signed in.
-        guard let holding = replacementHolding(for: pending) else {
-            let message = AppLocalization.format(
-                "This wallet has no %@ holding on %@ to replace that transaction with.",
-                Chain(id: pending.chainId)?.gasTokenSymbol ?? "", pending.chainName)
-            sendError = message
-            return message
-        }
-        sendHoldingKey = holding.holdingKey
-        syncSendAssetSelection()
         selectedMainTab = .home
         await Task.yield()
         isShowingSendSheet = true
@@ -200,46 +174,19 @@ extension AppState {
         return sendError
     }
     func prepareReplacementContext(pending: ReplaceableSend, cancel: Bool) async {
-        // A speed-up re-signs the same transfer, and only a native one can be
-        // rebuilt from a record — the token's contract is not in it. This used
-        // to compose a *native* transfer of the token's amount to the token's
-        // recipient, so speeding up a 100 USDC send offered to send 100 ETH.
-        // Cancelling needs none of that and stays available.
-        guard cancel || pending.canSpeedUp else {
-            sendError = AppLocalization.format(
-                "Speed Up is unavailable for a pending %@ transfer. Cancel it to free the nonce, then send again.",
-                pending.symbol)
-            return
-        }
-        guard let wallet = wallets.first(where: { $0.id.caseInsensitiveCompare(pending.walletId) == .orderedSame }),
-            let ownAddress = wallet.address(forChainNamed: pending.chainName)
-        else {
-            sendError = localizedStoreString("Select a wallet first."); return
-        }
         isPreparingReplacementContext = true; defer { isPreparingReplacementContext = false }
         do {
-            let nonce = try await WalletServiceBridge.shared.fetchEVMTxNonce(
-                chainId: pending.chainId, txHash: pending.transactionHash)
-            sendAddress = cancel ? ownAddress : pending.toAddress
-            sendAmount = cancel ? "0" : String(format: "%.8f", pending.amount)
-            evmManualNonceEnabled = true; evmManualNonce = String(nonce)
-            // The fee to beat is the one this chain is charging now. The pair
-            // of constants below was written for Ethereum and is under the
-            // base fee on some chains and far over it on others, so the live
-            // estimate is loaded first and bumped; the constants are what is
-            // left when no estimate loads.
-            useCustomEvmFees = false
-            customEvmMaxFeeGwei = ""; customEvmPriorityFeeGwei = ""
-            await refreshEvmSendPreview()
-            let estimate = sendPreviewStore.evmSendPreview
-            let bump = coreEvmReplacementFeeBump(
-                existingMaxFeeGwei: estimate.map { String($0.maxFeePerGasGwei) },
-                existingPriorityFeeGwei: estimate.map { String($0.maxPriorityFeePerGasGwei) },
-                defaultMaxFeeGwei: 4.0, defaultPriorityFeeGwei: 2.0
-            )
+            let draft = try await WalletServiceBridge.shared.replacementDraft(
+                transactionID: pending.transactionId, cancel: cancel)
+            sendWalletID = draft.walletId
+            sendHoldingKey = draft.holdingKey
+            sendAddress = draft.destination
+            sendAmount = draft.amount
+            evmManualNonceEnabled = true
+            evmManualNonce = String(draft.nonce)
             useCustomEvmFees = true
-            customEvmMaxFeeGwei = bump.maxFeeGwei
-            customEvmPriorityFeeGwei = bump.priorityFeeGwei
+            customEvmMaxFeeGwei = draft.maxFeeGwei
+            customEvmPriorityFeeGwei = draft.priorityFeeGwei
             sendError = localizedStoreString(
                 cancel ? "Cancellation context loaded. Review fees and tap Send." : "Replacement context loaded. Review fees and tap Send.")
             await refreshSendPreview()
@@ -253,25 +200,6 @@ extension AppState {
         if error is CancellationError { return true }
         if let urlError = error as? URLError, urlError.code == .cancelled { return true }
         return false
-    }
-    func mapEvmSendError(_ error: Error) -> String {
-        let message = error.localizedDescription
-        switch coreEthereumSendErrorCode(message: message) {
-        case .nonceTooLow:
-            return localizedStoreString("Nonce too low. A newer transaction from this wallet is already known. Refresh and retry.")
-        case .replacementUnderpriced:
-            return localizedStoreString("Replacement transaction underpriced. Increase fees and retry.")
-        case .alreadyKnown:
-            return localizedStoreString("This transaction is already in the mempool.")
-        case .insufficientFunds:
-            return localizedStoreString("Insufficient ETH to cover value plus network fee.")
-        case .maxFeeBelowBaseFee:
-            return localizedStoreString("Max fee is below current base fee. Increase Max Fee and retry.")
-        case .intrinsicGasLow:
-            return localizedStoreString("Gas limit is too low for this transaction.")
-        case .unknown:
-            return message
-        }
     }
     func isEVMChain(_ chainName: String) -> Bool { (Chain(displayName: chainName)?.isEVM ?? false) }
     /// The custom RPC this chain is pointed at, if it is set and valid.
@@ -287,17 +215,8 @@ extension AppState {
     /// a TON jetton's case-significant address is not lowercased into a
     /// non-match.
     func supportedToken(for coin: Coin) -> TokenPreferenceEntry? {
-        guard let tokenChain = TokenHostingChain.forChainName(coin.chainName) else { return nil }
-        // A chain's native asset is never one of its tokens.
-        if coin.isNativeCoin { return nil }
-        let chainTokens = enabledKnownTokens(for: tokenChain)
-        guard let contractAddress = coin.contractAddress else { return nil }
-        let normalized = normalizedKnownTokenIdentifier(
-            for: tokenChain, contractAddress: contractAddress)
-        return chainTokens.first {
-            normalizedKnownTokenIdentifier(for: tokenChain, contractAddress: $0.token.contract)
-                    == normalized
-        }
+        guard let entry = cachedTokenPreferenceByDeploymentID[coin.holdingKey], entry.isEnabled else { return nil }
+        return entry
     }
 
     /// The address is judged against the network the family is on.
@@ -714,13 +633,7 @@ extension AppState {
     /// The network this wallet is on for a family: its own if it has one,
     /// otherwise whatever the app is set to.
     func walletNetworkChainID(for wallet: ImportedWallet, family: String) -> NetworkChainID {
-        if let own = wallet.networkChainId,
-            coreResolveChainId(input: own) == own,
-            (Chain(id: family)?.networkChoices ?? []).contains(where: { $0.chainId == own })
-        {
-            return own
-        }
-        return networkChainID(forFamily: family)
+        wallet.networkChainId ?? ""
     }
 
     /// The derivation chain for a network, by id.
@@ -738,11 +651,6 @@ extension AppState {
         return Chain(id: chainID)?.displayName ?? chainID
     }
     /// The part after the chain — "Testnet4" — for screens that show it alone.
-    func displayNetworkName(for chainName: String) -> String {
-        let title = displayChainTitle(for: chainName)
-        guard title != chainName else { return "Mainnet" }
-        return String(title.dropFirst(chainName.count)).trimmingCharacters(in: .whitespaces)
-    }
     func displayChainTitle(for wallet: ImportedWallet) -> String {
         guard let family = Chain(displayName: wallet.selectedChain)?.id, !family.isEmpty else {
             return wallet.selectedChain
@@ -750,59 +658,10 @@ extension AppState {
         let chainID = walletNetworkChainID(for: wallet, family: family)
         return Chain(id: chainID)?.displayName ?? chainID
     }
-    func displayNetworkName(for wallet: ImportedWallet) -> String {
-        let chain = wallet.selectedChain
-        let title = displayChainTitle(for: wallet)
-        guard title != chain else { return "Mainnet" }
-        return String(title.dropFirst(chain.count)).trimmingCharacters(in: .whitespaces)
-    }
-    func displayNetworkName(for transaction: TransactionRecord) -> String {
-        // The families whose selected network changes the name shown. Two were
-        // spelled here; `hasNetworkChoice` is the registry column.
-        if Chain(displayName: transaction.chainName)?.hasNetworkChoice == true, let walletID = transaction.walletID,
-            let wallet = cachedWalletByID[walletID]
-        {
-            return displayNetworkName(for: wallet)
-        }
-        return displayNetworkName(for: transaction.chainName)
-    }
     func displayChainTitle(for transaction: TransactionRecord) -> String {
-        // The families whose selected network changes the name shown. Two were
-        // spelled here; `hasNetworkChoice` is the registry column.
-        if Chain(displayName: transaction.chainName)?.hasNetworkChoice == true, let walletID = transaction.walletID,
-            let wallet = cachedWalletByID[walletID]
-        {
-            return displayChainTitle(for: wallet)
-        }
-        return displayChainTitle(for: transaction.chainName)
+        transaction.chainName
     }
     func supportsDeepUTXODiscovery(chainName: String) -> Bool { (Chain(displayName: chainName)?.supportsDeepUTXODiscovery ?? false) }
-    /// Judged against the network the family is on, which is a chain — so the
-    /// registry supplies the kind. Five hand-written cases before, two of them
-    /// passing a mode the validator ignored.
-    /// Judge an address against the network the chain is actually on.
-    ///
-    /// `wallet` picks that wallet's network where it has one of its own;
-    /// without it the family's global selection is used. A Dogecoin-only twin
-    /// of this existed for the wallet-scoped case, which is a distinction
-    /// every one of the twenty-nine chains with a network choice has.
-    ///
-    /// `requireDeepUTXODiscovery` is what the address-discovery callers need
-    /// and the send callers do not: discovery walks a chain's addresses, so it
-    /// only applies to chains that support the walk.
-    func isValidAddressForPolicy(
-        _ address: String, chainName: String,
-        wallet: ImportedWallet? = nil, requireDeepUTXODiscovery: Bool = false
-    ) -> Bool {
-        guard !requireDeepUTXODiscovery || supportsDeepUTXODiscovery(chainName: chainName),
-            let family = Chain(displayName: chainName)?.id, !family.isEmpty
-        else { return false }
-        let selected =
-            wallet.map { walletNetworkChainID(for: $0, family: family) }
-            ?? networkChainID(forFamily: family)
-        let kind = Chain(id: selected)?.addressValidationKind ?? ""
-        return !kind.isEmpty && AddressValidation.isValid(address, kind: kind)
-    }
     /// `nil` when the lookup failed, which is a different answer from an
     /// empty list. Collapsing the two let a transient failure read as "this
     /// wallet owns no addresses" — and the self-send guard, which asks exactly
@@ -924,23 +783,6 @@ extension AppState {
         lastSendDestinationProbeKey = addressProbeKey
         lastSendDestinationProbeWarning = messages.warning
         lastSendDestinationProbeInfoMessage = sendDestinationInfoMessage
-    }
-    func userFacingTronSendError(_ error: Error, symbol: String) -> String {
-        let message = error.localizedDescription
-        let lower = message.lowercased()
-        if lower.contains("timed out") {
-            return localizedStoreString("Tron network request timed out. Please try again.")
-        }
-        if lower.contains("not connected") || lower.contains("offline") {
-            return localizedStoreString("No network connection. Check your internet and retry.")
-        }
-        return message
-    }
-    func recordTronSendDiagnosticError(_ message: String) {
-        let trimmed = message.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        tronLastSendErrorDetails = trimmed
-        tronLastSendErrorAt = Date()
     }
     /// The one sentence pair a destination verdict turns into.
     ///

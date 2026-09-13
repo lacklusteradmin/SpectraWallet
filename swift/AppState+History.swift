@@ -10,7 +10,6 @@ extension AppState {
     func resetHistoryPaginationForChain(_ chainId: String) {
         WalletServiceBridge.shared.resetHistory(.chain(chainId: chainId))
     }
-    func resetAllHistoryPagination() { WalletServiceBridge.shared.resetHistory(.all) }
     func canLoadMoreHistory(for walletID: String) -> Bool {
         guard let wallet = cachedWalletByID[walletID], let chain = Chain(displayName: wallet.selectedChain) else { return false }
         return !historyPaginationExhausted(chainId: chain.id, walletId: walletID)
