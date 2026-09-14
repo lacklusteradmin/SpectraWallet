@@ -1,7 +1,6 @@
 import Foundation
 typealias AppEndpointGroupedSettingsEntry = AppCoreGroupedSettingsEntry
 typealias AppEndpointDiagnosticsCheck = AppCoreDiagnosticsCheck
-typealias AppEndpointExplorerEntry = AppCoreExplorerEntry
 typealias AppEndpointRecord = AppCoreEndpointRecord
 enum WalletRustEndpointCatalogBridge {
     static func endpoints(for ids: [String]) throws -> [String] { try appCoreEndpointsForIds(ids: ids) }
@@ -109,9 +108,6 @@ enum AppEndpointDirectory {
     }
     static func bitcoinEsploraBaseURLs(forChainID chainID: String) -> [String] {
         byChainID[chainID]?.bitcoinEsplora ?? []
-    }
-    static func bitcoinWalletStoreDefaultBaseURLs(forChainID chainID: String) -> [String] {
-        byChainID[chainID]?.bitcoinWalletStore ?? []
     }
     /// Built from the explorer record this bridge already holds.
     ///

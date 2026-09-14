@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Generate the Swift UniFFI bindings, and apply the one patch they need.
+# Generate the Swift UniFFI bindings.
 #
 # The single owner of `swift/generated/`. The Xcode "Build Rust Derivation
 # Core" phase calls this rather than repeating it: the two used to generate
@@ -7,10 +7,13 @@
 # which had run last — this script wrote `nonisolated` onto 678 declarations
 # and Xcode's copy removed every one of them on the next build.
 #
-# Only `vtablePtr` needs patching. The rest of what this script used to do —
-# `nonisolated` on every public function, the escaping-callback and
-# continuation-map rewrites — was for a UniFFI version this project no longer
-# uses, and had been dead for as long as Xcode was the last writer.
+# Nothing is patched any more. UniFFI 0.31.2 emits `nonisolated(unsafe)` on the
+# callback-interface `vtablePtr` statics itself, which was the last rewrite the
+# bindings needed; the ones before it — `nonisolated` on every public function,
+# the escaping-callback and continuation-map rewrites — were for a UniFFI
+# version this project no longer uses and had been dead for even longer. Keep
+# the floor at 0.31.2 in `core/Cargo.toml`: an older UniFFI silently produces
+# bindings that do not compile under Swift 6.
 #
 # Env:
 #   CARGO_TARGET_DIR  where cargo builds (default: <repo>/target)
@@ -45,17 +48,14 @@ cargo build ${RELEASE_FLAG} --manifest-path "${FFI_DIR}/Cargo.toml"
 
 mkdir -p "${OUT_DIR}"
 echo "Generating Swift bindings..."
-cargo run --manifest-path "${BINDGEN_MANIFEST}" \
+# The generator itself is always optimized, whatever PROFILE says. Neither its
+# profile nor the dylib's can change the bindings — both were verified to emit
+# byte-identical output — so this is purely how long the step takes: 2.4s
+# optimized against 3.1s unoptimized, on every Xcode build, since the phase is
+# alwaysOutOfDate. Building it optimized costs ~60s more, once per target dir.
+cargo run --release --manifest-path "${BINDGEN_MANIFEST}" \
   -- generate --language swift --library "${HOST_DYLIB}" --out-dir "${OUT_DIR}"
 
 cp "${OUT_DIR}/spectra_coreFFI.modulemap" "${OUT_DIR}/module.modulemap"
-
-# Swift 6: `vtablePtr` is an `UnsafePointer` static let, initialized once.
-# Write the temp file OUTSIDE OUT_DIR so Xcode's synchronized root group cannot
-# catch a transient `.!NNNN!` ghost.
-PATCH_TMP="$(mktemp -t spectra_core.swift.XXXXXX)"
-sed -e 's/    static let vtablePtr:/    nonisolated(unsafe) static let vtablePtr:/' \
-  "${OUT_DIR}/spectra_core.swift" > "${PATCH_TMP}"
-mv "${PATCH_TMP}" "${OUT_DIR}/spectra_core.swift"
 
 echo "Swift bindings written to ${OUT_DIR}"

@@ -225,8 +225,8 @@ import Foundation
             XCTAssertNil(store.importError)
             XCTAssertEqual(store.wallets.count, 1)
             XCTAssertEqual(store.wallets.first?.selectedChain, "Bitcoin")
-            XCTAssertNotNil(store.wallets.first?.bitcoinAddress)
-            XCTAssertFalse(store.wallets.first?.bitcoinAddress?.isEmpty ?? true)
+            XCTAssertNotNil(store.wallets.first?.address(forChainNamed: "Bitcoin"))
+            XCTAssertFalse(store.wallets.first?.address(forChainNamed: "Bitcoin")?.isEmpty ?? true)
         }
         /// Import derives against the *mainnet* chain whatever network is
         /// selected, and the testnet address is re-derived for display — see
@@ -249,7 +249,7 @@ import Foundation
             XCTAssertNil(store.importError)
             XCTAssertEqual(store.wallets.count, 1)
             XCTAssertEqual(store.wallets.first?.selectedChain, "Bitcoin")
-            let stored = store.wallets.first?.bitcoinAddress ?? ""
+            let stored = store.wallets.first?.address(forChainNamed: "Bitcoin") ?? ""
             XCTAssertTrue(
                 AddressValidation.isValid(stored, kind: (Chain(id: "bitcoin")?.addressValidationKind ?? "")),
                 "storage holds the mainnet-derived address"
@@ -359,10 +359,6 @@ import Foundation
         func testBitcoinTestnet4EndpointsAreAvailable() {
             XCTAssertEqual(
                 AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: "bitcoin-testnet-4"),
-                ["https://mempool.space/testnet4/api"]
-            )
-            XCTAssertEqual(
-                AppEndpointDirectory.bitcoinWalletStoreDefaultBaseURLs(forChainID: "bitcoin-testnet-4"),
                 ["https://mempool.space/testnet4/api"]
             )
         }

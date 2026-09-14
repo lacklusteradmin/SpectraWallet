@@ -42,8 +42,6 @@ enum CachedCoreHelpers {
         let v = compute(); cache[key] = v; return v
     }
 
-    // ── chains.* / tokens.* ───────────────────────────────────────────
-
     // ── wiki.* ────────────────────────────────────────────────────────
     //
     // Both wikis are compile-time tables, so one call each for the life of the

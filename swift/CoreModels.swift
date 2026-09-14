@@ -90,17 +90,6 @@ extension WalletView {
     }
 
 
-    // Account-address display used by Bitcoin diagnostics.
-    var bitcoinAddress: String? { address(forChainNamed: "Bitcoin") }
-
-    /// The authoritative model this view model was rendered from.
-    ///
-    /// `isWatchOnly` is a Keychain fact the record cannot carry, so the caller
-    /// supplies it — see `WalletState` in `core/src/store/state.rs`.
-    func walletState(isWatchOnly: Bool) -> WalletState {
-        coreWalletState(wallet: self, isWatchOnly: isWatchOnly)
-    }
-
     /// Convenience initializer that defaults every field a caller doesn't set.
     ///
     /// `WalletView` is a UniFFI record, so its generated memberwise
@@ -522,42 +511,6 @@ extension TransactionRecord {
             failureReason: snapshot.failureReason,
             transactionHistorySource: snapshot.transactionHistorySource,
             createdAt: Date(timeIntervalSinceReferenceDate: snapshot.createdAt)
-        )
-    }
-    var persistedSnapshot: CorePersistedTransactionRecord {
-        CorePersistedTransactionRecord(
-            deploymentId: deploymentID,
-            id: id.uuidString,
-            walletId: walletID,
-            kind: kind,
-            status: status,
-            walletName: walletName,
-            assetDisplayName: assetDisplayName,
-            symbol: symbol,
-            chainName: chainName,
-            amount: amount,
-            address: address,
-            transactionHash: transactionHash,
-            ethereumNonce: ethereumNonce.map { Int64($0) },
-            receiptBlockNumber: receiptBlockNumber.map { Int64($0) },
-            receiptGasUsed: receiptGasUsed,
-            receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei,
-            receiptNetworkFeeEth: receiptNetworkFeeEth,
-            feePriorityRaw: feePriorityRaw,
-            feeRateDescription: feeRateDescription,
-            confirmationCount: confirmationCount.map { Int64($0) },
-            dogecoinConfirmedNetworkFeeDoge: dogecoinConfirmedNetworkFeeDoge,
-            dogecoinEstimatedFeeRateDogePerKb: dogecoinEstimatedFeeRateDogePerKb,
-            usedChangeOutput: usedChangeOutput,
-            sourceDerivationPath: sourceDerivationPath,
-            changeDerivationPath: changeDerivationPath,
-            sourceAddress: sourceAddress,
-            changeAddress: changeAddress,
-            signedTransactionPayload: signedTransactionPayload,
-            signedTransactionPayloadFormat: signedTransactionPayloadFormat,
-            failureReason: failureReason,
-            transactionHistorySource: transactionHistorySource,
-            createdAt: createdAt.timeIntervalSinceReferenceDate
         )
     }
     var titleText: String {

@@ -56,8 +56,6 @@ final class AppState {
         return formatter
     }()
     static let operationalLogTimestampFormatter = ISO8601DateFormatter()
-    // Nested enums (ResetScope, TimeoutError, SeedPhraseRevealError, BackgroundSyncProfile)
-    // moved to Shell/AppStateTypes.swift via `extension AppState`.
     @ObservationIgnored let appSettingsPersist = DebouncedAction(intervalMilliseconds: 100)
     /// Core's last word on the settings it owns, for `commitAppSettings` to
     /// diff against. `nil` until the first state lands, which is what makes a
@@ -110,8 +108,6 @@ final class AppState {
     @ObservationIgnored var cachedFirstActivityDateByWalletID: [String: Date] = [:]
     @ObservationIgnored var suppressSideEffects = false
     @ObservationIgnored var lastObservedTransactions: [TransactionRecord] = []
-    // Nested value types (event records, persisted-store schemas, keypool / diagnostic
-    // structs and associated typealiases) moved to Shell/AppStateTypes.swift.
     /// Canonical wallet collection. Mutating it triggers a derived-cache
     /// rebuild via `scheduleWalletCollectionSideEffects`.
     //
