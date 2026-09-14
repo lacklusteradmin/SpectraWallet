@@ -63,7 +63,6 @@ extension AppState {
         UserDefaults.standard.set(true, forKey: Self.installMarkerDefaultsKey)
     }
     private func resetWalletsAndSecretsState() async {
-        clearWalletSecretIndex()
         receiveWalletID = ""
         receiveHoldingKey = ""
         receiveResolvedAddress = ""
@@ -92,7 +91,6 @@ extension AppState {
         sendingChains = []
         preparingChains = []
         pendingSendPreviewRefreshChains = []
-        activeEthereumSendWalletIDs = []
         lastSendDestinationProbeKey = nil
         lastSendDestinationProbeWarning = nil
         lastSendDestinationProbeInfoMessage = nil
@@ -116,8 +114,6 @@ extension AppState {
         // a default row on write, so touching them after the maps are emptied
         // puts rows back rather than clearing any.
         isLoadingMoreOnChainHistory = false
-        tronLastSendErrorDetails = nil
-        tronLastSendErrorAt = nil
         lastImportedDiagnosticsBundle = nil
         lastPendingTransactionRefreshAt = nil
         isRefreshingLivePrices = false

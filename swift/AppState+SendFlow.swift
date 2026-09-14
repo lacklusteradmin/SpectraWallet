@@ -1,7 +1,6 @@
 import Foundation
 import SwiftUI
 import LocalAuthentication
-import os
 #if canImport(Network)
     import Network
 #endif
@@ -530,9 +529,6 @@ extension AppState {
         }
     }
     func walletDerivationPath(for wallet: WalletView, chain: Chain) -> String {
-        derivationResolution(for: wallet, chain: chain).normalizedPath
-    }
-    func derivationResolution(for wallet: WalletView, chain: Chain) -> SeedDerivationResolution {
         chain.resolve(path: wallet.seedDerivationPaths.path(for: chain))
     }
     /// The network this wallet is on for a family: its own if it has one,

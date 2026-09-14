@@ -4,18 +4,20 @@ import SwiftUI
 struct SetupChainSelectionDescriptor: Identifiable {
     let id: String
     let titleKey: String
+    /// The chain's native symbol — one field, because the picker shows one.
+    /// It was two, `symbol` and `gasTokenSymbol`, filled from the same
+    /// catalog column through a `gasToken` parameter whose only call site
+    /// compared that column with itself and so always passed nil.
     let symbol: String
-    let gasTokenSymbol: String
     let chainName: String
     let artworkName: String?
     let color: Color
     let category: SetupChainCategory
     var title: String { localizedWalletFlowString(titleKey) }
-    init(id: String, title: String, symbol: String, chainName: String, color: Color, category: SetupChainCategory, gasToken: String? = nil) {
+    init(id: String, title: String, symbol: String, chainName: String, color: Color, category: SetupChainCategory) {
         self.id = id
         self.titleKey = title
         self.symbol = symbol
-        self.gasTokenSymbol = gasToken ?? symbol
         self.chainName = chainName
         self.artworkName = coreNetworkArtworkName(networkId: id)
         self.color = color
@@ -74,13 +76,19 @@ struct SetupView: View {
         guard let category = SetupChainCategory(chain: chain) else { return nil }
         return SetupChainSelectionDescriptor(
             id: chain.id, title: chain.name, symbol: chain.gasTokenSymbol, chainName: chain.name,
-            color: RegistryColorLookup.color(named: chain.color), category: category,
-            gasToken: chain.gasTokenSymbol == chain.gasTokenSymbol ? nil : chain.gasTokenSymbol
+            color: RegistryColorLookup.color(named: chain.color), category: category
         )
     }
-    private static let popularChainSelectionIDs: [String] = [
-        "bitcoin", "ethereum", "solana", "base", "arbitrum", "tron", "monero", "litecoin",
-    ]
+    /// The short list the picker opens on, in the order the catalog ranks it.
+    ///
+    /// `popular_rank` is a column of `chains.toml`, so promoting a chain is a
+    /// catalog edit. This was eight ids typed here: a per-chain fact in a
+    /// caller-owned list, where adding a chain to the catalog could not reach
+    /// it and removing one left an id that silently matched nothing.
+    private static let popularChainSelectionIDs: [String] = listAllChains()
+        .compactMap { chain in chain.popularRank.map { (rank: $0, id: chain.id) } }
+        .sorted { $0.rank < $1.rank }
+        .map(\.id)
     private static let nonPopularChainSelectionDescriptors = chainSelectionDescriptors.filter { d in
         !popularChainSelectionIDs.contains(d.id)
     }

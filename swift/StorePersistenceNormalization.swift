@@ -1,12 +1,11 @@
 import Foundation
 extension AppState {
+    /// The one index over the token preferences: the deployment a holding
+    /// names, so a formatter or a send can ask "is this token known, and with
+    /// what decimals" without walking the list.
     func rebuildTokenPreferenceDerivedState() {
-        let resolvedPreferences =
-            tokenPreferences
-        cachedResolvedTokenPreferences = resolvedPreferences
-        cachedTokenPreferencesByChain = Dictionary(grouping: resolvedPreferences, by: { TokenHostingChain.forChainName($0.token.chain) ?? .ethereum })
         cachedTokenPreferenceByDeploymentID = Dictionary(
-            resolvedPreferences.map { ($0.token.id, $0) }, uniquingKeysWith: { first, _ in first })
+            tokenPreferences.map { ($0.token.id, $0) }, uniquingKeysWith: { first, _ in first })
     }
     func rebuildWalletDerivedState() {
         Task { @MainActor [weak self] in await self?.rebuildWalletDerivedStateFromCore() }
@@ -21,26 +20,16 @@ extension AppState {
     }
     private func applyWalletDerivedState(_ derived: WalletDerivedState) {
         let walletByID = Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) })
-        // Not derived from `wallets`, so they survive the rebuild: other paths
-        // populate them (password mapping, secret descriptor mirroring).
-        let preservedPasswordProtectedIDs = walletDerivedCache.passwordProtectedWalletIDs
-        let preservedSecretDescriptors = walletDerivedCache.secretDescriptorsByWalletID
         walletDerivedCache = WalletDerivedCache(
             resolvedAddressesByWalletID: derived.resolvedAddressesByWalletId,
             walletByID: walletByID,
-            walletByIDString: walletByID,
             includedPortfolioWallets: wallets.filter(\.includeInPortfolioTotal),
-            includedPortfolioHoldings: derived.includedPortfolioHoldings,
             portfolio: derived.portfolio,
             availableSendCoinsByWalletID: derived.sendCoinsByWalletId,
             availableReceiveCoinsByWalletID: derived.receiveCoinsByWalletId,
             sendEnabledWallets: derived.sendEnabledWalletIds.compactMap { walletByID[$0] },
             receiveEnabledWallets: derived.receiveEnabledWalletIds.compactMap { walletByID[$0] },
-            refreshableChainNames: Set(derived.refreshableChainNames),
-            signingMaterialWalletIDs: Set(derived.signingMaterialWalletIds),
-            privateKeyBackedWalletIDs: Set(derived.privateKeyBackedWalletIds),
-            passwordProtectedWalletIDs: preservedPasswordProtectedIDs,
-            secretDescriptorsByWalletID: preservedSecretDescriptors
+            refreshableChainNames: Set(derived.refreshableChainNames)
         )
     }
     /// Run after `wallets` mutates. Decomposed into three named phases so a

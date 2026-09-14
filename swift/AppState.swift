@@ -1,8 +1,5 @@
 import Foundation
-import DequeModule
-import OrderedCollections
 import SwiftUI
-import UIKit
 #if canImport(Network)
     import Network
 #endif
@@ -79,7 +76,6 @@ final class AppState {
     private(set) var transactions: [TransactionRecord] = [] {
         didSet {
             transactionRevision &+= 1
-            lastObservedTransactions = transactions
             if !suppressSideEffects {
                 transactionRebuild.fire { [weak self] in
                     Task { @MainActor [weak self] in await self?.rebuildTransactionDerivedState() }
@@ -95,19 +91,15 @@ final class AppState {
         transactions = records
     }
     var historyReadError: String? = nil
-    var normalizedHistoryIndex: [NormalizedHistoryEntry] = [] {
-        didSet { normalizedHistoryRevision &+= 1 }
-    }
+    var normalizedHistoryIndex: [NormalizedHistoryEntry] = []
     /// The pending sends core says can still be replaced on their chain.
     /// Adopted with the rest of the transaction-derived views; observed,
     /// because the composer's Speed Up / Cancel buttons read it.
     var replaceableSends: [ReplaceableSend] = []
     private(set) var transactionRevision: UInt64 = 0
-    private(set) var normalizedHistoryRevision: UInt64 = 0
     @ObservationIgnored var cachedTransactionByID: [UUID: TransactionRecord] = [:]
     @ObservationIgnored var cachedFirstActivityDateByWalletID: [String: Date] = [:]
     @ObservationIgnored var suppressSideEffects = false
-    @ObservationIgnored var lastObservedTransactions: [TransactionRecord] = []
     /// Canonical wallet collection. Mutating it triggers a derived-cache
     /// rebuild via `scheduleWalletCollectionSideEffects`.
     //
@@ -169,7 +161,6 @@ final class AppState {
     /// `cached*` properties below read fields out of it.
     var walletDerivedCache: WalletDerivedCache = .empty
     var cachedWalletByID: [String: WalletView] { walletDerivedCache.walletByID }
-    var cachedWalletByIDString: [String: WalletView] { walletDerivedCache.walletByIDString }
     var cachedIncludedPortfolioWallets: [WalletView] { walletDerivedCache.includedPortfolioWallets }
     var cachedPortfolio: [Coin] {
         get { walletDerivedCache.portfolio }
@@ -180,22 +171,6 @@ final class AppState {
     var cachedSendEnabledWallets: [WalletView] { walletDerivedCache.sendEnabledWallets }
     var cachedReceiveEnabledWallets: [WalletView] { walletDerivedCache.receiveEnabledWallets }
     var cachedRefreshableChainNames: Set<String> { walletDerivedCache.refreshableChainNames }
-    var cachedSigningMaterialWalletIDs: Set<String> {
-        get { walletDerivedCache.signingMaterialWalletIDs }
-        set { walletDerivedCache.signingMaterialWalletIDs = newValue }
-    }
-    var cachedPrivateKeyBackedWalletIDs: Set<String> {
-        get { walletDerivedCache.privateKeyBackedWalletIDs }
-        set { walletDerivedCache.privateKeyBackedWalletIDs = newValue }
-    }
-    var cachedPasswordProtectedWalletIDs: Set<String> {
-        get { walletDerivedCache.passwordProtectedWalletIDs }
-        set { walletDerivedCache.passwordProtectedWalletIDs = newValue }
-    }
-    var cachedSecretDescriptorsByWalletID: [String: CoreWalletRustSecretMaterialDescriptor] {
-        get { walletDerivedCache.secretDescriptorsByWalletID }
-        set { walletDerivedCache.secretDescriptorsByWalletID = newValue }
-    }
     let importDraft = WalletImportDraft()
     var importError: String? = nil
     var isImportingWallet: Bool = false
@@ -234,7 +209,6 @@ final class AppState {
     var isPreparingReplacementContext: Bool = false
     /// Chains currently computing a send fee preview. Observed by send UI to show loading state.
     var preparingChains: Set<String> = []
-    @ObservationIgnored var activeEthereumSendWalletIDs: Set<String> = []
     @ObservationIgnored var lastSendDestinationProbeKey: String?
     @ObservationIgnored var lastSendDestinationProbeWarning: String?
     @ObservationIgnored var lastSendDestinationProbeInfoMessage: String?
@@ -260,10 +234,7 @@ final class AppState {
     let sendPreviewStore = SendPreviewStore()
     /// Chains currently broadcasting a send transaction. Observed by send UI to show loading state.
     var sendingChains: Set<String> = []
-    var tronLastSendErrorDetails: String? = nil
-    var tronLastSendErrorAt: Date? = nil
     let chainDiagnosticsState = WalletChainDiagnosticsState()
-    @ObservationIgnored private(set) var recentPerformanceSamples: Deque<PerformanceSample> = []
 
     // ── Funds Finder backing storage ───────────────────────────────────────
     // Observed by FundsFinderView via AppState+FundsFinder.swift computed vars.
@@ -528,8 +499,7 @@ final class AppState {
     private(set) var cachedPinnedDashboardTokenIds: [String] = []
     var cachedAvailableDashboardPinOptions: [DashboardPinOption] = []
     var cachedDashboardAssetGroups: [DashboardAssetGroup] = []
-    var cachedResolvedTokenPreferences: [TokenPreferenceEntry] = []
-    var cachedTokenPreferencesByChain: [TokenHostingChain: [TokenPreferenceEntry]] = [:]
+
     var cachedTokenPreferenceByDeploymentID: [String: TokenPreferenceEntry] = [:]
     @ObservationIgnored var cachedCurrencyFormatters: [String: NumberFormatter] = [:]
     @ObservationIgnored var cachedDecimalFormatters: [String: NumberFormatter] = [:]
@@ -657,15 +627,6 @@ final class AppState {
 
 
     static let installMarkerDefaultsKey = "app.install.marker.v1"
-    /// Failure backoff so a degraded provider isn't hammered every maintenance
-    /// tick. Without this, a fetch that errors out leaves `lastFiatRatesRefreshAt`
-    /// nil, so the cooldown gate never trips and every caller re-fetches.
-    func clearWalletSecretIndex() {
-        cachedSigningMaterialWalletIDs = []
-        cachedPrivateKeyBackedWalletIDs = []
-        cachedPasswordProtectedWalletIDs = []
-        cachedSecretDescriptorsByWalletID = [:]
-    }
     func walletRequiresSeedPhrasePassword(_ walletID: String) -> Bool {
         WalletServiceBridge.shared.walletSecretState(walletID: walletID)?.isSealed ?? false
     }
@@ -742,13 +703,6 @@ final class AppState {
         reviewedSendDestination = nil
         extraReset?()
         sendError = nil
-    }
-    func recordPerformanceSample(_ operation: String, startedAt: CFAbsoluteTime, metadata: String? = nil) {
-        let durationMS = (CFAbsoluteTimeGetCurrent() - startedAt) * 1000
-        recentPerformanceSamples.prepend(
-            PerformanceSample(id: UUID(), operation: operation, durationMS: durationMS, timestamp: Date(), metadata: metadata)
-        )
-        if recentPerformanceSamples.count > 120 { recentPerformanceSamples.removeLast() }
     }
     init() {
         // Wire preferences' side-effect closures back to AppState. Using
@@ -832,13 +786,12 @@ final class AppState {
         let previous = suppressSideEffects
         suppressSideEffects = true
         body()
-        lastObservedTransactions = transactions
         suppressSideEffects = previous
     }
     var canImportWallet: Bool {
         importDraft.canImportWallet
     }
-    var resolvedTokenPreferences: [TokenPreferenceEntry] { cachedResolvedTokenPreferences }
+
     /// A token is addressed by what it is — its contract on its chain —
     /// rather than by an id this side and core would each have to spell the
     /// same way.

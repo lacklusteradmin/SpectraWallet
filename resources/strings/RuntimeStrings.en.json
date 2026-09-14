@@ -1385,5 +1385,9 @@
   "Estimated network fee: %@ %@": "Estimated network fee: %@ %@",
   "Secret text is used exactly as entered, including spaces. Unsupported chain overrides are refused. Leave blank to use the chain default.": "Secret text is used exactly as entered, including spaces. Unsupported chain overrides are refused. Leave blank to use the chain default.",
   "Custom master HMAC key for supported chains. Blank uses the chain default.": "Custom master HMAC key for supported chains. Blank uses the chain default.",
-  "Adaptive": "Adaptive"
+  "Adaptive": "Adaptive",
+  "Sending": "Sending",
+  "Sent": "Sent",
+  "Send failed": "Send failed",
+  "Waiting for %@ to confirm this send.": "Waiting for %@ to confirm this send."
 }

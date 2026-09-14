@@ -57,7 +57,7 @@ struct AllChainsSelectionView: View {
                     .foregroundStyle(Color.primary)
                     .lineLimit(1)
                 Spacer(minLength: 8)
-                Text(descriptor.gasTokenSymbol.uppercased())
+                Text(descriptor.symbol.uppercased())
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(isSelected ? descriptor.color : Color.secondary)
                     .padding(.horizontal, 9)

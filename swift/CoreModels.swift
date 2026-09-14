@@ -75,21 +75,6 @@ extension WalletView {
     }
 
 
-    /// Set this wallet's address for a chain. Passing `nil` clears it.
-    ///
-    /// Replaces the "rebuild the whole record to change one field" pattern the
-    /// 27-field version forced on every caller.
-    mutating func setAddress(_ address: String?, forChainNamed chainName: String) {
-        let slot = Chain(displayName: chainName)?.addressSlot ?? ""
-        guard !slot.isEmpty else { return }
-        if let address, !address.isEmpty {
-            addresses[slot] = address
-        } else {
-            addresses.removeValue(forKey: slot)
-        }
-    }
-
-
     /// Convenience initializer that defaults every field a caller doesn't set.
     ///
     /// `WalletView` is a UniFFI record, so its generated memberwise
@@ -236,31 +221,16 @@ extension CoreSeedDerivationPreset: RawRepresentable, CaseIterable, Codable, Ide
         }
     }
 }
-enum SeedDerivationFlavor: String, Equatable {
-    case standard
-    case legacy
-    case nestedSegWit
-    case nativeSegWit
-    case taproot
-    case electrumLegacy
-}
-struct SeedDerivationResolution: Equatable {
-    let chain: Chain
-    let normalizedPath: String
-    let accountIndex: UInt32
-    let flavor: SeedDerivationFlavor
-}
 extension Chain {
-    func resolve(path rawPath: String) -> SeedDerivationResolution {
+    /// The derivation path a wallet on this chain will use: `rawPath`
+    /// normalized, or the chain's catalog default when it is empty.
+    ///
+    /// Core returned a four-field resolution here — chain, path, account index
+    /// and a `SeedDerivationFlavor` — and this app read the path. The other
+    /// three had no reader on either side of the binding.
+    func resolve(path rawPath: String) -> String {
         do {
-            let raw = try appCoreResolveDerivationPath(
-                chain: displayName, derivationPath: rawPath)
-            return SeedDerivationResolution(
-                chain: Chain(displayName: raw.chain) ?? self,
-                normalizedPath: raw.normalizedPath,
-                accountIndex: raw.accountIndex,
-                flavor: SeedDerivationFlavor(rawValue: raw.flavor) ?? .standard
-            )
+            return try appCoreResolveDerivationPath(chain: displayName, derivationPath: rawPath)
         } catch {
             fatalError(
                 "Rust derivation path resolution failed for \(displayName): "

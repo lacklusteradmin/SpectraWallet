@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-import UIKit
 struct PriceAlertsView: View {
     @Bindable var store: AppState
     @State private var selectedHoldingKey: String = ""

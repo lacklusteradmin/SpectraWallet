@@ -1,0 +1,190 @@
+import ActivityKit
+import Foundation
+
+// The send Live Activity: started when a broadcast is accepted, ended when core
+// says the transaction reached a terminal status.
+//
+// The extension target renders `SendTransactionLiveActivityAttributes`; nothing
+// ever asked the system to run one, so the widget shipped and could never
+// appear. The three moments below are the whole lifecycle.
+//
+// No status is decided here. Core owns whether a transaction is pending,
+// confirmed or failed; this turns the status it already reports into the
+// phase, text and truncations a lock-screen row shows.
+
+// MARK: - Content
+
+/// Middle-truncate a long identifier so both ends stay readable on one line.
+///
+/// A reader checking an address or a hash reads its ends, and every row in the
+/// activity is one line wide.
+func sendLiveActivityPreview(_ value: String, keepingEachEnd keep: Int) -> String {
+    guard value.count > keep * 2 + 1 else { return value }
+    return "\(value.prefix(keep))…\(value.suffix(keep))"
+}
+
+/// What the activity shows for `transaction` in `phase`.
+///
+/// `amountText` is passed in rather than formatted here: the asset's precision
+/// is a store lookup, and this stays a pure function of the record.
+func sendLiveActivityContentState(
+    for transaction: TransactionRecord,
+    phase: SendTransactionLiveActivityAttributes.ContentState.Phase,
+    amountText: String
+) -> SendTransactionLiveActivityAttributes.ContentState {
+    let statusText: String
+    let detailText: String
+    switch phase {
+    case .sending:
+        statusText = AppLocalization.string("Sending")
+        detailText = AppLocalization.format("Waiting for %@ to confirm this send.", transaction.chainName)
+    case .complete:
+        statusText = AppLocalization.string("Sent")
+        detailText = AppLocalization.format(
+            "Your %@ send from %@ is now confirmed on %@.",
+            transaction.symbol, transaction.walletName, transaction.chainName)
+    case .failed:
+        statusText = AppLocalization.string("Send failed")
+        detailText =
+            transaction.localizedFailureReason
+            ?? AppLocalization.format(
+                "Your %@ send from %@ failed on %@.",
+                transaction.symbol, transaction.walletName, transaction.chainName)
+    }
+    return SendTransactionLiveActivityAttributes.ContentState(
+        phase: phase,
+        walletName: transaction.walletName,
+        chainName: transaction.chainName,
+        symbol: transaction.symbol,
+        amountText: amountText,
+        statusText: statusText,
+        detailText: detailText,
+        destinationPreview: sendLiveActivityPreview(transaction.address, keepingEachEnd: 6),
+        transactionHashPreview: transaction.transactionHash.map {
+            sendLiveActivityPreview($0, keepingEachEnd: 8)
+        },
+        startedAt: transaction.createdAt)
+}
+
+/// A send that never resolves should read as stale rather than keep claiming to
+/// be in flight; the system dims the activity once this much time has passed
+/// with no update.
+private let sendLiveActivityStaleAfter: TimeInterval = 60 * 60
+
+/// How long a finished activity stays on the lock screen before the system
+/// clears it, so the outcome is still there when the phone is next picked up.
+private let sendLiveActivityLingerAfterFinish: TimeInterval = 60 * 5
+
+// MARK: - The running activities
+
+/// Start, end and enumerate the send activities.
+///
+/// Stateless on purpose. ActivityKit already holds the running activities and
+/// hands them back after a relaunch, so a Swift-side dictionary of handles
+/// would be a second copy of that list which any termination silently
+/// invalidates — which is how a "sending" row survives its own transaction.
+enum SendLiveActivityStore {
+    private static var running: [Activity<SendTransactionLiveActivityAttributes>] {
+        Activity<SendTransactionLiveActivityAttributes>.activities
+    }
+
+    static var runningTransactionIDs: Set<String> {
+        Set(running.map(\.attributes.transactionID))
+    }
+
+    private static func activity(for transactionID: String) -> Activity<
+        SendTransactionLiveActivityAttributes
+    >? {
+        running.first { $0.attributes.transactionID == transactionID }
+    }
+
+    /// Ask the system to show an activity for `transactionID`.
+    ///
+    /// Silent when the user has Live Activities switched off, and a no-op when
+    /// one is already running for this transaction — a resubmitted send must
+    /// not stack two rows for the same record.
+    static func start(
+        transactionID: String, state: SendTransactionLiveActivityAttributes.ContentState
+    ) {
+        guard ActivityAuthorizationInfo().areActivitiesEnabled else { return }
+        guard activity(for: transactionID) == nil else { return }
+        _ = try? Activity.request(
+            attributes: SendTransactionLiveActivityAttributes(transactionID: transactionID),
+            content: ActivityContent(
+                state: state, staleDate: Date().addingTimeInterval(sendLiveActivityStaleAfter)))
+    }
+
+    /// Show the outcome and let the system retire the activity.
+    ///
+    /// `state` is `nil` when the record behind the activity is gone, which
+    /// leaves nothing true to display and dismisses it at once.
+    static func end(
+        transactionID: String,
+        state: SendTransactionLiveActivityAttributes.ContentState?,
+        lingering: Bool
+    ) async {
+        guard let activity = activity(for: transactionID) else { return }
+        let content = state.map { ActivityContent(state: $0, staleDate: nil) }
+        let policy: ActivityUIDismissalPolicy =
+            lingering
+            ? .after(Date().addingTimeInterval(sendLiveActivityLingerAfterFinish)) : .immediate
+        await activity.end(content, dismissalPolicy: policy)
+    }
+}
+
+// MARK: - The three moments
+
+extension AppState {
+    private func sendLiveActivityState(
+        for transaction: TransactionRecord,
+        phase: SendTransactionLiveActivityAttributes.ContentState.Phase
+    ) -> SendTransactionLiveActivityAttributes.ContentState {
+        sendLiveActivityContentState(
+            for: transaction, phase: phase,
+            amountText: formattedAssetAmountValue(
+                transaction.amount, deploymentID: transaction.deploymentID))
+    }
+
+    /// A broadcast was accepted and the transaction is waiting on the chain.
+    func startSendLiveActivity(for transaction: TransactionRecord) {
+        guard transaction.kind == .send, transaction.status == .pending else { return }
+        SendLiveActivityStore.start(
+            transactionID: transaction.id.uuidString,
+            state: sendLiveActivityState(for: transaction, phase: .sending))
+    }
+
+    /// Core reported a terminal status for a transaction.
+    func finishSendLiveActivity(
+        for transaction: TransactionRecord, newStatus: TransactionStatus
+    ) async {
+        let phase: SendTransactionLiveActivityAttributes.ContentState.Phase
+        switch newStatus {
+        case .confirmed: phase = .complete
+        case .failed: phase = .failed
+        case .pending: return
+        }
+        await SendLiveActivityStore.end(
+            transactionID: transaction.id.uuidString,
+            state: sendLiveActivityState(for: transaction, phase: phase), lingering: true)
+    }
+
+    /// Retire activities whose transaction stopped being in flight while the app
+    /// was not running to see it.
+    ///
+    /// Without this, a send that confirmed after the app was terminated leaves a
+    /// spinner on the lock screen until the staleness date passes.
+    func reconcileSendLiveActivities() async {
+        let runningIDs = SendLiveActivityStore.runningTransactionIDs
+        guard !runningIDs.isEmpty else { return }
+        let byID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id.uuidString, $0) })
+        for transactionID in runningIDs {
+            guard let transaction = byID[transactionID] else {
+                await SendLiveActivityStore.end(
+                    transactionID: transactionID, state: nil, lingering: false)
+                continue
+            }
+            guard transaction.status != .pending else { continue }
+            await finishSendLiveActivity(for: transaction, newStatus: transaction.status)
+        }
+    }
+}

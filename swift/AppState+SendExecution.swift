@@ -54,7 +54,10 @@ extension AppState {
             lastSentTransaction = transactions.first {
                 $0.transactionHash == result.transactionHash && $0.walletID == review.request.walletId
             }
-            if let transaction = lastSentTransaction { noteSendBroadcastQueued(for: transaction) }
+            if let transaction = lastSentTransaction {
+                noteSendBroadcastQueued(for: transaction)
+                startSendLiveActivity(for: transaction)
+            }
             requestTransactionStatusNotificationPermission()
             await runPostSendRefreshActions(for: chainName, verificationStatus: .verified)
             resetSendComposerState { self.sendPreviewStore.clearPreview(forChainNamed: chainName) }

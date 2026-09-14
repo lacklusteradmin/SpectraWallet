@@ -6,6 +6,5 @@
   "transactionSubtitleFormat": "%@ on %@ • %@",
   "walletImportErrorTitle": "Wallet Import Error",
   "sendErrorTitle": "Send Error",
-  "securityNoticeTitle": "Security Notice",
-  "tronSendDiagnosticTitle": "Tron Send Diagnostic"
+  "securityNoticeTitle": "Security Notice"
 }

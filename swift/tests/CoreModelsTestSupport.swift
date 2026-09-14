@@ -9,6 +9,21 @@ import Foundation
 @testable import Spectra
 
 extension WalletView {
+    /// Set this wallet's address for a chain. Passing `nil` clears it.
+    ///
+    /// Spares the bridge tests rebuilding a 27-field record to change one
+    /// field. The app never edits a wallet record in place — it renders what
+    /// core sends and issues commands back.
+    mutating func setAddress(_ address: String?, forChainNamed chainName: String) {
+        let slot = Chain(displayName: chainName)?.addressSlot ?? ""
+        guard !slot.isEmpty else { return }
+        if let address, !address.isEmpty {
+            addresses[slot] = address
+        } else {
+            addresses.removeValue(forKey: slot)
+        }
+    }
+
     /// The authoritative model this view model was rendered from.
     ///
     /// `isWatchOnly` is a Keychain fact the record cannot carry, so the caller

@@ -1385,5 +1385,9 @@
   "Estimated network fee: %@ %@": "预计网络费用：%@ %@",
   "Secret text is used exactly as entered, including spaces. Unsupported chain overrides are refused. Leave blank to use the chain default.": "密钥相关文本将按原样使用，包括空格。不支持的链参数会被拒绝。留空则使用链默认值。",
   "Custom master HMAC key for supported chains. Blank uses the chain default.": "为支持的链自定义主 HMAC 密钥。留空则使用链默认值。",
-  "Adaptive": "自适应"
+  "Adaptive": "自适应",
+  "Sending": "发送中",
+  "Sent": "已发送",
+  "Send failed": "发送失败",
+  "Waiting for %@ to confirm this send.": "等待 %@ 确认这笔转账。"
 }

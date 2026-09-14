@@ -79,21 +79,27 @@ extension AppState {
     }
     /// Core decides how many places this amount deserves; the formatter renders
     /// them and trims the trailing zeros.
-    func formattedAssetAmount(_ amount: Double, symbol: String, deploymentID: String?) -> String {
+    /// The amount alone, at the asset's own precision.
+    ///
+    /// Callers that render the symbol in a separate label — the send Live
+    /// Activity does — need the value without it, and the rounding rules are
+    /// the same either way.
+    func formattedAssetAmountValue(_ amount: Double, deploymentID: String?) -> String {
         let display = assetAmountDisplay(amount, deploymentID: deploymentID)
         let places = Int(display.places)
         if display.belowThreshold {
             let thresholdFormatter = decimalFormatter(
                 minimumFractionDigits: places, maximumFractionDigits: places, usesGroupingSeparator: false
             )
-            let thresholdText = thresholdFormatter.string(from: NSNumber(value: display.threshold)) ?? ""
-            return "<\(thresholdText) \(symbol)"
+            return "<" + (thresholdFormatter.string(from: NSNumber(value: display.threshold)) ?? "")
         }
         let formatter = decimalFormatter(
             minimumFractionDigits: 0, maximumFractionDigits: places, usesGroupingSeparator: false
         )
-        let formattedValue = formatter.string(from: NSNumber(value: amount)) ?? ""
-        return "\(formattedValue) \(symbol)"
+        return formatter.string(from: NSNumber(value: amount)) ?? ""
+    }
+    func formattedAssetAmount(_ amount: Double, symbol: String, deploymentID: String?) -> String {
+        "\(formattedAssetAmountValue(amount, deploymentID: deploymentID)) \(symbol)"
     }
 
     /// The asset's own decimals — the contract's, the mint's, or the chain's
@@ -155,7 +161,6 @@ extension AppState {
     func isPricedAsset(_ coin: Coin) -> Bool { isPricedChain(coin.chainName) }
     /// The history list the UI renders, as core normalizes it.
     func rebuildNormalizedHistoryIndex() async throws {
-        let startedAt = CFAbsoluteTimeGetCurrent()
         let entries = try await WalletServiceBridge.shared.normalizedHistory(
             unknownLabel: localizedStoreString("Unknown"))
         normalizedHistoryIndex = entries.compactMap { entry in
@@ -171,9 +176,6 @@ extension AppState {
                 transactionHash: entry.transactionHash, sourceTag: entry.sourceTag,
                 providerCount: Int(entry.providerCount), searchIndex: entry.searchIndex)
         }
-        recordPerformanceSample(
-            "rebuild_normalized_history_index", startedAt: startedAt,
-            metadata: "transactions=\(transactions.count) normalized=\(normalizedHistoryIndex.count)")
     }
     /// Adopt the views of the transaction store that the UI renders.
     ///

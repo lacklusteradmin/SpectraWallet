@@ -9,8 +9,6 @@
 /* Begin PBXBuildFile section */
 		9059229D2F5D2C49003ACDA5 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = 9059229C2F5D2C49003ACDA5 /* KeychainAccess */; };
 		90A5CA760000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 90A5CA750000000000000001 /* Assets.xcassets */; };
-		90CC0EE12FA6EC91000FD44B /* DequeModule in Frameworks */ = {isa = PBXBuildFile; productRef = 90CC0EE02FA6EC91000FD44B /* DequeModule */; };
-		90CC0EE32FA6EC91000FD44B /* OrderedCollections in Frameworks */ = {isa = PBXBuildFile; productRef = 90CC0EE22FA6EC91000FD44B /* OrderedCollections */; };
 		90F002000000000000000001 /* AppState+AddressResolution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000001 /* AppState+AddressResolution.swift */; };
 		90F002000000000000000002 /* AppState+BalanceRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000002 /* AppState+BalanceRefresh.swift */; };
 		90F002000000000000000003 /* AppState+CoreStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000003 /* AppState+CoreStateStore.swift */; };
@@ -22,6 +20,7 @@
 		90F002000000000000000009 /* WalletBalanceObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000009 /* WalletBalanceObserver.swift */; };
 		90F00200000000000000000A /* AppState+SendExecution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000A /* AppState+SendExecution.swift */; };
 		90F00200000000000000000B /* AppState+SendFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000B /* AppState+SendFlow.swift */; };
+		90F002000000000000000102 /* AppState+SendLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000102 /* AppState+SendLiveActivity.swift */; };
 		90F00200000000000000000C /* AppState+SendPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000C /* AppState+SendPreview.swift */; };
 		90F00200000000000000000E /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000E /* AppState.swift */; };
 		90F00200000000000000000F /* AppStateTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000F /* AppStateTypes.swift */; };
@@ -103,6 +102,7 @@
 		90F001000000000000000009 /* WalletBalanceObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletBalanceObserver.swift; sourceTree = "<group>"; };
 		90F00100000000000000000A /* AppState+SendExecution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendExecution.swift"; sourceTree = "<group>"; };
 		90F00100000000000000000B /* AppState+SendFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendFlow.swift"; sourceTree = "<group>"; };
+		90F001000000000000000102 /* AppState+SendLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendLiveActivity.swift"; sourceTree = "<group>"; };
 		90F00100000000000000000C /* AppState+SendPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendPreview.swift"; sourceTree = "<group>"; };
 		90F00100000000000000000E /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		90F00100000000000000000F /* AppStateTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTypes.swift; sourceTree = "<group>"; };
@@ -192,8 +192,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				9059229D2F5D2C49003ACDA5 /* KeychainAccess in Frameworks */,
-				90CC0EE12FA6EC91000FD44B /* DequeModule in Frameworks */,
-				90CC0EE32FA6EC91000FD44B /* OrderedCollections in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -257,6 +255,7 @@
 				90F001000000000000000008 /* AppState+ReceiveFlow.swift */,
 				90F00100000000000000000A /* AppState+SendExecution.swift */,
 				90F00100000000000000000B /* AppState+SendFlow.swift */,
+				90F001000000000000000102 /* AppState+SendLiveActivity.swift */,
 				90F00100000000000000000C /* AppState+SendPreview.swift */,
 				90F00100000000000000002D /* Store+Formatting.swift */,
 				90F001000000000000000101 /* Store+Settings.swift */,
@@ -308,8 +307,6 @@
 			name = Spectra;
 			packageProductDependencies = (
 				9059229C2F5D2C49003ACDA5 /* KeychainAccess */,
-				90CC0EE02FA6EC91000FD44B /* DequeModule */,
-				90CC0EE22FA6EC91000FD44B /* OrderedCollections */,
 			);
 			productName = Spectra;
 			productReference = 907491632F56D1E500D098D2 /* Spectra.app */;
@@ -393,7 +390,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				9059229B2F5D2C49003ACDA5 /* XCRemoteSwiftPackageReference "KeychainAccess" */,
-				90CC0EDF2FA6EC91000FD44B /* XCRemoteSwiftPackageReference "swift-collections" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 907491642F56D1E500D098D2 /* Products */;
@@ -501,6 +497,7 @@
 				90F002000000000000000008 /* AppState+ReceiveFlow.swift in Sources */,
 				90F00200000000000000000A /* AppState+SendExecution.swift in Sources */,
 				90F00200000000000000000B /* AppState+SendFlow.swift in Sources */,
+				90F002000000000000000102 /* AppState+SendLiveActivity.swift in Sources */,
 				90F00200000000000000000C /* AppState+SendPreview.swift in Sources */,
 				90F00200000000000000002D /* Store+Formatting.swift in Sources */,
 				90F002000000000000000101 /* Store+Settings.swift in Sources */,
@@ -941,14 +938,6 @@
 				minimumVersion = 4.2.2;
 			};
 		};
-		90CC0EDF2FA6EC91000FD44B /* XCRemoteSwiftPackageReference "swift-collections" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/apple/swift-collections.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.4.1;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -956,16 +945,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 9059229B2F5D2C49003ACDA5 /* XCRemoteSwiftPackageReference "KeychainAccess" */;
 			productName = KeychainAccess;
-		};
-		90CC0EE02FA6EC91000FD44B /* DequeModule */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 90CC0EDF2FA6EC91000FD44B /* XCRemoteSwiftPackageReference "swift-collections" */;
-			productName = DequeModule;
-		};
-		90CC0EE22FA6EC91000FD44B /* OrderedCollections */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 90CC0EDF2FA6EC91000FD44B /* XCRemoteSwiftPackageReference "swift-collections" */;
-			productName = OrderedCollections;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

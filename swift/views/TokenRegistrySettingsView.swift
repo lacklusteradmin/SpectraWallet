@@ -88,7 +88,7 @@ struct TokenRegistrySettingsView: View {
             }
     }
     private var filteredGroups: [TokenRegistryGroup] {
-        let allEntries = store.resolvedTokenPreferences
+        let allEntries = store.tokenPreferences
         let grouped = Dictionary(grouping: allEntries, by: TokenRegistryGrouping.key(for:))
         let groups = grouped.values.compactMap { entries -> TokenRegistryGroup? in
             let sortedEntries = entries.sorted { lhs, rhs in

@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-import OrderedCollections
 @MainActor
 extension AppState {
     func beginReceive() {
@@ -29,12 +28,8 @@ extension AppState {
     }
     func refreshPendingTransactions() async {
         guard !isRefreshingPendingTransactions else { return }
-        let startedAt = CFAbsoluteTimeGetCurrent()
         isRefreshingPendingTransactions = true
-        defer {
-            isRefreshingPendingTransactions = false
-            recordPerformanceSample("refresh_pending_transactions", startedAt: startedAt)
-        }
+        defer { isRefreshingPendingTransactions = false }
         let result: PendingMaintenanceResult
         do {
             result = try await WalletServiceBridge.shared.refreshPendingTransactions()
@@ -225,9 +220,9 @@ extension AppState {
     var portfolio: [Coin] { cachedPortfolio }
     var shouldRunScheduledPriceRefresh: Bool { selectedMainTab == .home }
     var refreshableChainNames: Set<String> { cachedRefreshableChainNames }
-    var refreshableChainIDs: Set<WalletChainID> { Set(refreshableChainNames.compactMap(WalletChainID.init)) }
     func refreshForForegroundIfNeeded() async {
         await performCoreRefresh(.foreground)
+        await reconcileSendLiveActivities()
     }
     var includedPortfolioWallets: [WalletView] { cachedIncludedPortfolioWallets }
     func currentPriceIfAvailable(for coin: Coin) -> Double? {

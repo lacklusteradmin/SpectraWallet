@@ -159,7 +159,6 @@ struct CommonLocalizationContent: Decodable {
     let walletImportErrorTitle: String
     let sendErrorTitle: String
     let securityNoticeTitle: String
-    let tronSendDiagnosticTitle: String
     static var current: CommonLocalizationContent {
         StaticContentCatalog.loadRequiredResource("CommonContent", as: CommonLocalizationContent.self)
     }

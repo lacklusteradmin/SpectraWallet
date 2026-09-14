@@ -109,6 +109,9 @@ extension AppState {
                 {
                     sendTransactionStatusNotification(for: oldTransaction, newStatus: newStatus)
                 }
+                if let newStatus = TransactionStatus(rawValue: change.newStatus) {
+                    await finishSendLiveActivity(for: transaction, newStatus: newStatus)
+                }
             }
             if let confirmations = change.reachedFinalityConfirmations {
                 appendChainOperationalEvent(

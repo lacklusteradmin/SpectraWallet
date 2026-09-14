@@ -128,14 +128,6 @@ extension AppState {
 
 
 
-    struct PerformanceSample: Identifiable, Codable, Equatable {
-        let id: UUID
-        let operation: String
-        let durationMS: Double
-        let timestamp: Date
-        let metadata: String?
-    }
-
     struct ChainKeypoolState: Codable, Equatable {
         var nextExternalIndex: Int
         var nextChangeIndex: Int

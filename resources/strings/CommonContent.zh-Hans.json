@@ -6,6 +6,5 @@
   "transactionSubtitleFormat": "%@（%@） • %@",
   "walletImportErrorTitle": "钱包导入错误",
   "sendErrorTitle": "发送错误",
-  "securityNoticeTitle": "安全提示",
-  "tronSendDiagnosticTitle": "Tron 发送诊断"
+  "securityNoticeTitle": "安全提示"
 }

@@ -4,7 +4,7 @@ struct TokenRegistryDetailView: View {
     let store: AppState
     let groupKey: String
     private var groupEntries: [TokenPreferenceEntry] {
-        store.resolvedTokenPreferences.filter { TokenRegistryGrouping.key(for: $0) == groupKey }
+        store.tokenPreferences.filter { TokenRegistryGrouping.key(for: $0) == groupKey }
             .sorted { lhs, rhs in
                 if lhs.token.chain != rhs.token.chain { return lhs.token.chain < rhs.token.chain }
                 return lhs.token.contract < rhs.token.contract

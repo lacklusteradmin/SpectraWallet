@@ -84,16 +84,6 @@ extension AppState {
                 )
             )
         }
-        if let tronLastSendErrorDetails = tronLastSendErrorDetails?.trimmingCharacters(in: .whitespacesAndNewlines),
-            !tronLastSendErrorDetails.isEmpty
-        {
-            notices.append(
-                AppNoticeItem(
-                    title: commonCopy.tronSendDiagnosticTitle, message: tronLastSendErrorDetails, severity: .error,
-                    systemImage: "bolt.trianglebadge.exclamationmark", timestamp: tronLastSendErrorAt
-                )
-            )
-        }
         return notices
     }
 }

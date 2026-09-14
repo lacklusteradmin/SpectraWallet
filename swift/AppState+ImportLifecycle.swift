@@ -80,7 +80,7 @@ extension AppState {
         self.walletPendingDeletion = nil
         if wallets.isEmpty { cancelWalletImport() }
     }
-    func wallet(for walletID: String) -> WalletView? { cachedWalletByIDString[walletID] }
+    func wallet(for walletID: String) -> WalletView? { cachedWalletByID[walletID] }
     func knownOwnedAddresses(for walletID: String) async -> [String] {
         guard let wallet = cachedWalletByID[walletID] else { return [] }
         var candidateAddresses: [String] = []
