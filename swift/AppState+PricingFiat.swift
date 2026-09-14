@@ -130,10 +130,10 @@ enum FiatCurrency: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var iconName: String? {
         switch self {
-        case .usd: return "fiaticon/usd"
-        case .eur: return "fiaticon/eur"
-        case .gbp: return "fiaticon/gbp"
-        case .cny: return "fiaticon/cny"
+        case .usd: return "fiat/usd"
+        case .eur: return "fiat/eur"
+        case .gbp: return "fiat/gbp"
+        case .cny: return "fiat/cny"
         default: return nil
         }
     }
