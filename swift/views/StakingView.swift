@@ -257,8 +257,6 @@ struct ChainStakingDetailView: View {
             }
         }
         .pickerStyle(.segmented)
-        .padding(6)
-        .spectraCardFill(cornerRadius: SpectraLayout.Radius.input)
     }
 
     @ViewBuilder

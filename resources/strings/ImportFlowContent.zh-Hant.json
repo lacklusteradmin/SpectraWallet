@@ -29,5 +29,5 @@
   "seedPhraseEntryHelp" : "每個輸入框輸入一個單詞。你也可以將多個單詞粘貼到任意輸入框，Spectra 會自動放入後續位置。",
   "watchAddressesSubtitle" : "輸入一個或多個錢包地址，每行一個。",
   "watchAddressesTitle" : "觀察地址",
-  "watchOnlyFixedMessage" : "現有錢包的只讀模式不可更改。"
+  "watchOnlyFixedMessage" : "現有錢包的僅觀察模式不可更改。"
 }

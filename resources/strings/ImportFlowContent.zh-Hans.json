@@ -25,7 +25,7 @@
   "backupVerificationButtonTitle": "开始验证",
   "backupVerifiedMessage": "备份已验证。你现在可以创建钱包。",
   "backupVerificationHint": "请严格按照助记词中的内容输入每个要求的单词。",
-  "watchOnlyFixedMessage": "现有钱包的只读模式不可更改。",
+  "watchOnlyFixedMessage": "现有钱包的仅观察模式不可更改。",
   "moneroWatchUnsupportedMessage": "当前构建暂不支持门罗币观察地址。",
   "addressesToWatchTitle": "要观察的地址",
   "addressesToWatchSubtitle": "每行输入一个地址。每一行都会作为独立的观察地址导入。",

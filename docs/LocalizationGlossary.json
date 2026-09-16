@@ -34,7 +34,19 @@
       "zh-Hans": "自托管",
       "zh-Hant": "自託管"
     },
+    "non-custodial": {
+      "zh-Hans": "非托管",
+      "zh-Hant": "非託管"
+    },
     "seed phrase": {
+      "zh-Hans": "助记词",
+      "zh-Hant": "助記詞"
+    },
+    "recovery phrase": {
+      "zh-Hans": "助记词",
+      "zh-Hant": "助記詞"
+    },
+    "mnemonic": {
       "zh-Hans": "助记词",
       "zh-Hant": "助記詞"
     },

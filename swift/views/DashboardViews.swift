@@ -53,8 +53,10 @@ struct DashboardView: View {
                         torToolbarIndicator
                     }
                 }
-                ToolbarItem(placement: .topBarTrailing) {
-                    dashboardSectionMenu
+                if dashboardPage == .assets {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        pinAssetsToolbarButton
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -262,21 +264,17 @@ struct DashboardView: View {
     private var dashboardCardTitle: String {
         dashboardPage == .assets ? AppLocalization.string("My Assets") : AppLocalization.string("My Wallets")
     }
-    private var dashboardSectionMenu: some View {
-        Menu {
-            if dashboardPage == .assets {
-                Divider()
-                Button(AppLocalization.string("Pin Assets")) {
-                    isNavigatingToPinnedAssets = true
-                }
-            }
+    // Pinning is an assets-page action, and this was a `Menu` whose entire
+    // content sat behind that condition: on the wallets page it presented an
+    // empty menu, so the button looked alive and did nothing. One action needs
+    // no menu, and the toolbar item is now absent where it has nothing to do.
+    private var pinAssetsToolbarButton: some View {
+        Button {
+            spectraHaptic(.light)
+            isNavigatingToPinnedAssets = true
         } label: {
-            Image(systemName: "line.3.horizontal.decrease.circle")
-        }.accessibilityLabel(
-            dashboardPage == .assets
-                ? "Configure asset view"
-                : "Configure wallet view"
-        )
+            Image(systemName: "pin")
+        }.accessibilityLabel(AppLocalization.string("Pin Assets"))
     }
     private func dashboardAssetPriceText(for assetGroup: DashboardAssetGroup, hideBalances: Bool) -> String {
         if hideBalances { return "••••••" }

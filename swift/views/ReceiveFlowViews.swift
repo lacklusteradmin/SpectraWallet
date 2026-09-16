@@ -445,7 +445,10 @@ private struct WalletReceiveCard: View {
     }
 }
 
-private func receiveQRCodePlaceholder(size: CGFloat) -> some View {
+/// `SpectraLoadingGlyph` and `SpectraShimmer` carry `@State`, so their
+/// memberwise initializers are main-actor isolated; a nonisolated free
+/// function cannot call them.
+@MainActor private func receiveQRCodePlaceholder(size: CGFloat) -> some View {
     ZStack {
         RoundedRectangle(cornerRadius: SpectraLayout.Radius.hero, style: .continuous)
             .fill(Color.white.opacity(0.82))

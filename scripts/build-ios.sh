@@ -18,11 +18,14 @@ fi
 export PATH="${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}"
 if [[ -f "${HOME}/.cargo/env" ]]; then source "${HOME}/.cargo/env"; fi
 
+export CARGO_TARGET_DIR
+source "${REPO_ROOT}/scripts/ios-rust-build-env.sh"
+
 rustup target add aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios 2>/dev/null || true
 
 for target in aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios; do
   echo "Building ${target}..."
-  CARGO_TARGET_DIR="${CARGO_TARGET_DIR}" cargo build \
+  cargo build \
     --manifest-path "${FFI_DIR}/Cargo.toml" \
     --target "${target}" \
     ${PROFILE_FLAG}

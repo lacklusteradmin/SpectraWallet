@@ -61,7 +61,6 @@ struct HistoryView: View {
                 SpectraBackdrop().ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: SpectraLayout.sectionSpacing) {
-                        historySummaryCard
                         activeFilterStrip
                         if let error = store.historyReadError {
                             VStack(alignment: .leading, spacing: 12) {
@@ -182,33 +181,6 @@ struct HistoryView: View {
         }.accessibilityLabel(AppLocalization.string("Filter history"))
     }
 
-    private var historySummaryCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(AppLocalization.string("Activity"))
-                        .font(.title3.weight(.bold))
-                    Text(AppLocalization.string("Recent sends, receives, and pending confirmations."))
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.title2.weight(.semibold))
-                    .foregroundStyle(.orange)
-            }
-
-            HStack(spacing: 10) {
-                historyMetric(title: "Visible", value: "\(visibleTransactions.count)", icon: "list.bullet.rectangle")
-                historyMetric(title: "Pending", value: "\(pendingVisibleCount)", icon: "hourglass")
-                historyMetric(title: "Sends", value: "\(sendVisibleCount)", icon: "arrow.up.right")
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraElevatedFill()
-    }
-
     private var activeFilterStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 10) {
@@ -241,30 +213,6 @@ struct HistoryView: View {
         }
     }
 
-    private func historyMetric(title: String, value: String, icon: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Image(systemName: icon)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(.orange)
-            Text(value)
-                .font(.headline.weight(.bold))
-                .spectraNumericTextLayout()
-            Text(AppLocalization.string(title))
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(12)
-        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous))
-    }
-
-    private var sendVisibleCount: Int {
-        visibleTransactions.filter { $0.kind == .send }.count
-    }
-
-    private var pendingVisibleCount: Int {
-        visibleTransactions.filter { $0.status == .pending }.count
-    }
     private var historyWalletIDs: Set<String> {
         if let selectedWalletID { return [selectedWalletID] }
         return Set(store.wallets.map(\.id))

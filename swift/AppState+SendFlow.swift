@@ -470,7 +470,7 @@ extension AppState {
             return false
         }
         return await withCheckedContinuation { continuation in
-            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, error in
+            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { [weak self] success, error in
                 // `resume` sits outside the optional chain on purpose: the
                 // continuation must be resumed exactly once even if the store
                 // is gone by the time the prompt returns, and a `guard let
