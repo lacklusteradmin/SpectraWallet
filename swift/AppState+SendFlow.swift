@@ -64,6 +64,11 @@ extension AppState {
               let coin = selectedSendCoin, let decimals = sendAmountDecimals else { return sendAmount }
         return sendAmountShortcut(maximum: coin.amount, decimals: decimals, percentage: 10) ?? "0"
     }
+    /// Whether a preview for this chain is being fetched. `preparingChains`
+    /// holds preview slots, so the question goes through the same key.
+    func isPreparingSendPreview(forChainNamed chainName: String) -> Bool {
+        SendPreviewStore.slot(forChainNamed: chainName).map(preparingChains.contains) ?? false
+    }
     func sendShortcutAmount(percentage: UInt32) -> String? {
         guard let coin = selectedSendCoin, preparingChains.isEmpty else { return nil }
         return quotedSendAmount(
@@ -144,9 +149,9 @@ extension AppState {
                 && $0.chainName == selectedSendCoin.chainName
         }
     }
-    func replaceableSend(forTransaction transactionID: UUID) -> ReplaceableSend? {
+    func replaceableSend(forTransaction transactionID: String) -> ReplaceableSend? {
         replaceableSends.first {
-            $0.transactionId.caseInsensitiveCompare(transactionID.uuidString) == .orderedSame
+            $0.transactionId.caseInsensitiveCompare(transactionID) == .orderedSame
         }
     }
     func prepareReplacementContext(cancel: Bool) async {
@@ -156,7 +161,7 @@ extension AppState {
         }
         await prepareReplacementContext(pending: pending, cancel: cancel)
     }
-    func openReplacementComposer(for transactionID: UUID, cancel: Bool) async -> String? {
+    func openReplacementComposer(for transactionID: String, cancel: Bool) async -> String? {
         guard let pending = replaceableSend(forTransaction: transactionID) else {
             let message = localizedStoreString(
                 "This transaction is no longer pending, so replacement and cancel are unavailable.")
@@ -207,9 +212,9 @@ extension AppState {
     }
     /// The known-token entry for a holding, on any chain that hosts tokens.
     ///
-    /// The contract normaliser is core's rather than `normalizeEVMAddress`, so
-    /// a TON jetton's case-significant address is not lowercased into a
-    /// non-match.
+    /// The contract normaliser is core's rather than a lowercasing of the
+    /// address, so a TON jetton's case-significant address is not lowercased
+    /// into a non-match.
     func supportedToken(for coin: Coin) -> TokenPreferenceEntry? {
         guard let entry = cachedTokenPreferenceByDeploymentID[coin.holdingKey], entry.isEnabled else { return nil }
         return entry
@@ -379,12 +384,7 @@ extension AppState {
     func operationalEvents(for chainName: String) async -> [ChainOperationalEvent] {
         await WalletServiceBridge.shared.operationalEvents(chainName: chainName)
     }
-    func feePriorityOption(for chainName: String) -> ChainFeePriorityOption {
-        feePriorityByChain[chainName].flatMap(ChainFeePriorityOption.init(rawValue:)) ?? .normal
-    }
-    func setFeePriorityOption(_ option: ChainFeePriorityOption, for chainName: String) {
-        setFeePriority(option.rawValue, forChain: chainName)
-    }
+
     func runUTXORescan(chainName: String) async {
         guard let chain = Chain(displayName: chainName), !self[rescanFor: chainName].isRunning else { return }
         self[rescanFor: chainName].isRunning = true
@@ -498,9 +498,9 @@ extension AppState {
             }
         }
     }
-    func retryUTXOTransactionStatus(for transactionID: UUID) async -> String {
+    func retryUTXOTransactionStatus(for transactionID: String) async -> String {
         do {
-            let change = try await WalletServiceBridge.shared.recheckTransactionStatus(id: transactionID.uuidString)
+            let change = try await WalletServiceBridge.shared.recheckTransactionStatus(id: transactionID)
             await applyPendingStatusChanges([change])
             if change.statusChanged, let status = TransactionStatus(rawValue: change.newStatus) {
                 return "Status updated: \(status.localizedTitle)."
@@ -514,14 +514,14 @@ extension AppState {
         }
     }
 
-    func rebroadcastSignedTransaction(for transactionID: UUID) async -> String {
+    func rebroadcastSignedTransaction(for transactionID: String) async -> String {
         guard let transaction = transactions.first(where: { $0.id == transactionID }) else { return "Transaction not found." }
         guard transaction.kind == .send else { return "Rebroadcast is only supported for send transactions." }
         guard await authenticateForSensitiveAction(reason: "Authorize transaction rebroadcast") else {
             return sendError ?? "Authentication failed."
         }
         do {
-            let transactionHash = try await WalletServiceBridge.shared.rebroadcastTransaction(id: transactionID.uuidString)
+            let transactionHash = try await WalletServiceBridge.shared.rebroadcastTransaction(id: transactionID)
             await refreshTransactionProjection()
             return "Transaction rebroadcasted: \(transactionHash). Network confirmation is pending."
         } catch {
@@ -581,7 +581,7 @@ extension AppState {
     }
 
     func seedDerivationChain(for chainName: String) -> Chain? {
-        CachedCoreHelpers.seedDerivationChainRaw(chainName: chainName).flatMap(Chain.init(displayName:))
+        Chain(displayName: chainName)?.seedDerivationChain.flatMap(Chain.init(displayName:))
     }
     func walletHasAddress(for wallet: WalletView, chainName: String) -> Bool {
         resolvedAddress(for: wallet, chainName: chainName) != nil

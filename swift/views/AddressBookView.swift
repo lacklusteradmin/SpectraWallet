@@ -4,7 +4,8 @@ import UIKit
 struct AddressBookView: View {
     let store: AppState
     @State private var contactName: String = ""
-    @State private var selectedChainName: String = "Bitcoin"
+    /// The catalog's first mainnet, rather than a name written here.
+    @State private var selectedChainName: String = Chain.mainnets.first?.displayName ?? ""
     @State private var address: String = ""
     @State private var note: String = ""
     @State private var formMessage: String?

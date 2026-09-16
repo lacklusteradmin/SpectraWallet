@@ -83,11 +83,11 @@ extension AppState {
         let oldByID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
 
         if let stored = try? await WalletServiceBridge.shared.storedTransactions() {
-            adoptTransactionsFromCore(stored.compactMap(TransactionRecord.init(snapshot:)))
+            adoptTransactionsFromCore(stored.map(TransactionRecord.init(snapshot:)))
         }
 
         for change in changes {
-            guard let id = UUID(uuidString: change.id) else { continue }
+            let id = change.id
             let transaction = transactions.first(where: { $0.id == id }) ?? oldByID[id]
             guard let transaction else { continue }
             if change.statusChanged {
@@ -123,27 +123,20 @@ extension AppState {
         }
     }
 
+    // One message per event for every chain. Dogecoin had its own three,
+    // prefixed "DOGE", which the diagnostics screen they appear on — already
+    // one chain's — did not need; and the confirmed message every other chain
+    // got was not localized.
     private func statusPollFailedEventMessage(for transaction: TransactionRecord) -> String {
-        switch transaction.chainName {
-        case "Dogecoin": return localizedStoreString("DOGE transaction marked failed after extended retries.")
-        default: return transaction.localizedFailureReason ?? statusPollFailureMessage(for: transaction)
-        }
+        transaction.localizedFailureReason ?? statusPollFailureMessage(for: transaction)
     }
 
     private func statusPollConfirmedMessage(for transaction: TransactionRecord) -> String {
-        switch transaction.chainName {
-        case "Dogecoin": return localizedStoreString("DOGE transaction confirmed.")
-        default: return "Transaction confirmed on-chain."
-        }
+        localizedStoreString("Transaction confirmed on-chain.")
     }
 
     private func statusPollFinalityReachedMessage(for transaction: TransactionRecord, confirmations: Int) -> String {
-        switch transaction.chainName {
-        case "Dogecoin":
-            return AppLocalization.format("DOGE transaction reached finality (%d confirmations).", confirmations)
-        default:
-            return AppLocalization.format("Transaction reached finality (%d confirmations).", confirmations)
-        }
+        AppLocalization.format("Transaction reached finality (%d confirmations).", confirmations)
     }
     func editPriceAlert(_ command: StateCommand) async throws {
         let epoch = beginCoreStateRead()

@@ -1,32 +1,5 @@
 import Foundation
 
-/// The per-chain facts an EVM send needs, sourced from the registry.
-///
-/// Built from `coreEvmChainContext`, so adding an EVM chain is a registry edit
-/// and nothing here changes.
-struct EVMChainContext: Equatable {
-    let displayName: String
-    /// EIP-155 chain id, checked against what the RPC reports before signing.
-    let expectedChainID: Int
-    /// BIP-44 coin type: 60 for the Ethereum family, 61 for Ethereum Classic.
-    let coinType: UInt32
-    let isEthereumFamily: Bool
-    let isEthereumMainnet: Bool
-
-    /// `nil` when the chain is not an EVM chain the registry knows.
-    init?(chainName: String) {
-        guard let info = coreEvmChainContext(chainName: chainName) else { return nil }
-        displayName = info.displayName
-        expectedChainID = Int(info.chainId)
-        coinType = info.coinType
-        isEthereumFamily = info.isEthereumFamily
-        isEthereumMainnet = info.isEthereumMainnet
-    }
-
-    var tokenHostingChain: TokenHostingChain? { TokenHostingChain.forChainName(displayName) }
-    var defaultRPCEndpoints: [String] { AppEndpointDirectory.evmRPCEndpoints(for: displayName) }
-}
-
 // Preview types are UniFFI-generated from `core/src/send/`. What is left here
 // is the send *result* types and the chain-specific enums the UI switches on.
 
@@ -44,9 +17,6 @@ enum EthereumWalletEngineError: LocalizedError {
         case .rpcFailure(let detail): return detail
         }
     }
-}
-func normalizeEVMAddress(_ address: String) -> String {
-    address.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
 }
 
 extension SendPreview {
@@ -75,20 +45,25 @@ extension SendPreview {
 @MainActor
 @Observable
 final class SendPreviewStore {
-    /// Every chain's latest preview, keyed by preview slot.
+    /// Every chain's latest preview, keyed by the chain's mainnet id.
     ///
-    /// The slot comes from `previewSlot(forChainNamed:)`, which asks the
-    /// registry, so the EVM family shares Ethereum's without anyone naming its
-    /// members.
+    /// The mainnet because the two writers name one chain two ways: a refresh
+    /// names the holding's chain ("Bitcoin"), a review names the network it
+    /// resolved ("Bitcoin Testnet4"), and they must land in one slot. The EVM
+    /// family used to share Ethereum's slot instead, read back through nine
+    /// typed accessors that spelled out "Ethereum", "XRP Ledger", "TON" and six
+    /// more. The composer is on one chain at a time, so the sharing bought
+    /// nothing but those names — and put a testnet review beside its mainnet
+    /// refresh in two different slots.
     private(set) var previewBySlot: [String: SendPreview] = [:]
 
     func apply(_ preview: SendPreview?, forChainNamed chainName: String) {
-        guard let slot = Self.previewSlot(forChainNamed: chainName) else { return }
+        guard let slot = Self.slot(forChainNamed: chainName) else { return }
         previewBySlot[slot] = preview
     }
 
     func taggedPreview(forChainNamed chainName: String) -> SendPreview? {
-        Self.previewSlot(forChainNamed: chainName).flatMap { previewBySlot[$0] }
+        Self.slot(forChainNamed: chainName).flatMap { previewBySlot[$0] }
     }
 
     func clearPreview(forChainNamed chainName: String) { apply(nil as SendPreview?, forChainNamed: chainName) }
@@ -102,61 +77,15 @@ final class SendPreviewStore {
         taggedPreview(forChainNamed: chainName)?.estimatedNetworkFee
     }
 
-    /// Which chain's preview slot `chainName` writes to — itself, or Ethereum
-    /// for the EVM family, which shares one.
-    static func previewSlot(forChainNamed chainName: String) -> String? {
-        guard let chain = Chain(displayName: chainName) else { return nil }
-        return chain.isEVM ? "Ethereum" : chainName
+    /// The slot a chain's preview is stored under: its mainnet's registry id.
+    static func slot(forChainNamed chainName: String) -> String? {
+        Chain(displayName: chainName)?.mainnetCounterpart.id
     }
 
     func resetAll() { previewBySlot.removeAll() }
 
-    /// Clear every chain's preview but one.
-    func resetAll(exceptChainNamed chainName: String?) {
-        let kept = chainName.flatMap { Self.previewSlot(forChainNamed: $0) }
-        previewBySlot = previewBySlot.filter { $0.key == kept }
-    }
-
-    // Typed accessors, for the six chains a caller reads a chain-specific
-    // field off: Ethereum's nonce and gas, Bitcoin's sat/vB rate, Dogecoin's
-    // max-sendable and change flag, Monero's priority label, Sui's gas budget,
-    // Aptos's max gas, TON's sequence. Everything else goes through
-    // `estimatedFee(forChainNamed:)`, which is why there are seven of these
-    // rather than eighteen.
-    var evmSendPreview: EvmSendPreview? {
-        get { if case .ethereum(let p) = previewBySlot["Ethereum"] { p } else { nil } }
-        set { previewBySlot["Ethereum"] = newValue.map { .ethereum(preview: $0) } }
-    }
-    var dogecoinSendPreview: DogecoinSendPreview? {
-        get { if case .dogecoin(let p) = previewBySlot["Dogecoin"] { p } else { nil } }
-        set { previewBySlot["Dogecoin"] = newValue.map { .dogecoin(preview: $0) } }
-    }
-    var xrpSendPreview: XrpSendPreview? {
-        get { if case .xrp(let p) = previewBySlot["XRP Ledger"] { p } else { nil } }
-        set { previewBySlot["XRP Ledger"] = newValue.map { .xrp(preview: $0) } }
-    }
-    var stellarSendPreview: StellarSendPreview? {
-        get { if case .stellar(let p) = previewBySlot["Stellar"] { p } else { nil } }
-        set { previewBySlot["Stellar"] = newValue.map { .stellar(preview: $0) } }
-    }
-    var moneroSendPreview: MoneroSendPreview? {
-        get { if case .monero(let p) = previewBySlot["Monero"] { p } else { nil } }
-        set { previewBySlot["Monero"] = newValue.map { .monero(preview: $0) } }
-    }
-    var cardanoSendPreview: CardanoSendPreview? {
-        get { if case .cardano(let p) = previewBySlot["Cardano"] { p } else { nil } }
-        set { previewBySlot["Cardano"] = newValue.map { .cardano(preview: $0) } }
-    }
-    var suiSendPreview: SuiSendPreview? {
-        get { if case .sui(let p) = previewBySlot["Sui"] { p } else { nil } }
-        set { previewBySlot["Sui"] = newValue.map { .sui(preview: $0) } }
-    }
-    var aptosSendPreview: AptosSendPreview? {
-        get { if case .aptos(let p) = previewBySlot["Aptos"] { p } else { nil } }
-        set { previewBySlot["Aptos"] = newValue.map { .aptos(preview: $0) } }
-    }
-    var tonSendPreview: TonSendPreview? {
-        get { if case .ton(let p) = previewBySlot["TON"] { p } else { nil } }
-        set { previewBySlot["TON"] = newValue.map { .ton(preview: $0) } }
+    /// Clear every chain's preview but the one in `slot`.
+    func resetAll(exceptSlot slot: String) {
+        previewBySlot = previewBySlot.filter { $0.key == slot }
     }
 }

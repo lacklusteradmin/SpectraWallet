@@ -15,6 +15,7 @@ final class SendLiveActivityContentTests: XCTestCase {
         failureReason: String? = nil
     ) -> TransactionRecord {
         TransactionRecord(
+            id: UUID().uuidString,
             kind: .send, status: status, walletName: "Main", assetDisplayName: "Ether",
             symbol: "ETH", chainName: "Ethereum", amount: 1.5,
             address: "0x1234567890abcdef1234567890abcdef12345678",

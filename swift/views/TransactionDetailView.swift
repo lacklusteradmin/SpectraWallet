@@ -23,13 +23,13 @@ struct HistoryDetailView: View {
             return nonEmptyAddress(displayedTransaction.sourceAddress)
                 ?? firstOwnedAddress
         }
-        let counterparty = nonEmptyAddress(displayedTransaction.addressPreviewText)
+        let counterparty = nonEmptyAddress(displayedTransaction.address)
         if normalizedAddress(counterparty) != normalizedAddress(walletSideAddress) { return counterparty }
         return nil
     }
     private var toAddressText: String? {
         if displayedTransaction.kind == .send {
-            let counterparty = nonEmptyAddress(displayedTransaction.addressPreviewText)
+            let counterparty = nonEmptyAddress(displayedTransaction.address)
             if normalizedAddress(counterparty) != normalizedAddress(fromAddressText) { return counterparty }
             return nil
         }
@@ -38,7 +38,7 @@ struct HistoryDetailView: View {
     }
     private var walletSideAddress: String? {
         if let sourceAddress = nonEmptyAddress(displayedTransaction.sourceAddress), isOwnedAddress(sourceAddress) { return sourceAddress }
-        if let previewAddress = nonEmptyAddress(displayedTransaction.addressPreviewText), isOwnedAddress(previewAddress) {
+        if let previewAddress = nonEmptyAddress(displayedTransaction.address), isOwnedAddress(previewAddress) {
             return previewAddress
         }
         return nil
@@ -81,7 +81,7 @@ struct HistoryDetailView: View {
                         if let amountText = store.formattedTransactionDetailAmount(displayedTransaction) {
                             detailRow(label: "Amount", value: amountText)
                         }
-                        if let historySourceText = displayedTransaction.historySourceText {
+                        if let historySourceText = store.historySourceText(for: displayedTransaction) {
                             detailRow(label: "History Source", value: historySourceText)
                         }
                         if let receiptBlockNumberText = displayedTransaction.receiptBlockNumberText {
@@ -91,19 +91,19 @@ struct HistoryDetailView: View {
                             detailRow(label: "Confirmations", value: confirmationCountText)
                         }
                         if let receiptGasUsed = displayedTransaction.receiptGasUsed { detailRow(label: "Gas Used", value: receiptGasUsed) }
-                        if let receiptEffectiveGasPriceText = displayedTransaction.receiptEffectiveGasPriceText {
+                        if let receiptEffectiveGasPriceText = store.receiptEffectiveGasPriceText(for: displayedTransaction) {
                             detailRow(label: "Effective Gas Price", value: receiptEffectiveGasPriceText)
                         }
-                        if let receiptNetworkFeeText = displayedTransaction.receiptNetworkFeeText {
+                        if let receiptNetworkFeeText = store.receiptNetworkFeeText(for: displayedTransaction) {
                             detailRow(label: "Network Fee", value: receiptNetworkFeeText)
                         }
                         if let storedFeePriorityText = displayedTransaction.storedFeePriorityText {
                             detailRow(label: "Fee Priority", value: storedFeePriorityText)
                         }
-                        if let dogecoinConfirmedNetworkFeeDoge = displayedTransaction.dogecoinConfirmedNetworkFeeDoge {
-                            detailRow(label: "Confirmed Fee", value: String(format: "%.6f DOGE", dogecoinConfirmedNetworkFeeDoge))
+                        if let confirmedNetworkFeeText = store.confirmedNetworkFeeText(for: displayedTransaction) {
+                            detailRow(label: "Confirmed Fee", value: confirmedNetworkFeeText)
                         }
-                        if let storedFeeRateText = displayedTransaction.storedFeeRateText {
+                        if let storedFeeRateText = store.storedFeeRateText(for: displayedTransaction) {
                             detailRow(label: "Fee Rate", value: storedFeeRateText)
                         }
                         if let storedUsedChangeOutputText = displayedTransaction.storedUsedChangeOutputText {

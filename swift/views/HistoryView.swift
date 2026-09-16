@@ -7,7 +7,7 @@ private struct HistoryRowPresentation: Identifiable, Equatable {
     let statusText: String
     let fullTimestampText: String
     let metadataText: String?
-    var id: UUID { transaction.id }
+    var id: String { transaction.id }
 }
 
 private struct HistoryTransactionRowView: View, Equatable {
@@ -54,7 +54,7 @@ struct HistoryView: View {
     @State private var searchText: String = ""
     @State private var visibleLimit = 20
     @State private var isRetrying = false
-    @State private var recheckingIDs: Set<UUID> = []
+    @State private var recheckingIDs: Set<String> = []
     var body: some View {
         NavigationStack {
             ZStack {
@@ -327,7 +327,7 @@ struct HistoryView: View {
                 format: CommonLocalizationContent.current.transactionSubtitleFormat, transaction.assetDisplayName,
                 store.displayChainTitle(for: transaction), transaction.walletName
             ), statusText: transaction.statusText, fullTimestampText: transaction.fullTimestampText,
-            metadataText: transaction.historyMetadataText
+            metadataText: store.historyMetadataText(for: transaction)
         )
     }
     private func signedAmountText(for transaction: TransactionRecord) -> String? {

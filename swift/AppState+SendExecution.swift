@@ -31,8 +31,12 @@ extension AppState {
             reasons.insert("\(review.request.amountStr) → \(review.request.toAddress) (\(network))", at: 0)
             if let preview = review.preview {
                 sendPreviewStore.apply(preview, forChainNamed: network)
-                let symbol = Chain(id: review.request.chainId)?.gasTokenSymbol ?? ""
-                reasons.append(AppLocalization.format("Estimated network fee: %@ %@", String(preview.estimatedNetworkFee), symbol))
+                // `String(Double)` printed the fee as Swift spells a double —
+                // `2.1e-05 ETH` for a small one — beside a review the user is
+                // about to confirm.
+                if let chain = Chain(id: review.request.chainId) {
+                    reasons.append(AppLocalization.format("Estimated network fee: %@", formattedNetworkFee(preview.estimatedNetworkFee, chain: chain)))
+                }
             }
             pendingSendReview = review
             pendingHighRiskSendReasons = reasons

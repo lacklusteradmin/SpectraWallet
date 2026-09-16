@@ -106,7 +106,12 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     }
     /// `destinationAddress` prices an extra output where the chain has one —
     /// Litecoin's MWEB peg-in — so the preview core builds already includes it.
-    nonisolated func rustGenerateMnemonic(wordCount: Int) -> String { MainActor.assumeIsolated { generateMnemonic(wordCount: UInt32(wordCount)) } }
+    /// `nil` when core refuses the length: BIP-39 defines five, and core will
+    /// not substitute twelve words for a count it does not recognize. The
+    /// length picker already shows core's warning for such a count.
+    nonisolated func rustGenerateMnemonic(wordCount: Int) -> String? {
+        MainActor.assumeIsolated { try? generateMnemonic(wordCount: UInt32(wordCount)) }
+    }
 
 
     func refreshOwnedPrices(force: Bool) async throws -> CoreAppState {
@@ -292,10 +297,6 @@ extension WalletServiceBridge {
     }
 
 
-    func loadState(key: String) async throws -> String { try await readyService().loadState(key: key) }
-    func saveState(key: String, stateJSON: String) async throws {
-        try await readyService().saveState(key: key, stateJson: stateJSON)
-    }
     func fetchNormalizedHistory(chainId: String, address: String) async throws -> [NormalizedHistoryItem] {
         try await readyService().fetchNormalizedHistory(chainId: chainId, address: address)
     }

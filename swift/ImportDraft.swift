@@ -177,7 +177,7 @@ final class WalletImportDraft {
                 isCreateMode: isCreateMode,
                 hasValidWalletName: !walletName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
                 hasValidSeedPhrase: hasValidSeedPhrase,
-                hasValidPrivateKeyHex: CachedCoreHelpers.privateKeyHexIsLikely(rawValue: privateKeyInput),
+                hasValidPrivateKeyHex: coreIsPrivateKeyHex(rawValue: privateKeyInput),
                 isBackupVerificationComplete: isBackupVerificationComplete,
                 requiresBackupVerification: requiresBackupVerification,
                 watchOnlyEntries: watchEntries
@@ -302,14 +302,18 @@ final class WalletImportDraft {
     private static func coin(for chainName: String) -> Coin? { coinsByChain[chainName] }
     func regenerateSeedPhrase() {
         guard isCreateMode else { return }
-        guard [12, 15, 18, 21, 24].contains(selectedSeedPhraseWordCount) else {
+        // Core refuses a length BIP-39 does not define. This used to hold the
+        // five so it would not ask — one of four copies of that list.
+        guard
+            let generatedPhrase = WalletServiceBridge.shared.rustGenerateMnemonic(
+                wordCount: selectedSeedPhraseWordCount)
+        else {
             seedPhrase = ""
             seedPhraseEntries = Array(repeating: "", count: selectedSeedPhraseWordCount)
             backupVerificationWordIndices = []
             backupVerificationEntries = []
             return
         }
-        let generatedPhrase = WalletServiceBridge.shared.rustGenerateMnemonic(wordCount: selectedSeedPhraseWordCount)
         seedPhrase = generatedPhrase
         let generatedWords = generatedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
         var entries = Array(repeating: "", count: selectedSeedPhraseWordCount)

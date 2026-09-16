@@ -12,6 +12,28 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
     }
 }
 
+/// Where the five platform preferences live.
+///
+/// Four were a JSON blob core stored for the app through a generic
+/// `save_state` export, loaded after launch; the fifth, appearance, was here
+/// because it must be known before the first frame. Hidden balances had the
+/// same need and not the same store: until the blob arrived the dashboard
+/// showed what the user had hidden. None of the five is a domain fact — a CLI
+/// has no Face ID and no dashboard — so core had no reason to hold them, and
+/// `UserDefaults` answers synchronously.
+private enum PlatformDefaults {
+    static let hideBalances = "settings.platform.hideBalances"
+    static let appearanceMode = "settings.appearanceMode"
+    static let useFaceID = "settings.platform.useFaceID"
+    static let useAutoLock = "settings.platform.useAutoLock"
+    static let requireBiometricForSendActions = "settings.platform.requireBiometricForSendActions"
+
+    static func bool(_ key: String, default value: Bool) -> Bool {
+        UserDefaults.standard.object(forKey: key) as? Bool ?? value
+    }
+    static func set(_ value: Bool, _ key: String) { UserDefaults.standard.set(value, forKey: key) }
+}
+
 /// User-facing UI / security preferences, split out of `AppState` so that
 /// views which only read preferences (Settings, lock-screen UI, the
 /// hide-balances dashboard mirror, etc.) don't get invalidated whenever
@@ -20,37 +42,45 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 /// Apple's native pattern: split a god-object `@Observable` model along
 /// coherent domains so each view observes only the sub-model it needs.
 ///
-/// Writes are persisted through the owning `AppState` via `persistHandler`,
-/// which keeps the single-blob SQLite schema intact — only the in-memory
-/// observation graph is split.
+/// Five are this platform's and persist in `UserDefaults` as they change; the
+/// rest mirror core settings and commit through `persistHandler`.
 @MainActor
 @Observable
 final class AppUserPreferences {
     // ── UI ──────────────────────────────────────────────────────────────
-    var hideBalances: Bool = false { didSet { guard hideBalances != oldValue else { return }; platformPersistHandler?() } }
+    var hideBalances: Bool = PlatformDefaults.bool(PlatformDefaults.hideBalances, default: false) {
+        didSet { if hideBalances != oldValue { PlatformDefaults.set(hideBalances, PlatformDefaults.hideBalances) } }
+    }
     var appearanceMode: AppearanceMode = {
-        if let raw = UserDefaults.standard.string(forKey: "settings.appearanceMode"),
+        if let raw = UserDefaults.standard.string(forKey: PlatformDefaults.appearanceMode),
            let saved = AppearanceMode(rawValue: raw) { return saved }
         return .dark
     }() {
         didSet {
             guard appearanceMode != oldValue else { return }
-            UserDefaults.standard.set(appearanceMode.rawValue, forKey: "settings.appearanceMode")
+            UserDefaults.standard.set(appearanceMode.rawValue, forKey: PlatformDefaults.appearanceMode)
         }
     }
 
     // ── Security ────────────────────────────────────────────────────────
-    var useFaceID: Bool = true {
+    var useFaceID: Bool = PlatformDefaults.bool(PlatformDefaults.useFaceID, default: true) {
         didSet {
             guard useFaceID != oldValue else { return }
-            platformPersistHandler?()
+            PlatformDefaults.set(useFaceID, PlatformDefaults.useFaceID)
             if !useFaceID { useFaceIDDisabledHandler?() }
         }
     }
-    var useAutoLock: Bool = false { didSet { guard useAutoLock != oldValue else { return }; platformPersistHandler?() } }
+    var useAutoLock: Bool = PlatformDefaults.bool(PlatformDefaults.useAutoLock, default: false) {
+        didSet { if useAutoLock != oldValue { PlatformDefaults.set(useAutoLock, PlatformDefaults.useAutoLock) } }
+    }
     var useStrictRPCOnly: Bool = false { didSet { guard useStrictRPCOnly != oldValue else { return }; persistHandler?() } }
-    var requireBiometricForSendActions: Bool = true {
-        didSet { guard requireBiometricForSendActions != oldValue else { return }; platformPersistHandler?() }
+    var requireBiometricForSendActions: Bool = PlatformDefaults.bool(
+        PlatformDefaults.requireBiometricForSendActions, default: true)
+    {
+        didSet {
+            guard requireBiometricForSendActions != oldValue else { return }
+            PlatformDefaults.set(requireBiometricForSendActions, PlatformDefaults.requireBiometricForSendActions)
+        }
     }
 
     // ── Notifications ───────────────────────────────────────────────────
@@ -99,39 +129,18 @@ final class AppUserPreferences {
     // view invalidations.
     /// Commit the settings core owns.
     @ObservationIgnored var persistHandler: (() -> Void)?
-    /// Persist the four this platform keeps.
-    @ObservationIgnored var platformPersistHandler: (() -> Void)?
     @ObservationIgnored var useFaceIDDisabledHandler: (() -> Void)?
     @ObservationIgnored var notificationPermissionRequestHandler: (() -> Void)?
 
     nonisolated init() {}
 
-    /// The four this platform keeps, as one value to store and restore.
-    var platformSnapshot: PlatformPreferences {
-        PlatformPreferences(
-            hideBalances: hideBalances, useFaceID: useFaceID, useAutoLock: useAutoLock,
-            requireBiometricForSendActions: requireBiometricForSendActions)
-    }
-    /// Adopt stored platform preferences without writing them straight back.
-    func applyPlatform(_ stored: PlatformPreferences) {
-        let previous = platformPersistHandler
-        platformPersistHandler = nil
-        defer { platformPersistHandler = previous }
-        hideBalances = stored.hideBalances
-        useFaceID = stored.useFaceID
-        useAutoLock = stored.useAutoLock
-        requireBiometricForSendActions = stored.requireBiometricForSendActions
-    }
-
     /// Reset to factory defaults. Called from `StoreLifecycleReset.reset()`.
-    /// Does NOT trigger the persist handlers; callers are responsible for
-    /// scheduling persistence once the whole reset pass is complete.
+    /// The five platform values write themselves back as they change; the core
+    /// settings are reset by core, so the commit handler is held off.
     func resetToDefaults() {
         let previousPersist = persistHandler
-        let previousPlatform = platformPersistHandler
         persistHandler = nil
-        platformPersistHandler = nil
-        defer { persistHandler = previousPersist; platformPersistHandler = previousPlatform }
+        defer { persistHandler = previousPersist }
         // Only the five this platform owns. The other seven on this class —
         // strict RPC, the three notification toggles, the refresh cadence and
         // the two large-movement thresholds — are core settings mirrored here,

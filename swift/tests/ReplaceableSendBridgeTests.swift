@@ -46,6 +46,7 @@ import Foundation
             status: TransactionStatus = .pending, deploymentID: String? = nil, hash: String? = "0xfeed", nonce: Int? = 7
         ) -> TransactionRecord {
             TransactionRecord(
+                id: UUID().uuidString,
                 walletID: "wallet-1", deploymentID: deploymentID, kind: kind, status: status, walletName: "Main",
                 assetDisplayName: chain, symbol: symbol, chainName: chain, amount: 1.5,
                 address: "0x1111111111111111111111111111111111111111",

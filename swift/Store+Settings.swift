@@ -73,7 +73,7 @@ extension AppState {
         }
         let knownFeeChains = known.map { Set($0.feePriorityByChain.keys) } ?? []
         for chainName in Set(feePriorityByChain.keys).union(knownFeeChains) {
-            push(.feePriority(chain: chainName, value: feePriorityByChain[chainName] ?? "normal"),
+            push(.feePriority(chain: chainName, value: feePriorityByChain[chainName] ?? .normal),
                  known?.feePriorityByChain[chainName] == feePriorityByChain[chainName])
         }
         let knownRPCChains = known.map { Set($0.rpcEndpointByChain.keys) } ?? []
@@ -187,17 +187,4 @@ extension AppState {
             preferences.largeMovementAlertUSDThreshold = settings.largeMovementAlertUsdThreshold
         }
     }
-}
-
-/// The four settings that stayed on the platform.
-///
-/// Hiding balances is one front end's presentation; Face ID, auto-lock and
-/// biometric-gated sends are one platform's capability, and a CLI has neither
-/// the concept nor a way to honour them. They persist through the generic
-/// key-value store rather than as a typed record crossing the boundary.
-struct PlatformPreferences: Codable, Equatable {
-    var hideBalances = false
-    var useFaceID = true
-    var useAutoLock = false
-    var requireBiometricForSendActions = true
 }

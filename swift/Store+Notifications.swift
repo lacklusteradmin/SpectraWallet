@@ -61,7 +61,7 @@ extension AppState {
         case .pending: return
         }
         postNotification(
-            identifier: "transaction-status-\(transaction.id.uuidString)-\(newStatus.rawValue)", title: title, body: body
+            identifier: "transaction-status-\(transaction.id)-\(newStatus.rawValue)", title: title, body: body
         )
     }
 }

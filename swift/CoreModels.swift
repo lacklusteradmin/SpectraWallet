@@ -3,16 +3,20 @@ import SwiftUI
 #if canImport(UIKit)
     import UIKit
 #endif
-enum ChainFeePriorityOption: String, CaseIterable, Codable, Identifiable {
-    case economy
-    case normal
-    case priority
-    var id: String { rawValue }
+/// `FeePriority` is core's enum. Which values exist, how they are stored, and
+/// that anything else reads as `normal` are core's rules; this adds the wording
+/// and the iteration order a picker needs.
+///
+/// Was a second enum declared here, with its own raw strings, while core's
+/// setting held a free string — so "which priorities exist" had two answers and
+/// the typed one was the app's.
+extension FeePriority: CaseIterable {
+    public static var allCases: [FeePriority] { [.economy, .normal, .priority] }
     var displayName: String {
         switch self {
-        case .economy: return "Economy"
-        case .normal: return "Normal"
-        case .priority: return "Priority"
+        case .economy: return AppLocalization.string("Economy")
+        case .normal: return AppLocalization.string("Normal")
+        case .priority: return AppLocalization.string("Priority")
         }
     }
 }
@@ -228,14 +232,13 @@ extension Chain {
     /// Core returned a four-field resolution here — chain, path, account index
     /// and a `SeedDerivationFlavor` — and this app read the path. The other
     /// three had no reader on either side of the binding.
+    ///
+    /// Empty when core cannot resolve one. The only reader shows the path of a
+    /// reserved receive index on the diagnostics screen, and a `fatalError`
+    /// there crashed the app to report a label it could not print. Core signs
+    /// and derives from its own stored path, not from this.
     func resolve(path rawPath: String) -> String {
-        do {
-            return try appCoreResolveDerivationPath(chain: displayName, derivationPath: rawPath)
-        } catch {
-            fatalError(
-                "Rust derivation path resolution failed for \(displayName): "
-                    + error.localizedDescription)
-        }
+        (try? appCoreResolveDerivationPath(chain: displayName, derivationPath: rawPath)) ?? ""
     }
 }
 typealias SeedDerivationPaths = CoreSeedDerivationPaths
@@ -244,7 +247,7 @@ extension CoreSeedDerivationPaths {
     /// slot — the derivation recipe is identical and only the address encoding
     /// differs — and the registry decides which is which.
     private static func storageKey(for chain: Chain) -> String {
-        CachedCoreHelpers.seedDerivationPathKey(chainName: chain.displayName)
+        chain.seedDerivationPathKey
     }
 
     /// Configured derivation path for a chain, or `""` when the chain has no
@@ -305,7 +308,7 @@ enum HistorySortOrder: String, CaseIterable, Identifiable {
 }
 struct NormalizedHistoryEntry: Identifiable {
     let id: String
-    let transactionID: UUID
+    let transactionID: String
     let dedupeKey: String
     let createdAt: Date
     let kind: TransactionKind
@@ -357,7 +360,11 @@ extension AddressBookEntry: Identifiable {
 }
 struct TransactionRecord: Identifiable, Equatable, Sendable {
     let deploymentID: String?
-    let id: UUID
+    /// Core's id, verbatim. It was a `UUID`, parsed from core's string at the
+    /// read site, and a row whose id did not parse was dropped from the list
+    /// rather than reported — the app deciding, quietly, which of core's
+    /// transactions exist.
+    let id: String
     let walletID: String?
     let kind: TransactionKind
     let status: TransactionStatus
@@ -372,7 +379,7 @@ struct TransactionRecord: Identifiable, Equatable, Sendable {
     let receiptBlockNumber: Int?
     let receiptGasUsed: String?
     let receiptEffectiveGasPriceGwei: Double?
-    let receiptNetworkFeeEth: Double?
+    let receiptNetworkFee: Double?
     let feePriorityRaw: String?
     let feeRateDescription: String?
     let confirmationCount: Int?
@@ -389,10 +396,10 @@ struct TransactionRecord: Identifiable, Equatable, Sendable {
     let transactionHistorySource: String?
     let createdAt: Date
     nonisolated init(
-        id: UUID = UUID(), walletID: String? = nil, deploymentID: String? = nil, kind: TransactionKind, status: TransactionStatus, walletName: String, assetDisplayName: String,
+        id: String, walletID: String? = nil, deploymentID: String? = nil, kind: TransactionKind, status: TransactionStatus, walletName: String, assetDisplayName: String,
         symbol: String, chainName: String, amount: Double, address: String, transactionHash: String? = nil, ethereumNonce: Int? = nil,
         receiptBlockNumber: Int? = nil, receiptGasUsed: String? = nil, receiptEffectiveGasPriceGwei: Double? = nil,
-        receiptNetworkFeeEth: Double? = nil, feePriorityRaw: String? = nil, feeRateDescription: String? = nil,
+        receiptNetworkFee: Double? = nil, feePriorityRaw: String? = nil, feeRateDescription: String? = nil,
         confirmationCount: Int? = nil, dogecoinConfirmedNetworkFeeDoge: Double? = nil,
         dogecoinEstimatedFeeRateDogePerKb: Double? = nil, usedChangeOutput: Bool? = nil,
         sourceDerivationPath: String? = nil, changeDerivationPath: String? = nil,
@@ -416,7 +423,7 @@ struct TransactionRecord: Identifiable, Equatable, Sendable {
         self.receiptBlockNumber = receiptBlockNumber
         self.receiptGasUsed = receiptGasUsed
         self.receiptEffectiveGasPriceGwei = receiptEffectiveGasPriceGwei
-        self.receiptNetworkFeeEth = receiptNetworkFeeEth
+        self.receiptNetworkFee = receiptNetworkFee
         self.feePriorityRaw = feePriorityRaw
         self.feeRateDescription = feeRateDescription
         self.confirmationCount = confirmationCount
@@ -444,16 +451,17 @@ enum SendBroadcastVerificationStatus: Equatable {
 }
 
 extension TransactionRecord {
-    @MainActor init?(snapshot: CorePersistedTransactionRecord) {
-        guard let resolvedID = UUID(uuidString: snapshot.id) else { return nil }
-        let resolvedKind = snapshot.kind
-        let resolvedStatus = snapshot.status ?? (resolvedKind == .receive ? .pending : .confirmed)
+    /// Adopt one stored record. Nothing to decide: core's status is not
+    /// optional, so the "a record with no status is pending when received and
+    /// confirmed when sent" fallback this used to apply — differently from
+    /// core's own — has nowhere left to live.
+    @MainActor init(snapshot: CorePersistedTransactionRecord) {
         self.init(
-            id: resolvedID,
+            id: snapshot.id,
             walletID: snapshot.walletId,
             deploymentID: snapshot.deploymentId,
-            kind: resolvedKind,
-            status: resolvedStatus,
+            kind: snapshot.kind,
+            status: snapshot.status,
             walletName: snapshot.walletName,
             assetDisplayName: snapshot.assetDisplayName,
             symbol: snapshot.symbol,
@@ -465,7 +473,7 @@ extension TransactionRecord {
             receiptBlockNumber: snapshot.receiptBlockNumber.map { Int($0) },
             receiptGasUsed: snapshot.receiptGasUsed,
             receiptEffectiveGasPriceGwei: snapshot.receiptEffectiveGasPriceGwei,
-            receiptNetworkFeeEth: snapshot.receiptNetworkFeeEth,
+            receiptNetworkFee: snapshot.receiptNetworkFee,
             feePriorityRaw: snapshot.feePriorityRaw,
             feeRateDescription: snapshot.feeRateDescription,
             confirmationCount: snapshot.confirmationCount.map { Int($0) },
@@ -493,20 +501,6 @@ extension TransactionRecord {
     var subtitleText: String {
         String(format: CommonLocalizationContent.current.transactionSubtitleFormat, assetDisplayName, chainName, walletName)
     }
-    var historySourceText: String? {
-        guard let transactionHistorySource else { return nil }
-        let trimmed = transactionHistorySource.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        switch trimmed.lowercased() {
-        case "esplora": return "Esplora"
-        case "litecoinspace": return "LitecoinSpace"
-        case "blockchain.info": return "Blockchain.info"
-        case "blockchair": return "Blockchair"
-        case "dogecoin.providers": return "DOGE Providers"
-        case "rpc": return "RPC"
-        default: return trimmed
-        }
-    }
     var statusText: String { status.localizedTitle }
     var badgeMark: String {
         switch kind {
@@ -527,36 +521,15 @@ extension TransactionRecord {
         case .failed: return .red
         }
     }
-    var amountText: String? {
-        guard amount > 0 else { return nil }
-        return String(format: "%.4f %@", amount, symbol)
-    }
-    var addressPreviewText: String { address }
     var receiptBlockNumberText: String? {
         guard let receiptBlockNumber else { return nil }
         return String(receiptBlockNumber)
-    }
-    var receiptEffectiveGasPriceText: String? {
-        guard let receiptEffectiveGasPriceGwei else { return nil }
-        return String(format: "%.3f gwei", receiptEffectiveGasPriceGwei)
-    }
-    var receiptNetworkFeeText: String? {
-        guard let receiptNetworkFeeEth else { return nil }
-        return String(format: "%.8f ETH", receiptNetworkFeeEth)
     }
     var storedFeePriorityText: String? {
         if let feePriorityRaw {
             let trimmed = feePriorityRaw.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty { return trimmed.capitalized }
         }
-        return nil
-    }
-    var storedFeeRateText: String? {
-        if let feeRateDescription {
-            let trimmed = feeRateDescription.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty { return trimmed }
-        }
-        if let dogecoinEstimatedFeeRateDogePerKb { return String(format: "%.4f DOGE/KB", dogecoinEstimatedFeeRateDogePerKb) }
         return nil
     }
     var storedConfirmationCountText: String? {
@@ -577,16 +550,6 @@ extension TransactionRecord {
         guard let signedTransactionPayloadFormat else { return nil }
         let trimmed = signedTransactionPayloadFormat.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
-    }
-    var historyMetadataText: String? {
-        var parts: [String] = []
-        if let storedFeePriorityText { parts.append("Fee \(storedFeePriorityText)") }
-        if let storedFeeRateText { parts.append(storedFeeRateText) }
-        if let storedConfirmationCountText { parts.append(storedConfirmationCountText) }
-        if let usedChangeOutput, kind == .send {
-            parts.append(usedChangeOutput ? "change output" : "no change output")
-        }
-        return parts.isEmpty ? nil : parts.joined(separator: " • ")
     }
     var fullTimestampText: String { createdAt.formatted(date: .abbreviated, time: .standard) }
     var transactionExplorerURL: URL? {

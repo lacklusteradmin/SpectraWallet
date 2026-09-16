@@ -32,43 +32,31 @@ extension AppState {
             refreshableChainNames: Set(derived.refreshableChainNames)
         )
     }
-    /// Run after `wallets` mutates. Decomposed into three named phases so a
-    /// reader chasing "why did X happen when wallets changed?" can grep the
-    /// matching phase by name instead of skimming a 30-line debounce closure.
-    ///   1. `rebuildWalletDerivedCaches` — observable derived state, sync, batched.
-    ///   2. `persistWalletStateOptimistically` — non-network writes (SQLite, Keychain).
-    ///   3. `reconcileBackgroundServices` — refresh engine + maintenance loop start/stop.
-    /// Phases 2 and 3 run together inside a 200ms debounce so a fast cascade
-    /// of edits costs one persist + one reconcile, not N.
+    /// Run after `wallets` mutates: rebuild the observable derived state now,
+    /// then — inside a 200ms debounce, so a fast cascade of edits costs one
+    /// pass rather than N — hand the refresh engine its entries and start or
+    /// stop the background services.
+    ///
+    /// There was a middle phase, "persist wallet state optimistically", whose
+    /// comment described writing wallets to SQLite and Keychain and pruning
+    /// orphaned transactions. Core does all of that inside the command that
+    /// changed the wallet; the phase's body had come down to the one call
+    /// below.
     func applyWalletCollectionSideEffects() {
-        rebuildWalletDerivedCaches()
+        rebuildWalletDerivedState()
+        rebuildDashboardDerivedState()
         walletSideEffectsTask?.cancel()
         walletSideEffectsTask = Task { [weak self] in
             guard let self else { return }
             try? await Task.sleep(nanoseconds: 200_000_000)
             guard !Task.isCancelled else { return }
-            self.persistWalletStateOptimistically()
+            self.updateRefreshEngineEntries()
             await self.reconcileBackgroundServices()
             self.walletSideEffectsTask = nil
         }
     }
 
-    /// Phase 1: rebuild the observable derived state.
-    private func rebuildWalletDerivedCaches() {
-        rebuildWalletDerivedState()
-        rebuildDashboardDerivedState()
-    }
-
-    /// Phase 2: write the wallet collection to SQLite + Keychain and prune
-    /// transactions that no longer reference an active wallet. No network I/O;
-    /// safe to call inside the debounce.
-    private func persistWalletStateOptimistically() {
-        // Wallets persist themselves: every mutation goes through a
-        // `StateCommand` that core writes before it returns.
-        updateRefreshEngineEntries()
-    }
-
-    /// Phase 3: start or stop the Rust-side balance-refresh engine and
+    /// Start or stop the Rust-side balance-refresh engine and
     /// maintenance loop based on whether any wallets exist. Both Rust calls
     /// early-exit if already running, so it's safe to invoke on every wallet
     /// mutation; calling `stopBalanceRefresh` when the last wallet is removed
@@ -88,7 +76,10 @@ extension AppState {
     func normalizedWalletChainName(_ chainName: String) -> String {
         WalletChainID(chainName)?.displayName ?? chainName.trimmingCharacters(in: .whitespacesAndNewlines)
     }
-    func clearDeletedWalletDiagnostics(walletID: String, chainName: String, hasRemainingWalletsOnChain: Bool) {
+    /// Reload diagnostics core has already pruned, and forget when this chain's
+    /// history last refreshed. The wallet id and whether others remain on the
+    /// chain were passed in and read by nothing.
+    func clearDeletedWalletDiagnostics(chainName: String) {
         Task { [weak self] in await self?.diagnostics.loadFromSQLite() }
         lastHistoryRefreshAtByChain[chainName] = nil
     }
@@ -109,7 +100,7 @@ extension AppState {
     /// Re-read the projection from core. Used after a change core made itself.
     func refreshTransactionProjection() async {
         guard let stored = try? await WalletServiceBridge.shared.storedTransactions() else { return }
-        adoptTransactionsFromCore(stored.compactMap(TransactionRecord.init(snapshot:)))
+        adoptTransactionsFromCore(stored.map(TransactionRecord.init(snapshot:)))
         await rebuildTransactionDerivedState()
     }
 }

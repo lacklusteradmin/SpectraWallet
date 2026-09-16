@@ -112,7 +112,7 @@ struct StandardChainDiagnosticsView: View {
     let chain: Chain
     private let copy = DiagnosticsContentCopy.current
     @State private var copiedDiagnosticsNotice: SpectraTransientNotice?
-    @State private var selectedMoneroBackendID: String = MoneroBalanceService.defaultBackendID
+    @State private var selectedBackendID: String = ""
     @State private var cachedEndpointRows: [StandardEndpointRow] = []
     @State private var cachedHistorySourceRows: [StandardHistorySourceRow] = []
     /// Keypool state now lives in core, so it is loaded rather than read
@@ -122,17 +122,26 @@ struct StandardChainDiagnosticsView: View {
     /// Operational events live in core now, so they load rather than read
     /// synchronously — same `.task` as the keypool rows.
     @State private var cachedOperationalEvents: [ChainOperationalEvent] = []
-    private let moneroCustomBackendID = "custom"
+    private let customBackendID = "custom"
     private var chainDiagnosticsState: WalletChainDiagnosticsState { store.chainDiagnosticsState }
     private var displayChainTitle: String { store.displayChainTitle(for: chain.displayName) }
     private var diagnosticsLabel: String { displayChainTitle }
-    private var moneroBackendChoices: [(id: String, title: String)] {
-        let trusted = MoneroBalanceService.trustedBackends.map { ($0.id, $0.displayName) }
-        return trusted + [(moneroCustomBackendID, AppLocalization.string("Custom URL"))]
+    /// The backends the catalog lists for this chain, first being the one core
+    /// uses when the setting is empty.
+    ///
+    /// Was `MoneroBalanceService`: three catalog record ids, three display
+    /// names and a default id written out in Swift, read by index — so a
+    /// catalog with two backends crashed the screen on `[2]`.
+    private var catalogBackends: [String] { AppEndpointDirectory.settingsEndpoints(for: chain.displayName) }
+    private var backendChoices: [(id: String, title: String)] {
+        catalogBackends.enumerated().map { index, url in
+            let host = URL(string: url)?.host ?? url
+            return (url, index == 0 ? AppLocalization.format("%@ (Default)", host) : host)
+        } + [(customBackendID, AppLocalization.string("Custom URL"))]
     }
-    private var selectedTrustedMoneroBackend: MoneroBalanceService.TrustedBackend? {
-        MoneroBalanceService.trustedBackends.first(where: { $0.id == selectedMoneroBackendID })
-    }
+    /// Esplora bases are a Bitcoin-family catalog column; a chain with any has
+    /// the custom-Esplora setting.
+    private var hasEsploraBases: Bool { !AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: chain.id).isEmpty }
 
     /// Self-test and rescan actions, offered on the chains a rescan means
     /// something for — the ones whose addresses HD discovery walks.
@@ -234,7 +243,7 @@ struct StandardChainDiagnosticsView: View {
             }
             chainSpecificSections
         }.navigationTitle(displayChainTitle + " Diagnostics").onAppear {
-            if chain == .monero { syncSelectedMoneroBackendIDFromStore() }
+            if chain.sendsThroughBackend { syncSelectedBackendIDFromStore() }
             rebuildCachedRows()
         }.task(id: chain.id) {
             do {
@@ -245,19 +254,13 @@ struct StandardChainDiagnosticsView: View {
                 keypoolError = error.localizedDescription
             }
             cachedOperationalEvents = await store.operationalEvents(for: chain.displayName)
-        }.spectraTransientNotice($copiedDiagnosticsNotice).onChange(of: selectedMoneroBackendID) { _, newValue in
-            guard chain == .monero else { return }
-            if newValue == moneroCustomBackendID { return }
-            if newValue == MoneroBalanceService.defaultBackendID {
-                store.moneroBackendBaseURL = ""
-                return
-            }
-            if let trusted = MoneroBalanceService.trustedBackends.first(where: { $0.id == newValue }) {
-                store.moneroBackendBaseURL = trusted.baseURL
-            }
+        }.spectraTransientNotice($copiedDiagnosticsNotice).onChange(of: selectedBackendID) { _, newValue in
+            guard chain.sendsThroughBackend, newValue != customBackendID else { return }
+            // The first is what an empty setting already means.
+            store.moneroBackendBaseURL = newValue == catalogBackends.first ? "" : newValue
         }.onChange(of: store.moneroBackendBaseURL) { _, _ in
-            guard chain == .monero else { return }
-            syncSelectedMoneroBackendIDFromStore()
+            guard chain.sendsThroughBackend else { return }
+            syncSelectedBackendIDFromStore()
         }.onChange(of: historyLastUpdatedAt) { _, _ in
             rebuildHistorySourceRows()
         }.onChange(of: historyWalletCount) { _, _ in
@@ -303,30 +306,25 @@ struct StandardChainDiagnosticsView: View {
     /// The endpoints this chain would actually use, as the screen lists them.
     private func configuredEndpointsForCurrentChain() -> [String] {
         let name = chain.displayName
-        switch chain {
-        case .bitcoin:
-            let custom = store.bitcoinEsploraEndpoints
-                .components(separatedBy: CharacterSet(charactersIn: ",;\n"))
-                .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
-                .filter { !$0.isEmpty }
+        if hasEsploraBases {
+            let custom = parseBitcoinEsploraEndpoints(raw: store.bitcoinEsploraEndpoints)
             return custom.isEmpty
-                ? AppEndpointDirectory.bitcoinEsploraBaseURLs(
-                    forChainID: store.networkChainID(forFamily: "bitcoin"))
+                ? AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: store.networkChainID(forFamily: chain.id))
                 : custom
-        case .monero:
-            let trimmed = store.moneroBackendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? [MoneroBalanceService.defaultPublicBackend.baseURL] : [trimmed]
-        default:
-            guard chain.isEVM else { return AppEndpointDirectory.settingsEndpoints(for: name) }
-            // The override used to be Ethereum's alone, so this was its own
-            // case and every other EVM chain fell through to the catalog list.
-            let custom = store.rpcEndpoint(forChain: name)
-            var endpoints = custom.isEmpty ? [] : [custom]
-            for endpoint in AppEndpointDirectory.evmEndpointsWithSupplemental(for: name) where !endpoints.contains(endpoint) {
-                endpoints.append(endpoint)
-            }
-            return endpoints
         }
+        if chain.sendsThroughBackend {
+            let trimmed = store.moneroBackendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+            return trimmed.isEmpty ? catalogBackends : [trimmed]
+        }
+        guard chain.isEVM else { return AppEndpointDirectory.settingsEndpoints(for: name) }
+        // The override used to be Ethereum's alone, so this was its own
+        // case and every other EVM chain fell through to the catalog list.
+        let custom = store.rpcEndpoint(forChain: name)
+        var endpoints = custom.isEmpty ? [] : [custom]
+        for endpoint in AppEndpointDirectory.evmEndpointsWithSupplemental(for: name) where !endpoints.contains(endpoint) {
+            endpoints.append(endpoint)
+        }
+        return endpoints
     }
     private func rebuildHistorySourceRows() {
         let sources = chain.dispatch.historySummary(store).sources
@@ -344,16 +342,18 @@ struct StandardChainDiagnosticsView: View {
     }
     private func runHistoryDiagnostics() async { await chain.dispatch.runHistoryDiagnostics(store) }
     private func runEndpointDiagnostics() async { await chain.dispatch.runEndpointDiagnostics(store) }
+    /// Fee priority and custom Esplora bases, for a chain the catalog gives
+    /// Esplora bases to.
     @ViewBuilder
-    private var bitcoinSettingsSection: some View {
-        Section(AppLocalization.string("Bitcoin Settings")) {
+    private var esploraSettingsSection: some View {
+        Section(AppLocalization.format("%@ Settings", chain.displayName)) {
             Picker(
                 AppLocalization.string("Send Fee Priority"),
                 selection: Binding(
-                    get: { store.feePriorityOption(for: "Bitcoin") },
-                    set: { store.setFeePriorityOption($0, for: "Bitcoin") })
+                    get: { store.feePriority(forChain: chain.displayName) },
+                    set: { store.setFeePriority($0, forChain: chain.displayName) })
             ) {
-                ForEach(ChainFeePriorityOption.allCases) { priority in
+                ForEach(FeePriority.allCases, id: \.self) { priority in
                     Text(priority.displayName).tag(priority)
                 }
             }.pickerStyle(.segmented)
@@ -368,21 +368,35 @@ struct StandardChainDiagnosticsView: View {
             }
         }
     }
+    /// The custom RPC, for every EVM chain.
+    ///
+    /// Core has kept a custom RPC per chain since `rpc_endpoint_by_chain`
+    /// replaced `ethereum_rpc_endpoint`, and this screen already listed a
+    /// custom RPC first for any EVM chain that had one — but only Ethereum's
+    /// screen offered a way to set it.
     @ViewBuilder
-    private var ethereumSettingsSections: some View {
-        Section(AppLocalization.string("Ethereum RPC")) {
+    private var rpcSettingsSection: some View {
+        Section(AppLocalization.format("%@ RPC", chain.displayName)) {
             TextField(
-                AppLocalization.string("Ethereum RPC URL (Optional)"),
+                AppLocalization.format("%@ RPC URL (Optional)", chain.displayName),
                 text: Binding(
-                    get: { store.rpcEndpoint(forChain: "Ethereum") },
-                    set: { store.setRPCEndpoint($0, forChain: "Ethereum") })
+                    get: { store.rpcEndpoint(forChain: chain.displayName) },
+                    set: { store.setRPCEndpoint($0, forChain: chain.displayName) })
             )
             .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
-            Text(copy.ethereumRPCNote).font(.caption).foregroundStyle(.secondary)
-            if let error = store.rpcEndpointValidationError(forChain: "Ethereum") {
+            Text(copy.customRPCNote).font(.caption).foregroundStyle(.secondary)
+            if let error = store.rpcEndpointValidationError(forChain: chain.displayName) {
                 Text(error).font(.caption).foregroundStyle(.red)
             }
         }
+    }
+    /// The Etherscan key, on the chains whose history reads it.
+    ///
+    /// It was on Ethereum's screen, whose history comes from Blockscout, and
+    /// its note named seven chains — one of them wrong — that had no screen
+    /// offering the field.
+    @ViewBuilder
+    private var etherscanSettingsSection: some View {
         Section(AppLocalization.string("Etherscan (Optional)")) {
             TextField(AppLocalization.string("Etherscan API Key"), text: $store.etherscanAPIKey)
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -390,36 +404,36 @@ struct StandardChainDiagnosticsView: View {
         }
     }
     @ViewBuilder
-    private var moneroSettingsSection: some View {
-        Section(AppLocalization.string("Monero Backend")) {
-            Picker(AppLocalization.string("Trusted Backend"), selection: $selectedMoneroBackendID) {
-                ForEach(moneroBackendChoices, id: \.id) { choice in Text(choice.title).tag(choice.id) }
+    private var backendSettingsSection: some View {
+        Section(AppLocalization.format("%@ Backend", chain.displayName)) {
+            Picker(AppLocalization.string("Trusted Backend"), selection: $selectedBackendID) {
+                ForEach(backendChoices, id: \.id) { choice in Text(choice.title).tag(choice.id) }
             }
-            if selectedMoneroBackendID == moneroCustomBackendID {
-                TextField(AppLocalization.string("Monero Backend URL (Optional)"), text: $store.moneroBackendBaseURL)
+            if selectedBackendID == customBackendID {
+                TextField(AppLocalization.format("%@ Backend URL (Optional)", chain.displayName), text: $store.moneroBackendBaseURL)
                     .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
             } else {
-                Text(selectedTrustedMoneroBackend?.baseURL ?? MoneroBalanceService.defaultPublicBackend.baseURL)
+                Text(selectedBackendID.isEmpty ? (catalogBackends.first ?? "") : selectedBackendID)
                     .font(.caption.monospaced()).textSelection(.enabled)
             }
             if let moneroBackendBaseURLValidationError = store.moneroBackendBaseURLValidationError {
                 Text(moneroBackendBaseURLValidationError).font(.caption).foregroundStyle(.red)
             } else {
-                Text(copy.moneroBackendNote).font(.caption).foregroundStyle(.secondary)
+                Text(copy.backendNote).font(.caption).foregroundStyle(.secondary)
             }
-            TextField(AppLocalization.string("Monero Backend API Key (Optional)"), text: $store.moneroBackendAPIKey)
+            TextField(AppLocalization.format("%@ Backend API Key (Optional)", chain.displayName), text: $store.moneroBackendAPIKey)
                 .textInputAutocapitalization(.never).autocorrectionDisabled()
-            Text(copy.moneroAPIKeyNote).font(.caption).foregroundStyle(.secondary)
+            Text(copy.backendAPIKeyNote).font(.caption).foregroundStyle(.secondary)
         }
     }
     @ViewBuilder
     private var chainSpecificSections: some View {
-        switch chain {
-        case .bitcoin: bitcoinSettingsSection
-        case .ethereum: ethereumSettingsSections
-        case .monero: moneroSettingsSection
-        default: EmptyView()
-        }
+        // Which settings a chain has is what the registry and the catalog say
+        // about it, not which chain it is.
+        if hasEsploraBases { esploraSettingsSection }
+        if chain.isEVM { rpcSettingsSection }
+        if chain.needsEtherscanAPIKey { etherscanSettingsSection }
+        if chain.sendsThroughBackend { backendSettingsSection }
         // Core keeps a self-test suite for every chain in the catalog, so
         // every chain's screen offers it. The button used to be inside the
         // UTXO block, which left the suite unreachable everywhere else except
@@ -479,17 +493,14 @@ struct StandardChainDiagnosticsView: View {
             }
         }
     }
-    private func syncSelectedMoneroBackendIDFromStore() {
+    private func syncSelectedBackendIDFromStore() {
         let trimmed = store.moneroBackendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
         if trimmed.isEmpty {
-            selectedMoneroBackendID = MoneroBalanceService.defaultBackendID
-            return
+            selectedBackendID = catalogBackends.first ?? customBackendID
+        } else {
+            selectedBackendID =
+                catalogBackends.first { $0.caseInsensitiveCompare(trimmed) == .orderedSame } ?? customBackendID
         }
-        if let trusted = MoneroBalanceService.trustedBackends.first(where: { $0.baseURL.caseInsensitiveCompare(trimmed) == .orderedSame }) {
-            selectedMoneroBackendID = trusted.id
-            return
-        }
-        selectedMoneroBackendID = moneroCustomBackendID
     }
     private var supportsUTXOChainActions: Bool { utxoActions != nil }
     private var isRunningChainSelfTests: Bool { store.selfTests(for: chain.displayName).isRunning }

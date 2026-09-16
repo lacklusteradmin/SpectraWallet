@@ -116,7 +116,7 @@ struct ChainRegistryEntry: Identifiable {
             .map { chain in
                 ChainRegistryEntry(
                     id: chain.id, name: chain.name, symbol: chain.gasTokenSymbol,
-                    color: RegistryColorLookup.color(named: chain.color), artworkName: chain.artworkName,
+                    color: chain.color.color, artworkName: chain.artworkName,
                     derivationPath: chain.derivationPath
                 )
             }
@@ -208,7 +208,7 @@ extension Coin {
     private static let tokenColorsBySymbol: [String: Color] = {
         var colors: [String: Color] = [:]
         for token in listAllBuiltinTokens() where colors[token.symbol.lowercased()] == nil {
-            colors[token.symbol.lowercased()] = RegistryColorLookup.color(named: token.color)
+            if let color = token.color { colors[token.symbol.lowercased()] = color.color }
         }
         return colors
     }()

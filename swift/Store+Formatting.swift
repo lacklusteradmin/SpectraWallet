@@ -85,7 +85,12 @@ extension AppState {
     /// Activity does — need the value without it, and the rounding rules are
     /// the same either way.
     func formattedAssetAmountValue(_ amount: Double, deploymentID: String?) -> String {
-        let display = assetAmountDisplay(amount, deploymentID: deploymentID)
+        formattedAmountValue(amount, assetDecimals: UInt32(supportedDecimalPlaces(deploymentID: deploymentID)))
+    }
+    /// An amount at the places core picks for it on an asset with
+    /// `assetDecimals` of its own, trailing zeros trimmed.
+    func formattedAmountValue(_ amount: Double, assetDecimals: UInt32) -> String {
+        let display = formattingAssetAmountDisplay(amount: amount, assetDecimals: assetDecimals)
         let places = Int(display.places)
         if display.belowThreshold {
             let thresholdFormatter = decimalFormatter(
@@ -164,12 +169,11 @@ extension AppState {
         let entries = try await WalletServiceBridge.shared.normalizedHistory(
             unknownLabel: localizedStoreString("Unknown"))
         normalizedHistoryIndex = entries.compactMap { entry in
-            guard let transactionID = UUID(uuidString: entry.transactionId),
-                let kind = TransactionKind(rawValue: entry.kind),
+            guard let kind = TransactionKind(rawValue: entry.kind),
                 let status = TransactionStatus(rawValue: entry.status)
             else { return nil }
             return NormalizedHistoryEntry(
-                id: entry.id, transactionID: transactionID, dedupeKey: entry.dedupeKey,
+                id: entry.id, transactionID: entry.transactionId, dedupeKey: entry.dedupeKey,
                 createdAt: Date(timeIntervalSince1970: entry.createdAtUnix), kind: kind,
                 status: status, walletName: entry.walletName, assetDisplayName: entry.assetDisplayName,
                 symbol: entry.symbol, chainName: entry.chainName, address: entry.address,
@@ -196,6 +200,74 @@ extension AppState {
             historyReadError = nil
         } catch {
             historyReadError = localizedStoreString("Unable to read transaction history. Existing records have been kept.")
+        }
+    }
+
+    // MARK: - Network fees
+
+    /// A network fee in the chain's gas token, at the places core picks for
+    /// that amount.
+    ///
+    /// Fees were `%.6f`, `%.8f`, `%.2f gwei` and `%.\(feeDecimals ?? 6)f` across
+    /// the send screen, its confirmation step and the transaction sheet — a
+    /// different count per screen for one number, and `"%.8f ETH"` for the fee
+    /// of every EVM chain whatever its gas token. Core's amount rule already
+    /// answers how many places a number deserves on an asset; a fee is an amount
+    /// of the chain's native asset.
+    func formattedNetworkFee(_ fee: Double, chain: Chain) -> String {
+        "\(formattedAmountValue(fee, assetDecimals: chain.nativeDecimals)) \(chain.gasTokenSymbol)"
+    }
+    /// The fee with its fiat value beside it when there is a quote.
+    func formattedNetworkFeeWithFiat(_ fee: Double, chain: Chain) -> String {
+        let native = formattedNetworkFee(fee, chain: chain)
+        guard let fiat = formattedFiatAmount(fromNative: fee, symbol: chain.gasTokenSymbol) else { return native }
+        return "\(native) (~\(fiat))"
+    }
+    /// A gas price in gwei. Capped by the chain's native decimals like any
+    /// amount of it: the unit changes the number, not how many places it needs.
+    func formattedGasPrice(gwei: Double, chain: Chain) -> String {
+        "\(formattedAmountValue(gwei, assetDecimals: chain.nativeDecimals)) gwei"
+    }
+
+    // MARK: - Transaction detail rows
+
+    func receiptEffectiveGasPriceText(for transaction: TransactionRecord) -> String? {
+        guard let gwei = transaction.receiptEffectiveGasPriceGwei, let chain = Chain(displayName: transaction.chainName) else { return nil }
+        return formattedGasPrice(gwei: gwei, chain: chain)
+    }
+    func receiptNetworkFeeText(for transaction: TransactionRecord) -> String? {
+        guard let fee = transaction.receiptNetworkFee, let chain = Chain(displayName: transaction.chainName) else { return nil }
+        return formattedNetworkFee(fee, chain: chain)
+    }
+    func confirmedNetworkFeeText(for transaction: TransactionRecord) -> String? {
+        guard let fee = transaction.dogecoinConfirmedNetworkFeeDoge, let chain = Chain(displayName: transaction.chainName) else { return nil }
+        return formattedNetworkFee(fee, chain: chain)
+    }
+    func storedFeeRateText(for transaction: TransactionRecord) -> String? {
+        if let description = transaction.feeRateDescription?.trimmingCharacters(in: .whitespacesAndNewlines), !description.isEmpty {
+            return description
+        }
+        guard let rate = transaction.dogecoinEstimatedFeeRateDogePerKb, let chain = Chain(displayName: transaction.chainName) else { return nil }
+        return "\(formattedNetworkFee(rate, chain: chain))/KB"
+    }
+    func historyMetadataText(for transaction: TransactionRecord) -> String? {
+        var parts: [String] = []
+        if let priority = transaction.storedFeePriorityText { parts.append("Fee \(priority)") }
+        if let rate = storedFeeRateText(for: transaction) { parts.append(rate) }
+        if let confirmations = transaction.storedConfirmationCountText { parts.append(confirmations) }
+        if let usedChangeOutput = transaction.usedChangeOutput, transaction.kind == .send {
+            parts.append(usedChangeOutput ? "change output" : "no change output")
+        }
+        return parts.isEmpty ? nil : parts.joined(separator: " • ")
+    }
+    /// What the detail sheet names as the record's history source. Core says
+    /// what the stored id means; the sentence around a chain's providers is
+    /// this app's to translate, and Spectra's own reader is not named at all.
+    func historySourceText(for transaction: TransactionRecord) -> String? {
+        switch transaction.transactionHistorySource.flatMap({ coreHistorySource(source: $0) }) {
+        case .provider(let name): return name
+        case .chainProviders(let chainName): return AppLocalization.format("%@ providers", chainName)
+        case .internal, nil: return nil
         }
     }
 

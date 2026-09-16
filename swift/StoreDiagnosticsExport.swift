@@ -20,7 +20,11 @@ extension AppState {
                 .timeIntervalSince1970,
             endpointsLastUpdatedAtUnix: self[endpointHealthFor: chainName].lastUpdatedAt?
                 .timeIntervalSince1970,
-            extraNetworkMode: chainName == "Bitcoin" ? networkChainID(forFamily: "bitcoin") : nil)
+            // Any family with a network to choose, not the one named Bitcoin:
+            // Ethereum's, Dogecoin's and the rest had a selection this left out.
+            extraNetworkMode: Chain(displayName: chainName).flatMap {
+                $0.networkChoices.count > 1 ? networkChainID(forFamily: $0.id) : nil
+            })
     }
 
     private func buildDiagnosticsBundle() -> DiagnosticsBundlePayload {

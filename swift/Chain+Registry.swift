@@ -72,6 +72,13 @@ extension Chain: Identifiable {
     /// Which `TokenHostingChain` this chain is, if it can host known tokens.
     var tokenHostingChain: TokenHostingChain? { identity?.tokenHostingChain }
     var sendExecutionShape: SendExecutionShape? { identity?.sendExecutionShape }
+    /// How core moves a send here, which is what the send card says it does.
+    var sendBroadcastMode: SendBroadcastMode? { identity?.sendBroadcastMode }
+    /// Core's sends here go through the configured backend, which is what the
+    /// backend URL and key settings are for.
+    var sendsThroughBackend: Bool { sendBroadcastMode == .preparesWithBackend }
+    /// This chain's history needs the Etherscan key.
+    var needsEtherscanAPIKey: Bool { identity?.needsEtherscanApiKey ?? false }
     /// The JSON-RPC method that answers "is this node alive", or nil when this
     /// chain's endpoints are checked over plain HTTP.
     var rpcHealthMethod: String? { identity?.rpcHealthMethod }
@@ -106,10 +113,16 @@ extension Chain: Identifiable {
     var isEVM: Bool { identity?.isEvm ?? false }
     var searchKeywords: [String] { entry?.searchKeywords ?? [] }
 
-    /// The catalog's default BIP-32 path for account 0. Empty for chains that
-    /// have no path at all — Monero derives from the seed directly.
-    @MainActor var defaultDerivationPath: String {
-        CachedCoreHelpers.chainDerivationPath(chainName: displayName)
+    /// The catalog's default BIP-32 path for account 0, as core resolves it:
+    /// a testnet answers with its mainnet's path, which is the one it derives
+    /// on. Empty for chains that have no path at all — Monero derives from the
+    /// seed directly.
+    ///
+    /// Was a second resolver in Swift that picked the default entry, replaced
+    /// `{account}` and checked for `m/` itself, and answered "" for every
+    /// testnet because the catalog lists their paths on the mainnet.
+    var defaultDerivationPath: String {
+        (try? appCoreResolveDerivationPath(chain: displayName, derivationPath: "")) ?? ""
     }
 
     /// Whether this chain's addresses are its own rather than another chain's.

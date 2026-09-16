@@ -237,8 +237,8 @@ struct SendRecipientPage: View {
                 .font(.caption).foregroundStyle(.orange)
         }
 
-        if presentation.selectedCoin?.chainName == "Litecoin",
-           store.sendAddress.hasPrefix("ltcmweb1") || store.sendAddress.hasPrefix("tmweb1") {
+        if let coin = presentation.selectedCoin,
+           isExtensionBlockSendDestination(chainName: coin.chainName, destination: store.sendAddress) {
             HStack(spacing: 6) {
                 Image(systemName: "lock.shield.fill").font(.caption2.weight(.semibold))
                 Text(AppLocalization.string("MWEB · Privacy Send")).font(.caption.weight(.semibold))

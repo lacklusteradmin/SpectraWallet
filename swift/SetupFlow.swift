@@ -143,7 +143,7 @@ func walletSetupCanContinueFromSecretStep(draft: WalletImportDraft, isImporting:
     let hasChains = !draft.selectedChainNames.isEmpty
     if draft.isPrivateKeyImportMode {
         return hasChains
-            && CachedCoreHelpers.privateKeyHexIsLikely(rawValue: draft.privateKeyInput)
+            && coreIsPrivateKeyHex(rawValue: draft.privateKeyInput)
             && draft.unsupportedPrivateKeyChainNames.isEmpty
             && draft.selectedChainNames.count == 1
             && !isImporting

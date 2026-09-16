@@ -3,14 +3,14 @@
 #
 #   scripts/check-design-tokens.sh
 #
-# docs/iosUI.md defines the corner-radius scale and the two Liquid Glass tints;
+# docs/IOS-UI.md defines the corner-radius scale and the two Liquid Glass tints;
 # swift/views/SpectraLayout.swift spells them in Swift. A screen that writes the
 # number instead of the token drifts silently — before this check the app had
 # grown a 0.033 and a 0.044 tint, three radii for one chip, and four radii for
 # one input helper, none of which any review would catch by eye.
 #
 # The scale itself is not policed here. Changing a step is a design decision:
-# edit docs/iosUI.md and SpectraLayout.swift together.
+# edit docs/IOS-UI.md and SpectraLayout.swift together.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

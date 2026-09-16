@@ -162,16 +162,11 @@ struct SendConfirmationStep: View {
     }
 
     private func estimatedNetworkFeeText(for coin: Coin?) -> String? {
-        // The fee's symbol and precision are registry columns —
-        // `gasTokenSymbol` and `sendExecutionShape.feeDecimals` — and
-        // `estimatedFee(forChainNamed:)` already keys the preview by chain.
-        // `utxo_and_e8s_chains_use_eight` pins the precision side.
         guard let coin,
             let chain = Chain(displayName: coin.chainName),
             let fee = sendPreviewStore.estimatedFee(forChainNamed: coin.chainName)
         else { return nil }
-        let decimals = Int(chain.sendExecutionShape?.feeDecimals ?? 6)
-        return String(format: "%.\(decimals)f %@", fee, chain.gasTokenSymbol)
+        return store.formattedNetworkFee(fee, chain: chain)
     }
 }
 
@@ -238,7 +233,7 @@ struct SendLastSentCard: View {
                 Spacer()
                 TransactionStatusBadge(status: tx.status)
             }
-            Text(AppLocalization.format("%@ sent to %@", tx.symbol, tx.addressPreviewText)).font(.subheadline)
+            Text(AppLocalization.format("%@ sent to %@", tx.symbol, tx.address)).font(.subheadline)
             if let pendingText = store.pendingTransactionRefreshStatusText {
                 Text(pendingText).font(.caption2).foregroundStyle(.secondary)
             }

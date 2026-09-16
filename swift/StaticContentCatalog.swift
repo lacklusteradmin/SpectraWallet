@@ -104,10 +104,10 @@ struct DiagnosticsContentCopy: Decodable {
     let noHistoryTelemetryYet: String
     let noEndpointChecksYet: String
     let bitcoinEsploraHint: String
-    let ethereumRPCNote: String
+    let customRPCNote: String
     let etherscanNote: String
-    let moneroBackendNote: String
-    let moneroAPIKeyNote: String
+    let backendNote: String
+    let backendAPIKeyNote: String
     let historySourcesSectionTitleFormat: String
     let endpointReachabilitySectionTitleFormat: String
     let degradedLastGoodSyncFormat: String
@@ -165,22 +165,26 @@ struct CommonLocalizationContent: Decodable {
 }
 /// Maps a human-readable color string (stored in `core/data/tokens.toml`
 /// and `core/data/chains.toml`) to a SwiftUI `Color`.
-enum RegistryColorLookup {
-    static func color(named name: String) -> Color {
-        switch name.lowercased() {
-        case "green": return .green
-        case "blue": return .blue
-        case "orange": return .orange
-        case "pink": return .pink
-        case "indigo": return .indigo
-        case "yellow": return .yellow
-        case "cyan": return .cyan
-        case "teal": return .teal
-        case "gray": return .gray
-        case "red": return .red
-        case "purple": return .purple
-        case "mint": return .mint
-        default: return .accentColor
+/// The catalog's palette, as SwiftUI draws it.
+///
+/// Was `RegistryColorLookup.color(named:)`, a switch over strings whose
+/// `default` was the accent colour, so a name core did not spell the same way
+/// drew wrong without a word. Core types the column now; this is exhaustive.
+extension CatalogColor {
+    var color: Color {
+        switch self {
+        case .blue: return .blue
+        case .cyan: return .cyan
+        case .gray: return .gray
+        case .green: return .green
+        case .indigo: return .indigo
+        case .mint: return .mint
+        case .orange: return .orange
+        case .pink: return .pink
+        case .purple: return .purple
+        case .red: return .red
+        case .teal: return .teal
+        case .yellow: return .yellow
         }
     }
 }
@@ -230,9 +234,9 @@ struct EndpointsContentCopy: Decodable {
     let readOnlyFootnote: String
     let addEsploraEndpointPlaceholder: String
     let addEndpointButtonTitle: String
-    let clearCustomBitcoinEndpointsTitle: String
+    let clearCustomEsploraEndpointsTitle: String
     let customRPCURLPlaceholder: String
-    let customMoneroBackendURLPlaceholder: String
+    let customBackendURLPlaceholder: String
     static var current: EndpointsContentCopy {
         StaticContentCatalog.loadRequiredResource("EndpointsContent", as: EndpointsContentCopy.self)
     }

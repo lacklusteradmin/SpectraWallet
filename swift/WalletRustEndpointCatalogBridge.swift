@@ -1,37 +1,21 @@
 import Foundation
 typealias AppEndpointGroupedSettingsEntry = AppCoreGroupedSettingsEntry
-typealias AppEndpointDiagnosticsCheck = AppCoreDiagnosticsCheck
-typealias AppEndpointRecord = AppCoreEndpointRecord
-enum WalletRustEndpointCatalogBridge {
-    static func endpoints(for ids: [String]) throws -> [String] { try appCoreEndpointsForIds(ids: ids) }
-    static func endpointRecords(for chainName: String, roles: Set<AppEndpointRole>, settingsVisibleOnly: Bool) throws -> [AppEndpointRecord] {
-        try appCoreEndpointRecordsForChain(
-            chainName: chainName, roles: roles.map(\.rawValue),
-            settingsVisibleOnly: settingsVisibleOnly)
-    }
-}
-enum AppEndpointRole: String, Hashable, CaseIterable, Decodable {
-    case read
-    case balance
-    case history
-    case utxo
-    case fee
-    case broadcast
-    case verification
-    case rpc
-    case explorer
-    case backend
-}
 enum AppEndpointDirectory {
-    /// The endpoint catalog, read once.
-    private static let byChainName: [String: AppCoreChainEndpoints] = {
-        do {
-            return Dictionary(
-                uniqueKeysWithValues: try appCoreChainEndpoints().map { ($0.chainName, $0) })
-        } catch {
-            preconditionFailure("Rust endpoint catalog failed: \(error.localizedDescription)")
-        }
-    }()
+    /// The endpoint catalog, read once, or why it could not be.
+    ///
+    /// A failure here used to be a `preconditionFailure` — and so did a lookup
+    /// by record id, and one by chain — so a catalog that did not load took
+    /// the whole app down from whichever settings row asked first. Core does
+    /// its networking from its own copy; this one feeds screens that list
+    /// endpoints, and a screen that cannot list them says so.
+    private static let loaded: Result<[AppCoreChainEndpoints], Error> = Result { try appCoreChainEndpoints() }
+    /// Why the catalog could not be read, for a screen to show.
+    static var loadError: String? {
+        if case .failure(let error) = loaded { return error.localizedDescription }
+        return nil
+    }
+    private static let byChainName: [String: AppCoreChainEndpoints] = Dictionary(
+        uniqueKeysWithValues: ((try? loaded.get()) ?? []).map { ($0.chainName, $0) })
     private static let byChainID: [String: AppCoreChainEndpoints] = Dictionary(
         uniqueKeysWithValues: byChainName.values.map { ($0.chainId, $0) })
 
@@ -51,19 +35,6 @@ enum AppEndpointDirectory {
         return !entry.groupedSettings.isEmpty
     }
 
-    static func endpoints(for ids: [String]) -> [String] {
-        do { return try WalletRustEndpointCatalogBridge.endpoints(for: ids) } catch {
-            preconditionFailure("Rust endpoint lookup for ids \(ids) failed: \(error.localizedDescription)")
-        }
-    }
-    static func endpointRecords(for chainName: String, roles: Set<AppEndpointRole>? = nil, settingsVisibleOnly: Bool = false) -> [AppEndpointRecord] {
-        do {
-            return try WalletRustEndpointCatalogBridge.endpointRecords(
-                for: chainName, roles: roles ?? [], settingsVisibleOnly: settingsVisibleOnly)
-        } catch {
-            preconditionFailure("Rust endpoint records for \(chainName) failed: \(error.localizedDescription)")
-        }
-    }
     /// What the catalog says one endpoint is, as a line a settings row can
     /// show under the URL — "Node · Balance · Fees · Broadcast".
     ///
@@ -80,9 +51,6 @@ enum AppEndpointDirectory {
         entry(chainName)?.groupedSettings ?? []
     }
     static func settingsEndpoints(for chainName: String) -> [String] { groupedSettingsEntries(for: chainName).flatMap(\.endpoints) }
-    static func diagnosticsChecks(for chainName: String) -> [AppEndpointDiagnosticsCheck] {
-        entry(chainName)?.diagnosticsChecks ?? []
-    }
     static func evmRPCEndpoints(for chainName: String) -> [String] { entry(chainName)?.evmRpc ?? [] }
     static func explorerSupplementalEndpoints(for chainName: String) -> [String] {
         entry(chainName)?.explorerSupplemental ?? []

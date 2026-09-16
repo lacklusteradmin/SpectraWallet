@@ -28,10 +28,6 @@ extension AppState {
         // Tor preferences arrive with core settings through adoptAppSettings.
         startTorIfEnabled()
     }
-    func clearPersistedSecureDataOnFreshInstallIfNeeded() {
-        if UserDefaults.standard.bool(forKey: Self.installMarkerDefaultsKey) { return }
-        UserDefaults.standard.set(true, forKey: Self.installMarkerDefaultsKey)
-    }
     func resetSelectedData(scopes: Set<ResetScope>) async {
         guard !scopes.isEmpty else { return }
         guard
@@ -60,7 +56,6 @@ extension AppState {
         if plan.resetSettingsAndEndpoints { await resetSettingsAndEndpointsState() }
         if plan.resetProviderState { await resetProviderState() }
         if plan.clearNetworkAndTransportCaches { clearNetworkAndTransportCaches() }
-        UserDefaults.standard.set(true, forKey: Self.installMarkerDefaultsKey)
     }
     private func resetWalletsAndSecretsState() async {
         receiveWalletID = ""
@@ -134,9 +129,9 @@ extension AppState {
     private func resetSettingsAndEndpointsState() async {
         // The five this platform keeps for itself: hiding balances, appearance,
         // Face ID, auto-lock and biometric-gated sends. No other front end has
-        // a use for them, so core has no default to be the copy of.
+        // a use for them, so core has no default to be the copy of. Each
+        // writes itself back to `UserDefaults` as it changes.
         preferences.resetToDefaults()
-        persistPlatformPreferences()
     }
     private func resetProviderState() async {
         clearNetworkAndTransportCaches()

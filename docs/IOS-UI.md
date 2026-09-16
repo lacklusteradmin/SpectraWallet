@@ -1,6 +1,8 @@
 # iOS UI reference
 
-Spectra targets iOS 26 with system typography, rich color and Liquid Glass.
+Spectra uses the current iOS design system: system typography, rich color and
+Liquid Glass. Liquid Glass is how iOS looks, not a version-gated opt-in, so this
+document names no iOS version — the deployment target lives in the Xcode project.
 
 This document is the source of truth for Spectra's iOS UI rules.
 
@@ -22,13 +24,18 @@ Official references:
 - **Backdrop:** Keep `SpectraBackdrop` behind every top-level tab. Re-add it at main business detail roots such as asset, wallet, staking, and receive destinations. Settings-style utility details may continue to use system `Form` layouts.
 - **Top-level tabs:** Use `ScrollView` plus glass cards with internal dividers. Do not use `List(.insetGrouped)` or `Form` for a main tab.
 - **Chrome:** Hide the navigation bar background with `.toolbarBackground(.hidden, for: .navigationBar)` when content should scroll beneath it.
-- **Toolbar actions:** Use standard `ToolbarItem` buttons and menus. iOS 26 places toolbar items on Liquid Glass automatically, so do not add `.buttonStyle(.glass)` inside a toolbar.
+- **Toolbar actions:** Use standard `ToolbarItem` buttons and menus. The system places toolbar items on Liquid Glass automatically, so do not add `.buttonStyle(.glass)` inside a toolbar.
 - **Cards:** Use a subtle white glass tint, and only these two steps.
   `SpectraLayout.GlassTint.elevated` (`0.04`) covers hero and header cards and
   the smaller interactive surfaces that sit above content — inputs, chips,
   icon backplates. `SpectraLayout.GlassTint.content` (`0.03`) covers ordinary
   content cards. Accent-tinted glass — an orange or red notice — carries its
   own colour and is not one of these steps.
+- **Glass variant:** Always `.regular`. Apple's other variant, `.clear`, is for
+  components floating over photos or video, and over bright content it needs a
+  35% dark dimming layer beneath it to stay legible. Spectra has no media
+  background — `SpectraBackdrop` is the app's own gradient — so `.clear` appears
+  nowhere, and a surface that looks like it wants one wants a tint step instead.
 - **Buttons:** Use `.buttonStyle(.glass)` and `.buttonStyle(.glassProminent)` for stand-alone actions outside toolbars. Tint primary actions orange and destructive actions red.
 - **Typography:** Use system text styles such as `.largeTitle.weight(.bold)`, `.title`, `.headline`, and `.body`.
 - **Text colors:** Use semantic styles such as `.primary`, `.secondary`, `.tertiary`, and `.quaternary`. Do not use `Color.primary.opacity(...)` for text.
@@ -52,6 +59,14 @@ The radius communicates hierarchy:
 Write the token, never the number. A component's own internal geometry is not a
 step on this scale — `SpectraShimmer` rounds a 12–14pt placeholder bar by 6pt,
 which it owns — but a surface in the hierarchy always is.
+
+The scale is fixed, not derived. Apple offers `ConcentricRectangle` and
+`rect(corners:isUniform:)` so a nested shape can follow its container's
+curvature, which is the right tool when a surface must hug a corner it did not
+choose — the device's, or a sheet's. Spectra's cards sit on a flat backdrop and
+choose their own corner, so they take a step from the table above instead, and a
+card reads the same wherever it is nested. A concentric shape is an exception a
+view argues for in a comment, never a substitute for a step.
 
 `scripts/check-design-tokens.sh` (also `make check-ui`) fails when a view
 restates a radius or a white glass tint that `SpectraLayout` owns.

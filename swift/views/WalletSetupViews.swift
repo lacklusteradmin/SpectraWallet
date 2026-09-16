@@ -76,7 +76,7 @@ struct SetupView: View {
         guard let category = SetupChainCategory(chain: chain) else { return nil }
         return SetupChainSelectionDescriptor(
             id: chain.id, title: chain.name, symbol: chain.gasTokenSymbol, chainName: chain.name,
-            color: RegistryColorLookup.color(named: chain.color), category: category
+            color: chain.color.color, category: category
         )
     }
     /// The short list the picker opens on, in the order the catalog ranks it.

@@ -4,7 +4,7 @@
   "readOnlyFootnote": "Read-only in this build.",
   "addEsploraEndpointPlaceholder": "Add Esplora endpoint",
   "addEndpointButtonTitle": "Add Endpoint",
-  "clearCustomBitcoinEndpointsTitle": "Clear Custom Bitcoin Endpoints",
+  "clearCustomEsploraEndpointsTitle": "Clear Custom Esplora Endpoints",
   "customRPCURLPlaceholder": "Custom RPC URL",
-  "customMoneroBackendURLPlaceholder": "Custom Monero Backend URL"
+  "customBackendURLPlaceholder": "Custom Backend URL"
 }

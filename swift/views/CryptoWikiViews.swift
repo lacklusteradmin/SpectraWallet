@@ -6,7 +6,7 @@ import SwiftUI
 /// one level down, for what has no coin to belong to.
 extension AssetWikiEntry: Identifiable {
     public var id: String { tokenId }
-    var accentColor: Color { RegistryColorLookup.color(named: color) }
+    var accentColor: Color { color?.color ?? .accentColor }
     var face: WikiCoinFace {
         WikiCoinFace(name: name, symbol: symbol, artworkName: artworkName, color: accentColor)
     }

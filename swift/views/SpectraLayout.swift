@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Shared layout and Liquid Glass tokens. [docs/iosUI.md](../../docs/iosUI.md)
+/// Shared layout and Liquid Glass tokens. [docs/IOS-UI.md](../../docs/IOS-UI.md)
 /// is the authority for every value here; this file is where the document is
 /// spelled in Swift, so a screen never restates a number the document owns.
 enum SpectraLayout {

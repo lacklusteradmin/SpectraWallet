@@ -115,12 +115,12 @@ struct WalletSecretStep: View {
                         draft.regenerateSeedPhrase()
                     } label: {
                         Label(AppLocalization.string("Regenerate"), systemImage: "arrow.clockwise").font(.caption.weight(.semibold))
-                    }.buttonStyle(.glass).tint(.orange).disabled(![12, 15, 18, 21, 24].contains(draft.selectedSeedPhraseWordCount))
+                    }.buttonStyle(.glass).tint(.orange).disabled(!CachedCoreHelpers.isStandardSeedPhraseLength(draft.selectedSeedPhraseWordCount))
                 }
             }
             HStack(spacing: 6) {
-                ForEach([12, 15, 18, 21, 24], id: \.self) { wordCount in
-                    seedPhraseLengthChip(wordCount: wordCount)
+                ForEach(CachedCoreHelpers.standardSeedPhraseLengths(), id: \.wordCount) { length in
+                    seedPhraseLengthChip(length)
                 }
             }
             seedPhraseCustomLengthField
@@ -130,19 +130,13 @@ struct WalletSecretStep: View {
             }
         }
     }
+    /// One chip per length core defines, labelled with the entropy core says it
+    /// carries. The entropy was a `switch` here, which is a BIP-39 fact a view
+    /// has no business restating.
     @ViewBuilder
-    private func seedPhraseLengthChip(wordCount: Int) -> some View {
+    private func seedPhraseLengthChip(_ length: SeedPhraseLength) -> some View {
+        let wordCount = Int(length.wordCount)
         let isSelected = draft.selectedSeedPhraseWordCount == wordCount
-        let entropyBits: Int = {
-            switch wordCount {
-            case 12: return 128
-            case 15: return 160
-            case 18: return 192
-            case 21: return 224
-            case 24: return 256
-            default: return 0
-            }
-        }()
         Button {
             draft.selectedSeedPhraseWordCount = wordCount
             customSeedPhraseWordCountInput = String(wordCount)
@@ -150,15 +144,14 @@ struct WalletSecretStep: View {
             VStack(spacing: 2) {
                 Text("\(wordCount)").font(.title3.weight(.bold).monospacedDigit()).foregroundStyle(
                     isSelected ? Color.white : Color.primary)
-                Text("\(entropyBits)b").font(.caption2.weight(.semibold)).foregroundStyle(
+                Text("\(length.entropyBits)b").font(.caption2.weight(.semibold)).foregroundStyle(
                     isSelected ? Color.white.opacity(0.8) : .secondary)
             }.frame(maxWidth: .infinity, minHeight: 56).spectraSelectableFill(isSelected: isSelected, accent: .orange, cornerRadius: SpectraLayout.Radius.pill)
         }.buttonStyle(.plain)
     }
     @ViewBuilder
     private var seedPhraseCustomLengthField: some View {
-        let standardLengths = [12, 15, 18, 21, 24]
-        let isCustomSelected = !standardLengths.contains(draft.selectedSeedPhraseWordCount)
+        let isCustomSelected = !CachedCoreHelpers.isStandardSeedPhraseLength(draft.selectedSeedPhraseWordCount)
         DisclosureGroup {
             HStack(spacing: 8) {
                 TextField(localizedWalletFlowString("Custom word count"), text: $customSeedPhraseWordCountInput).keyboardType(.numberPad)
@@ -362,7 +355,7 @@ struct WalletSecretStep: View {
     @ViewBuilder
     private var privateKeyEditor: some View {
         let trimmed = draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        let isLikelyValid = !trimmed.isEmpty && CachedCoreHelpers.privateKeyHexIsLikely(rawValue: draft.privateKeyInput)
+        let isLikelyValid = !trimmed.isEmpty && coreIsPrivateKeyHex(rawValue: draft.privateKeyInput)
         let isInvalidShape = !trimmed.isEmpty && !isLikelyValid
         let borderColor: Color? =
             isInvalidShape
@@ -397,7 +390,7 @@ struct WalletSecretStep: View {
     private var privateKeyValidationFeedback: (message: String, icon: String, color: Color)? {
         let trimmed = draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        if !CachedCoreHelpers.privateKeyHexIsLikely(rawValue: draft.privateKeyInput) {
+        if !coreIsPrivateKeyHex(rawValue: draft.privateKeyInput) {
             return (
                 AppLocalization.string("Enter a valid 32-byte hex private key."), "exclamationmark.triangle.fill",
                 .red.opacity(0.92)

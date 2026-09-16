@@ -97,7 +97,7 @@ final class AppState {
     /// because the composer's Speed Up / Cancel buttons read it.
     var replaceableSends: [ReplaceableSend] = []
     private(set) var transactionRevision: UInt64 = 0
-    @ObservationIgnored var cachedTransactionByID: [UUID: TransactionRecord] = [:]
+    @ObservationIgnored var cachedTransactionByID: [String: TransactionRecord] = [:]
     @ObservationIgnored var cachedFirstActivityDateByWalletID: [String: Date] = [:]
     @ObservationIgnored var suppressSideEffects = false
     /// Canonical wallet collection. Mutating it triggers a derived-cache
@@ -392,7 +392,7 @@ final class AppState {
 
     /// Core owns it; this is the mirror the fee pickers bind to. Absent means
     /// `.normal`, so the map is empty until the user picks something.
-    private(set) var feePriorityByChain: [String: String] = [:] {
+    private(set) var feePriorityByChain: [String: FeePriority] = [:] {
         didSet {
             guard feePriorityByChain != oldValue else { return }
             commitAppSettingsSoon()
@@ -400,14 +400,17 @@ final class AppState {
     }
 
 
-    /// Pick a chain's confirmation preference. Core normalizes the value and
-    /// drops it again when it is the default.
-    func setFeePriority(_ rawValue: String, forChain chainName: String) {
-        if rawValue == "normal" {
-            feePriorityByChain.removeValue(forKey: chainName)
-        } else {
-            feePriorityByChain[chainName] = rawValue
-        }
+    /// Pick a chain's confirmation preference.
+    ///
+    /// Recorded as picked, including the default. Dropping the default was a
+    /// rule this held as well as core, which is the one that has to hold it:
+    /// the committed projection comes back without the key.
+    func setFeePriority(_ priority: FeePriority, forChain chainName: String) {
+        feePriorityByChain[chainName] = priority
+    }
+    /// A chain with no stored pick confirms at the default rate.
+    func feePriority(forChain chainName: String) -> FeePriority {
+        feePriorityByChain[chainName] ?? .normal
     }
 
     /// A family with no selection reports itself, so the mainnet id is the
@@ -607,26 +610,6 @@ final class AppState {
         let networkPathMonitor = NWPathMonitor()
         let networkPathMonitorQueue = DispatchQueue(label: "spectra.network.monitor")
     #endif
-    // ── Persistence keys ──────────────────────────────────────────────
-    //
-    // Listed here as the single inventory of *what this app persists* —
-    // a reader can answer "what state survives a relaunch?" by reading
-    // this block. Keys are referenced via `Self.<name>`. New persisted
-    // values land here, not at the call site.
-    //
-    // Versioned keys end in `.vN` and bump when the codable shape changes
-    // incompatibly; the previous key is left here briefly for any
-    // migration-read code that still references it.
-
-
-
-    /// The four preferences this platform keeps for itself — see
-    /// `PlatformPreferences`. The twenty keys that stood beside it, one per
-    /// setting, went with the settings into core.
-    static let platformPreferencesDefaultsKey = "settings.platform.v1"
-
-
-    static let installMarkerDefaultsKey = "app.install.marker.v1"
     func walletRequiresSeedPhrasePassword(_ walletID: String) -> Bool {
         WalletServiceBridge.shared.walletSecretState(walletID: walletID)?.isSealed ?? false
     }
@@ -709,7 +692,6 @@ final class AppState {
         // closures (rather than an observation loop) keeps the coupling
         // explicit and keeps the preferences class cleanly isolated.
         preferences.persistHandler = { [weak self] in self?.commitAppSettingsSoon() }
-        preferences.platformPersistHandler = { [weak self] in self?.persistPlatformPreferences() }
         preferences.useFaceIDDisabledHandler = { [weak self] in
             self?.isAppLocked = false
             self?.appLockError = nil
@@ -717,7 +699,6 @@ final class AppState {
         preferences.notificationPermissionRequestHandler = { [weak self] in
             self?.requestNotificationPermissionIfNeeded()
         }
-        clearPersistedSecureDataOnFreshInstallIfNeeded()
         restorePersistedRuntimeConfigurationAndState()
         // Use [weak self] so that if SwiftUI/Xcode discards this AppState
         // while the init task is still awaiting SQLite / HTTP, the old

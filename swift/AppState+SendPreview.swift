@@ -11,7 +11,7 @@ extension AppState {
             isCheckingSendDestinationBalance = false
             return
         }
-        let slot = SendPreviewStore.previewSlot(forChainNamed: coin.chainName) ?? coin.chainName
+        let slot = SendPreviewStore.slot(forChainNamed: coin.chainName) ?? coin.chainName
         guard !preparingChains.contains(slot) else {
             pendingSendPreviewRefreshChains.insert(slot)
             return
@@ -30,7 +30,7 @@ extension AppState {
         let fees = customEvmFeeConfiguration()
         let nonceEnabled = evmManualNonceEnabled
         await refreshSendDestinationRiskWarning(for: coin)
-        sendPreviewStore.resetAll(exceptChainNamed: slot)
+        sendPreviewStore.resetAll(exceptSlot: slot)
         do {
             let preview = try await WalletServiceBridge.shared.previewOwnedSend(
                 walletID: walletID, holdingKey: coin.holdingKey, amount: amount,

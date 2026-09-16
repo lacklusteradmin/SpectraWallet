@@ -59,11 +59,8 @@ extension AppState {
         let deletedWalletIDString = deletedWalletID
         let deletedChainName = normalizedWalletChainName(walletPendingDeletion.selectedChain)
         guard await removeWallet(id: walletPendingDeletion.id) else { return }
-        let hasRemainingWalletsOnDeletedChain = wallets.contains { normalizedWalletChainName($0.selectedChain) == deletedChainName }
         clearHistoryTracking(for: walletPendingDeletion.id)
-        clearDeletedWalletDiagnostics(
-            walletID: deletedWalletID, chainName: deletedChainName, hasRemainingWalletsOnChain: hasRemainingWalletsOnDeletedChain
-        )
+        clearDeletedWalletDiagnostics(chainName: deletedChainName)
         // Core drops the wallet's owned addresses in `deleteWalletRelationalData`.
         if receiveWalletID == deletedWalletIDString {
             receiveWalletID = ""

@@ -15,30 +15,6 @@ nonisolated extension NetworkChoice: Identifiable {
     public var id: String { chainId }
 }
 
-// MARK: - Monero
-
-enum MoneroBalanceService {
-    struct TrustedBackend: Identifiable, Hashable {
-        let id: String
-        let displayName: String
-        let baseURL: String
-    }
-    static let defaultBackendID = "edge_lws_public"
-    static let defaultPublicBackend = TrustedBackend(
-        id: defaultBackendID, displayName: "Edge Monero LWS (Default)", baseURL: moneroBackendURLs[0]
-    )
-    private static let moneroBackendURLs = AppEndpointDirectory.endpoints(for: ["monero.backend.1", "monero.backend.2", "monero.backend.3"])
-    static let trustedBackends: [TrustedBackend] = [
-        defaultPublicBackend,
-        TrustedBackend(
-            id: "edge_lws_public_2", displayName: "Edge Monero LWS (Fallback 1)", baseURL: moneroBackendURLs[1]
-        ),
-        TrustedBackend(
-            id: "edge_lws_public_3", displayName: "Edge Monero LWS (Fallback 2)", baseURL: moneroBackendURLs[2]
-        ),
-    ]
-}
-
 // MARK: - Transactions & price alerts (Rust-owned enums)
 
 typealias TransactionKind = CoreTransactionKind

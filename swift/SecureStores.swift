@@ -40,14 +40,6 @@ private struct KeychainBackedSecureStore: @unchecked Sendable {
     func deleteValue(for account: String) throws { try keychain.remove(account) }
     func deleteAllValues() throws { try keychain.removeAll() }
 }
-private enum SecureRandom {
-    static func data(length: Int) -> Data {
-        var bytes = [UInt8](repeating: 0, count: length)
-        let status = SecRandomCopyBytes(kSecRandomDefault, bytes.count, &bytes)
-        guard status == errSecSuccess else { return Data((0..<length).map { _ in UInt8.random(in: .min ... .max) }) }
-        return Data(bytes)
-    }
-}
 enum SecureStore {
     private static let storage = KeychainBackedSecureStore(service: "com.spectra.pricing")
     // Writes throw so a caller cannot be told a value was stored when it was
@@ -65,33 +57,32 @@ enum SecureStore {
 private enum SeedMaterialEnvelope {
     private static let storage = KeychainBackedSecureStore(service: "com.spectra.seed.masterkey")
     private static let masterKeyAccount = "seed.material.masterkey"
-    private static let masterKeyLength = 32
     /// The stored master key, or nil when the Keychain holds none yet.
     ///
     /// A read *failure* throws rather than reporting "absent". Callers create a
     /// key when one is absent, so answering "absent" for a key that is merely
     /// unreadable right now would overwrite the key every existing seed is
-    /// sealed under. Stored bytes of the wrong length are corruption, and are
-    /// reported as such for the same reason.
+    /// sealed under. A stored key of the wrong shape is present, not absent:
+    /// it is returned, and core's envelope refuses to seal or open with it, so
+    /// it is never replaced here either.
     private static func storedMasterKey() throws -> Data? {
-        let stored: Data?
-        do { stored = try storage.loadData(for: masterKeyAccount) } catch {
+        do { return try storage.loadData(for: masterKeyAccount) } catch {
             throw KeychainStoreError.masterKeyUnavailable(String(describing: error))
         }
-        guard let stored else { return nil }
-        guard stored.count == masterKeyLength else {
-            throw KeychainStoreError.masterKeyUnavailable("stored key is \(stored.count) bytes, expected \(masterKeyLength)")
-        }
-        return stored
     }
     /// The master key to seal with, creating and persisting one on first use.
     ///
-    /// Throws rather than handing back a key that was not written: a seed
-    /// sealed under an unpersisted key is unreadable on the next launch, so the
-    /// seed must not be stored at all in that case.
+    /// Core mints it: the length is the envelope's and the bytes come from the
+    /// OS generator, and a generator failure is an error rather than a
+    /// fallback. Throws rather than handing back a key that was not written: a
+    /// seed sealed under an unpersisted key is unreadable on the next launch,
+    /// so the seed must not be stored at all in that case.
     private static func masterKeyForSealing() throws -> Data {
         if let existing = try storedMasterKey() { return existing }
-        let generated = SecureRandom.data(length: masterKeyLength)
+        let generated: Data
+        do { generated = try newSeedEnvelopeMasterKey() } catch {
+            throw KeychainStoreError.masterKeyUnavailable(String(describing: error))
+        }
         do { try storage.saveData(generated, for: masterKeyAccount) } catch {
             throw KeychainStoreError.masterKeyUnavailable(String(describing: error))
         }

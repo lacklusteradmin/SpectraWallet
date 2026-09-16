@@ -4,7 +4,7 @@
   "readOnlyFootnote": "此版本中為唯讀。",
   "addEsploraEndpointPlaceholder": "新增 Esplora 端點",
   "addEndpointButtonTitle": "新增端點",
-  "clearCustomBitcoinEndpointsTitle": "清除自訂比特幣端點",
+  "clearCustomEsploraEndpointsTitle": "清除自訂 Esplora 端點",
   "customRPCURLPlaceholder": "自訂 RPC 位址",
-  "customMoneroBackendURLPlaceholder": "自訂門羅後端位址"
+  "customBackendURLPlaceholder": "自訂後端位址"
 }

@@ -37,7 +37,7 @@ extension TransactionRecord {
     var persistedSnapshot: CorePersistedTransactionRecord {
         CorePersistedTransactionRecord(
             deploymentId: deploymentID,
-            id: id.uuidString,
+            id: id,
             walletId: walletID,
             kind: kind,
             status: status,
@@ -52,7 +52,7 @@ extension TransactionRecord {
             receiptBlockNumber: receiptBlockNumber.map { Int64($0) },
             receiptGasUsed: receiptGasUsed,
             receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei,
-            receiptNetworkFeeEth: receiptNetworkFeeEth,
+            receiptNetworkFee: receiptNetworkFee,
             feePriorityRaw: feePriorityRaw,
             feeRateDescription: feeRateDescription,
             confirmationCount: confirmationCount.map { Int64($0) },

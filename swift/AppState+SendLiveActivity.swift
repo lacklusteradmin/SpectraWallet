@@ -149,7 +149,7 @@ extension AppState {
     func startSendLiveActivity(for transaction: TransactionRecord) {
         guard transaction.kind == .send, transaction.status == .pending else { return }
         SendLiveActivityStore.start(
-            transactionID: transaction.id.uuidString,
+            transactionID: transaction.id,
             state: sendLiveActivityState(for: transaction, phase: .sending))
     }
 
@@ -164,7 +164,7 @@ extension AppState {
         case .pending: return
         }
         await SendLiveActivityStore.end(
-            transactionID: transaction.id.uuidString,
+            transactionID: transaction.id,
             state: sendLiveActivityState(for: transaction, phase: phase), lingering: true)
     }
 
@@ -176,7 +176,7 @@ extension AppState {
     func reconcileSendLiveActivities() async {
         let runningIDs = SendLiveActivityStore.runningTransactionIDs
         guard !runningIDs.isEmpty else { return }
-        let byID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id.uuidString, $0) })
+        let byID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
         for transactionID in runningIDs {
             guard let transaction = byID[transactionID] else {
                 await SendLiveActivityStore.end(

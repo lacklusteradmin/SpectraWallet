@@ -36,13 +36,26 @@ def calls_only(source, language):
     keyword = 'func' if language == 'swift' else 'fn'
     return re.sub(r'\b' + keyword + r'\s+\w+', keyword + ' __declaration__', source)
 
+# The app, not its tests: an export only a test calls is a fixture, and it
+# reads as API to everyone else. `swift/tests` counted as a caller, which is
+# how `core_evm_chain_context` outlived the last app code that used it.
 swift = calls_only('\n'.join(f.read_text() for f in pathlib.Path('swift').rglob('*.swift')
-                if 'generated' not in f.parts), 'swift')
+                if 'generated' not in f.parts and 'tests' not in f.parts), 'swift')
 cli = calls_only('\n'.join(f.read_text() for f in pathlib.Path('cli/src').rglob('*.rs')), 'rust')
 
-# Known-reachable by another route: the CLI drives these by their Rust name,
-# and `new` is a constructor UniFFI needs.
-ALLOWED = {'new'}
+# Known-reachable by another route: `new` is a constructor UniFFI needs.
+#
+# And the test fixtures the iOS suite needs across the binding, each with the
+# reason a Rust test cannot stand in — a Rust test runs inside its own Tokio
+# runtime and cannot catch a missing reactor on the Swift side.
+ALLOWED = {
+    'new',
+    # Injects an out-of-range keypool row so the async error path of
+    # `keypool_state` and `reserve_receive_index` is exercised from Swift.
+    'register_owned_address',
+    # Seeds wallets into the service the `AppState` tests drive.
+    'core_wallet_state',
+}
 
 dead = [(n, f) for n, f in names
         if n not in ALLOWED

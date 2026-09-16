@@ -96,9 +96,9 @@ import Foundation
         }
 
         func testManualStatusRecheckRefusesMissingTransactionAcrossAsyncBridge() async throws {
-            let id = UUID()
+            let id = UUID().uuidString
             do {
-                _ = try await WalletServiceBridge.shared.recheckTransactionStatus(id: id.uuidString)
+                _ = try await WalletServiceBridge.shared.recheckTransactionStatus(id: id)
                 XCTFail("a missing transaction must not produce a successful status")
             } catch {
                 XCTAssertTrue(String(describing: error).contains("Transaction not found"))
@@ -282,7 +282,7 @@ import Foundation
         }
         func testHistoricalNetworkTitleIgnoresCurrentNetworkSelection() async {
             let store = AppState()
-            let transaction = TransactionRecord(kind: .send, status: .confirmed,
+            let transaction = TransactionRecord(id: UUID().uuidString, kind: .send, status: .confirmed,
                 walletName: "Historical", assetDisplayName: "Ethereum", symbol: "ETH",
                 chainName: "Ethereum Sepolia", amount: 1, address: "0x1111111111111111111111111111111111111111")
             store.selectNetworkChain("ethereum-hoodi")
@@ -394,13 +394,20 @@ import Foundation
                     "\(chain.displayName) still gets the generic invalid-address hint")
             }
         }
+        /// What the app reads about Ethereum's test networks: that the
+        /// registry knows them as EVM testnets of Ethereum, and the RPC
+        /// endpoints the catalog gives each. Their EIP-155 ids were asserted
+        /// here through `EVMChainContext`, which the app no longer has; core's
+        /// `evm_chains_carry_their_eip155_ids` checks them where they live.
         func testEthereumTestNetworksExposeExpectedContextsAndEndpoints() {
-            let sepolia = EVMChainContext(chainName: "Ethereum Sepolia")
-            let hoodi = EVMChainContext(chainName: "Ethereum Hoodi")
-            XCTAssertEqual(sepolia?.expectedChainID, 11_155_111)
-            XCTAssertEqual(hoodi?.expectedChainID, 560_048)
-            XCTAssertEqual(sepolia?.defaultRPCEndpoints, ["https://ethereum-sepolia-rpc.publicnode.com"])
-            XCTAssertEqual(hoodi?.defaultRPCEndpoints, ["https://ethereum-hoodi-rpc.publicnode.com"])
+            for name in ["Ethereum Sepolia", "Ethereum Hoodi"] {
+                let chain = Chain(displayName: name)
+                XCTAssertEqual(chain?.isEVM, true, name)
+                XCTAssertEqual(chain?.isTestnet, true, name)
+                XCTAssertEqual(chain?.mainnetCounterpart, .ethereum, name)
+            }
+            XCTAssertEqual(AppEndpointDirectory.evmRPCEndpoints(for: "Ethereum Sepolia"), ["https://ethereum-sepolia-rpc.publicnode.com"])
+            XCTAssertEqual(AppEndpointDirectory.evmRPCEndpoints(for: "Ethereum Hoodi"), ["https://ethereum-hoodi-rpc.publicnode.com"])
         }
         /// A watch-only wallet on a chain outside the old hand-written
         /// 14-chain list was dropped from the store on load. Storage is now a
@@ -576,6 +583,7 @@ import Foundation
                 addresses: ["Bitcoin": "bc1qexample"], selectedChain: "Bitcoin")
             await store.seedWalletForTesting(wallet)
             let tx = TransactionRecord(
+                id: UUID().uuidString,
                 walletID: wallet.id, kind: .send, status: .pending, walletName: "W",
                 assetDisplayName: "Bitcoin", symbol: "BTC", chainName: "Bitcoin", amount: 0.1,
                 address: "bc1qexample", transactionHash: "0xhash-status-test")
@@ -588,7 +596,7 @@ import Foundation
             let persisted = await storedStatus(for: tx.id, expecting: .confirmed)
             XCTAssertEqual(persisted, .confirmed, "status change was not persisted")
 
-            _ = try await WalletServiceBridge.shared.applyTransactionCommand(.remove(ids: [tx.id.uuidString]))
+            _ = try await WalletServiceBridge.shared.applyTransactionCommand(.remove(ids: [tx.id]))
             _ = await storedStatus(for: tx.id, expecting: nil)
             await store.removeWallet(id: wallet.id)
         }
@@ -596,13 +604,13 @@ import Foundation
         /// Poll the history store until `id` reads as `expecting`, or give up.
         /// Returns whatever it last saw so the caller can assert on it.
         private func storedStatus(
-            for id: UUID, expecting: TransactionStatus?, timeout: Duration = .seconds(5)
+            for id: String, expecting: TransactionStatus?, timeout: Duration = .seconds(5)
         ) async -> TransactionStatus? {
             let deadline = ContinuousClock.now + timeout
             var seen: TransactionStatus?
             while ContinuousClock.now < deadline {
                 let stored = (try? await WalletServiceBridge.shared.fetchAllHistoryRecordsTyped()) ?? []
-                seen = stored.compactMap { TransactionRecord(snapshot: $0.payload) }
+                seen = stored.map { TransactionRecord(snapshot: $0.payload) }
                     .first { $0.id == id }?.status
                 if seen == expecting { return seen }
                 try? await Task.sleep(for: .milliseconds(50))
@@ -695,7 +703,7 @@ private extension TransactionRecord {
             id: id, walletID: walletID, kind: kind, status: status, walletName: walletName, assetDisplayName: assetDisplayName, symbol: symbol,
             chainName: chainName, amount: amount, address: address, transactionHash: transactionHash, ethereumNonce: ethereumNonce,
             receiptBlockNumber: receiptBlockNumber, receiptGasUsed: receiptGasUsed,
-            receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei, receiptNetworkFeeEth: receiptNetworkFeeEth,
+            receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei, receiptNetworkFee: receiptNetworkFee,
             feePriorityRaw: feePriorityRaw, feeRateDescription: feeRateDescription, confirmationCount: confirmationCount,
             dogecoinConfirmedNetworkFeeDoge: dogecoinConfirmedNetworkFeeDoge,
             dogecoinEstimatedFeeRateDogePerKb: dogecoinEstimatedFeeRateDogePerKb,

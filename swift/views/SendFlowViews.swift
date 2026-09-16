@@ -355,66 +355,31 @@ struct SendView: View {
     }
 
     private func applyScannedRecipientPayload(_ payload: String) {
-        let trimmedPayload = payload.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedPayload.isEmpty else {
+        guard !payload.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             qrScannerErrorMessage = AppLocalization.string("The scanned QR code did not contain a usable address.")
             return
         }
-        let selectedChainName = store.availableSendCoins(for: store.sendWalletID)
-            .first(where: { $0.holdingKey == store.sendHoldingKey })?.chainName
-        guard let resolvedAddress = resolvedRecipientAddress(from: trimmedPayload, chainName: selectedChainName) else {
+        // Core reads the payload — bare address or payment URI — against the
+        // network the wallet is on, and hands back the stored form. With no
+        // network there is nothing to judge an address against, so nothing is
+        // filled in.
+        guard let network = scannedPayloadNetwork,
+            let address = scannedSendAddress(chainName: network.displayName, payload: payload)
+        else {
             qrScannerErrorMessage = AppLocalization.string("The scanned QR code does not contain a valid address for the selected asset.")
             return
         }
-        store.sendAddress = resolvedAddress
+        store.sendAddress = address
         qrScannerErrorMessage = nil
     }
 
-    private func resolvedRecipientAddress(from payload: String, chainName: String?) -> String? {
-        let candidates = qrAddressCandidates(from: payload)
-        guard let chainName else { return candidates.first }
-        for candidate in candidates {
-            if isValidScannedAddress(candidate, for: chainName) {
-                if Chain(displayName: chainName)?.isEVM == true { return normalizeEVMAddress(candidate) }
-                return candidate
-            }
-        }
-        return nil
-    }
-
-    private func qrAddressCandidates(from payload: String) -> [String] {
-        let trimmed = payload.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return [] }
-        var candidates: [String] = []
-        func appendCandidate(_ value: String) {
-            let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !normalized.isEmpty, !candidates.contains(normalized) else { return }
-            candidates.append(normalized)
-        }
-        appendCandidate(trimmed)
-        let withoutQuery = trimmed.components(separatedBy: "?").first ?? trimmed
-        appendCandidate(withoutQuery)
-        if let colonIndex = withoutQuery.firstIndex(of: ":") {
-            appendCandidate(String(withoutQuery[withoutQuery.index(after: colonIndex)...]))
-        }
-        if let components = URLComponents(string: trimmed) {
-            if let host = components.host { appendCandidate(host + components.path) }
-            if let firstPathComponent = components.path.split(separator: "/").first { appendCandidate(String(firstPathComponent)) }
-        }
-        return candidates
-    }
-
-    /// A scanned address is judged against the network the wallet is actually
-    /// on — which is a chain, so the registry answers both halves.
-    private func isValidScannedAddress(_ address: String, for chainName: String) -> Bool {
-        let family = Chain(displayName: chainName)?.id ?? ""
-        guard !family.isEmpty else { return false }
-        let selected =
-            store.wallet(for: store.sendWalletID).map {
-                store.walletNetworkChainID(for: $0, family: family)
-            } ?? store.networkChainID(forFamily: family)
-        let kind = (Chain(id: selected)?.addressValidationKind ?? "")
-        guard !kind.isEmpty else { return false }
-        return AddressValidation.isValid(address, kind: kind)
+    /// The network a scanned address must belong to: the one the sending wallet
+    /// is on for the selected asset's family.
+    private var scannedPayloadNetwork: Chain? {
+        guard let coin = store.selectedSendCoin, let family = Chain(displayName: coin.chainName)?.id else { return nil }
+        let networkID =
+            store.selectedWalletForSend().map { store.walletNetworkChainID(for: $0, family: family) }
+            ?? store.networkChainID(forFamily: family)
+        return Chain(id: networkID)
     }
 }
