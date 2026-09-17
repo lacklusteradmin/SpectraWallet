@@ -161,8 +161,11 @@ struct ReceiveView: View {
             } else {
                 LazyVStack(spacing: 12) {
                     ForEach(store.receiveEnabledWallets) { wallet in
-                        WalletReceiveCard(wallet: wallet) {
-                            choose(wallet)
+                        WalletReceiveCard(
+                            wallet: wallet,
+                            isSelected: wallet.id == store.receiveWalletID
+                        ) {
+                            select(wallet)
                         }
                     }
                 }
@@ -283,55 +286,46 @@ struct ReceiveView: View {
     }
 
     private var receiveBottomBar: some View {
-        VStack(spacing: 0) {
-            Divider().opacity(0.2)
-            HStack(spacing: 12) {
-                if currentStep == .address {
-                    Button {
-                        spectraHaptic(.light)
-                        go(to: .wallet)
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.headline.weight(.semibold))
-                            .frame(width: 46, height: 46)
-                    }
-                    .buttonStyle(.glass)
-                    .spectraPressable()
-                }
-
+        SpectraBottomActionBar {
+            if currentStep == .address {
                 Button {
-                    switch currentStep {
-                    case .wallet:
-                        if selectedWallet == nil, let first = store.receiveEnabledWallets.first {
-                            choose(first)
-                        } else {
-                            go(to: .address)
-                        }
-                    case .address:
-                        UIPasteboard.general.string = resolvedAddress
-                        didCopy = true
-                        spectraHaptic(.light)
-                        Task {
-                            try? await Task.sleep(for: .seconds(1.5))
-                            didCopy = false
-                        }
-                    }
+                    spectraHaptic(.light)
+                    go(to: .wallet)
                 } label: {
-                    Label(
-                        AppLocalization.string(currentStep == .wallet ? "Continue" : "Copy Address"),
-                        systemImage: copyStepSystemImage
-                    )
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 46)
+                    Image(systemName: "chevron.left")
+                        .font(.headline.weight(.semibold))
+                        .frame(width: 46, height: 46)
                 }
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.glass)
                 .spectraPressable()
-                .disabled(isPrimaryActionDisabled)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(.regularMaterial)
+
+            Button {
+                switch currentStep {
+                case .wallet:
+                    spectraHaptic(.light)
+                    go(to: .address)
+                case .address:
+                    UIPasteboard.general.string = resolvedAddress
+                    didCopy = true
+                    spectraHaptic(.light)
+                    Task {
+                        try? await Task.sleep(for: .seconds(1.5))
+                        didCopy = false
+                    }
+                }
+            } label: {
+                Label(
+                    AppLocalization.string(currentStep == .wallet ? "Continue" : "Copy Address"),
+                    systemImage: copyStepSystemImage
+                )
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 46)
+            }
+            .buttonStyle(.glassProminent)
+            .spectraPressable()
+            .disabled(isPrimaryActionDisabled)
         }
     }
 
@@ -341,16 +335,17 @@ struct ReceiveView: View {
     }
 
     private var isPrimaryActionDisabled: Bool {
-        if store.receiveEnabledWallets.isEmpty { return true }
-        guard currentStep == .address else { return false }
-        return !canUseResolvedAddress || store.isResolvingReceiveAddress
+        switch currentStep {
+        case .wallet: return selectedWallet == nil
+        case .address: return !canUseResolvedAddress
+        }
     }
 
-    private func choose(_ wallet: WalletView) {
+    private func select(_ wallet: WalletView) {
+        guard store.receiveWalletID != wallet.id else { return }
+        spectraHaptic(.light)
         store.receiveWalletID = wallet.id
         store.syncReceiveAssetSelection()
-        spectraHaptic(.light)
-        go(to: .address)
     }
 
     private func go(to step: ReceiveFlowStep) {
@@ -366,82 +361,71 @@ struct ReceiveView: View {
 
 }
 
+/// A row on the wallet step. The whole card is the selection control, and
+/// selecting is all it does.
+///
+/// It used to show `wallet.addresses[slot]` with a copy button beside it — a
+/// second receive address, produced differently from the one the next screen
+/// hands out. That one is core's `receive_address`, which on a UTXO chain
+/// reserves a keypool index (never 0) and registers what it derives as owned,
+/// so wherever core could derive, the card offered an address core does not
+/// watch. Receive addresses come from core; this row picks a wallet.
 private struct WalletReceiveCard: View {
     let wallet: WalletView
-    let onShowQR: () -> Void
-    @State private var didCopy: Bool = false
+    let isSelected: Bool
+    let onSelect: () -> Void
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let badge = Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, Color.mint)
-        let address = walletStaticAddress(for: wallet)
 
-        HStack(spacing: 14) {
-            CoinBadge(
-                artworkName: badge.artworkName,
-                fallbackText: wallet.selectedChain,
-                color: badge.color,
-                size: 42
-            )
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text(wallet.name)
-                    .font(.headline)
-                    .lineLimit(1)
-                Text(wallet.selectedChain)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                if let address {
-                    Text(address)
-                        .font(.caption.monospaced())
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                } else {
-                    Text(AppLocalization.string("Tap QR to view address"))
-                        .font(.caption)
-                        .foregroundStyle(.tertiary)
-                }
-            }
-
-            Spacer(minLength: 0)
-
-            HStack(spacing: 8) {
-                if let address {
-                    Button {
-                        UIPasteboard.general.string = address
-                        didCopy = true
-                        spectraHaptic(.light)
-                        Task {
-                            try? await Task.sleep(for: .seconds(1.5))
-                            didCopy = false
-                        }
-                    } label: {
-                        Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
-                            .font(.system(size: 14, weight: .medium))
-                            .frame(width: 34, height: 34)
+        Button(action: onSelect) {
+            HStack(spacing: 14) {
+                ZStack(alignment: .topTrailing) {
+                    CoinBadge(
+                        artworkName: badge.artworkName,
+                        fallbackText: wallet.selectedChain,
+                        color: badge.color,
+                        size: 42
+                    )
+                    if isSelected {
+                        Image(systemName: "checkmark.circle.fill")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(badge.color)
+                            .background(Circle().fill(Color.white.opacity(colorScheme == .light ? 1 : 0.88)))
+                            .offset(x: 4, y: -4)
                     }
-                    .buttonStyle(.glass)
                 }
 
-                Button { onShowQR() } label: {
-                    Image(systemName: "qrcode")
-                        .font(.system(size: 14, weight: .medium))
-                        .frame(width: 34, height: 34)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(wallet.name)
+                        .font(.headline)
+                        .foregroundStyle(Color.primary)
+                        .lineLimit(1)
+                    Text(wallet.selectedChain)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .buttonStyle(.glass)
+
+                Spacer(minLength: 0)
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(
+                .regular.tint(isSelected ? badge.color.opacity(0.14) : SpectraLayout.GlassTint.elevated),
+                in: .rect(cornerRadius: SpectraLayout.Radius.compact)
+            )
+            .overlay {
+                if isSelected {
+                    RoundedRectangle(cornerRadius: SpectraLayout.Radius.compact, style: .continuous)
+                        .stroke(badge.color.opacity(0.9), lineWidth: 1.8)
+                }
             }
         }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.compact)
-    }
-
-    /// The address stored for the wallet's own chain.
-    private func walletStaticAddress(for wallet: WalletView) -> String? {
-        let trimmed =
-            wallet.address(forChainNamed: wallet.selectedChain)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return trimmed.isEmpty ? nil : trimmed
+        .buttonStyle(.plain)
+        .contentShape(Rectangle())
+        .spectraPressable()
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }
 

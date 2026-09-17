@@ -1,152 +1,179 @@
 import Foundation
 import SwiftUI
 import UIKit
+
+/// The saved recipients, as a list. Adding one is a toolbar action.
+///
+/// This was a `Form` whose first section was a five-field "New Contact" form,
+/// so a page named after a book of contacts opened on data entry and pushed
+/// the contacts themselves below the fold — on a first visit, with nothing
+/// saved, the empty state was the part you had to scroll to find.
 struct AddressBookView: View {
-    let store: AppState
-    @State private var contactName: String = ""
-    /// The catalog's first mainnet, rather than a name written here.
-    @State private var selectedChainName: String = Chain.mainnets.first?.displayName ?? ""
-    @State private var address: String = ""
-    @State private var note: String = ""
-    @State private var formMessage: String?
-    @State private var editingEntry: AddressBookEntry?
-    @State private var editedName: String = ""
-    @State private var copiedEntryID: String?
-    /// Every mainnet, because core validates every mainnet.
-    private var supportedChains: [String] { Chain.mainnets.map(\.displayName) }
-    /// A terse format example, for the chains that have one.
-    ///
-    /// A terse example of what an address on this chain looks like.
-    ///
-    /// A fact about the chain, so it is a catalog column; the EVM family gets
-    /// it from `is_evm` rather than from a list of member names.
-    private var addressPrompt: String {
-        Chain(displayName: selectedChainName)?.addressPrefixHint ?? ""
-    }
-    private var addressValidationMessage: String {
-        if store.isDuplicateAddressBookAddress(address, chainName: selectedChainName) {
-            return AppLocalization.format("This %@ address is already saved.", selectedChainName)
-        }
-        return store.addressBookAddressValidationMessage(for: address, chainName: selectedChainName)
-    }
-    private var addressValidationColor: Color {
-        if store.isDuplicateAddressBookAddress(address, chainName: selectedChainName) { return .orange }
-        return store.canSaveAddressBookEntry(name: contactName, address: address, chainName: selectedChainName) ? .green : .secondary
-    }
-    private var canRenameSelectedEntry: Bool {
-        guard let editingEntry else { return false }
-        let trimmedName = editedName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmedName.isEmpty && trimmedName != editingEntry.name
-    }
+    @Bindable var store: AppState
+    @State private var isAddingContact = false
+    @State private var openContact: AddressBookEntry?
+
     var body: some View {
-        Form {
-            Section(AppLocalization.string("New Contact")) {
-                TextField(AppLocalization.string("Name"), text: $contactName).textInputAutocapitalization(.words).autocorrectionDisabled()
-                Picker(AppLocalization.string("Chain"), selection: $selectedChainName) {
-                    ForEach(supportedChains, id: \.self) { chainName in Text(chainName).tag(chainName) }
-                }
-                TextField(addressPrompt, text: $address).textInputAutocapitalization(.never).autocorrectionDisabled()
-                Text(addressValidationMessage).font(.caption).foregroundStyle(addressValidationColor)
-                TextField(AppLocalization.string("Note (Optional)"), text: $note).textInputAutocapitalization(.sentences)
-                if let formMessage {
-                    Text(formMessage).font(.caption).foregroundStyle(
-                        store.canSaveAddressBookEntry(name: contactName, address: address, chainName: selectedChainName)
-                            ? Color.secondary : Color.red)
-                }
-                Button(AppLocalization.string("Save Contact")) {
-                    saveContact()
-                }.spectraPressable()
-                    .disabled(!store.canSaveAddressBookEntry(name: contactName, address: address, chainName: selectedChainName))
-            }
-            Section(AppLocalization.string("Saved Addresses")) {
-                if store.addressBook.isEmpty {
-                    SpectraEmptyStateCard(
-                        title: "No saved addresses yet",
-                        message: "Save frequent recipients here so future sends are faster.",
-                        systemImage: "person.crop.circle.badge.plus"
+        ZStack {
+            SpectraBackdrop().ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                LazyVStack(alignment: .leading, spacing: 18) {
+                    spectraPageHeader(
+                        title: "Saved Addresses",
+                        subtitle: "Pick a saved recipient during a send instead of pasting an address.",
+                        systemImage: "person.crop.circle"
                     )
-                } else {
-                    ForEach(store.addressBook) { entry in
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(alignment: .top, spacing: 12) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(entry.name).font(.headline)
-                                    Text(entry.subtitleText).spectraHintText()
-                                    Text(entry.address).font(.caption.monospaced()).textSelection(.enabled)
-                                }
-                                Spacer()
-                                Button {
-                                    UIPasteboard.general.string = entry.address
-                                    copiedEntryID = entry.id
-                                    spectraHaptic(.light)
-                                } label: {
-                                    Label(
-                                        copiedEntryID == entry.id ? AppLocalization.string("Copied") : AppLocalization.string("Copy"),
-                                        systemImage: copiedEntryID == entry.id ? "checkmark" : "doc.on.doc"
-                                    ).font(.caption.weight(.semibold))
-                                }.buttonStyle(.borderless)
-                            }
-                        }.padding(.vertical, 4).swipeActions {
-                            Button(AppLocalization.string("Edit")) {
+
+                    rejectionNotice
+
+                    if store.addressBook.isEmpty {
+                        SpectraEmptyStateCard(
+                            title: "No saved addresses yet",
+                            message: "Save frequent recipients here so future sends are faster.",
+                            systemImage: "person.crop.circle.badge.plus",
+                            actionTitle: "New Contact",
+                            actionSystemImage: "plus",
+                            action: {
                                 spectraHaptic(.light)
-                                editingEntry = entry
-                                editedName = entry.name
+                                isAddingContact = true
                             }
-                            Button(AppLocalization.string("Delete"), role: .destructive) {
-                                spectraHaptic(.medium)
-                                store.removeAddressBookEntry(id: entry.id)
+                        )
+                    } else {
+                        LazyVStack(spacing: 12) {
+                            ForEach(store.addressBook) { entry in
+                                AddressBookContactCard(entry: entry) { openContact = entry }
                             }
                         }
                     }
                 }
+                .padding(20)
             }
-        }.navigationTitle(AppLocalization.string("Address Book")).sheet(item: $editingEntry) { entry in
-            NavigationStack {
-                Form {
-                    Section {
-                        Text(
-                            AppLocalization.string(
-                                "You can update the label for this saved address. The chain, address, and note stay fixed.")
-                        ).spectraHintText()
-                    }
-                    Section(AppLocalization.string("Saved Address")) {
-                        Text(entry.chainName)
-                        Text(entry.address).font(.caption.monospaced()).textSelection(.enabled)
-                        if !entry.note.isEmpty { Text(entry.note).spectraHintText() }
-                    }
-                    Section(AppLocalization.string("Label")) {
-                        TextField(AppLocalization.string("Name"), text: $editedName).textInputAutocapitalization(.words)
-                            .autocorrectionDisabled()
-                    }
-                }.navigationTitle(AppLocalization.string("Edit Label")).toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        Button(AppLocalization.string("Cancel")) {
-                            editingEntry = nil
-                            editedName = ""
-                        }
-                    }
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button(AppLocalization.string("Save")) {
-                            store.renameAddressBookEntry(id: entry.id, to: editedName)
-                            editingEntry = nil
-                            editedName = ""
-                        }.disabled(!canRenameSelectedEntry)
-                    }
+        }
+        .navigationTitle(AppLocalization.string("Address Book"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    spectraHaptic(.light)
+                    isAddingContact = true
+                } label: {
+                    Image(systemName: "plus")
                 }
+                .accessibilityLabel(AppLocalization.string("New Contact"))
             }
+        }
+        .navigationDestination(isPresented: $isAddingContact) {
+            NewAddressBookContactView(store: store)
+        }
+        .navigationDestination(item: $openContact) { entry in
+            AddressBookContactView(store: store, entry: entry)
         }
     }
-    private func saveContact() {
-        guard store.canSaveAddressBookEntry(name: contactName, address: address, chainName: selectedChainName) else {
-            spectraNotificationHaptic(.error)
-            formMessage = AppLocalization.format("Enter a unique valid %@ address and a contact name.", selectedChainName)
-            return
+
+    /// Core's reason for refusing a contact. `addressBookError` has been set
+    /// since address-book commands moved to core and no screen showed it, so a
+    /// refused save was indistinguishable from a save that did nothing.
+    @ViewBuilder
+    private var rejectionNotice: some View {
+        if let addressBookError = store.addressBookError {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.red)
+                Text(verbatim: addressBookError)
+                    .font(.subheadline)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                Button {
+                    store.addressBookError = nil
+                } label: {
+                    Image(systemName: "xmark")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel(AppLocalization.string("Close"))
+            }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .glassEffect(
+                .regular.tint(Color.red.opacity(0.12)),
+                in: .rect(cornerRadius: SpectraLayout.Radius.compact)
+            )
         }
-        spectraNotificationHaptic(.success)
-        store.addAddressBookEntry(name: contactName, address: address, chainName: selectedChainName, note: note)
-        contactName = ""
-        address = ""
-        note = ""
-        formMessage = AppLocalization.string("Address saved.")
+    }
+}
+
+/// One saved recipient. The row opens the contact; copy is its own button.
+private struct AddressBookContactCard: View {
+    let entry: AddressBookEntry
+    let onOpen: () -> Void
+    @State private var didCopy = false
+
+    var body: some View {
+        let badge = Coin.nativeChainBadge(chainName: entry.chainName) ?? (nil, Color.mint)
+
+        HStack(spacing: 12) {
+            Button(action: onOpen) {
+                HStack(spacing: 14) {
+                    CoinBadge(
+                        artworkName: badge.artworkName,
+                        fallbackText: entry.chainName,
+                        color: badge.color,
+                        size: 42
+                    )
+
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(entry.name)
+                            .font(.headline)
+                            .foregroundStyle(Color.primary)
+                            .lineLimit(1)
+                        Text(entry.subtitleText)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                        // One line, elided in the middle: an address is
+                        // recognised by both ends, and wrapping it to two
+                        // monospaced lines made it, rather than the name, the
+                        // largest thing in the row.
+                        Text(entry.address)
+                            .font(.caption.monospaced())
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    }
+
+                    Spacer(minLength: 0)
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+
+            Button {
+                UIPasteboard.general.string = entry.address
+                didCopy = true
+                spectraHaptic(.light)
+            } label: {
+                Image(systemName: didCopy ? "checkmark" : "doc.on.doc")
+                    .font(.system(size: 14, weight: .medium))
+                    .frame(width: 34, height: 34)
+            }
+            .buttonStyle(.glass)
+            .accessibilityLabel(AppLocalization.string(didCopy ? "Copied" : "Copy"))
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.compact)
+        // The row said "Copied" for the rest of the screen's life: the state
+        // was one `copiedEntryID` on the page and nothing ever cleared it.
+        // `.task(id:)` cancels with the row, so a card scrolled away mid-timer
+        // does not come back still claiming it.
+        .task(id: didCopy) {
+            guard didCopy else { return }
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            didCopy = false
+        }
     }
 }

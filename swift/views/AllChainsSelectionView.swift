@@ -12,7 +12,10 @@ struct AllChainsSelectionView: View {
     let descriptors: [SetupChainSelectionDescriptor]
     let selectedChainNames: Set<String>
     let toggleSelection: (String) -> Void
-    let clearAllSelections: () -> Void
+    /// Absent when the caller picks one chain rather than a set: the running
+    /// count and its "Clear all" belong to a multi-select and read as noise
+    /// above a list where exactly one row is always ticked.
+    let clearAllSelections: (() -> Void)?
     @State private var isShowingInfo = false
     private var trimmedQuery: String { chainSearchText.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var isSearching: Bool { !trimmedQuery.isEmpty }
@@ -99,7 +102,7 @@ struct AllChainsSelectionView: View {
                     }.buttonStyle(.plain)
                 }
             }.padding(.horizontal, 14).padding(.vertical, 12).spectraInputFieldStyle()
-            if !selectedChainNames.isEmpty {
+            if let clearAllSelections, !selectedChainNames.isEmpty {
                 HStack(spacing: 8) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.orange).font(.caption)
                     Text(AppLocalization.format("%lld selected", selectedChainNames.count))

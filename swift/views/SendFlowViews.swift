@@ -210,46 +210,40 @@ struct SendView: View {
 
     @ViewBuilder
     private func flowBottomBar(selectedCoin: Coin?) -> some View {
-        VStack(spacing: 0) {
-            Divider().opacity(0.2)
-            HStack(spacing: 12) {
-                if currentStep != .from && currentStep != .result {
-                    Button {
-                        spectraHaptic(.light)
-                        goBack()
-                    } label: {
-                        Image(systemName: "chevron.left")
-                            .font(.headline.weight(.semibold))
-                            .frame(width: 46, height: 46)
-                    }
-                    .buttonStyle(.glass)
-                    .accessibilityLabel(AppLocalization.string("Back"))
-                    .spectraPressable()
-                }
-
+        SpectraBottomActionBar {
+            if currentStep != .from && currentStep != .result {
                 Button {
-                    handlePrimaryAction(selectedCoin: selectedCoin)
+                    spectraHaptic(.light)
+                    goBack()
                 } label: {
-                    HStack(spacing: 8) {
-                        if primaryShowsProgress {
-                            SpectraLoadingGlyph(size: 20, tint: .white)
-                        } else {
-                            Image(systemName: primaryActionSystemImage)
-                                .font(.system(size: 20, weight: .semibold))
-                        }
-                        Text(AppLocalization.string(primaryActionTitle))
-                            .font(.headline)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .frame(minHeight: 46)
+                    Image(systemName: "chevron.left")
+                        .font(.headline.weight(.semibold))
+                        .frame(width: 46, height: 46)
                 }
-                .buttonStyle(.glassProminent)
+                .buttonStyle(.glass)
+                .accessibilityLabel(AppLocalization.string("Back"))
                 .spectraPressable()
-                .disabled(!canUsePrimaryAction(selectedCoin: selectedCoin))
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 12)
-            .background(.regularMaterial)
+
+            Button {
+                handlePrimaryAction(selectedCoin: selectedCoin)
+            } label: {
+                HStack(spacing: 8) {
+                    if primaryShowsProgress {
+                        SpectraLoadingGlyph(size: 20, tint: .white)
+                    } else {
+                        Image(systemName: primaryActionSystemImage)
+                            .font(.system(size: 20, weight: .semibold))
+                    }
+                    Text(AppLocalization.string(primaryActionTitle))
+                        .font(.headline)
+                }
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 46)
+            }
+            .buttonStyle(.glassProminent)
+            .spectraPressable()
+            .disabled(!canUsePrimaryAction(selectedCoin: selectedCoin))
         }
     }
 

@@ -702,25 +702,22 @@ struct SetupView: View {
     @ViewBuilder
     private var setupBottomActionBar: some View {
         if setupPage != .advanced {
-            VStack(spacing: 0) {
-                Divider().opacity(0.4)
-                HStack(spacing: 12) {
-                    if canGoBack {
-                        Button(action: performBackNavigation) {
-                            Text(AppLocalization.string("Back"))
-                                .font(.body.weight(.semibold))
-                                .frame(maxWidth: .infinity)
-                                .padding(.vertical, 10)
-                        }.buttonStyle(.glass).controlSize(.large)
-                    }
-                    Button(action: performPrimaryAction) {
-                        Text(primaryActionTitle)
+            SpectraBottomActionBar {
+                if canGoBack {
+                    Button(action: performBackNavigation) {
+                        Text(AppLocalization.string("Back"))
                             .font(.body.weight(.semibold))
                             .frame(maxWidth: .infinity)
                             .padding(.vertical, 10)
-                    }.buttonStyle(.glassProminent).controlSize(.large).disabled(!isPrimaryActionEnabled)
-                }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 16)
-            }.glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: Rectangle())
+                    }.buttonStyle(.glass).controlSize(.large)
+                }
+                Button(action: performPrimaryAction) {
+                    Text(primaryActionTitle)
+                        .font(.body.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                }.buttonStyle(.glassProminent).controlSize(.large).disabled(!isPrimaryActionEnabled)
+            }
         }
     }
 }

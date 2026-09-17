@@ -2,14 +2,15 @@ import Foundation
 import SwiftUI
 @MainActor
 extension AppState {
+    /// Opens the flow with nothing chosen, unless there is only one wallet to
+    /// choose. It used to seed `receiveWalletID` with whichever wallet sorted
+    /// first, which the wallet step then never showed as selected — so
+    /// "Continue" carried a wallet the user had never picked and could not see.
     func beginReceive() {
-        guard let firstWallet = receiveEnabledWallets.first else { return }
-        receiveWalletID = firstWallet.id
-        receiveHoldingKey = selectedReceiveCoin(for: receiveWalletID)?.holdingKey ?? ""
-        receiveResolvedAddress = ""
-        receiveAddressError = nil
-        receiveAddressRequestID = UUID()
-        isResolvingReceiveAddress = false
+        let wallets = receiveEnabledWallets
+        guard !wallets.isEmpty else { return }
+        receiveWalletID = wallets.count == 1 ? wallets[0].id : ""
+        syncReceiveAssetSelection()
         isShowingReceiveSheet = true
     }
     func syncReceiveAssetSelection() {
