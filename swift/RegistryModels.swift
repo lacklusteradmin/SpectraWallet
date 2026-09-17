@@ -3,31 +3,6 @@ import SwiftUI
 #if canImport(UIKit)
     import UIKit
 #endif
-struct WalletChainID: Hashable, Codable, Identifiable, Comparable {
-    let rawValue: String
-    static func == (lhs: WalletChainID, rhs: WalletChainID) -> Bool { lhs.rawValue == rhs.rawValue }
-    func hash(into hasher: inout Hasher) { hasher.combine(rawValue) }
-    var id: String { rawValue }
-    var displayName: String { Self.displayNameByID[rawValue] ?? rawValue }
-    init(rawValue: String) { self.rawValue = rawValue.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() }
-    init?(_ chainNameOrID: String) {
-        let trimmed = chainNameOrID.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return nil }
-        guard let id = coreResolveChainId(input: trimmed) else { return nil }
-        self.init(rawValue: id)
-    }
-    static func resolved(_ chainNameOrID: String) -> WalletChainID {
-        WalletChainID(chainNameOrID) ?? WalletChainID(rawValue: chainNameOrID)
-    }
-    static func < (lhs: WalletChainID, rhs: WalletChainID) -> Bool {
-        lhs.displayName.localizedCaseInsensitiveCompare(rhs.displayName) == .orderedAscending
-    }
-    private static let displayNameByID: [String: String] = Dictionary(
-        uniqueKeysWithValues: listAllChains()
-            .filter { !$0.name.isEmpty }
-            .map { ($0.id.lowercased(), $0.name) }
-    )
-}
 typealias TokenHostingChain = CoreTokenHostingChain
 // Deliberately **not** `RawRepresentable`, though it has a `rawValue`.
 //
@@ -78,13 +53,9 @@ extension CoreTokenHostingChain: CaseIterable, Codable, Identifiable {
         try container.encode(rawValue)
     }
     public var id: String { rawValue }
-    var tokenStandard: String {
-        Self.chainEntryByName[rawValue.lowercased()]?.tokenStandard ?? ""
-    }
+    var tokenStandard: String { chain?.entry?.tokenStandard ?? "" }
     var filterDisplayName: String { "\(rawValue) (\(tokenStandard))" }
-    var contractAddressPrompt: String {
-        Self.chainEntryByName[rawValue.lowercased()]?.contractAddressPrompt ?? "Contract Address"
-    }
+    var contractAddressPrompt: String { chain?.entry?.contractAddressPrompt ?? "Contract Address" }
     static func forChainName(_ chainName: String) -> TokenHostingChain? {
         let normalized = chainName.trimmingCharacters(in: .whitespacesAndNewlines)
         return byNormalizedName[normalized.lowercased()]
@@ -92,74 +63,8 @@ extension CoreTokenHostingChain: CaseIterable, Codable, Identifiable {
     private static let byNormalizedName: [String: TokenHostingChain] = Dictionary(
         uniqueKeysWithValues: allCases.map { ($0.rawValue.lowercased(), $0) }
     )
-    private static let chainEntryByName: [String: ChainEntry] = {
-        var dict: [String: ChainEntry] = [:]
-        for entry in listAllChains() where !entry.tokenStandard.isEmpty {
-            dict[entry.name.lowercased()] = entry
-        }
-        return dict
-    }()
-}
-struct ChainRegistryEntry: Identifiable {
-    let id: String
-    let name: String
-    let symbol: String
-    let color: Color
-    let artworkName: String
-    let derivationPath: [ChainDerivationPathEntry]
-    var nativeIconDescriptor: NativeChainIconDescriptor {
-        NativeChainIconDescriptor(registryID: id, title: name, symbol: symbol, chainName: name, color: color)
-    }
-    static let all: [ChainRegistryEntry] = {
-        listAllChains()
-            .filter { !$0.name.isEmpty }
-            .map { chain in
-                ChainRegistryEntry(
-                    id: chain.id, name: chain.name, symbol: chain.gasTokenSymbol,
-                    color: chain.color.color, artworkName: chain.artworkName,
-                    derivationPath: chain.derivationPath
-                )
-            }
-    }()
-    private static let entriesByLowercasedID: [String: ChainRegistryEntry] =
-        Dictionary(uniqueKeysWithValues: all.map { ($0.id.lowercased(), $0) })
-    static func entry(id: String) -> ChainRegistryEntry? {
-        entriesByLowercasedID[id.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()]
-    }
 }
 typealias TokenPreferenceCategory = CoreTokenPreferenceCategory
-extension CoreTokenPreferenceCategory: RawRepresentable, CaseIterable, Codable, Identifiable {
-    public typealias RawValue = String
-    public init?(rawValue: String) {
-        switch rawValue {
-        case "stablecoin": self = .stablecoin
-        case "meme": self = .meme
-        case "custom": self = .custom
-        default: return nil
-        }
-    }
-    public var rawValue: String {
-        switch self {
-        case .stablecoin: return "stablecoin";
-        case .meme: return "meme";
-        case .custom: return "custom"
-        }
-    }
-    public static var allCases: [CoreTokenPreferenceCategory] { [.stablecoin, .meme, .custom] }
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.singleValueContainer()
-        let raw = try c.decode(String.self)
-        guard let v = CoreTokenPreferenceCategory(rawValue: raw) else {
-            throw DecodingError.dataCorruptedError(in: c, debugDescription: "Unknown TokenPreferenceCategory: \(raw)")
-        }
-        self = v
-    }
-    public func encode(to encoder: Encoder) throws {
-        var c = encoder.singleValueContainer(); try c.encode(rawValue)
-    }
-    public var id: String { rawValue }
-}
-
 typealias TokenPreferenceEntry = CoreTokenPreferenceEntry
 nonisolated extension CoreTokenPreferenceEntry: Identifiable {
     /// A token *is* its contract on its chain. The id was a stored UUID string,
@@ -169,54 +74,30 @@ nonisolated extension CoreTokenPreferenceEntry: Identifiable {
     var hostingChain: TokenHostingChain? { TokenHostingChain.forChainName(token.chain) }
 }
 
-struct NativeChainIconDescriptor: Identifiable {
-    let registryID: String
-    let title: String
-    let symbol: String
-    let chainName: String
-    let color: Color
-    var id: String { artworkName }
-    var artworkName: String { coreNetworkArtworkName(networkId: registryID) }
-}
 extension Coin {
-    static let nativeChainIconDescriptors: [NativeChainIconDescriptor] = ChainRegistryEntry.all.map(\.nativeIconDescriptor)
-    static func nativeChainIconDescriptor(chainName: String) -> NativeChainIconDescriptor? {
-        let normalizedChainName = chainName.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !normalizedChainName.isEmpty else { return nil }
-        let canonicalChainName = Chain(displayName: normalizedChainName)?.id ?? normalizedChainName
-        return nativeChainIconDescriptors.first { descriptor in
-            descriptor.registryID.caseInsensitiveCompare(canonicalChainName) == .orderedSame
-                || descriptor.chainName.caseInsensitiveCompare(normalizedChainName) == .orderedSame
-                || descriptor.title.caseInsensitiveCompare(normalizedChainName) == .orderedSame
-        }
-    }
-    static func nativeChainIconDescriptor(symbol: String, chainName: String? = nil) -> NativeChainIconDescriptor? {
-        let normalizedSymbol = symbol.trimmingCharacters(in: .whitespacesAndNewlines)
-        let normalizedChainName = chainName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return nativeChainIconDescriptors.first { descriptor in
-            let symbolMatches = descriptor.symbol.caseInsensitiveCompare(normalizedSymbol) == .orderedSame
-            guard symbolMatches else { return false }
-            if normalizedChainName.isEmpty { return true }
-            return descriptor.chainName.caseInsensitiveCompare(normalizedChainName) == .orderedSame
-                || descriptor.title.caseInsensitiveCompare(normalizedChainName) == .orderedSame
-        }
-    }
+    /// A chain's badge: its network artwork and its catalog colour.
+    ///
+    /// Read off `Chain`. There was a descriptor struct for this, built from a
+    /// third parse of the chain catalog into a registry-entry struct, and
+    /// matched by id, name or title in any case.
     static func nativeChainBadge(chainName: String) -> (artworkName: String?, color: Color)? {
-        guard let descriptor = nativeChainIconDescriptor(chainName: chainName) else { return nil }
-        return (descriptor.artworkName, descriptor.color)
+        guard let chain = Chain(displayName: chainName), let entry = chain.entry else { return nil }
+        return (coreNetworkArtworkName(networkId: chain.id), entry.color.color)
     }
-    private static let tokenColorsBySymbol: [String: Color] = {
+    /// A symbol's colour: the first chain in the catalog that pays fees in it,
+    /// then the built-in token that has it, then grey.
+    private static let colorsBySymbol: [String: Color] = {
         var colors: [String: Color] = [:]
+        for entry in Chain.all.compactMap(\.entry) where colors[entry.gasTokenSymbol.lowercased()] == nil {
+            colors[entry.gasTokenSymbol.lowercased()] = entry.color.color
+        }
         for token in listAllBuiltinTokens() where colors[token.symbol.lowercased()] == nil {
             if let color = token.color { colors[token.symbol.lowercased()] = color.color }
         }
         return colors
     }()
-    /// Native chain colors take precedence over token colors for shared symbols.
     static func displayColor(for symbol: String) -> Color {
-        if let nativeDescriptor = nativeChainIconDescriptor(symbol: symbol) { return nativeDescriptor.color }
-        let normalized = symbol.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        return tokenColorsBySymbol[normalized] ?? .gray
+        colorsBySymbol[symbol.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()] ?? .gray
     }
     var artworkName: String { coreHoldingArtworkName(holding: self) }
 

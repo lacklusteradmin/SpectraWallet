@@ -13,8 +13,7 @@ struct PriceAlertsView: View {
         store.alertableCoins.first(where: { $0.holdingKey == selectedHoldingKey })
     }
     var body: some View {
-        @Bindable var preferences = store.preferences
-        return Form {
+        Form {
             Section {
                 Text(
                     AppLocalization.string(
@@ -25,7 +24,7 @@ struct PriceAlertsView: View {
             Section(AppLocalization.string("Notifications")) {
                 Toggle(
                     AppLocalization.string("Enable Price Alerts"),
-                    isOn: $preferences.usePriceAlerts
+                    isOn: store.settingBinding(\.usePriceAlerts) { .usePriceAlerts(value: $0) }
                 )
                 Text(
                     AppLocalization.string(
@@ -47,9 +46,9 @@ struct PriceAlertsView: View {
                         }
                     }
                     Picker(AppLocalization.string("Condition"), selection: $selectedCondition) {
-                        ForEach(PriceAlertCondition.allCases) { condition in Text(condition.displayName).tag(condition) }
+                        ForEach(PriceAlertCondition.allCases, id: \.self) { condition in Text(condition.displayName).tag(condition) }
                     }.pickerStyle(.segmented)
-                    TextField(AppLocalization.format("Target Price (%@)", store.selectedFiatCurrency.rawValue), text: $targetPriceText)
+                    TextField(AppLocalization.format("Target Price (%@)", store.selectedFiatCurrency.code), text: $targetPriceText)
                         .keyboardType(.decimalPad)
                     if let selectedCoin {
                         Text(
@@ -141,7 +140,7 @@ struct PriceAlertsView: View {
         do {
             try await store.editPriceAlert(.addPriceAlert(
                 holdingKey: selectedCoin.holdingKey, targetPrice: target,
-                currencyCode: store.selectedFiatCurrency.rawValue, condition: selectedCondition))
+                currency: store.selectedFiatCurrency, condition: selectedCondition))
             store.requestPriceAlertNotificationPermission()
             targetPriceText = ""
             selectedCondition = .above

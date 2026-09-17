@@ -17,18 +17,6 @@ extension AppState {
     func endpointHealth(for chainName: String) -> WalletChainDiagnosticsState.EndpointHealth {
         chainDiagnosticsState.endpointHealthByChain[chainName] ?? .init()
     }
-    /// Record one wallet's history-run row.
-    ///
-    /// One row goes across the boundary, not the chain's whole map: reading
-    /// every row, mutating a copy and sending them all back is what made two
-    /// wallets refreshing at once keep only the later one. Nothing reads the
-    /// map for its own sake — the screen's counts come from
-    /// `diagnosticsRunSummary`.
-    func recordHistoryDiagnostics(chainName: String, _ entry: HistoryDiagnostics) {
-        diagnosticsRecord(chainName: chainName, entry: entry)
-        chainDiagnosticsState.diagnosticsRevision &+= 1
-    }
-
     subscript(historyRunFor chainName: String) -> WalletChainDiagnosticsState.HistoryRun {
         get { chainDiagnosticsState.historyRunByChain[chainName] ?? .init() }
         set { chainDiagnosticsState.historyRunByChain[chainName] = newValue }
@@ -44,20 +32,13 @@ extension AppState {
     var chainDegradedMessages: [String: String] {
         get { diagnostics.chainDegradedMessages }
     }
-    var chainDegradedMessagesByChainID: [WalletChainID: String] {
-        get { diagnostics.chainDegradedMessagesByChainID }
-    }
     var lastGoodChainSyncByName: [String: Date] {
         get { diagnostics.lastGoodChainSyncByName }
     }
-    var lastGoodChainSyncByChainID: [WalletChainID: Date] {
-        get { diagnostics.lastGoodChainSyncByChainID }
-    }
-    var operationalLogs: [OperationalLogEvent] {
+    var operationalLogs: [DiagnosticLog] {
         get { diagnostics.operationalLogs }
     }
     var chainDegradedBanners: [ChainDegradedBanner] { diagnostics.chainDegradedBanners }
-    func markChainDegraded(_ chainName: String, detail: String) { diagnostics.markChainDegraded(chainName, detail: detail) }
 }
 
 enum ChainSelfTests {

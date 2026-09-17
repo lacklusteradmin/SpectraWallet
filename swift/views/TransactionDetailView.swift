@@ -7,21 +7,23 @@ struct HistoryDetailView: View {
     @State private var didCopyAddress = false
     @State private var replacementMessage: String?
     @State private var liveTransaction: TransactionRecord?
-    @State private var liveOwnedAddresses: Set<String> = []
     /// Core answers the owned-address question asynchronously, so the view
-    /// caches the one value its body needs. View state: losing it on restart
-    /// costs a redraw and nothing else.
-    @State private var liveFirstOwnedAddress: String?
+    /// caches the set its body needs. View state: losing it on restart costs a
+    /// redraw and nothing else.
+    @State private var liveOwnedAddresses: Set<String> = []
     init(store: AppState, transaction: TransactionRecord) {
         self.store = store
         self.transaction = transaction
     }
     private var displayedTransaction: TransactionRecord { liveTransaction ?? transaction }
     private var ownedAddresses: Set<String> { liveOwnedAddresses }
+    // An end the record does not name is left out. Both of these used to fall
+    // back to the wallet's first known address — on a UTXO wallet, one of
+    // many, and not necessarily the one this transaction touched — and show
+    // it as though the record said so.
     private var fromAddressText: String? {
         if displayedTransaction.kind == .send {
             return nonEmptyAddress(displayedTransaction.sourceAddress)
-                ?? firstOwnedAddress
         }
         let counterparty = nonEmptyAddress(displayedTransaction.address)
         if normalizedAddress(counterparty) != normalizedAddress(walletSideAddress) { return counterparty }
@@ -34,7 +36,6 @@ struct HistoryDetailView: View {
             return nil
         }
         return walletSideAddress
-            ?? firstOwnedAddress
     }
     private var walletSideAddress: String? {
         if let sourceAddress = nonEmptyAddress(displayedTransaction.sourceAddress), isOwnedAddress(sourceAddress) { return sourceAddress }
@@ -43,7 +44,6 @@ struct HistoryDetailView: View {
         }
         return nil
     }
-    private var firstOwnedAddress: String? { liveFirstOwnedAddress }
     var body: some View {
         ZStack {
             ScrollView(showsIndicators: false) {
@@ -416,10 +416,12 @@ struct HistoryDetailView: View {
         guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return nil }
         return trimmed
     }
+    /// The chain's own normal form, which is core's rule. This held a second
+    /// copy — lowercase on EVM, verbatim everywhere else — that disagreed with
+    /// core on every chain whose rule is neither, such as Sui's added `0x`.
     private func normalizedAddress(_ value: String?) -> String? {
         guard let trimmed = nonEmptyAddress(value) else { return nil }
-        let isEVM = Chain(displayName: displayedTransaction.chainName)?.isEVM ?? false
-        return isEVM ? trimmed.lowercased() : trimmed
+        return store.normalizedAddress(trimmed, for: displayedTransaction.chainName)
     }
     private func isOwnedAddress(_ value: String?) -> Bool {
         guard let normalized = normalizedAddress(value) else { return false }
@@ -428,14 +430,12 @@ struct HistoryDetailView: View {
     private func rebuildDisplayedTransactionState() async {
         let resolvedTransaction = store.transactions.first(where: { $0.id == transaction.id }) ?? transaction
         liveTransaction = resolvedTransaction
-        guard let walletID = resolvedTransaction.walletID else {
+        guard let walletID = resolvedTransaction.walletId else {
             liveOwnedAddresses = []
-            liveFirstOwnedAddress = nil
             return
         }
         let owned = await store.knownOwnedAddresses(for: walletID)
         liveOwnedAddresses = Set(owned.compactMap { normalizedAddress($0) })
-        liveFirstOwnedAddress = owned.first
     }
     private struct TransactionTimelineItem: Identifiable {
         let id: String

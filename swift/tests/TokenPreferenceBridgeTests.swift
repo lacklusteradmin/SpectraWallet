@@ -13,8 +13,9 @@ import XCTest
 final class TokenPreferenceBridgeTests: XCTestCase {
     private func service() throws -> WalletService { try WalletService(endpoints: []) }
 
-    private func rejection(_ transition: StateTransition) -> String? {
-        transition.events.first(where: { $0.kind == "tokenPreferenceRejected" })?.subjectId
+    private func rejection(_ transition: StateTransition) -> TokenPreferenceRejection? {
+        for case .tokenPreferenceRejected(let reason) in transition.events { return reason }
+        return nil
     }
 
     private func add(
@@ -34,7 +35,7 @@ final class TokenPreferenceBridgeTests: XCTestCase {
 
         let wrongFamily = try await add(
             service, chain: "Base", symbol: "USDC", contract: solanaMint, decimals: 6)
-        XCTAssertEqual(rejection(wrongFamily), "invalidContract")
+        XCTAssertEqual(rejection(wrongFamily), .invalidContract)
 
         let accepted = try await add(
             service, chain: "Base", symbol: "  moon ", contract: evmContract)
@@ -47,7 +48,7 @@ final class TokenPreferenceBridgeTests: XCTestCase {
         // The same contract in another case is the same token.
         let duplicate = try await add(
             service, chain: "Base", symbol: "SUN", contract: evmContract.uppercased())
-        XCTAssertEqual(rejection(duplicate), "duplicateToken")
+        XCTAssertEqual(rejection(duplicate), .duplicateToken)
     }
 
     /// A precision no token has is refused rather than clamped into range. A
@@ -58,7 +59,7 @@ final class TokenPreferenceBridgeTests: XCTestCase {
         let transition = try await add(
             service, chain: "Base", symbol: "DEEP",
             contract: "0x1111111111111111111111111111111111111111", decimals: 31)
-        XCTAssertEqual(rejection(transition), "tooManyDecimals")
+        XCTAssertEqual(rejection(transition), .tooManyDecimals)
         XCTAssertFalse(
             transition.state.tokenPreferences.contains { $0.token.symbol == "DEEP" },
             "a refused token must not be stored at any precision")
@@ -72,7 +73,7 @@ final class TokenPreferenceBridgeTests: XCTestCase {
         let transition = try await service.applyStateCommand(
             command: .removeCustomToken(
                 chainName: builtIn.token.chain, contract: builtIn.token.contract))
-        XCTAssertEqual(rejection(transition), "builtInToken")
+        XCTAssertEqual(rejection(transition), .builtInToken)
         XCTAssertEqual(
             transition.state.tokenPreferences.count, seeded.state.tokenPreferences.count)
     }

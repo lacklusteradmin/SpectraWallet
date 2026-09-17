@@ -26,7 +26,7 @@ extension AppState {
         }
         let transactionSnapshot = transactions
         if let stored = try? await WalletServiceBridge.shared.storedTransactions(), transactions == transactionSnapshot {
-            adoptTransactionsFromCore(stored.map(TransactionRecord.init(snapshot:)))
+            adoptTransactionsFromCore(stored)
             await rebuildTransactionDerivedState()
         }
     }
@@ -44,13 +44,5 @@ extension AppState {
             }
             self.applyCoreState(transition.state, epoch: epoch)
         }
-    }
-    /// Send the known-token list to core, which clamps it and stores it.
-    // ── Settings ──────────────────────────────────────────────────────────────
-    /// Debounced — a slider drag or a typed endpoint would otherwise be one
-    /// command per frame or per keystroke.
-    func commitAppSettingsSoon() {
-        if pendingAppSettingsEpoch == nil { pendingAppSettingsEpoch = beginCoreStateRead() }
-        appSettingsPersist.fire { [weak self] in self?.commitAppSettings() }
     }
 }

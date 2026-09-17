@@ -40,9 +40,9 @@ struct SettingsView: View {
                     settingsLink("Price Alerts", systemImage: "bell.badge", route: .priceAlerts)
                     settingsToggle(
                         "Transaction Status Updates", systemImage: "clock.badge.checkmark",
-                        isOn: Binding(
-                            get: { store.preferences.useTransactionStatusNotifications },
-                            set: { store.preferences.useTransactionStatusNotifications = $0 }))
+                        isOn: store.settingBinding(\.useTransactionStatusNotifications) {
+                            .useTransactionStatusNotifications(value: $0)
+                        })
                     settingsLink("Large Movement Alerts", systemImage: "chart.line.uptrend.xyaxis", route: .largeMovementAlerts)
                 }
                 Section(AppLocalization.string("Security & Privacy")) {
@@ -55,7 +55,7 @@ struct SettingsView: View {
                         HStack(spacing: 12) {
                             Label(AppLocalization.string("Tor Network"), systemImage: "network.badge.shield.half.filled")
                             Spacer(minLength: 8)
-                            settingsTorStatusBadge
+                            TorStatusBadge(status: store.torStatus)
                         }
                     }
                 }
@@ -135,33 +135,4 @@ struct SettingsView: View {
         }.tint(.orange)
     }
 
-    private var settingsTorStatusBadge: some View {
-        HStack(spacing: 4) {
-            Circle().fill(torStatusColor).frame(width: 6, height: 6)
-            Text(AppLocalization.string(torStatusText))
-                .font(.caption.weight(.semibold))
-        }
-        .foregroundStyle(torStatusColor)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
-        .background(torStatusColor.opacity(0.12), in: Capsule())
-    }
-
-    private var torStatusText: String {
-        switch store.torStatus {
-        case .stopped: return "Off"
-        case .bootstrapping(let percent): return percent > 0 ? "\(percent)%" : "Starting"
-        case .ready: return "On"
-        case .error: return "Error"
-        }
-    }
-
-    private var torStatusColor: Color {
-        switch store.torStatus {
-        case .stopped: return .secondary
-        case .bootstrapping: return .orange
-        case .ready: return .green
-        case .error: return .red
-        }
-    }
 }

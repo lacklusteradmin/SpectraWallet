@@ -304,7 +304,7 @@ struct WalletDetailView: View {
             }.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
         }.background(SpectraBackdrop().ignoresSafeArea())
             .refreshable {
-                await store.refreshWalletBalance(wallet.id)
+                await store.refreshBalancesNow()
             }.navigationTitle(localizedWalletFlowString("Wallet Details")).navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {

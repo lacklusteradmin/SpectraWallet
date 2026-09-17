@@ -26,24 +26,18 @@ import SwiftUI
 
 // MARK: - AppState architecture
 //
-// `AppState` is the app's central `@Observable` store. To keep this file
-// readable, large method clusters live in `AppState+<Domain>.swift` files
-// (ImportLifecycle, ReceiveFlow, SendFlow, PricingFiat, BalanceRefresh,
-// AddressResolution, OperationalTelemetry, DiagnosticsEndpoints,
-// CoreStateStore, RustObserver). Every extension is a method-only attachment
-// to the same `AppState` instance — there is no per-extension state.
+// `AppState` is the app's central `@Observable` store. Its methods live in one
+// `AppState+<Domain>.swift` file per domain — send, receive, import, address
+// book, networks, app lock, maintenance, reset and so on — and every extension
+// attaches methods to the same instance: there is no per-extension state.
 //
-// This is a known god-object split: the extensions hide the line count but
-// don't reduce coupling. The migration target is to lift each domain into a
-// small composed type (e.g. `WalletAddressResolver`, `LivePricesController`,
-// `ImportFlowCoordinator`) that AppState owns by composition. The first
-// step in that direction is `WalletDerivedCache` — see `walletDerivedCache`
-// below; it bundles 17 derived-state fields into a single value type so the
-// rebuild path reads as one assignment instead of 17 sequential mutations.
+// The extensions hide the line count but not the coupling. Derived state that
+// can be one value already is (`WalletDerivedCache`, rebuilt in one
+// assignment); a domain that grows state of its own belongs in a composed type
+// `AppState` owns, not in more properties here.
 //
-// Adding a new method? Place it in the matching `+<Domain>.swift` extension
-// and resist the temptation to grow this file. New domains warrant their own
-// extension file rather than landing in one of the existing ones.
+// Adding a method? Put it in its domain's file, or start one for a new domain,
+// rather than growing this file or a neighbour's.
 @MainActor
 @Observable
 final class AppState {
@@ -53,15 +47,6 @@ final class AppState {
         return formatter
     }()
     static let operationalLogTimestampFormatter = ISO8601DateFormatter()
-    @ObservationIgnored let appSettingsPersist = DebouncedAction(intervalMilliseconds: 100)
-    /// Core's last word on the settings it owns, for `commitAppSettings` to
-    /// diff against. `nil` until the first state lands, which is what makes a
-    /// fresh install send everything once.
-    @ObservationIgnored var lastAppliedAppSettings: AppSettings?
-    /// Claimed when a settings edit is scheduled, cleared when it lands. Held
-    /// across the debounce so `awaitPendingCoreStateWrites` covers the wait,
-    /// and so an in-flight load cannot adopt over an edit not yet sent.
-    @ObservationIgnored var pendingAppSettingsEpoch: UInt64?
     // Each `DebouncedAction` captures its target's coalescing window at
     // construction so the interval is visible next to the field declaration
     // instead of being a magic number buried in an async closure.
@@ -71,8 +56,8 @@ final class AppState {
     ///
     /// Domain state: core owns the store and its persistence. This is a
     /// projection — assigning to it would only desynchronise the two, so it is
-    /// `private(set)` and changed through `recordTransactions` /
-    /// `removeTransactions` / `clearAllTransactions`, which send commands.
+    /// `private(set)` and replaced only with what core returns
+    /// (`adoptTransactionsFromCore`).
     private(set) var transactions: [TransactionRecord] = [] {
         didSet {
             transactionRevision &+= 1
@@ -84,14 +69,12 @@ final class AppState {
         }
     }
 
-    /// The only place the transaction projection is written. Everything else
-    /// goes through the command helpers in `AppState+CoreStateStore.swift`,
-    /// which keep the store in step with it.
+    /// The only place the transaction projection is written.
     func setTransactionProjection(_ records: [TransactionRecord]) {
         transactions = records
     }
     var historyReadError: String? = nil
-    var normalizedHistoryIndex: [NormalizedHistoryEntry] = []
+    var normalizedHistoryIndex: [CoreNormalizedHistoryEntry] = []
     /// The pending sends core says can still be replaced on their chain.
     /// Adopted with the rest of the transaction-derived views; observed,
     /// because the composer's Speed Up / Cancel buttons read it.
@@ -100,9 +83,15 @@ final class AppState {
     @ObservationIgnored var cachedTransactionByID: [String: TransactionRecord] = [:]
     @ObservationIgnored var cachedFirstActivityDateByWalletID: [String: Date] = [:]
     @ObservationIgnored var suppressSideEffects = false
-    /// Canonical wallet collection. Mutating it triggers a derived-cache
-    /// rebuild via `scheduleWalletCollectionSideEffects`.
-    //
+    /// Imported wallets.
+    ///
+    /// Domain state: core owns the list and persists it. This is a projection
+    /// of `CoreAppState.wallets`, rendered into the shape the views use — see
+    /// `WalletState::to_wallet_view`. `private(set)`, because assigning to it
+    /// would only desynchronise it from core; change it with import and field
+    /// intents, wallet deletion, or a reset. Replacing it rebuilds the derived
+    /// caches via `scheduleWalletCollectionSideEffects`.
+    ///
     /// **Observation note for view code**: SwiftUI's `@Observable` tracks
     /// access to this property as a whole — any mutation invalidates every
     /// view that read `store.wallets` for any reason, even a single
@@ -113,13 +102,6 @@ final class AppState {
     /// dictionary-key access tracking kicks in. New views that read from
     /// `wallets` directly should justify it (e.g. they actually iterate
     /// the entire collection).
-    /// Imported wallets.
-    //
-    /// Domain state: core owns the list and persists it. This is a projection
-    /// of `CoreAppState.wallets`, rendered into the shape the views use — see
-    /// `WalletState::to_wallet_view`. `private(set)`, because assigning
-    /// to it would only desynchronise it from core; change it with
-    /// import and field intents, wallet deletion, or core reset.
     private(set) var wallets: [WalletView] = [] {
         didSet {
             walletsRevision &+= 1
@@ -142,8 +124,7 @@ final class AppState {
     /// cleanly.
     private func scheduleWalletCollectionSideEffects() {
         walletSideEffectsDebounce.fire { [weak self] in
-            guard let self, !self.suppressWalletSideEffects else { return }
-            self.applyWalletCollectionSideEffects()
+            self?.applyWalletCollectionSideEffects()
         }
     }
     private(set) var walletsRevision: UInt64 = 0
@@ -215,10 +196,6 @@ final class AppState {
     var pendingSendReview: OwnedSendReview?
     @ObservationIgnored var isRefreshingLivePrices = false
     @ObservationIgnored var isRefreshingFiatRates = false
-    @ObservationIgnored var allowsBalanceNetworkRefresh = false
-    @ObservationIgnored var isRefreshingPendingTransactions = false
-    @ObservationIgnored var lastLivePriceRefreshAt: Date?
-    @ObservationIgnored var lastChainBalanceRefreshAt: Date?
     /// How long the maintenance loop sleeps before asking core again. Core
     /// answers it with the plan; the loop used to work it out from two
     /// constants and a derived flag.
@@ -236,53 +213,110 @@ final class AppState {
     var sendingChains: Set<String> = []
     let chainDiagnosticsState = WalletChainDiagnosticsState()
 
-    // ── Funds Finder backing storage ───────────────────────────────────────
-    // Observed by FundsFinderView via AppState+FundsFinder.swift computed vars.
-    var _isFundsFinderScanning: Bool = false
-    var _fundsFinderProgress: Double = 0
-    var _fundsFinderHits: [FundsFinderHit] = []
-    var _fundsFinderCheckedCount: Int = 0
-    var _fundsFinderTotalCount: Int = 0
-    var _fundsFinderScanError: String? = nil
-    @ObservationIgnored var _fundsFinderScanTask: Task<Void, Never>? = nil
-    var isShowingFundsFinder: Bool = false
     /// Read-only view of the keypool for the diagnostics screen.
     ///
     /// Core answers without recording, so reporting the state never reserves
-    /// anything.
-    func chainKeypoolDiagnostics(for chainName: String) async throws -> [ChainKeypoolDiagnostic] {
-        var rows: [ChainKeypoolDiagnostic] = []
-        for wallet in wallets where wallet.selectedChain == chainName || walletHasAddress(for: wallet, chainName: chainName) {
-            let state = try await keypoolState(for: wallet, chainName: chainName)
-            let reservedIndex = state.reservedReceiveIndex
-            rows.append(
-                ChainKeypoolDiagnostic(
-                    walletID: wallet.id, walletName: wallet.name, chainName: chainName, reservedReceiveIndex: reservedIndex,
-                    reservedReceivePath: reservedReceiveDerivationPath(for: wallet, chainName: chainName, index: reservedIndex),
-                    reservedReceiveAddress: await reservedReceiveAddressForDisplay(
-                        for: wallet, chainName: chainName),
-                    nextExternalIndex: state.nextExternalIndex, nextChangeIndex: state.nextChangeIndex
-                ))
-        }
-        return rows
-        .sorted { $0.walletName.localizedCaseInsensitiveCompare($1.walletName) == .orderedAscending }
+    /// anything. The reserved address and its path are the ones recorded when
+    /// the index was handed out; the path this used to show was the wallet's
+    /// account path, labelled as the reserved one.
+    func chainKeypoolDiagnostics(for chainName: String) async throws -> [KeypoolDiagnostic] {
+        try await WalletServiceBridge.shared.keypoolDiagnostics(chainName: chainName)
     }
     /// Display currency for prices and totals.
     ///
-    /// Domain state: core owns it, persists it, and the CLI reads and writes the
-    /// same value. This is a mirror of core's copy — reading it is free, and
-    /// assigning to it sends a command rather than storing anything. The mirror
-    /// updates when core answers, which is what re-renders observers.
-    ///
-    /// Do not add a `didSet` that persists here. One owner.
+    /// Core's setting: reading it reads `appSettings`, and assigning to it
+    /// sends a command rather than storing anything.
     var selectedFiatCurrency: FiatCurrency {
-        get { coreFiatCurrency }
+        get { appSettings.fiatCurrency }
         set {
-            guard newValue != coreFiatCurrency else { return }
+            guard newValue != appSettings.fiatCurrency else { return }
             Task { @MainActor [weak self] in await self?.setFiatCurrency(newValue) }
         }
     }
-    private(set) var coreFiatCurrency: FiatCurrency = .usd
+
+    /// The settings core owns, as it last committed them — with any edit sent
+    /// from here and not yet answered applied on top, by core's own rule.
+    ///
+    /// This was eighteen properties, each with a `didSet` that scheduled a
+    /// debounced commit, a hand-written diff against core's last answer, a
+    /// hand-written adoption back that re-triggered every `didSet`, and two
+    /// epochs to keep a slow load from reverting an unsent edit. Views read
+    /// fields off this value and change it through `updateSetting`.
+    private(set) var appSettings: AppSettings = appSettingsDefaults()
+    /// Setting commands sent and not yet answered. While any is in flight,
+    /// a state read elsewhere may predate it, so its settings are not adopted.
+    @ObservationIgnored private var settingCommandsInFlight = 0
+    @ObservationIgnored private var settingCommandTask: Task<Void, Never>?
+
+    /// Change one setting.
+    ///
+    /// Shown at once — `appSettingsApplying` is the reducer's rule, so the value
+    /// shown is the value core will store — and sent to core in order. Core's
+    /// committed settings replace the shown ones when the last edit in flight
+    /// lands, or when one fails.
+    func updateSetting(_ update: AppSettingUpdate) {
+        let before = appSettings
+        let after = appSettingsApplying(settings: before, update: update)
+        guard after != before else { return }
+        appSettings = after
+        reactToSettingsChange(from: before)
+        settingCommandsInFlight += 1
+        let previous = settingCommandTask
+        settingCommandTask = Task { @MainActor [weak self] in
+            await previous?.value
+            guard let self else { return }
+            let epoch = self.beginCoreStateRead()
+            let transition = try? await WalletServiceBridge.shared.applyStateCommand(
+                .setAppSetting(update: update))
+            self.settingCommandsInFlight -= 1
+            if let transition {
+                self.applyCoreState(transition.state, epoch: epoch)
+            } else {
+                self.finishCoreStateRead(epoch)
+                if let state = try? await WalletServiceBridge.shared.appState() {
+                    self.applyCoreState(state, epoch: self.beginCoreStateRead())
+                }
+            }
+            // Core reads the stored cadence, not the one on screen, so the
+            // engine is reconfigured once the command has committed.
+            if after.automaticRefreshFrequencyMinutes != before.automaticRefreshFrequencyMinutes {
+                await self.restartBalanceRefreshForCurrentConfiguration()
+            }
+        }
+    }
+
+    /// Wait until every setting edit sent so far has been answered.
+    func awaitPendingSettingCommands() async {
+        await settingCommandTask?.value
+    }
+
+    /// A two-way binding onto one setting, for a toggle, picker or slider.
+    func settingBinding<Value>(
+        _ keyPath: KeyPath<AppSettings, Value>, _ update: @escaping (Value) -> AppSettingUpdate
+    ) -> Binding<Value> {
+        Binding(
+            get: { self.appSettings[keyPath: keyPath] },
+            set: { self.updateSetting(update($0)) })
+    }
+
+    /// What a settings change sets in motion on this platform: Tor's client,
+    /// and the notification permission a newly enabled alert needs.
+    private func reactToSettingsChange(from before: AppSettings) {
+        if appSettings.torEnabled != before.torEnabled
+            || appSettings.torUseCustomProxy != before.torUseCustomProxy
+        {
+            handleTorEnabledChange()
+        } else if appSettings.torUseCustomProxy,
+            appSettings.torCustomProxyAddress != before.torCustomProxyAddress
+        {
+            reconnectTor()
+        }
+        if (appSettings.useTransactionStatusNotifications && !before.useTransactionStatusNotifications)
+            || (appSettings.useLargeMovementNotifications && !before.useLargeMovementNotifications)
+        {
+            requestNotificationPermissionIfNeeded()
+        }
+    }
 
     // Core round-trips are async and can overlap: the launch reload runs
     // concurrently with whatever the user is doing. Each one claims an epoch
@@ -321,8 +355,12 @@ final class AppState {
     func applyCoreState(_ state: CoreAppState, epoch: UInt64) {
         guard epoch >= appliedCoreStateEpoch else { return }
         appliedCoreStateEpoch = epoch
-        coreFiatCurrency = FiatCurrency(rawValue: state.settings.fiatCurrencyCode) ?? .usd
-        adoptAppSettings(state.settings)
+        let previousPins = appSettings.pinnedDashboardTokenIds
+        if settingCommandsInFlight == 0, state.settings != appSettings {
+            let before = appSettings
+            appSettings = state.settings
+            reactToSettingsChange(from: before)
+        }
         coreAddressBook = state.addressBook
         if state.tokenPreferences != tokenPreferences { tokenPreferences = state.tokenPreferences }
         if state.priceAlerts != priceAlerts { priceAlerts = state.priceAlerts }
@@ -331,121 +369,34 @@ final class AppState {
         // tick later quotes a testnet at mainnet prices in between.
         let unpriced = Set(coreUnpricedChainNames())
         if unpriced != unpricedChainNames { unpricedChainNames = unpriced }
-        if state.settings.feePriorityByChain != feePriorityByChain {
-            feePriorityByChain = state.settings.feePriorityByChain
-        }
-        if state.settings.rpcEndpointByChain != rpcEndpointByChain {
-            rpcEndpointByChain = state.settings.rpcEndpointByChain
-        }
-        if state.settings.networkChainByFamily != networkChainByFamily {
-            networkChainByFamily = state.settings.networkChainByFamily
-        }
-        let pins = state.settings.pinnedDashboardTokenIds
-        if pins != cachedPinnedDashboardTokenIds {
-            cachedPinnedDashboardTokenIds = pins
-            rebuildDashboardDerivedState()
-        }
+        // The options say which assets are pinned, so they are re-read too.
+        if state.settings.pinnedDashboardTokenIds != previousPins { rebuildDashboardDerivedState() }
     }
-    /// Core owns it; this is the mirror the endpoint fields bind to. Absent
-    /// means the catalog's list.
-    private(set) var rpcEndpointByChain: [String: String] = [:] {
-        didSet {
-            guard rpcEndpointByChain != oldValue else { return }
-            commitAppSettingsSoon()
-
-        }
-    }
-
     /// The custom RPC a chain is pointed at, or "" for the catalog's list.
     func rpcEndpoint(forChain chainName: String) -> String {
-        rpcEndpointByChain[chainName] ?? ""
+        appSettings.rpcEndpointByChain[chainName] ?? ""
     }
-
+    /// Point a chain at a custom RPC; an empty value returns it to the catalog.
     func setRPCEndpoint(_ raw: String, forChain chainName: String) {
-        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            rpcEndpointByChain.removeValue(forKey: chainName)
-        } else {
-            rpcEndpointByChain[chainName] = trimmed
-        }
-    }
-
-
-    func rpcEndpointValidationError(forChain chainName: String) -> String? {
-        endpointValidationError(field: .evmRpc, raw: rpcEndpoint(forChain: chainName))
-    }
-    /// Which network each chain family is on, as `mainnet id -> selected id`.
-    ///
-    /// Core owns it; this is the mirror the UI binds to, same shape as
-    /// `tokenPreferences`. Absent means mainnet. It replaced three typed
-    /// properties, each with its own enum and its own `didSet` — so adding a
-    /// fourth family meant a fourth of each.
-    private(set) var networkChainByFamily: [String: String] = [:] {
-        didSet {
-            guard networkChainByFamily != oldValue else { return }
-            for family in Set(networkChainByFamily.keys).union(oldValue.keys)
-            where networkChainByFamily[family] != oldValue[family] {
-                onNetworkChainChanged(family: family)
-            }
-        }
-    }
-
-    /// Core owns it; this is the mirror the fee pickers bind to. Absent means
-    /// `.normal`, so the map is empty until the user picks something.
-    private(set) var feePriorityByChain: [String: FeePriority] = [:] {
-        didSet {
-            guard feePriorityByChain != oldValue else { return }
-            commitAppSettingsSoon()
-        }
-    }
-
-
-    /// Pick a chain's confirmation preference.
-    ///
-    /// Recorded as picked, including the default. Dropping the default was a
-    /// rule this held as well as core, which is the one that has to hold it:
-    /// the committed projection comes back without the key.
-    func setFeePriority(_ priority: FeePriority, forChain chainName: String) {
-        feePriorityByChain[chainName] = priority
+        updateSetting(.rpcEndpoint(chain: chainName, value: raw))
     }
     /// A chain with no stored pick confirms at the default rate.
     func feePriority(forChain chainName: String) -> FeePriority {
-        feePriorityByChain[chainName] ?? .normal
+        appSettings.feePriorityByChain[chainName] ?? .normal
     }
-
+    func setFeePriority(_ priority: FeePriority, forChain chainName: String) {
+        updateSetting(.feePriority(chain: chainName, value: priority))
+    }
     /// A family with no selection reports itself, so the mainnet id is the
     /// default without being stored as one.
-    func networkChainID(forFamily family: String) -> NetworkChainID {
-        networkChainByFamily[family] ?? family
+    func networkChainID(forFamily family: String) -> String {
+        appSettings.networkChainByFamily[family] ?? family
     }
-
-    /// Switch a family's network. Core stores it and hands the list back.
-    func selectNetworkChain(_ chainID: NetworkChainID) {
+    /// Switch a family's network. Core stores it — resetting the family's
+    /// derivation state and history feed in the same command — and hands the
+    /// settings back.
+    func selectNetworkChain(_ chainID: String) {
         commitNetworkChain(chainID)
-    }
-
-    /// The chain-scoped work a network switch implies. Reserved indices and
-    /// discovered addresses belong to the network they were derived on.
-    private func onNetworkChainChanged(family: String) {
-        resetHistoryPaginationForChain(family)
-    }
-    var etherscanAPIKey: String = "" {
-        didSet {
-            guard etherscanAPIKey != oldValue else { return }
-            commitAppSettingsSoon()
-        }
-    }
-    var moneroBackendBaseURL: String = "" {
-        didSet {
-            guard moneroBackendBaseURL != oldValue else { return }
-            commitAppSettingsSoon()
-        }
-    }
-    var moneroBackendAPIKey: String = "" {
-        didSet {
-            guard moneroBackendAPIKey != oldValue else { return }
-            commitAppSettingsSoon()
-        }
     }
     var isUserInitiatedRefreshInProgress: Bool = false
     /// Read-only projection adopted from core; edits send individual intents.
@@ -453,9 +404,9 @@ final class AppState {
     /// Saved recipients.
     ///
     /// Domain state: core owns the list, the rules about what may be saved, and
-    /// the persistence. This is a mirror — see `coreFiatCurrency` for the same
-    /// pattern. Mutate it with `addAddressBookEntry` / `renameAddressBookEntry`
-    /// / `removeAddressBookEntry`, which send commands.
+    /// the persistence. This is core's list as last adopted. Mutate it with
+    /// `addAddressBookEntry` / `renameAddressBookEntry` /
+    /// `removeAddressBookEntry`, which send commands.
     var addressBook: [AddressBookEntry] { coreAddressBook }
     private(set) var coreAddressBook: [AddressBookEntry] = []
     /// Why core refused the last address-book change, if it did.
@@ -497,21 +448,18 @@ final class AppState {
     var fiatRatesFromUSD: [String: Double] = [:]
     var fiatRatesRefreshError: String? = nil
     var quoteRefreshError: String? = nil
-    /// Projection of `CoreAppState.settings.pinnedDashboardTokenIds`.
-    /// Written only by `applyCoreState`; change it with `setPinnedDashboardAssets`.
-    private(set) var cachedPinnedDashboardTokenIds: [String] = []
     var cachedAvailableDashboardPinOptions: [DashboardPinOption] = []
     var cachedDashboardAssetGroups: [DashboardAssetGroup] = []
 
     var cachedTokenPreferenceByDeploymentID: [String: TokenPreferenceEntry] = [:]
-    @ObservationIgnored var cachedCurrencyFormatters: [String: NumberFormatter] = [:]
+    @ObservationIgnored var cachedCurrencyFormatters: [FiatCurrency: NumberFormatter] = [:]
     @ObservationIgnored var cachedDecimalFormatters: [String: NumberFormatter] = [:]
     // ── Memoized Rust-FFI lookups (hot path). Every asset row / wallet card
     // / transaction row used to cross the Swift→Rust boundary 2-4 times per
     // body eval via these helpers; we now cache the pure results and only
     // invalidate when the inputs (display-decimals prefs, token prefs,
     // selected fiat currency) change.
-    @ObservationIgnored var cachedFiatAmountRules: [String: FiatAmountRules] = [:]
+    @ObservationIgnored var cachedFiatAmountRules: [FiatCurrency: FiatAmountRules] = [:]
     /// Concrete testnets are never quoted.
     ///
     /// Core decides; this is the projection the render path reads.
@@ -521,30 +469,9 @@ final class AppState {
     var customEvmPriorityFeeGwei: String = ""
     var evmManualNonceEnabled: Bool = false
     var evmManualNonce: String = ""
-    var bitcoinEsploraEndpoints: String = "" {
-        didSet {
-            commitAppSettingsSoon()
-            resetHistoryPaginationForChain(Chain.bitcoin.id)
-        }
-    }
-    /// Bounded by core, which refuses a gap outside 1...200 — a gap of zero
-    /// finds no addresses. The clamp used to be here, and only here.
-    var bitcoinStopGap: Int = 10 {
-        didSet {
-            guard bitcoinStopGap != oldValue else { return }
-            commitAppSettingsSoon()
-        }
-    }
-    /// User-facing preferences (UI / security / notifications / refresh cadence).
-    /// Split out so views that only care about preferences stop getting
-    /// invalidated whenever wallets / balances / transactions mutate.
+    /// The five preferences this platform keeps for itself. Split out so views
+    /// that only read them are not invalidated by wallet or balance changes.
     let preferences = AppUserPreferences()
-    var backgroundSyncProfile: BackgroundSyncProfile = .balanced {
-        didSet {
-            guard backgroundSyncProfile != oldValue else { return }
-            commitAppSettingsSoon()
-        }
-    }
     @ObservationIgnored var pendingSendPreviewRefreshChains: Set<String> = []
     var isLoadingMoreOnChainHistory: Bool = false
     let diagnostics = WalletDiagnosticsState()
@@ -555,11 +482,9 @@ final class AppState {
         get { utxoRescanStateByChain[chainName] ?? .init() }
         set { utxoRescanStateByChain[chainName] = newValue }
     }
-    @ObservationIgnored var suppressWalletSideEffects = false
     @ObservationIgnored var userInitiatedRefreshTask: Task<Void, Never>?
     @ObservationIgnored var importRefreshTask: Task<Void, Never>?
     @ObservationIgnored var walletSideEffectsTask: Task<Void, Never>?
-    @ObservationIgnored var lastHistoryRefreshAtByChain: [String: Date] = [:]
     @ObservationIgnored var appIsActive = true
     @ObservationIgnored var maintenanceTask: Task<Void, Never>?
 
@@ -567,43 +492,6 @@ final class AppState {
     /// Live Tor bootstrap/connection state polled from Rust. Drives the
     /// dashboard indicator and the settings status row.
     var torStatus: TorStatus = .stopped
-    // The four below are core settings, mirrored here the way every other
-    // setting is. They were `UserDefaults` keys — state no other front end and
-    // no test could see, in the one place `PLAN.md` says domain state must not
-    // live. The kill switch in particular had no reader at all: core enforces
-    // it in the HTTP layer now.
-    /// Whether Tor is turned on.
-    var torEnabled: Bool = false {
-        didSet {
-            guard torEnabled != oldValue else { return }
-            commitAppSettingsSoon()
-            handleTorEnabledChange()
-        }
-    }
-    /// Route through a user-supplied SOCKS5 address instead of embedded Arti.
-    var torUseCustomProxy: Bool = false {
-        didSet {
-            guard torUseCustomProxy != oldValue else { return }
-            commitAppSettingsSoon()
-            handleTorEnabledChange()
-        }
-    }
-    /// SOCKS5 URL for the custom proxy mode. Core validates it and keeps the
-    /// stored one when a new value is not a SOCKS5 endpoint.
-    var torCustomProxyAddress: String = "socks5://127.0.0.1:9150" {
-        didSet {
-            guard torCustomProxyAddress != oldValue else { return }
-            commitAppSettingsSoon()
-        }
-    }
-    /// Kill switch: core refuses outbound requests while Tor is wanted and not
-    /// ready, rather than falling back to a direct connection.
-    var torKillSwitch: Bool = false {
-        didSet {
-            guard torKillSwitch != oldValue else { return }
-            commitAppSettingsSoon()
-        }
-    }
     /// Background task that polls `torStatus()` from Rust every second.
     @ObservationIgnored var torStatusPollingTask: Task<Void, Never>?
     #if canImport(Network)
@@ -626,11 +514,6 @@ final class AppState {
         WalletServiceBridge.shared.walletSecretState(walletID: walletID)?.hasPrivateKey ?? false
     }
 
-    var bitcoinEsploraEndpointsValidationError: String? {
-        endpointValidationError(field: .bitcoinEsploraList, raw: bitcoinEsploraEndpoints)
-    }
-
-
     private func applyVerificationNotice(_ n: SendVerificationNotice) {
         sendVerificationNotice = n.notice
         sendVerificationNoticeIsWarning = n.isWarning
@@ -638,47 +521,32 @@ final class AppState {
     func clearSendVerificationNotice() {
         applyVerificationNotice(SendVerificationNotice(notice: nil, isWarning: false))
     }
-    func applySendVerificationStatus(_ verificationStatus: SendBroadcastVerificationStatus, chainName: String) {
-        let coreStatus: CoreSendVerificationStatus
-        switch verificationStatus {
-        case .verified: coreStatus = .verified
-        case .deferred: coreStatus = .deferred
-        case .failed(let message):
-            coreStatus = .failed(message: "Broadcast succeeded, but post-broadcast verification reported: \(message)")
+    /// What core says about the last send, from its stored record.
+    ///
+    /// This rebuilt a snapshot of the record from the projection, with the
+    /// kind and status spelled as strings, and handed it back to be judged.
+    func updateSendVerificationNoticeForLastSentTransaction() async {
+        guard let transactionID = lastSentTransaction?.id else {
+            clearSendVerificationNotice()
+            return
         }
-        applyVerificationNotice(verificationNoticeForStatus(status: coreStatus, chainName: chainName))
+        guard let notice = try? await WalletServiceBridge.shared.sendVerificationNotice(transactionID: transactionID),
+            lastSentTransaction?.id == transactionID
+        else { return }
+        applyVerificationNotice(notice)
     }
-    func updateSendVerificationNoticeForLastSentTransaction() {
-        let snapshot: LastSentTransactionSnapshot? = lastSentTransaction.map { tx in
-            LastSentTransactionSnapshot(
-                kind: tx.kind == .send ? "send" : "other",
-                status: {
-                    switch tx.status {
-                    case .pending: return "pending"
-                    case .confirmed: return "confirmed"
-                    case .failed: return "failed"
-                    }
-                }(),
-                chainName: tx.chainName,
-                transactionHash: tx.transactionHash,
-                failureReason: tx.failureReason,
-                transactionHistorySource: tx.transactionHistorySource,
-                receiptBlockNumber: tx.receiptBlockNumber.map(Int64.init),
-                confirmationCount: tx.confirmationCount.map(Int64.init)
-            )
-        }
-        applyVerificationNotice(verificationNoticeForLastSent(snapshot: snapshot))
-    }
-    func runPostSendRefreshActions(for chainName: String, verificationStatus: SendBroadcastVerificationStatus) async {
-        applySendVerificationStatus(verificationStatus, chainName: chainName)
-        noteSendBroadcastVerification(
-            chainName: chainName, verificationStatus: verificationStatus,
-            transactionHash: lastSentTransaction?.chainName == chainName ? lastSentTransaction?.transactionHash : nil
-        )
+    /// Refresh after a broadcast, then say what the stored record shows.
+    ///
+    /// Took a verification status too, and the one caller always passed
+    /// `.verified` — for a send nothing had verified — so every broadcast
+    /// logged "Broadcast verified by provider." and cleared the notice before
+    /// the record could say it was still unconfirmed. What is known about a
+    /// send is what core has recorded for it.
+    func runPostSendRefreshActions(for chainName: String) async {
         if let chain = Chain(displayName: chainName) {
             await performCoreRefresh(.afterSend(chainId: chain.id))
         }
-        updateSendVerificationNoticeForLastSentTransaction()
+        await updateSendVerificationNoticeForLastSentTransaction()
     }
     func resetSendComposerState(afterSend extraReset: (() -> Void)? = nil) {
         sendAmount = ""
@@ -688,16 +556,11 @@ final class AppState {
         sendError = nil
     }
     init() {
-        // Wire preferences' side-effect closures back to AppState. Using
-        // closures (rather than an observation loop) keeps the coupling
-        // explicit and keeps the preferences class cleanly isolated.
-        preferences.persistHandler = { [weak self] in self?.commitAppSettingsSoon() }
+        // Wire the preferences' side effect back to AppState. A closure rather
+        // than an observation loop keeps the coupling explicit.
         preferences.useFaceIDDisabledHandler = { [weak self] in
             self?.isAppLocked = false
             self?.appLockError = nil
-        }
-        preferences.notificationPermissionRequestHandler = { [weak self] in
-            self?.requestNotificationPermissionIfNeeded()
         }
         restorePersistedRuntimeConfigurationAndState()
         // Use [weak self] so that if SwiftUI/Xcode discards this AppState
@@ -743,9 +606,8 @@ final class AppState {
         async let sqliteReload: () = reloadPersistedStateFromSQLite()
         async let fiatRefresh: () = refreshFiatExchangeRatesIfNeeded()
         _ = await (sqliteReload, fiatRefresh)
-        // Rust wallet state is now initialized; the earlier triggerImmediate fired before
-        // initWalletStateDirect and returned None for every wallet. Re-trigger now.
-        await refreshBalances()
+        // No balance trigger here. Configuring the engine starts it, and its
+        // first tick is the launch sweep; a trigger beside it was a second.
     }
     deinit {
         maintenanceTask?.cancel()
@@ -753,9 +615,7 @@ final class AppState {
         importRefreshTask?.cancel()
         walletSideEffectsTask?.cancel()
         balanceFlushTask?.cancel()
-        appSettingsPersist.cancel()
-        // Debounced actions and registry-owned tasks each cancel via one
-        // call instead of N — see DebouncedAction / ManagedTaskRegistry.
+        settingCommandTask?.cancel()
         walletSideEffectsDebounce.cancel()
         transactionRebuild.cancel()
         tokenPreferenceRebuild.cancel()
@@ -817,24 +677,27 @@ final class AppState {
         guard let transition = try? await WalletServiceBridge.shared.applyStateCommand(command)
         else { return }
         applyCoreState(transition.state, epoch: epoch)
-        tokenPreferenceError = transition.events
-            .first(where: { $0.kind == "tokenPreferenceRejected" })?
-            .subjectId
+        tokenPreferenceError = tokenPreferenceRejection(in: transition.events)
             .map(tokenPreferenceRejectionMessage)
     }
-    func tokenPreferenceRejectionMessage(_ reason: String) -> String {
+    private func tokenPreferenceRejection(in events: [StateEvent]) -> TokenPreferenceRejection? {
+        events.lazy.compactMap { event -> TokenPreferenceRejection? in
+            guard case .tokenPreferenceRejected(let reason) = event else { return nil }
+            return reason
+        }.first
+    }
+    func tokenPreferenceRejectionMessage(_ reason: TokenPreferenceRejection) -> String {
         switch reason {
-        case "unknownChain": return localizedStoreString("That network cannot hold tokens.")
-        case "emptySymbol": return localizedStoreString("Symbol is required.")
-        case "symbolTooLong": return localizedStoreString("Symbol is too long.")
-        case "emptyName": return localizedStoreString("Token name is required.")
-        case "emptyContract": return localizedStoreString("Contract address is required.")
-        case "invalidContract": return localizedStoreString("That contract is not valid for this network.")
-        case "duplicateToken": return localizedStoreString("This network already knows this token.")
-        case "tooManyDecimals": return localizedStoreString("That is more decimal places than a token has.")
-        case "builtInToken": return localizedStoreString("Built-in tokens cannot be edited or removed.")
-        case "unknownToken": return localizedStoreString("That token is no longer in the list.")
-        default: return localizedStoreString("This token could not be saved.")
+        case .unknownChain: return localizedStoreString("That network cannot hold tokens.")
+        case .emptySymbol: return localizedStoreString("Symbol is required.")
+        case .symbolTooLong: return localizedStoreString("Symbol is too long.")
+        case .emptyName: return localizedStoreString("Token name is required.")
+        case .emptyContract: return localizedStoreString("Contract address is required.")
+        case .invalidContract: return localizedStoreString("That contract is not valid for this network.")
+        case .duplicateToken: return localizedStoreString("This network already knows this token.")
+        case .tooManyDecimals: return localizedStoreString("That is more decimal places than a token has.")
+        case .builtInToken: return localizedStoreString("Built-in tokens cannot be edited or removed.")
+        case .unknownToken: return localizedStoreString("That token is no longer in the list.")
         }
     }
     /// Teach the wallet a token the catalog does not ship.
@@ -859,11 +722,7 @@ final class AppState {
                     decimals: UInt32(decimals)))
         else { return localizedStoreString("This token could not be saved.") }
         applyCoreState(transition.state, epoch: epoch)
-        guard
-            let reason = transition.events
-                .first(where: { $0.kind == "tokenPreferenceRejected" })?
-                .subjectId
-        else {
+        guard let reason = tokenPreferenceRejection(in: transition.events) else {
             tokenPreferenceError = nil
             return nil
         }
@@ -871,15 +730,4 @@ final class AppState {
         tokenPreferenceError = message
         return message
     }
-    /// The canonical form of a known token's contract address.
-    /// The user's enabled tokens for a chain, contracts normalised.
-    ///
-    /// One helper for every token-hosting chain; `TokenHostingChain` is what
-    /// the call site resolves the name to. It returns the preference entries
-    /// themselves rather than a record built from them — a token had four
-    /// spellings across four record types before it did.
-    var moneroBackendBaseURLValidationError: String? {
-        endpointValidationError(field: .moneroBackend, raw: moneroBackendBaseURL)
-    }
-
 }

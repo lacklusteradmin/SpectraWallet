@@ -1,16 +1,5 @@
 import Foundation
 
-/// A network a chain family can be on, as a registry chain id.
-typealias NetworkChainID = String
-
-extension AppState {
-    /// The networks this chain family offers, mainnet first. Core answers, so
-    /// no front end enumerates them.
-    nonisolated func networkChoices(forChainID chainID: String) -> [NetworkChoice] {
-        (Chain(id: chainID)?.networkChoices ?? [])
-    }
-}
-
 nonisolated extension NetworkChoice: Identifiable {
     public var id: String { chainId }
 }
@@ -18,98 +7,8 @@ nonisolated extension NetworkChoice: Identifiable {
 // MARK: - Transactions & price alerts (Rust-owned enums)
 
 typealias TransactionKind = CoreTransactionKind
-nonisolated extension CoreTransactionKind: RawRepresentable, CaseIterable, Codable, Identifiable {
-    public init?(rawValue: String) {
-        switch rawValue {
-        case "send": self = .send
-        case "receive": self = .receive
-        default: return nil
-        }
-    }
-    public var rawValue: String {
-        switch self {
-        case .send: return "send"
-        case .receive: return "receive"
-        }
-    }
-    public static var allCases: [CoreTransactionKind] { [.send, .receive] }
-    public var id: String { rawValue }
-    public init(from decoder: Decoder) throws {
-        let raw = try decoder.singleValueContainer().decode(String.self)
-        guard let v = Self(rawValue: raw) else {
-            throw DecodingError.dataCorruptedError(
-                in: try decoder.singleValueContainer(),
-                debugDescription: "Invalid CoreTransactionKind: \(raw)")
-        }
-        self = v
-    }
-    public func encode(to encoder: Encoder) throws {
-        var c = encoder.singleValueContainer(); try c.encode(rawValue)
-    }
-}
-
 typealias TransactionStatus = CoreTransactionStatus
-nonisolated extension CoreTransactionStatus: RawRepresentable, CaseIterable, Codable, Identifiable {
-    public init?(rawValue: String) {
-        switch rawValue {
-        case "pending": self = .pending
-        case "confirmed": self = .confirmed
-        case "failed": self = .failed
-        default: return nil
-        }
-    }
-    public var rawValue: String {
-        switch self {
-        case .pending: return "pending"
-        case .confirmed: return "confirmed"
-        case .failed: return "failed"
-        }
-    }
-    public static var allCases: [CoreTransactionStatus] { [.pending, .confirmed, .failed] }
-    public var id: String { rawValue }
-    public init(from decoder: Decoder) throws {
-        let raw = try decoder.singleValueContainer().decode(String.self)
-        guard let v = Self(rawValue: raw) else {
-            throw DecodingError.dataCorruptedError(
-                in: try decoder.singleValueContainer(),
-                debugDescription: "Invalid CoreTransactionStatus: \(raw)")
-        }
-        self = v
-    }
-    public func encode(to encoder: Encoder) throws {
-        var c = encoder.singleValueContainer(); try c.encode(rawValue)
-    }
-}
-
 typealias PriceAlertCondition = CorePriceAlertCondition
-extension CorePriceAlertCondition: RawRepresentable, CaseIterable, Codable, Identifiable {
-    public init?(rawValue: String) {
-        switch rawValue {
-        case "Above": self = .above
-        case "Below": self = .below
-        default: return nil
-        }
-    }
-    public var rawValue: String {
-        switch self {
-        case .above: return "Above"
-        case .below: return "Below"
-        }
-    }
-    public static var allCases: [CorePriceAlertCondition] { [.above, .below] }
-    public var id: String { rawValue }
-    public init(from decoder: Decoder) throws {
-        let raw = try decoder.singleValueContainer().decode(String.self)
-        guard let v = Self(rawValue: raw) else {
-            throw DecodingError.dataCorruptedError(
-                in: try decoder.singleValueContainer(),
-                debugDescription: "Invalid CorePriceAlertCondition: \(raw)")
-        }
-        self = v
-    }
-    public func encode(to encoder: Encoder) throws {
-        var c = encoder.singleValueContainer(); try c.encode(rawValue)
-    }
+extension CorePriceAlertCondition {
+    static let allCases: [CorePriceAlertCondition] = [.above, .below]
 }
-
-// MARK: - Network selection

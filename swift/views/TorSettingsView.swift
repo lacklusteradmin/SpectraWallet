@@ -25,10 +25,10 @@ struct TorStatusBadge: View {
     }
     private var statusLabel: String {
         switch status {
-        case .stopped:          return "Off"
-        case .bootstrapping(let p): return p > 0 ? "\(p)%" : "Starting"
-        case .ready:            return "On"
-        case .error:            return "Error"
+        case .stopped:          return AppLocalization.string("Off")
+        case .bootstrapping(let p): return p > 0 ? "\(p)%" : AppLocalization.string("Starting")
+        case .ready:            return AppLocalization.string("On")
+        case .error:            return AppLocalization.string("Error")
         }
     }
     private var statusColor: Color {
@@ -41,7 +41,6 @@ struct TorStatusBadge: View {
     }
 }
 
-
 struct TorSettingsView: View {
     @Bindable var store: AppState
     @State private var editingProxyAddress: String = ""
@@ -49,22 +48,22 @@ struct TorSettingsView: View {
     var body: some View {
         Form {
             torMainSection
-            if store.torEnabled {
+            if store.appSettings.torEnabled {
                 connectionModeSection
-                if !store.torUseCustomProxy { privacySection }
+                if !store.appSettings.torUseCustomProxy { privacySection }
             }
             aboutSection
         }
         .navigationTitle(AppLocalization.string("Tor Network"))
         .toolbarBackground(.hidden, for: .navigationBar)
-        .onAppear { editingProxyAddress = store.torCustomProxyAddress }
+        .onAppear { editingProxyAddress = store.appSettings.torCustomProxyAddress }
     }
 
     // MARK: Sections
 
     private var torMainSection: some View {
         Section {
-            Toggle(isOn: $store.torEnabled) {
+            Toggle(isOn: store.settingBinding(\.torEnabled) { .torEnabled(value: $0) }) {
                 Label(AppLocalization.string("Enable Tor"), systemImage: "network.badge.shield.half.filled")
             }
             statusRow
@@ -104,10 +103,10 @@ struct TorSettingsView: View {
 
     private var connectionModeSection: some View {
         Section {
-            Toggle(isOn: $store.torUseCustomProxy) {
+            Toggle(isOn: store.settingBinding(\.torUseCustomProxy) { .torUseCustomProxy(value: $0) }) {
                 Label(AppLocalization.string("Use Custom SOCKS5 Proxy"), systemImage: "person.2.wave.2")
             }
-            if store.torUseCustomProxy {
+            if store.appSettings.torUseCustomProxy {
                 VStack(alignment: .leading, spacing: 6) {
                     Text(AppLocalization.string("SOCKS5 Address")).font(.footnote).foregroundStyle(.secondary)
                     TextField("socks5://127.0.0.1:9150", text: $editingProxyAddress)
@@ -116,7 +115,7 @@ struct TorSettingsView: View {
                         .textInputAutocapitalization(.never)
                         .focused($proxyFieldFocused)
                         .onSubmit { applyProxyAddress() }
-                    if editingProxyAddress != store.torCustomProxyAddress {
+                    if editingProxyAddress != store.appSettings.torCustomProxyAddress {
                         Button(AppLocalization.string("Apply")) { applyProxyAddress() }
                             .font(.footnote.weight(.semibold))
                     }
@@ -126,7 +125,7 @@ struct TorSettingsView: View {
             Text(AppLocalization.string("Connection Mode"))
         } footer: {
             Text(
-                store.torUseCustomProxy
+                store.appSettings.torUseCustomProxy
                     ? AppLocalization.string("Points all traffic at your own SOCKS5 proxy (e.g. Orbot on port 9150). Arti is not started.")
                     : AppLocalization.string("Uses the built-in Arti Tor client. No external app required.")
             )
@@ -135,7 +134,7 @@ struct TorSettingsView: View {
 
     private var privacySection: some View {
         Section {
-            Toggle(isOn: $store.torKillSwitch) {
+            Toggle(isOn: store.settingBinding(\.torKillSwitch) { .torKillSwitch(value: $0) }) {
                 Label(AppLocalization.string("Kill Switch"), systemImage: "shield.lefthalf.filled.slash")
             }
         } header: {
@@ -148,7 +147,7 @@ struct TorSettingsView: View {
     private var aboutSection: some View {
         Section(AppLocalization.string("About")) {
             LabeledContent(AppLocalization.string("Tor client"), value: "Arti (embedded)")
-            LabeledContent(AppLocalization.string("SOCKS5 port"), value: store.torUseCustomProxy ? store.torCustomProxyAddress : "127.0.0.1:19050")
+            LabeledContent(AppLocalization.string("SOCKS5 port"), value: store.appSettings.torUseCustomProxy ? store.appSettings.torCustomProxyAddress : "127.0.0.1:19050")
             LabeledContent(AppLocalization.string("Stream isolation"), value: AppLocalization.string("Per connection"))
             LabeledContent(AppLocalization.string("Onion routing hops"), value: "3")
         }
@@ -156,13 +155,12 @@ struct TorSettingsView: View {
 
     // MARK: Helpers
 
+    /// Core parses the address and refuses one that is not a SOCKS5 URL; a
+    /// stored change reconnects the proxy (see `reactToSettingsChange`).
     private func applyProxyAddress() {
         proxyFieldFocused = false
         let trimmed = editingProxyAddress.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
-        store.torCustomProxyAddress = trimmed
-        if store.torEnabled && store.torUseCustomProxy {
-            store.reconnectTor()
-        }
+        store.updateSetting(.torCustomProxyAddress(value: trimmed))
     }
 }

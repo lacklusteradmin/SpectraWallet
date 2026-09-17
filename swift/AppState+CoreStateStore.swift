@@ -54,35 +54,35 @@ extension AppState {
         }
     }
 
-    /// Replace the pinned dashboard set. Core normalises and de-duplicates, so
-    /// the projection that comes back is the authority, not what was sent.
-    func setPinnedDashboardAssets(_ tokenIDs: [String]) {
+    /// Send a pin command; the projection that comes back is the authority,
+    /// not what was sent.
+    func sendDashboardPinCommand(_ command: StateCommand) {
         Task { @MainActor [weak self] in
             guard let self else { return }
             let epoch = self.beginCoreStateRead()
-            guard
-                let transition = try? await WalletServiceBridge.shared.applyStateCommand(
-                    .setPinnedDashboardAssets(tokenIds: tokenIDs))
-            else { return }
+            guard let transition = try? await WalletServiceBridge.shared.applyStateCommand(command) else {
+                self.finishCoreStateRead(epoch)
+                return
+            }
             self.applyCoreState(transition.state, epoch: epoch)
         }
     }
 
     /// Replace the projection without touching the store. Only for loading what
     /// core already has.
+    ///
+    /// The side effects still run, debounced, and they are cheap when nothing
+    /// that matters changed: the refresh engine answers a list whose fetch
+    /// entries are the same with nothing. A flag set around this assignment
+    /// used to "suppress" them, but it was read inside the debounce, after it
+    /// had been cleared, so it suppressed nothing.
     func adoptWalletsFromCore(_ records: [WalletView]) {
-        suppressWalletSideEffects = true
         setWalletProjection(records)
-        suppressWalletSideEffects = false
     }
-
 
     /// Replace the projection without touching the store. Only for loading what
     /// core already has.
     func adoptTransactionsFromCore(_ records: [TransactionRecord]) {
         withSuspendedTransactionSideEffects { setTransactionProjection(records) }
     }
-
-    // Address-book mutation helpers are gone: core owns that list, and it is
-    // changed by `StateCommand` rather than by assigning to an array here.
 }

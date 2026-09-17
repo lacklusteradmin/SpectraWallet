@@ -63,7 +63,7 @@ final class WalletImportDraft {
         didSet { refreshSelectionState() }
     }
     var privateKeyInput: String = ""
-    var seedDerivationPreset: SeedDerivationPreset = .standard
+    var seedDerivationPreset: CoreSeedDerivationPreset = .standard
     var usesCustomDerivationPaths: Bool = true
     var seedDerivationPaths: SeedDerivationPaths = .defaults
     /// User's simple/advanced selection from the Add-Wallet page. Drives
@@ -95,7 +95,6 @@ final class WalletImportDraft {
     }
     var backupVerificationWordIndices: [Int] = []
     var backupVerificationEntries: [String] = []
-    private(set) var selectedCoins: [Coin] = []
     private(set) var selectedChainNames: [String] = []
     var isCreateMode: Bool { mode == .createNew }
     var isPrivateKeyImportMode: Bool { mode == .importExisting && !isEditingWallet && !isWatchOnlyMode && secretImportMode == .privateKey }
@@ -143,16 +142,6 @@ final class WalletImportDraft {
             .filter { !$0.isEmpty }
     }
 
-    /// Populate the seed phrase the way the UI does — the per-word entry grid
-    /// *and* the joined string. Validation reads `seedPhraseEntries`, so
-    /// setting `seedPhrase` alone leaves the draft looking incomplete.
-    func setSeedPhraseForTesting(_ phrase: String) {
-        let words = phrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
-        selectedSeedPhraseWordCount = words.count
-        seedPhraseEntries = words
-        seedPhrase = words.joined(separator: " ")
-    }
-
     /// Watch-only entries keyed by the storage slot Rust expects. Empty when
     /// the draft is not in watch-only mode.
     var watchOnlyEntriesBySlot: [String: [String]] {
@@ -161,27 +150,29 @@ final class WalletImportDraft {
             watchOnlyInputsByChainName.mapValues { watchOnlyEntries(from: $0) }
         )
     }
-    var canImportWallet: Bool {
-        let hasValidSeedPhrase = !isEditingWallet && seedPhraseVerdict.checksumValid
+    /// The watch-only inputs as core reads them, for the check and the import.
+    var watchOnlyImportEntries: WalletImportWatchOnlyEntries {
         let trimmedXpub = bitcoinXpubInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        let watchEntries = WalletImportWatchOnlyEntries(
+        return WalletImportWatchOnlyEntries(
             bySlot: watchOnlyEntriesBySlot,
-            bitcoinXpub: isWatchOnlyMode && !trimmedXpub.isEmpty ? trimmedXpub : nil
-        )
-        return coreValidateWalletImportDraft(
-            request: WalletImportDraftValidationRequest(
-                selectedChainNames: selectedChainNames,
-                isWatchOnly: isWatchOnlyMode,
-                isPrivateKeyImport: isPrivateKeyImportMode,
-                isEditing: isEditingWallet,
-                isCreateMode: isCreateMode,
-                hasValidWalletName: !walletName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-                hasValidSeedPhrase: hasValidSeedPhrase,
-                hasValidPrivateKeyHex: coreIsPrivateKeyHex(rawValue: privateKeyInput),
-                isBackupVerificationComplete: isBackupVerificationComplete,
-                requiresBackupVerification: requiresBackupVerification,
-                watchOnlyEntries: watchEntries
-            ))
+            bitcoinXpub: isWatchOnlyMode && !trimmedXpub.isEmpty ? trimmedXpub : nil)
+    }
+    private var draftMode: WalletImportDraftMode {
+        if isEditingWallet { return .rename }
+        if isCreateMode { return .create }
+        if isWatchOnlyMode { return .watchOnly }
+        return isPrivateKeyImportMode ? .importPrivateKey : .importSeedPhrase
+    }
+    /// Core reads the form as typed. It was handed eleven booleans this side
+    /// had already worked out, so its rule combined answers it never saw the
+    /// inputs for.
+    var canImportWallet: Bool {
+        coreValidateWalletImportDraft(
+            draft: WalletImportDraftInput(
+                mode: draftMode, selectedChainNames: selectedChainNames, walletName: walletName,
+                seedPhraseWords: seedPhraseEntries, seedPhraseLanguage: seedPhraseLanguage,
+                seedPhraseWordCount: UInt32(selectedSeedPhraseWordCount), privateKey: privateKeyInput,
+                backupVerified: isBackupVerificationComplete, watchOnlyEntries: watchOnlyImportEntries))
     }
     var requiresBackupVerification: Bool { isCreateMode }
     var isBackupVerificationComplete: Bool {
@@ -201,7 +192,7 @@ final class WalletImportDraft {
     }
     var backupVerificationPromptLabel: String {
         guard requiresBackupVerification else { return "" }
-        if backupVerificationWordIndices.isEmpty { return "Generate a backup verification challenge to continue." }
+        if backupVerificationWordIndices.isEmpty { return AppLocalization.string("Generate a backup verification challenge to continue.") }
         return ""
     }
     func configureForNewWallet() {
@@ -281,25 +272,7 @@ final class WalletImportDraft {
     private func refreshSelectionState() {
         let effectiveChainNames = allowsMultipleChainSelection ? selectedChainNamesStorage : Array(selectedChainNamesStorage.prefix(1))
         selectedChainNames = effectiveChainNames
-        selectedCoins = effectiveChainNames.compactMap(Self.coin(for:))
     }
-    private static let coinsByChain: [String: Coin] = {
-        var dict: [String: Coin] = [:]
-        for chain in listAllChains() where !chain.nativeAssetDisplayName.isEmpty {
-            dict[chain.name] = Coin.makeCustom(
-                name: chain.nativeAssetDisplayName,
-                symbol: chain.gasTokenSymbol,
-                coinGeckoId: chain.nativeCoingeckoId,
-                chainName: chain.name,
-                tokenStandard: "Native",
-                contractAddress: nil,
-                amount: 0,
-                priceUsd: 0
-            )
-        }
-        return dict
-    }()
-    private static func coin(for chainName: String) -> Coin? { coinsByChain[chainName] }
     func regenerateSeedPhrase() {
         guard isCreateMode else { return }
         // Core refuses a length BIP-39 does not define. This used to hold the

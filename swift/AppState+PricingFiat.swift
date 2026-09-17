@@ -22,10 +22,7 @@ extension AppState {
     func refreshLivePrices() async -> Bool {
         guard !isRefreshingLivePrices else { return false }
         isRefreshingLivePrices = true
-        defer {
-            isRefreshingLivePrices = false
-            lastLivePriceRefreshAt = Date()
-        }
+        defer { isRefreshingLivePrices = false }
         var didUpdatePrices = false
         let before = livePrices
         do {
@@ -50,9 +47,6 @@ extension AppState {
         }
     }
     func activePriceKey(for coin: Coin) -> String { assetIdentityKey(for: coin) }
-    var totalBalance: Double {
-        portfolio.reduce(0) { $0 + currentValue(for: $1) }
-    }
     // ── Fiat currency (core-owned) ────────────────────────────────────────
 
     /// Load core's state and mirror it. Call once at launch.
@@ -75,10 +69,16 @@ extension AppState {
         let epoch = beginCoreStateRead()
         guard
             let transition = try? await WalletServiceBridge.shared.applyStateCommand(
-                .setFiatCurrency(fiatCurrencyCode: currency.rawValue))
-        else { return }
+                .setFiatCurrency(currency: currency))
+        else {
+            finishCoreStateRead(epoch)
+            return
+        }
         applyCoreState(transition.state, epoch: epoch)
-        guard transition.events.contains(where: { $0.kind == "fiatCurrencyChanged" }) else { return }
+        guard transition.events.contains(where: {
+            if case .fiatCurrencyChanged = $0 { return true }
+            return false
+        }) else { return }
         await refreshFiatExchangeRatesIfNeeded(force: true)
     }
 
@@ -86,16 +86,10 @@ extension AppState {
     func setPortfolioInclusion(_ isIncluded: Bool, for walletID: String) {
         changeWallet(.setWalletPortfolioInclusion(walletId: walletID, included: isIncluded))
     }
-    func withBalanceRefreshWindow(_ operation: () async -> Void) async {
-        let previousState = allowsBalanceNetworkRefresh
-        allowsBalanceNetworkRefresh = true
-        defer { allowsBalanceNetworkRefresh = previousState }
-        await operation()
-    }
-    func refreshWalletBalance(_ walletID: String) async {
-        await withBalanceRefreshWindow {
-            try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
-        }
+    /// Refresh balances now. Every wallet's: the engine sweeps its entries
+    /// together, and the one this is asked from is among them.
+    func refreshBalancesNow() async {
+        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
     }
     func scheduleImportedWalletRefresh(_ createdWallets: [WalletView]) {
         guard !createdWallets.isEmpty else {
@@ -104,53 +98,62 @@ extension AppState {
         importRefreshTask?.cancel()
         importRefreshTask = Task { [weak self] in
             guard let self else { return }
-            await self.withBalanceRefreshWindow {
-                await self.refreshBalances()
-                _ = await self.refreshLivePrices()
-            }
+            await self.refreshBalances()
+            _ = await self.refreshLivePrices()
             await MainActor.run {
                 self.importRefreshTask = nil
             }
         }
     }
+    var alertableCoins: [Coin] { portfolio }
+    var portfolio: [Coin] { cachedPortfolio }
+    var shouldRunScheduledPriceRefresh: Bool { selectedMainTab == .home }
+    var refreshableChainNames: Set<String> { cachedRefreshableChainNames }
+    var includedPortfolioWallets: [WalletView] { cachedIncludedPortfolioWallets }
+    func currentPriceIfAvailable(for coin: Coin) -> Double? {
+        guard isPricedAsset(coin) else { return nil }
+        return livePrices[activePriceKey(for: coin)]
+    }
+    func currentPrice(for coin: Coin) -> Double { currentPriceIfAvailable(for: coin) ?? 0 }
+    func fiatRateIfAvailable(for currency: FiatCurrency) -> Double? {
+        if currency == .usd { return 1.0 }
+        guard let rate = fiatRatesFromUSD[currency.code], rate > 0 else { return nil }
+        return rate
+    }
+    func fiatRate(for currency: FiatCurrency) -> Double { fiatRateIfAvailable(for: currency) ?? (currency == .usd ? 1.0 : 0) }
 }
-enum FiatCurrency: String, CaseIterable, Identifiable {
-    case usd = "USD"
-    case eur = "EUR"
-    case gbp = "GBP"
-    case jpy = "JPY"
-    case cny = "CNY"
-    case inr = "INR"
-    case cad = "CAD"
-    case aud = "AUD"
-    case chf = "CHF"
-    case brl = "BRL"
-    case sgd = "SGD"
-    case aed = "AED"
-    var id: String { rawValue }
+/// Core's currencies, with what a picker needs: an order, a name and an icon.
+/// The code comes from core's formatting rules, which carry it.
+extension FiatCurrency: CaseIterable, Identifiable {
+    public static var allCases: [FiatCurrency] {
+        [.usd, .eur, .gbp, .jpy, .cny, .inr, .cad, .aud, .chf, .brl, .sgd, .aed]
+    }
+    public var id: String { code }
+    /// The ISO 4217 code.
+    var code: String { formattingFiatAmountRules(currency: self).code }
     var iconName: String? {
         switch self {
         case .usd: return "fiat/usd"
         case .eur: return "fiat/eur"
         case .gbp: return "fiat/gbp"
         case .cny: return "fiat/cny"
-        default: return nil
+        case .jpy, .inr, .cad, .aud, .chf, .brl, .sgd, .aed: return nil
         }
     }
     var displayName: String {
         switch self {
-        case .usd: return "US Dollar (USD)"
-        case .eur: return "Euro (EUR)"
-        case .gbp: return "British Pound (GBP)"
-        case .jpy: return "Japanese Yen (JPY)"
-        case .cny: return "Chinese Yuan (CNY)"
-        case .inr: return "Indian Rupee (INR)"
-        case .cad: return "Canadian Dollar (CAD)"
-        case .aud: return "Australian Dollar (AUD)"
-        case .chf: return "Swiss Franc (CHF)"
-        case .brl: return "Brazilian Real (BRL)"
-        case .sgd: return "Singapore Dollar (SGD)"
-        case .aed: return "UAE Dirham (AED)"
+        case .usd: return AppLocalization.string("US Dollar (USD)")
+        case .eur: return AppLocalization.string("Euro (EUR)")
+        case .gbp: return AppLocalization.string("British Pound (GBP)")
+        case .jpy: return AppLocalization.string("Japanese Yen (JPY)")
+        case .cny: return AppLocalization.string("Chinese Yuan (CNY)")
+        case .inr: return AppLocalization.string("Indian Rupee (INR)")
+        case .cad: return AppLocalization.string("Canadian Dollar (CAD)")
+        case .aud: return AppLocalization.string("Australian Dollar (AUD)")
+        case .chf: return AppLocalization.string("Swiss Franc (CHF)")
+        case .brl: return AppLocalization.string("Brazilian Real (BRL)")
+        case .sgd: return AppLocalization.string("Singapore Dollar (SGD)")
+        case .aed: return AppLocalization.string("UAE Dirham (AED)")
         }
     }
 }

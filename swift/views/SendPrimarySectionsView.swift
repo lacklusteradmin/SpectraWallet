@@ -20,7 +20,7 @@ fileprivate struct SendComposerPresentation {
         selectedCoinAmountText = selectedCoin.map { store.formattedAssetAmount($0.amount, symbol: $0.symbol, deploymentID: $0.holdingKey) }
         let sendAmount = Double(store.sendAmount) ?? 0
         if let selectedCoin, !sendAmount.isZero {
-            selectedCoinApproximateFiatText = store.formattedFiatAmount(fromNative: sendAmount, symbol: selectedCoin.symbol)
+            selectedCoinApproximateFiatText = store.formattedFiatAmount(sendAmount, of: selectedCoin)
         } else {
             selectedCoinApproximateFiatText = nil
         }

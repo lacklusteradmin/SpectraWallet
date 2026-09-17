@@ -43,19 +43,19 @@ import Foundation
 
         private func record(
             chain: String, symbol: String, kind: TransactionKind = .send,
-            status: TransactionStatus = .pending, deploymentID: String? = nil, hash: String? = "0xfeed", nonce: Int? = 7
+            status: TransactionStatus = .pending, deploymentID: String? = nil, hash: String? = "0xfeed", nonce: Int64? = 7
         ) -> TransactionRecord {
             TransactionRecord(
                 id: UUID().uuidString,
-                walletID: "wallet-1", deploymentID: deploymentID, kind: kind, status: status, walletName: "Main",
+                walletId: "wallet-1", deploymentId: deploymentID, kind: kind, status: status, walletName: "Main",
                 assetDisplayName: chain, symbol: symbol, chainName: chain, amount: 1.5,
                 address: "0x1111111111111111111111111111111111111111",
-                transactionHash: hash, ethereumNonce: nonce)
+                transactionHash: hash, nonce: nonce)
         }
 
         private func store(_ records: [TransactionRecord]) async throws {
             _ = try await WalletServiceBridge.shared.applyTransactionCommand(
-                .upsert(records: records.map(\.persistedSnapshot)))
+                .upsert(records: records))
         }
 
         /// The family is the registry's, so a pending Arbitrum send replaces

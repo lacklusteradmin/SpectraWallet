@@ -95,8 +95,6 @@ extension Chain: Identifiable {
     /// The networks this chain's family offers, mainnet first.
     var networkChoices: [NetworkChoice] { identity?.networkChoices ?? [] }
 
-    /// True when this chain's family offers more than one network.
-
     /// This chain's catalog row. `nil` only if the enum and the catalog have
     /// drifted, which core's `chain_order_matches_the_catalog` fails on.
     var entry: ChainEntry? { Self.entryByChain[self] }
@@ -124,15 +122,6 @@ extension Chain: Identifiable {
     var defaultDerivationPath: String {
         (try? appCoreResolveDerivationPath(chain: displayName, derivationPath: "")) ?? ""
     }
-
-    /// Whether this chain's addresses are its own rather than another chain's.
-    ///
-    /// The EVM family shares one derived address, filed under Ethereum's slot,
-    /// so `Arbitrum` answers `false` here while `Ethereum` and
-    /// `Ethereum Classic` answer `true`. Anything that indexes addresses per
-    /// chain — keypools, owned-address registration — wants the owners.
-
-    /// Which history-record shape this chain's diagnostics screen reads.
 
     init?(id: String) {
         guard let chain = Self.chainByID[id] else { return nil }

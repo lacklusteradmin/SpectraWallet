@@ -1,48 +1,20 @@
 import Foundation
-import UIKit
 extension AppState {
-    func restorePersistedRuntimeConfigurationAndState() {
-        // The eighteen settings core owns are not seeded here. They arrive with
-        // `open_state`, through `applyCoreState`.
-        suppressWalletSideEffects = true
-        // Price alerts + address book are loaded async via
-        // `reloadPersistedStateFromSQLite()` from the typed Rust SQLite store.
-        // The known-token list is core state and arrives with `open_state`,
-        // which seeds the catalog itself — a second copy assembled here would
-        // race that and usually win.
-        rebuildTokenPreferenceDerivedState()
-        livePrices = [:]
-        // Keypool, owned addresses and operational events all load from core in
-        // `reloadPersistedStateFromSQLite()`. They used to be seeded here from
-        // UserDefaults first, but nothing has written those keys since the move
-        // to SQLite — the seed could only ever supply stale indices.
-        // Pinned dashboard assets are a core setting now; they arrive with
-        // the rest of `CoreAppState`. The UserDefaults key they used to be
-        // seeded from has had no writer since that move.
-        suppressWalletSideEffects = false
-        applyWalletCollectionSideEffects()
-        Task { @MainActor in
-            UIDevice.current.isBatteryMonitoringEnabled = true
-        }
-        startNetworkPathMonitorIfNeeded()
-        // Tor preferences arrive with core settings through adoptAppSettings.
-        startTorIfEnabled()
-    }
     func resetSelectedData(scopes: Set<ResetScope>) async {
         guard !scopes.isEmpty else { return }
         guard
             await authenticateForSensitiveAction(
-                reason: "Authenticate to reset wallet data", allowWhenAuthenticationUnavailable: true
+                reason: AppLocalization.string("Authenticate to reset wallet data"), allowWhenAuthenticationUnavailable: true
             )
         else {
             return
         }
-        appSettingsPersist.cancel()
+        await awaitPendingSettingCommands()
         await walletMutationTask?.value
         await awaitPendingAddressBookCommands()
         let outcome: ResetOutcome
         do {
-            outcome = try await WalletServiceBridge.shared.resetData(scopes: scopes.map(\.rawValue))
+            outcome = try await WalletServiceBridge.shared.resetData(scopes: Array(scopes))
         } catch {
             appendOperationalLog(.error, category: "Reset", message: String(describing: error))
             return
@@ -112,11 +84,6 @@ extension AppState {
         lastImportedDiagnosticsBundle = nil
         lastPendingTransactionRefreshAt = nil
         isRefreshingLivePrices = false
-        allowsBalanceNetworkRefresh = false
-        isRefreshingPendingTransactions = false
-        lastLivePriceRefreshAt = nil
-        lastChainBalanceRefreshAt = nil
-        lastHistoryRefreshAtByChain = [:]
         // Ten lines naming the five UTXO chains, which is the map itself.
         utxoRescanStateByChain = [:]
         do {

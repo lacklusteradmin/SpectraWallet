@@ -51,12 +51,12 @@ final class CoinBadgeArtworkTests: XCTestCase {
     /// A chain's own ticker draws the chain, not the coin it pays fees in.
     /// Base's gas is ETH, so these two live side by side and the badge must
     /// keep them apart — the direction the fix could have overshot in.
-    func testAChainBadgeStillDrawsTheChain() {
-        for descriptor in Coin.nativeChainIconDescriptors {
+    func testAChainBadgeStillDrawsTheChain() throws {
+        for chain in Chain.all {
+            let native = try XCTUnwrap(Coin.nativeChainBadge(chainName: chain.displayName), chain.displayName)
             let badge = CoinBadge(
-                artworkName: descriptor.artworkName, fallbackText: descriptor.symbol,
-                color: descriptor.color)
-            XCTAssertNotNil(UIImage(named: badge.artworkName), "\(descriptor.title) drew a letter")
+                artworkName: native.artworkName, fallbackText: chain.gasTokenSymbol, color: native.color)
+            XCTAssertNotNil(UIImage(named: badge.artworkName), "\(chain.displayName) drew a letter")
         }
         let base = CoinBadge(
             artworkName: coreNetworkArtworkName(networkId: "base"),

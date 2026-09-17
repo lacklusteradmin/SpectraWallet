@@ -4,8 +4,13 @@ import SwiftUI
 extension AppState {
     func refreshBalances() async { try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh() }
 
-    /// Core has committed the refresh. Coalesce projection reads, never write balances back.
-    func applyRustBalance(walletId: String, summary: WalletState) {
+    /// Core has committed a wallet's new balances. Re-read the projection,
+    /// coalescing a sweep's worth of updates into one read; nothing is written
+    /// back.
+    ///
+    /// Took the wallet id and its new state, and read neither: the projection
+    /// is re-read whole either way.
+    func walletBalancesDidChange() {
         balanceFlushTask?.cancel()
         balanceFlushTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(50))
@@ -17,21 +22,6 @@ extension AppState {
             self.adoptWalletsFromCore(records)
             self.rebuildWalletDerivedState()
             self.rebuildDashboardDerivedState()
-        }
-    }
-
-    /// Tell the engine the wallet list changed. Core builds the entries.
-    ///
-    /// This used to map the wallet projection into `(chain, wallet, address)`
-    /// triples and hand them over — resolving each address by deriving it from
-    /// the seed, so a sealed wallet or one this platform could not resolve was
-    /// dropped from the refresh with a `print` and no other trace.
-    func updateRefreshEngineEntries() {
-        Task(priority: .utility) {
-            let count = (try? await WalletServiceBridge.shared.syncRefreshEntries()) ?? 0
-            if count > 0 {
-                try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
-            }
         }
     }
 
@@ -47,16 +37,12 @@ extension AppState {
             try? WalletServiceBridge.shared.setBalanceObserver(observer)
             await self?.restartBalanceRefreshForCurrentConfiguration()
         }
-        updateRefreshEngineEntries()
     }
     /// Stop-then-start the refresh engine using the current effective
     /// interval. Called when the refresh-frequency preference changes or
     /// when the app transitions active/inactive — contexts where we want
     /// the interval value or the running state to actually change.
     func restartBalanceRefreshForCurrentConfiguration() async {
-        try? await WalletServiceBridge.shared.configureBalanceRefresh(appIsActive: appIsActive)
-    }
-    func startBalanceRefreshIfNeeded() async {
         try? await WalletServiceBridge.shared.configureBalanceRefresh(appIsActive: appIsActive)
     }
 }

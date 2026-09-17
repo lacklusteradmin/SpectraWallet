@@ -18,7 +18,7 @@ struct DiagnosticsHubView: View {
         Chain.mainnets.map { chain in
             DiagnosticsDestination(
                 id: chain.id,
-                title: store.displayChainTitle(for: chain.displayName) + " Diagnostics",
+                title: AppLocalization.format("%@ Diagnostics", store.displayChainTitle(for: chain.displayName)),
                 keywords: chain.searchKeywords, chain: chain)
         }
     }
@@ -118,10 +118,10 @@ struct StandardChainDiagnosticsView: View {
     /// Keypool state now lives in core, so it is loaded rather than read
     /// synchronously — see `.task` below.
     @State private var keypoolError: String?
-    @State private var cachedKeypoolDiagnostics: [AppState.ChainKeypoolDiagnostic] = []
+    @State private var cachedKeypoolDiagnostics: [KeypoolDiagnostic] = []
     /// Operational events live in core now, so they load rather than read
     /// synchronously — same `.task` as the keypool rows.
-    @State private var cachedOperationalEvents: [ChainOperationalEvent] = []
+    @State private var cachedOperationalEvents: [DiagnosticLog] = []
     private let customBackendID = "custom"
     private var chainDiagnosticsState: WalletChainDiagnosticsState { store.chainDiagnosticsState }
     private var displayChainTitle: String { store.displayChainTitle(for: chain.displayName) }
@@ -242,7 +242,7 @@ struct StandardChainDiagnosticsView: View {
                 }
             }
             chainSpecificSections
-        }.navigationTitle(displayChainTitle + " Diagnostics").onAppear {
+        }.navigationTitle(AppLocalization.format("%@ Diagnostics", displayChainTitle)).onAppear {
             if chain.sendsThroughBackend { syncSelectedBackendIDFromStore() }
             rebuildCachedRows()
         }.task(id: chain.id) {
@@ -257,8 +257,8 @@ struct StandardChainDiagnosticsView: View {
         }.spectraTransientNotice($copiedDiagnosticsNotice).onChange(of: selectedBackendID) { _, newValue in
             guard chain.sendsThroughBackend, newValue != customBackendID else { return }
             // The first is what an empty setting already means.
-            store.moneroBackendBaseURL = newValue == catalogBackends.first ? "" : newValue
-        }.onChange(of: store.moneroBackendBaseURL) { _, _ in
+            store.updateSetting(.moneroBackendBaseUrl(value: newValue == catalogBackends.first ? "" : newValue))
+        }.onChange(of: store.appSettings.moneroBackendBaseUrl) { _, _ in
             guard chain.sendsThroughBackend else { return }
             syncSelectedBackendIDFromStore()
         }.onChange(of: historyLastUpdatedAt) { _, _ in
@@ -283,7 +283,7 @@ struct StandardChainDiagnosticsView: View {
     }
     private func rebuildEndpointRows() {
         let fallbackRows = configuredEndpointsForCurrentChain().map {
-            StandardEndpointRow(endpoint: $0, reachable: nil, detail: "Not checked yet")
+            StandardEndpointRow(endpoint: $0, reachable: nil, detail: AppLocalization.string("Not checked yet"))
         }
         let raw = chain.dispatch.endpointResults(store)
         cachedEndpointRows =
@@ -307,14 +307,14 @@ struct StandardChainDiagnosticsView: View {
     private func configuredEndpointsForCurrentChain() -> [String] {
         let name = chain.displayName
         if hasEsploraBases {
-            let custom = parseBitcoinEsploraEndpoints(raw: store.bitcoinEsploraEndpoints)
+            let custom = parseBitcoinEsploraEndpoints(raw: store.appSettings.bitcoinEsploraEndpoints)
             return custom.isEmpty
                 ? AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: store.networkChainID(forFamily: chain.id))
                 : custom
         }
         if chain.sendsThroughBackend {
-            let trimmed = store.moneroBackendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? catalogBackends : [trimmed]
+            let stored = store.appSettings.moneroBackendBaseUrl
+            return stored.isEmpty ? catalogBackends : [stored]
         }
         guard chain.isEVM else { return AppEndpointDirectory.settingsEndpoints(for: name) }
         // The override used to be Ethereum's alone, so this was its own
@@ -357,15 +357,12 @@ struct StandardChainDiagnosticsView: View {
                     Text(priority.displayName).tag(priority)
                 }
             }.pickerStyle(.segmented)
-            TextField(
-                AppLocalization.string("Custom Esplora endpoints (comma-separated, optional)"),
-                text: $store.bitcoinEsploraEndpoints
-            ).textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
-            if let bitcoinEsploraEndpointsValidationError = store.bitcoinEsploraEndpointsValidationError {
-                Text(bitcoinEsploraEndpointsValidationError).font(.caption).foregroundStyle(.red)
-            } else {
-                Text(copy.bitcoinEsploraHint).font(.caption).foregroundStyle(.secondary)
-            }
+            SettingTextField(
+                title: AppLocalization.string("Custom Esplora endpoints (comma-separated, optional)"),
+                value: store.appSettings.bitcoinEsploraEndpoints, endpoint: .bitcoinEsploraList
+            ) { store.updateSetting(.bitcoinEsploraEndpoints(value: $0)) }
+            .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+            Text(copy.bitcoinEsploraHint).font(.caption).foregroundStyle(.secondary)
         }
     }
     /// The custom RPC, for every EVM chain.
@@ -377,17 +374,12 @@ struct StandardChainDiagnosticsView: View {
     @ViewBuilder
     private var rpcSettingsSection: some View {
         Section(AppLocalization.format("%@ RPC", chain.displayName)) {
-            TextField(
-                AppLocalization.format("%@ RPC URL (Optional)", chain.displayName),
-                text: Binding(
-                    get: { store.rpcEndpoint(forChain: chain.displayName) },
-                    set: { store.setRPCEndpoint($0, forChain: chain.displayName) })
-            )
+            SettingTextField(
+                title: AppLocalization.format("%@ RPC URL (Optional)", chain.displayName),
+                value: store.rpcEndpoint(forChain: chain.displayName), endpoint: .evmRpc
+            ) { store.setRPCEndpoint($0, forChain: chain.displayName) }
             .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
             Text(copy.customRPCNote).font(.caption).foregroundStyle(.secondary)
-            if let error = store.rpcEndpointValidationError(forChain: chain.displayName) {
-                Text(error).font(.caption).foregroundStyle(.red)
-            }
         }
     }
     /// The Etherscan key, on the chains whose history reads it.
@@ -398,8 +390,10 @@ struct StandardChainDiagnosticsView: View {
     @ViewBuilder
     private var etherscanSettingsSection: some View {
         Section(AppLocalization.string("Etherscan (Optional)")) {
-            TextField(AppLocalization.string("Etherscan API Key"), text: $store.etherscanAPIKey)
-                .textInputAutocapitalization(.never).autocorrectionDisabled()
+            SettingTextField(title: AppLocalization.string("Etherscan API Key"), value: store.appSettings.etherscanApiKey) {
+                store.updateSetting(.etherscanApiKey(value: $0))
+            }
+            .textInputAutocapitalization(.never).autocorrectionDisabled()
             Text(copy.etherscanNote).font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -410,19 +404,21 @@ struct StandardChainDiagnosticsView: View {
                 ForEach(backendChoices, id: \.id) { choice in Text(choice.title).tag(choice.id) }
             }
             if selectedBackendID == customBackendID {
-                TextField(AppLocalization.format("%@ Backend URL (Optional)", chain.displayName), text: $store.moneroBackendBaseURL)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
+                SettingTextField(
+                    title: AppLocalization.format("%@ Backend URL (Optional)", chain.displayName),
+                    value: store.appSettings.moneroBackendBaseUrl, endpoint: .moneroBackend
+                ) { store.updateSetting(.moneroBackendBaseUrl(value: $0)) }
+                .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
             } else {
                 Text(selectedBackendID.isEmpty ? (catalogBackends.first ?? "") : selectedBackendID)
                     .font(.caption.monospaced()).textSelection(.enabled)
             }
-            if let moneroBackendBaseURLValidationError = store.moneroBackendBaseURLValidationError {
-                Text(moneroBackendBaseURLValidationError).font(.caption).foregroundStyle(.red)
-            } else {
-                Text(copy.backendNote).font(.caption).foregroundStyle(.secondary)
-            }
-            TextField(AppLocalization.format("%@ Backend API Key (Optional)", chain.displayName), text: $store.moneroBackendAPIKey)
-                .textInputAutocapitalization(.never).autocorrectionDisabled()
+            Text(copy.backendNote).font(.caption).foregroundStyle(.secondary)
+            SettingTextField(
+                title: AppLocalization.format("%@ Backend API Key (Optional)", chain.displayName),
+                value: store.appSettings.moneroBackendApiKey
+            ) { store.updateSetting(.moneroBackendApiKey(value: $0)) }
+            .textInputAutocapitalization(.never).autocorrectionDisabled()
             Text(copy.backendAPIKeyNote).font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -455,7 +451,8 @@ struct StandardChainDiagnosticsView: View {
             if events.isEmpty {
                 Text(AppLocalization.string("No operational events recorded yet.")).font(.caption).foregroundStyle(.secondary)
             } else {
-                ForEach(events.prefix(20)) { event in
+                ForEach(events.prefix(20)) { log in
+                    let event = log.input
                     VStack(alignment: .leading, spacing: 4) {
                         Text(event.message).font(.subheadline)
                         Text(event.level.displayName).font(.caption.weight(.semibold)).foregroundStyle(
@@ -477,15 +474,15 @@ struct StandardChainDiagnosticsView: View {
                 ForEach(diagnostics) { item in
                     VStack(alignment: .leading, spacing: 4) {
                         Text(item.walletName).font(.subheadline.weight(.semibold))
-                        Text(AppLocalization.format("Next receive index: %lld", Int(item.nextExternalIndex))).font(.caption).foregroundStyle(.secondary)
-                        Text(AppLocalization.format("Next change index: %lld", Int(item.nextChangeIndex))).font(.caption).foregroundStyle(.secondary)
-                        if let reservedReceiveIndex = item.reservedReceiveIndex {
+                        Text(AppLocalization.format("Next receive index: %lld", Int(item.keypool.nextExternalIndex))).font(.caption).foregroundStyle(.secondary)
+                        Text(AppLocalization.format("Next change index: %lld", Int(item.keypool.nextChangeIndex))).font(.caption).foregroundStyle(.secondary)
+                        if let reservedReceiveIndex = item.keypool.reservedReceiveIndex {
                             Text(AppLocalization.format("Reserved receive index: %lld", Int(reservedReceiveIndex))).font(.caption).foregroundStyle(.secondary)
                         }
-                        if let reservedReceivePath = item.reservedReceivePath, !reservedReceivePath.isEmpty {
+                        if let reservedReceivePath = item.reservedReceive?.derivationPath, !reservedReceivePath.isEmpty {
                             Text(reservedReceivePath).font(.caption.monospaced()).foregroundStyle(.secondary)
                         }
-                        if let reservedReceiveAddress = item.reservedReceiveAddress, !reservedReceiveAddress.isEmpty {
+                        if let reservedReceiveAddress = item.reservedReceive?.address, !reservedReceiveAddress.isEmpty {
                             Text(reservedReceiveAddress).font(.caption.monospaced()).foregroundStyle(.secondary)
                         }
                     }.padding(.vertical, 2)
@@ -494,7 +491,7 @@ struct StandardChainDiagnosticsView: View {
         }
     }
     private func syncSelectedBackendIDFromStore() {
-        let trimmed = store.moneroBackendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = store.appSettings.moneroBackendBaseUrl
         if trimmed.isEmpty {
             selectedBackendID = catalogBackends.first ?? customBackendID
         } else {

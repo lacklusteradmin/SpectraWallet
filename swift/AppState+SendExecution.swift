@@ -50,20 +50,20 @@ extension AppState {
         guard !sendingChains.contains(chainName) else { return }
         sendingChains.insert(chainName)
         defer { sendingChains.remove(chainName) }
-        guard await authenticateForSensitiveAction(reason: "Authorize transaction send") else { return }
+        guard await authenticateForSensitiveAction(reason: AppLocalization.string("Authorize transaction send")) else { return }
         do {
             let result = try await WalletServiceBridge.shared.executeOwnedSend(
                 reviewID: review.id, input: currentSendReviewInput())
             await refreshTransactionProjection()
             lastSentTransaction = transactions.first {
-                $0.transactionHash == result.transactionHash && $0.walletID == review.request.walletId
+                $0.transactionHash == result.transactionHash && $0.walletId == review.request.walletId
             }
             if let transaction = lastSentTransaction {
                 noteSendBroadcastQueued(for: transaction)
                 startSendLiveActivity(for: transaction)
             }
             requestTransactionStatusNotificationPermission()
-            await runPostSendRefreshActions(for: chainName, verificationStatus: .verified)
+            await runPostSendRefreshActions(for: chainName)
             resetSendComposerState { self.sendPreviewStore.clearPreview(forChainNamed: chainName) }
         } catch {
             sendError = error.localizedDescription

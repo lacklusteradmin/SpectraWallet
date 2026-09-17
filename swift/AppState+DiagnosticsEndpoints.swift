@@ -43,27 +43,6 @@ extension AppState {
         }
     }
 
-    // MARK: Pending transaction refresh
-
-    /// Poll one chain's pending transactions for a final status.
-    ///
-    /// Three loops used to live here, one per poll shape — a UTXO status
-    /// endpoint, an address history naming confirmed txids, an EVM receipt.
-    /// Each selected the records to poll from this projection of core's store,
-    /// asked core whether each was due, fetched, told core the outcome,
-    /// collected the resolutions and handed them back to be applied: five
-    /// crossings per transaction, for a store core owns. What comes back is
-    /// what changed, and this writes the event and the notification — the two
-    /// things that are genuinely this platform's.
-    func refreshPendingTransactions(chainName: String) async {
-        guard let chain = Chain(displayName: chainName) else { return }
-        let changes = (try? await WalletServiceBridge.shared.pollPendingTransactions(
-            chainId: chain.id)) ?? []
-        guard !changes.isEmpty else { return }
-        await applyPendingStatusChanges(changes)
-    }
-
-
 }
 
 /// UI deadline for the history diagnostic action; transport timeouts remain core's.

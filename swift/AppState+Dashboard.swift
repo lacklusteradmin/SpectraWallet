@@ -1,18 +1,12 @@
 import Foundation
 import SwiftUI
 extension AppState {
-    var pinnedDashboardTokenIds: [String] {
-        cachedPinnedDashboardTokenIds.isEmpty ? dashboardDefaultPinnedAssets() : cachedPinnedDashboardTokenIds
-    }
-    func isDashboardAssetPinned(_ tokenID: String) -> Bool { pinnedDashboardTokenIds.contains(tokenID) }
+    /// Pin or unpin one asset. Core applies it to the set the dashboard shows,
+    /// defaults included, and each pin option says whether it is pinned.
     func setDashboardAssetPinned(_ isPinned: Bool, tokenID: String) {
-        var ids = pinnedDashboardTokenIds
-        if isPinned {
-            if !ids.contains(tokenID) { ids.append(tokenID) }
-        } else { ids.removeAll { $0 == tokenID } }
-        setPinnedDashboardAssets(ids)
+        sendDashboardPinCommand(.setDashboardAssetPinned(tokenId: tokenID, isPinned: isPinned))
     }
-    func resetPinnedDashboardAssets() { setPinnedDashboardAssets([]) }
+    func resetPinnedDashboardAssets() { sendDashboardPinCommand(.setPinnedDashboardAssets(tokenIds: [])) }
     var dashboardAssetGroups: [DashboardAssetGroup] { cachedDashboardAssetGroups }
     func rebuildDashboardDerivedState() {
         Task { @MainActor [weak self] in

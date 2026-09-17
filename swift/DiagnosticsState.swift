@@ -5,7 +5,7 @@ import Foundation
 final class WalletDiagnosticsState {
     private static let operationalLogTimestampFormatter = ISO8601DateFormatter()
     private var snapshot = DiagnosticState(degraded: [:], lastGoodUnix: [:], logs: [])
-    private(set) var operationalLogs: [AppState.OperationalLogEvent] = []
+    private(set) var operationalLogs: [DiagnosticLog] = []
     private(set) var operationalLogsRevision: UInt64 = 0
     private(set) var persistenceError: String?
     @ObservationIgnored private var pendingCommand: Task<Void, Never>?
@@ -13,13 +13,7 @@ final class WalletDiagnosticsState {
 
     private func adopt(_ state: DiagnosticState) {
         snapshot = state
-        operationalLogs = state.logs.compactMap { log in
-            guard let id = UUID(uuidString: log.id), let level = AppState.OperationalLogEvent.Level(rawValue: log.input.level) else { return nil }
-            let input = log.input
-            return AppState.OperationalLogEvent(id: id, timestamp: Date(timeIntervalSince1970: log.timestampUnix), level: level,
-                category: input.category, message: input.message, chainName: input.chainName, walletID: input.walletId,
-                transactionHash: input.transactionHash, source: input.source, metadata: input.metadata)
-        }
+        operationalLogs = state.logs
         operationalLogsRevision &+= 1
     }
     private func enqueue(_ command: DiagnosticCommand) {
@@ -47,35 +41,32 @@ final class WalletDiagnosticsState {
     func flushPendingPersistence() async { await pendingCommand?.value }
     func reset() { enqueue(.reset) }
     var chainDegradedMessages: [String: String] { snapshot.degraded }
-    var chainDegradedMessagesByChainID: [WalletChainID: String] {
-        Dictionary(uniqueKeysWithValues: snapshot.degraded.compactMap { key, value in WalletChainID(key).map { ($0, value) } })
-    }
     var lastGoodChainSyncByName: [String: Date] { snapshot.lastGoodUnix.mapValues { Date(timeIntervalSince1970: $0) } }
-    var lastGoodChainSyncByChainID: [WalletChainID: Date] {
-        Dictionary(uniqueKeysWithValues: lastGoodChainSyncByName.compactMap { key, value in WalletChainID(key).map { ($0, value) } })
-    }
-    private var lastGoodChainSyncByID: [WalletChainID: Date] { lastGoodChainSyncByChainID }
+    /// Core keys both maps by chain display name.
     var chainDegradedBanners: [AppState.ChainDegradedBanner] {
-        chainDegradedMessagesByChainID.keys.sorted().map { id in
-            AppState.ChainDegradedBanner(chainName: id.displayName, message: localizedDegradedMessage(chainDegradedMessagesByChainID[id] ?? "", chainID: id), lastGoodSyncAt: lastGoodChainSyncByID[id])
+        snapshot.degraded.keys.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }.map { chainName in
+            AppState.ChainDegradedBanner(
+                chainName: chainName, message: localizedDegradedMessage(snapshot.degraded[chainName] ?? "", chainName: chainName),
+                lastGoodSyncAt: lastGoodChainSyncByName[chainName])
         }
     }
     func clearOperationalLogs() { enqueue(.clearLogs(chainName: nil)) }
-    func exportOperationalLogsText(networkSyncStatusText: String, events: [AppState.OperationalLogEvent]? = nil) -> String {
+    func exportOperationalLogsText(networkSyncStatusText: String, events: [DiagnosticLog]? = nil) -> String {
         let entries = events ?? operationalLogs
         let header = [
             localizedStoreString("Spectra Operational Logs"),
             AppLocalization.format("Generated: %@", Self.operationalLogTimestampFormatter.string(from: Date())),
             AppLocalization.format("Entries: %d", entries.count), networkSyncStatusText, "",
         ]
-        let lines = entries.map { event in
+        let lines = entries.map { log in
+            let event = log.input
             var parts: [String] = [
-                Self.operationalLogTimestampFormatter.string(from: event.timestamp), "[\(event.level.rawValue.uppercased())]",
+                Self.operationalLogTimestampFormatter.string(from: log.timestamp), "[\(event.level.exportTag)]",
                 "[\(event.category)]", event.message,
             ]
             if let source = event.source, !source.isEmpty { parts.append("source=\(source)") }
             if let chainName = event.chainName, !chainName.isEmpty { parts.append("chain=\(chainName)") }
-            if let walletID = event.walletID { parts.append("wallet=\(walletID)") }
+            if let walletID = event.walletId { parts.append("wallet=\(walletID)") }
             if let transactionHash = event.transactionHash, !transactionHash.isEmpty { parts.append("tx=\(transactionHash)") }
             if let metadata = event.metadata, !metadata.isEmpty { parts.append("meta=\(metadata)") }
             return parts.joined(separator: " | ")
@@ -83,20 +74,16 @@ final class WalletDiagnosticsState {
         return (header + lines).joined(separator: "\n")
     }
     func appendOperationalLog(
-        _ level: AppState.OperationalLogEvent.Level, category: String, message: String, chainName: String? = nil, walletID: String? = nil,
+        _ level: DiagnosticLogLevel, category: String, message: String, chainName: String? = nil, walletID: String? = nil,
         transactionHash: String? = nil, source: String? = nil, metadata: String? = nil
     ) {
-        enqueue(.append(input: DiagnosticLogInput(level: level.rawValue, category: category, message: message,
+        enqueue(.append(input: DiagnosticLogInput(level: level, category: category, message: message,
             chainName: chainName, walletId: walletID, transactionHash: transactionHash, source: source, metadata: metadata)))
     }
-    func markChainHealthy(_ chainName: String) { enqueue(.healthy(chainName: chainName)) }
-    func noteChainSuccessfulSync(_ chainName: String) { enqueue(.synced(chainName: chainName)) }
-    func markChainDegraded(_ chainName: String, detail: String) { enqueue(.degraded(chainName: chainName, detail: detail)) }
-    private func localizedDegradedMessage(_ message: String, chainID: WalletChainID) -> String {
+    private func localizedDegradedMessage(_ message: String, chainName: String) -> String {
         if message.isEmpty { return message }
-        let detail = localized(
-            diagnosticsClassifyDegradedDetail(detail: message), chainName: chainID.displayName)
-        return [detail, degradedSyncSuffix(for: chainID)].filter { !$0.isEmpty }.joined(separator: " ")
+        let detail = localized(diagnosticsClassifyDegradedDetail(detail: message), chainName: chainName)
+        return [detail, degradedSyncSuffix(for: chainName)].filter { !$0.isEmpty }.joined(separator: " ")
     }
     /// One classification, localized.
     private func localized(_ classified: DegradedDetail, chainName: String) -> String {
@@ -105,9 +92,9 @@ final class WalletDiagnosticsState {
         }
         return localizedStoreString(classified.normalized)
     }
-    private func degradedSyncSuffix(for chainID: WalletChainID) -> String {
+    private func degradedSyncSuffix(for chainName: String) -> String {
         let copy = DiagnosticsContentCopy.current
-        if let lastGood = lastGoodChainSyncByID[chainID] {
+        if let lastGood = lastGoodChainSyncByName[chainName] {
             return String(
                 format: copy.degradedLastGoodSyncFormat, lastGood.formatted(date: .abbreviated, time: .shortened)
             )
@@ -153,16 +140,5 @@ final class WalletChainDiagnosticsState {
     }
     var historyRunByChain: [String: HistoryRun] = [:]
 
-
-    // MARK: Non-dict state (unchanged)
     var lastImportedDiagnosticsBundle: DiagnosticsBundlePayload?
-
-    // MARK: Per-wallet diagnostic dicts (Rust-owned; computed delegates)
-    //
-    // Only Tron and Solana are named here. The other twenty-two shared one of
-    // three record shapes, so they read through `[utxoHistoryFor:]`,
-    // `[evmHistoryFor:]` and `[simpleHistoryFor:]` instead — twenty-two
-    // four-line accessors and their twenty-two forwards in `DiagnosticsStore`.
-    // These two keep theirs because their records genuinely differ.
-
 }

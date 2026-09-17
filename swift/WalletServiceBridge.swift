@@ -1,13 +1,5 @@
 import Foundation
-/// Test seam: tests that don't want to talk to a real Rust service can
-/// inject a stub conforming to `WalletServiceBridgeProtocol`. Existing
-/// production call sites continue to use `WalletServiceBridge.shared`.
-/// Adoption is incremental — protocol-typed parameters in new code
-/// accept either implementation; legacy `WalletServiceBridge.shared.foo()`
-/// call sites can migrate when their tests need it.
-protocol WalletServiceBridgeProtocol: Sendable {}
-
-@MainActor final class WalletServiceBridge: WalletServiceBridgeProtocol {
+@MainActor final class WalletServiceBridge {
     static let shared = WalletServiceBridge()
     private let databasePath: String?
     private var stateIsOpen = false
@@ -48,10 +40,7 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func walletSeedPhrase(walletID: String, password: String?) throws -> String {
         try service().walletSeedPhrase(walletId: walletID, password: password)
     }
-    func walletPrivateKey(walletID: String, password: String?) throws -> String {
-        try service().walletPrivateKey(walletId: walletID, password: password)
-    }
-    func resetData(scopes: [String]) async throws -> ResetOutcome {
+    func resetData(scopes: [ResetScope]) async throws -> ResetOutcome {
         try await readyService().resetData(scopes: scopes)
     }
 
@@ -69,16 +58,8 @@ protocol WalletServiceBridgeProtocol: Sendable {}
         try await readyService().knownUtxoAddresses(walletId: walletID, chainId: chainId)
     }
 
-    func fetchNativeBalanceSummary(chainId: String, address: String) async throws -> NativeBalanceSummary {
-        try await readyService().fetchNativeBalanceSummary(chainId: chainId, address: address)
-    }
-
-
     func refreshApp(intent: AppRefreshIntent, conditions: DeviceConditions) async throws -> AppRefreshResult {
         try await readyService().refreshApp(intent: intent, conditions: conditions)
-    }
-    func refreshPendingTransactions() async throws -> PendingMaintenanceResult {
-        try await readyService().refreshPendingTransactions()
     }
     func previewOwnedSend(walletID: String, holdingKey: String, amount: String, destination: String, explicitNonce: Int64?, customFees: EvmCustomFeeConfiguration?) async throws -> SendPreview? {
         try await readyService().previewOwnedSend(walletId: walletID, holdingKey: holdingKey, amount: amount, destination: destination, explicitNonce: explicitNonce, customFees: customFees)
@@ -92,7 +73,6 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     func executeOwnedSend(reviewID: String, input: SendReviewInput) async throws -> SendExecutionResult {
         try await readyService().executeOwnedSend(reviewId: reviewID, input: input, password: nil)
     }
-
 
     func resolveSendDestination(chainId: String, input: String, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
         if let expectedAddress {
@@ -112,7 +92,6 @@ protocol WalletServiceBridgeProtocol: Sendable {}
     nonisolated func rustGenerateMnemonic(wordCount: Int) -> String? {
         MainActor.assumeIsolated { try? generateMnemonic(wordCount: UInt32(wordCount)) }
     }
-
 
     func refreshOwnedPrices(force: Bool) async throws -> CoreAppState {
         try await readyService().refreshOwnedPrices(force: force)
@@ -166,30 +145,6 @@ extension WalletServiceBridge {
     func dashboardAssetGroups() async throws -> [CoreDashboardAssetGroup] {
         try await readyService().dashboardAssetGroups()
     }
-    /// Record something that happened on a chain. Core stamps and caps it.
-    func appendChainOperationalEvent(
-        chainName: String, level: ChainOperationalEventLevel, message: String, transactionHash: String?
-    ) async throws {
-        try await readyService().appendChainOperationalEvent(
-            chainName: chainName, level: level, message: message, transactionHash: transactionHash)
-    }
-    func sendSubmitPreflight(
-        walletID: String, holdingKey: String, destinationAddress: String, amountInput: String
-    ) async throws -> SendSubmitPreflightPlan {
-        try await readyService().sendSubmitPreflight(
-            walletId: walletID, holdingKey: holdingKey, destinationAddress: destinationAddress,
-            amountInput: amountInput)
-    }
-
-    /// How core routes this holding's send and preview, or `nil` if it cannot
-    /// find the wallet or the holding.
-    func sendAssetRouting(walletID: String, holdingKey: String) async -> SendAssetRoutingPlan? {
-        guard let service = try? await readyService() else { return nil }
-        return await service.sendAssetRouting(walletId: walletID, holdingKey: holdingKey)
-    }
-
-    /// Why this send looks risky, as codes to localize.
-
 
     func normalizedHistory(unknownLabel: String) async throws -> [CoreNormalizedHistoryEntry] {
         return try await readyService().normalizedHistory(unknownLabel: unknownLabel)
@@ -215,13 +170,9 @@ extension WalletServiceBridge {
         return await service.maintenancePlan(conditions: conditions)
     }
 
-    func operationalEvents(chainName: String) async -> [ChainOperationalEventRecord] {
+    func operationalEvents(chainName: String) async -> [DiagnosticLog] {
         guard let service = try? await readyService() else { return [] }
         return await service.operationalEvents(chainName: chainName)
-    }
-    /// Pass `nil` to clear every chain.
-    func clearOperationalEvents(chainName: String?) async throws {
-        try await readyService().clearOperationalEvents(chainName: chainName)
     }
     /// Fold this build's built-in token catalog into the stored preferences.
     func mergeBuiltInTokenPreferences() async throws -> CoreAppState {
@@ -242,6 +193,16 @@ extension WalletServiceBridge {
     /// Every stored transaction, newest first.
     func storedTransactions() async throws -> [CorePersistedTransactionRecord] {
         try await readyService().transactions()
+    }
+
+    /// What to tell the user about a send, from its stored record.
+    func sendVerificationNotice(transactionID: String) async throws -> SendVerificationNotice {
+        try await readyService().sendVerificationNotice(transactionId: transactionID)
+    }
+
+    /// Every address a wallet is known to hold, on any chain.
+    func knownWalletAddresses(walletID: String) async throws -> [String] {
+        try await readyService().knownWalletAddresses(walletId: walletID)
     }
 
     // ── Confirmation-poll backoff ─────────────────────────────────────────
@@ -274,16 +235,10 @@ extension WalletServiceBridge {
     // Reservation is read-modify-write, so it happens inside core under one
     // lock, over a baseline it computes from its own tables.
 
-    func keypoolState(walletID: String, chainName: String) async throws -> KeypoolState {
-        try await readyService().keypoolState(walletId: walletID, chainName: chainName)
+    /// Every wallet's keypool on a chain, with the reserved address as recorded.
+    func keypoolDiagnostics(chainName: String) async throws -> [KeypoolDiagnostic] {
+        try await readyService().keypoolDiagnostics(chainName: chainName)
     }
-
-
-
-
-
-
-
 
     /// Import wallets into core. Returns what was created, plus the Keychain
     /// writes the caller still owns.
@@ -291,28 +246,7 @@ extension WalletServiceBridge {
         try await readyService().importWallets(commit: commit)
     }
 
-    /// Poll one chain's pending transactions; answers what changed.
-    func pollPendingTransactions(chainId: String) async throws -> [TransactionStatusChange] {
-        try await readyService().pollPendingTransactions(chainId: chainId)
-    }
-
-
-    func fetchNormalizedHistory(chainId: String, address: String) async throws -> [NormalizedHistoryItem] {
-        try await readyService().fetchNormalizedHistory(chainId: chainId, address: address)
-    }
-
-    /// The single call a network switch makes: core drops the chain's keypool
-    /// and its owned addresses in one transaction.
-
-
-    /// Omit `chainName` for every chain.
-    func ownedAddresses(walletID: String, chainName: String? = nil) async -> [String] {
-        guard let service = try? await readyService() else { return [] }
-        return await service.ownedAddressesForWallet(walletId: walletID, chainName: chainName)
-    }
-
     // ── Transaction history persistence (Rust SQLite) ──────────────────────────
-    func fetchAllHistoryRecordsTyped() async throws -> [HistoryRecord] { try await readyService().fetchAllHistoryRecordsTyped() }
     /// Empty the history table.
     ///
     /// Went through `replaceAllHistoryRecords([])`, which was a third spelling
@@ -326,9 +260,6 @@ extension WalletServiceBridge {
                 ?? HistoryCursor(nextCursor: nil, nextPage: 0, isExhausted: false)
         }
     }
-    /// Forget history pagination, for as much of it as `scope` names. Four
-    /// methods stood for the four cases.
-    nonisolated func resetHistory(_ scope: HistoryScope) { MainActor.assumeIsolated { WalletServiceBridge._syncService?.resetHistory(scope: scope) } }
     private func sqliteDbPath() -> String {
         if let databasePath { return databasePath }
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? NSTemporaryDirectory()
@@ -347,12 +278,11 @@ extension WalletServiceBridge {
         try await readyService().refreshHistory(scope: scope, loadMore: loadMore, limit: nil, intervalSecs: interval)
     }
 
-    /// Rebuild the refresh list from the wallets core holds; answers the count.
-    func syncRefreshEntries() async throws -> UInt32 {
+    /// Adopt the wallets core holds; core refreshes only if what it fetches changed.
+    func reconcileBalanceRefresh(appIsActive: Bool) async throws -> Bool {
         _ = try await readyService()
-        return try await balanceRefreshEngine().syncEntries(walletId: nil)
+        return try await balanceRefreshEngine().reconcileWallets(appIsActive: appIsActive)
     }
     func configureBalanceRefresh(appIsActive: Bool) async throws { _ = try await readyService(); try await balanceRefreshEngine().configureForDevice(appIsActive: appIsActive) }
-    func stopBalanceRefresh() throws { try balanceRefreshEngine().stop() }
     func triggerImmediateBalanceRefresh() async throws { _ = try await readyService(); try await balanceRefreshEngine().triggerImmediate() }
 }

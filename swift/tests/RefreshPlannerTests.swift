@@ -38,11 +38,5 @@ import Foundation
             let online = await store.maintenancePlan()
             XCTAssertTrue(online.runBackgroundTick, "a fresh clock has never ticked")
         }
-
-        func testWalletChainIDResolvesStableRegistryIDFromDisplayNameAndSymbol() {
-            XCTAssertEqual(WalletChainID("Ethereum")?.rawValue, "ethereum")
-            XCTAssertNil(WalletChainID("ETH"), "a ticker cannot choose a network")
-            XCTAssertEqual(WalletChainID("XRP Ledger")?.displayName, "XRP Ledger")
-        }
     }
 #endif

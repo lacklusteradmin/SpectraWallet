@@ -34,16 +34,12 @@ private enum PlatformDefaults {
     static func set(_ value: Bool, _ key: String) { UserDefaults.standard.set(value, forKey: key) }
 }
 
-/// User-facing UI / security preferences, split out of `AppState` so that
-/// views which only read preferences (Settings, lock-screen UI, the
-/// hide-balances dashboard mirror, etc.) don't get invalidated whenever
-/// unrelated AppState properties (wallets, balances, transactions) change.
+/// The five preferences this platform keeps for itself, split out of
+/// `AppState` so that views which only read them are not invalidated whenever
+/// wallets, balances or transactions change.
 ///
-/// Apple's native pattern: split a god-object `@Observable` model along
-/// coherent domains so each view observes only the sub-model it needs.
-///
-/// Five are this platform's and persist in `UserDefaults` as they change; the
-/// rest mirror core settings and commit through `persistHandler`.
+/// The settings core owns lived here too, mirrored, with a handler to commit
+/// them; they are `AppState.appSettings` now.
 @MainActor
 @Observable
 final class AppUserPreferences {
@@ -73,7 +69,6 @@ final class AppUserPreferences {
     var useAutoLock: Bool = PlatformDefaults.bool(PlatformDefaults.useAutoLock, default: false) {
         didSet { if useAutoLock != oldValue { PlatformDefaults.set(useAutoLock, PlatformDefaults.useAutoLock) } }
     }
-    var useStrictRPCOnly: Bool = false { didSet { guard useStrictRPCOnly != oldValue else { return }; persistHandler?() } }
     var requireBiometricForSendActions: Bool = PlatformDefaults.bool(
         PlatformDefaults.requireBiometricForSendActions, default: true)
     {
@@ -83,69 +78,15 @@ final class AppUserPreferences {
         }
     }
 
-    // ── Notifications ───────────────────────────────────────────────────
-    var usePriceAlerts: Bool = true { didSet { guard usePriceAlerts != oldValue else { return }; persistHandler?() } }
-    var useTransactionStatusNotifications: Bool = true {
-        didSet {
-            guard useTransactionStatusNotifications != oldValue else { return }
-            persistHandler?()
-            if useTransactionStatusNotifications { notificationPermissionRequestHandler?() }
-        }
-    }
-    var useLargeMovementNotifications: Bool = true {
-        didSet {
-            guard useLargeMovementNotifications != oldValue else { return }
-            persistHandler?()
-            if useLargeMovementNotifications { notificationPermissionRequestHandler?() }
-        }
-    }
-
-    // ── Refresh cadence + alert thresholds ──────────────────────────────
-    // No clamps here. The bounds are `apply_app_setting`'s, which is where the
-    // value is stored — this side re-clamping would be a second copy of a rule
-    // about someone else's state, and the copy that used to live here was the
-    // only one.
-    var automaticRefreshFrequencyMinutes: Int = 5 {
-        didSet {
-            guard automaticRefreshFrequencyMinutes != oldValue else { return }
-            persistHandler?()
-        }
-    }
-    var largeMovementAlertPercentThreshold: Double = 10.0 {
-        didSet {
-            guard largeMovementAlertPercentThreshold != oldValue else { return }
-            persistHandler?()
-        }
-    }
-    var largeMovementAlertUSDThreshold: Double = 50.0 {
-        didSet {
-            guard largeMovementAlertUSDThreshold != oldValue else { return }
-            persistHandler?()
-        }
-    }
-
-    // ── Side-effect hooks, wired by `AppState` in its init. Kept out of
-    // `@Observable` tracking so closure assignment doesn't cause spurious
-    // view invalidations.
-    /// Commit the settings core owns.
-    @ObservationIgnored var persistHandler: (() -> Void)?
+    /// Wired by `AppState` in its init. Kept out of `@Observable` tracking so
+    /// assigning the closure does not invalidate views.
     @ObservationIgnored var useFaceIDDisabledHandler: (() -> Void)?
-    @ObservationIgnored var notificationPermissionRequestHandler: (() -> Void)?
 
     nonisolated init() {}
 
-    /// Reset to factory defaults. Called from `StoreLifecycleReset.reset()`.
-    /// The five platform values write themselves back as they change; the core
-    /// settings are reset by core, so the commit handler is held off.
+    /// Reset to factory defaults. Each value writes itself back to
+    /// `UserDefaults` as it changes.
     func resetToDefaults() {
-        let previousPersist = persistHandler
-        persistHandler = nil
-        defer { persistHandler = previousPersist }
-        // Only the five this platform owns. The other seven on this class —
-        // strict RPC, the three notification toggles, the refresh cadence and
-        // the two large-movement thresholds — are core settings mirrored here,
-        // and `StateCommand::ResetAppSettings` puts them back; restating their
-        // defaults made this file a second copy of `AppSettings::default()`.
         hideBalances = false
         appearanceMode = .dark
         useFaceID = true

@@ -24,7 +24,7 @@ struct AdvancedSettingsView: View {
                 )
                 Toggle(
                     AppLocalization.string("Strict RPC Only (Disable Ledger Fallback)"),
-                    isOn: $preferences.useStrictRPCOnly
+                    isOn: store.settingBinding(\.useStrictRpcOnly) { .useStrictRpcOnly(value: $0) }
                 )
                 Text(AppLocalization.string("When enabled, balances only come from live RPC responses.")).font(.caption).foregroundStyle(
                     .secondary)

@@ -2,6 +2,7 @@ import SwiftUI
 struct AddWalletEntryView: View {
     let store: AppState
     @State private var setupMode: SetupModeChoice = .simple
+    @State private var isShowingFundsFinder = false
     var body: some View {
         ZStack {
             SpectraBackdrop().ignoresSafeArea()
@@ -37,7 +38,7 @@ struct AddWalletEntryView: View {
                         subtitle: AppLocalization.string("Scan 150+ derivation paths to locate hidden balances from any wallet app."),
                         icon: "magnifyingglass.circle.fill", tint: Color.yellow
                     ) {
-                        store.isShowingFundsFinder = true
+                        isShowingFundsFinder = true
                     }
                 }.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
             }
@@ -54,12 +55,9 @@ struct AddWalletEntryView: View {
             SetupView(store: store, draft: store.importDraft)
         }
         .navigationDestination(
-            isPresented: Binding(
-                get: { store.isShowingFundsFinder },
-                set: { store.isShowingFundsFinder = $0 }
-            )
+            isPresented: $isShowingFundsFinder
         ) {
-            FundsFinderView(store: store)
+            FundsFinderView()
         }
     }
     private var setupModePicker: some View {

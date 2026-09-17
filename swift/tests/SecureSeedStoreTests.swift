@@ -35,7 +35,32 @@ final class SecureSeedStoreTests: XCTestCase {
         let key = String(repeating: "ab", count: 32)
         try SecurePrivateKeyStore.save(key, for: account)
         defer { try? SecurePrivateKeyStore.deleteValue(for: account) }
-        XCTAssertEqual(SecurePrivateKeyStore.loadValue(for: account), key)
+        XCTAssertEqual(try SecurePrivateKeyStore.loadValue(for: account), key)
+    }
+    /// A private key signs exactly as a seed does, so it is sealed the same way
+    /// rather than written as the string that was pasted.
+    func testPrivateKeyStorageDoesNotPersistPlaintext() throws {
+        let account = "test.privatekey.encrypted.1"
+        let key = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
+        try SecurePrivateKeyStore.save(key, for: account)
+        defer { try? SecurePrivateKeyStore.deleteValue(for: account) }
+        let storedData = try XCTUnwrap(SecurePrivateKeyStore.loadData(for: account))
+        XCTAssertNil(storedData.range(of: Data(key.utf8)), "the key is stored in the clear")
+        XCTAssertNil(storedData.range(of: Data(key.prefix(16).utf8)), "part of the key is stored in the clear")
+    }
+    /// A missing key is `missingValue`, which the adapter reports to core as
+    /// not found. Anything else a read throws is a failure, not an absence.
+    func testMissingPrivateKeyReportsMissing() {
+        let account = "test.privatekey.missing.1"
+        try? SecurePrivateKeyStore.deleteValue(for: account)
+        XCTAssertThrowsError(try SecurePrivateKeyStore.loadValue(for: account)) { error in
+            XCTAssertEqual(error as? KeychainStoreError, .missingValue)
+        }
+        XCTAssertThrowsError(try SpectraSecretStoreAdapter().loadSecret(kind: .privateKey, key: account)) { error in
+            guard case SecretStoreError.NotFound = error else {
+                return XCTFail("a missing key reached core as \(error)")
+            }
+        }
     }
     func testDeletedSeedIsNotReadableAndReportsMissing() throws {
         let account = "test.seed.deleted.1"

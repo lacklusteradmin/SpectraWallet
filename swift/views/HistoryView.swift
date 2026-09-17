@@ -227,8 +227,8 @@ struct HistoryView: View {
     private var groupedSections: [HistoryPresentationSection] {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: pagedRows) { row in
-            if calendar.isDateInToday(row.transaction.createdAt) { return AppLocalization.string("Today") }
-            if calendar.isDateInYesterday(row.transaction.createdAt) { return AppLocalization.string("Yesterday") }
+            if calendar.isDateInToday(row.transaction.createdDate) { return AppLocalization.string("Today") }
+            if calendar.isDateInYesterday(row.transaction.createdDate) { return AppLocalization.string("Yesterday") }
             return AppLocalization.string("Older")
         }
         let order: [String]
@@ -252,8 +252,8 @@ struct HistoryView: View {
         let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let transactionByID = store.cachedTransactionByID
         let filteredTransactions: [TransactionRecord] = store.normalizedHistoryIndex.compactMap { entry in
-            guard let transaction = transactionByID[entry.transactionID] else { return nil }
-            if let selectedWalletID, transaction.walletID != selectedWalletID { return nil }
+            guard let transaction = transactionByID[entry.transactionId] else { return nil }
+            if let selectedWalletID, transaction.walletId != selectedWalletID { return nil }
             switch selectedFilter {
             case .all: break
             case .sends: guard entry.kind == .send else { return nil }
@@ -314,7 +314,7 @@ struct HistoryView: View {
         HStack(spacing: 8) {
             Image(systemName: systemImage).font(.caption.weight(.semibold))
             VStack(alignment: .leading, spacing: 1) {
-                Text(title).font(.caption2).foregroundStyle(.secondary)
+                Text(AppLocalization.string(title)).font(.caption2).foregroundStyle(.secondary)
                 Text(value).font(.caption.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
             }
             Image(systemName: "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(.secondary)

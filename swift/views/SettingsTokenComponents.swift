@@ -1,11 +1,9 @@
 import Foundation
 import SwiftUI
 extension TokenHostingChain {
-    /// The icon slug is the chain's registry id.
-
     /// The chain's colour, from the catalog.
     var settingsIconTint: Color {
-        chain.flatMap { ChainRegistryEntry.entry(id: $0.id)?.color } ?? .accentColor
+        chain?.entry?.color.color ?? .accentColor
     }
 }
 extension TokenPreferenceEntry {

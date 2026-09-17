@@ -12,33 +12,32 @@ import Foundation
             await clearDiagnosticsSQLite()
             try await super.tearDown()
         }
-        func testMarkChainDegradedCreatesBannerAndPersistsState() async throws {
+        /// Core marks a chain degraded or healthy as part of the refresh that
+        /// found it so; this state only adopts what core recorded.
+        func testADegradedChainShowsABannerAndSurvivesAReload() async throws {
+            _ = try await WalletServiceBridge.shared.applyDiagnosticCommand(
+                .degraded(chainName: "Ethereum", detail: "Ethereum refresh timed out. Using cached balances and history."))
             let state = WalletDiagnosticsState()
-            state.markChainDegraded("Ethereum", detail: "Ethereum refresh timed out. Using cached balances and history.")
-            await state.flushPendingPersistence()
+            await state.loadFromSQLite()
             XCTAssertEqual(state.chainDegradedBanners.count, 1)
             XCTAssertEqual(state.chainDegradedBanners.first?.chainName, "Ethereum")
             XCTAssertTrue(state.chainDegradedBanners.first?.message.contains("Ethereum refresh timed out.") == true)
             XCTAssertEqual(state.operationalLogs.count, 1)
-            XCTAssertEqual(state.operationalLogs.first?.level, .warning)
-            XCTAssertEqual(state.operationalLogs.first?.chainName, "Ethereum")
-            let reloaded = WalletDiagnosticsState()
-            await reloaded.loadFromSQLite()
-            XCTAssertEqual(reloaded.chainDegradedMessages["Ethereum"], state.chainDegradedMessages["Ethereum"])
-            XCTAssertEqual(reloaded.operationalLogs.count, 1)
-            XCTAssertEqual(reloaded.operationalLogs.first?.chainName, "Ethereum")
+            XCTAssertEqual(state.operationalLogs.first?.input.level, .warning)
+            XCTAssertEqual(state.operationalLogs.first?.input.chainName, "Ethereum")
         }
-        func testMarkChainHealthyClearsBannerAndRecordsRecoveryLog() async throws {
+        func testAHealthyChainClearsItsBannerAndLogsTheRecovery() async throws {
+            _ = try await WalletServiceBridge.shared.applyDiagnosticCommand(
+                .degraded(chainName: "Solana", detail: "Solana history refresh failed. Using cached history."))
+            _ = try await WalletServiceBridge.shared.applyDiagnosticCommand(.healthy(chainName: "Solana"))
             let state = WalletDiagnosticsState()
-            state.markChainDegraded("Solana", detail: "Solana history refresh failed. Using cached history.")
-            state.markChainHealthy("Solana")
-            await state.flushPendingPersistence()
+            await state.loadFromSQLite()
             XCTAssertTrue(state.chainDegradedMessages["Solana"] == nil)
             XCTAssertNotNil(state.lastGoodChainSyncByName["Solana"])
             XCTAssertEqual(state.operationalLogs.count, 2)
-            XCTAssertEqual(state.operationalLogs.first?.level, .info)
-            XCTAssertEqual(state.operationalLogs.first?.chainName, "Solana")
-            XCTAssertEqual(state.operationalLogs.first?.message, "Chain recovered")
+            XCTAssertEqual(state.operationalLogs.first?.input.level, .info)
+            XCTAssertEqual(state.operationalLogs.first?.input.chainName, "Solana")
+            XCTAssertEqual(state.operationalLogs.first?.input.message, "Chain recovered")
         }
         func testAppendOperationalLogTrimsFieldsAndCapsAtEightHundredEntries() async throws {
             let state = WalletDiagnosticsState()
@@ -47,11 +46,11 @@ import Foundation
                 metadata: "  timeout  "
             )
             await state.flushPendingPersistence()
-            XCTAssertEqual(state.operationalLogs.first?.category, "Network")
-            XCTAssertEqual(state.operationalLogs.first?.message, "Request failed")
-            XCTAssertEqual(state.operationalLogs.first?.chainName, "Bitcoin")
-            XCTAssertEqual(state.operationalLogs.first?.source, "rpc")
-            XCTAssertEqual(state.operationalLogs.first?.metadata, "timeout")
+            XCTAssertEqual(state.operationalLogs.first?.input.category, "Network")
+            XCTAssertEqual(state.operationalLogs.first?.input.message, "Request failed")
+            XCTAssertEqual(state.operationalLogs.first?.input.chainName, "Bitcoin")
+            XCTAssertEqual(state.operationalLogs.first?.input.source, "rpc")
+            XCTAssertEqual(state.operationalLogs.first?.input.metadata, "timeout")
             for index in 0..<810 { state.appendOperationalLog(.info, category: "Load", message: "Event \(index)") }
             await state.flushPendingPersistence()
             XCTAssertEqual(state.operationalLogs.count, 800)

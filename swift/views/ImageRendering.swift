@@ -5,14 +5,8 @@ import SwiftUI
     import UIKit
 #endif
 
-/// A SwiftUI view that renders a token image from Assets.xcassets.
-/// Falls back to `nil` content when the image is unavailable so callers can provide their own fallback.
-
 // MARK: ─ Icon helpers
 
-#if canImport(UIKit)
-    import UIKit
-#endif
 /// Chain/token badge. Renders the bundled chain artwork when one exists;
 /// otherwise falls back to a solid circle with the first letter of
 /// `fallbackText`. No custom photos, no multi-letter disambiguation.

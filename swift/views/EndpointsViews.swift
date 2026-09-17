@@ -6,7 +6,7 @@ struct EndpointCatalogSettingsView: View {
     private var endpointSections: [Chain] {
         Chain.mainnets.filter { AppEndpointDirectory.hasEndpoints($0.displayName) }
     }
-    private var customEsploraEndpoints: [String] { parseBitcoinEsploraEndpoints(raw: store.bitcoinEsploraEndpoints) }
+    private var customEsploraEndpoints: [String] { parseBitcoinEsploraEndpoints(raw: store.appSettings.bitcoinEsploraEndpoints) }
     /// A family's networks, each with its own endpoints, the selected one
     /// carrying whatever the user configured.
     ///
@@ -42,8 +42,8 @@ struct EndpointCatalogSettingsView: View {
         }
     }
     private func backendEndpoints(of chain: Chain) -> [String] {
-        let trimmed = store.moneroBackendBaseURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? AppEndpointDirectory.settingsEndpoints(for: chain.displayName) : [trimmed]
+        let stored = store.appSettings.moneroBackendBaseUrl
+        return stored.isEmpty ? AppEndpointDirectory.settingsEndpoints(for: chain.displayName) : [stored]
     }
     private func addEsploraEndpoint() {
         let trimmed = newEsploraEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -54,7 +54,7 @@ struct EndpointCatalogSettingsView: View {
             return
         }
         endpoints.append(trimmed)
-        store.bitcoinEsploraEndpoints = endpoints.joined(separator: "\n")
+        store.updateSetting(.bitcoinEsploraEndpoints(value: endpoints.joined(separator: "\n")))
         newEsploraEndpoint = ""
     }
     /// One endpoint: the URL, and what the catalog says it is.
@@ -92,22 +92,25 @@ struct EndpointCatalogSettingsView: View {
         }
         TextField(copy.addEsploraEndpointPlaceholder, text: $newEsploraEndpoint).textInputAutocapitalization(.never)
             .autocorrectionDisabled().keyboardType(.URL)
+        if let error = endpointValidationError(field: .bitcoinEsploraList, raw: newEsploraEndpoint) {
+            Text(error).font(.caption).foregroundStyle(.red)
+        }
         Button(copy.addEndpointButtonTitle) {
             addEsploraEndpoint()
-        }
+        }.disabled(endpointValidationError(field: .bitcoinEsploraList, raw: newEsploraEndpoint) != nil)
         if !customEsploraEndpoints.isEmpty {
             Button(copy.clearCustomEsploraEndpointsTitle, role: .destructive) {
-                store.bitcoinEsploraEndpoints = ""
+                store.updateSetting(.bitcoinEsploraEndpoints(value: ""))
             }
         }
-        if let error = store.bitcoinEsploraEndpointsValidationError { Text(error).font(.caption).foregroundStyle(.red) }
     }
     @ViewBuilder
     private func backendSectionBody(_ chain: Chain) -> some View {
         endpointRows(backendEndpoints(of: chain))
-        TextField(copy.customBackendURLPlaceholder, text: $store.moneroBackendBaseURL)
-            .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
-        if let error = store.moneroBackendBaseURLValidationError { Text(error).font(.caption).foregroundStyle(.red) }
+        SettingTextField(
+            title: copy.customBackendURLPlaceholder, value: store.appSettings.moneroBackendBaseUrl, endpoint: .moneroBackend
+        ) { store.updateSetting(.moneroBackendBaseUrl(value: $0)) }
+        .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
     }
     @ViewBuilder
     private func readOnlyEVMSection(_ endpoints: [String]) -> some View {
@@ -123,16 +126,10 @@ struct EndpointCatalogSettingsView: View {
     /// that returned nil for every other name.
     @ViewBuilder
     private func customRPCField(for chainName: String) -> some View {
-        TextField(
-            copy.customRPCURLPlaceholder,
-            text: Binding(
-                get: { store.rpcEndpoint(forChain: chainName) },
-                set: { store.setRPCEndpoint($0, forChain: chainName) })
-        )
-        .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
-        if let error = store.rpcEndpointValidationError(forChain: chainName) {
-            Text(error).font(.caption).foregroundStyle(.red)
+        SettingTextField(title: copy.customRPCURLPlaceholder, value: store.rpcEndpoint(forChain: chainName), endpoint: .evmRpc) {
+            store.setRPCEndpoint($0, forChain: chainName)
         }
+        .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
     }
     /// One section per chain the catalog says has endpoints worth showing.
     ///

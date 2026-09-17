@@ -152,7 +152,7 @@ struct SendConfirmationStep: View {
 
     private func confirmFiatAmountText(selectedCoin: Coin?) -> String? {
         guard let selectedCoin, let amount = Double(store.sendAmount), amount > 0 else { return nil }
-        return store.formattedFiatAmount(fromNative: amount, symbol: selectedCoin.symbol)
+        return store.formattedFiatAmount(amount, of: selectedCoin)
     }
 
     private var recipientPreviewText: String {
@@ -169,7 +169,6 @@ struct SendConfirmationStep: View {
         return store.formattedNetworkFee(fee, chain: chain)
     }
 }
-
 
 /// The cards under the send flow that report what the last send is doing.
 /// Shown on every step except the result page, which says it in full itself.

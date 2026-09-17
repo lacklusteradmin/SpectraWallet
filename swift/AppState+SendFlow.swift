@@ -1,9 +1,5 @@
 import Foundation
 import SwiftUI
-import LocalAuthentication
-#if canImport(Network)
-    import Network
-#endif
 @MainActor
 extension AppState {
     private func clearAllChainSendState() {
@@ -203,13 +199,6 @@ extension AppState {
         return false
     }
     func isEVMChain(_ chainName: String) -> Bool { (Chain(displayName: chainName)?.isEVM ?? false) }
-    /// The custom RPC this chain is pointed at, if it is set and valid.
-    func configuredEVMRPCEndpointURL(for chainName: String) -> URL? {
-        guard rpcEndpointValidationError(forChain: chainName) == nil else { return nil }
-        let trimmed = rpcEndpoint(forChain: chainName)
-        guard !trimmed.isEmpty else { return nil }
-        return URL(string: trimmed)
-    }
     /// The known-token entry for a holding, on any chain that hosts tokens.
     ///
     /// The contract normaliser is core's rather than a lowercasing of the
@@ -244,325 +233,6 @@ extension AppState {
         await submitReviewedSend(review)
     }
 
-    func addressBookAddressValidationMessage(for address: String, chainName: String) -> String {
-        let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
-        let isEmpty = trimmed.isEmpty
-        let isValid = !isEmpty && isValidAddress(trimmed, for: chainName)
-        if !isEmpty, isValid { return AppLocalization.format("Valid %@ address.", chainName) }
-
-        // The sentence a chain has of its own, looked up by id. These are
-        // content, so they live in the locale files keyed by chain id; a chain
-        // with none falls back to a template built from the catalog's
-        // `address_prefix_hint`.
-        guard let chain = Chain(displayName: chainName) else {
-            return AppLocalization.format("Enter a valid %@ address.", chainName)
-        }
-        let key = "addressHint.\(chain.id).\(isEmpty ? "empty" : "invalid")"
-        let localized = AppLocalization.string(key)
-        if localized != key { return localized }
-
-        let hint = chain.addressPrefixHint
-        guard !hint.isEmpty else {
-            return isEmpty
-                ? localizedStoreString("Enter an address for the selected chain.")
-                : AppLocalization.format("Enter a valid %@ address.", chainName)
-        }
-        return isEmpty
-            ? AppLocalization.format("%@ addresses look like %@", chainName, hint)
-            : AppLocalization.format("Enter a valid %@ address — they look like %@", chainName, hint)
-    }
-    func isDuplicateAddressBookAddress(_ address: String, chainName: String, excluding entryID: String? = nil) -> Bool {
-        let normalized = normalizedAddress(address, for: chainName)
-        guard !normalized.isEmpty else { return false }
-        return addressBook.contains {
-            $0.id != entryID && $0.chainName == chainName && $0.address.caseInsensitiveCompare(normalized) == .orderedSame
-        }
-    }
-    func canSaveAddressBookEntry(name: String, address: String, chainName: String) -> Bool {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        return !trimmedName.isEmpty && isValidAddress(address, for: chainName)
-            && !isDuplicateAddressBookAddress(address, chainName: chainName)
-    }
-    /// Save a recipient. Core trims, normalizes the address, validates it and
-    /// rejects duplicates; the UI does not pre-check beyond disabling the
-    /// button via `canSaveAddressBookEntry`.
-    func addAddressBookEntry(name: String, address: String, chainName: String, note: String = "") {
-        enqueueAddressBookCommand(.addAddressBookEntry(
-            id: UUID().uuidString, name: name, chainName: chainName,
-            address: address, note: note))
-    }
-    func canSaveLastSentRecipientToAddressBook() -> Bool {
-        guard let tx = lastSentTransaction, tx.kind == .send else { return false }
-        return canSaveAddressBookEntry(name: "\(tx.symbol) Recipient", address: tx.address, chainName: tx.chainName)
-    }
-    func saveLastSentRecipientToAddressBook() {
-        guard let tx = lastSentTransaction, tx.kind == .send else { return }
-        addAddressBookEntry(name: "\(tx.symbol) Recipient", address: tx.address, chainName: tx.chainName, note: "Saved from recent send")
-    }
-    func renameAddressBookEntry(id: String, to newName: String) {
-        enqueueAddressBookCommand(.renameAddressBookEntry(id: id, name: newName))
-    }
-    func removeAddressBookEntry(id: String) {
-        enqueueAddressBookCommand(.removeAddressBookEntry(id: id))
-    }
-
-    /// Preserve UI intent order across actor reentrancy. Core still owns every
-    /// mutation; this task chain only orders the shell's forwarding and adoption.
-    private func enqueueAddressBookCommand(_ command: StateCommand) {
-        let previous = addressBookCommandTask
-        addressBookCommandTask = Task { @MainActor [weak self] in
-            await previous?.value
-            await self?.sendAddressBookCommand(command)
-        }
-    }
-
-    func awaitPendingAddressBookCommands() async {
-        await addressBookCommandTask?.value
-    }
-
-    /// Send an address-book command and mirror the result.
-    ///
-    /// A refusal arrives as an `addressBookRejected` event carrying the reason
-    /// core decided on; surfacing it beats silently doing nothing.
-    private func sendAddressBookCommand(_ command: StateCommand) async {
-        guard let transition = try? await WalletServiceBridge.shared.applyStateCommand(command)
-        else { return }
-        // A read begun while the write was pending may hold the old contacts.
-        // Invalidate it when the committed command returns, not when it starts.
-        applyCoreState(transition.state, epoch: beginCoreStateRead())
-        if let reason = transition.events.first(where: { $0.kind == "addressBookRejected" })?
-            .subjectId
-        {
-            addressBookError = addressBookRejectionMessage(reason)
-        } else {
-            addressBookError = nil
-        }
-    }
-
-    private func addressBookRejectionMessage(_ reason: String) -> String {
-        switch reason {
-        case "emptyName": return localizedStoreString("Enter a name for this contact.")
-        case "invalidAddress": return localizedStoreString("That address is not valid for this chain.")
-        case "duplicateAddress": return localizedStoreString("That address is already saved.")
-        default: return localizedStoreString("This contact could not be saved.")
-        }
-    }
-    /// Run a chain's synchronous self-test suite and record the outcome.
-    /// One chain's self-tests: the offline suite core keeps for every chain in
-    /// the catalog, plus — on an EVM chain — a probe of the endpoint it is
-    /// actually pointed at.
-    ///
-    /// `runEthereumSelfTests` stood beside this: the same bookkeeping wired to
-    /// one chain, with three extra probes. Two of them are gone. The
-    /// JSON-shape check tested core's own document builder, which core tests
-    /// where it is built; the portfolio fetch was the balance refresh with a
-    /// different error message, and it named Ethereum in four more places. The
-    /// third says something the offline suite cannot — whether the node this
-    /// chain is pointed at is that chain's node — so it runs for the whole EVM
-    /// family rather than for the one chain that had a button.
-    func runSelfTests(for chainName: String) async {
-        guard !selfTests(for: chainName).isRunning else { return }
-        selfTests[chainName, default: .init()].isRunning = true
-        defer { selfTests[chainName, default: .init()].isRunning = false }
-        var results = ChainSelfTests.run(chainName)
-        if let chain = Chain(displayName: chainName), chain.isEVM,
-            let rpc = configuredEVMRPCEndpointURL(for: chainName)?.absoluteString
-                ?? AppEndpointDirectory.evmRPCEndpoints(for: chainName).first
-        {
-            results += await selfTestsRunEvmRpc(chainId: chain.id, rpcUrl: rpc, rpcLabel: rpc)
-        }
-        selfTests[chainName] = .init(results: results, isRunning: true, lastRunAt: Date())
-
-        let failedCount = results.filter { !$0.passed }.count
-        let abbrev = Chain(displayName: chainName)?.gasTokenSymbol ?? chainName
-        appendChainOperationalEvent(
-            failedCount == 0 ? .info : .warning, chainName: chainName,
-            message: failedCount == 0
-                ? "\(abbrev) self-tests passed (\(results.count) checks)."
-                : "\(abbrev) self-tests completed with \(failedCount) failure(s).")
-    }
-    func operationalEvents(for chainName: String) async -> [ChainOperationalEvent] {
-        await WalletServiceBridge.shared.operationalEvents(chainName: chainName)
-    }
-
-    func runUTXORescan(chainName: String) async {
-        guard let chain = Chain(displayName: chainName), !self[rescanFor: chainName].isRunning else { return }
-        self[rescanFor: chainName].isRunning = true
-        defer { self[rescanFor: chainName].isRunning = false }
-        appendChainOperationalEvent(.info, chainName: chainName, message: "\(chain.gasTokenSymbol) rescan started.")
-        if await performCoreRefresh(.deepRescan(chainId: chain.id)) {
-            self[rescanFor: chainName].lastRunAt = Date()
-            appendChainOperationalEvent(.info, chainName: chainName, message: "\(chain.gasTokenSymbol) rescan completed.")
-        } else {
-            appendChainOperationalEvent(.warning, chainName: chainName, message: "\(chain.gasTokenSymbol) rescan failed or completed partially. See refresh errors.")
-        }
-    }
-
-    func startNetworkPathMonitorIfNeeded() {
-        #if canImport(Network)
-            networkPathMonitor.pathUpdateHandler = { [weak self] path in
-                let reachable = path.status == .satisfied; let constrained = path.isConstrained; let expensive = path.isExpensive
-                Task { @MainActor [weak self] in
-                    guard let self else { return }
-                    self.isNetworkReachable = reachable; self.isConstrainedNetwork = constrained; self.isExpensiveNetwork = expensive
-                }
-            }
-            networkPathMonitor.start(queue: networkPathMonitorQueue)
-        #endif
-    }
-    func setAppIsActive(_ isActive: Bool) {
-        appIsActive = isActive
-        if !isActive, preferences.useFaceID, preferences.useAutoLock { isAppLocked = true; appLockError = nil }
-        if !isActive {
-            maintenanceTask?.cancel(); maintenanceTask = nil
-            // Stop the Rust balance-refresh engine so it isn't firing
-            // network requests while the app is in the background.
-            Task { [weak self] in await self?.restartBalanceRefreshForCurrentConfiguration() }
-            return
-        }
-        startMaintenanceLoopIfNeeded()
-        // Resume balance refresh with the current frequency preference.
-        Task { [weak self] in await self?.restartBalanceRefreshForCurrentConfiguration() }
-    }
-    func unlockApp() async {
-        guard preferences.useFaceID else { isAppLocked = false; appLockError = nil; return }
-        if await authenticateForSensitiveAction(reason: "Authenticate to unlock Spectra") { isAppLocked = false; appLockError = nil }
-    }
-    func startMaintenanceLoopIfNeeded() {
-        guard maintenanceTask == nil else { return }
-        // With no wallets there's nothing to maintain — no pending tx to
-        // poll, no price work, no chain history to sync. Don't even spin
-        // the loop until something's worth checking.
-        // `applyWalletCollectionSideEffects` re-invokes this once a wallet
-        // exists. The loop also self-exits below when wallets drop to 0.
-        guard !wallets.isEmpty else { return }
-        maintenanceTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            while !Task.isCancelled {
-                // Self-exit when the user deletes all wallets. Lets the
-                // loop terminate naturally instead of sleeping forever
-                // doing nothing — matches the no-wallet startup gate.
-                if self.wallets.isEmpty {
-                    self.maintenanceTask = nil
-                    break
-                }
-                await self.runScheduledMaintenanceOnce()
-                // The cadence comes back with the plan: core knows whether
-                // anything is pending and what the sync profile allows.
-                try? await Task.sleep(
-                    nanoseconds: self.lastMaintenancePollSeconds * 1_000_000_000)
-            }
-        }
-    }
-    /// One tick. Core decides what it is, from its own clock and this device's
-    /// conditions; four questions and a `Date?` on this side became one.
-    func runScheduledMaintenanceOnce() async {
-        await performCoreRefresh(.scheduled)
-    }
-
-    func authenticateForSensitiveAction(reason: String, allowWhenAuthenticationUnavailable: Bool = false) async -> Bool {
-        guard preferences.useFaceID, preferences.requireBiometricForSendActions else { return true }
-        let context = LAContext(); var authError: NSError?
-        guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &authError) else {
-            if allowWhenAuthenticationUnavailable { return true }
-            let message = "Device authentication unavailable: \(authError?.localizedDescription ?? "unknown error")"
-            sendError = message; appLockError = message
-            return false
-        }
-        return await withCheckedContinuation { continuation in
-            context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { [weak self] success, error in
-                // `resume` sits outside the optional chain on purpose: the
-                // continuation must be resumed exactly once even if the store
-                // is gone by the time the prompt returns, and a `guard let
-                // self else { return }` here would leak it instead.
-                Task { @MainActor [weak self] in
-                    if success {
-                        self?.appLockError = nil
-                    } else {
-                        let message = error?.localizedDescription ?? "Authentication cancelled."
-                        self?.sendError = message
-                        self?.appLockError = message
-                    }
-                    continuation.resume(returning: success)
-                }
-            }
-        }
-    }
-    func authenticateForSeedPhraseReveal(reason: String) async -> Bool {
-        let context = LAContext()
-        var authError: NSError?
-        guard context.canEvaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, error: &authError) else { return false }
-        return await withCheckedContinuation { continuation in
-            context.evaluatePolicy(.deviceOwnerAuthenticationWithBiometrics, localizedReason: reason) { success, _ in
-                continuation.resume(returning: success)
-            }
-        }
-    }
-    func retryUTXOTransactionStatus(for transactionID: String) async -> String {
-        do {
-            let change = try await WalletServiceBridge.shared.recheckTransactionStatus(id: transactionID)
-            await applyPendingStatusChanges([change])
-            if change.statusChanged, let status = TransactionStatus(rawValue: change.newStatus) {
-                return "Status updated: \(status.localizedTitle)."
-            }
-            if change.newStatus == "pending" { return "No confirmation yet. Spectra will keep retrying automatically." }
-            return "Transaction is confirmed."
-        } catch {
-            let message = String(describing: error)
-            appendOperationalLog(.error, category: "Pending Transactions", message: message)
-            return message
-        }
-    }
-
-    func rebroadcastSignedTransaction(for transactionID: String) async -> String {
-        guard let transaction = transactions.first(where: { $0.id == transactionID }) else { return "Transaction not found." }
-        guard transaction.kind == .send else { return "Rebroadcast is only supported for send transactions." }
-        guard await authenticateForSensitiveAction(reason: "Authorize transaction rebroadcast") else {
-            return sendError ?? "Authentication failed."
-        }
-        do {
-            let transactionHash = try await WalletServiceBridge.shared.rebroadcastTransaction(id: transactionID)
-            await refreshTransactionProjection()
-            return "Transaction rebroadcasted: \(transactionHash). Network confirmation is pending."
-        } catch {
-            return error.localizedDescription
-        }
-    }
-    func walletDerivationPath(for wallet: WalletView, chain: Chain) -> String {
-        chain.resolve(path: wallet.seedDerivationPaths.path(for: chain))
-    }
-    /// The network this wallet is on for a family: its own if it has one,
-    /// otherwise whatever the app is set to.
-    func walletNetworkChainID(for wallet: WalletView, family: String) -> NetworkChainID {
-        wallet.networkChainId ?? ""
-    }
-
-    /// The derivation chain for a network, by id.
-    func seedDerivationChain(forChainID chainID: String) -> Chain? {
-        Chain(id: chainID)
-    }
-    /// The title of the network a chain family is on — "Bitcoin",
-    /// "Bitcoin Testnet4". The registry names chains, so this is a lookup
-    /// rather than a family switch plus string surgery on a mode name.
-    func displayChainTitle(for chainName: String) -> String {
-        guard let family = Chain(displayName: chainName)?.id, !family.isEmpty else {
-            return chainName
-        }
-        let chainID = networkChainID(forFamily: family)
-        return Chain(id: chainID)?.displayName ?? chainID
-    }
-    /// The part after the chain — "Testnet4" — for screens that show it alone.
-    func displayChainTitle(for wallet: WalletView) -> String {
-        guard let family = Chain(displayName: wallet.selectedChain)?.id, !family.isEmpty else {
-            return wallet.selectedChain
-        }
-        let chainID = walletNetworkChainID(for: wallet, family: family)
-        return Chain(id: chainID)?.displayName ?? chainID
-    }
-    func displayChainTitle(for transaction: TransactionRecord) -> String {
-        transaction.chainName
-    }
-    func supportsDeepUTXODiscovery(chainName: String) -> Bool { (Chain(displayName: chainName)?.supportsDeepUTXODiscovery ?? false) }
     /// `nil` when the lookup failed, which is a different answer from an
     /// empty list. Collapsing the two let a transient failure read as "this
     /// wallet owns no addresses" — and the self-send guard, which asks exactly
@@ -580,31 +250,6 @@ extension AppState {
         }
     }
 
-    func seedDerivationChain(for chainName: String) -> Chain? {
-        Chain(displayName: chainName)?.seedDerivationChain.flatMap(Chain.init(displayName:))
-    }
-    func walletHasAddress(for wallet: WalletView, chainName: String) -> Bool {
-        resolvedAddress(for: wallet, chainName: chainName) != nil
-    }
-    /// The wallet's keypool state for this chain, merged with the baseline.
-    ///
-    /// Core derives the baseline and refuses incomplete history reads.
-    func keypoolState(for wallet: WalletView, chainName: String) async throws -> ChainKeypoolState {
-        ChainKeypoolState(
-            keypool: try await WalletServiceBridge.shared.keypoolState(
-                walletID: wallet.id, chainName: chainName))
-    }
-    /// Reserve the next receive index, or return the one already reserved.
-    ///
-    func reservedReceiveDerivationPath(for wallet: WalletView, chainName: String, index: Int?) -> String? {
-        guard let chain = seedDerivationChain(for: chainName) else { return nil }
-        return walletDerivationPath(for: wallet, chain: chain)
-    }
-    func reservedReceiveAddressForDisplay(for wallet: WalletView, chainName: String) async -> String? {
-        guard let chain = Chain(displayName: chainName) else { return nil }
-        return try? await WalletServiceBridge.shared.receiveAddress(
-            walletID: wallet.id, chainId: chain.id, reserve: false)
-    }
     func refreshSendDestinationRiskWarning(for coin: Coin) async {
         let probeID = "\(sendWalletID)|\(sendHoldingKey)|\(sendAddress)"
         let trimmedDestination = sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -619,7 +264,7 @@ extension AppState {
         }
         let destinationForProbe = resolved.address
         let ensResolutionInfo: String? =
-            resolved.usedEns ? "Resolved ENS \(trimmedDestination) to \(destinationForProbe)." : nil
+            resolved.usedEns ? AppLocalization.format("Resolved ENS %@ to %@.", trimmedDestination, destinationForProbe) : nil
         let addressProbeKey = "\(coin.chainName)|\(coin.symbol)|\(destinationForProbe.lowercased())"
         if lastSendDestinationProbeKey == addressProbeKey {
             sendDestinationRiskWarning = lastSendDestinationProbeWarning
@@ -678,5 +323,30 @@ extension AppState {
                 "Note: this %@ address has transaction history but currently zero %@ balance.", chainName, symbol)
             : nil
         return (warning, info)
+    }
+    func availableSendCoins(for walletID: String) -> [Coin] { cachedAvailableSendCoinsByWalletID[walletID] ?? [] }
+    var sendEnabledWallets: [WalletView] { cachedSendEnabledWallets }
+    var canBeginSend: Bool { !sendEnabledWallets.isEmpty }
+    var replacementNonceStateMessage: String? {
+        guard let selectedSendCoin, selectedSendCoin.isEVMChain else { return nil }
+        guard let pending = replaceableSendForSelectedWallet else {
+            return AppLocalization.format(
+                "No pending %@ send found for this wallet. Replacement and cancel are available only for pending transactions.",
+                selectedSendCoin.chainName)
+        }
+        var message = AppLocalization.format("Pending %@ transaction detected", pending.symbol)
+        if let nonce = pending.recordedNonce {
+            message += AppLocalization.format("send.replacement.pendingNonceSuffix", nonce)
+        } else {
+            message += "."
+        }
+        let hash = pending.transactionHash
+        let shortHash = hash.count > 14 ? "\(hash.prefix(10))...\(hash.suffix(4))" : hash
+        message += AppLocalization.format("send.replacement.transactionSuffix", shortHash)
+        message += localizedStoreString(
+            pending.canSpeedUp
+                ? " Use Speed Up to resend with higher fees or Cancel to submit a 0-value self-transfer using the same nonce."
+                : " Use Cancel to submit a 0-value self-transfer using the same nonce. A token transfer cannot be rebuilt from its record, so it cannot be sped up.")
+        return message
     }
 }

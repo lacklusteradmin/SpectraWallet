@@ -29,22 +29,30 @@ extension AppState {
     func requestPriceAlertNotificationPermission() { requestStandardNotificationPermission() }
     func requestNotificationPermissionIfNeeded() { requestStandardNotificationPermission() }
     func requestTransactionStatusNotificationPermission() {
-        guard preferences.useTransactionStatusNotifications || preferences.useLargeMovementNotifications else { return }
+        guard appSettings.useTransactionStatusNotifications || appSettings.useLargeMovementNotifications else { return }
         requestNotificationPermissionIfNeeded()
     }
+    /// One sentence per condition. The single template took the condition's
+    /// raw value, lowercased, as a word — so a Chinese notification read
+    /// "这已above您的目标价".
     private func sendPriceAlertNotification(for notification: PriceAlertNotification) {
+        let template: String
+        switch notification.condition {
+        case .above: template = "%@ on %@ is now %@, above your target of %@."
+        case .below: template = "%@ on %@ is now %@, below your target of %@."
+        }
         postNotification(
             identifier: "price-alert-\(notification.id)-\(UUID().uuidString)",
             title: AppLocalization.format("%@ price alert", notification.symbol),
             body: AppLocalization.format(
-                "%@ on %@ is now %@, which is %@ your target of %@.", notification.assetDisplayName, notification.chainName,
-                formattedFiatAmount(fromUSD: notification.livePrice), notification.condition.rawValue.lowercased(),
+                template, notification.assetDisplayName, notification.chainName,
+                formattedFiatAmount(fromUSD: notification.livePrice),
                 formattedFiatAmount(fromUSD: notification.targetPrice)
             )
         )
     }
     func sendTransactionStatusNotification(for transaction: TransactionRecord, newStatus: TransactionStatus) {
-        guard preferences.useTransactionStatusNotifications else { return }
+        guard appSettings.useTransactionStatusNotifications else { return }
         let title: String
         let body: String
         switch newStatus {
@@ -61,7 +69,7 @@ extension AppState {
         case .pending: return
         }
         postNotification(
-            identifier: "transaction-status-\(transaction.id)-\(newStatus.rawValue)", title: title, body: body
+            identifier: "transaction-status-\(transaction.id)-\(newStatus)", title: title, body: body
         )
     }
 }

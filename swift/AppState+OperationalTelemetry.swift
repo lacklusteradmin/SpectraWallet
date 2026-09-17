@@ -8,14 +8,14 @@ extension AppState {
         let constrained = isConstrainedNetwork ? localizedStoreString("constrained") : localizedStoreString("unconstrained")
         let expensive = isExpensiveNetwork ? localizedStoreString("expensive") : localizedStoreString("non-expensive")
         return AppLocalization.format(
-            "Network: %@, %@, %@ • Auto refresh: %d min", reachability, constrained, expensive, preferences.automaticRefreshFrequencyMinutes
+            "Network: %@, %@, %@ • Auto refresh: %d min", reachability, constrained, expensive, Int(appSettings.automaticRefreshFrequencyMinutes)
         )
     }
-    func exportOperationalLogsText(events: [OperationalLogEvent]? = nil) -> String {
+    func exportOperationalLogsText(events: [DiagnosticLog]? = nil) -> String {
         diagnostics.exportOperationalLogsText(networkSyncStatusText: networkSyncStatusText, events: events)
     }
     func appendOperationalLog(
-        _ level: OperationalLogEvent.Level, category: String, message: String, chainName: String? = nil, walletID: String? = nil,
+        _ level: DiagnosticLogLevel, category: String, message: String, chainName: String? = nil, walletID: String? = nil,
         transactionHash: String? = nil, source: String? = nil, metadata: String? = nil
     ) {
         diagnostics.appendOperationalLog(
@@ -24,16 +24,10 @@ extension AppState {
         )
     }
     func appendChainOperationalEvent(
-        _ level: ChainOperationalEvent.Level, chainName: String, message: String, transactionHash: String? = nil
+        _ level: DiagnosticLogLevel, chainName: String, message: String, transactionHash: String? = nil
     ) {
-        let mappedLevel: OperationalLogEvent.Level
-        switch level {
-        case .info: mappedLevel = .info
-        case .warning: mappedLevel = .warning
-        case .error: mappedLevel = .error
-        }
         appendOperationalLog(
-            mappedLevel, category: "\(chainName) Broadcast", message: message, chainName: chainName, transactionHash: transactionHash
+            level, category: "\(chainName) Broadcast", message: message, chainName: chainName, transactionHash: transactionHash
         )
     }
     func noteSendBroadcastQueued(for transaction: TransactionRecord) {
@@ -41,24 +35,6 @@ extension AppState {
             .info, chainName: transaction.chainName, message: "\(transaction.symbol) send broadcast accepted.",
             transactionHash: transaction.transactionHash
         )
-    }
-    func noteSendBroadcastVerification(
-        chainName: String, verificationStatus: SendBroadcastVerificationStatus, transactionHash: String?
-    ) {
-        switch verificationStatus {
-        case .verified:
-            appendChainOperationalEvent(
-                .info, chainName: chainName, message: "Broadcast verified by provider.", transactionHash: transactionHash
-            )
-        case .deferred:
-            appendChainOperationalEvent(
-                .warning, chainName: chainName, message: "Broadcast accepted; verification deferred.", transactionHash: transactionHash
-            )
-        case .failed(let message):
-            appendChainOperationalEvent(
-                .warning, chainName: chainName, message: "Broadcast verification warning: \(message)", transactionHash: transactionHash
-            )
-        }
     }
     func noteSendBroadcastFailure(for chainName: String, message: String) {
         appendChainOperationalEvent(.error, chainName: chainName, message: "Send failed: \(message)")
@@ -83,7 +59,7 @@ extension AppState {
         let oldByID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
 
         if let stored = try? await WalletServiceBridge.shared.storedTransactions() {
-            adoptTransactionsFromCore(stored.map(TransactionRecord.init(snapshot:)))
+            adoptTransactionsFromCore(stored)
         }
 
         for change in changes {
@@ -91,33 +67,29 @@ extension AppState {
             let transaction = transactions.first(where: { $0.id == id }) ?? oldByID[id]
             guard let transaction else { continue }
             if change.statusChanged {
-                switch change.emitEventCode {
-                case "confirmed":
+                switch change.newStatus {
+                case .confirmed:
                     appendChainOperationalEvent(
                         .info, chainName: change.chainName,
-                        message: statusPollConfirmedMessage(for: transaction),
+                        message: localizedStoreString("Transaction confirmed on-chain."),
                         transactionHash: change.transactionHash)
-                case "failed":
+                case .failed:
                     appendChainOperationalEvent(
                         .error, chainName: change.chainName,
                         message: statusPollFailedEventMessage(for: transaction),
                         transactionHash: change.transactionHash)
-                default: break
+                case .pending: break
                 }
-                if change.sendStatusNotification, let oldTransaction = oldByID[id],
-                    let newStatus = TransactionStatus(rawValue: change.newStatus)
-                {
-                    sendTransactionStatusNotification(for: oldTransaction, newStatus: newStatus)
+                if let oldTransaction = oldByID[id] {
+                    sendTransactionStatusNotification(for: oldTransaction, newStatus: change.newStatus)
                 }
-                if let newStatus = TransactionStatus(rawValue: change.newStatus) {
-                    await finishSendLiveActivity(for: transaction, newStatus: newStatus)
-                }
+                await finishSendLiveActivity(for: transaction, newStatus: change.newStatus)
             }
             if let confirmations = change.reachedFinalityConfirmations {
                 appendChainOperationalEvent(
                     .info, chainName: change.chainName,
-                    message: statusPollFinalityReachedMessage(
-                        for: transaction, confirmations: Int(confirmations)),
+                    message: AppLocalization.format(
+                        "Transaction reached finality (%d confirmations).", Int(confirmations)),
                     transactionHash: change.transactionHash)
             }
         }
@@ -131,25 +103,30 @@ extension AppState {
         transaction.localizedFailureReason ?? statusPollFailureMessage(for: transaction)
     }
 
-    private func statusPollConfirmedMessage(for transaction: TransactionRecord) -> String {
-        localizedStoreString("Transaction confirmed on-chain.")
-    }
-
-    private func statusPollFinalityReachedMessage(for transaction: TransactionRecord, confirmations: Int) -> String {
-        AppLocalization.format("Transaction reached finality (%d confirmations).", confirmations)
-    }
     func editPriceAlert(_ command: StateCommand) async throws {
         let epoch = beginCoreStateRead()
         do {
             let transition = try await WalletServiceBridge.shared.applyStateCommand(command)
             applyCoreState(transition.state, epoch: epoch)
-            if let rejected = transition.events.first(where: { $0.kind == "priceAlertRejected" }) {
+            for case .priceAlertRejected(let reason) in transition.events {
                 throw NSError(domain: "PriceAlert", code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: rejected.subjectId ?? "Unable to edit alert"])
+                    userInfo: [NSLocalizedDescriptionKey: priceAlertRejectionMessage(reason)])
             }
         } catch {
             finishCoreStateRead(epoch)
             throw error
+        }
+    }
+    /// Core's reason, in this app's words. The reason used to be English prose
+    /// written by core and shown as it came, whatever the app's language.
+    func priceAlertRejectionMessage(_ reason: PriceAlertRejection) -> String {
+        switch reason {
+        case .missingCurrencyRate:
+            return localizedStoreString("Exchange rates for this currency have not loaded yet. Try again shortly.")
+        case .invalidTarget: return localizedStoreString("Enter a target price above zero.")
+        case .unknownAsset: return localizedStoreString("This asset is no longer in your wallets.")
+        case .duplicateAlert: return localizedStoreString("An identical alert already exists.")
+        case .alertNotFound: return localizedStoreString("This alert no longer exists.")
         }
     }
 }

@@ -46,7 +46,6 @@ extension AssetHolding: Identifiable {
     /// makes SwiftUI treat every row as new on each rebuild.
     public var id: String { holdingIdentity(holding: self) }
     var color: Color { Coin.displayColor(for: symbol) }
-    var valueUSD: Double { amount * priceUsd }
     static func makeCustom(
         name: String, symbol: String, coinGeckoId: String, chainName: String, tokenStandard: String,
         contractAddress: String?, amount: Double, priceUsd: Double
@@ -67,8 +66,6 @@ extension AssetHolding: Identifiable {
 }
 extension WalletView: Identifiable {}
 extension WalletView {
-    var totalBalance: Double { holdings.reduce(0) { $0 + $1.valueUSD } }
-
     /// This wallet's address for a chain, by display name. Slot resolution
     /// (including "every EVM chain shares Ethereum's") lives in the Rust
     /// registry, so this never needs to know which chains exist.
@@ -77,170 +74,23 @@ extension WalletView {
         guard !slot.isEmpty else { return nil }
         return addresses[slot]
     }
-
-
-    /// Convenience initializer that defaults every field a caller doesn't set.
-    ///
-    /// `WalletView` is a UniFFI record, so its generated memberwise
-    /// init has no defaults.
-    init(
-        id: UUID = UUID(),
-        name: String,
-        networkChainID: String? = nil,
-        addresses: [String: String?] = [:],
-        bitcoinXpub: String? = nil,
-        seedDerivationPreset: CoreSeedDerivationPreset = .standard,
-        seedDerivationPaths: CoreSeedDerivationPaths? = nil,
-        derivationOverrides: CoreWalletDerivationOverrides = .empty,
-        selectedChain: String,
-        holdings: [Coin] = [],
-        includeInPortfolioTotal: Bool = true
-    ) {
-        self.init(
-            id: id.uuidString, name: name, networkChainId: networkChainID,
-            addresses: addressSlotMap(addresses),
-            bitcoinXpub: bitcoinXpub,
-            seedDerivationPreset: seedDerivationPreset,
-            seedDerivationPaths: seedDerivationPaths ?? .applyingPreset(seedDerivationPreset),
-            derivationOverrides: derivationOverrides,
-            selectedChain: selectedChain, holdings: holdings,
-            includeInPortfolioTotal: includeInPortfolioTotal
-        )
-    }
-
 }
 
-extension CoreWalletDerivationOverrides {
-    /// All-nil overrides — "use the chain's defaults".
-    static var empty: CoreWalletDerivationOverrides {
-        CoreWalletDerivationOverrides(
-            passphrase: nil, hmacKey: nil
-        )
-    }
-}
-
-// MARK: - Wallet import address slots
-//
-// `WalletImportAddresses` and `WalletImportWatchOnlyEntries` are keyed by
-// storage slot rather than carrying one field per chain. Slots come from the
-// Rust registry via `Chain.addressSlot`, so the UI never hardcodes a key and
-// never has to know that every EVM chain shares Ethereum's slot.
-
-/// The storage slot a chain's address is kept under, or nil if the registry
-/// does not know the chain.
-private func addressSlot(forChainNamed chainName: String) -> String? {
-    let slot = Chain(displayName: chainName)?.addressSlot ?? ""
-    return slot.isEmpty ? nil : slot
-}
-
-/// Fold a chain-display-name → address table into the slot-keyed storage,
-/// dropping empty values and chains the registry does not know.
-func addressSlotMap(_ byChainName: [String: String?]) -> [String: String] {
-    var bySlot: [String: String] = [:]
-    for (chainName, address) in byChainName {
-        guard let address, !address.isEmpty, let slot = addressSlot(forChainNamed: chainName) else {
-            continue
-        }
-        bySlot[slot] = address
-    }
-    return bySlot
-}
-
-/// The list-valued variant. Chains that share a slot — the EVM family — have
-/// their lists concatenated rather than overwriting each other, which is the
-/// one thing that keeps this from being the same function.
+/// Watch-only entries keyed by storage slot, the shape core's import reads.
+///
+/// Slots come from the registry via `Chain.addressSlot`, so the UI never
+/// hardcodes a key. Chains that share a slot — the EVM family — have their
+/// lists concatenated rather than overwriting each other; a chain the registry
+/// does not know is dropped.
 func addressSlotMap(_ byChainName: [String: [String]]) -> [String: [String]] {
     var bySlot: [String: [String]] = [:]
     for (chainName, addresses) in byChainName where !addresses.isEmpty {
-        guard let slot = addressSlot(forChainNamed: chainName) else { continue }
+        guard let slot = Chain(displayName: chainName)?.addressSlot, !slot.isEmpty else { continue }
         bySlot[slot, default: []].append(contentsOf: addresses)
     }
     return bySlot
 }
 
-extension WalletImportAddresses {
-    /// The address stored for a chain, by display name.
-    func address(for chainName: String) -> String? {
-        addressSlot(forChainNamed: chainName).flatMap { bySlot[$0] }
-    }
-}
-
-extension WalletImportWatchOnlyEntries {
-    /// Addresses entered for a chain, by display name.
-    func addresses(for chainName: String) -> [String] {
-        addressSlot(forChainNamed: chainName).flatMap { bySlot[$0] } ?? []
-    }
-}
-typealias SeedDerivationPreset = CoreSeedDerivationPreset
-extension CoreSeedDerivationPreset: RawRepresentable, CaseIterable, Codable, Identifiable {
-    public typealias RawValue = String
-    public init?(rawValue: String) {
-        switch rawValue {
-        case "standard": self = .standard
-        case "account1": self = .account1
-        case "account2": self = .account2
-        default: return nil
-        }
-    }
-    public var rawValue: String {
-        switch self {
-        case .standard: return "standard"
-        case .account1: return "account1"
-        case .account2: return "account2"
-        }
-    }
-    public static let allCases: [CoreSeedDerivationPreset] = [.standard, .account1, .account2]
-    public var id: String { rawValue }
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.singleValueContainer()
-        let raw = try c.decode(String.self)
-        guard let v = Self(rawValue: raw) else {
-            throw DecodingError.dataCorruptedError(in: c, debugDescription: "Invalid SeedDerivationPreset: \(raw)")
-        }
-        self = v
-    }
-    public func encode(to encoder: Encoder) throws {
-        var c = encoder.singleValueContainer()
-        try c.encode(rawValue)
-    }
-    public var displayName: String {
-        switch self {
-        case .standard: return "Standard"
-        case .account1: return "Account 1"
-        case .account2: return "Account 2"
-        }
-    }
-    public var detail: String {
-        switch self {
-        case .standard: return "Use account 0 default paths."
-        case .account1: return "Use account 1 paths for all supported chains."
-        case .account2: return "Use account 2 paths for all supported chains."
-        }
-    }
-    public var accountIndex: UInt32 {
-        switch self {
-        case .standard: return 0
-        case .account1: return 1
-        case .account2: return 2
-        }
-    }
-}
-extension Chain {
-    /// The derivation path a wallet on this chain will use: `rawPath`
-    /// normalized, or the chain's catalog default when it is empty.
-    ///
-    /// Core returned a four-field resolution here — chain, path, account index
-    /// and a `SeedDerivationFlavor` — and this app read the path. The other
-    /// three had no reader on either side of the binding.
-    ///
-    /// Empty when core cannot resolve one. The only reader shows the path of a
-    /// reserved receive index on the diagnostics screen, and a `fatalError`
-    /// there crashed the app to report a label it could not print. Core signs
-    /// and derives from its own stored path, not from this.
-    func resolve(path rawPath: String) -> String {
-        (try? appCoreResolveDerivationPath(chain: displayName, derivationPath: rawPath)) ?? ""
-    }
-}
 typealias SeedDerivationPaths = CoreSeedDerivationPaths
 extension CoreSeedDerivationPaths {
     /// Storage key for a chain. Testnets share their mainnet counterpart's
@@ -262,26 +112,18 @@ extension CoreSeedDerivationPaths {
         byChain[key] = path
     }
 
-    static var defaults: CoreSeedDerivationPaths { migrated(from: nil) }
+    static var defaults: CoreSeedDerivationPaths { forPreset(.standard) }
 
-    /// Defaults for a preset's account index, straight from the Rust chain
-    /// catalog.
+    /// A preset's paths, straight from the Rust chain catalog.
     ///
     /// There is deliberately no hardcoded Swift fallback table. The one that
     /// used to live here restated all 44 paths from `chains.toml` and would
     /// have drifted silently; an empty map instead surfaces a broken catalog
     /// as a visibly missing path rather than a plausible wrong one.
-    static func migrated(from preset: SeedDerivationPreset?) -> CoreSeedDerivationPaths {
-        (try? appCoreDerivationPathsForPreset(accountIndex: preset?.accountIndex ?? 0))
+    static func forPreset(_ preset: CoreSeedDerivationPreset) -> CoreSeedDerivationPaths {
+        (try? appCoreDerivationPathsForPreset(preset: preset))
             ?? CoreSeedDerivationPaths(isCustomEnabled: false, byChain: [:])
     }
-
-    static func applyingPreset(_ preset: SeedDerivationPreset, keepCustomEnabled: Bool = false) -> CoreSeedDerivationPaths {
-        var paths = migrated(from: preset)
-        paths.isCustomEnabled = keepCustomEnabled
-        return paths
-    }
-
 }
 extension TransactionStatus {
     var localizedTitle: String {
@@ -306,25 +148,13 @@ enum HistorySortOrder: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var localizedTitle: String { AppLocalization.string(rawValue) }
 }
-struct NormalizedHistoryEntry: Identifiable {
-    let id: String
-    let transactionID: String
-    let dedupeKey: String
-    let createdAt: Date
-    let kind: TransactionKind
-    let status: TransactionStatus
-    let walletName: String
-    let assetDisplayName: String
-    let symbol: String
-    let chainName: String
-    let address: String
-    let transactionHash: String?
-    let sourceTag: String
-    let providerCount: Int
-    let searchIndex: String
-}
 extension PriceAlertCondition {
-    var displayName: String { AppLocalization.string(rawValue) }
+    var displayName: String {
+        switch self {
+        case .above: return AppLocalization.string("Above")
+        case .below: return AppLocalization.string("Below")
+        }
+    }
 }
 /// The alert rule core stores. Not a Swift copy of it — core owns the list,
 /// the rule that a target must be positive, and the persistence.
@@ -358,139 +188,21 @@ extension AddressBookEntry: Identifiable {
         return String(format: CommonLocalizationContent.current.addressBookSubtitleFormat, chainName, note)
     }
 }
-struct TransactionRecord: Identifiable, Equatable, Sendable {
-    let deploymentID: String?
-    /// Core's id, verbatim. It was a `UUID`, parsed from core's string at the
-    /// read site, and a row whose id did not parse was dropped from the list
-    /// rather than reported — the app deciding, quietly, which of core's
-    /// transactions exist.
-    let id: String
-    let walletID: String?
-    let kind: TransactionKind
-    let status: TransactionStatus
-    let walletName: String
-    let assetDisplayName: String
-    let symbol: String
-    let chainName: String
-    let amount: Double
-    let address: String
-    let transactionHash: String?
-    let ethereumNonce: Int?
-    let receiptBlockNumber: Int?
-    let receiptGasUsed: String?
-    let receiptEffectiveGasPriceGwei: Double?
-    let receiptNetworkFee: Double?
-    let feePriorityRaw: String?
-    let feeRateDescription: String?
-    let confirmationCount: Int?
-    let dogecoinConfirmedNetworkFeeDoge: Double?
-    let dogecoinEstimatedFeeRateDogePerKb: Double?
-    let usedChangeOutput: Bool?
-    let sourceDerivationPath: String?
-    let changeDerivationPath: String?
-    let sourceAddress: String?
-    let changeAddress: String?
-    let signedTransactionPayload: String?
-    let signedTransactionPayloadFormat: String?
-    let failureReason: String?
-    let transactionHistorySource: String?
-    let createdAt: Date
-    nonisolated init(
-        id: String, walletID: String? = nil, deploymentID: String? = nil, kind: TransactionKind, status: TransactionStatus, walletName: String, assetDisplayName: String,
-        symbol: String, chainName: String, amount: Double, address: String, transactionHash: String? = nil, ethereumNonce: Int? = nil,
-        receiptBlockNumber: Int? = nil, receiptGasUsed: String? = nil, receiptEffectiveGasPriceGwei: Double? = nil,
-        receiptNetworkFee: Double? = nil, feePriorityRaw: String? = nil, feeRateDescription: String? = nil,
-        confirmationCount: Int? = nil, dogecoinConfirmedNetworkFeeDoge: Double? = nil,
-        dogecoinEstimatedFeeRateDogePerKb: Double? = nil, usedChangeOutput: Bool? = nil,
-        sourceDerivationPath: String? = nil, changeDerivationPath: String? = nil,
-        sourceAddress: String? = nil, changeAddress: String? = nil,
-        signedTransactionPayload: String? = nil, signedTransactionPayloadFormat: String? = nil, failureReason: String? = nil,
-        transactionHistorySource: String? = nil, createdAt: Date = Date()
-    ) {
-        self.id = id
-        self.walletID = walletID
-        self.deploymentID = deploymentID
-        self.kind = kind
-        self.status = status
-        self.walletName = walletName
-        self.assetDisplayName = assetDisplayName
-        self.symbol = symbol
-        self.chainName = chainName
-        self.amount = amount
-        self.address = address
-        self.transactionHash = transactionHash
-        self.ethereumNonce = ethereumNonce
-        self.receiptBlockNumber = receiptBlockNumber
-        self.receiptGasUsed = receiptGasUsed
-        self.receiptEffectiveGasPriceGwei = receiptEffectiveGasPriceGwei
-        self.receiptNetworkFee = receiptNetworkFee
-        self.feePriorityRaw = feePriorityRaw
-        self.feeRateDescription = feeRateDescription
-        self.confirmationCount = confirmationCount
-        self.dogecoinConfirmedNetworkFeeDoge = dogecoinConfirmedNetworkFeeDoge
-        self.dogecoinEstimatedFeeRateDogePerKb = dogecoinEstimatedFeeRateDogePerKb
-        self.usedChangeOutput = usedChangeOutput
-        self.sourceDerivationPath = sourceDerivationPath
-        self.changeDerivationPath = changeDerivationPath
-        self.sourceAddress = sourceAddress
-        self.changeAddress = changeAddress
-        self.signedTransactionPayload = signedTransactionPayload
-        self.signedTransactionPayloadFormat = signedTransactionPayloadFormat
-        self.failureReason = failureReason
-        self.transactionHistorySource = transactionHistorySource
-        self.createdAt = createdAt
-    }
-    // History with no deployment identity draws its letter.
-    var artworkName: String { coreDeploymentArtworkName(deploymentId: deploymentID) }
+/// A stored transaction, as core keeps it.
+///
+/// A typealias, like `Coin`. This was a 35-field Swift struct copying core's
+/// record field by field, with an initializer that copied it again and
+/// integer widths converted on the way; three chain-named fields came across
+/// with it.
+typealias TransactionRecord = CorePersistedTransactionRecord
 
-}
-enum SendBroadcastVerificationStatus: Equatable {
-    case verified
-    case deferred
-    case failed(String)
-}
+extension CorePersistedTransactionRecord: Identifiable {}
 
 extension TransactionRecord {
-    /// Adopt one stored record. Nothing to decide: core's status is not
-    /// optional, so the "a record with no status is pending when received and
-    /// confirmed when sent" fallback this used to apply — differently from
-    /// core's own — has nowhere left to live.
-    @MainActor init(snapshot: CorePersistedTransactionRecord) {
-        self.init(
-            id: snapshot.id,
-            walletID: snapshot.walletId,
-            deploymentID: snapshot.deploymentId,
-            kind: snapshot.kind,
-            status: snapshot.status,
-            walletName: snapshot.walletName,
-            assetDisplayName: snapshot.assetDisplayName,
-            symbol: snapshot.symbol,
-            chainName: snapshot.chainName,
-            amount: snapshot.amount,
-            address: snapshot.address,
-            transactionHash: snapshot.transactionHash,
-            ethereumNonce: snapshot.ethereumNonce.map { Int($0) },
-            receiptBlockNumber: snapshot.receiptBlockNumber.map { Int($0) },
-            receiptGasUsed: snapshot.receiptGasUsed,
-            receiptEffectiveGasPriceGwei: snapshot.receiptEffectiveGasPriceGwei,
-            receiptNetworkFee: snapshot.receiptNetworkFee,
-            feePriorityRaw: snapshot.feePriorityRaw,
-            feeRateDescription: snapshot.feeRateDescription,
-            confirmationCount: snapshot.confirmationCount.map { Int($0) },
-            dogecoinConfirmedNetworkFeeDoge: snapshot.dogecoinConfirmedNetworkFeeDoge,
-            dogecoinEstimatedFeeRateDogePerKb: snapshot.dogecoinEstimatedFeeRateDogePerKb,
-            usedChangeOutput: snapshot.usedChangeOutput,
-            sourceDerivationPath: snapshot.sourceDerivationPath,
-            changeDerivationPath: snapshot.changeDerivationPath,
-            sourceAddress: snapshot.sourceAddress,
-            changeAddress: snapshot.changeAddress,
-            signedTransactionPayload: snapshot.signedTransactionPayload,
-            signedTransactionPayloadFormat: snapshot.signedTransactionPayloadFormat,
-            failureReason: snapshot.failureReason,
-            transactionHistorySource: snapshot.transactionHistorySource,
-            createdAt: Date(timeIntervalSinceReferenceDate: snapshot.createdAt)
-        )
-    }
+    /// History with no deployment identity draws its letter.
+    var artworkName: String { coreDeploymentArtworkName(deploymentId: deploymentId) }
+    /// When it was recorded. Core stores Swift reference seconds.
+    var createdDate: Date { Date(timeIntervalSinceReferenceDate: createdAt) }
     var titleText: String {
         let copy = CommonLocalizationContent.current
         switch kind {
@@ -551,7 +263,7 @@ extension TransactionRecord {
         let trimmed = signedTransactionPayloadFormat.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
-    var fullTimestampText: String { createdAt.formatted(date: .abbreviated, time: .standard) }
+    var fullTimestampText: String { createdDate.formatted(date: .abbreviated, time: .standard) }
     var transactionExplorerURL: URL? {
         guard let transactionHash, !transactionHash.isEmpty else { return nil }
         return AppEndpointDirectory.transactionExplorerURL(for: chainName, transactionHash: transactionHash)
@@ -576,12 +288,6 @@ extension TransactionRecord {
     }
     var supportsSignedRebroadcast: Bool { kind == .send && rebroadcastPayload != nil && rebroadcastPayloadFormat != nil }
 
-    /// Whether this transaction's status can be rechecked against the chain.
-    ///
-    /// The rule is `Chain::pending_status_poll`: the chain is polled
-    /// UTXO-style, and either it does not require a send or this is one.
-    /// Litecoin is `require_send_kind: false` because its explorer confirms
-    /// receives on its own cadence.
     /// The failure reason to show, localized.
     ///
     /// Core stores a code. A localized sentence written into the database
@@ -599,6 +305,12 @@ extension TransactionRecord {
         }
     }
 
+    /// Whether this transaction's status can be rechecked against the chain.
+    ///
+    /// The rule is `Chain::pending_status_poll`: the chain is polled
+    /// UTXO-style, and either it does not require a send or this is one.
+    /// Litecoin is `require_send_kind: false` because its explorer confirms
+    /// receives on its own cadence.
     var supportsStatusRecheck: Bool {
         guard transactionHash != nil,
             let chain = Chain(displayName: chainName),

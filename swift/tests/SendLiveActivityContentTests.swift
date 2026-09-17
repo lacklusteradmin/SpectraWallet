@@ -84,7 +84,7 @@ final class SendLiveActivityContentTests: XCTestCase {
         ] {
             XCTAssertEqual(
                 sendLiveActivityContentState(for: transaction, phase: phase, amountText: "1.5")
-                    .startedAt, transaction.createdAt)
+                    .startedAt, transaction.createdDate)
         }
     }
 }

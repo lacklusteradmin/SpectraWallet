@@ -3,7 +3,7 @@ import SwiftUI
 struct ResetWalletWarningView: View {
     let store: AppState
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedScopes = Set(AppState.ResetScope.allCases)
+    @State private var selectedScopes = Set(ResetScope.allCases)
     var body: some View {
         NavigationStack {
             Form {
@@ -21,7 +21,7 @@ struct ResetWalletWarningView: View {
                     Text(AppLocalization.string("Before You Continue"))
                 }
                 Section(AppLocalization.string("Choose What To Reset")) {
-                    ForEach(AppState.ResetScope.allCases) { scope in
+                    ForEach(ResetScope.allCases, id: \.self) { scope in
                         Toggle(isOn: binding(for: scope)) {
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(scope.title)
@@ -80,7 +80,7 @@ struct ResetWalletWarningView: View {
             }
         }
     }
-    private func binding(for scope: AppState.ResetScope) -> Binding<Bool> {
+    private func binding(for scope: ResetScope) -> Binding<Bool> {
         Binding(
             get: { selectedScopes.contains(scope) },
             set: { isSelected in

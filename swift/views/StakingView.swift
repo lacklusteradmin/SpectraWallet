@@ -134,66 +134,59 @@ extension Chain {
         switch self {
         case .solana:
             return StakingChainDescriptor(
-                tint: .purple, apyEstimate: "~6–7% APY",
-                shortMechanic: "Delegate to a vote account; rewards each epoch (~2 days).",
-                unbondingPeriod: "2–3 days deactivation", minimumStake: "≥ 0.001 SOL recommended",
-
+                tint: .purple, apyEstimate: AppLocalization.string("~6–7% APY"),
+                shortMechanic: AppLocalization.string("Delegate to a vote account; rewards each epoch (~2 days)."),
+                unbondingPeriod: AppLocalization.string("2–3 days deactivation"), minimumStake: AppLocalization.string("≥ 0.001 SOL recommended"),
                 detailedExplanation:
-                    "Each stake position is its own on-chain stake account. Spectra creates a fresh keypair, initializes the account with `StakeProgram`, and delegates to the vote account you pick. Rewards land at every epoch boundary."
+                    AppLocalization.string("Each stake position is its own on-chain stake account. Spectra creates a fresh keypair, initializes the account with `StakeProgram`, and delegates to the vote account you pick. Rewards land at every epoch boundary.")
             )
         case .cardano:
             return StakingChainDescriptor(
-                tint: .indigo, apyEstimate: "~3% APY",
-                shortMechanic: "Delegate to a stake pool; rewards every 5-day epoch.",
-                unbondingPeriod: "No unbonding (instant)", minimumStake: "2 ADA registration deposit",
-
+                tint: .indigo, apyEstimate: AppLocalization.string("~3% APY"),
+                shortMechanic: AppLocalization.string("Delegate to a stake pool; rewards every 5-day epoch."),
+                unbondingPeriod: AppLocalization.string("No unbonding (instant)"), minimumStake: AppLocalization.string("2 ADA registration deposit"),
                 detailedExplanation:
-                    "First-time delegations register your stake address (refundable 2 ADA deposit) and attach a delegation certificate to your chosen pool. Re-delegating is just a new certificate — funds never leave your wallet."
+                    AppLocalization.string("First-time delegations register your stake address (refundable 2 ADA deposit) and attach a delegation certificate to your chosen pool. Re-delegating is just a new certificate — funds never leave your wallet.")
             )
         case .sui:
             return StakingChainDescriptor(
-                tint: .mint, apyEstimate: "~3% APY",
-                shortMechanic: "Move call `request_add_stake` to a validator; epoch ~24h.",
-                unbondingPeriod: "Until end of current epoch", minimumStake: "1 SUI",
-
+                tint: .mint, apyEstimate: AppLocalization.string("~3% APY"),
+                shortMechanic: AppLocalization.string("Move call `request_add_stake` to a validator; epoch ~24h."),
+                unbondingPeriod: AppLocalization.string("Until end of current epoch"), minimumStake: AppLocalization.string("1 SUI"),
                 detailedExplanation:
-                    "Staking creates a `StakedSui` object owned by your wallet. To unstake, the same object is passed to `request_withdraw_stake`; principal + rewards return at the next epoch boundary."
+                    AppLocalization.string("Staking creates a `StakedSui` object owned by your wallet. To unstake, the same object is passed to `request_withdraw_stake`; principal + rewards return at the next epoch boundary.")
             )
         case .aptos:
             return StakingChainDescriptor(
-                tint: .cyan, apyEstimate: "~7% APY",
-                shortMechanic: "Add stake to a delegation pool; epoch ~2h.",
-                unbondingPeriod: "~30-day lockup cycle", minimumStake: "11 APT to a delegation pool",
-
+                tint: .cyan, apyEstimate: AppLocalization.string("~7% APY"),
+                shortMechanic: AppLocalization.string("Add stake to a delegation pool; epoch ~2h."),
+                unbondingPeriod: AppLocalization.string("~30-day lockup cycle"), minimumStake: AppLocalization.string("11 APT to a delegation pool"),
                 detailedExplanation:
-                    "Calls `0x1::delegation_pool::add_stake` against a pool address. Stake activates at the next epoch. Unlock moves it to a pending-inactive bucket; after the lockup cycle (typically 30 days) it becomes withdrawable."
+                    AppLocalization.string("Calls `0x1::delegation_pool::add_stake` against a pool address. Stake activates at the next epoch. Unlock moves it to a pending-inactive bucket; after the lockup cycle (typically 30 days) it becomes withdrawable.")
             )
         case .near:
             return StakingChainDescriptor(
-                tint: .indigo, apyEstimate: "~9% APY",
-                shortMechanic: "`deposit_and_stake` on a `*.poolv1.near` contract.",
-                unbondingPeriod: "~52h (4 epochs)", minimumStake: "Pool-dependent",
-
+                tint: .indigo, apyEstimate: AppLocalization.string("~9% APY"),
+                shortMechanic: AppLocalization.string("`deposit_and_stake` on a `*.poolv1.near` contract."),
+                unbondingPeriod: AppLocalization.string("~52h (4 epochs)"), minimumStake: AppLocalization.string("Pool-dependent"),
                 detailedExplanation:
-                    "Each validator runs its own staking-pool contract. Spectra calls `deposit_and_stake` with NEAR attached. Unstake places funds into a pending bucket; after 4 epochs (~52h) they're withdrawable via `withdraw`."
+                    AppLocalization.string("Each validator runs its own staking-pool contract. Spectra calls `deposit_and_stake` with NEAR attached. Unstake places funds into a pending bucket; after 4 epochs (~52h) they're withdrawable via `withdraw`.")
             )
         case .polkadot:
             return StakingChainDescriptor(
-                tint: .pink, apyEstimate: "~14% APY",
-                shortMechanic: "Bond + nominate up to 16 validators, OR join a nomination pool.",
-                unbondingPeriod: "28 days", minimumStake: "Direct: 250 DOT · Pool: 1 DOT",
-
+                tint: .pink, apyEstimate: AppLocalization.string("~14% APY"),
+                shortMechanic: AppLocalization.string("Bond + nominate up to 16 validators, OR join a nomination pool."),
+                unbondingPeriod: AppLocalization.string("28 days"), minimumStake: AppLocalization.string("Direct: 250 DOT · Pool: 1 DOT"),
                 detailedExplanation:
-                    "Two paths: direct nomination (`staking::bond` + `staking::nominate`, requires the chain's active minimum bond, currently ~250 DOT) or nomination pools (`nomination_pools::join`, no minimum, recommended for smaller stakers)."
+                    AppLocalization.string("Two paths: direct nomination (`staking::bond` + `staking::nominate`, requires the chain's active minimum bond, currently ~250 DOT) or nomination pools (`nomination_pools::join`, no minimum, recommended for smaller stakers).")
             )
         case .icp:
             return StakingChainDescriptor(
-                tint: .indigo, apyEstimate: "Up to ~14% APY",
-                shortMechanic: "Lock ICP into a neuron; rewards scale with dissolve delay.",
-                unbondingPeriod: "Dissolve delay (6 months – 8 years)", minimumStake: "1 ICP",
-
+                tint: .indigo, apyEstimate: AppLocalization.string("Up to ~14% APY"),
+                shortMechanic: AppLocalization.string("Lock ICP into a neuron; rewards scale with dissolve delay."),
+                unbondingPeriod: AppLocalization.string("Dissolve delay (6 months – 8 years)"), minimumStake: AppLocalization.string("1 ICP"),
                 detailedExplanation:
-                    "Staking on ICP means creating an NNS neuron with a chosen dissolve delay (≥ 6 months for rewards eligibility, up to 8 years for max maturity bonus). Voting on proposals — directly or via followees — drives the reward rate."
+                    AppLocalization.string("Staking on ICP means creating an NNS neuron with a chosen dissolve delay (≥ 6 months for rewards eligibility, up to 8 years for max maturity bonus). Voting on proposals — directly or via followees — drives the reward rate.")
             )
         default:
             return nil

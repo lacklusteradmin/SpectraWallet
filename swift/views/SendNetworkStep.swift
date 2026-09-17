@@ -91,7 +91,6 @@ struct SendNetworkStep: View {
 
     // MARK: — Network sub-sections
 
-
     @ViewBuilder
     private func feePriorityContent(selectedCoin: Coin) -> some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -320,9 +319,9 @@ struct SendNetworkStep: View {
     /// Core reads the stored spelling; the parenthetical is this view's.
     private func confirmationPreferenceText(for priority: String) -> String {
         switch parseFeePriority(raw: priority) {
-        case .economy: return "Economy (cost-optimized)"
-        case .normal: return "Normal (balanced)"
-        case .priority: return "Priority (faster confirmation bias)"
+        case .economy: return AppLocalization.string("Economy (cost-optimized)")
+        case .normal: return AppLocalization.string("Normal (balanced)")
+        case .priority: return AppLocalization.string("Priority (faster confirmation bias)")
         }
     }
 }

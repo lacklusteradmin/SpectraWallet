@@ -1,22 +1,11 @@
 import Foundation
 
 // Preview types are UniFFI-generated from `core/src/send/`. What is left here
-// is the send *result* types and the chain-specific enums the UI switches on.
-
-
-// MARK: - EVM address utilities (moved from Send/Engines/EVM/)
+// is the composer's hold on the latest one and the fee every preview reports.
 
 enum EthereumWalletEngineError: LocalizedError {
     case invalidAddress
-    case invalidResponse
-    case rpcFailure(String)
-    var errorDescription: String? {
-        switch self {
-        case .invalidAddress: return "Invalid EVM address."
-        case .invalidResponse: return "Unexpected response from EVM provider."
-        case .rpcFailure(let detail): return detail
-        }
-    }
+    var errorDescription: String? { AppLocalization.string("Invalid EVM address.") }
 }
 
 extension SendPreview {
@@ -45,28 +34,31 @@ extension SendPreview {
 @MainActor
 @Observable
 final class SendPreviewStore {
-    /// Every chain's latest preview, keyed by the chain's mainnet id.
+    /// The composer's preview, and the chain it is for, as the chain's mainnet
+    /// id.
     ///
     /// The mainnet because the two writers name one chain two ways: a refresh
     /// names the holding's chain ("Bitcoin"), a review names the network it
-    /// resolved ("Bitcoin Testnet4"), and they must land in one slot. The EVM
-    /// family used to share Ethereum's slot instead, read back through nine
-    /// typed accessors that spelled out "Ethereum", "XRP Ledger", "TON" and six
-    /// more. The composer is on one chain at a time, so the sharing bought
-    /// nothing but those names — and put a testnet review beside its mainnet
-    /// refresh in two different slots.
-    private(set) var previewBySlot: [String: SendPreview] = [:]
+    /// resolved ("Bitcoin Testnet4"), and they must agree. This was a
+    /// dictionary with a slot per chain, and every refresh emptied all but
+    /// one: the composer is on one chain at a time.
+    private var slot: String?
+    private var preview: SendPreview?
 
     func apply(_ preview: SendPreview?, forChainNamed chainName: String) {
-        guard let slot = Self.slot(forChainNamed: chainName) else { return }
-        previewBySlot[slot] = preview
+        slot = Self.slot(forChainNamed: chainName)
+        self.preview = slot == nil ? nil : preview
     }
 
+    /// A preview asked for by another chain than it was made for is none.
     func taggedPreview(forChainNamed chainName: String) -> SendPreview? {
-        Self.slot(forChainNamed: chainName).flatMap { previewBySlot[$0] }
+        guard let slot, slot == Self.slot(forChainNamed: chainName) else { return nil }
+        return preview
     }
 
-    func clearPreview(forChainNamed chainName: String) { apply(nil as SendPreview?, forChainNamed: chainName) }
+    func clearPreview(forChainNamed chainName: String) {
+        if slot == Self.slot(forChainNamed: chainName) { resetAll() }
+    }
 
     /// The estimated network fee a chain's preview reports, in its own units.
     ///
@@ -82,10 +74,13 @@ final class SendPreviewStore {
         Chain(displayName: chainName)?.mainnetCounterpart.id
     }
 
-    func resetAll() { previewBySlot.removeAll() }
+    func resetAll() {
+        slot = nil
+        preview = nil
+    }
 
-    /// Clear every chain's preview but the one in `slot`.
+    /// Clear the preview unless it is `slot`'s.
     func resetAll(exceptSlot slot: String) {
-        previewBySlot = previewBySlot.filter { $0.key == slot }
+        if self.slot != slot { resetAll() }
     }
 }

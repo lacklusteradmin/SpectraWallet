@@ -63,7 +63,7 @@ func sendLiveActivityContentState(
         transactionHashPreview: transaction.transactionHash.map {
             sendLiveActivityPreview($0, keepingEachEnd: 8)
         },
-        startedAt: transaction.createdAt)
+        startedAt: transaction.createdDate)
 }
 
 /// A send that never resolves should read as stale rather than keep claiming to
@@ -142,7 +142,7 @@ extension AppState {
         sendLiveActivityContentState(
             for: transaction, phase: phase,
             amountText: formattedAssetAmountValue(
-                transaction.amount, deploymentID: transaction.deploymentID))
+                transaction.amount, deploymentID: transaction.deploymentId))
     }
 
     /// A broadcast was accepted and the transaction is waiting on the chain.

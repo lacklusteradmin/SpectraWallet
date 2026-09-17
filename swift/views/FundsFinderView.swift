@@ -1,8 +1,20 @@
 import SwiftUI
 
+/// One derivation path the scan found funds on.
+struct FundsFinderHit: Identifiable {
+    let id = UUID()
+    let candidate: FundsFinderCandidate
+    let balanceDisplay: String
+    let smallestUnit: String
+}
 
+/// Scan a seed's derivation paths for funded addresses.
+///
+/// The scan's state is this screen's: nothing else reads it, and leaving the
+/// screen cancels it. It sat on `AppState` as six underscore-prefixed
+/// properties behind six forwarding ones, with a comment claiming
+/// `@Observable` required that shape.
 struct FundsFinderView: View {
-    let store: AppState
     @State private var seedPhrase: String = ""
     @State private var passphrase: String = ""
     @State private var showPassphrase: Bool = false
@@ -10,11 +22,18 @@ struct FundsFinderView: View {
     @State private var wordSlots: [String] = Array(repeating: "", count: 24)
     @State private var showAll24: Bool = false
     @FocusState private var focusedSlot: Int?
+    @State private var isScanning = false
+    @State private var progress: Double = 0
+    @State private var hits: [FundsFinderHit] = []
+    @State private var checkedCount = 0
+    @State private var totalCount = 0
+    @State private var scanError: String?
+    @State private var scanTask: Task<Void, Never>?
 
     private var canStart: Bool {
         let words = seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines)
             .components(separatedBy: .whitespaces).filter { !$0.isEmpty }
-        return words.count >= 12 && !store.isFundsFinderScanning
+        return words.count >= 12 && !isScanning
     }
 
     var body: some View {
@@ -26,13 +45,13 @@ struct FundsFinderView: View {
                         inputSection
                     } else {
                         scanProgressSection
-                        if !store.fundsFinderHits.isEmpty {
+                        if !hits.isEmpty {
                             hitsSection
                         }
-                        if let error = store.fundsFinderScanError {
+                        if let error = scanError {
                             errorBanner(error)
                         }
-                        if !store.isFundsFinderScanning && store.fundsFinderHits.isEmpty && store.fundsFinderScanError == nil {
+                        if !isScanning && hits.isEmpty && scanError == nil {
                             emptyResultsSection
                         }
                     }
@@ -45,10 +64,10 @@ struct FundsFinderView: View {
         .navigationTitle(AppLocalization.string("Funds Finder"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            if hasStarted && !store.isFundsFinderScanning {
+            if hasStarted && !isScanning {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(AppLocalization.string("New Scan")) {
-                        store.resetFundsFinder()
+                        resetScan()
                         hasStarted = false
                         seedPhrase = ""
                         passphrase = ""
@@ -59,8 +78,52 @@ struct FundsFinderView: View {
             }
         }
         .onDisappear {
-            store.resetFundsFinder()
+            resetScan()
         }
+    }
+
+    // MARK: - Scan
+
+    private func startScan(seedPhrase: String, passphrase: String?) {
+        guard !isScanning else { return }
+        resetScan()
+        isScanning = true
+        scanTask = Task { @MainActor in
+            do {
+                let scan = try WalletServiceBridge.shared.beginFundsScan(
+                    request: FundsFinderRequest(seedPhrase: seedPhrase, passphrase: passphrase))
+                repeat {
+                    let batch = await scan.nextBatch()
+                    guard !Task.isCancelled else { return }
+                    totalCount = Int(batch.total)
+                    checkedCount = Int(batch.checked)
+                    progress = batch.total == 0 ? 1 : Double(batch.checked) / Double(batch.total)
+                    for read in batch.reads {
+                        if let error = read.error { scanError = error }
+                        if read.funded, let balance = read.balance {
+                            hits.append(FundsFinderHit(
+                                candidate: read.candidate, balanceDisplay: balance.amountDisplay,
+                                smallestUnit: balance.smallestUnit))
+                        }
+                    }
+                    if batch.complete { break }
+                } while !Task.isCancelled
+            } catch {
+                if !Task.isCancelled { scanError = error.localizedDescription }
+            }
+            isScanning = false
+        }
+    }
+
+    private func resetScan() {
+        scanTask?.cancel()
+        scanTask = nil
+        isScanning = false
+        progress = 0
+        hits = []
+        checkedCount = 0
+        totalCount = 0
+        scanError = nil
     }
 
     // MARK: - Input section
@@ -221,7 +284,7 @@ struct FundsFinderView: View {
         Button {
             guard canStart else { return }
             hasStarted = true
-            store.startFundsFinderScan(
+            startScan(
                 seedPhrase: seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines),
                 passphrase: passphrase.isEmpty ? nil : passphrase
             )
@@ -241,7 +304,7 @@ struct FundsFinderView: View {
     private var scanProgressSection: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
-                if store.isFundsFinderScanning {
+                if isScanning {
                     SpectraLoadingGlyph(size: 26, tint: .orange)
                     Text(AppLocalization.string("Scanning…"))
                         .font(.headline)
@@ -252,29 +315,29 @@ struct FundsFinderView: View {
                         .font(.headline)
                 }
                 Spacer()
-                if store.fundsFinderTotalCount > 0 {
+                if totalCount > 0 {
                     Text(AppLocalization.format("%lld / %lld",
-                        store.fundsFinderCheckedCount, store.fundsFinderTotalCount))
+                        checkedCount, totalCount))
                         .font(.caption.monospacedDigit())
                         .foregroundStyle(.secondary)
                 }
             }
-            if store.fundsFinderTotalCount > 0 {
-                ProgressView(value: store.fundsFinderProgress)
+            if totalCount > 0 {
+                ProgressView(value: progress)
                     .progressViewStyle(.linear)
                     .tint(.yellow)
             }
-            if store.isFundsFinderScanning {
+            if isScanning {
                 Text(AppLocalization.string("Checking addresses across all derivation paths…"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } else if store.fundsFinderHits.isEmpty {
-                Text(AppLocalization.format("Checked %lld paths — no funds found", store.fundsFinderCheckedCount))
+            } else if hits.isEmpty {
+                Text(AppLocalization.format("Checked %lld paths — no funds found", checkedCount))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
                 Text(AppLocalization.format("Found %lld path(s) with funds across %lld checked",
-                    store.fundsFinderHits.count, store.fundsFinderCheckedCount))
+                    hits.count, checkedCount))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -290,11 +353,11 @@ struct FundsFinderView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 Image(systemName: "bitcoinsign.circle.fill").foregroundStyle(.yellow)
-                Text(AppLocalization.format("%lld path(s) with funds found", store.fundsFinderHits.count))
+                Text(AppLocalization.format("%lld path(s) with funds found", hits.count))
                     .font(.headline)
             }
             .padding(.bottom, 2)
-            ForEach(store.fundsFinderHits) { hit in
+            ForEach(hits) { hit in
                 FundsFinderHitRow(hit: hit)
             }
         }

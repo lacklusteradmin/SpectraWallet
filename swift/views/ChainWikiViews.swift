@@ -5,7 +5,6 @@ import SwiftUI
 /// The wiki is indexed by coin — see `CryptoWikiViews.swift`. This is what has
 /// no coin to belong to: ten chains share ETH, so "Base is an optimistic
 /// rollup" cannot live on ETH's page. Reached from a coin's lives-on rows.
-
 struct ChainWikiDetailView: View {
     let chain: ChainWikiEntry
     var body: some View {
@@ -111,12 +110,12 @@ struct ChainWikiDetailView: View {
 }
 
 extension ChainWikiEntry {
-    var registryEntry: ChainRegistryEntry? { ChainRegistryEntry.entry(id: id) }
     /// A chain draws the coin it runs on, which is what the badge already was.
     var face: WikiCoinFace {
-        WikiCoinFace(
+        let entry = Chain(id: id)?.entry
+        return WikiCoinFace(
             name: name, symbol: name,
-            artworkName: registryEntry?.artworkName ?? "",
-            color: registryEntry?.color ?? .accentColor)
+            artworkName: entry?.artworkName ?? "",
+            color: entry?.color.color ?? .accentColor)
     }
 }

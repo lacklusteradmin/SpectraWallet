@@ -25,7 +25,7 @@ struct AddCustomTokenView: View {
                 TextField(AppLocalization.string("Symbol"), text: $symbolInput).textInputAutocapitalization(.characters)
                     .autocorrectionDisabled()
                 TextField(AppLocalization.string("Name"), text: $nameInput)
-                TextField(selectedChain.contractAddressPrompt, text: $contractInput).textInputAutocapitalization(.never)
+                TextField(AppLocalization.string(selectedChain.contractAddressPrompt), text: $contractInput).textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 Stepper(AppLocalization.format("Token Supports: %lld decimals", decimalsInput), value: $decimalsInput, in: 0...30, step: 1)
                 TextField(AppLocalization.string("CoinGecko ID (Optional)"), text: $coinGeckoIdInput).textInputAutocapitalization(.never)

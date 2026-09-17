@@ -23,11 +23,11 @@ enum StaticContentCatalog {
     static func loadRequiredResource<T: Decodable>(_ baseName: String, as type: T.Type) -> T {
         let key = cacheKey(baseName: baseName, typeID: String(describing: type))
         if let cached = decodedResourceCache.withLock({ $0[key] as? T }) { return cached }
-        let value: T = loadRequiredResourceUncached(baseName, as: type)
+        let value: T = loadRequiredResourceUncached(baseName)
         decodedResourceCache.withLock { $0[key] = value }
         return value
     }
-    private static func loadRequiredResourceUncached<T: Decodable>(_ baseName: String, as type: T.Type) -> T {
+    private static func loadRequiredResourceUncached<T: Decodable>(_ baseName: String) -> T {
         let decoder = JSONDecoder()
         let localeIdentifiers = AppLocalization.preferredLocalizationIdentifiers()
         for url in candidateJSONURLs(for: baseName, localeIdentifiers: localeIdentifiers) {

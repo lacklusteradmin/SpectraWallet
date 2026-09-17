@@ -72,7 +72,7 @@ enum SetupChainCategory: String, CaseIterable, Identifiable {
 /// declared in the type instead of hidden in field accesses. SetupView
 /// hasn't been migrated yet because its dependency surface is large.
 struct SetupView: View {
-    private static let chainSelectionDescriptors: [SetupChainSelectionDescriptor] = listAllChains().compactMap { chain in
+    private static let chainSelectionDescriptors: [SetupChainSelectionDescriptor] = Chain.all.compactMap(\.entry).compactMap { chain in
         guard let category = SetupChainCategory(chain: chain) else { return nil }
         return SetupChainSelectionDescriptor(
             id: chain.id, title: chain.name, symbol: chain.gasTokenSymbol, chainName: chain.name,
@@ -85,7 +85,7 @@ struct SetupView: View {
     /// catalog edit. This was eight ids typed here: a per-chain fact in a
     /// caller-owned list, where adding a chain to the catalog could not reach
     /// it and removing one left an id that silently matched nothing.
-    private static let popularChainSelectionIDs: [String] = listAllChains()
+    private static let popularChainSelectionIDs: [String] = Chain.all.compactMap(\.entry)
         .compactMap { chain in chain.popularRank.map { (rank: $0, id: chain.id) } }
         .sorted { $0.rank < $1.rank }
         .map(\.id)
@@ -242,11 +242,9 @@ struct SetupView: View {
             minHeight: 88
         ).padding(10).spectraInputFieldStyle().foregroundStyle(Color.primary)
     }
+    /// A flat card, not Liquid Glass: the setup screen stacks about ten of them.
     @ViewBuilder
-    private func setupCard<Content: View>(glassOpacity: Double = 0.028, @ViewBuilder content: () -> Content) -> some View {
-        // `glassOpacity` kept for call-site compatibility but no longer used —
-        // flat fill replaces the Liquid Glass pass to avoid ~10 stacked shader
-        // passes on the setup screen.
+    private func setupCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content().padding(16).spectraBubbleFill().spectraCardFill()
     }
     @ViewBuilder
@@ -761,7 +759,7 @@ private struct PowerUserOverridesSection: View {
         VStack(alignment: .leading, spacing: 10) {
             AdvancedOverrideTextField(
                 title: AppLocalization.string("Passphrase"),
-                detail: AppLocalization.string("BIP-39 passphrase (\"25th word\"). Blank = none."),
+                detail: AppLocalization.string("BIP-39 passphrase (“25th word”). Blank = none."),
                 text: $draft.overridePassphrase, isSecure: true)
             AdvancedOverrideTextField(
                 title: AppLocalization.string("HMAC Master Key"),

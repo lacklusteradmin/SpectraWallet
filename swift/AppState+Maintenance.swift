@@ -35,13 +35,16 @@ extension AppState {
             appendOperationalLog(.error, category: "Portfolio Movement", message: error.localizedDescription)
             return
         }
-        let direction = evaluation.directionUp ? "up" : "down"
-        let absoluteDelta = evaluation.absoluteDelta
-        let ratio = evaluation.ratio
+        // Worded per direction, and through the locale files: this was the one
+        // notification built from English fragments in Swift.
+        let percent = evaluation.ratio.formatted(.percent.precision(.fractionLength(0)))
         let content = UNMutableNotificationContent()
-        content.title = "Large portfolio movement detected"
-        content.body =
-            "Your portfolio moved \(direction) by \(formattedFiatAmount(fromUSD: absoluteDelta)) (\(Int((ratio * 100).rounded()))%) since last sync."
+        content.title = localizedStoreString("Large portfolio movement detected")
+        content.body = AppLocalization.format(
+            evaluation.directionUp
+                ? "Your portfolio rose by %@ (%@) since the last sync."
+                : "Your portfolio fell by %@ (%@) since the last sync.",
+            formattedFiatAmount(fromUSD: evaluation.absoluteDelta), percent)
         content.sound = .default
         let request = UNNotificationRequest(
             identifier: "portfolio-movement-\(UUID().uuidString)", content: content, trigger: nil
@@ -69,7 +72,7 @@ extension AppState {
             if let sent = lastSentTransaction {
                 lastSentTransaction = transactions.first { $0.id == sent.id }
             }
-            updateSendVerificationNoticeForLastSentTransaction()
+            await updateSendVerificationNoticeForLastSentTransaction()
             for failure in result.failures {
                 appendOperationalLog(.error, category: "Refresh", message: failure)
             }
@@ -94,5 +97,41 @@ extension AppState {
         userInitiatedRefreshTask = task
         await task.value
         userInitiatedRefreshTask = nil
+    }
+    func startMaintenanceLoopIfNeeded() {
+        guard maintenanceTask == nil else { return }
+        // With no wallets there's nothing to maintain — no pending tx to
+        // poll, no price work, no chain history to sync. Don't even spin
+        // the loop until something's worth checking.
+        // `applyWalletCollectionSideEffects` re-invokes this once a wallet
+        // exists. The loop also self-exits below when wallets drop to 0.
+        guard !wallets.isEmpty else { return }
+        maintenanceTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            while !Task.isCancelled {
+                // Self-exit when the user deletes all wallets. Lets the
+                // loop terminate naturally instead of sleeping forever
+                // doing nothing — matches the no-wallet startup gate.
+                if self.wallets.isEmpty {
+                    self.maintenanceTask = nil
+                    break
+                }
+                await self.runScheduledMaintenanceOnce()
+                // The cadence comes back with the plan: core knows whether
+                // anything is pending and what the sync profile allows.
+                try? await Task.sleep(
+                    nanoseconds: self.lastMaintenancePollSeconds * 1_000_000_000)
+            }
+        }
+    }
+    /// One tick. Core decides what it is, from its own clock and this device's
+    /// conditions; four questions and a `Date?` on this side became one.
+    func runScheduledMaintenanceOnce() async {
+        await performCoreRefresh(.scheduled)
+    }
+    var pendingTransactionRefreshStatusText: String? {
+        guard let at = lastPendingTransactionRefreshAt else { return nil }
+        let f = RelativeDateTimeFormatter(); f.unitsStyle = .short
+        return AppLocalization.format("Last checked %@", f.localizedString(for: at, relativeTo: Date()))
     }
 }

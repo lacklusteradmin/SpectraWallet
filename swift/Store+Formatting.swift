@@ -7,7 +7,6 @@ func localizedStoreString(_ key: String) -> String {
     AppLocalization.string(key)
 }
 
-
 @MainActor
 extension AppState {
     func convertUSDToSelectedFiat(_ amountUSD: Double) -> Double { amountUSD * fiatRate(for: selectedFiatCurrency) }
@@ -31,23 +30,21 @@ extension AppState {
     /// Memoized accessor for the Rust-side fiat formatting rules. Pure,
     /// input-only function on the Rust side, so we can cache forever.
     private func fiatAmountRules(for currency: FiatCurrency) -> FiatAmountRules {
-        let key = currency.rawValue
-        if let cached = cachedFiatAmountRules[key] { return cached }
-        let rules = formattingFiatAmountRules(currencyCode: key)
-        cachedFiatAmountRules[key] = rules
+        if let cached = cachedFiatAmountRules[currency] { return cached }
+        let rules = formattingFiatAmountRules(currency: currency)
+        cachedFiatAmountRules[currency] = rules
         return rules
     }
     private func fiatFormatter(for currency: FiatCurrency) -> NumberFormatter {
-        let key = currency.rawValue
-        if let formatter = cachedCurrencyFormatters[key] { return formatter }
+        if let formatter = cachedCurrencyFormatters[currency] { return formatter }
         let rules = fiatAmountRules(for: currency)
         let decimals = Int(rules.decimals)
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
-        formatter.currencyCode = currency.rawValue
+        formatter.currencyCode = rules.code
         formatter.minimumFractionDigits = decimals
         formatter.maximumFractionDigits = decimals
-        cachedCurrencyFormatters[key] = formatter
+        cachedCurrencyFormatters[currency] = formatter
         return formatter
     }
     private func decimalFormatter(minimumFractionDigits: Int, maximumFractionDigits: Int, usesGroupingSeparator: Bool) -> NumberFormatter {
@@ -71,11 +68,15 @@ extension AppState {
         }
         return formatter.string(from: NSNumber(value: amount)) ?? ""
     }
-    func formattedFiatAmount(fromNative amount: Double, symbol: String) -> String? {
-        guard let coin = portfolio.first(where: { $0.symbol == symbol }) else { return nil }
+    /// `amount` of the asset `coin` holds, in the display currency, at that
+    /// asset's own quote.
+    ///
+    /// Took a symbol and priced the first portfolio holding that shared it —
+    /// the ticker-as-identity rule the token catalog was rewritten to remove.
+    /// USDC on Base took Ethereum USDC's quote, or a wrapped token's.
+    func formattedFiatAmount(_ amount: Double, of coin: Coin) -> String? {
         guard let price = currentPriceIfAvailable(for: coin) else { return nil }
-        let amountUSD = amount * price
-        return formattedFiatAmountIfAvailable(fromUSD: amountUSD)
+        return formattedFiatAmountIfAvailable(fromUSD: amount * price)
     }
     /// Core decides how many places this amount deserves; the formatter renders
     /// them and trims the trailing zeros.
@@ -107,21 +108,14 @@ extension AppState {
         "\(formattedAssetAmountValue(amount, deploymentID: deploymentID)) \(symbol)"
     }
 
-    /// The asset's own decimals — the contract's, the mint's, or the chain's
-    /// `native_decimals` — paired with the amount, which is what decides how
-    /// many of them are worth printing.
-    func assetAmountDisplay(_ amount: Double, deploymentID: String?) -> AssetAmountDisplay {
-        formattingAssetAmountDisplay(
-            amount: amount, assetDecimals: UInt32(supportedDecimalPlaces(deploymentID: deploymentID)))
-    }
     func formattedTransactionAmount(_ transaction: TransactionRecord) -> String? {
         guard transaction.amount.isFinite, transaction.amount >= 0 else { return nil }
-        return formattedAssetAmount(transaction.amount, symbol: transaction.symbol, deploymentID: transaction.deploymentID)
+        return formattedAssetAmount(transaction.amount, symbol: transaction.symbol, deploymentID: transaction.deploymentId)
     }
     func formattedTransactionDetailAmount(_ transaction: TransactionRecord) -> String? {
         guard transaction.amount.isFinite, transaction.amount >= 0 else { return nil }
         return formattedTransactionDetailAssetAmount(
-            transaction.amount, symbol: transaction.symbol, deploymentID: transaction.deploymentID
+            transaction.amount, symbol: transaction.symbol, deploymentID: transaction.deploymentId
         )
     }
     func currentValue(for coin: Coin) -> Double { coin.amount * currentPrice(for: coin) }
@@ -166,20 +160,8 @@ extension AppState {
     func isPricedAsset(_ coin: Coin) -> Bool { isPricedChain(coin.chainName) }
     /// The history list the UI renders, as core normalizes it.
     func rebuildNormalizedHistoryIndex() async throws {
-        let entries = try await WalletServiceBridge.shared.normalizedHistory(
+        normalizedHistoryIndex = try await WalletServiceBridge.shared.normalizedHistory(
             unknownLabel: localizedStoreString("Unknown"))
-        normalizedHistoryIndex = entries.compactMap { entry in
-            guard let kind = TransactionKind(rawValue: entry.kind),
-                let status = TransactionStatus(rawValue: entry.status)
-            else { return nil }
-            return NormalizedHistoryEntry(
-                id: entry.id, transactionID: entry.transactionId, dedupeKey: entry.dedupeKey,
-                createdAt: Date(timeIntervalSince1970: entry.createdAtUnix), kind: kind,
-                status: status, walletName: entry.walletName, assetDisplayName: entry.assetDisplayName,
-                symbol: entry.symbol, chainName: entry.chainName, address: entry.address,
-                transactionHash: entry.transactionHash, sourceTag: entry.sourceTag,
-                providerCount: Int(entry.providerCount), searchIndex: entry.searchIndex)
-        }
     }
     /// Adopt the views of the transaction store that the UI renders.
     ///
@@ -217,10 +199,20 @@ extension AppState {
     func formattedNetworkFee(_ fee: Double, chain: Chain) -> String {
         "\(formattedAmountValue(fee, assetDecimals: chain.nativeDecimals)) \(chain.gasTokenSymbol)"
     }
-    /// The fee with its fiat value beside it when there is a quote.
+    /// The fee with its fiat value beside it when the network's own gas asset
+    /// has a quote.
+    ///
+    /// Priced by the network's native deployment, which is what quotes are
+    /// keyed by. It priced "the first holding whose symbol is the gas token's",
+    /// so an Arbitrum fee took whichever `ETH` came first in the portfolio,
+    /// and a testnet fee could take a mainnet price.
     func formattedNetworkFeeWithFiat(_ fee: Double, chain: Chain) -> String {
         let native = formattedNetworkFee(fee, chain: chain)
-        guard let fiat = formattedFiatAmount(fromNative: fee, symbol: chain.gasTokenSymbol) else { return native }
+        guard isPricedChain(chain.displayName),
+            let deploymentID = chain.entry?.nativeDeploymentId,
+            let price = livePrices[deploymentID],
+            let fiat = formattedFiatAmountIfAvailable(fromUSD: fee * price)
+        else { return native }
         return "\(native) (~\(fiat))"
     }
     /// A gas price in gwei. Capped by the chain's native decimals like any
@@ -240,14 +232,14 @@ extension AppState {
         return formattedNetworkFee(fee, chain: chain)
     }
     func confirmedNetworkFeeText(for transaction: TransactionRecord) -> String? {
-        guard let fee = transaction.dogecoinConfirmedNetworkFeeDoge, let chain = Chain(displayName: transaction.chainName) else { return nil }
+        guard let fee = transaction.confirmedNetworkFee, let chain = Chain(displayName: transaction.chainName) else { return nil }
         return formattedNetworkFee(fee, chain: chain)
     }
     func storedFeeRateText(for transaction: TransactionRecord) -> String? {
         if let description = transaction.feeRateDescription?.trimmingCharacters(in: .whitespacesAndNewlines), !description.isEmpty {
             return description
         }
-        guard let rate = transaction.dogecoinEstimatedFeeRateDogePerKb, let chain = Chain(displayName: transaction.chainName) else { return nil }
+        guard let rate = transaction.estimatedFeeRatePerKb, let chain = Chain(displayName: transaction.chainName) else { return nil }
         return "\(formattedNetworkFee(rate, chain: chain))/KB"
     }
     func historyMetadataText(for transaction: TransactionRecord) -> String? {
@@ -256,7 +248,7 @@ extension AppState {
         if let rate = storedFeeRateText(for: transaction) { parts.append(rate) }
         if let confirmations = transaction.storedConfirmationCountText { parts.append(confirmations) }
         if let usedChangeOutput = transaction.usedChangeOutput, transaction.kind == .send {
-            parts.append(usedChangeOutput ? "change output" : "no change output")
+            parts.append(AppLocalization.string(usedChangeOutput ? "change output" : "no change output"))
         }
         return parts.isEmpty ? nil : parts.joined(separator: " • ")
     }
@@ -286,50 +278,53 @@ extension AppState {
 
 }
 
+/// Every recipient warning, worded. Exhaustive: a reason core adds does not
+/// compile until it has words, where a `default` returning nothing dropped it
+/// from the confirmation sheet.
 func evmRecipientMessages(_ warnings: [EvmRecipientPreflightWarning]) -> [String] {
-    return warnings.compactMap { w -> String? in
-        switch w.code {
-        case "recipient_is_contract":
+    warnings.map { warning in
+        switch warning {
+        case .recipientIsContract(let chainName, let symbol):
             return AppLocalization.format(
-                "Recipient is a smart contract on %@. Confirm it can receive %@ safely.", w.chainName ?? "", w.symbol ?? "")
-        case "recipient_code_unknown":
+                "Recipient is a smart contract on %@. Confirm it can receive %@ safely.", chainName, symbol)
+        case .recipientCodeUnknown(let chainName):
             return AppLocalization.format(
-                "Could not verify recipient contract state on %@. Review destination carefully.", w.chainName ?? "")
-        case "token_contract_missing":
+                "Could not verify recipient contract state on %@. Review destination carefully.", chainName)
+        case .tokenContractMissing(let chainName, let tokenSymbol):
             return AppLocalization.format(
                 "Token contract %@ appears missing on %@. This may be a wrong-network token selection.",
-                w.tokenSymbol ?? "", w.chainName ?? "")
-        case "token_code_unknown":
-            return AppLocalization.format(
-                "Could not verify %@ contract bytecode on %@.", w.tokenSymbol ?? "", w.chainName ?? "")
-        default: return nil
+                tokenSymbol, chainName)
+        case .tokenCodeUnknown(let chainName, let tokenSymbol):
+            return AppLocalization.format("Could not verify %@ contract bytecode on %@.", tokenSymbol, chainName)
         }
     }
 }
+/// Every reason a send looks risky, worded. Exhaustive for the same reason as
+/// `evmRecipientMessages`.
 func highRiskSendMessages(_ warnings: [HighRiskSendWarning]) -> [String] {
-    return warnings.compactMap { w -> String? in
-        switch w.code {
-        case "invalid_format": return AppLocalization.format("The destination address format does not match %@.", w.chain ?? "")
-        case "new_address": return localizedStoreString("This is a new destination address with no prior history in this wallet.")
-        case "ens_resolved":
+    warnings.map { warning in
+        switch warning {
+        case .invalidFormat(let chain):
+            return AppLocalization.format("The destination address format does not match %@.", chain)
+        case .newAddress:
+            return localizedStoreString("This is a new destination address with no prior history in this wallet.")
+        case .ensResolved(let name, let address):
             return AppLocalization.format(
-                "ENS name '%@' resolved to %@. Confirm this resolved address before sending.", w.name ?? "", w.address ?? "")
-        case "large_send":
-            let formatted = (Double(w.percent ?? 0) / 100.0).formatted(.percent.precision(.fractionLength(0)))
-            return AppLocalization.format("This send is %@ of your %@ balance.", formatted, w.symbol ?? "")
-        case "non_evm_on_evm":
-            return AppLocalization.format("Destination appears to be a non-EVM address while sending on %@.", w.chain ?? "")
-        case "ens_off_ethereum":
+                "ENS name '%@' resolved to %@. Confirm this resolved address before sending.", name, address)
+        case .largeSend(let percent, let symbol):
+            let formatted = (Double(percent) / 100.0).formatted(.percent.precision(.fractionLength(0)))
+            return AppLocalization.format("This send is %@ of your %@ balance.", formatted, symbol)
+        case .nonEvmOnEvm(let chain):
+            return AppLocalization.format("Destination appears to be a non-EVM address while sending on %@.", chain)
+        case .ensOffEthereum(let chain):
             return AppLocalization.format(
-                "ENS names are Ethereum-specific. For %@, verify the resolved EVM address very carefully.", w.chain ?? "")
-        case "eth_on_utxo":
-            return AppLocalization.format("Destination appears to be an Ethereum-style address while sending on %@.", w.chain ?? "")
-        case "non_tron": return localizedStoreString("Destination appears to be non-Tron format while sending on Tron.")
-        case "non_solana": return localizedStoreString("Destination appears to be non-Solana format while sending on Solana.")
-        case "non_xrp": return localizedStoreString("Destination appears to be non-XRP format while sending on XRP Ledger.")
-        case "non_monero": return localizedStoreString("Destination appears to be non-Monero format while sending on Monero.")
-        case "chain_mismatch": return localizedStoreString("Wallet-chain context mismatch detected for this send.")
-        default: return nil
+                "ENS names are Ethereum-specific. For %@, verify the resolved EVM address very carefully.", chain)
+        case .ethOnUtxo(let chain):
+            return AppLocalization.format("Destination appears to be an Ethereum-style address while sending on %@.", chain)
+        case .foreignAddressFormat(let chain):
+            return AppLocalization.format("Destination appears to be another network's address format while sending on %@.", chain)
+        case .chainMismatch:
+            return localizedStoreString("Wallet-chain context mismatch detected for this send.")
         }
     }
 }

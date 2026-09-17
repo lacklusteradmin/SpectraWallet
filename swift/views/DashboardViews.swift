@@ -154,10 +154,10 @@ struct DashboardView: View {
     }
     private func torAccessibilityLabel(_ status: TorStatus) -> String {
         switch status {
-        case .stopped:          return "Tor off"
-        case .bootstrapping(let p): return "Tor connecting, \(p)%"
-        case .ready:            return "Tor on"
-        case .error:            return "Tor error"
+        case .stopped:          return AppLocalization.string("Tor off")
+        case .bootstrapping(let p): return AppLocalization.format("Tor connecting, %lld%%", Int(p))
+        case .ready:            return AppLocalization.string("Tor on")
+        case .error:            return AppLocalization.string("Tor error")
         }
     }
     private var actionButtons: some View {
@@ -526,7 +526,7 @@ struct PinnedAssetsView: View {
         List {
             Section {
                 ForEach(filteredOptions) { option in
-                    Toggle(isOn: binding(for: option.tokenId)) {
+                    Toggle(isOn: binding(for: option)) {
                         DashboardPinnedAssetRowView(
                             option: option,
                             subtitleText: AppLocalization.format("dashboard.pinnedAsset.symbolSubtitle", option.symbol, option.subtitle)
@@ -548,9 +548,9 @@ struct PinnedAssetsView: View {
             }
         }
     }
-    private func binding(for tokenID: String) -> Binding<Bool> {
+    private func binding(for option: DashboardPinOption) -> Binding<Bool> {
         Binding(
-            get: { store.isDashboardAssetPinned(tokenID) }, set: { isPinned in store.setDashboardAssetPinned(isPinned, tokenID: tokenID) }
+            get: { option.isPinned }, set: { isPinned in store.setDashboardAssetPinned(isPinned, tokenID: option.tokenId) }
         )
     }
 }

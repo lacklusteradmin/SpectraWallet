@@ -185,9 +185,9 @@ struct WalletSecretStep: View {
         let isNonEnglish = draft.seedPhraseLanguage != "en"
         HStack(spacing: 6) {
             Image(systemName: "globe").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            Picker("Wordlist", selection: $draft.seedPhraseLanguage) {
+            Picker(AppLocalization.string("Wordlist"), selection: $draft.seedPhraseLanguage) {
                 ForEach(Self.seedPhraseLanguageOptions, id: \.code) { option in
-                    Text(option.label).tag(option.code)
+                    Text(AppLocalization.string(option.label)).tag(option.code)
                 }
             }
             .pickerStyle(.menu)
@@ -233,7 +233,7 @@ struct WalletSecretStep: View {
         if !isEditingWallet && !isCreateMode && !draft.isWatchOnlyMode {
             VStack(alignment: .leading, spacing: 10) {
                 Text(localizedWalletFlowString("Import Method")).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                Picker("Import Method", selection: importSecretModeBinding) {
+                Picker(localizedWalletFlowString("Import Method"), selection: importSecretModeBinding) {
                     ForEach(WalletSecretImportMode.allCases) { mode in Text(mode.localizedTitle).tag(mode) }
                 }.pickerStyle(.segmented)
             }

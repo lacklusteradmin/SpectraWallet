@@ -3,12 +3,6 @@ import Foundation
     import SwiftUI
     import XCTest
     @testable import Spectra
-    /// Set from inside the task under test; read by the deadline loop. Both
-    /// run on the main actor, so no lock is needed.
-    @MainActor private final class EVMPendingRefreshTerminationFlag {
-        var finished = false
-    }
-
     @MainActor
     final class AppStatePlatformBridgeTests: XCTestCase {
         /// `AppState()` loads whatever is in the shared keychain-backed wallet
@@ -25,7 +19,7 @@ import Foundation
             // in the middle of the test it was meant to precede.
             let state = try await WalletServiceBridge.shared.openState()
             _ = try await WalletServiceBridge.shared.applyStateCommand(
-                .setFiatCurrency(fiatCurrencyCode: "USD"))
+                .setFiatCurrency(currency: .usd))
             for entry in state.addressBook {
                 _ = try await WalletServiceBridge.shared.applyStateCommand(
                     .removeAddressBookEntry(id: entry.id))
@@ -44,55 +38,17 @@ import Foundation
             _ = try await WalletServiceBridge.shared.applyTransactionCommand(.clear)
         }
 
-        /// Every EVM mainnet resolves an address, so no wallet is dropped
-        /// before the balance refresh can fetch anything.
-        ///
-        /// `resolvedAddress` tested `seedDerivationChain` before `isEVMChain`.
-        /// Core answers the former for *every* chain in the catalog — it
-        /// returns `Option` but never `None` — so the EVM branch was
-        /// unreachable, and the table it fell into has no EVM entry. All 23
-        /// EVM mainnets resolved to `nil`; the refresh engine drops a wallet
-        /// with no address, so their balances never loaded at all.
-        ///
-        /// Asserted over `Chain.mainnets` rather than a list written here, so
-        /// a new EVM chain is covered by adding it to the catalog.
-        /// An EVM pending refresh has to terminate.
-        ///
-        /// `refreshPendingTransactions(chainName:)`'s `.evmReceipt` arm called
-        /// the function containing it, with the same argument, from the commit
-        /// that collapsed eighteen per-chain wrappers into a registry switch —
-        /// it replaced a `refreshPendingEVMTransactions` deleted in that same
-        /// commit. `pending_status_poll` answers `EvmReceipt` for every EVM
-        /// chain, and both `executeRefresh` and `executePendingOnly` call this
-        /// for every chain, so every balance refresh on an EVM chain recursed
-        /// without a base case.
-        ///
-        /// With no wallets there is nothing to poll and this returns at the
-        /// first guard. The old code never reached that guard.
-        func testAnEVMPendingRefreshTerminates() async throws {
-            let store = AppState()
-            let flag = EVMPendingRefreshTerminationFlag()
-            let work = Task { @MainActor in
-                await store.refreshPendingTransactions(chainName: "Ethereum")
-                flag.finished = true
-            }
-            let deadline = Date().addingTimeInterval(5)
-            while !flag.finished, Date() < deadline {
-                try await Task.sleep(nanoseconds: 50_000_000)
-            }
-            work.cancel()
-            XCTAssertTrue(flag.finished, "an EVM pending refresh must terminate rather than recurse")
-        }
-
+        /// The pending sweep is reached through the app's one refresh entry
+        /// point; this holds its async export to a runtime across the binding.
         func testOwnedPendingMaintenanceCrossesTheAsyncBridge() async throws {
-            let result = try await WalletServiceBridge.shared.refreshPendingTransactions()
+            let service = try WalletService(endpoints: [])
+            let path = FileManager.default.temporaryDirectory
+                .appendingPathComponent("pending-\(UUID().uuidString).sqlite").path
+            _ = try await service.openState(databasePath: path)
+            let result = try await service.refreshPendingTransactions()
             XCTAssertTrue(result.chains.isEmpty)
             XCTAssertTrue(result.changes.isEmpty)
             XCTAssertTrue(result.failures.isEmpty)
-            let store = AppState()
-            await store.refreshPendingTransactions()
-            XCTAssertFalse(store.isRefreshingPendingTransactions)
-            XCTAssertNotNil(store.lastPendingTransactionRefreshAt)
         }
 
         func testManualStatusRecheckRefusesMissingTransactionAcrossAsyncBridge() async throws {
@@ -108,6 +64,18 @@ import Foundation
             XCTAssertTrue(message.contains("Transaction not found"))
         }
 
+        /// Every EVM mainnet resolves an address, so no wallet is dropped
+        /// before the balance refresh can fetch anything.
+        ///
+        /// `resolvedAddress` tested `seedDerivationChain` before `isEVMChain`.
+        /// Core answers the former for *every* chain in the catalog — it
+        /// returns `Option` but never `None` — so the EVM branch was
+        /// unreachable, and the table it fell into has no EVM entry. All 23
+        /// EVM mainnets resolved to `nil`; the refresh engine drops a wallet
+        /// with no address, so their balances never loaded at all.
+        ///
+        /// Asserted over `Chain.mainnets` rather than a list written here, so
+        /// a new EVM chain is covered by adding it to the catalog.
         func testEveryEVMMainnetResolvesAWalletAddress() async {
             let store = AppState()
             store.importDraft.walletName = "EVM Coverage"
@@ -442,15 +410,14 @@ import Foundation
         // and every front end reads the same value. Swift keeps a mirror it
         // never writes directly.
 
-        /// Assigning to the mirror sends a command; the value that comes back
-        /// is core's, normalized by core.
+        /// Choosing a currency sends a command; what the app shows is what
+        /// core stored.
         func testSettingCurrencyGoesThroughCoreAndIsNormalized() async throws {
             let store = AppState()
             await store.setFiatCurrency(.eur)
 
-            // Core is the authority; the mirror follows it.
             let state = try await WalletServiceBridge.shared.appState()
-            XCTAssertEqual(state.settings.fiatCurrencyCode, "EUR")
+            XCTAssertEqual(state.settings.fiatCurrency, .eur)
             XCTAssertEqual(store.selectedFiatCurrency, .eur)
         }
 
@@ -573,18 +540,16 @@ import Foundation
         /// polls rather than sleeping for a guessed interval.
         func testTransactionStatusChangeIsPersisted() async throws {
             let store = AppState()
-            // The transaction needs a wallet that exists. `loadPersistedState`
-            // ends by pruning transactions whose wallet is not active, so one
-            // recorded against a made-up id survives only while no load runs —
-            // which is why this passed against a `walletID` of "w1" until the
-            // load started doing real work.
+            // The transaction needs a wallet that exists: core prunes
+            // transactions whose wallet is gone when state loads, so one
+            // recorded against a made-up id survives only until the next load.
             let wallet = WalletView(
                 id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!, name: "W",
                 addresses: ["Bitcoin": "bc1qexample"], selectedChain: "Bitcoin")
             await store.seedWalletForTesting(wallet)
             let tx = TransactionRecord(
                 id: UUID().uuidString,
-                walletID: wallet.id, kind: .send, status: .pending, walletName: "W",
+                walletId: wallet.id, kind: .send, status: .pending, walletName: "W",
                 assetDisplayName: "Bitcoin", symbol: "BTC", chainName: "Bitcoin", amount: 0.1,
                 address: "bc1qexample", transactionHash: "0xhash-status-test")
 
@@ -609,8 +574,8 @@ import Foundation
             let deadline = ContinuousClock.now + timeout
             var seen: TransactionStatus?
             while ContinuousClock.now < deadline {
-                let stored = (try? await WalletServiceBridge.shared.fetchAllHistoryRecordsTyped()) ?? []
-                seen = stored.map { TransactionRecord(snapshot: $0.payload) }
+                let stored = (try? await WalletServiceBridge.shared.storedTransactions()) ?? []
+                seen = stored
                     .first { $0.id == id }?.status
                 if seen == expecting { return seen }
                 try? await Task.sleep(for: .milliseconds(50))
@@ -618,31 +583,26 @@ import Foundation
             return seen
         }
 
-        /// A setting survives into a fresh `AppState`, and core bounds it.
-        ///
-        /// Nothing covered the settings blob this replaces: it was written and
-        /// read by one file on one platform, so "does a setting persist" had no
-        /// assertion on either side of the boundary.
+        /// A setting survives into a fresh `AppState`, and core bounds it —
+        /// on screen at once, by core's own rule, not after the round trip.
         func testSettingsGoThroughCoreAndSurviveIntoAFreshAppState() async throws {
             let store = AppState()
-            store.etherscanAPIKey = "  ABC123  "
-            store.bitcoinStopGap = 9_999
-            store.preferences.useLargeMovementNotifications = false
-            await store.awaitPendingCoreStateWrites()
-            await waitUntil("core to bound the stop gap") { store.bitcoinStopGap == 200 }
-
-            XCTAssertEqual(store.etherscanAPIKey, "ABC123", "core trims, and the mirror adopts")
-            XCTAssertEqual(store.bitcoinStopGap, 200, "9999 is outside 1...200")
+            store.updateSetting(.etherscanApiKey(value: "  ABC123  "))
+            store.updateSetting(.bitcoinStopGap(value: 9_999))
+            store.updateSetting(.useLargeMovementNotifications(value: false))
+            XCTAssertEqual(store.appSettings.etherscanApiKey, "ABC123", "core's rule trims before the command lands")
+            XCTAssertEqual(store.appSettings.bitcoinStopGap, 200, "9999 is outside 1...200")
+            await store.awaitPendingSettingCommands()
 
             let fresh = AppState()
-            await waitUntil("a fresh store to load the settings") { fresh.etherscanAPIKey == "ABC123" }
-            XCTAssertEqual(fresh.bitcoinStopGap, 200)
-            XCTAssertFalse(fresh.preferences.useLargeMovementNotifications)
+            await waitUntil("a fresh store to load the settings") { fresh.appSettings.etherscanApiKey == "ABC123" }
+            XCTAssertEqual(fresh.appSettings.bitcoinStopGap, 200)
+            XCTAssertFalse(fresh.appSettings.useLargeMovementNotifications)
 
-            store.etherscanAPIKey = ""
-            store.bitcoinStopGap = 10
-            store.preferences.useLargeMovementNotifications = true
-            await store.awaitPendingCoreStateWrites()
+            store.updateSetting(.etherscanApiKey(value: ""))
+            store.updateSetting(.bitcoinStopGap(value: 10))
+            store.updateSetting(.useLargeMovementNotifications(value: true))
+            await store.awaitPendingSettingCommands()
         }
 
     }
@@ -682,7 +642,7 @@ final class DiagnosticsBundleCoverageTests: XCTestCase {
 @MainActor
 private extension AppState {
     func seedTransactionForTesting(_ record: TransactionRecord) async {
-        _ = try? await WalletServiceBridge.shared.applyTransactionCommand(.upsert(records: [record.persistedSnapshot]))
+        _ = try? await WalletServiceBridge.shared.applyTransactionCommand(.upsert(records: [record]))
         await refreshTransactionProjection()
     }
     func seedWalletForTesting(_ wallet: WalletView) async {
@@ -699,18 +659,10 @@ private extension AppState {
 
 private extension TransactionRecord {
     func withRebroadcastUpdate(status: TransactionStatus, transactionHash: String?, failureReason: String? = nil) -> TransactionRecord {
-        TransactionRecord(
-            id: id, walletID: walletID, kind: kind, status: status, walletName: walletName, assetDisplayName: assetDisplayName, symbol: symbol,
-            chainName: chainName, amount: amount, address: address, transactionHash: transactionHash, ethereumNonce: ethereumNonce,
-            receiptBlockNumber: receiptBlockNumber, receiptGasUsed: receiptGasUsed,
-            receiptEffectiveGasPriceGwei: receiptEffectiveGasPriceGwei, receiptNetworkFee: receiptNetworkFee,
-            feePriorityRaw: feePriorityRaw, feeRateDescription: feeRateDescription, confirmationCount: confirmationCount,
-            dogecoinConfirmedNetworkFeeDoge: dogecoinConfirmedNetworkFeeDoge,
-            dogecoinEstimatedFeeRateDogePerKb: dogecoinEstimatedFeeRateDogePerKb,
-            usedChangeOutput: usedChangeOutput,
-            sourceDerivationPath: sourceDerivationPath, changeDerivationPath: changeDerivationPath, sourceAddress: sourceAddress,
-            changeAddress: changeAddress,
-            signedTransactionPayload: signedTransactionPayload, signedTransactionPayloadFormat: signedTransactionPayloadFormat,
-            failureReason: failureReason, transactionHistorySource: transactionHistorySource, createdAt: createdAt)
+        var updated = self
+        updated.status = status
+        updated.transactionHash = transactionHash
+        updated.failureReason = failureReason
+        return updated
     }
 }

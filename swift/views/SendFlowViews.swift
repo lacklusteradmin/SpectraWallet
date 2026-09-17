@@ -66,7 +66,7 @@ struct SendView: View {
                         stepProgress
                     }
 
-                    stepContent(selectedCoin: selectedCoin)
+                    stepContent
                         .id(currentStep)
                         .transition(stepTransition)
 
@@ -155,7 +155,7 @@ struct SendView: View {
         } message: {
             Text(
                 store.pendingHighRiskSendReasons.joined(separator: "\n• ").isEmpty
-                    ? "This transfer has elevated risk."
+                    ? AppLocalization.string("This transfer has elevated risk.")
                     : "• " + store.pendingHighRiskSendReasons.joined(separator: "\n• ")
             )
         }
@@ -164,7 +164,7 @@ struct SendView: View {
     // MARK: - Flow shell
 
     @ViewBuilder
-    private func stepContent(selectedCoin: Coin?) -> some View {
+    private var stepContent: some View {
         switch currentStep {
         case .from:
             SendFromPage(store: store)
@@ -290,7 +290,7 @@ struct SendView: View {
                           store.sendAddress.trimmingCharacters(in: .whitespacesAndNewlines) == input,
                           selectedNetworkSendCoin?.holdingKey == coin.holdingKey else { return }
                     store.reviewedSendDestination = (input, coin.chainName, resolved.address)
-                    if resolved.usedEns { store.sendDestinationInfoMessage = "Resolved ENS \(input) to \(resolved.address)." }
+                    if resolved.usedEns { store.sendDestinationInfoMessage = AppLocalization.format("Resolved ENS %@ to %@.", input, resolved.address) }
                     go(to: .confirm)
                 } catch { store.sendError = error.localizedDescription }
             }
@@ -350,7 +350,7 @@ struct SendView: View {
             store.customEvmPriorityFeeGwei,
             store.evmManualNonceEnabled.description,
             store.evmManualNonce,
-            store.feePriorityByChain.description,
+            String(describing: store.selectedSendCoin.map { store.feePriority(forChain: $0.chainName) }),
         ].joined(separator: "|")
     }
 
@@ -377,9 +377,7 @@ struct SendView: View {
     /// is on for the selected asset's family.
     private var scannedPayloadNetwork: Chain? {
         guard let coin = store.selectedSendCoin, let family = Chain(displayName: coin.chainName)?.id else { return nil }
-        let networkID =
-            store.selectedWalletForSend().map { store.walletNetworkChainID(for: $0, family: family) }
-            ?? store.networkChainID(forFamily: family)
+        let networkID = store.selectedWalletForSend()?.networkChainId ?? store.networkChainID(forFamily: family)
         return Chain(id: networkID)
     }
 }

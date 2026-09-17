@@ -50,25 +50,24 @@ extension AppState {
         guard let walletPendingDeletion else { return }
         guard
             await authenticateForSensitiveAction(
-                reason: "Authenticate to delete wallet", allowWhenAuthenticationUnavailable: true
+                reason: AppLocalization.string("Authenticate to delete wallet"), allowWhenAuthenticationUnavailable: true
             )
         else {
             return
         }
         let deletedWalletID = walletPendingDeletion.id
-        let deletedWalletIDString = deletedWalletID
-        let deletedChainName = normalizedWalletChainName(walletPendingDeletion.selectedChain)
-        guard await removeWallet(id: walletPendingDeletion.id) else { return }
-        clearHistoryTracking(for: walletPendingDeletion.id)
-        clearDeletedWalletDiagnostics(chainName: deletedChainName)
-        // Core drops the wallet's owned addresses in `deleteWalletRelationalData`.
-        if receiveWalletID == deletedWalletIDString {
+        // Core forgets the wallet's secrets, owned addresses, history
+        // pagination and diagnostics rows in the same removal.
+        guard await removeWallet(id: deletedWalletID) else { return }
+        chainDiagnosticsState.diagnosticsRevision &+= 1
+        await diagnostics.loadFromSQLite()
+        if receiveWalletID == deletedWalletID {
             receiveWalletID = ""
             receiveHoldingKey = ""
             receiveResolvedAddress = ""
             isResolvingReceiveAddress = false
         }
-        if sendWalletID == deletedWalletIDString { cancelSend() }
+        if sendWalletID == deletedWalletID { cancelSend() }
         if editingWalletID == deletedWalletID {
             editingWalletID = nil
             isShowingWalletImporter = false
@@ -77,135 +76,90 @@ extension AppState {
         self.walletPendingDeletion = nil
         if wallets.isEmpty { cancelWalletImport() }
     }
-    func wallet(for walletID: String) -> WalletView? { cachedWalletByID[walletID] }
-    func knownOwnedAddresses(for walletID: String) async -> [String] {
-        guard let wallet = cachedWalletByID[walletID] else { return [] }
-        var candidateAddresses: [String] = []
-        func appendAddress(_ candidate: String?) {
-            guard let candidate else { return }
-            candidateAddresses.append(candidate)
+    func importWallet() async {
+        guard canImportWallet else { return }
+        guard !isImportingWallet else { return }
+        let trimmedWalletName = importDraft.walletName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let editingWalletID {
+            await renameWallet(id: editingWalletID, to: trimmedWalletName)
+            return
         }
-        // Every address the wallet has stored — one, or two for Ethereum
-        // Classic, which occupies both the shared EVM slot and its own. This
-        // walked all 78 catalog chains asking for each one's slot to find
-        // them; the map already is the answer.
-        for address in wallet.addresses.values { appendAddress(address) }
-        // And the address its own chain derives. Seventeen
-        // `resolved<Chain>Address(for:)` calls stood here, one per chain
-        // family, each reading the seed out of the Keychain and deriving a
-        // key — on a path that runs before every send and on opening any
-        // transaction. A wallet is on one chain, so sixteen of them derived
-        // addresses on chains this wallet is not on: they belong to whatever
-        // separate wallet the same seed was imported as there, and they could
-        // never match the address being checked anyway, since the check is
-        // always against one chain's transaction.
-        appendAddress(resolvedAddress(for: wallet, chainName: wallet.selectedChain))
-        for transaction in transactions where transaction.walletID == walletID {
-            appendAddress(transaction.sourceAddress)
-            appendAddress(transaction.changeAddress)
+        if importDraft.requiresBackupVerification && !importDraft.isBackupVerificationComplete {
+            importError = AppLocalization.string("Confirm your seed backup words before importing the wallet.")
+            return
         }
-        for address in await WalletServiceBridge.shared.ownedAddresses(walletID: walletID) {
-            appendAddress(address)
-        }
-        let request = OwnedAddressAggregationRequest(candidateAddresses: candidateAddresses)
-        return coreAggregateOwnedAddresses(request: request)
-    }
-    /// A sealed wallet can be revealed with its password, so this asks what is
-    /// stored rather than whether it can be read without one.
-    func canRevealSeedPhrase(for walletID: String) -> Bool {
-        guard let state = WalletServiceBridge.shared.walletSecretState(walletID: walletID) else { return false }
-        return state.hasSigningMaterial && !state.hasPrivateKey
-    }
-    func isWatchOnlyWallet(_ wallet: WalletView) -> Bool { !walletHasSigningMaterial(wallet.id) }
-    func isPrivateKeyWallet(_ wallet: WalletView) -> Bool { isPrivateKeyBackedWallet(wallet.id) }
-    func revealSeedPhrase(for wallet: WalletView, password: String? = nil) async throws -> String {
-        let authenticated = await authenticateForSeedPhraseReveal(reason: "Authenticate to view seed phrase for \(wallet.name)")
-        guard authenticated else { throw SeedPhraseRevealError.authenticationRequired }
-        var providedPassword: String? = nil
-        if walletRequiresSeedPhrasePassword(wallet.id) {
-            guard let supplied = password?.trimmingCharacters(in: .whitespacesAndNewlines), !supplied.isEmpty else {
-                throw SeedPhraseRevealError.passwordRequired
-            }
-            providedPassword = supplied
-        }
-        // One call decides both. The password used to be checked against a
-        // verifier stored beside a plaintext phrase, so a wrong password was
-        // the only thing standing between a reader and material that was never
-        // encrypted; it is the decryption key now, and a wrong one cannot
-        // produce a phrase at all.
-        let seedPhrase: String
-        do {
-            seedPhrase = try WalletServiceBridge.shared.walletSeedPhrase(
-                walletID: wallet.id, password: providedPassword)
-        } catch {
-            throw providedPassword == nil
-                ? SeedPhraseRevealError.unavailable
-                : SeedPhraseRevealError.invalidPassword
-        }
-        guard !seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
-            throw SeedPhraseRevealError.unavailable
-        }
-        return seedPhrase
-    }
-    func availableSendCoins(for walletID: String) -> [Coin] { cachedAvailableSendCoinsByWalletID[walletID] ?? [] }
-    func availableReceiveCoins(for walletID: String) -> [Coin] { cachedAvailableReceiveCoinsByWalletID[walletID] ?? [] }
-    func selectedReceiveCoin(for walletID: String) -> Coin? {
-        let receiveCoins = availableReceiveCoins(for: walletID)
-        let plan = receiveSelection(for: walletID, coins: receiveCoins)
-        guard let selectedIndex = plan.selectedReceiveHoldingIndex.map(Int.init),
-            receiveCoins.indices.contains(selectedIndex)
-        else { return nil }
-        return receiveCoins[selectedIndex]
-    }
-    /// Which holding the receive screen presents itself as — the native one,
-    /// or the first token if there is no native holding.
-    ///
-    /// Took a chain too: a `receiveChainName` pick plus the wallet's list of
-    /// receive chains, which core filtered holdings against. A wallet is on one
-    /// chain, so that list held one entry and the filter never dropped
-    /// anything.
-    private func receiveSelection(for walletID: String, coins: [Coin]? = nil) -> ReceiveSelectionPlan {
-        let receiveCoins = coins ?? availableReceiveCoins(for: walletID)
-        return coreReceiveSelection(
-            request: ReceiveSelectionRequest(
-                availableReceiveHoldings: receiveCoins.enumerated().map { offset, coin in
-                    ReceiveSelectionHoldingInput(
-                        holdingIndex: UInt64(offset),
-                        hasContractAddress: coin.contractAddress != nil
+        isImportingWallet = true
+        defer { isImportingWallet = false }
+        let trimmedWalletPassword = importDraft.normalizedWalletPassword
+        let draft = importDraft
+        let selectedDerivationPreset = importDraft.seedDerivationPreset
+        let selectedDerivationPaths: CoreSeedDerivationPaths = {
+            var paths = importDraft.seedDerivationPaths
+            paths.isCustomEnabled = true
+            return paths
+        }()
+        var importedWalletsForRefresh: [WalletView] = []
+        if editingWalletID == nil {
+            // Core mints the wallet ids, derives every address from the secret
+            // the commit carries, and reads each family's network from its own
+            // settings; only a watch-only import supplies addresses, typed, in
+            // `watchOnlyEntries`.
+            let importPlanRequest = WalletImportRequest(
+                walletName: trimmedWalletName, selectedChainNames: draft.selectedChainNames,
+                isWatchOnlyImport: draft.isWatchOnlyMode, isPrivateKeyImport: draft.isPrivateKeyImportMode,
+                watchOnlyEntries: draft.watchOnlyImportEntries)
+            // Core derives addresses, stores secrets through the registered
+            // callback and commits the entire wallet batch before returning.
+            let outcome: WalletImportOutcome
+            do {
+                outcome = try await WalletServiceBridge.shared.importWallets(
+                    WalletImportCommit(
+                        password: trimmedWalletPassword,
+                        request: importPlanRequest,
+                        seedDerivationPreset: selectedDerivationPreset,
+                        seedDerivationPaths: selectedDerivationPaths,
+                        derivationOverrides: draft.resolvedDerivationOverrides,
+                        seedPhrase: draft.seedPhrase,
+                        privateKey: draft.privateKeyInput
                     )
-                }
-            )
-        )
-    }
-    var sendEnabledWallets: [WalletView] { cachedSendEnabledWallets }
-    var receiveEnabledWallets: [WalletView] { cachedReceiveEnabledWallets }
-    var canBeginSend: Bool { !sendEnabledWallets.isEmpty }
-    var canBeginReceive: Bool { !receiveEnabledWallets.isEmpty }
-    var alertableCoins: [Coin] { portfolio }
-    var sendAddressBookEntries: [AddressBookEntry] {
-        guard let selectedSendCoin else { return [] }
-        return addressBook.filter { $0.chainName == selectedSendCoin.chainName }
-    }
-    var replacementNonceStateMessage: String? {
-        guard let selectedSendCoin, selectedSendCoin.isEVMChain else { return nil }
-        guard let pending = replaceableSendForSelectedWallet else {
-            return AppLocalization.format(
-                "No pending %@ send found for this wallet. Replacement and cancel are available only for pending transactions.",
-                selectedSendCoin.chainName)
+                )
+            } catch {
+                importError = error.localizedDescription
+                return
+            }
+            // Core refuses addresses that do not parse for their chain. Wallets
+            // it did create are already stored, so this is a notice rather than
+            // a failure — but it has to be shown. Dropping it silently is how a
+            // typo becomes a wallet whose receive address is missing.
+            if !outcome.rejectedAddresses.isEmpty {
+                let refused = outcome.rejectedAddresses.joined(separator: ", ")
+                importError = AppLocalization.format("These addresses were not valid and were not imported: %@", refused)
+            }
+            let createdWallets = outcome.wallets
+            if let stored = try? await WalletServiceBridge.shared.storedWallets() {
+                adoptWalletsFromCore(stored)
+            }
+            importedWalletsForRefresh = createdWallets
         }
-        var message = AppLocalization.format("Pending %@ transaction detected", pending.symbol)
-        if let nonce = pending.recordedNonce {
-            message += AppLocalization.format("send.replacement.pendingNonceSuffix", nonce)
-        } else {
-            message += "."
-        }
-        let hash = pending.transactionHash
-        let shortHash = hash.count > 14 ? "\(hash.prefix(10))...\(hash.suffix(4))" : hash
-        message += AppLocalization.format("send.replacement.transactionSuffix", shortHash)
-        message += localizedStoreString(
-            pending.canSpeedUp
-                ? " Use Speed Up to resend with higher fees or Cancel to submit a 0-value self-transfer using the same nonce."
-                : " Use Cancel to submit a 0-value self-transfer using the same nonce. A token transfer cannot be rebuilt from its record, so it cannot be sped up.")
-        return message
+        await rebuildWalletDerivedStateFromCore()
+        finishWalletImportFlow()
+        scheduleImportedWalletRefresh(importedWalletsForRefresh)
+    }
+    func renameWallet(id: String, to newName: String) async {
+        changeWallet(.renameWallet(walletId: id, name: newName))
+        await walletMutationTask?.value
+        if importError == nil { finishWalletImportFlow() }
+    }
+    func finishWalletImportFlow() {
+        importError = nil
+        importDraft.clearSensitiveInputs()
+        resetImportForm()
+        editingWalletID = nil
+        isShowingWalletImporter = false
+        // Also pop the Add Wallet entry page so the user lands back on
+        // Dashboard after a successful import — they started on Dashboard,
+        // pushed Add Wallet, pushed the Importer, and shouldn't be stranded
+        // on the intermediate Add Wallet page after finishing.
+        isShowingAddWalletEntry = false
     }
 }

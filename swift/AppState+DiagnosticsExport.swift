@@ -35,7 +35,7 @@ extension AppState {
             osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
             localeIdentifier: Locale.current.identifier,
             timeZoneIdentifier: TimeZone.current.identifier,
-            selectedFiatCurrency: selectedFiatCurrency.rawValue,
+            selectedFiatCurrency: selectedFiatCurrency.code,
             walletCount: Int64(wallets.count),
             transactionCount: Int64(transactions.count))
         return DiagnosticsBundlePayload(
@@ -105,19 +105,18 @@ extension DiagnosticsBundlePayload {
     var generatedAtDate: Date { Date(timeIntervalSince1970: generatedAt) }
 
     /// Fold a chain-display-name → JSON table into the chain-id-keyed map,
-    /// substituting `"{}"` for chains with no data. Ids come from the Rust
+    /// substituting `"{}"` for chains with no data. Ids come from the
     /// registry, so the bundle keys stay canonical.
     static func chainKeyed(_ byChainName: [String: String?]) -> [String: String] {
         var byChainID: [String: String] = [:]
         for (chainName, json) in byChainName {
-            guard let id = coreResolveChainId(input: chainName) else { continue }
+            guard let id = Chain(displayName: chainName)?.id else { continue }
             byChainID[id] = json ?? "{}"
         }
         return byChainID
     }
 
     func diagnosticsJSON(forChainNamed chainName: String) -> String? {
-        guard let id = coreResolveChainId(input: chainName) else { return nil }
-        return chainDiagnosticsJson[id]
+        Chain(displayName: chainName).flatMap { chainDiagnosticsJson[$0.id] }
     }
 }

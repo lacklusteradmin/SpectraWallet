@@ -9,7 +9,7 @@ final class SendAmountBridgeTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let bridge = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.db").path)
         do {
-            _ = try await bridge.applyStateCommand(.setFiatCurrency(fiatCurrencyCode: "EUR"))
+            _ = try await bridge.applyStateCommand(.setFiatCurrency(currency: .eur))
             XCTFail("a failed open must refuse the command")
         } catch {
             XCTAssertFalse(String(describing: error).contains("call open_state first"))
@@ -17,11 +17,11 @@ final class SendAmountBridgeTests: XCTestCase {
         try FileManager.default.removeItem(at: directory)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let state = try await bridge.openState()
-        XCTAssertEqual(state.settings.fiatCurrencyCode, "USD")
-        _ = try await bridge.applyStateCommand(.setFiatCurrency(fiatCurrencyCode: "EUR"))
+        XCTAssertEqual(state.settings.fiatCurrency, .usd)
+        _ = try await bridge.applyStateCommand(.setFiatCurrency(currency: .eur))
         let reopened = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.db").path)
         let stored = try await reopened.openState()
-        XCTAssertEqual(stored.settings.fiatCurrencyCode, "EUR")
+        XCTAssertEqual(stored.settings.fiatCurrency, .eur)
     }
 
     @MainActor
@@ -35,13 +35,11 @@ final class SendAmountBridgeTests: XCTestCase {
         try bridge.registerSecretStore(secretStore)
         let outcome = try await bridge.importWallets(WalletImportCommit(
             password: nil,
-            request: WalletImportRequest(walletName: "Imported",
-                primarySelectedChainName: "Ethereum", selectedChainNames: ["Ethereum"], plannedWalletIds: [],
-                isWatchOnlyImport: false, isPrivateKeyImport: false, hasWalletPassword: false,
-                resolvedAddresses: WalletImportAddresses(bySlot: [:], bitcoinXpub: nil),
+            request: WalletImportRequest(walletName: "Imported", selectedChainNames: ["Ethereum"],
+                isWatchOnlyImport: false, isPrivateKeyImport: false,
                 watchOnlyEntries: WalletImportWatchOnlyEntries(bySlot: [:], bitcoinXpub: nil)),
-            holdings: [], seedDerivationPreset: .standard, seedDerivationPaths: .defaults,
-            derivationOverrides: .empty, networkChainByFamily: [:],
+            seedDerivationPreset: .standard, seedDerivationPaths: .defaults,
+            derivationOverrides: CoreWalletDerivationOverrides(passphrase: nil, hmacKey: nil),
             seedPhrase: "test test test test test test test test test test test junk", privateKey: nil))
         XCTAssertEqual(outcome.wallets.count, 1)
         XCTAssertTrue(bridge.walletSecretState(walletID: outcome.wallets[0].id)?.hasSigningMaterial == true)
@@ -68,7 +66,7 @@ final class SendAmountBridgeTests: XCTestCase {
             _ = try await service.receiveAddress(walletId: "missing", chainId: "bitcoin", reserve: true)
             XCTFail("Missing wallet must fail before reserving")
         } catch SpectraBridgeError.InvalidInput { }
-        let reset = try await service.resetData(scopes: ["walletsAndSecrets", "historyAndCache"])
+        let reset = try await service.resetData(scopes: [.walletsAndSecrets, .historyAndCache])
         XCTAssertTrue(reset.state.wallets.isEmpty)
         XCTAssertTrue(reset.plan.resetHistoryAndCache)
     }
@@ -122,12 +120,6 @@ final class SendAmountBridgeTests: XCTestCase {
             walletId: "fault", chainName: "Bitcoin", address: "fixture",
             derivationPath: nil, branch: "external", branchIndex: Int64.max)
         do {
-            _ = try await service.keypoolState(walletId: "fault", chainName: "Bitcoin")
-            XCTFail("An invalid baseline must not become index zero")
-        } catch SpectraBridgeError.Failure(let message) {
-            XCTAssertTrue(message.contains("index out of range"))
-        }
-        do {
             _ = try await service.reserveReceiveIndex(walletId: "fault", chainName: "Bitcoin", minimumIndex: 1)
             XCTFail("Cannot reserve from an invalid baseline")
         } catch SpectraBridgeError.Failure(let message) {
@@ -151,13 +143,13 @@ final class SendAmountBridgeTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         _ = try await service.openState(databasePath: directory.appendingPathComponent("state.sqlite").path)
         let added = try await service.applyStateCommand(command: .addPriceAlert(
-            holdingKey: "ethereum:native", targetPrice: 0.000001, currencyCode: "USD", condition: .above))
+            holdingKey: "ethereum:native", targetPrice: 0.000001, currency: .usd, condition: .above))
         let alert = try XCTUnwrap(added.state.priceAlerts.first)
         XCTAssertEqual(alert.targetPrice, 0.000001)
         let duplicate = try await service.applyStateCommand(command: .addPriceAlert(
-            holdingKey: "ethereum:native", targetPrice: 0.000001, currencyCode: "USD", condition: .above))
+            holdingKey: "ethereum:native", targetPrice: 0.000001, currency: .usd, condition: .above))
         XCTAssertEqual(duplicate.state.priceAlerts.count, 1)
-        XCTAssertTrue(duplicate.events.contains { $0.kind == "priceAlertRejected" })
+        XCTAssertTrue(duplicate.events.contains(.priceAlertRejected(reason: .duplicateAlert)))
         let paused = try await service.applyStateCommand(command: .togglePriceAlert(id: alert.id))
         XCTAssertFalse(try XCTUnwrap(paused.state.priceAlerts.first).isEnabled)
         let removed = try await service.applyStateCommand(command: .removePriceAlert(id: alert.id))
@@ -180,9 +172,6 @@ private final class ImportTestSecretStore: SecretStore, @unchecked Sendable {
     }
     func deleteSecret(kind: SecretClass, key: String) throws {
         lock.withLock { _ = values[kind]?.removeValue(forKey: key) }
-    }
-    func listKeys(kind: SecretClass, prefixFilter: String) throws -> [String] {
-        lock.withLock { Array(values[kind, default: [:]].keys).filter { $0.hasPrefix(prefixFilter) } }
     }
 }
 

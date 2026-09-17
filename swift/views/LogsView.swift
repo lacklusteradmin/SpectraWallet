@@ -4,47 +4,25 @@ import UIKit
 struct LogsView: View {
     let store: AppState
     @State private var searchText: String = ""
-    @State private var selectedLevelFilter: LogLevelFilter = .all
+    /// `nil` shows every level.
+    @State private var selectedLevelFilter: DiagnosticLogLevel?
     private let allCategoryFilter = "__all__"
     @State private var selectedCategoryFilter: String = "__all__"
     @State private var copiedNotice: SpectraTransientNotice?
     @State private var cachedAvailableCategories: [String] = ["__all__"]
-    @State private var cachedFilteredLogs: [AppState.OperationalLogEvent] = []
+    @State private var cachedFilteredLogs: [DiagnosticLog] = []
     private var diagnosticsState: WalletDiagnosticsState { store.diagnostics }
-    private enum LogLevelFilter: CaseIterable, Identifiable {
-        case all
-        case debug
-        case info
-        case warning
-        case error
-        var id: Self { self }
-        var title: String {
-            switch self {
-            case .all: return AppLocalization.string("All")
-            case .debug: return AppLocalization.string("Debug")
-            case .info: return AppLocalization.string("Info")
-            case .warning: return AppLocalization.string("Warning")
-            case .error: return AppLocalization.string("Error")
-            }
-        }
-    }
     private var availableCategories: [String] { cachedAvailableCategories }
-    private var filteredLogs: [AppState.OperationalLogEvent] { cachedFilteredLogs }
+    private var filteredLogs: [DiagnosticLog] { cachedFilteredLogs }
     private func rebuildLogPresentation() {
-        let categories = Set(diagnosticsState.operationalLogs.map { $0.category })
+        let categories = Set(diagnosticsState.operationalLogs.map { $0.input.category })
         cachedAvailableCategories = [allCategoryFilter] + categories.sorted()
         if selectedCategoryFilter != allCategoryFilter, !cachedAvailableCategories.contains(selectedCategoryFilter) {
             selectedCategoryFilter = allCategoryFilter
         }
-        cachedFilteredLogs = diagnosticsState.operationalLogs.filter { event in
-            let levelMatches: Bool
-            switch selectedLevelFilter {
-            case .all: levelMatches = true
-            case .debug: levelMatches = event.level == .debug
-            case .info: levelMatches = event.level == .info
-            case .warning: levelMatches = event.level == .warning
-            case .error: levelMatches = event.level == .error
-            }
+        cachedFilteredLogs = diagnosticsState.operationalLogs.filter { log in
+            let event = log.input
+            let levelMatches = selectedLevelFilter.map { event.level == $0 } ?? true
             let categoryMatches = selectedCategoryFilter == allCategoryFilter || event.category == selectedCategoryFilter
             let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
             let searchMatches: Bool
@@ -52,7 +30,7 @@ struct LogsView: View {
                 searchMatches = true
             } else {
                 let haystack = [
-                    event.message, event.category, event.chainName ?? "", event.source ?? "", event.metadata ?? "", event.walletID ?? "",
+                    event.message, event.category, event.chainName ?? "", event.source ?? "", event.metadata ?? "", event.walletId ?? "",
                     event.transactionHash ?? "",
                 ].joined(separator: " ").lowercased()
                 searchMatches = haystack.contains(query)
@@ -61,10 +39,10 @@ struct LogsView: View {
         }
     }
     private var summaryText: String {
-        let debugCount = filteredLogs.filter { $0.level == .debug }.count
-        let infoCount = filteredLogs.filter { $0.level == .info }.count
-        let warningCount = filteredLogs.filter { $0.level == .warning }.count
-        let errorCount = filteredLogs.filter { $0.level == .error }.count
+        let debugCount = filteredLogs.filter { $0.input.level == .debug }.count
+        let infoCount = filteredLogs.filter { $0.input.level == .info }.count
+        let warningCount = filteredLogs.filter { $0.input.level == .warning }.count
+        let errorCount = filteredLogs.filter { $0.input.level == .error }.count
         return AppLocalization.format(
             "Showing %lld logs • D:%lld I:%lld W:%lld E:%lld", filteredLogs.count, debugCount, infoCount, warningCount, errorCount)
     }
@@ -79,7 +57,8 @@ struct LogsView: View {
             }
             Section(AppLocalization.string("Filters")) {
                 Picker(AppLocalization.string("Level"), selection: $selectedLevelFilter) {
-                    ForEach(LogLevelFilter.allCases) { level in Text(level.title).tag(level) }
+                    Text(AppLocalization.string("All")).tag(DiagnosticLogLevel?.none)
+                    ForEach(DiagnosticLogLevel.allCases, id: \.self) { level in Text(level.displayName).tag(Optional(level)) }
                 }
                 Picker(AppLocalization.string("Category"), selection: $selectedCategoryFilter) {
                     ForEach(availableCategories, id: \.self) { category in
@@ -94,11 +73,12 @@ struct LogsView: View {
                 }
             } else {
                 Section(AppLocalization.string("Events")) {
-                    ForEach(filteredLogs) { event in
+                    ForEach(filteredLogs) { log in
+                        let event = log.input
                         VStack(alignment: .leading, spacing: 6) {
                             HStack(spacing: 8) {
                                 Image(systemName: iconName(for: event.level)).foregroundStyle(color(for: event.level))
-                                Text(event.timestamp.formatted(date: .abbreviated, time: .standard)).font(.caption.bold()).foregroundStyle(
+                                Text(log.timestamp.formatted(date: .abbreviated, time: .standard)).font(.caption.bold()).foregroundStyle(
                                     .secondary)
                                 Text(event.category).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 6)
                                     .padding(.vertical, 2).background(Color.secondary.opacity(0.12), in: Capsule())
@@ -111,7 +91,7 @@ struct LogsView: View {
                                 Text(AppLocalization.format("chain: %@", chainName)).font(.caption.monospaced()).foregroundStyle(
                                     .secondary)
                             }
-                            if let walletID = event.walletID {
+                            if let walletID = event.walletId {
                                 Text(AppLocalization.format("wallet: %@", walletID)).font(.caption.monospaced()).foregroundStyle(
                                     .secondary
                                 ).textSelection(.enabled)
@@ -152,7 +132,7 @@ struct LogsView: View {
             }
         }
     }
-    private func iconName(for level: AppState.OperationalLogEvent.Level) -> String {
+    private func iconName(for level: DiagnosticLogLevel) -> String {
         switch level {
         case .debug: return "ladybug.fill"
         case .info: return "info.circle.fill"
@@ -160,7 +140,7 @@ struct LogsView: View {
         case .error: return "xmark.octagon.fill"
         }
     }
-    private func color(for level: AppState.OperationalLogEvent.Level) -> Color {
+    private func color(for level: DiagnosticLogLevel) -> Color {
         switch level {
         case .debug: return .gray
         case .info: return .blue

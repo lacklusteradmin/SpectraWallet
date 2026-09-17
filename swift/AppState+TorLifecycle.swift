@@ -9,16 +9,11 @@ extension AppState {
 
     // MARK: - Entry points
 
-    /// Called once after preferences are restored. Starts Tor if `torEnabled` is true.
-    func startTorIfEnabled() {
-        guard torEnabled else { return }
-        startTorEngine()
-    }
-
-    /// Called by `torEnabled.didSet` and `torUseCustomProxy.didSet` to react to
-    /// the user toggling the switch in settings.
+    /// Start or stop the client to match core's Tor settings. Called when
+    /// either Tor switch changes, whether the change was made here or arrived
+    /// with core's state at launch.
     func handleTorEnabledChange() {
-        if torEnabled {
+        if appSettings.torEnabled {
             startTorEngine()
         } else {
             stopTorEngine()
@@ -28,7 +23,7 @@ extension AppState {
     /// Restart Tor after a failure or a manual reconnect request.
     func reconnectTor() {
         stopTorEngine()
-        guard torEnabled else { return }
+        guard appSettings.torEnabled else { return }
         startTorEngine()
     }
 
@@ -37,8 +32,8 @@ extension AppState {
     private func startTorEngine() {
         torStatusPollingTask?.cancel()
 
-        if torUseCustomProxy {
-            let addr = torCustomProxyAddress.trimmingCharacters(in: .whitespaces)
+        if appSettings.torUseCustomProxy {
+            let addr = appSettings.torCustomProxyAddress.trimmingCharacters(in: .whitespaces)
             let result = Result { try torActivateCustomProxy(socks5Url: addr) }
             switch result {
             case .success:

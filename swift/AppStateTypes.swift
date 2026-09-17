@@ -6,25 +6,34 @@
 
 import Foundation
 
-/// Something that happened on a chain. Core records these, caps the list and
-/// persists it — this is core's record, not a Swift copy of it.
-typealias ChainOperationalEvent = ChainOperationalEventRecord
-
-nonisolated extension ChainOperationalEvent: Identifiable {}
-
-nonisolated extension ChainOperationalEvent {
-    typealias Level = ChainOperationalEventLevel
+/// One operational log entry. Core records these, caps the list and persists
+/// it; the logs screen and a chain's diagnostics screen both read this record.
+///
+/// There were two Swift copies of it. One was rebuilt from core's row with a
+/// failable UUID parse and a string level, and dropped the row if either
+/// failed; the other was a per-chain record with a three-case level of its
+/// own that was mapped onto the four-case one to be written.
+nonisolated extension DiagnosticLog: Identifiable {
     var timestamp: Date { Date(timeIntervalSince1970: timestampUnix) }
 }
 
-nonisolated extension ChainOperationalEventLevel {
-    /// The generated enum carries no raw value — the Swift enum it replaced was
-    /// `String`-backed and one display site relied on that.
+nonisolated extension DiagnosticLogLevel {
+    static let allCases: [DiagnosticLogLevel] = [.debug, .info, .warning, .error]
     var displayName: String {
         switch self {
-        case .info: return "Info"
-        case .warning: return "Warning"
-        case .error: return "Error"
+        case .debug: return AppLocalization.string("Debug")
+        case .info: return AppLocalization.string("Info")
+        case .warning: return AppLocalization.string("Warning")
+        case .error: return AppLocalization.string("Error")
+        }
+    }
+    /// The export's tag. Not localized: the export is read by whoever debugs it.
+    var exportTag: String {
+        switch self {
+        case .debug: return "DEBUG"
+        case .info: return "INFO"
+        case .warning: return "WARNING"
+        case .error: return "ERROR"
         }
     }
 }
@@ -35,49 +44,46 @@ enum MainAppTab: Hashable {
     case settings
 }
 
-extension AppState {
-    enum ResetScope: String, CaseIterable, Identifiable {
-        case walletsAndSecrets
-        case historyAndCache
-        case alertsAndContacts
-        case settingsAndEndpoints
-        case dashboardCustomization
-        case providerState
-        var id: String { rawValue }
-        @MainActor
-        var title: String {
-            switch self {
-            case .walletsAndSecrets: return localizedStoreString("Wallets & Secrets")
-            case .historyAndCache: return localizedStoreString("History & Cache")
-            case .alertsAndContacts: return localizedStoreString("Alerts & Contacts")
-            case .settingsAndEndpoints: return localizedStoreString("Settings & Endpoints")
-            case .dashboardCustomization: return localizedStoreString("Dashboard Customization")
-            case .providerState: return localizedStoreString("Provider State")
-            }
-        }
-        @MainActor
-        var detail: String {
-            switch self {
-            case .walletsAndSecrets:
-                return localizedStoreString("Imported wallets, seed phrases, watched addresses, and local wallet access data.")
-            case .historyAndCache:
-                return localizedStoreString("Transactions, history database, diagnostics snapshots, and cached chain state.")
-            case .alertsAndContacts: return localizedStoreString("Price alerts, notification rules, and saved address book recipients.")
-            case .settingsAndEndpoints:
-                return localizedStoreString("Known tokens, pricing and RPC settings, preferences, and icon customizations.")
-            case .dashboardCustomization:
-                return localizedStoreString("Pinned assets and other home page customization choices stored on this device.")
-            case .providerState:
-                return localizedStoreString("Provider selections, reliability memory, transport caches, and low-level network heuristics.")
-            }
+/// What a reset clears. Core's scope, with this app's words for it.
+extension ResetScope {
+    static let allCases: [ResetScope] = [
+        .walletsAndSecrets, .historyAndCache, .alertsAndContacts, .settingsAndEndpoints, .dashboardCustomization, .providerState,
+    ]
+    @MainActor
+    var title: String {
+        switch self {
+        case .walletsAndSecrets: return localizedStoreString("Wallets & Secrets")
+        case .historyAndCache: return localizedStoreString("History & Cache")
+        case .alertsAndContacts: return localizedStoreString("Alerts & Contacts")
+        case .settingsAndEndpoints: return localizedStoreString("Settings & Endpoints")
+        case .dashboardCustomization: return localizedStoreString("Dashboard Customization")
+        case .providerState: return localizedStoreString("Provider State")
         }
     }
+    @MainActor
+    var detail: String {
+        switch self {
+        case .walletsAndSecrets:
+            return localizedStoreString("Imported wallets, seed phrases, watched addresses, and local wallet access data.")
+        case .historyAndCache:
+            return localizedStoreString("Transactions, history database, diagnostics snapshots, and cached chain state.")
+        case .alertsAndContacts: return localizedStoreString("Price alerts, notification rules, and saved address book recipients.")
+        case .settingsAndEndpoints:
+            return localizedStoreString("Known tokens, pricing and RPC settings, preferences, and icon customizations.")
+        case .dashboardCustomization:
+            return localizedStoreString("Pinned assets and other home page customization choices stored on this device.")
+        case .providerState:
+            return localizedStoreString("Provider selections, reliability memory, transport caches, and low-level network heuristics.")
+        }
+    }
+}
 
+extension AppState {
     enum TimeoutError: LocalizedError {
         case timedOut(seconds: Double)
         var errorDescription: String? {
             switch self {
-            case .timedOut(let seconds): return "Timed out after \(Int(seconds))s"
+            case .timedOut(let seconds): return AppLocalization.format("Timed out after %llds", Int(seconds))
             }
         }
     }
@@ -89,49 +95,12 @@ extension AppState {
         case invalidPassword
         var errorDescription: String? {
             switch self {
-            case .unavailable: return "No seed phrase is stored for this wallet."
-            case .authenticationRequired: return "Face ID authentication is required to view this seed phrase."
-            case .passwordRequired: return "Enter the wallet password to view this seed phrase."
-            case .invalidPassword: return "The wallet password is incorrect."
+            case .unavailable: return AppLocalization.string("No seed phrase is stored for this wallet.")
+            case .authenticationRequired: return AppLocalization.string("Face ID authentication is required to view this seed phrase.")
+            case .passwordRequired: return AppLocalization.string("Enter the wallet password to view this seed phrase.")
+            case .invalidPassword: return AppLocalization.string("The wallet password is incorrect.")
             }
         }
-    }
-
-    enum BackgroundSyncProfile: String, CaseIterable, Identifiable {
-        case conservative
-        case balanced
-        case aggressive
-        var id: String { rawValue }
-        @MainActor
-        var displayName: String {
-            switch self {
-            case .conservative: return localizedStoreString("Conservative")
-            case .balanced: return localizedStoreString("Balanced")
-            case .aggressive: return localizedStoreString("Aggressive")
-            }
-        }
-    }
-
-    struct OperationalLogEvent: Codable, Identifiable {
-        enum Level: String, Codable { case debug, info, warning, error }
-        let id: UUID
-        let timestamp: Date
-        let level: Level
-        let category: String
-        let message: String
-        let chainName: String?
-        let walletID: String?
-        let transactionHash: String?
-        let source: String?
-        let metadata: String?
-    }
-
-
-
-    struct ChainKeypoolState: Codable, Equatable {
-        var nextExternalIndex: Int
-        var nextChangeIndex: Int
-        var reservedReceiveIndex: Int?
     }
 
     struct ChainDegradedBanner: Identifiable {
@@ -141,43 +110,9 @@ extension AppState {
         var id: String { chainName }
     }
 
-
-    struct ChainKeypoolDiagnostic: Identifiable, Equatable {
-        let walletID: String
-        let walletName: String
-        let chainName: String
-        let reservedReceiveIndex: Int?
-        let reservedReceivePath: String?
-        let reservedReceiveAddress: String?
-        let nextExternalIndex: Int
-        let nextChangeIndex: Int
-        var id: String { "\(chainName):\(walletID)" }
-    }
 }
 
-extension AppState.ChainKeypoolState {
-    /// From core's stored keypool row.
-    init(keypool: KeypoolState) {
-        self.init(
-            nextExternalIndex: Int(keypool.nextExternalIndex),
-            nextChangeIndex: Int(keypool.nextChangeIndex),
-            reservedReceiveIndex: keypool.reservedReceiveIndex.map { Int($0) }
-        )
-    }
-
-    var coreRecord: ChainKeypoolStateRecord {
-        ChainKeypoolStateRecord(
-            nextExternalIndex: Int32(nextExternalIndex),
-            nextChangeIndex: Int32(nextChangeIndex),
-            reservedReceiveIndex: reservedReceiveIndex.map { Int32($0) }
-        )
-    }
-    init(coreRecord: ChainKeypoolStateRecord) {
-        self.init(
-            nextExternalIndex: Int(coreRecord.nextExternalIndex),
-            nextChangeIndex: Int(coreRecord.nextChangeIndex),
-            reservedReceiveIndex: coreRecord.reservedReceiveIndex.map { Int($0) }
-        )
-    }
+extension KeypoolDiagnostic: Identifiable {
+    public var id: String { walletId }
 }
 
