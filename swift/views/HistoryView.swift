@@ -91,7 +91,7 @@ struct HistoryView: View {
                                     VStack(spacing: 0) {
                                         ForEach(Array(section.rows.enumerated()), id: \.element.id) { index, row in
                                             NavigationLink {
-                                                HistoryDetailView(store: store, transaction: row.transaction)
+                                                TransactionDetailView(store: store, transaction: row.transaction)
                                             } label: {
                                                 HistoryTransactionRowView(row: row).equatable()
                                                     .padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)

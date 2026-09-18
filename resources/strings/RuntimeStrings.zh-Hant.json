@@ -384,6 +384,7 @@
   "No alerts configured yet": "尚未設定提醒",
   "No assets loaded for this wallet yet.": "此錢包尚未加載任何資產。",
   "No assets to display yet": "還沒有可顯示的資產",
+  "No balance on any chain.": "在任何鏈上都沒有餘額。",
   "No balance was detected at any of the scanned derivation paths. Double-check your seed phrase and try with a BIP-39 passphrase if you set one.": "掃描的派生路徑中未检測到餘額。請仔細檢查助記詞；如果你設定過 BIP-39 passphrase，也請带上它重試。",
   "No chains are listed for this asset.": "該資產沒有列出任何鏈。",
   "No diagnostics exports yet.": "還沒有診斷導出記錄。",

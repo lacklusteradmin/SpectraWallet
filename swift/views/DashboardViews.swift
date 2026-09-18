@@ -250,13 +250,12 @@ struct DashboardView: View {
             DashboardAssetRowPresentation(
                 assetGroup: assetGroup,
                 amountText: store.formattedAssetAmount(
-                    assetGroup.totalAmount, symbol: assetGroup.symbol, deploymentID: assetGroup.holdings.first?.coin.holdingKey
+                    assetGroup.totalAmount, symbol: assetGroup.symbol, deploymentID: assetGroup.identity.holdingKey
                 ),
                 totalValueText: hideBalances
                     ? "••••••"
                     : store.formattedFiatAmountOrZero(fromUSD: assetGroup.totalValueUSD),
-                priceText: dashboardAssetPriceText(for: assetGroup, hideBalances: hideBalances),
-                chainSummaryText: dashboardChainSummaryText(for: assetGroup)
+                priceText: dashboardAssetPriceText(for: assetGroup, hideBalances: hideBalances)
             )
         }
     }
@@ -278,21 +277,10 @@ struct DashboardView: View {
     }
     private func dashboardAssetPriceText(for assetGroup: DashboardAssetGroup, hideBalances: Bool) -> String {
         if hideBalances { return "••••••" }
-        guard let coin = assetGroup.representative,
-            let price = store.currentPriceIfAvailable(for: coin)
-        else {
+        guard let price = store.currentPriceIfAvailable(for: assetGroup.identity) else {
             return store.formattedFiatAmountOrZero(fromUSD: nil)
         }
         return store.formattedFiatAmountOrZero(fromUSD: price)
-    }
-    /// Where the asset is held: the largest place, and a count of the rest.
-    private func dashboardChainSummaryText(for assetGroup: DashboardAssetGroup) -> String {
-        guard let coin = assetGroup.representative else { return "" }
-        let onChain = AppLocalization.format(
-            "dashboard.asset.onChain", store.displayChainTitle(for: coin.chainName))
-        let others = assetGroup.holdings.count - 1
-        guard others > 0 else { return onChain }
-        return onChain + " " + AppLocalization.format("+%d more", others)
     }
 }
 enum DashboardPage {
@@ -325,14 +313,19 @@ struct AppNoticeItem: Identifiable {
 }
 typealias DashboardAssetGroup = CoreDashboardAssetGroup
 extension CoreDashboardAssetGroup: Identifiable {
-    /// The place most of the asset is held. Core sorts `holdings` by value, so
-    /// this is the first one, and it is how the row names and colours itself.
-    var representative: AssetHolding? { holdings.first?.coin }
-    var name: String { representative?.name ?? "" }
-    var symbol: String { representative?.symbol ?? "" }
-    var artworkName: String { representative?.artworkName ?? "" }
-    var color: Color { representative?.color ?? .orange }
-    var chainName: String { representative?.chainName ?? "" }
+    /// How the row names, colours and prices itself. Core supplies it: the
+    /// place most of the asset is held, or the catalog's entry for a pinned
+    /// asset held nowhere.
+    ///
+    /// This was `holdings.first?.coin`, which made every name on the row
+    /// optional and left a pinned-but-unheld row with nothing to call itself
+    /// unless core put a synthesized holding in the list — which then read as a
+    /// place the user holds it.
+    var representative: AssetHolding { identity }
+    var name: String { identity.name }
+    var symbol: String { identity.symbol }
+    var artworkName: String { identity.artworkName }
+    var color: Color { identity.color }
     /// Summed across every place the asset is held, not read from a field
     /// beside them: a total stored next to the list it comes from can disagree
     /// with it. None when any place is unpriced — a partial sum shown as the
@@ -431,7 +424,7 @@ private struct AssetSummaryStatsCard: View {
             statRow(
                 label: AppLocalization.string("Total Amount"),
                 value: store.formattedAssetAmount(
-                    assetGroup.totalAmount, symbol: assetGroup.symbol, deploymentID: assetGroup.holdings.first?.coin.holdingKey),
+                    assetGroup.totalAmount, symbol: assetGroup.symbol, deploymentID: assetGroup.identity.holdingKey),
                 icon: "scalemass.fill")
             Divider().opacity(0.4)
             statRow(
@@ -457,47 +450,69 @@ private struct AssetSummaryStatsCard: View {
 private struct AssetChainBreakdownCard: View {
     let assetGroup: DashboardAssetGroup
     let store: AppState
+
+    /// Held nowhere, so there is no breakdown to draw.
+    ///
+    /// A pinned asset the user holds none of has no holdings at all — core
+    /// names the row from its `identity` instead of synthesizing a place. The
+    /// amount is checked too, because a real holding that has been emptied says
+    /// the same thing to the reader and deserves the same sentence.
+    private var holdsNothing: Bool { assetGroup.holdings.isEmpty || assetGroup.totalAmount <= 0 }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Text(AppLocalization.string("Chain Breakdown")).font(.headline).foregroundStyle(Color.primary)
                 Spacer()
-                if assetGroup.holdings.count > 1 {
+                if !holdsNothing, assetGroup.holdings.count > 1 {
                     Text("\(assetGroup.holdings.count)").font(.caption.weight(.bold)).foregroundStyle(.orange).padding(
                         .horizontal, 8
                     ).padding(.vertical, 3).background(Capsule(style: .continuous).fill(Color.orange.opacity(0.14)))
                 }
             }
-            ForEach(Array(assetGroup.holdings.enumerated()), id: \.offset) { index, holding in
-                AssetChainBreakdownRow(
-                    chainTitle: store.displayChainTitle(for: holding.coin.chainName),
-                    artworkName: holding.coin.artworkName,
-                    tokenStandard: holding.coin.tokenStandard,
-                    amountText: store.formattedAssetAmount(
-                        holding.coin.amount, symbol: holding.coin.symbol,
-                        deploymentID: holding.coin.holdingKey),
-                    valueText: store.formattedFiatAmountOrZero(fromUSD: holding.valueUsd),
-                    symbol: holding.coin.symbol
-                )
-                if index < assetGroup.holdings.count - 1 { Divider().opacity(0.3) }
+            if holdsNothing {
+                Text(AppLocalization.string("No balance on any chain."))
+                    .font(.subheadline).foregroundStyle(.secondary)
+            } else {
+                ForEach(Array(assetGroup.holdings.enumerated()), id: \.offset) { index, holding in
+                    AssetChainBreakdownRow(
+                        chainName: holding.coin.chainName,
+                        chainTitle: store.displayChainTitle(for: holding.coin.chainName),
+                        tokenStandard: holding.coin.tokenStandard,
+                        amountText: store.formattedAssetAmount(
+                            holding.coin.amount, symbol: holding.coin.symbol,
+                            deploymentID: holding.coin.holdingKey),
+                        valueText: store.formattedFiatAmountOrZero(fromUSD: holding.valueUsd),
+                        fallbackColor: holding.coin.color
+                    )
+                    if index < assetGroup.holdings.count - 1 { Divider().opacity(0.3) }
+                }
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .spectraCardFill()
     }
 }
 
+/// One chain the asset is held on.
+///
+/// The badge is the **chain's**, which is what the row is about. It drew the
+/// asset's, so USDC on Ethereum and USDC on Solana were two rows under two
+/// identical USDC marks — the one thing that told them apart was the title
+/// beside it. `fallbackColor` is the asset's, for a chain the registry has no
+/// artwork for.
 private struct AssetChainBreakdownRow: View {
+    let chainName: String
     let chainTitle: String
-    let artworkName: String
     let tokenStandard: String
     let amountText: String
     let valueText: String
-    let symbol: String
+    let fallbackColor: Color
     var body: some View {
-        HStack(alignment: .center, spacing: 12) {
+        let badge = Coin.nativeChainBadge(chainName: chainName) ?? (nil, fallbackColor)
+        return HStack(alignment: .center, spacing: 12) {
             CoinBadge(
-                artworkName: artworkName,
-                fallbackText: symbol, color: .orange, size: 30)
+                artworkName: badge.artworkName,
+                fallbackText: chainTitle, color: badge.color, size: 30)
             VStack(alignment: .leading, spacing: 2) {
                 Text(chainTitle).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
                 Text(tokenStandard).font(.caption2).foregroundStyle(.secondary)
@@ -609,7 +624,6 @@ struct DashboardAssetRowPresentation: Identifiable, Equatable {
     let amountText: String
     let totalValueText: String
     let priceText: String
-    let chainSummaryText: String
     var id: String { assetGroup.id }
 }
 struct DashboardAssetRowView: View, Equatable {
@@ -631,7 +645,6 @@ struct DashboardAssetRowView: View, Equatable {
                     Text(presentation.assetGroup.name).font(.headline).foregroundStyle(Color.primary).lineLimit(1).truncationMode(.tail)
                 }
                 Text(presentation.amountText).font(.caption).foregroundStyle(.secondary).spectraNumericTextLayout()
-                Text(presentation.chainSummaryText).font(.caption2).foregroundStyle(.secondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 3) {

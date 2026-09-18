@@ -384,6 +384,7 @@
   "No alerts configured yet": "No alerts configured yet",
   "No assets loaded for this wallet yet.": "No assets loaded for this wallet yet.",
   "No assets to display yet": "No assets to display yet",
+  "No balance on any chain.": "No balance on any chain.",
   "No balance was detected at any of the scanned derivation paths. Double-check your seed phrase and try with a BIP-39 passphrase if you set one.": "No balance was detected at any of the scanned derivation paths. Double-check your seed phrase and try with a BIP-39 passphrase if you set one.",
   "No chains are listed for this asset.": "No chains are listed for this asset.",
   "No diagnostics exports yet.": "No diagnostics exports yet.",

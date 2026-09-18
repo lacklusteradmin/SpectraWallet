@@ -1,10 +1,9 @@
 import Foundation
 import SwiftUI
 import UIKit
-struct HistoryDetailView: View {
+struct TransactionDetailView: View {
     let store: AppState
     let transaction: TransactionRecord
-    @State private var didCopyAddress = false
     @State private var replacementMessage: String?
     @State private var liveTransaction: TransactionRecord?
     /// Core answers the owned-address question asynchronously, so the view
@@ -46,6 +45,7 @@ struct HistoryDetailView: View {
     }
     var body: some View {
         ZStack {
+            SpectraBackdrop().ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 18) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -177,9 +177,13 @@ struct HistoryDetailView: View {
                     }
                     spectraDetailCard(title: "Addresses") {
                         if let fromAddressText {
-                            addressBlock(label: "From", value: fromAddressText, isMine: isOwnedAddress(fromAddressText))
+                            TransactionAddressBlock(
+                                label: "From", value: fromAddressText, isMine: isOwnedAddress(fromAddressText))
                         }
-                        if let toAddressText { addressBlock(label: "To", value: toAddressText, isMine: isOwnedAddress(toAddressText)) }
+                        if let toAddressText {
+                            TransactionAddressBlock(
+                                label: "To", value: toAddressText, isMine: isOwnedAddress(toAddressText))
+                        }
                     }
                     if let transactionHash = displayedTransaction.transactionHash {
                         spectraDetailCard(title: "Transaction Hash") {
@@ -211,6 +215,7 @@ struct HistoryDetailView: View {
                 }.padding(20)
             }
         }.navigationTitle(AppLocalization.string("Transaction")).navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar)
             .task(id: refreshKey) { await rebuildDisplayedTransactionState() }
     }
     /// The two revision counters the rebuild depends on, bundled because
@@ -239,36 +244,6 @@ struct HistoryDetailView: View {
                 width: 122, alignment: .leading)
             Text(value).font(.body).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
         }.padding(.vertical, 2)
-    }
-    @ViewBuilder
-    private func addressBlock(label: String, value: String, isMine: Bool) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Text(AppLocalization.string(label)).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-                if isMine {
-                    Text(AppLocalization.string("Mine")).font(.caption.bold()).foregroundStyle(Color.primary).padding(.horizontal, 8).padding(
-                        .vertical, 4
-                    ).background(Color.mint.opacity(0.22), in: Capsule()).overlay(
-                        Capsule().stroke(Color.mint.opacity(0.35), lineWidth: 1)
-                    )
-                }
-            }
-            Text(value).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(.enabled).padding(14).frame(
-                maxWidth: .infinity, alignment: .leading
-            ).spectraElevatedFill(cornerRadius: SpectraLayout.Radius.input)
-            Button {
-                UIPasteboard.general.string = value
-                didCopyAddress = true
-            } label: {
-                Label(
-                    didCopyAddress
-                        ? AppLocalization.string("Copied")
-                        : AppLocalization.string("Copy Address"), systemImage: didCopyAddress ? "checkmark" : "doc.on.doc"
-                ).font(.subheadline.weight(.semibold)).padding(.horizontal, 12).padding(.vertical, 8)
-            }.buttonStyle(.glass)
-                .spectraPressable()
-                .frame(maxWidth: .infinity, alignment: .leading)
-        }
     }
     private var transactionTimelineCard: some View {
         spectraDetailCard(title: "Timeline") {
@@ -445,5 +420,56 @@ struct HistoryDetailView: View {
         let tint: Color
         let isComplete: Bool
         let isCurrent: Bool
+    }
+}
+
+/// One end of the transfer, with a copy button that reports only its own copy.
+///
+/// This was a method on the detail view over a single `didCopyAddress`, which
+/// both ends shared: copying "From" made "To" claim it had been copied too, and
+/// nothing ever cleared the flag, so both buttons kept saying so for the rest of
+/// the screen's life. The state belongs to the block, and `.task(id:)` clears it
+/// — cancelling with the view rather than outliving it.
+private struct TransactionAddressBlock: View {
+    let label: String
+    let value: String
+    let isMine: Bool
+    @State private var didCopy = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(spacing: 8) {
+                Text(AppLocalization.string(label)).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
+                if isMine {
+                    Text(AppLocalization.string("Mine")).font(.caption.bold()).foregroundStyle(Color.primary).padding(.horizontal, 8).padding(
+                        .vertical, 4
+                    ).background(Color.mint.opacity(0.22), in: Capsule()).overlay(
+                        Capsule().stroke(Color.mint.opacity(0.35), lineWidth: 1)
+                    )
+                }
+            }
+            Text(value).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(.enabled).padding(14).frame(
+                maxWidth: .infinity, alignment: .leading
+            ).spectraElevatedFill(cornerRadius: SpectraLayout.Radius.input)
+            Button {
+                UIPasteboard.general.string = value
+                didCopy = true
+                spectraHaptic(.light)
+            } label: {
+                Label(
+                    didCopy
+                        ? AppLocalization.string("Copied")
+                        : AppLocalization.string("Copy Address"), systemImage: didCopy ? "checkmark" : "doc.on.doc"
+                ).font(.subheadline.weight(.semibold)).padding(.horizontal, 12).padding(.vertical, 8)
+            }.buttonStyle(.glass)
+                .spectraPressable()
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .task(id: didCopy) {
+            guard didCopy else { return }
+            try? await Task.sleep(for: .seconds(1.5))
+            guard !Task.isCancelled else { return }
+            didCopy = false
+        }
     }
 }

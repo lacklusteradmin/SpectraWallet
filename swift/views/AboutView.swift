@@ -5,6 +5,7 @@ struct AboutView: View {
     private var copy: SettingsContentCopy { .current }
     var body: some View {
         ZStack {
+            SpectraBackdrop().ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 22) {
                     aboutHero
@@ -12,7 +13,8 @@ struct AboutView: View {
                     aboutNarrativeCard
                 }.padding(20)
             }
-        }.navigationTitle(AppLocalization.string("About Spectra")).navigationBarTitleDisplayMode(.inline).onAppear {
+        }.navigationTitle(AppLocalization.string("About Spectra")).navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(.hidden, for: .navigationBar).onAppear {
             isAnimatingHero = true
         }.onDisappear {
             // Stop the infinite rotation so the GPU isn't animating an
