@@ -47,6 +47,7 @@ struct SendView: View {
     @State private var isValidatingRecipient = false
     @State private var quotedInputKey: String?
     @State private var recipientValidationAttempt = 0
+    @State private var sendWalletPassword = ""
 
     private var sendPreviewStore: SendPreviewStore { store.sendPreviewStore }
     private var isSendBusy: Bool { !store.sendingChains.isEmpty || !store.preparingChains.isEmpty }
@@ -126,6 +127,10 @@ struct SendView: View {
         } message: {
             if let qrScannerErrorMessage { Text(verbatim: qrScannerErrorMessage) }
         }
+        .onDisappear { sendWalletPassword = "" }
+        .onChange(of: store.isShowingHighRiskSendConfirmation) { _, showing in
+            if !showing { sendWalletPassword = "" }
+        }
         .onChange(of: store.sendHoldingKey) { _, _ in selectedAddressBookEntryID = "" }
         .onChange(of: store.lastSentTransaction?.id) { old, new in
             if old == nil, new != nil {
@@ -148,10 +153,19 @@ struct SendView: View {
             } catch { return }
         }
         .alert(AppLocalization.string("Confirm Send"), isPresented: $store.isShowingHighRiskSendConfirmation) {
-            Button(AppLocalization.string("Cancel"), role: .cancel) { store.clearHighRiskSendConfirmation() }
-            Button(AppLocalization.string("Send"), role: .destructive) {
-                Task { await store.confirmHighRiskSendAndSubmit() }
+            if store.pendingSendReview?.requiresWalletPassword == true {
+                SecureField(AppLocalization.string("Wallet Password"), text: $sendWalletPassword)
             }
+            Button(AppLocalization.string("Cancel"), role: .cancel) {
+                sendWalletPassword = ""
+                store.clearHighRiskSendConfirmation()
+            }
+            Button(AppLocalization.string("Send"), role: .destructive) {
+                let password = store.pendingSendReview?.requiresWalletPassword == true ? sendWalletPassword : nil
+                sendWalletPassword = ""
+                Task { await store.confirmHighRiskSendAndSubmit(password: password) }
+            }
+            .disabled(store.pendingSendReview?.requiresWalletPassword == true && sendWalletPassword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         } message: {
             Text(
                 store.pendingHighRiskSendReasons.joined(separator: "\n• ").isEmpty

@@ -3,12 +3,14 @@ import SwiftUI
 @MainActor
 extension AppState {
     private func clearAllChainSendState() {
+        sendPreviewRequestID = UUID()
         sendPreviewStore.resetAll()
         sendingChains = []
         preparingChains = []
         clearHighRiskSendConfirmation()
     }
     private func resetSendComposerFields() {
+        sendDestinationProbeRequestID = UUID()
         sendAmount = ""; sendAddress = ""; sendError = nil; sendDestinationRiskWarning = nil; sendDestinationInfoMessage = nil;
         isCheckingSendDestinationBalance = false
         clearSendVerificationNotice()
@@ -26,6 +28,7 @@ extension AppState {
         isShowingSendSheet = true
     }
     func syncSendAssetSelection() {
+        sendDestinationProbeRequestID = UUID()
         let availableHoldingKeys = availableSendCoins(for: sendWalletID).map(\.holdingKey)
         if !availableHoldingKeys.contains(sendHoldingKey) { sendHoldingKey = availableHoldingKeys.first ?? "" }
         // EIP-1559 fees and a manual nonce belong to the EVM family, which is
@@ -226,11 +229,11 @@ extension AppState {
         return try await WalletServiceBridge.shared.resolveSendDestination(chainId: chainId, input: input, expectedAddress: expectedAddress)
     }
     func clearHighRiskSendConfirmation() { pendingSendReview = nil; pendingHighRiskSendReasons = []; isShowingHighRiskSendConfirmation = false }
-    func confirmHighRiskSendAndSubmit() async {
+    func confirmHighRiskSendAndSubmit(password: String?) async {
         isShowingHighRiskSendConfirmation = false
         guard let review = pendingSendReview else { return }
         pendingSendReview = nil
-        await submitReviewedSend(review)
+        await submitReviewedSend(review, password: password)
     }
 
     /// `nil` when the lookup failed, which is a different answer from an
@@ -251,55 +254,34 @@ extension AppState {
     }
 
     func refreshSendDestinationRiskWarning(for coin: Coin) async {
-        let probeID = "\(sendWalletID)|\(sendHoldingKey)|\(sendAddress)"
-        let trimmedDestination = sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
-        func clearProbe() { sendDestinationRiskWarning = nil; sendDestinationInfoMessage = nil; isCheckingSendDestinationBalance = false }
-        guard !trimmedDestination.isEmpty else { clearProbe(); return }
-        // Anything the composer cannot turn into an address — a half-typed
-        // one, a name on a chain that registers none — is core refusing, and
-        // there is nothing to probe until it stops.
-        guard let resolved = try? await resolveSendDestination(input: trimmedDestination, for: coin.chainName) else {
-            clearProbe()
-            return
+        let requestID = UUID()
+        sendDestinationProbeRequestID = requestID
+        let walletID = sendWalletID
+        let holdingKey = coin.holdingKey
+        let input = sendAddress
+        func isCurrent() -> Bool {
+            !Task.isCancelled && sendDestinationProbeRequestID == requestID
+                && sendWalletID == walletID && sendHoldingKey == holdingKey && sendAddress == input
         }
-        let destinationForProbe = resolved.address
-        let ensResolutionInfo: String? =
-            resolved.usedEns ? AppLocalization.format("Resolved ENS %@ to %@.", trimmedDestination, destinationForProbe) : nil
-        let addressProbeKey = "\(coin.chainName)|\(coin.symbol)|\(destinationForProbe.lowercased())"
-        if lastSendDestinationProbeKey == addressProbeKey {
-            sendDestinationRiskWarning = lastSendDestinationProbeWarning
-            if let ensResolutionInfo {
-                sendDestinationInfoMessage = [lastSendDestinationProbeInfoMessage, ensResolutionInfo].compactMap { $0 }.joined(
-                    separator: " ")
-            } else {
-                sendDestinationInfoMessage = lastSendDestinationProbeInfoMessage
-            }
-            isCheckingSendDestinationBalance = false
-            return
-        }
-        isCheckingSendDestinationBalance = true
-        defer { isCheckingSendDestinationBalance = false }
-        // Native or token, which contract the token is, and what to do when it
-        // is one nothing vouches for are all catalog questions — core reads its
-        // own token list rather than being handed one back. An asset it cannot
-        // identify is an error here, where the composer used to clear the probe
-        // and show nothing at all, which reads as "checked, and fine".
-        let risk = try? await WalletServiceBridge.shared.sendDestinationRisk(
-            walletID: sendWalletID, holdingKey: coin.holdingKey, destination: destinationForProbe)
-        guard probeID == "\(sendWalletID)|\(sendHoldingKey)|\(sendAddress)" else { return }
-        guard let risk else {
-            sendDestinationRiskWarning = nil
+        sendDestinationRiskWarning = nil
+        sendDestinationInfoMessage = nil
+        isCheckingSendDestinationBalance = !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        defer { if sendDestinationProbeRequestID == requestID { isCheckingSendDestinationBalance = false } }
+        guard isCheckingSendDestinationBalance else { return }
+        do {
+            // Core resolves the typed input and identifies the stored deployment.
+            // No ticker-based cache or cross-protocol address normalization lives here.
+            let risk = try await WalletServiceBridge.shared.sendDestinationRisk(
+                walletID: walletID, holdingKey: holdingKey, destination: input)
+            guard isCurrent() else { return }
+            let messages = chainRiskProbeMessages(chainName: coin.chainName, symbol: coin.symbol,
+                balanceIsZero: risk.balanceIsZero, hasHistory: risk.hasHistory)
+            sendDestinationRiskWarning = messages.warning
+            sendDestinationInfoMessage = messages.info
+        } catch {
+            guard isCurrent() else { return }
             sendDestinationInfoMessage = localizedStoreString("Unable to verify this address's activity. Try again later.")
-            return
         }
-        let messages = chainRiskProbeMessages(
-            chainName: coin.chainName, symbol: coin.symbol,
-            balanceIsZero: risk.balanceIsZero, hasHistory: risk.hasHistory)
-        sendDestinationRiskWarning = messages.warning
-        sendDestinationInfoMessage = [messages.info, ensResolutionInfo].compactMap { $0 }.joined(separator: " ")
-        lastSendDestinationProbeKey = addressProbeKey
-        lastSendDestinationProbeWarning = messages.warning
-        lastSendDestinationProbeInfoMessage = sendDestinationInfoMessage
     }
     /// The one sentence pair a destination verdict turns into.
     ///

@@ -174,7 +174,7 @@ extension PriceAlertRule {
             hasTriggered: false
         )
     }
-    var titleText: String { String(format: CommonLocalizationContent.current.priceAlertTitleFormat, assetDisplayName, chainName) }
+    var titleText: String { String(format: CommonLocalizationContent.current.assetOnChainFormat, assetDisplayName, chainName) }
     var statusText: String {
         if !isEnabled { return AppLocalization.string("Paused") }
         return hasTriggered ? AppLocalization.string("Triggered") : AppLocalization.string("Watching")
@@ -210,8 +210,17 @@ extension TransactionRecord {
         case .receive: return String(format: copy.transactionReceivedTitleFormat, symbol)
         }
     }
+    /// "Solana • Main Wallet", or "USD Coin on Solana • Main Wallet" when the
+    /// asset is not the network's own. The chain was always named, so every
+    /// native asset read "Solana on Solana" — its display name is its chain's
+    /// — and the line wrapped, costing a third row of type to say one word
+    /// twice.
     var subtitleText: String {
-        String(format: CommonLocalizationContent.current.transactionSubtitleFormat, assetDisplayName, chainName, walletName)
+        let copy = CommonLocalizationContent.current
+        let asset =
+            assetDisplayName.caseInsensitiveCompare(chainName) == .orderedSame
+            ? assetDisplayName : String(format: copy.assetOnChainFormat, assetDisplayName, chainName)
+        return String(format: copy.transactionSubtitleFormat, asset, walletName)
     }
     var statusText: String { status.localizedTitle }
     var badgeMark: String {

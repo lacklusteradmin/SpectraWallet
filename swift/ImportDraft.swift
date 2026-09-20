@@ -122,7 +122,11 @@ final class WalletImportDraft {
         return trimmed.isEmpty ? nil : trimmed
     }
     var walletPasswordValidationError: String? {
-        coreValidateWalletPassword(password: walletPassword, confirmation: walletPasswordConfirmation)
+        guard let reason = coreValidateWalletPassword(password: walletPassword, confirmation: walletPasswordConfirmation) else { return nil }
+        switch reason {
+        case .tooShort: return AppLocalization.string("Wallet password must be at least 4 characters, or leave it blank.")
+        case .confirmationMismatch: return AppLocalization.string("Wallet password confirmation does not match.")
+        }
     }
     init() {
         refreshSelectionState()

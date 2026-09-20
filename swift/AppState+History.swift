@@ -43,8 +43,9 @@ extension AppState {
             appendOperationalLog(.error, category: "History", message: String(describing: error))
         }
     }
-    func performUserInitiatedRefresh(forChain chainName: String) async {
-        guard let chain = Chain(displayName: chainName) else { return }
-        await performCoreRefresh(.chain(chainId: chain.id))
+    @discardableResult
+    func performUserInitiatedRefresh(forChain chainName: String) async -> Bool {
+        guard let chain = Chain(displayName: chainName) else { return false }
+        return await performCoreRefresh(.chain(chainId: chain.id))
     }
 }

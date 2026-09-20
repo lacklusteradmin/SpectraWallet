@@ -3,6 +3,53 @@ import XCTest
 
 final class SendAmountBridgeTests: XCTestCase {
     @MainActor
+    func testPreviewDiscardsStaleSuccessAndFailureForEveryFormEdit() {
+        let store = AppState(startServices: false)
+        let edits: [(AppState) -> Void] = [
+            { $0.sendWalletID = "other" }, { $0.sendHoldingKey = "other" },
+            { $0.sendAmount = "2" }, { $0.sendAddress = "other" },
+            { $0.evmManualNonceEnabled.toggle() }, { $0.evmManualNonce = "invalid" },
+            { $0.useCustomEvmFees.toggle() }, { $0.customEvmMaxFeeGwei = "invalid" },
+            { $0.customEvmPriorityFeeGwei = "invalid" },
+            { $0.sendPreviewRequestID = UUID() },
+        ]
+        for edit in edits {
+            let input = store.sendPreviewInputSnapshot
+            let request = store.sendPreviewRequestID
+            edit(store)
+            store.sendError = "current form message"
+            store.adoptSendPreviewResult(.failure(NSError(domain: "old", code: 1)),
+                requestID: request, input: input, chainName: "Ethereum")
+            XCTAssertEqual(store.sendError, "current form message")
+            store.adoptSendPreviewResult(.success(nil), requestID: request, input: input, chainName: "Ethereum")
+            XCTAssertEqual(store.sendError, "current form message")
+        }
+        store.adoptSendPreviewResult(.failure(NSError(domain: "current", code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "current failure"])),
+            requestID: store.sendPreviewRequestID, input: store.sendPreviewInputSnapshot, chainName: "Ethereum")
+        XCTAssertEqual(store.sendError, "current failure")
+        let oldRequest = store.sendPreviewRequestID
+        store.cancelSend()
+        XCTAssertNotEqual(store.sendPreviewRequestID, oldRequest)
+    }
+
+    func testPasswordVerdictsCrossTheBindingWithoutEnglishMessages() {
+        XCTAssertEqual(coreValidateWalletPassword(password: "短密碼", confirmation: "短密碼"), .tooShort)
+        XCTAssertEqual(coreValidateWalletPassword(password: "abcd", confirmation: "abce"), .confirmationMismatch)
+        XCTAssertNil(coreValidateWalletPassword(password: "密碼測試", confirmation: "密碼測試"))
+    }
+
+    @MainActor
+    func testConfiguredDiagnosticsRunsThroughAsyncServiceBinding() async throws {
+        let service = try WalletService(endpoints: [])
+        let result = try await service.runConfiguredSelfTests(chainId: "bitcoin")
+        XCTAssertEqual(result.chainId, "bitcoin")
+        XCTAssertNil(result.rpcEndpoint)
+        XCTAssertFalse(result.results.isEmpty)
+        XCTAssertTrue(result.results.allSatisfy(\.passed))
+    }
+
+    @MainActor
     func testStorageOpenFailureCanBeRetriedWithoutWritingInMemory() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try Data("blocked".utf8).write(to: directory)
@@ -44,7 +91,7 @@ final class SendAmountBridgeTests: XCTestCase {
         XCTAssertEqual(outcome.wallets.count, 1)
         XCTAssertTrue(bridge.walletSecretState(walletID: outcome.wallets[0].id)?.hasSigningMaterial == true)
         let reopened = WalletServiceBridge(databasePath: path)
-        let stored = try await reopened.storedWallets()
+        let stored = try await reopened.portfolioSnapshot().wallets
         XCTAssertEqual(stored.count, 1)
         _ = try await bridge.applyStateCommand(.removeWallet(walletId: outcome.wallets[0].id))
         XCTAssertFalse(bridge.walletSecretState(walletID: outcome.wallets[0].id)?.hasSigningMaterial == true)

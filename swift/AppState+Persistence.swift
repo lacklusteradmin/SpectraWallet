@@ -19,16 +19,8 @@ extension AppState {
         // The settings core owns arrive with `loadCoreOwnedState()` above,
         // through `applyCoreState`. The five this platform keeps were read
         // from `UserDefaults` when `preferences` was created.
-        let walletRevision = walletsRevision
-        if let stored = try? await WalletServiceBridge.shared.storedWallets(), walletsRevision == walletRevision {
-            adoptWalletsFromCore(stored)
-            rebuildWalletDerivedState()
-        }
-        let transactionSnapshot = transactions
-        if let stored = try? await WalletServiceBridge.shared.storedTransactions(), transactions == transactionSnapshot {
-            adoptTransactionsFromCore(stored)
-            await rebuildTransactionDerivedState()
-        }
+        await rebuildWalletDerivedStateFromCore()
+        await refreshTransactionProjection()
     }
     /// Tell core which network of a family the user picked.
     func commitNetworkChain(_ chainID: String) {

@@ -869,7 +869,6 @@
   "Authentication failed.": "Authentication failed.",
   "Authorize transaction rebroadcast": "Authorize transaction rebroadcast",
   "No confirmation yet. Spectra will keep retrying automatically.": "No confirmation yet. Spectra will keep retrying automatically.",
-  "Rebroadcast is only supported for send transactions.": "Rebroadcast is only supported for send transactions.",
   "Status updated: %@.": "Status updated: %@.",
   "Transaction is confirmed.": "Transaction is confirmed.",
   "Transaction not found.": "Transaction not found.",
@@ -1006,5 +1005,8 @@
   "Contract Account ID": "Contract Account ID",
   "Mint Address": "Mint Address",
   "Coin Standard Type": "Coin Standard Type",
-  "Jetton Master Address": "Jetton Master Address"
+  "Jetton Master Address": "Jetton Master Address",
+  "Refresh failed or completed partially. See refresh errors.": "Refresh failed or completed partially. See refresh errors.",
+  "Wallet password must be at least 4 characters, or leave it blank.": "Wallet password must be at least 4 characters, or leave it blank.",
+  "Wallet password confirmation does not match.": "Wallet password confirmation does not match."
 }

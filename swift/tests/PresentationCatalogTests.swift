@@ -12,6 +12,29 @@ final class PresentationCatalogTests: XCTestCase {
         }
     }
 
+    /// A native asset's display name is its chain's, so naming the pair
+    /// unconditionally read "Solana on Solana". The subtitle spells the chain
+    /// only when it is not already the asset, and the expectations are built
+    /// from the shipped formats so the assertion is about that shape rather
+    /// than about English.
+    func testTransactionSubtitleNamesTheChainOnlyWhenItIsNotTheAsset() {
+        let copy = CommonLocalizationContent.current
+        func subtitle(asset: String, chain: String) -> String {
+            TransactionRecord(
+                id: "tx", kind: .receive, status: .confirmed, walletName: "Main Wallet",
+                assetDisplayName: asset, symbol: "SOL", chainName: chain, amount: 0.1, address: "address"
+            ).subtitleText
+        }
+        func wallet(_ asset: String) -> String { String(format: copy.transactionSubtitleFormat, asset, "Main Wallet") }
+        func onChain(_ asset: String, _ chain: String) -> String { String(format: copy.assetOnChainFormat, asset, chain) }
+
+        XCTAssertEqual(subtitle(asset: "Solana", chain: "Solana"), wallet("Solana"))
+        XCTAssertEqual(subtitle(asset: "solana", chain: "Solana"), wallet("solana"))
+        XCTAssertEqual(subtitle(asset: "USD Coin", chain: "Solana"), wallet(onChain("USD Coin", "Solana")))
+        XCTAssertEqual(
+            subtitle(asset: "Bitcoin", chain: "Bitcoin Testnet4"), wallet(onChain("Bitcoin", "Bitcoin Testnet4")))
+    }
+
     /// Every localized content file decodes in every locale the manifest
     /// declares — read from the manifest rather than listed here, so adding a
     /// locale cannot leave a file silently untested.

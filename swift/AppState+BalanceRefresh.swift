@@ -15,13 +15,7 @@ extension AppState {
         balanceFlushTask = Task { @MainActor [weak self] in
             try? await Task.sleep(for: .milliseconds(50))
             guard !Task.isCancelled, let self else { return }
-            let before = self.wallets
-            guard let records = try? await WalletServiceBridge.shared.storedWallets(), !Task.isCancelled else { return }
-            // A user mutation during the read wins; its own projection remains current.
-            guard self.wallets == before else { return }
-            self.adoptWalletsFromCore(records)
-            self.rebuildWalletDerivedState()
-            self.rebuildDashboardDerivedState()
+            await self.rebuildWalletDerivedStateFromCore()
         }
     }
 

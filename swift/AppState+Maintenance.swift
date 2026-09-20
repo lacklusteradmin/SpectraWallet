@@ -57,10 +57,7 @@ extension AppState {
         do {
             let result = try await WalletServiceBridge.shared.refreshApp(intent: intent, conditions: deviceConditions())
             lastMaintenancePollSeconds = result.pollSeconds
-            applyQuoteProjection(result.state)
-            adoptWalletsFromCore(try await WalletServiceBridge.shared.storedWallets())
-            await rebuildWalletDerivedStateFromCore()
-            rebuildDashboardDerivedState()
+            let portfolioReadSucceeded = await rebuildWalletDerivedStateFromCore()
             if let pending = result.pending {
                 await applyPendingStatusChanges(pending.changes)
                 for failure in pending.failures {
@@ -68,9 +65,9 @@ extension AppState {
                 }
                 lastPendingTransactionRefreshAt = Date()
             }
-            await refreshTransactionProjection()
+            let historyReadSucceeded = await refreshTransactionProjection()
             if let sent = lastSentTransaction {
-                lastSentTransaction = transactions.first { $0.id == sent.id }
+                lastSentTransaction = try await WalletServiceBridge.shared.transaction(id: sent.id)
             }
             await updateSendVerificationNoticeForLastSentTransaction()
             for failure in result.failures {
@@ -79,24 +76,27 @@ extension AppState {
             await diagnostics.loadFromSQLite()
             await evaluatePriceAlerts()
             await notifyPortfolioMovement()
-            return result.failures.isEmpty && (result.pending?.failures.isEmpty ?? true)
+            return portfolioReadSucceeded && historyReadSucceeded
+                && result.failures.isEmpty && (result.pending?.failures.isEmpty ?? true)
         } catch {
             appendOperationalLog(.error, category: "Refresh", message: error.localizedDescription)
             return false
         }
     }
 
-    func performUserInitiatedRefresh() async {
-        if let existing = userInitiatedRefreshTask { await existing.value; return }
+    @discardableResult
+    func performUserInitiatedRefresh() async -> Bool {
+        if let existing = userInitiatedRefreshTask { return await existing.value }
         let task = Task { @MainActor [weak self] in
-            guard let self else { return }
+            guard let self else { return false }
             self.isUserInitiatedRefreshInProgress = true
             defer { self.isUserInitiatedRefreshInProgress = false }
-            await self.performCoreRefresh(.user)
+            return await self.performCoreRefresh(.user)
         }
         userInitiatedRefreshTask = task
-        await task.value
+        let succeeded = await task.value
         userInitiatedRefreshTask = nil
+        return succeeded
     }
     func startMaintenanceLoopIfNeeded() {
         guard maintenanceTask == nil else { return }

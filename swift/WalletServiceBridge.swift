@@ -47,6 +47,9 @@ import Foundation
     func evaluatePortfolioMovement(appIsActive: Bool) async throws -> LargeMovementEvaluation? {
         try await readyService().evaluatePortfolioMovement(appIsActive: appIsActive)
     }
+    func runConfiguredSelfTests(chainID: String) async throws -> ConfiguredSelfTestReport {
+        try await readyService().runConfiguredSelfTests(chainId: chainID)
+    }
     func fetchStakingValidators(chainId: String) async throws -> [StakingValidator] {
         try await readyService().fetchStakingValidators(chainId: chainId)
     }
@@ -70,8 +73,8 @@ import Foundation
     func reviewOwnedSend(input: SendReviewInput) async throws -> OwnedSendReview {
         try await readyService().reviewOwnedSend(input: input)
     }
-    func executeOwnedSend(reviewID: String, input: SendReviewInput) async throws -> SendExecutionResult {
-        try await readyService().executeOwnedSend(reviewId: reviewID, input: input, password: nil)
+    func executeOwnedSend(reviewID: String, input: SendReviewInput, password: String?) async throws -> SendExecutionResult {
+        try await readyService().executeOwnedSend(reviewId: reviewID, input: input, password: password)
     }
 
     func resolveSendDestination(chainId: String, input: String, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
@@ -137,26 +140,10 @@ extension WalletServiceBridge {
     {
         try await readyService().evaluatePriceAlerts()
     }
-    /// The dashboard rows, computed from core holdings, settings and quotes.
-    func dashboardPinOptions() async throws -> [CoreDashboardPinOption] {
-        try await readyService().dashboardPinOptions()
-    }
-
-    func dashboardAssetGroups() async throws -> [CoreDashboardAssetGroup] {
-        try await readyService().dashboardAssetGroups()
-    }
-
-    func normalizedHistory(unknownLabel: String) async throws -> [CoreNormalizedHistoryEntry] {
-        return try await readyService().normalizedHistory(unknownLabel: unknownLabel)
-    }
-    func earliestTransactionDates() async throws -> [WalletEarliestTransactionDate] {
-        return try await readyService().earliestTransactionDates()
-    }
-
-    /// The pending sends core says are still replaceable, newest first.
-    func replaceableSends() async throws -> [ReplaceableSend] {
-        return try await readyService().replaceableSends()
-    }
+    func portfolioSnapshot() async throws -> PortfolioSnapshot { try await readyService().portfolioSnapshot() }
+    func transactionSnapshot() async throws -> TransactionSnapshot { try await readyService().transactionSnapshot() }
+    func historyPage(_ query: HistoryQuery) async throws -> HistoryPage { try await readyService().historyPage(query: query) }
+    func transaction(id: String) async throws -> TransactionRecord? { try await readyService().transaction(id: id) }
 
     // ── Maintenance ───────────────────────────────────────────────────────
     /// What core says should happen this tick. Returns a do-nothing plan if the
@@ -185,16 +172,6 @@ extension WalletServiceBridge {
         try await readyService().applyTransactionCommand(command: command)
     }
 
-    /// The wallets core holds, in the shape the views render.
-    func storedWallets() async throws -> [WalletView] {
-        try await readyService().walletsForDisplay()
-    }
-
-    /// Every stored transaction, newest first.
-    func storedTransactions() async throws -> [CorePersistedTransactionRecord] {
-        try await readyService().transactions()
-    }
-
     /// What to tell the user about a send, from its stored record.
     func sendVerificationNotice(transactionID: String) async throws -> SendVerificationNotice {
         try await readyService().sendVerificationNotice(transactionId: transactionID)
@@ -212,9 +189,7 @@ extension WalletServiceBridge {
     }
 
     /// Everything the wallet list implies, with holdings already resolved.
-    func walletDerivedState() async throws -> WalletDerivedState {
-        try await readyService().walletDerivedState()
-    }
+
     func beginFundsScan(request: FundsFinderRequest) throws -> FundsScan {
         try service().beginFundsScan(request: request, chainId: nil)
     }

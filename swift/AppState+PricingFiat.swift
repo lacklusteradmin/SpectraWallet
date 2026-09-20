@@ -2,20 +2,12 @@ import Foundation
 import SwiftUI
 @MainActor
 extension AppState {
-    /// A quote response cannot overwrite newer wallet or network settings.
+    /// Called only while adopting a newer, coherent portfolio snapshot.
     func applyQuoteProjection(_ state: CoreAppState) {
-        let priceAttempt = state.quotes.pricesAttemptAt ?? 0
-        if priceAttempt >= projectedPriceAttempt {
-            projectedPriceAttempt = priceAttempt
-            if livePrices != state.quotes.prices { livePrices = state.quotes.prices }
-            quoteRefreshError = state.quotes.pricesError
-        }
-        let fiatAttempt = state.quotes.fiatAttemptAt ?? 0
-        if fiatAttempt >= projectedFiatAttempt {
-            projectedFiatAttempt = fiatAttempt
-            if fiatRatesFromUSD != state.fiatRatesFromUsd { fiatRatesFromUSD = state.fiatRatesFromUsd }
-            fiatRatesRefreshError = state.quotes.fiatError
-        }
+        if livePrices != state.quotes.prices { livePrices = state.quotes.prices }
+        quoteRefreshError = state.quotes.pricesError
+        if fiatRatesFromUSD != state.fiatRatesFromUsd { fiatRatesFromUSD = state.fiatRatesFromUsd }
+        fiatRatesRefreshError = state.quotes.fiatError
     }
 
     @discardableResult
@@ -26,8 +18,8 @@ extension AppState {
         var didUpdatePrices = false
         let before = livePrices
         do {
-            let state = try await WalletServiceBridge.shared.refreshOwnedPrices(force: false)
-            applyQuoteProjection(state)
+            _ = try await WalletServiceBridge.shared.refreshOwnedPrices(force: false)
+            await rebuildWalletDerivedStateFromCore()
             didUpdatePrices = livePrices != before
         } catch {
             quoteRefreshError = error.localizedDescription
@@ -40,8 +32,8 @@ extension AppState {
         isRefreshingFiatRates = true
         defer { isRefreshingFiatRates = false }
         do {
-            let state = try await WalletServiceBridge.shared.refreshOwnedFiatRates(force: force)
-            applyQuoteProjection(state)
+            _ = try await WalletServiceBridge.shared.refreshOwnedFiatRates(force: force)
+            await rebuildWalletDerivedStateFromCore()
         } catch {
             fiatRatesRefreshError = error.localizedDescription
         }
@@ -82,7 +74,7 @@ extension AppState {
         await refreshFiatExchangeRatesIfNeeded(force: true)
     }
 
-    var portfolioQuotedTotal: QuotedTotal { quotedTotal(for: portfolio) }
+    var portfolioQuotedTotal: QuotedTotal? { portfolioValuation?.portfolio }
     func setPortfolioInclusion(_ isIncluded: Bool, for walletID: String) {
         changeWallet(.setWalletPortfolioInclusion(walletId: walletID, included: isIncluded))
     }
@@ -112,15 +104,14 @@ extension AppState {
     var includedPortfolioWallets: [WalletView] { cachedIncludedPortfolioWallets }
     func currentPriceIfAvailable(for coin: Coin) -> Double? {
         guard isPricedAsset(coin) else { return nil }
-        return livePrices[activePriceKey(for: coin)]
+        guard let price = livePrices[activePriceKey(for: coin)], price.isFinite, price > 0 else { return nil }
+        return price
     }
-    func currentPrice(for coin: Coin) -> Double { currentPriceIfAvailable(for: coin) ?? 0 }
     func fiatRateIfAvailable(for currency: FiatCurrency) -> Double? {
         if currency == .usd { return 1.0 }
-        guard let rate = fiatRatesFromUSD[currency.code], rate > 0 else { return nil }
+        guard let rate = fiatRatesFromUSD[currency.code], rate.isFinite, rate > 0 else { return nil }
         return rate
     }
-    func fiatRate(for currency: FiatCurrency) -> Double { fiatRateIfAvailable(for: currency) ?? (currency == .usd ? 1.0 : 0) }
 }
 /// Core's currencies, with what a picker needs: an order, a name and an icon.
 /// The code comes from core's formatting rules, which carry it.

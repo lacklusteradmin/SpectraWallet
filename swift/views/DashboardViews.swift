@@ -197,7 +197,7 @@ struct DashboardView: View {
                             walletName: wallet.name, chainTitleText: store.displayChainTitle(for: wallet),
                             totalValueText: store.preferences.hideBalances
                                 ? "••••••"
-                                : store.formattedFiatAmountOrZero(fromUSD: store.quotedTotal(for: wallet.holdings).total),
+                                : store.formattedWalletTotal(walletID: wallet.id),
                             assetCountText: AppLocalization.format(
                                 "%lld assets", wallet.holdings.filter { $0.amount > 0 }.count),
                             isWatchOnly: store.isWatchOnlyWallet(wallet), badgeArtworkName: badge.0,
@@ -254,7 +254,7 @@ struct DashboardView: View {
                 ),
                 totalValueText: hideBalances
                     ? "••••••"
-                    : store.formattedFiatAmountOrZero(fromUSD: assetGroup.totalValueUSD),
+                    : store.formattedFiatAmountOrUnavailable(fromUSD: assetGroup.totalValueUsd),
                 priceText: dashboardAssetPriceText(for: assetGroup, hideBalances: hideBalances)
             )
         }
@@ -278,9 +278,9 @@ struct DashboardView: View {
     private func dashboardAssetPriceText(for assetGroup: DashboardAssetGroup, hideBalances: Bool) -> String {
         if hideBalances { return "••••••" }
         guard let price = store.currentPriceIfAvailable(for: assetGroup.identity) else {
-            return store.formattedFiatAmountOrZero(fromUSD: nil)
+            return store.formattedFiatAmountOrUnavailable(fromUSD: nil)
         }
-        return store.formattedFiatAmountOrZero(fromUSD: price)
+        return store.formattedFiatAmountOrUnavailable(fromUSD: price)
     }
 }
 enum DashboardPage {
@@ -326,16 +326,6 @@ extension CoreDashboardAssetGroup: Identifiable {
     var symbol: String { identity.symbol }
     var artworkName: String { identity.artworkName }
     var color: Color { identity.color }
-    /// Summed across every place the asset is held, not read from a field
-    /// beside them: a total stored next to the list it comes from can disagree
-    /// with it. None when any place is unpriced — a partial sum shown as the
-    /// whole would understate the balance.
-    var totalValueUSD: Double? {
-        holdings.reduce(Double?.some(0)) { running, holding in
-            guard let running, let value = holding.valueUsd else { return nil }
-            return running + value
-        }
-    }
     var totalAmount: Double { holdings.reduce(0) { $0 + $1.coin.amount } }
 }
 
@@ -406,7 +396,7 @@ private struct AssetDetailHeroCard: View {
                 Text(assetGroup.symbol).font(.subheadline.weight(.semibold).monospaced())
                     .foregroundStyle(assetGroup.color)
                 if !compact {
-                    Text(store.formattedFiatAmountOrZero(fromUSD: assetGroup.totalValueUSD))
+                    Text(store.formattedFiatAmountOrUnavailable(fromUSD: assetGroup.totalValueUsd))
                         .font(.title3.weight(.semibold)).foregroundStyle(Color.primary)
                         .spectraNumericTextLayout(minimumScaleFactor: 0.7)
                 }
@@ -429,7 +419,7 @@ private struct AssetSummaryStatsCard: View {
             Divider().opacity(0.4)
             statRow(
                 label: AppLocalization.string("Total Value"),
-                value: store.formattedFiatAmountOrZero(fromUSD: assetGroup.totalValueUSD),
+                value: store.formattedFiatAmountOrUnavailable(fromUSD: assetGroup.totalValueUsd),
                 icon: "dollarsign.circle.fill")
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .spectraCardFill()
@@ -482,7 +472,7 @@ private struct AssetChainBreakdownCard: View {
                         amountText: store.formattedAssetAmount(
                             holding.coin.amount, symbol: holding.coin.symbol,
                             deploymentID: holding.coin.holdingKey),
-                        valueText: store.formattedFiatAmountOrZero(fromUSD: holding.valueUsd),
+                        valueText: store.formattedFiatAmountOrUnavailable(fromUSD: holding.valueUsd),
                         fallbackColor: holding.coin.color
                     )
                     if index < assetGroup.holdings.count - 1 { Divider().opacity(0.3) }
@@ -717,16 +707,10 @@ private struct DashboardPortfolioHeader: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(AppLocalization.string("Portfolio")).font(.subheadline).foregroundStyle(.secondary)
                     let quoted = store.portfolioQuotedTotal
-                    Text(store.preferences.hideBalances ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: quoted.total))
+                    Text(store.preferences.hideBalances ? "••••••" : store.formattedQuotedTotal(quoted))
                         .font(.title.weight(.bold)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.5).allowsTightening(true)
                     Text(AppLocalization.format("%lld in total", store.cachedIncludedPortfolioWallets.count)).font(.footnote).foregroundStyle(.secondary)
-                    // What the total leaves out, said out loud. A holding with
-                    // no quote is not worth zero; the number above simply does
-                    // not cover it.
-                    if !store.preferences.hideBalances, !quoted.isComplete {
-                        Text(AppLocalization.format("%lld without a price", quoted.unpricedCount))
-                            .font(.footnote).foregroundStyle(.secondary)
-                    }
+
                 }
                 Spacer()
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)

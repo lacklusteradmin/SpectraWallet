@@ -29,7 +29,7 @@ extension AppState {
     func requestPriceAlertNotificationPermission() { requestStandardNotificationPermission() }
     func requestNotificationPermissionIfNeeded() { requestStandardNotificationPermission() }
     func requestTransactionStatusNotificationPermission() {
-        guard appSettings.useTransactionStatusNotifications || appSettings.useLargeMovementNotifications else { return }
+        guard committedAppSettings.useTransactionStatusNotifications || committedAppSettings.useLargeMovementNotifications else { return }
         requestNotificationPermissionIfNeeded()
     }
     /// One sentence per condition. The single template took the condition's
@@ -52,7 +52,7 @@ extension AppState {
         )
     }
     func sendTransactionStatusNotification(for transaction: TransactionRecord, newStatus: TransactionStatus) {
-        guard appSettings.useTransactionStatusNotifications else { return }
+        guard committedAppSettings.useTransactionStatusNotifications else { return }
         let title: String
         let body: String
         switch newStatus {

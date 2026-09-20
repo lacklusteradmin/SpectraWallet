@@ -38,6 +38,25 @@ import Foundation
             _ = try await WalletServiceBridge.shared.applyTransactionCommand(.clear)
         }
 
+        func testUnpinningAllAssetsPersistsAcrossAsyncBridge() async throws {
+            let service = try WalletService(endpoints: [])
+            let path = FileManager.default.temporaryDirectory
+                .appendingPathComponent("pins-\(UUID().uuidString).sqlite").path
+            let initial = try await service.openState(databasePath: path)
+            XCTAssertEqual(initial.settings.pinnedDashboardTokenIds.count, 4)
+            for tokenID in initial.settings.pinnedDashboardTokenIds {
+                _ = try await service.applyStateCommand(
+                    command: .setDashboardAssetPinned(tokenId: tokenID, isPinned: false))
+            }
+            let reopened = try WalletService(endpoints: [])
+            let saved = try await reopened.openState(databasePath: path)
+            XCTAssertTrue(saved.settings.pinnedDashboardTokenIds.isEmpty)
+            let options = try await reopened.dashboardPinOptions()
+            XCTAssertTrue(options.allSatisfy { !$0.isPinned })
+            let reset = try await reopened.applyStateCommand(command: .resetPinnedDashboardAssets)
+            XCTAssertEqual(reset.state.settings.pinnedDashboardTokenIds, initial.settings.pinnedDashboardTokenIds)
+        }
+
         /// The pending sweep is reached through the app's one refresh entry
         /// point; this holds its async export to a runtime across the binding.
         func testOwnedPendingMaintenanceCrossesTheAsyncBridge() async throws {
@@ -152,7 +171,7 @@ import Foundation
                     .removeWallet(walletId: w.id))
             }
             try await Task.sleep(nanoseconds: 800_000_000)
-            let after = try await WalletServiceBridge.shared.storedWallets()
+            let after = try await WalletServiceBridge.shared.portfolioSnapshot().wallets
             XCTAssertEqual(
                 after.count, 0,
                 "the detached rename resurrected \(after.map(\.id))")
@@ -296,32 +315,18 @@ import Foundation
             store.livePrices[mainnet.holdingKey] = 64000
             XCTAssertEqual(store.currentPriceIfAvailable(for: mainnet), 64000)
         }
-        /// A holding nobody quoted is left out of the total and counted, not
-        /// folded in at zero and not at an invented dollar.
-        ///
-        /// USDC and USDT used to be pinned to exactly $1.00 — in the price
-        /// fetchers, where the constant was inserted *before* the market quote
-        /// and made it unreachable, and again in the display fallback. A wallet
-        /// that cannot see a depeg is most wrong exactly when it matters.
-        func testUnquotedHoldingsAreExcludedFromTheTotalAndCounted() async {
+        func testMissingFiatRateIsUnavailableAndPartialTotalsAreLabelled() async {
             let store = AppState()
             await store.awaitPendingCoreStateWrites()
-            let priced = Coin.makeCustom(
-                name: "Ethereum", symbol: "ETH", coinGeckoId: "ethereum", chainName: "Ethereum",
-                tokenStandard: "Native", contractAddress: nil, amount: 2, priceUsd: 0)
-            let stablecoin = Coin.makeCustom(
-                name: "USD Coin", symbol: "USDC", coinGeckoId: "usd-coin", chainName: "Ethereum",
-                tokenStandard: "ERC-20", contractAddress: "0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48",
-                amount: 100, priceUsd: 0)
-            store.livePrices[store.activePriceKey(for: priced)] = 3000
-
-            let quoted = store.quotedTotal(for: [priced, stablecoin])
-            XCTAssertEqual(quoted.total, 6000, accuracy: 0.0001, "the priced holding is all the total covers")
-            XCTAssertEqual(quoted.unpricedCount, 1, "the unquoted stablecoin is counted, not valued")
-            XCTAssertFalse(quoted.isComplete)
-            XCTAssertNil(
-                store.currentPriceIfAvailable(for: stablecoin),
-                "no feed answered for USDC, so there is no price to show")
+            let before = store.selectedFiatCurrency
+            await store.setFiatCurrency(.eur)
+            store.fiatRatesFromUSD = [:]
+            XCTAssertNil(store.formattedFiatAmountIfAvailable(fromUSD: 500))
+            XCTAssertEqual(store.formattedFiatAmount(fromUSD: 500), "—")
+            XCTAssertEqual(store.formattedQuotedTotal(nil), "—")
+            let incomplete = QuotedTotal(total: 6000, unpricedCount: 1, fiatTotal: 5400)
+            XCTAssertTrue(store.formattedQuotedTotal(incomplete).contains(AppLocalization.format("%lld without a price", 1)))
+            await store.setFiatCurrency(before)
         }
 
         func testBitcoinTestnet4EndpointsAreAvailable() {
@@ -394,7 +399,7 @@ import Foundation
                 await store.seedWalletForTesting(wallet)
 
                 // Read it back the way a fresh launch does.
-                let reloaded = try await WalletServiceBridge.shared.storedWallets()
+                let reloaded = try await WalletServiceBridge.shared.portfolioSnapshot().wallets
                 XCTAssertEqual(reloaded.count, 1, "\(chainName) wallet was dropped on load")
                 XCTAssertEqual(
                     reloaded.first?.address(forChainNamed: chainName), "address-for-\(chainName)",
@@ -574,13 +579,50 @@ import Foundation
             let deadline = ContinuousClock.now + timeout
             var seen: TransactionStatus?
             while ContinuousClock.now < deadline {
-                let stored = (try? await WalletServiceBridge.shared.storedTransactions()) ?? []
-                seen = stored
-                    .first { $0.id == id }?.status
+                seen = (try? await WalletServiceBridge.shared.transaction(id: id))?.status
                 if seen == expecting { return seen }
                 try? await Task.sleep(for: .milliseconds(50))
             }
             return seen
+        }
+
+        func testTorDoesNotActivateOrStopForAnUncommittedToggle() async throws {
+            _ = try await WalletServiceBridge.shared.applyStateCommand(.setAppSetting(update: .torEnabled(value: false)))
+            let store = AppState(startServices: false)
+            store.updateSetting(.torUseCustomProxy(value: true))
+            store.updateSetting(.torCustomProxyAddress(value: "socks5://127.0.0.1:19050"))
+            await store.awaitPendingSettingCommands()
+            XCTAssertEqual(store.torStatus, .stopped)
+            store.updateSetting(.torEnabled(value: true))
+            XCTAssertTrue(store.appSettings.torEnabled)
+            XCTAssertFalse(store.committedAppSettings.torEnabled)
+            XCTAssertEqual(store.torStatus, .stopped)
+            await store.awaitPendingSettingCommands()
+            XCTAssertTrue(store.committedAppSettings.torEnabled)
+            XCTAssertEqual(store.torStatus, .ready)
+            store.updateSetting(.torEnabled(value: false))
+            XCTAssertEqual(store.torStatus, .ready)
+            await store.awaitPendingSettingCommands()
+            XCTAssertEqual(store.torStatus, .stopped)
+            store.updateSetting(.torUseCustomProxy(value: false))
+            store.updateSetting(.torCustomProxyAddress(value: "socks5://127.0.0.1:9050"))
+            await store.awaitPendingSettingCommands()
+        }
+
+        func testSettingsRuntimeUsesCommittedValuesWhileEditsAreQueued() async throws {
+            let store = AppState(startServices: false)
+            let state = try await WalletServiceBridge.shared.appState()
+            store.applyCoreState(state, epoch: store.beginCoreStateRead(), refreshPortfolio: false)
+            let initial = store.committedAppSettings.bitcoinStopGap
+            let next: UInt32 = initial == 30 ? 40 : 30
+            store.updateSetting(.bitcoinStopGap(value: next))
+            XCTAssertEqual(store.appSettings.bitcoinStopGap, next)
+            XCTAssertEqual(store.committedAppSettings.bitcoinStopGap, initial)
+            store.updateSetting(.bitcoinStopGap(value: initial))
+            XCTAssertEqual(store.committedAppSettings.bitcoinStopGap, initial)
+            await store.awaitPendingSettingCommands()
+            XCTAssertEqual(store.appSettings.bitcoinStopGap, initial)
+            XCTAssertEqual(store.committedAppSettings.bitcoinStopGap, initial)
         }
 
         /// A setting survives into a fresh `AppState`, and core bounds it —
@@ -647,13 +689,12 @@ private extension AppState {
     }
     func seedWalletForTesting(_ wallet: WalletView) async {
         _ = try? await WalletServiceBridge.shared.applyStateCommand(.upsertWallet(wallet: wallet.walletState(isWatchOnly: isWatchOnlyWallet(wallet))))
-        if let stored = try? await WalletServiceBridge.shared.storedWallets() { adoptWalletsFromCore(stored) }
         await rebuildWalletDerivedStateFromCore()
     }
     func clearWalletsForTesting() async {
-        guard let stored = try? await WalletServiceBridge.shared.storedWallets() else { return }
+        guard let stored = try? await WalletServiceBridge.shared.portfolioSnapshot().wallets else { return }
         for wallet in stored { _ = try? await WalletServiceBridge.shared.applyStateCommand(.removeWallet(walletId: wallet.id)) }
-        if let stored = try? await WalletServiceBridge.shared.storedWallets() { adoptWalletsFromCore(stored) }
+        await rebuildWalletDerivedStateFromCore()
     }
 }
 

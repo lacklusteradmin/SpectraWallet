@@ -52,7 +52,13 @@ struct HistoryView: View {
     @State private var selectedSortOrder: HistorySortOrder = .newest
     @State private var selectedWalletID: String?
     @State private var searchText: String = ""
-    @State private var visibleLimit = 20
+    @State private var pageRecords: [TransactionRecord] = []
+    @State private var nextOffset: UInt64 = 0
+    @State private var hasMoreStoredHistory = false
+    @State private var pageError: String?
+    @State private var isLoadingPage = false
+    @State private var pageRequestID = UUID()
+    @State private var loadedFilterKey: String?
     @State private var isRetrying = false
     @State private var recheckingIDs: Set<String> = []
     var body: some View {
@@ -61,8 +67,7 @@ struct HistoryView: View {
                 SpectraBackdrop().ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: SpectraLayout.sectionSpacing) {
-                        activeFilterStrip
-                        if let error = store.historyReadError {
+                        if let error = historyError {
                             VStack(alignment: .leading, spacing: 12) {
                                 Label(AppLocalization.string("Unable to load history"), systemImage: "exclamationmark.triangle")
                                     .font(.headline)
@@ -70,14 +75,15 @@ struct HistoryView: View {
                                 Button(AppLocalization.string("Retry")) {
                                     isRetrying = true
                                     Task {
-                                        await store.rebuildTransactionDerivedState()
+                                        await store.refreshTransactionProjection()
+                                        await loadPage(reset: true)
                                         await store.performUserInitiatedRefresh()
                                         isRetrying = false
                                     }
                                 }.buttonStyle(.glass).disabled(isRetrying)
                             }.padding(20).spectraCardFill()
                         }
-                        if visibleTransactions.isEmpty && store.historyReadError == nil {
+                        if visibleTransactions.isEmpty && historyError == nil {
                             historyEmptyStateCard
                         }
                         ForEach(groupedSections) { section in
@@ -153,15 +159,7 @@ struct HistoryView: View {
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) { historyFilterMenu }
-            }.onChange(of: selectedFilter) { _, _ in
-                resetPaging()
-            }.onChange(of: selectedSortOrder) { _, _ in
-                resetPaging()
-            }.onChange(of: selectedWalletID) { _, _ in
-                resetPaging()
-            }.onChange(of: searchText) { _, _ in
-                resetPaging()
-            }
+            }.task(id: queryKey) { await loadPage(reset: true) }
         }
     }
     private var historyFilterMenu: some View {
@@ -181,48 +179,16 @@ struct HistoryView: View {
         }.accessibilityLabel(AppLocalization.string("Filter history"))
     }
 
-    private var activeFilterStrip: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 10) {
-                Menu {
-                    Picker(AppLocalization.string("Wallet"), selection: $selectedWalletID) {
-                        Text(AppLocalization.string("All Wallets")).tag(Optional<String>.none)
-                        ForEach(store.wallets) { wallet in Text(wallet.name).tag(Optional(wallet.id)) }
-                    }
-                } label: {
-                    filterCapsuleLabel(title: "Wallet", value: selectedWalletName, systemImage: "wallet.pass")
-                }
-
-                Menu {
-                    Picker(AppLocalization.string("Type"), selection: $selectedFilter) {
-                        ForEach(HistoryFilter.allCases) { filter in Text(filter.localizedTitle).tag(filter) }
-                    }
-                } label: {
-                    filterCapsuleLabel(title: "Type", value: selectedFilter.localizedTitle, systemImage: "line.3.horizontal.decrease")
-                }
-
-                Menu {
-                    Picker(AppLocalization.string("Sort"), selection: $selectedSortOrder) {
-                        ForEach(HistorySortOrder.allCases) { sortOrder in Text(sortOrder.localizedTitle).tag(sortOrder) }
-                    }
-                } label: {
-                    filterCapsuleLabel(title: "Sort", value: selectedSortOrder.localizedTitle, systemImage: "arrow.up.arrow.down")
-                }
-            }
-            .padding(.vertical, 2)
-        }
-    }
-
     private var historyWalletIDs: Set<String> {
         if let selectedWalletID { return [selectedWalletID] }
         return Set(store.wallets.map(\.id))
     }
     private var canLoadMoreVisibleHistory: Bool { store.canLoadMoreOnChainHistory(for: historyWalletIDs) }
     private var shouldShowPagingControls: Bool {
-        visibleTransactions.count > visibleLimit || canLoadMoreVisibleHistory || store.isLoadingMoreOnChainHistory
+        hasMoreStoredHistory || canLoadMoreVisibleHistory || store.isLoadingMoreOnChainHistory
     }
     private var pagedRows: [HistoryRowPresentation] {
-        visibleTransactions.prefix(visibleLimit).map(historyRowPresentation)
+        visibleTransactions.map(historyRowPresentation)
     }
     private var groupedSections: [HistoryPresentationSection] {
         let calendar = Calendar.current
@@ -247,35 +213,57 @@ struct HistoryView: View {
             return HistoryPresentationSection(title: title, rows: rows)
         }
     }
-    private var visibleTransactions: [TransactionRecord] {
-        guard !store.wallets.isEmpty else { return [] }
-        let trimmedQuery = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        let transactionByID = store.cachedTransactionByID
-        let filteredTransactions: [TransactionRecord] = store.normalizedHistoryIndex.compactMap { entry in
-            guard let transaction = transactionByID[entry.transactionId] else { return nil }
-            if let selectedWalletID, transaction.walletId != selectedWalletID { return nil }
-            switch selectedFilter {
-            case .all: break
-            case .sends: guard entry.kind == .send else { return nil }
-            case .receives: guard entry.kind == .receive else { return nil }
-            case .pending: guard entry.status == .pending else { return nil }
-            }
-            if !trimmedQuery.isEmpty && !entry.searchIndex.contains(trimmedQuery) { return nil }
-            return transaction
+    private var historyError: String? { pageError ?? store.historyReadError }
+    private var visibleTransactions: [TransactionRecord] { pageRecords }
+    private var filterKey: String {
+        "\(selectedWalletID ?? "")|\(selectedFilter)|\(selectedSortOrder)|\(searchText)"
+    }
+    private var queryKey: String { "\(filterKey)|\(store.transactionRevision)|\(store.walletsRevision)" }
+    private func loadPage(reset: Bool) async {
+        let key = queryKey
+        if loadedFilterKey != filterKey {
+            pageRecords = []
+            hasMoreStoredHistory = false
+            loadedFilterKey = filterKey
         }
-        switch selectedSortOrder {
-        case .newest: return filteredTransactions
-        case .oldest: return Array(filteredTransactions.reversed())
+        let requestID = UUID()
+        pageRequestID = requestID
+        isLoadingPage = true
+        defer { if pageRequestID == requestID { isLoadingPage = false } }
+        let filter: HistoryQueryFilter
+        switch selectedFilter {
+        case .all: filter = .all
+        case .sends: filter = .send
+        case .receives: filter = .receive
+        case .pending: filter = .pending
+        }
+        do {
+            let page = try await WalletServiceBridge.shared.historyPage(HistoryQuery(
+                walletId: selectedWalletID, filter: filter, search: searchText,
+                oldestFirst: selectedSortOrder == .oldest, offset: reset ? 0 : nextOffset, limit: 20))
+            guard !Task.isCancelled, pageRequestID == requestID, queryKey == key else { return }
+            if reset { pageRecords = page.records }
+            else {
+                let present = Set(pageRecords.map(\.id))
+                pageRecords += page.records.filter { !present.contains($0.id) }
+            }
+            nextOffset = page.nextOffset
+            hasMoreStoredHistory = page.hasMore
+            pageError = nil
+        } catch {
+            guard !Task.isCancelled, pageRequestID == requestID, queryKey == key else { return }
+            pageError = error.localizedDescription
         }
     }
-    private func resetPaging() { visibleLimit = 20 }
     private var historyPagingControls: some View {
         Button {
             Task {
-                if visibleTransactions.count <= visibleLimit {
+                if !hasMoreStoredHistory {
                     await store.loadMoreOnChainHistory(for: historyWalletIDs)
+                    await loadPage(reset: true)
+                } else {
+                    await loadPage(reset: false)
                 }
-                visibleLimit += 20
             }
         } label: {
             HStack {
@@ -284,49 +272,31 @@ struct HistoryView: View {
             }.frame(maxWidth: .infinity, minHeight: 44)
         }
         .buttonStyle(.glass)
-        .disabled(store.isLoadingMoreOnChainHistory)
+        .disabled(store.isLoadingMoreOnChainHistory || isLoadingPage)
     }
     private var historyEmptyStateCard: some View {
         SpectraEmptyStateCard(
             title: emptyStateTitle,
             message: emptyStateMessage,
-            systemImage: store.normalizedHistoryIndex.isEmpty ? "clock.arrow.circlepath" : "magnifyingglass"
+            systemImage: store.transactionCount == 0 ? "clock.arrow.circlepath" : "magnifyingglass"
         )
     }
     private var emptyStateTitle: String {
-        store.normalizedHistoryIndex.isEmpty
+        store.transactionCount == 0
             ? AppLocalization.string("No activity yet")
             : AppLocalization.string("No matches found")
     }
     private var emptyStateMessage: String {
         if store.wallets.isEmpty { return AppLocalization.string("No wallets are currently loaded. Import a wallet to view activity.") }
-        if store.normalizedHistoryIndex.isEmpty {
+        if store.transactionCount == 0 {
             return AppLocalization.string("Send funds or receive funds to build a persistent transaction log.")
         }
         return AppLocalization.string("Try a different filter or search term.")
     }
-    private var selectedWalletName: String {
-        guard let selectedWalletID, let wallet = store.wallet(for: selectedWalletID) else { return AppLocalization.string("All Wallets") }
-        return wallet.name
-    }
-    @ViewBuilder
-    private func filterCapsuleLabel(title: String, value: String, systemImage: String) -> some View {
-        HStack(spacing: 8) {
-            Image(systemName: systemImage).font(.caption.weight(.semibold))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(AppLocalization.string(title)).font(.caption2).foregroundStyle(.secondary)
-                Text(value).font(.caption.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
-            }
-            Image(systemName: "chevron.down").font(.caption2.weight(.bold)).foregroundStyle(.secondary)
-        }.padding(.horizontal, 12).padding(.vertical, 10).spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.chip)
-    }
     private func historyRowPresentation(for transaction: TransactionRecord) -> HistoryRowPresentation {
         HistoryRowPresentation(
             transaction: transaction, amountText: signedAmountText(for: transaction), amountColor: amountColor(for: transaction),
-            subtitleText: String(
-                format: CommonLocalizationContent.current.transactionSubtitleFormat, transaction.assetDisplayName,
-                store.displayChainTitle(for: transaction), transaction.walletName
-            ), statusText: transaction.statusText, fullTimestampText: transaction.fullTimestampText,
+            subtitleText: transaction.subtitleText, statusText: transaction.statusText, fullTimestampText: transaction.fullTimestampText,
             metadataText: store.historyMetadataText(for: transaction)
         )
     }

@@ -51,7 +51,6 @@ final class AppState {
     // construction so the interval is visible next to the field declaration
     // instead of being a magic number buried in an async closure.
     @ObservationIgnored private let tokenPreferenceRebuild = DebouncedAction(intervalMilliseconds: 30)
-    @ObservationIgnored private let transactionRebuild = DebouncedAction(intervalMilliseconds: 30)
     /// Recorded transactions.
     ///
     /// Domain state: core owns the store and its persistence. This is a
@@ -59,14 +58,7 @@ final class AppState {
     /// `private(set)` and replaced only with what core returns
     /// (`adoptTransactionsFromCore`).
     private(set) var transactions: [TransactionRecord] = [] {
-        didSet {
-            transactionRevision &+= 1
-            if !suppressSideEffects {
-                transactionRebuild.fire { [weak self] in
-                    Task { @MainActor [weak self] in await self?.rebuildTransactionDerivedState() }
-                }
-            }
-        }
+        didSet { transactionRevision &+= 1 }
     }
 
     /// The only place the transaction projection is written.
@@ -74,15 +66,16 @@ final class AppState {
         transactions = records
     }
     var historyReadError: String? = nil
-    var normalizedHistoryIndex: [CoreNormalizedHistoryEntry] = []
+    @ObservationIgnored var portfolioSnapshotRevision: UInt64 = 0 // Core snapshot order, not request order.
+    @ObservationIgnored var transactionSnapshotRevision: UInt64 = 0 // Reject delayed history summaries.
+    var portfolioValuation: PortfolioValuation?
+    var transactionCount: UInt64 = 0
     /// The pending sends core says can still be replaced on their chain.
     /// Adopted with the rest of the transaction-derived views; observed,
     /// because the composer's Speed Up / Cancel buttons read it.
     var replaceableSends: [ReplaceableSend] = []
     private(set) var transactionRevision: UInt64 = 0
-    @ObservationIgnored var cachedTransactionByID: [String: TransactionRecord] = [:]
     @ObservationIgnored var cachedFirstActivityDateByWalletID: [String: Date] = [:]
-    @ObservationIgnored var suppressSideEffects = false
     /// Imported wallets.
     ///
     /// Domain state: core owns the list and persists it. This is a projection
@@ -129,7 +122,7 @@ final class AppState {
     }
     private(set) var walletsRevision: UInt64 = 0
     // Derived caches. Recomputed by `applyWalletCollectionSideEffects`,
-    // `rebuildWalletDerivedState`, `rebuildDashboardDerivedState` and
+    // `rebuildWalletDerivedState` and
     // `rebuildTokenPreferenceDerivedState`.
     //
     // No revision counter here. Under `@Observable` a view already tracks the
@@ -143,10 +136,7 @@ final class AppState {
     var walletDerivedCache: WalletDerivedCache = .empty
     var cachedWalletByID: [String: WalletView] { walletDerivedCache.walletByID }
     var cachedIncludedPortfolioWallets: [WalletView] { walletDerivedCache.includedPortfolioWallets }
-    var cachedPortfolio: [Coin] {
-        get { walletDerivedCache.portfolio }
-        set { walletDerivedCache.portfolio = newValue }
-    }
+    var cachedPortfolio: [Coin] { walletDerivedCache.portfolio }
     var cachedAvailableSendCoinsByWalletID: [String: [Coin]] { walletDerivedCache.availableSendCoinsByWalletID }
     var cachedAvailableReceiveCoinsByWalletID: [String: [Coin]] { walletDerivedCache.availableReceiveCoinsByWalletID }
     var cachedSendEnabledWallets: [WalletView] { walletDerivedCache.sendEnabledWallets }
@@ -190,9 +180,7 @@ final class AppState {
     var isPreparingReplacementContext: Bool = false
     /// Chains currently computing a send fee preview. Observed by send UI to show loading state.
     var preparingChains: Set<String> = []
-    @ObservationIgnored var lastSendDestinationProbeKey: String?
-    @ObservationIgnored var lastSendDestinationProbeWarning: String?
-    @ObservationIgnored var lastSendDestinationProbeInfoMessage: String?
+    @ObservationIgnored var sendDestinationProbeRequestID = UUID() // Reject stale recipient probes.
     var pendingSendReview: OwnedSendReview?
     @ObservationIgnored var isRefreshingLivePrices = false
     @ObservationIgnored var isRefreshingFiatRates = false
@@ -243,8 +231,9 @@ final class AppState {
     /// epochs to keep a slow load from reverting an unsent edit. Views read
     /// fields off this value and change it through `updateSetting`.
     private(set) var appSettings: AppSettings = appSettingsDefaults()
-    /// Setting commands sent and not yet answered. While any is in flight,
-    /// a state read elsewhere may predate it, so its settings are not adopted.
+    @ObservationIgnored private(set) var committedAppSettings: AppSettings = appSettingsDefaults() // Runtime effects use only core-committed settings.
+    /// Pending edits protect the optimistic form from readback. Committed
+    /// settings still advance independently to drive runtime effects.
     @ObservationIgnored private var settingCommandsInFlight = 0
     @ObservationIgnored private var settingCommandTask: Task<Void, Never>?
 
@@ -259,28 +248,24 @@ final class AppState {
         let after = appSettingsApplying(settings: before, update: update)
         guard after != before else { return }
         appSettings = after
-        reactToSettingsChange(from: before)
         settingCommandsInFlight += 1
         let previous = settingCommandTask
         settingCommandTask = Task { @MainActor [weak self] in
             await previous?.value
             guard let self else { return }
-            let epoch = self.beginCoreStateRead()
-            let transition = try? await WalletServiceBridge.shared.applyStateCommand(
-                .setAppSetting(update: update))
-            self.settingCommandsInFlight -= 1
-            if let transition {
-                self.applyCoreState(transition.state, epoch: epoch)
-            } else {
-                self.finishCoreStateRead(epoch)
+            do {
+                let transition = try await WalletServiceBridge.shared.applyStateCommand(.setAppSetting(update: update))
+                self.settingCommandsInFlight -= 1
+                self.applyCoreState(transition.state, epoch: self.beginCoreStateRead())
+            } catch {
+                self.settingCommandsInFlight -= 1
+                // A failed write never changes runtime services. Restore the
+                // committed projection even if storage cannot be read again.
+                if self.settingCommandsInFlight == 0 { self.appSettings = self.committedAppSettings }
+                self.appendOperationalLog(.error, category: "Settings", message: error.localizedDescription)
                 if let state = try? await WalletServiceBridge.shared.appState() {
                     self.applyCoreState(state, epoch: self.beginCoreStateRead())
                 }
-            }
-            // Core reads the stored cadence, not the one on screen, so the
-            // engine is reconfigured once the command has committed.
-            if after.automaticRefreshFrequencyMinutes != before.automaticRefreshFrequencyMinutes {
-                await self.restartBalanceRefreshForCurrentConfiguration()
             }
         }
     }
@@ -302,6 +287,10 @@ final class AppState {
     /// What a settings change sets in motion on this platform: Tor's client,
     /// and the notification permission a newly enabled alert needs.
     private func reactToSettingsChange(from before: AppSettings) {
+        let appSettings = committedAppSettings
+        if appSettings.automaticRefreshFrequencyMinutes != before.automaticRefreshFrequencyMinutes {
+            Task { @MainActor [weak self] in await self?.restartBalanceRefreshForCurrentConfiguration() }
+        }
         if appSettings.torEnabled != before.torEnabled
             || appSettings.torUseCustomProxy != before.torUseCustomProxy
         {
@@ -352,25 +341,25 @@ final class AppState {
 
     /// The only place the core-owned mirrors are written. Everything else goes
     /// through a `StateCommand` and lands back here.
-    func applyCoreState(_ state: CoreAppState, epoch: UInt64) {
-        guard epoch >= appliedCoreStateEpoch else { return }
+    @discardableResult
+    func applyCoreState(_ state: CoreAppState, epoch: UInt64, refreshPortfolio: Bool = true) -> Bool {
+        guard epoch >= appliedCoreStateEpoch else { return false }
         appliedCoreStateEpoch = epoch
-        let previousPins = appSettings.pinnedDashboardTokenIds
-        if settingCommandsInFlight == 0, state.settings != appSettings {
-            let before = appSettings
-            appSettings = state.settings
+        if state.settings != committedAppSettings {
+            let before = committedAppSettings
+            committedAppSettings = state.settings
             reactToSettingsChange(from: before)
         }
+        if settingCommandsInFlight == 0 { appSettings = state.settings }
         coreAddressBook = state.addressBook
         if state.tokenPreferences != tokenPreferences { tokenPreferences = state.tokenPreferences }
         if state.priceAlerts != priceAlerts { priceAlerts = state.priceAlerts }
-        applyQuoteProjection(state)
+        if refreshPortfolio { rebuildWalletDerivedState() }
         // Synchronous on purpose: the render path reads this, and adopting it a
         // tick later quotes a testnet at mainnet prices in between.
         let unpriced = Set(coreUnpricedChainNames())
         if unpriced != unpricedChainNames { unpricedChainNames = unpriced }
-        // The options say which assets are pinned, so they are re-read too.
-        if state.settings.pinnedDashboardTokenIds != previousPins { rebuildDashboardDerivedState() }
+        return true
     }
     /// The custom RPC a chain is pointed at, or "" for the catalog's list.
     func rpcEndpoint(forChain chainName: String) -> String {
@@ -425,24 +414,14 @@ final class AppState {
             tokenPreferenceRebuild.fire { [weak self] in
                 guard let self else { return }
                 self.rebuildTokenPreferenceDerivedState()
-                self.rebuildWalletDerivedState()
-                self.rebuildDashboardDerivedState()
             }
         }
     }
     /// Why core refused the last token-preference change, if it did.
     var tokenPreferenceError: String?
-    @ObservationIgnored var projectedPriceAttempt: Double = 0
-    @ObservationIgnored var projectedFiatAttempt: Double = 0
     @ObservationIgnored var walletMutationTask: Task<Void, Never>?
-    var livePrices: [String: Double] = [:] {
-        didSet {
-            guard livePrices != oldValue else { return }
-            // Prices only change on a refresh cycle and the rebuild is an
-            // in-memory pass, so it is cheaper to do than to decide about.
-            rebuildDashboardDerivedState()
-        }
-    }
+    // Prices and groups are adopted together from the same core snapshot.
+    var livePrices: [String: Double] = [:]
     /// USD → display-currency rates, as core holds them. A projection: core
     /// fetches, merges and stores them, and `applyCoreState` adopts the result.
     var fiatRatesFromUSD: [String: Double] = [:]
@@ -472,7 +451,7 @@ final class AppState {
     /// The five preferences this platform keeps for itself. Split out so views
     /// that only read them are not invalidated by wallet or balance changes.
     let preferences = AppUserPreferences()
-    @ObservationIgnored var pendingSendPreviewRefreshChains: Set<String> = []
+    @ObservationIgnored var sendPreviewRequestID = UUID() // Reject every completion of a superseded preview.
     var isLoadingMoreOnChainHistory: Bool = false
     let diagnostics = WalletDiagnosticsState()
     /// Whether a chain's deep rescan is running, and when it last finished.
@@ -482,7 +461,7 @@ final class AppState {
         get { utxoRescanStateByChain[chainName] ?? .init() }
         set { utxoRescanStateByChain[chainName] = newValue }
     }
-    @ObservationIgnored var userInitiatedRefreshTask: Task<Void, Never>?
+    @ObservationIgnored var userInitiatedRefreshTask: Task<Bool, Never>?
     @ObservationIgnored var importRefreshTask: Task<Void, Never>?
     @ObservationIgnored var walletSideEffectsTask: Task<Void, Never>?
     @ObservationIgnored var appIsActive = true
@@ -555,7 +534,8 @@ final class AppState {
         extraReset?()
         sendError = nil
     }
-    init() {
+    init(startServices: Bool = true) {
+        guard startServices else { return }
         // Wire the preferences' side effect back to AppState. A closure rather
         // than an observation loop keeps the coupling explicit.
         preferences.useFaceIDDisabledHandler = { [weak self] in
@@ -599,7 +579,7 @@ final class AppState {
         }
     }
     private func warmUpAfterLaunch() async {
-        await rebuildTransactionDerivedState()
+        await refreshTransactionProjection()
         startMaintenanceLoopIfNeeded()
         await registerSecretStoreWithBridge()
         setupRustRefreshEngine()
@@ -617,17 +597,10 @@ final class AppState {
         balanceFlushTask?.cancel()
         settingCommandTask?.cancel()
         walletSideEffectsDebounce.cancel()
-        transactionRebuild.cancel()
         tokenPreferenceRebuild.cancel()
         #if canImport(Network)
             networkPathMonitor.cancel()
         #endif
-    }
-    func withSuspendedTransactionSideEffects(_ body: () -> Void) {
-        let previous = suppressSideEffects
-        suppressSideEffects = true
-        body()
-        suppressSideEffects = previous
     }
     var canImportWallet: Bool {
         importDraft.canImportWallet

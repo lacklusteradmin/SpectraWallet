@@ -41,11 +41,6 @@ extension AppState {
     var chainDegradedBanners: [ChainDegradedBanner] { diagnostics.chainDegradedBanners }
 }
 
-enum ChainSelfTests {
-    static func run(_ chainKey: String) -> [ChainSelfTestResult] {
-        selfTestsRunChain(chainKey: chainKey)
-    }
-}
 extension ChainSelfTestOutcome {
     var displayMessage: String {
         switch self {

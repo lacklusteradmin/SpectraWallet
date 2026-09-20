@@ -58,13 +58,11 @@ extension AppState {
     func applyPendingStatusChanges(_ changes: [TransactionStatusChange]) async {
         let oldByID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
 
-        if let stored = try? await WalletServiceBridge.shared.storedTransactions() {
-            adoptTransactionsFromCore(stored)
-        }
+        await refreshTransactionProjection()
 
         for change in changes {
             let id = change.id
-            let transaction = transactions.first(where: { $0.id == id }) ?? oldByID[id]
+            let transaction = (try? await WalletServiceBridge.shared.transaction(id: id)) ?? oldByID[id]
             guard let transaction else { continue }
             if change.statusChanged {
                 switch change.newStatus {
@@ -80,9 +78,7 @@ extension AppState {
                         transactionHash: change.transactionHash)
                 case .pending: break
                 }
-                if let oldTransaction = oldByID[id] {
-                    sendTransactionStatusNotification(for: oldTransaction, newStatus: change.newStatus)
-                }
+                sendTransactionStatusNotification(for: transaction, newStatus: change.newStatus)
                 await finishSendLiveActivity(for: transaction, newStatus: change.newStatus)
             }
             if let confirmations = change.reachedFinalityConfirmations {

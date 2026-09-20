@@ -96,3 +96,15 @@ with `GlassEffectContainer(spacing: 12)`.
 - Rounded black display typography is reserved for icon artwork.
 - Avoid custom glass on every small element or stacked glass surfaces.
 - Do not add `.ultraThinMaterial` or `.thinMaterial` where `.glassEffect` is appropriate.
+
+## Numeric presentation boundary
+
+Compact asset amounts share core's six-significant-digit policy, capped at
+both the asset's supported precision and eight fractional places. This is a
+cross-platform display policy, not transaction rounding or a signing constraint.
+Detailed amounts may show the supported precision. Native formatters own locale,
+separators and trailing zeros; core continues to validate exact typed amounts.
+
+Core supplies portfolio/wallet valuation and completeness. A missing quote or
+currency rate is unavailable, displayed as “—”; partial totals must show their
+missing-price count. Never replace an unavailable value with zero.

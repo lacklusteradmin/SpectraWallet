@@ -40,9 +40,9 @@ struct AdvancedSettingsView: View {
                 ) {
                     Task {
                         isRunningMaintenance = true
-                        await store.performUserInitiatedRefresh()
+                        let succeeded = await store.performUserInitiatedRefresh()
                         isRunningMaintenance = false
-                        maintenanceNotice = AppLocalization.string("Manual refresh completed.")
+                        maintenanceNotice = refreshOutcomeMessage(succeeded: succeeded)
                     }
                 }.disabled(isRunningMaintenance)
                 Button(
@@ -122,13 +122,17 @@ struct AdvancedSettingsView: View {
     private func refreshSingleChain(_ chainName: String) {
         Task {
             isRunningMaintenance = true
-            await store.performUserInitiatedRefresh(forChain: chainName)
+            let succeeded = await store.performUserInitiatedRefresh(forChain: chainName)
             isRunningMaintenance = false
-            maintenanceNotice = AppLocalization.format("%@ refresh completed.", chainName)
+            maintenanceNotice = refreshOutcomeMessage(succeeded: succeeded)
         }
     }
     private func refreshButtonTitle(for chainName: String, label: String? = nil) -> String {
         let title = label ?? chainName
         return isRunningMaintenance ? AppLocalization.format("Refreshing %@...", title) : AppLocalization.format("Refresh %@", title)
     }
+}
+
+func refreshOutcomeMessage(succeeded: Bool) -> String {
+    AppLocalization.string(succeeded ? "Manual refresh completed." : "Refresh failed or completed partially. See refresh errors.")
 }

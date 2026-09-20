@@ -37,7 +37,7 @@ extension AppState {
             timeZoneIdentifier: TimeZone.current.identifier,
             selectedFiatCurrency: selectedFiatCurrency.code,
             walletCount: Int64(wallets.count),
-            transactionCount: Int64(transactions.count))
+            transactionCount: Int64(transactionCount))
         return DiagnosticsBundlePayload(
             schemaVersion: 1,
             generatedAt: Date().timeIntervalSince1970,

@@ -6,17 +6,8 @@ extension AppState {
     func setDashboardAssetPinned(_ isPinned: Bool, tokenID: String) {
         sendDashboardPinCommand(.setDashboardAssetPinned(tokenId: tokenID, isPinned: isPinned))
     }
-    func resetPinnedDashboardAssets() { sendDashboardPinCommand(.setPinnedDashboardAssets(tokenIds: [])) }
+    func resetPinnedDashboardAssets() { sendDashboardPinCommand(.resetPinnedDashboardAssets) }
     var dashboardAssetGroups: [DashboardAssetGroup] { cachedDashboardAssetGroups }
-    func rebuildDashboardDerivedState() {
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            guard let groups = try? await WalletServiceBridge.shared.dashboardAssetGroups(),
-                  let options = try? await WalletServiceBridge.shared.dashboardPinOptions() else { return }
-            if groups != self.cachedDashboardAssetGroups { self.cachedDashboardAssetGroups = groups }
-            if options != self.cachedAvailableDashboardPinOptions { self.cachedAvailableDashboardPinOptions = options }
-        }
-    }
     var appNoticeItems: [AppNoticeItem] {
         let commonCopy = CommonLocalizationContent.current
         var notices: [AppNoticeItem] = []

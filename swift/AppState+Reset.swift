@@ -57,10 +57,8 @@ extension AppState {
         sendPreviewStore.resetAll()
         sendingChains = []
         preparingChains = []
-        pendingSendPreviewRefreshChains = []
-        lastSendDestinationProbeKey = nil
-        lastSendDestinationProbeWarning = nil
-        lastSendDestinationProbeInfoMessage = nil
+        sendPreviewRequestID = UUID()
+        sendDestinationProbeRequestID = UUID()
         pendingSendReview = nil
         // Core prunes status trackers against committed history on the next
         // maintenance sweep, including when there is no remaining work.
@@ -86,12 +84,7 @@ extension AppState {
         isRefreshingLivePrices = false
         // Ten lines naming the five UTXO chains, which is the map itself.
         utxoRescanStateByChain = [:]
-        do {
-            try await rebuildNormalizedHistoryIndex()
-            historyReadError = nil
-        } catch {
-            historyReadError = localizedStoreString("Unable to read transaction history. Existing records have been kept.")
-        }
+        await refreshTransactionProjection()
     }
     private func resetSettingsAndEndpointsState() async {
         // The five this platform keeps for itself: hiding balances, appearance,

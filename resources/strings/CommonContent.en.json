@@ -1,9 +1,9 @@
 {
-  "priceAlertTitleFormat": "%@ on %@",
+  "assetOnChainFormat": "%@ on %@",
   "addressBookSubtitleFormat": "%@ • %@",
   "transactionSentTitleFormat": "Sent %@",
   "transactionReceivedTitleFormat": "Received %@",
-  "transactionSubtitleFormat": "%@ on %@ • %@",
+  "transactionSubtitleFormat": "%@ • %@",
   "walletImportErrorTitle": "Wallet Import Error",
   "sendErrorTitle": "Send Error",
   "securityNoticeTitle": "Security Notice"

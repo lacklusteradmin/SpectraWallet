@@ -12,8 +12,8 @@ import Foundation
 extension AppState {
     // ── Wallets ────────────────────────────────────────────────────────
     //
-    // Core owns the list. These update the projection immediately so the UI
-    // stays responsive, then send the command that makes it durable.
+    // Core owns the list. Commands persist first; the coherent snapshot then
+    // replaces the displayed wallets and their derived values together.
 
     // Wallet writes are awaitable, unlike the transaction ones. They are rare —
     // import, rename, delete, a balance change — and a caller that needs to know
@@ -25,7 +25,6 @@ extension AppState {
     func removeWallet(id: String) async -> Bool {
         do {
             _ = try await WalletServiceBridge.shared.applyStateCommand(.removeWallet(walletId: id))
-            adoptWalletsFromCore(try await WalletServiceBridge.shared.storedWallets())
             await refreshTransactionProjection()
             await rebuildWalletDerivedStateFromCore()
             return true
@@ -45,7 +44,6 @@ extension AppState {
             do {
                 let transition = try await WalletServiceBridge.shared.applyStateCommand(command)
                 self.applyCoreState(transition.state, epoch: epoch)
-                self.adoptWalletsFromCore(try await WalletServiceBridge.shared.storedWallets())
                 await self.rebuildWalletDerivedStateFromCore()
             } catch {
                 self.finishCoreStateRead(epoch)
@@ -68,21 +66,8 @@ extension AppState {
         }
     }
 
-    /// Replace the projection without touching the store. Only for loading what
-    /// core already has.
-    ///
-    /// The side effects still run, debounced, and they are cheap when nothing
-    /// that matters changed: the refresh engine answers a list whose fetch
-    /// entries are the same with nothing. A flag set around this assignment
-    /// used to "suppress" them, but it was read inside the debounce, after it
-    /// had been cleared, so it suppressed nothing.
-    func adoptWalletsFromCore(_ records: [WalletView]) {
-        setWalletProjection(records)
-    }
-
-    /// Replace the projection without touching the store. Only for loading what
-    /// core already has.
+    /// A bounded recent/pending projection, adopted with its core-derived summary.
     func adoptTransactionsFromCore(_ records: [TransactionRecord]) {
-        withSuspendedTransactionSideEffects { setTransactionProjection(records) }
+        setTransactionProjection(records)
     }
 }

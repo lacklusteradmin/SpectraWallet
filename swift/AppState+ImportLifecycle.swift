@@ -79,6 +79,7 @@ extension AppState {
     func importWallet() async {
         guard canImportWallet else { return }
         guard !isImportingWallet else { return }
+        importError = nil
         let trimmedWalletName = importDraft.walletName.trimmingCharacters(in: .whitespacesAndNewlines)
         if let editingWalletID {
             await renameWallet(id: editingWalletID, to: trimmedWalletName)
@@ -136,13 +137,10 @@ extension AppState {
                 importError = AppLocalization.format("These addresses were not valid and were not imported: %@", refused)
             }
             let createdWallets = outcome.wallets
-            if let stored = try? await WalletServiceBridge.shared.storedWallets() {
-                adoptWalletsFromCore(stored)
-            }
             importedWalletsForRefresh = createdWallets
         }
         await rebuildWalletDerivedStateFromCore()
-        finishWalletImportFlow()
+        finishWalletImportFlow(notice: importError)
         scheduleImportedWalletRefresh(importedWalletsForRefresh)
     }
     func renameWallet(id: String, to newName: String) async {
@@ -150,8 +148,8 @@ extension AppState {
         await walletMutationTask?.value
         if importError == nil { finishWalletImportFlow() }
     }
-    func finishWalletImportFlow() {
-        importError = nil
+    func finishWalletImportFlow(notice: String? = nil) {
+        importError = notice
         importDraft.clearSensitiveInputs()
         resetImportForm()
         editingWalletID = nil

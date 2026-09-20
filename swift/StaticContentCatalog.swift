@@ -151,7 +151,9 @@ struct ImportFlowContent: Decodable {
     static var current: ImportFlowContent { StaticContentCatalog.loadRequiredResource("ImportFlowContent", as: ImportFlowContent.self) }
 }
 struct CommonLocalizationContent: Decodable {
-    let priceAlertTitleFormat: String
+    /// "%@ on %@" — an asset paired with the network it sits on. Shared by the
+    /// price-alert title and a transaction subtitle that needs the pair.
+    let assetOnChainFormat: String
     let addressBookSubtitleFormat: String
     let transactionSentTitleFormat: String
     let transactionReceivedTitleFormat: String

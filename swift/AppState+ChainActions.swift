@@ -2,29 +2,22 @@ import Foundation
 
 @MainActor
 extension AppState {
-    /// One chain's self-tests: the offline suite core keeps for every chain in
-    /// the catalog, plus — on an EVM chain — a probe of the endpoint it is
-    /// actually pointed at.
-    ///
-    /// `runEthereumSelfTests` stood beside this: the same bookkeeping wired to
-    /// one chain, with three extra probes. Two of them are gone. The
-    /// JSON-shape check tested core's own document builder, which core tests
-    /// where it is built; the portfolio fetch was the balance refresh with a
-    /// different error message, and it named Ethereum in four more places. The
-    /// third says something the offline suite cannot — whether the node this
-    /// chain is pointed at is that chain's node — so it runs for the whole EVM
-    /// family rather than for the one chain that had a button.
+    /// Core resolves the selected network and effective RPC before running diagnostics.
     func runSelfTests(for chainName: String) async {
         guard !selfTests(for: chainName).isRunning else { return }
         selfTests[chainName, default: .init()].isRunning = true
         defer { selfTests[chainName, default: .init()].isRunning = false }
-        var results = ChainSelfTests.run(chainName)
-        // Core stores a custom RPC only once it is a valid URL.
-        let customRPC = rpcEndpoint(forChain: chainName)
-        if let chain = Chain(displayName: chainName), chain.isEVM,
-            let rpc = customRPC.isEmpty ? AppEndpointDirectory.evmRPCEndpoints(for: chainName).first : customRPC
-        {
-            results += await selfTestsRunEvmRpc(chainId: chain.id, rpcUrl: rpc, rpcLabel: rpc)
+        let results: [ChainSelfTestResult]
+        do {
+            guard let chain = Chain(displayName: chainName) else { return }
+            let report = try await WalletServiceBridge.shared.runConfiguredSelfTests(chainID: chain.id)
+            results = report.results
+        } catch {
+            appendChainOperationalEvent(.error, chainName: chainName, message: error.localizedDescription)
+            selfTests[chainName] = .init(results: [ChainSelfTestResult(
+                name: chainName, passed: false, chainLabel: chainName,
+                outcome: .custom(text: error.localizedDescription))], isRunning: true, lastRunAt: Date())
+            return
         }
         selfTests[chainName] = .init(results: results, isRunning: true, lastRunAt: Date())
 

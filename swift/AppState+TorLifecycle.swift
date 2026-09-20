@@ -13,7 +13,7 @@ extension AppState {
     /// either Tor switch changes, whether the change was made here or arrived
     /// with core's state at launch.
     func handleTorEnabledChange() {
-        if appSettings.torEnabled {
+        if committedAppSettings.torEnabled {
             startTorEngine()
         } else {
             stopTorEngine()
@@ -23,7 +23,7 @@ extension AppState {
     /// Restart Tor after a failure or a manual reconnect request.
     func reconnectTor() {
         stopTorEngine()
-        guard appSettings.torEnabled else { return }
+        guard committedAppSettings.torEnabled else { return }
         startTorEngine()
     }
 
@@ -32,8 +32,8 @@ extension AppState {
     private func startTorEngine() {
         torStatusPollingTask?.cancel()
 
-        if appSettings.torUseCustomProxy {
-            let addr = appSettings.torCustomProxyAddress.trimmingCharacters(in: .whitespaces)
+        if committedAppSettings.torUseCustomProxy {
+            let addr = committedAppSettings.torCustomProxyAddress.trimmingCharacters(in: .whitespaces)
             let result = Result { try torActivateCustomProxy(socks5Url: addr) }
             switch result {
             case .success:

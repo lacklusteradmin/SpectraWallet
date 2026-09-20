@@ -55,12 +55,7 @@ struct TransactionDetailView: View {
                                 color: displayedTransaction.badgeColor, size: 42)
                             VStack(alignment: .leading, spacing: 3) {
                                 Text(displayedTransaction.titleText).font(.title3.bold()).foregroundStyle(Color.primary)
-                                Text(
-                                    String(
-                                        format: CommonLocalizationContent.current.transactionSubtitleFormat, displayedTransaction.assetDisplayName,
-                                        store.displayChainTitle(for: displayedTransaction), displayedTransaction.walletName
-                                    )
-                                ).font(.subheadline).foregroundStyle(.secondary)
+                                Text(displayedTransaction.subtitleText).font(.subheadline).foregroundStyle(.secondary)
                             }
                             Spacer()
                             statusChip
@@ -403,7 +398,7 @@ struct TransactionDetailView: View {
         return ownedAddresses.contains(normalized)
     }
     private func rebuildDisplayedTransactionState() async {
-        let resolvedTransaction = store.transactions.first(where: { $0.id == transaction.id }) ?? transaction
+        let resolvedTransaction = (try? await WalletServiceBridge.shared.transaction(id: transaction.id)) ?? transaction
         liveTransaction = resolvedTransaction
         guard let walletID = resolvedTransaction.walletId else {
             liveOwnedAddresses = []

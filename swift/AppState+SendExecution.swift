@@ -45,7 +45,7 @@ extension AppState {
         } catch { sendError = error.localizedDescription }
     }
 
-    func submitReviewedSend(_ review: OwnedSendReview) async {
+    func submitReviewedSend(_ review: OwnedSendReview, password: String?) async {
         let chainName = Chain(id: review.request.chainId)?.displayName ?? review.request.chainId
         guard !sendingChains.contains(chainName) else { return }
         sendingChains.insert(chainName)
@@ -53,7 +53,7 @@ extension AppState {
         guard await authenticateForSensitiveAction(reason: AppLocalization.string("Authorize transaction send")) else { return }
         do {
             let result = try await WalletServiceBridge.shared.executeOwnedSend(
-                reviewID: review.id, input: currentSendReviewInput())
+                reviewID: review.id, input: currentSendReviewInput(), password: password)
             await refreshTransactionProjection()
             lastSentTransaction = transactions.first {
                 $0.transactionHash == result.transactionHash && $0.walletId == review.request.walletId

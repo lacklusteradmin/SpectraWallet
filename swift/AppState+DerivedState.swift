@@ -14,37 +14,45 @@ extension AppState {
     /// coins each wallet can send or receive on. It holds the wallets, so it
     /// hands back coins rather than indices into a list the caller has to
     /// re-walk.
-    func rebuildWalletDerivedStateFromCore() async {
-        guard let derived = try? await WalletServiceBridge.shared.walletDerivedState() else { return }
-        applyWalletDerivedState(derived)
+    @discardableResult
+    func rebuildWalletDerivedStateFromCore() async -> Bool {
+        let epoch = beginCoreStateRead()
+        do {
+            let snapshot = try await WalletServiceBridge.shared.portfolioSnapshot()
+            applyPortfolioSnapshot(snapshot, epoch: epoch)
+            return true
+        } catch {
+            finishCoreStateRead(epoch)
+            appendOperationalLog(.error, category: "Portfolio", message: error.localizedDescription)
+            return false
+        }
     }
-    private func applyWalletDerivedState(_ derived: WalletDerivedState) {
-        let walletByID = Dictionary(uniqueKeysWithValues: wallets.map { ($0.id, $0) })
+    /// Every wallet/quote/dashboard field is adopted together on the main actor.
+    func applyPortfolioSnapshot(_ snapshot: PortfolioSnapshot, epoch: UInt64) {
+        guard snapshot.revision > portfolioSnapshotRevision else { finishCoreStateRead(epoch); return }
+        guard applyCoreState(snapshot.state, epoch: epoch, refreshPortfolio: false) else { return }
+        portfolioSnapshotRevision = snapshot.revision
+        applyQuoteProjection(snapshot.state)
+        portfolioValuation = snapshot.valuation
+        let derived = snapshot.derived
+        let walletByID = Dictionary(uniqueKeysWithValues: snapshot.wallets.map { ($0.id, $0) })
+        if wallets != snapshot.wallets { setWalletProjection(snapshot.wallets) }
         walletDerivedCache = WalletDerivedCache(
             resolvedAddressesByWalletID: derived.resolvedAddressesByWalletId,
             walletByID: walletByID,
-            includedPortfolioWallets: wallets.filter(\.includeInPortfolioTotal),
+            includedPortfolioWallets: snapshot.wallets.filter(\.includeInPortfolioTotal),
             portfolio: derived.portfolio,
             availableSendCoinsByWalletID: derived.sendCoinsByWalletId,
             availableReceiveCoinsByWalletID: derived.receiveCoinsByWalletId,
             sendEnabledWallets: derived.sendEnabledWalletIds.compactMap { walletByID[$0] },
             receiveEnabledWallets: derived.receiveEnabledWalletIds.compactMap { walletByID[$0] },
-            refreshableChainNames: Set(derived.refreshableChainNames)
-        )
+            refreshableChainNames: Set(derived.refreshableChainNames))
+        cachedDashboardAssetGroups = snapshot.groups
+        cachedAvailableDashboardPinOptions = snapshot.pinOptions
     }
-    /// Run after `wallets` mutates: rebuild the observable derived state now,
-    /// then — inside a 200ms debounce, so a fast cascade of edits costs one
-    /// pass rather than N — let the refresh engine adopt the list and start or
-    /// stop the background services.
-    ///
-    /// There was a middle phase, "persist wallet state optimistically", whose
-    /// comment described writing wallets to SQLite and Keychain and pruning
-    /// orphaned transactions. Core does all of that inside the command that
-    /// changed the wallet; the phase's body had come down to the one call
-    /// below.
+    /// Reconcile background services after a changed wallet projection. Reading
+    /// a projection never starts another projection read.
     func applyWalletCollectionSideEffects() {
-        rebuildWalletDerivedState()
-        rebuildDashboardDerivedState()
         walletSideEffectsTask?.cancel()
         walletSideEffectsTask = Task { [weak self] in
             guard let self else { return }
@@ -68,17 +76,24 @@ extension AppState {
         if !wallets.isEmpty { startMaintenanceLoopIfNeeded() }
     }
 
-    /// Merge a fetched page into the store core owns, then adopt the result.
-    ///
-    /// Only the incoming page crosses the FFI. Core merges against its own
-    /// records and writes just what changed; this then re-reads the projection.
-    /// Previously the entire history went out, came back merged, and the
-    /// changed subset went out again — three crossings of the whole list per
-    /// refresh.
-    /// Re-read the projection from core. Used after a change core made itself.
-    func refreshTransactionProjection() async {
-        guard let stored = try? await WalletServiceBridge.shared.storedTransactions() else { return }
-        adoptTransactionsFromCore(stored)
-        await rebuildTransactionDerivedState()
+    /// Refresh the bounded recent/pending projection and indexed aggregates together.
+    @discardableResult
+    func refreshTransactionProjection() async -> Bool {
+        do {
+            let snapshot = try await WalletServiceBridge.shared.transactionSnapshot()
+            guard snapshot.revision > transactionSnapshotRevision else { return true }
+            transactionSnapshotRevision = snapshot.revision
+            adoptTransactionsFromCore(snapshot.recentAndPending)
+            replaceableSends = snapshot.replaceable
+            transactionCount = snapshot.totalCount
+            cachedFirstActivityDateByWalletID = Dictionary(uniqueKeysWithValues: snapshot.earliest.map {
+                ($0.walletId, Date(timeIntervalSince1970: $0.earliestCreatedAtUnix))
+            })
+            historyReadError = nil
+            return true
+        } catch {
+            historyReadError = localizedStoreString("Unable to read transaction history. Existing records have been kept.")
+            return false
+        }
     }
 }

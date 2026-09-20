@@ -869,7 +869,6 @@
   "Authentication failed.": "验证失败。",
   "Authorize transaction rebroadcast": "授权重新广播交易",
   "No confirmation yet. Spectra will keep retrying automatically.": "尚未确认。Spectra 会继续自动重试。",
-  "Rebroadcast is only supported for send transactions.": "仅转出交易支持重新广播。",
   "Status updated: %@.": "状态已更新：%@。",
   "Transaction is confirmed.": "交易已确认。",
   "Transaction not found.": "未找到交易。",
@@ -1006,5 +1005,8 @@
   "Contract Account ID": "合约账户 ID",
   "Mint Address": "Mint 地址",
   "Coin Standard Type": "Coin 标准类型",
-  "Jetton Master Address": "Jetton 主合约地址"
+  "Jetton Master Address": "Jetton 主合约地址",
+  "Refresh failed or completed partially. See refresh errors.": "刷新失败或仅部分完成，请查看刷新错误。",
+  "Wallet password must be at least 4 characters, or leave it blank.": "钱包密码至少需要 4 个字符，也可以留空。",
+  "Wallet password confirmation does not match.": "两次输入的钱包密码不一致。"
 }

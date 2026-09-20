@@ -9,20 +9,20 @@ func localizedStoreString(_ key: String) -> String {
 
 @MainActor
 extension AppState {
-    func convertUSDToSelectedFiat(_ amountUSD: Double) -> Double { amountUSD * fiatRate(for: selectedFiatCurrency) }
     func convertUSDToSelectedFiatIfAvailable(_ amountUSD: Double) -> Double? {
-        guard let rate = fiatRateIfAvailable(for: selectedFiatCurrency) else { return nil }
-        return amountUSD * rate
+        guard amountUSD.isFinite, let rate = fiatRateIfAvailable(for: selectedFiatCurrency) else { return nil }
+        let value = amountUSD * rate
+        return value.isFinite ? value : nil
     }
     func formattedFiatAmount(fromUSD amountUSD: Double) -> String {
-        formatFiatAmount(amount: convertUSDToSelectedFiat(amountUSD), currency: selectedFiatCurrency)
+        formattedFiatAmountIfAvailable(fromUSD: amountUSD) ?? "—"
     }
     func formattedFiatAmountIfAvailable(fromUSD amountUSD: Double) -> String? {
+        guard amountUSD.isFinite else { return nil }
         if selectedFiatCurrency == .usd { return formatFiatAmount(amount: amountUSD, currency: .usd) }
         guard let converted = convertUSDToSelectedFiatIfAvailable(amountUSD) else { return nil }
         return formatFiatAmount(amount: converted, currency: selectedFiatCurrency)
     }
-    func formattedFiatAmountOrZero(fromUSD amountUSD: Double?) -> String { formattedFiatAmount(fromUSD: amountUSD ?? 0) }
     func formattedFiatAmountOrUnavailable(fromUSD amountUSD: Double?) -> String {
         guard let amountUSD else { return "—" }
         return formattedFiatAmountIfAvailable(fromUSD: amountUSD) ?? "—"
@@ -118,36 +118,19 @@ extension AppState {
             transaction.amount, symbol: transaction.symbol, deploymentID: transaction.deploymentId
         )
     }
-    func currentValue(for coin: Coin) -> Double { coin.amount * currentPrice(for: coin) }
     func currentValueIfAvailable(for coin: Coin) -> Double? {
         guard isPricedAsset(coin) else { return nil }
         guard let price = currentPriceIfAvailable(for: coin) else { return nil }
         return coin.amount * price
     }
-    /// A total and what it could not include.
-    ///
-    /// Holdings nobody quoted are left out and counted, not folded in at zero
-    /// and not at a made-up dollar: a price the feed did not give is not a
-    /// price, and a total that quietly contains one cannot be told apart from a
-    /// total that does not.
-    struct QuotedTotal: Equatable {
-        let total: Double
-        let unpricedCount: Int
-        var isComplete: Bool { unpricedCount == 0 }
+    func formattedQuotedTotal(_ total: QuotedTotal?) -> String {
+        guard let total, let fiat = total.fiatTotal else { return "—" }
+        let amount = formatFiatAmount(amount: fiat, currency: portfolioValuation?.currency ?? selectedFiatCurrency)
+        guard total.unpricedCount > 0 else { return amount }
+        return amount + " · " + AppLocalization.format("%lld without a price", total.unpricedCount)
     }
-    func quotedTotal(for coins: [Coin]) -> QuotedTotal {
-        var total: Double = 0
-        var unpriced = 0
-        for coin in coins where coin.amount > 0 {
-            if let value = currentValueIfAvailable(for: coin) {
-                total += value
-            } else if isPricedAsset(coin) {
-                // A chain the app never prices — a testnet — is not a hole in
-                // the total; a chain it does price but has no quote for is.
-                unpriced += 1
-            }
-        }
-        return QuotedTotal(total: total, unpricedCount: unpriced)
+    func formattedWalletTotal(walletID: String) -> String {
+        formattedQuotedTotal(portfolioValuation?.wallets[walletID])
     }
     func assetIdentityKey(for coin: Coin) -> String { coin.holdingKey }
     /// Hot path — called per coin during portfolio totals and per row in the
@@ -158,33 +141,6 @@ extension AppState {
         !unpricedChainNames.contains(chainName)
     }
     func isPricedAsset(_ coin: Coin) -> Bool { isPricedChain(coin.chainName) }
-    /// The history list the UI renders, as core normalizes it.
-    func rebuildNormalizedHistoryIndex() async throws {
-        normalizedHistoryIndex = try await WalletServiceBridge.shared.normalizedHistory(
-            unknownLabel: localizedStoreString("Unknown"))
-    }
-    /// Adopt the views of the transaction store that the UI renders.
-    ///
-    /// Core derives them from its own records; this caches the answers, which
-    /// is what `dashboardAssetGroups` already does. `cachedTransactionByID` is
-    /// an index into the projection, so it stays local.
-    func rebuildTransactionDerivedState() async {
-        cachedTransactionByID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
-        do {
-            let sends = try await WalletServiceBridge.shared.replaceableSends()
-            let earliest = try await WalletServiceBridge.shared.earliestTransactionDates()
-            try await rebuildNormalizedHistoryIndex()
-            replaceableSends = sends
-            cachedFirstActivityDateByWalletID = Dictionary(
-                uniqueKeysWithValues: earliest.map {
-                    ($0.walletId, Date(timeIntervalSince1970: $0.earliestCreatedAtUnix))
-                })
-            historyReadError = nil
-        } catch {
-            historyReadError = localizedStoreString("Unable to read transaction history. Existing records have been kept.")
-        }
-    }
-
     // MARK: - Network fees
 
     /// A network fee in the chain's gas token, at the places core picks for

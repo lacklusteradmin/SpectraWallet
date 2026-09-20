@@ -233,7 +233,7 @@ struct WalletDetailView: View {
                 coin: entry.coin,
                 amountText: store.formattedAssetAmount(entry.coin.amount, symbol: entry.coin.symbol, deploymentID: entry.coin.holdingKey),
                 valueText: store.preferences.hideBalances
-                    ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: entry.quotedValue >= 0 ? entry.quotedValue : nil)
+                    ? "••••••" : store.formattedFiatAmountOrUnavailable(fromUSD: entry.quotedValue >= 0 ? entry.quotedValue : nil)
             )
         }
         return DetailPresentation(
@@ -248,7 +248,7 @@ struct WalletDetailView: View {
             walletBadge: Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, .mint),
             visibleHoldingPresentations: holdingPresentations,
             walletTotalValueText: store.preferences.hideBalances
-                ? "••••••" : store.formattedFiatAmountOrZero(fromUSD: store.quotedTotal(for: wallet.holdings).total)
+                ? "••••••" : store.formattedWalletTotal(walletID: wallet.id)
         )
     }
     /// The wallet's configured derivation path, when it has one.
