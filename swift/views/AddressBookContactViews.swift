@@ -112,9 +112,7 @@ struct NewAddressBookContactView: View {
                 .spectraInputFieldStyle()
                 .foregroundStyle(Color.primary)
 
-            // Only once there is something to judge. The same sentence used to
-            // sit here permanently, two lines of instructions dressed as a
-            // verdict on an empty field.
+            // Only show validation feedback once there is input to judge.
             if !trimmedAddress.isEmpty {
                 Text(addressValidationMessage)
                     .font(.caption)
@@ -176,11 +174,7 @@ struct NewAddressBookContactView: View {
     }
 }
 
-/// One saved recipient: what it is, and the two things that can be done to it.
-///
-/// The label is all core lets a contact change, so renaming used to be a sheet
-/// of its own reachable only by swiping the row. Deleting was the other swipe
-/// action, and neither was visible on the row.
+/// A saved recipient with rename and delete actions.
 struct AddressBookContactView: View {
     @Bindable var store: AppState
     let entry: AddressBookEntry

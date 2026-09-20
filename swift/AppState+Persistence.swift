@@ -8,7 +8,7 @@ extension AppState {
         // Folding in the built-ins catches tokens this build added. Core does
         // the merge and stores it, so this only adopts the answer — assigning
         // through the `didSet` would send it straight back.
-        if let merged = try? await WalletServiceBridge.shared.mergeBuiltInTokenPreferences() {
+        if let merged = try? await self.bridge.mergeBuiltInTokenPreferences() {
             applyCoreState(merged, epoch: beginCoreStateRead())
         }
         // Price alerts arrive with the rest of the state — `loadCoreOwnedState()`
@@ -28,7 +28,7 @@ extension AppState {
         Task { @MainActor [weak self] in
             guard let self else { return }
             guard
-                let transition = try? await WalletServiceBridge.shared.applyStateCommand(
+                let transition = try? await self.bridge.applyStateCommand(
                     .selectNetworkChain(chainId: chainID))
             else {
                 self.finishCoreStateRead(epoch)

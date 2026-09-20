@@ -113,7 +113,7 @@ extension AppState {
             // callback and commits the entire wallet batch before returning.
             let outcome: WalletImportOutcome
             do {
-                outcome = try await WalletServiceBridge.shared.importWallets(
+                outcome = try await self.bridge.importWallets(
                     WalletImportCommit(
                         password: trimmedWalletPassword,
                         request: importPlanRequest,

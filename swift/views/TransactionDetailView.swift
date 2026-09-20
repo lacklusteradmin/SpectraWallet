@@ -16,10 +16,7 @@ struct TransactionDetailView: View {
     }
     private var displayedTransaction: TransactionRecord { liveTransaction ?? transaction }
     private var ownedAddresses: Set<String> { liveOwnedAddresses }
-    // An end the record does not name is left out. Both of these used to fall
-    // back to the wallet's first known address — on a UTXO wallet, one of
-    // many, and not necessarily the one this transaction touched — and show
-    // it as though the record said so.
+    // Omit transfer endpoints the record does not name.
     private var fromAddressText: String? {
         if displayedTransaction.kind == .send {
             return nonEmptyAddress(displayedTransaction.sourceAddress)
@@ -415,13 +412,8 @@ struct TransactionDetailView: View {
     }
 }
 
-/// One end of the transfer, with a copy button that reports only its own copy.
-///
-/// This was a method on the detail view over a single `didCopyAddress`, which
-/// both ends shared: copying "From" made "To" claim it had been copied too, and
-/// nothing ever cleared the flag, so both buttons kept saying so for the rest of
-/// the screen's life. The state belongs to the block, and `.task(id:)` clears it
-/// — cancelling with the view rather than outliving it.
+/// A transfer endpoint with independent copy feedback.
+/// `.task(id:)` clears the feedback and is cancelled with the view.
 private struct TransactionAddressBlock: View {
     let label: String
     let value: String

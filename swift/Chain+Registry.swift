@@ -1,12 +1,7 @@
 import Foundation
 
-/// The app's one chain type.
-///
-/// `Chain` is generated from `registry::Chain`, which is declared in the order
-/// of `core/data/chains.toml`. Everything a call site used to read off a
-/// hand-written Swift enum — the string id, the display name, the native
-/// symbol, whether the chain is EVM — is a column of that catalog and is read
-/// from it here.
+/// `Chain` is generated from `registry::Chain` in `core/data/chains.toml` order.
+/// Its identity, display name, symbol, and capabilities come from that catalog.
 extension Chain: Identifiable {
     /// Every chain, in catalog order.
     static let all: [Chain] = identities.map(\.chain)
@@ -14,11 +9,7 @@ extension Chain: Identifiable {
     /// Only the chains that are not testnets. Ordered as the catalog is.
     static let mainnets: [Chain] = identities.filter { !$0.isTestnet }.map(\.chain)
 
-    /// The chains the staking tab lists. Was `StakingSupportedChain`, a
-    /// seven-case enum with a display-name switch and an id switch over facts
-    /// this table already held — the fifth Swift enum to restate the chain
-    /// list, and the one the earlier sweep missed because it is scoped to one
-    /// tab rather than to the app.
+    /// Chains with staking support, as declared by the registry.
     static let stakingChains: [Chain] = identities.filter(\.supportsStaking).map(\.chain)
 
     private static let identities: [ChainIdentity] = coreChainIdentities()

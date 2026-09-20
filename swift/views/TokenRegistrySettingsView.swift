@@ -7,10 +7,7 @@ enum TokenRegistryGrouping {
 }
 struct TokenRegistrySettingsView: View {
     let store: AppState
-    /// The chain filter is `TokenHostingChain?`, `nil` meaning every chain.
-    /// It was a parallel enum with a case per chain and a switch mapping each
-    /// one back — eighteen chains hard-coded beside a list core already owns,
-    /// which is how the picker came to offer eighteen of twenty-eight.
+    /// The chain filter uses `TokenHostingChain?`; nil includes every chain.
     private static let chainFilterOptions: [TokenHostingChain?] =
         [nil] + TokenHostingChain.allCases.map { Optional($0) }
     private enum TokenRegistrySourceFilter: CaseIterable, Identifiable {

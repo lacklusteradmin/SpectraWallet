@@ -2,10 +2,7 @@ import Foundation
 import SwiftUI
 @MainActor
 extension AppState {
-    /// Opens the flow with nothing chosen, unless there is only one wallet to
-    /// choose. It used to seed `receiveWalletID` with whichever wallet sorted
-    /// first, which the wallet step then never showed as selected — so
-    /// "Continue" carried a wallet the user had never picked and could not see.
+    /// Open with no wallet selected unless there is only one to choose.
     func beginReceive() {
         let wallets = receiveEnabledWallets
         guard !wallets.isEmpty else { return }
@@ -41,7 +38,7 @@ extension AppState {
             if receiveAddressRequestID == requestID { isResolvingReceiveAddress = false }
         }
         do {
-            let address = try await WalletServiceBridge.shared.receiveAddress(
+            let address = try await self.bridge.receiveAddress(
                 walletID: wallet.id, chainId: chain.id, reserve: true)
             guard !Task.isCancelled, receiveAddressRequestID == requestID,
                 receiveWalletID == wallet.id, receiveHoldingKey == coin.holdingKey else { return }
@@ -53,11 +50,8 @@ extension AppState {
         }
     }
     func availableReceiveCoins(for walletID: String) -> [Coin] { cachedAvailableReceiveCoinsByWalletID[walletID] ?? [] }
-    /// Which holding the receive screen presents itself as — the native one,
-    /// or the first token if there is no native holding. Every holding on a
-    /// chain is received at the same address, so this picks a symbol and an
-    /// icon, not a destination; it was an FFI round trip carrying one boolean
-    /// per holding.
+    /// Choose the native holding, or the first token if none is native,
+    /// for the receive screen's symbol and icon. This does not select an address.
     func selectedReceiveCoin(for walletID: String) -> Coin? {
         let receiveCoins = availableReceiveCoins(for: walletID)
         return receiveCoins.first { $0.contractAddress == nil } ?? receiveCoins.first

@@ -3,21 +3,13 @@ import Foundation
     import XCTest
     @testable import Spectra
     @MainActor
-    final class WalletDiagnosticsStateTests: XCTestCase {
-        override func setUp() async throws {
-            try await super.setUp()
-            await clearDiagnosticsSQLite()
-        }
-        override func tearDown() async throws {
-            await clearDiagnosticsSQLite()
-            try await super.tearDown()
-        }
+    final class WalletDiagnosticsStateTests: IsolatedAppStateTestCase {
         /// Core marks a chain degraded or healthy as part of the refresh that
         /// found it so; this state only adopts what core recorded.
         func testADegradedChainShowsABannerAndSurvivesAReload() async throws {
-            _ = try await WalletServiceBridge.shared.applyDiagnosticCommand(
+            _ = try await bridge.applyDiagnosticCommand(
                 .degraded(chainName: "Ethereum", detail: "Ethereum refresh timed out. Using cached balances and history."))
-            let state = WalletDiagnosticsState()
+            let state = WalletDiagnosticsState(bridge: bridge)
             await state.loadFromSQLite()
             XCTAssertEqual(state.chainDegradedBanners.count, 1)
             XCTAssertEqual(state.chainDegradedBanners.first?.chainName, "Ethereum")
@@ -27,10 +19,10 @@ import Foundation
             XCTAssertEqual(state.operationalLogs.first?.input.chainName, "Ethereum")
         }
         func testAHealthyChainClearsItsBannerAndLogsTheRecovery() async throws {
-            _ = try await WalletServiceBridge.shared.applyDiagnosticCommand(
+            _ = try await bridge.applyDiagnosticCommand(
                 .degraded(chainName: "Solana", detail: "Solana history refresh failed. Using cached history."))
-            _ = try await WalletServiceBridge.shared.applyDiagnosticCommand(.healthy(chainName: "Solana"))
-            let state = WalletDiagnosticsState()
+            _ = try await bridge.applyDiagnosticCommand(.healthy(chainName: "Solana"))
+            let state = WalletDiagnosticsState(bridge: bridge)
             await state.loadFromSQLite()
             XCTAssertTrue(state.chainDegradedMessages["Solana"] == nil)
             XCTAssertNotNil(state.lastGoodChainSyncByName["Solana"])
@@ -40,7 +32,7 @@ import Foundation
             XCTAssertEqual(state.operationalLogs.first?.input.message, "Chain recovered")
         }
         func testAppendOperationalLogTrimsFieldsAndCapsAtEightHundredEntries() async throws {
-            let state = WalletDiagnosticsState()
+            let state = WalletDiagnosticsState(bridge: bridge)
             state.appendOperationalLog(
                 .error, category: "  Network  ", message: "  Request failed  ", chainName: "  Bitcoin  ", source: "  rpc  ",
                 metadata: "  timeout  "
@@ -56,7 +48,7 @@ import Foundation
             XCTAssertEqual(state.operationalLogs.count, 800)
         }
         func testExportOperationalLogsTextIncludesHeaderAndMetadata() async throws {
-            let state = WalletDiagnosticsState()
+            let state = WalletDiagnosticsState(bridge: bridge)
             let walletID = UUID()
             state.appendOperationalLog(
                 .warning, category: "Chain Sync", message: "Ethereum refresh timed out.", chainName: "Ethereum",
@@ -73,8 +65,6 @@ import Foundation
             XCTAssertTrue(text.contains("tx=0xabc"))
             XCTAssertTrue(text.contains("meta=cached"))
         }
-        private func clearDiagnosticsSQLite() async {
-            _ = try? await WalletServiceBridge.shared.applyDiagnosticCommand(.reset)
-        }
+
     }
 #endif

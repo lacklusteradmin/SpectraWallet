@@ -68,12 +68,7 @@ extension AppState {
         }
         return formatter.string(from: NSNumber(value: amount)) ?? ""
     }
-    /// `amount` of the asset `coin` holds, in the display currency, at that
-    /// asset's own quote.
-    ///
-    /// Took a symbol and priced the first portfolio holding that shared it —
-    /// the ticker-as-identity rule the token catalog was rewritten to remove.
-    /// USDC on Base took Ethereum USDC's quote, or a wrapped token's.
+    /// Price `amount` using this holding's asset quote and the display currency.
     func formattedFiatAmount(_ amount: Double, of coin: Coin) -> String? {
         guard let price = currentPriceIfAvailable(for: coin) else { return nil }
         return formattedFiatAmountIfAvailable(fromUSD: amount * price)
@@ -143,15 +138,7 @@ extension AppState {
     func isPricedAsset(_ coin: Coin) -> Bool { isPricedChain(coin.chainName) }
     // MARK: - Network fees
 
-    /// A network fee in the chain's gas token, at the places core picks for
-    /// that amount.
-    ///
-    /// Fees were `%.6f`, `%.8f`, `%.2f gwei` and `%.\(feeDecimals ?? 6)f` across
-    /// the send screen, its confirmation step and the transaction sheet — a
-    /// different count per screen for one number, and `"%.8f ETH"` for the fee
-    /// of every EVM chain whatever its gas token. Core's amount rule already
-    /// answers how many places a number deserves on an asset; a fee is an amount
-    /// of the chain's native asset.
+    /// Format a network fee in the chain's gas token using core's display precision.
     func formattedNetworkFee(_ fee: Double, chain: Chain) -> String {
         "\(formattedAmountValue(fee, assetDecimals: chain.nativeDecimals)) \(chain.gasTokenSymbol)"
     }

@@ -31,10 +31,8 @@ extension AppState {
         sendDestinationProbeRequestID = UUID()
         let availableHoldingKeys = availableSendCoins(for: sendWalletID).map(\.holdingKey)
         if !availableHoldingKeys.contains(sendHoldingKey) { sendHoldingKey = availableHoldingKeys.first ?? "" }
-        // EIP-1559 fees and a manual nonce belong to the EVM family, which is
-        // a registry fact, not to the chain named "Ethereum". Clearing them on
-        // a move to Arbitrum — while the composer still offered both toggles
-        // there — is half of why they were silently dropped on 22 chains.
+        // Keep EIP-1559 fees and manual nonce when switching within the EVM
+        // family; clear them when leaving it.
         if selectedSendCoin?.isEVMChain != true {
             useCustomEvmFees = false; customEvmMaxFeeGwei = ""; customEvmPriorityFeeGwei = "";
             evmManualNonceEnabled = false; evmManualNonce = ""
@@ -88,10 +86,8 @@ extension AppState {
             usesChangeOutput: c.usesChangeOutput, maxSendable: c.maxSendable)
     }
     private var parsedCustomEvmFees: Result<EvmCustomFeeConfiguration, Error>? {
-        // No chain test: the toggle is cleared when the selection leaves the
-        // EVM family, and only the EVM preview and submit paths read this. The
-        // test that was here named the chain "Ethereum", so fees typed on the
-        // other 22 EVM chains were parsed, shown as applied, and dropped.
+        // The toggle is cleared outside the EVM family; only EVM preview and
+        // submit paths read these fees.
         guard useCustomEvmFees else { return nil }
         return Result {
             try parseEvmCustomFees(
@@ -176,7 +172,7 @@ extension AppState {
     func prepareReplacementContext(pending: ReplaceableSend, cancel: Bool) async {
         isPreparingReplacementContext = true; defer { isPreparingReplacementContext = false }
         do {
-            let draft = try await WalletServiceBridge.shared.replacementDraft(
+            let draft = try await self.bridge.replacementDraft(
                 transactionID: pending.transactionId, cancel: cancel)
             sendWalletID = draft.walletId
             sendHoldingKey = draft.holdingKey
@@ -226,7 +222,7 @@ extension AppState {
         guard let chainId = Chain(displayName: chainName)?.id else {
             throw EthereumWalletEngineError.invalidAddress
         }
-        return try await WalletServiceBridge.shared.resolveSendDestination(chainId: chainId, input: input, expectedAddress: expectedAddress)
+        return try await self.bridge.resolveSendDestination(chainId: chainId, input: input, expectedAddress: expectedAddress)
     }
     func clearHighRiskSendConfirmation() { pendingSendReview = nil; pendingHighRiskSendReasons = []; isShowingHighRiskSendConfirmation = false }
     func confirmHighRiskSendAndSubmit(password: String?) async {
@@ -243,7 +239,7 @@ extension AppState {
     func knownUTXOAddresses(for wallet: WalletView, chainName: String) async -> [String]? {
         guard let chain = Chain(displayName: chainName) else { return [] }
         do {
-            return try await WalletServiceBridge.shared.knownUTXOAddresses(walletID: wallet.id, chainId: chain.id)
+            return try await self.bridge.knownUTXOAddresses(walletID: wallet.id, chainId: chain.id)
         } catch {
             appendOperationalLog(
                 .error, category: "Owned Addresses",
@@ -271,7 +267,7 @@ extension AppState {
         do {
             // Core resolves the typed input and identifies the stored deployment.
             // No ticker-based cache or cross-protocol address normalization lives here.
-            let risk = try await WalletServiceBridge.shared.sendDestinationRisk(
+            let risk = try await self.bridge.sendDestinationRisk(
                 walletID: walletID, holdingKey: holdingKey, destination: input)
             guard isCurrent() else { return }
             let messages = chainRiskProbeMessages(chainName: coin.chainName, symbol: coin.symbol,
@@ -283,13 +279,7 @@ extension AppState {
             sendDestinationInfoMessage = localizedStoreString("Unable to verify this address's activity. Try again later.")
         }
     }
-    /// The one sentence pair a destination verdict turns into.
-    ///
-    /// Four chain arms used to word this themselves and produced three
-    /// different templates, two of them interpolated in Swift and so absent
-    /// from the locale files — a Tron or EVM token send showed English in a
-    /// Chinese app. Both templates name the asset now, which the two
-    /// interpolated ones did and the localized one did not.
+    /// Localized title and message for a destination verdict.
     func chainRiskProbeMessages(chainName: String, symbol: String, balanceIsZero: Bool, hasHistory: Bool) -> (
         warning: String?, info: String?
     ) {

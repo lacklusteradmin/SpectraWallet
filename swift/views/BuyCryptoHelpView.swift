@@ -4,13 +4,8 @@ import SwiftUI
 struct BuyCryptoHelpView: View {
     private var copy: SettingsContentCopy { .current }
 
-    /// Resolved once for the process, not once per `body`.
-    ///
-    /// The rows used to be built in a stored property whose element `id` was a
-    /// fresh `UUID()`. `SettingsView` holds `@Bindable var store`, so its body
-    /// re-evaluates on every balance and price change and rebuilt this view —
-    /// which minted new identities, and `ForEach` replaced every row mid-tap.
-    /// A `Link` cannot fire if the row under the finger is torn down first.
+    /// Resolve once per process to keep row identities stable during balance
+    /// and price updates; replacing a row mid-tap can prevent its link firing.
     private static let directory = BuyProviders.current
 
     private func section(_ title: String, _ note: String, _ providers: [BuyProviderSeed]) -> some View {

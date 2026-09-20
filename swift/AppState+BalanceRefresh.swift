@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 @MainActor
 extension AppState {
-    func refreshBalances() async { try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh() }
+    func refreshBalances() async { try? await self.bridge.triggerImmediateBalanceRefresh() }
 
     /// Core has committed a wallet's new balances. Re-read the projection,
     /// coalescing a sweep's worth of updates into one read; nothing is written
@@ -24,12 +24,12 @@ extension AppState {
         let observer = WalletBalanceObserver()
         observer.store = self
         Task { [weak self] in
-            try? WalletServiceBridge.shared.setBalanceObserver(observer)
+            try? self?.bridge.setBalanceObserver(observer)
             await self?.restartBalanceRefreshForCurrentConfiguration()
         }
     }
     /// Forward activity so core starts or stops periodic balance refresh.
     func restartBalanceRefreshForCurrentConfiguration() async {
-        try? await WalletServiceBridge.shared.configureBalanceRefresh(appIsActive: appIsActive)
+        try? await self.bridge.configureBalanceRefresh(appIsActive: appIsActive)
     }
 }

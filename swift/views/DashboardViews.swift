@@ -261,10 +261,7 @@ struct DashboardView: View {
     private var dashboardCardTitle: String {
         dashboardPage == .assets ? AppLocalization.string("My Assets") : AppLocalization.string("My Wallets")
     }
-    // Pinning is an assets-page action, and this was a `Menu` whose entire
-    // content sat behind that condition: on the wallets page it presented an
-    // empty menu, so the button looked alive and did nothing. One action needs
-    // no menu, and the toolbar item is now absent where it has nothing to do.
+    // Pinning is available only on the assets page.
     private var pinAssetsToolbarButton: some View {
         Button {
             spectraHaptic(.light)
@@ -311,14 +308,8 @@ struct AppNoticeItem: Identifiable {
 }
 typealias DashboardAssetGroup = CoreDashboardAssetGroup
 extension CoreDashboardAssetGroup: Identifiable {
-    /// How the row names, colours and prices itself. Core supplies it: the
-    /// place most of the asset is held, or the catalog's entry for a pinned
-    /// asset held nowhere.
-    ///
-    /// This was `holdings.first?.coin`, which made every name on the row
-    /// optional and left a pinned-but-unheld row with nothing to call itself
-    /// unless core put a synthesized holding in the list — which then read as a
-    /// place the user holds it.
+    /// Core supplies the asset's display identity from its primary holding,
+    /// or from the catalog when a pinned asset is not held.
     var representative: AssetHolding { identity }
     var name: String { identity.name }
     var symbol: String { identity.symbol }

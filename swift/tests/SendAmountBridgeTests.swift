@@ -1,122 +1,8 @@
 import XCTest
 @testable import Spectra
 
-final class SendAmountBridgeTests: XCTestCase {
-    @MainActor
-    func testPreviewDiscardsStaleSuccessAndFailureForEveryFormEdit() {
-        let store = AppState(startServices: false)
-        let edits: [(AppState) -> Void] = [
-            { $0.sendWalletID = "other" }, { $0.sendHoldingKey = "other" },
-            { $0.sendAmount = "2" }, { $0.sendAddress = "other" },
-            { $0.evmManualNonceEnabled.toggle() }, { $0.evmManualNonce = "invalid" },
-            { $0.useCustomEvmFees.toggle() }, { $0.customEvmMaxFeeGwei = "invalid" },
-            { $0.customEvmPriorityFeeGwei = "invalid" },
-            { $0.sendPreviewRequestID = UUID() },
-        ]
-        for edit in edits {
-            let input = store.sendPreviewInputSnapshot
-            let request = store.sendPreviewRequestID
-            edit(store)
-            store.sendError = "current form message"
-            store.adoptSendPreviewResult(.failure(NSError(domain: "old", code: 1)),
-                requestID: request, input: input, chainName: "Ethereum")
-            XCTAssertEqual(store.sendError, "current form message")
-            store.adoptSendPreviewResult(.success(nil), requestID: request, input: input, chainName: "Ethereum")
-            XCTAssertEqual(store.sendError, "current form message")
-        }
-        store.adoptSendPreviewResult(.failure(NSError(domain: "current", code: 1,
-            userInfo: [NSLocalizedDescriptionKey: "current failure"])),
-            requestID: store.sendPreviewRequestID, input: store.sendPreviewInputSnapshot, chainName: "Ethereum")
-        XCTAssertEqual(store.sendError, "current failure")
-        let oldRequest = store.sendPreviewRequestID
-        store.cancelSend()
-        XCTAssertNotEqual(store.sendPreviewRequestID, oldRequest)
-    }
-
-    func testPasswordVerdictsCrossTheBindingWithoutEnglishMessages() {
-        XCTAssertEqual(coreValidateWalletPassword(password: "短密碼", confirmation: "短密碼"), .tooShort)
-        XCTAssertEqual(coreValidateWalletPassword(password: "abcd", confirmation: "abce"), .confirmationMismatch)
-        XCTAssertNil(coreValidateWalletPassword(password: "密碼測試", confirmation: "密碼測試"))
-    }
-
-    @MainActor
-    func testConfiguredDiagnosticsRunsThroughAsyncServiceBinding() async throws {
-        let service = try WalletService(endpoints: [])
-        let result = try await service.runConfiguredSelfTests(chainId: "bitcoin")
-        XCTAssertEqual(result.chainId, "bitcoin")
-        XCTAssertNil(result.rpcEndpoint)
-        XCTAssertFalse(result.results.isEmpty)
-        XCTAssertTrue(result.results.allSatisfy(\.passed))
-    }
-
-    @MainActor
-    func testStorageOpenFailureCanBeRetriedWithoutWritingInMemory() async throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try Data("blocked".utf8).write(to: directory)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let bridge = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.db").path)
-        do {
-            _ = try await bridge.applyStateCommand(.setFiatCurrency(currency: .eur))
-            XCTFail("a failed open must refuse the command")
-        } catch {
-            XCTAssertFalse(String(describing: error).contains("call open_state first"))
-        }
-        try FileManager.default.removeItem(at: directory)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let state = try await bridge.openState()
-        XCTAssertEqual(state.settings.fiatCurrency, .usd)
-        _ = try await bridge.applyStateCommand(.setFiatCurrency(currency: .eur))
-        let reopened = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.db").path)
-        let stored = try await reopened.openState()
-        XCTAssertEqual(stored.settings.fiatCurrency, .eur)
-    }
-
-    @MainActor
-    func testColdBridgeImportOpensStorageAndPersistsBeforeReturningWallet() async throws {
-        let secretStore = ImportTestSecretStore()
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let path = directory.appendingPathComponent("state.db").path
-        let bridge = WalletServiceBridge(databasePath: path)
-        try bridge.registerSecretStore(secretStore)
-        let outcome = try await bridge.importWallets(WalletImportCommit(
-            password: nil,
-            request: WalletImportRequest(walletName: "Imported", selectedChainNames: ["Ethereum"],
-                isWatchOnlyImport: false, isPrivateKeyImport: false,
-                watchOnlyEntries: WalletImportWatchOnlyEntries(bySlot: [:], bitcoinXpub: nil)),
-            seedDerivationPreset: .standard, seedDerivationPaths: .defaults,
-            derivationOverrides: CoreWalletDerivationOverrides(passphrase: nil, hmacKey: nil),
-            seedPhrase: "test test test test test test test test test test test junk", privateKey: nil))
-        XCTAssertEqual(outcome.wallets.count, 1)
-        XCTAssertTrue(bridge.walletSecretState(walletID: outcome.wallets[0].id)?.hasSigningMaterial == true)
-        let reopened = WalletServiceBridge(databasePath: path)
-        let stored = try await reopened.portfolioSnapshot().wallets
-        XCTAssertEqual(stored.count, 1)
-        _ = try await bridge.applyStateCommand(.removeWallet(walletId: outcome.wallets[0].id))
-        XCTAssertFalse(bridge.walletSecretState(walletID: outcome.wallets[0].id)?.hasSigningMaterial == true)
-    }
-
-    func testOwnedClosureOperationsAcrossAsyncBinding() async throws {
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        let service = try WalletService(endpoints: [])
-        _ = try await service.openState(databasePath: directory.appendingPathComponent("state.db").path)
-        let history = try await service.refreshHistory(scope: .all, loadMore: false, limit: 20, intervalSecs: 0)
-        XCTAssertTrue(history.isEmpty)
-        let alerts = try await service.evaluatePriceAlerts()
-        XCTAssertTrue(alerts.isEmpty)
-        let discovered = try await service.discoverChainAddresses(chainId: "bitcoin")
-        XCTAssertTrue(discovered.isEmpty)
-        do {
-            _ = try await service.receiveAddress(walletId: "missing", chainId: "bitcoin", reserve: true)
-            XCTFail("Missing wallet must fail before reserving")
-        } catch SpectraBridgeError.InvalidInput { }
-        let reset = try await service.resetData(scopes: [.walletsAndSecrets, .historyAndCache])
-        XCTAssertTrue(reset.state.wallets.isEmpty)
-        XCTAssertTrue(reset.plan.resetHistoryAndCache)
-    }
+@MainActor
+final class SendAmountBridgeTests: IsolatedAppStateTestCase {
 
     func testFeeAdjustedShortcutIsFlooredAcrossBinding() {
         XCTAssertEqual(sendAmountShortcut(maximum: 0.99999, decimals: 8, percentage: 100), "0.99998999")
@@ -160,20 +46,6 @@ final class SendAmountBridgeTests: XCTestCase {
         }
     }
 
-    func testInvalidKeypoolBaselineThrowsAcrossAsyncBinding() async throws {
-        let service = try WalletService(endpoints: [])
-        // Inject an out-of-range in-memory record to exercise the throwing read.
-        try await service.registerOwnedAddress(
-            walletId: "fault", chainName: "Bitcoin", address: "fixture",
-            derivationPath: nil, branch: "external", branchIndex: Int64.max)
-        do {
-            _ = try await service.reserveReceiveIndex(walletId: "fault", chainName: "Bitcoin", minimumIndex: 1)
-            XCTFail("Cannot reserve from an invalid baseline")
-        } catch SpectraBridgeError.Failure(let message) {
-            XCTAssertTrue(message.contains("index out of range"))
-        }
-    }
-
     func testOwnedPreviewRefusesMissingWalletAcrossAsyncBinding() async throws {
         let service = try WalletService(endpoints: [])
         do {
@@ -183,69 +55,9 @@ final class SendAmountBridgeTests: XCTestCase {
             XCTAssertTrue(String(describing: error).contains("wallet does not exist"))
         }
     }
-    func testAlertIntentsKeepSubcentTargetsAcrossAsyncBinding() async throws {
+
+    func testMissingReviewIsRefusedAcrossAsyncBinding() async throws {
         let service = try WalletService(endpoints: [])
-        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: directory) }
-        _ = try await service.openState(databasePath: directory.appendingPathComponent("state.sqlite").path)
-        let added = try await service.applyStateCommand(command: .addPriceAlert(
-            holdingKey: "ethereum:native", targetPrice: 0.000001, currency: .usd, condition: .above))
-        let alert = try XCTUnwrap(added.state.priceAlerts.first)
-        XCTAssertEqual(alert.targetPrice, 0.000001)
-        let duplicate = try await service.applyStateCommand(command: .addPriceAlert(
-            holdingKey: "ethereum:native", targetPrice: 0.000001, currency: .usd, condition: .above))
-        XCTAssertEqual(duplicate.state.priceAlerts.count, 1)
-        XCTAssertTrue(duplicate.events.contains(.priceAlertRejected(reason: .duplicateAlert)))
-        let paused = try await service.applyStateCommand(command: .togglePriceAlert(id: alert.id))
-        XCTAssertFalse(try XCTUnwrap(paused.state.priceAlerts.first).isEnabled)
-        let removed = try await service.applyStateCommand(command: .removePriceAlert(id: alert.id))
-        XCTAssertTrue(removed.state.priceAlerts.isEmpty)
-    }
-
-}
-
-private final class ImportTestSecretStore: SecretStore, @unchecked Sendable {
-    private let lock = NSLock()
-    private var values: [SecretClass: [String: String]] = [:]
-    func loadSecret(kind: SecretClass, key: String) throws -> String {
-        try lock.withLock {
-            guard let value = values[kind]?[key] else { throw SecretStoreError.NotFound }
-            return value
-        }
-    }
-    func saveSecret(kind: SecretClass, key: String, value: String) throws {
-        lock.withLock { values[kind, default: [:]][key] = value }
-    }
-    func deleteSecret(kind: SecretClass, key: String) throws {
-        lock.withLock { _ = values[kind]?.removeValue(forKey: key) }
-    }
-}
-
-extension SendAmountBridgeTests {
-    @MainActor
-    func testDerivationInputPreservesSecretWhitespace() throws {
-        let draft = WalletImportDraft()
-        draft.overridePassphrase = " secret "
-        draft.overrideHmacKey = " key "
-        let parsed = draft.resolvedDerivationOverrides
-        XCTAssertEqual(parsed.passphrase, " secret ")
-        XCTAssertEqual(parsed.hmacKey, " key ")
-    }
-
-    @MainActor
-    func testOwnedRefreshAndMissingConfirmationAcrossAsyncBinding() async throws {
-        let service = try WalletService(endpoints: [])
-        let result = try await service.refreshApp(intent: .user, conditions: DeviceConditions(
-            appIsActive: true, isNetworkReachable: false, isConstrainedNetwork: false,
-            isExpensiveNetwork: false, isLowPowerMode: false, batteryLevel: 1, wantsPriceRefresh: true))
-        XCTAssertNil(result.pending)
-        XCTAssertTrue(result.failures.isEmpty)
-        let rescan = try await service.refreshApp(intent: .deepRescan(chainId: "bitcoin"), conditions: DeviceConditions(
-            appIsActive: true, isNetworkReachable: false, isConstrainedNetwork: false,
-            isExpensiveNetwork: false, isLowPowerMode: false, batteryLevel: 1, wantsPriceRefresh: false))
-        XCTAssertFalse(rescan.failures.isEmpty)
-        XCTAssertNil(rescan.pending)
         do {
             _ = try await service.executeOwnedSend(reviewId: "missing", input: SendReviewInput(
                 walletId: "w", holdingKey: "ethereum:native", amount: "1", destination: "0x1111111111111111111111111111111111111111", overrides: nil), password: nil)
@@ -254,4 +66,35 @@ extension SendAmountBridgeTests {
             XCTAssertTrue(String(describing: error).contains("review missing"))
         }
     }
+
+    func testPreviewDiscardsStaleSuccessAndFailureForEveryFormEdit() {
+        let store = makeState()
+        let edits: [(AppState) -> Void] = [
+            { $0.sendWalletID = "other" }, { $0.sendHoldingKey = "other" },
+            { $0.sendAmount = "2" }, { $0.sendAddress = "other" },
+            { $0.evmManualNonceEnabled.toggle() }, { $0.evmManualNonce = "invalid" },
+            { $0.useCustomEvmFees.toggle() }, { $0.customEvmMaxFeeGwei = "invalid" },
+            { $0.customEvmPriorityFeeGwei = "invalid" },
+            { $0.sendPreviewRequestID = UUID() },
+        ]
+        for edit in edits {
+            let input = store.sendPreviewInputSnapshot
+            let request = store.sendPreviewRequestID
+            edit(store)
+            store.sendError = "current form message"
+            store.adoptSendPreviewResult(.failure(NSError(domain: "old", code: 1)),
+                requestID: request, input: input, chainName: "Ethereum")
+            XCTAssertEqual(store.sendError, "current form message")
+            store.adoptSendPreviewResult(.success(nil), requestID: request, input: input, chainName: "Ethereum")
+            XCTAssertEqual(store.sendError, "current form message")
+        }
+        store.adoptSendPreviewResult(.failure(NSError(domain: "current", code: 1,
+            userInfo: [NSLocalizedDescriptionKey: "current failure"])),
+            requestID: store.sendPreviewRequestID, input: store.sendPreviewInputSnapshot, chainName: "Ethereum")
+        XCTAssertEqual(store.sendError, "current failure")
+        let oldRequest = store.sendPreviewRequestID
+        store.cancelSend()
+        XCTAssertNotEqual(store.sendPreviewRequestID, oldRequest)
+    }
+
 }

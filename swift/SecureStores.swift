@@ -107,12 +107,8 @@ private enum SigningMaterialEnvelope {
             throw KeychainStoreError.sealFailed(String(describing: error))
         }
     }
-    /// Opens a stored envelope. Unlike `encode`, this never creates a master
-    /// key: no key means nothing was ever sealed, and a read must not write.
-    ///
-    /// Throws rather than answering nil. Nil became "no value stored", so an
-    /// envelope that would not open — or a master key that could not be read —
-    /// made a wallet with signing material look like a watch-only one.
+    /// Open a stored envelope without creating a master key.
+    /// Unreadable material throws; it must not be interpreted as absent.
     static func decode(_ data: Data) throws -> String {
         guard let key = try storedMasterKey() else {
             throw KeychainStoreError.masterKeyUnavailable("no master key is stored for a sealed value")
@@ -146,17 +142,12 @@ enum SecurePrivateKeyStore {
 }
 
 final class SpectraSecretStoreAdapter: SecretStore, @unchecked Sendable {
-    /// Hands core the keychain-backed secret store.
-    ///
-    /// Awaited rather than fired into a detached task, and throwing rather
-    /// than `try?`: everything core does with a seed or a private key reads
-    /// through this adapter, so anything running before the registration
-    /// lands finds no store at all. The detached task let launch continue
-    /// into state reload while registration was still in flight, and the
-    /// swallowed error left a permanent failure looking like an unopenable
-    /// wallet with nothing in the logs to say why.
-    static func registerWithBridge() async throws {
-        try await WalletServiceBridge.shared.registerSecretStore(SpectraSecretStoreAdapter())
+    /// Register the Keychain-backed secret store synchronously before launch
+    /// work. Propagate errors: every operation on signing material requires
+    /// this adapter to be registered successfully.
+    @MainActor
+    static func registerWithBridge(_ bridge: WalletServiceBridge) throws {
+        try bridge.registerSecretStore(SpectraSecretStoreAdapter())
     }
 
     /// `NotFound` only for a value that is not there. Everything else — a

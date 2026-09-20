@@ -237,13 +237,7 @@ struct ReceiveView: View {
         .spectraElevatedFill()
     }
 
-    /// Share and save. Copy is the bottom bar's primary action rather than a
-    /// third button here — it is the one thing nearly every visit is for.
-    ///
-    /// These two used to be the only reason to open a second screen: a full-QR
-    /// sheet showing the same code, the same wallet and chain, and the same
-    /// address this one already shows, reachable from two buttons that did the
-    /// same thing ("Open Full QR" here, "Show QR" in the bottom bar).
+    /// Share and save actions. Copy is the bottom bar's primary action.
     private var receiveActionCard: some View {
         VStack(spacing: 10) {
             Button {
@@ -357,15 +351,8 @@ struct ReceiveView: View {
 
 }
 
-/// A row on the wallet step. The whole card is the selection control, and
-/// selecting is all it does.
-///
-/// It used to show `wallet.addresses[slot]` with a copy button beside it — a
-/// second receive address, produced differently from the one the next screen
-/// hands out. That one is core's `receive_address`, which on a UTXO chain
-/// reserves a keypool index (never 0) and registers what it derives as owned,
-/// so wherever core could derive, the card offered an address core does not
-/// watch. Receive addresses come from core; this row picks a wallet.
+/// Select a wallet. Receive addresses come from core on the next step,
+/// where UTXO addresses are reserved and registered as owned.
 private struct WalletReceiveCard: View {
     let wallet: WalletView
     let isSelected: Bool

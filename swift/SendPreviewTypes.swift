@@ -34,14 +34,8 @@ extension SendPreview {
 @MainActor
 @Observable
 final class SendPreviewStore {
-    /// The composer's preview, and the chain it is for, as the chain's mainnet
-    /// id.
-    ///
-    /// The mainnet because the two writers name one chain two ways: a refresh
-    /// names the holding's chain ("Bitcoin"), a review names the network it
-    /// resolved ("Bitcoin Testnet4"), and they must agree. This was a
-    /// dictionary with a slot per chain, and every refresh emptied all but
-    /// one: the composer is on one chain at a time.
+    /// The composer's preview, keyed by mainnet id. Refresh names the holding's
+    /// chain while review names its resolved network; both map to the same key.
     private var slot: String?
     private var preview: SendPreview?
 
@@ -60,11 +54,7 @@ final class SendPreviewStore {
         if slot == Self.slot(forChainNamed: chainName) { resetAll() }
     }
 
-    /// The estimated network fee a chain's preview reports, in its own units.
-    ///
-    /// Every preview record carries one; they used to spell it
-    /// `estimatedNetworkFeeSui`, `…Apt`, `…Ton` and so on, so a caller that
-    /// only wanted "the fee" had to know which chain it was asking about.
+    /// The estimated network fee in the preview chain's native units.
     func estimatedFee(forChainNamed chainName: String) -> Double? {
         taggedPreview(forChainNamed: chainName)?.estimatedNetworkFee
     }

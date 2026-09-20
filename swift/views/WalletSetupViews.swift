@@ -79,12 +79,7 @@ struct SetupView: View {
             color: chain.color.color, category: category
         )
     }
-    /// The short list the picker opens on, in the order the catalog ranks it.
-    ///
-    /// `popular_rank` is a column of `chains.toml`, so promoting a chain is a
-    /// catalog edit. This was eight ids typed here: a per-chain fact in a
-    /// caller-owned list, where adding a chain to the catalog could not reach
-    /// it and removing one left an id that silently matched nothing.
+    /// The picker's initial list, ordered by `popular_rank` in `chains.toml`.
     private static let popularChainSelectionIDs: [String] = Chain.all.compactMap(\.entry)
         .compactMap { chain in chain.popularRank.map { (rank: $0, id: chain.id) } }
         .sorted { $0.rank < $1.rank }
@@ -456,13 +451,9 @@ struct SetupView: View {
         } else if draft.isWatchOnlyMode,
             draft.selectedChainNames.contains(where: { Chain(displayName: $0)?.supportsWatchOnlyImport == false })
         {
-            // Shown on the watch-only path only. It used to fire on any import
-            // naming Monero, which was merely noise while a Monero import was
-            // impossible and is actively wrong now that one derives: the note
-            // says watched addresses are unsupported, and a seed import is not
-            // asking for one. The chain comes from the registry rather than the
-            // name; `only_monero_is_excluded_from_watch_only_import` is what
-            // keeps the copy — which does name Monero — accurate.
+            // Show only for watch-only imports.
+            // `only_monero_is_excluded_from_watch_only_import` checks that the
+            // chain named in this copy matches the registry restriction.
             Text(copy.moneroWatchUnsupportedMessage).font(.caption).foregroundStyle(.orange.opacity(0.9))
         }
     }

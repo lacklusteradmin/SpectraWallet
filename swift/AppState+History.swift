@@ -2,7 +2,7 @@ import Foundation
 
 extension AppState {
     func historyPaginationExhausted(chainId: String, walletId: String) -> Bool {
-        WalletServiceBridge.shared.historyCursor(chainId: chainId, walletId: walletId).isExhausted
+        self.bridge.historyCursor(chainId: chainId, walletId: walletId).isExhausted
     }
     func canLoadMoreHistory(for walletID: String) -> Bool {
         guard let wallet = cachedWalletByID[walletID], let chain = Chain(displayName: wallet.selectedChain) else { return false }
@@ -29,7 +29,7 @@ extension AppState {
     /// scheduled refresh.
     private func adoptHistoryRefresh(scope: HistoryRefreshScope, loadMore: Bool = false, interval: TimeInterval = 0) async {
         do {
-            let results = try await WalletServiceBridge.shared.refreshHistory(scope: scope, loadMore: loadMore, interval: interval)
+            let results = try await self.bridge.refreshHistory(scope: scope, loadMore: loadMore, interval: interval)
             for result in results {
                 guard let chain = Chain(id: result.chainId), result.outcome?.diagnostics.isEmpty == false else { continue }
                 self[historyRunFor: chain.displayName].lastUpdatedAt = Date()

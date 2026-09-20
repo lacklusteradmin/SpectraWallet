@@ -68,7 +68,7 @@ extension AppState {
             await refreshSendDestinationRiskWarning(for: coin)
             guard isCurrentSendPreview(requestID: requestID, input: input) else { return }
             sendPreviewStore.resetAll(exceptSlot: slot)
-            let preview = try await WalletServiceBridge.shared.previewOwnedSend(
+            let preview = try await self.bridge.previewOwnedSend(
                 walletID: input.walletID, holdingKey: input.holdingKey, amount: input.amount,
                 destination: input.destination, explicitNonce: nonce, customFees: fees)
             adoptSendPreviewResult(.success(preview), requestID: requestID, input: input, chainName: coin.chainName)

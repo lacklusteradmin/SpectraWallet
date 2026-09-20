@@ -4,17 +4,9 @@ import SwiftUI
     import UIKit
 #endif
 typealias TokenHostingChain = CoreTokenHostingChain
-// Deliberately **not** `RawRepresentable`, though it has a `rawValue`.
-//
-// `RawRepresentable` supplies default `==` and `hash(into:)` that route through
-// `rawValue`, and those defaults win over the conformance UniFFI generates. That
-// was harmless while `rawValue` was a self-contained switch and fatal the moment
-// it read a table keyed by this enum: `chainByHosting`'s own initializer hashed
-// its keys, which called `rawValue`, which waited on the `dispatch_once` it was
-// inside. The app trapped in `_dispatch_once_wait` before the first frame.
-//
-// Dropping the conformance keeps every `.rawValue` call site working and leaves
-// hashing to the generated `Hashable`.
+// Do not add `RawRepresentable`: its default equality and hashing use
+// `rawValue`, which reads a table keyed by this enum. That recurses during
+// table initialization. Keep the generated `Hashable` conformance.
 extension CoreTokenHostingChain: CaseIterable, Codable, Identifiable {
     // The mapping is the registry's. `chain_name` and `from_chain_name` in
     // `wallet_domain.rs` already collapsed four Rust copies of it into one, and
@@ -37,8 +29,7 @@ extension CoreTokenHostingChain: CaseIterable, Codable, Identifiable {
     /// The registry chain this hosting chain is. Every fact about it —
     /// display name, id, colour — comes from here rather than a switch.
     public var chain: Chain? { Self.chainByHosting[self] }
-    /// In catalog order, which is the order every other chain list in the app
-    /// uses. The hand-written array this replaces had its own ordering.
+    /// Chains in catalog order.
     public static var allCases: [CoreTokenHostingChain] { Chain.all.compactMap(\.tokenHostingChain) }
     public init(from decoder: Decoder) throws {
         let container = try decoder.singleValueContainer()
@@ -64,22 +55,16 @@ extension CoreTokenHostingChain: CaseIterable, Codable, Identifiable {
         uniqueKeysWithValues: allCases.map { ($0.rawValue.lowercased(), $0) }
     )
 }
-typealias TokenPreferenceCategory = CoreTokenPreferenceCategory
 typealias TokenPreferenceEntry = CoreTokenPreferenceEntry
 nonisolated extension CoreTokenPreferenceEntry: Identifiable {
-    /// A token *is* its contract on its chain. The id was a stored UUID string,
-    /// regenerated whenever an entry was rebuilt.
+    /// A token's identity is its contract on its chain.
     public var id: String { "\(token.chain)|\(token.contract)" }
     /// The chain enum, where the registry has one for this chain.
     var hostingChain: TokenHostingChain? { TokenHostingChain.forChainName(token.chain) }
 }
 
 extension Coin {
-    /// A chain's badge: its network artwork and its catalog colour.
-    ///
-    /// Read off `Chain`. There was a descriptor struct for this, built from a
-    /// third parse of the chain catalog into a registry-entry struct, and
-    /// matched by id, name or title in any case.
+    /// A chain's network artwork and catalog colour.
     static func nativeChainBadge(chainName: String) -> (artworkName: String?, color: Color)? {
         guard let chain = Chain(displayName: chainName), let entry = chain.entry else { return nil }
         return (coreNetworkArtworkName(networkId: chain.id), entry.color.color)

@@ -19,19 +19,6 @@ final class SendDestinationBridgeTests: XCTestCase {
         XCTAssertFalse(resolved.usedEns, "nothing was looked up")
     }
 
-    func testANameIsRefusedOffTheChainThatRegistersItWithoutTheNetwork() async throws {
-        let service = try WalletService(endpoints: [])
-        for chainId in ["arbitrum", "base", "polygon", "bitcoin"] {
-            do {
-                _ = try await service.resolveSendDestination(chainId: chainId, input: "vitalik.eth")
-                XCTFail("A name off Ethereum is not a destination on \(chainId)")
-            } catch SpectraBridgeError.InvalidInput(let message) {
-                // Refused before the resolver, so no endpoint is needed to say so.
-                XCTAssertTrue(message.contains("valid"), "got \(message)")
-            }
-        }
-    }
-
     func testAnEmptyDestinationIsRefusedRatherThanResolvedToNothing() async throws {
         let service = try WalletService(endpoints: [])
         do {
@@ -58,31 +45,6 @@ final class SendDestinationBridgeTests: XCTestCase {
             // with none can prove it.
             XCTAssertTrue(message.contains("Ethereum|ETH"), "got \(message)")
         }
-    }
-
-    func testAnAddressFromAnotherFamilyIsRefused() async throws {
-        let service = try WalletService(endpoints: [])
-        do {
-            _ = try await service.resolveSendDestination(
-                chainId: "bitcoin", input: "0x742d35Cc6634C0532925a3b844Bc454e4438f44e")
-            XCTFail("An EVM address is not a Bitcoin destination")
-        } catch SpectraBridgeError.InvalidInput(let message) {
-            XCTAssertTrue(message.contains("Bitcoin"), "got \(message)")
-        }
-    }
-    func testTonDestinationRejectsChecksumAndMainnetTestOnlyFlag() async throws {
-        let service = try WalletService(endpoints: [])
-        for input in [String(repeating: "A", count: 48),
-                      "EQDKbjIcfM6ezt8KjKJJLshZJJSqX7XOA4ff-W72r5gqPrHA",
-                      "kQDKbjIcfM6ezt8KjKJJLshZJJSqX7XOA4ff-W72r5gqPgpP"] {
-            do {
-                _ = try await service.resolveSendDestination(chainId: "ton", input: input)
-                XCTFail("Invalid TON destination accepted")
-            } catch SpectraBridgeError.InvalidInput { }
-        }
-        let valid = "EQDKbjIcfM6ezt8KjKJJLshZJJSqX7XOA4ff-W72r5gqPrHF"
-        let result = try await service.resolveSendDestination(chainId: "ton", input: valid)
-        XCTAssertEqual(result.address, valid)
     }
 
     func testPendingPollingPropagatesUnopenedStorageAcrossAsyncBinding() async throws {

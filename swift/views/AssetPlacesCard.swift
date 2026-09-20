@@ -1,17 +1,8 @@
 import SwiftUI
 
-/// Everywhere a coin lives: a chain, a token standard, and either a contract
-/// or nothing because it is native there.
-///
-/// One card, two callers. The wiki and the held-asset detail page each used to
-/// render half of this: the wiki had the prose and no contracts, the dashboard
-/// detail had the contracts and no prose, and it was reachable only for coins
-/// the user already held.
-///
-/// The contract is the useful half. A holder given an address for "USDC on
-/// Arbitrum" has one string to compare it against, and it is the one string a
-/// deployer cannot forge — the same reason an unvouched holding is shown by
-/// contract rather than by a symbol nobody vouches for.
+/// Where a coin lives: chain, token standard, and contract (absent for native coins).
+/// Shared by the wiki and asset detail. Show contracts so users can verify
+/// asset identity independently of the ticker.
 struct AssetPlacesCard: View {
     let places: [AssetWikiPlace]
     let symbol: String

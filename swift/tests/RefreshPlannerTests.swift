@@ -16,9 +16,9 @@ import Foundation
     /// What is left is the half core cannot know — this device's conditions —
     /// and that the plan comes back and drives the loop.
     @MainActor
-    final class WalletRefreshPlannerTests: XCTestCase {
+    final class WalletRefreshPlannerTests: IsolatedAppStateTestCase {
         func testMaintenancePlanReportsThisDeviceAndComesBackWithACadence() async {
-            let store = AppState()
+            let store = makeState()
             let plan = await store.maintenancePlan()
             XCTAssertGreaterThan(plan.pollSeconds, 0, "a cadence of zero would spin the loop")
             // No wallets and nothing pending, so there is nothing to refresh —
@@ -27,7 +27,7 @@ import Foundation
         }
 
         func testAnUnreachableNetworkStopsTheBackgroundTick() async {
-            let store = AppState()
+            let store = makeState()
             store.appIsActive = false
             store.isNetworkReachable = false
             let offline = await store.maintenancePlan()
@@ -38,5 +38,26 @@ import Foundation
             let online = await store.maintenancePlan()
             XCTAssertTrue(online.runBackgroundTick, "a fresh clock has never ticked")
         }
+
+        func testOfflineRefreshAndRescanCrossAsyncBinding() async throws {
+            let service = try WalletService(endpoints: [])
+            let result = try await service.refreshApp(intent: .user, conditions: DeviceConditions(
+                appIsActive: true, isNetworkReachable: false, isConstrainedNetwork: false,
+                isExpensiveNetwork: false, isLowPowerMode: false, batteryLevel: 1, wantsPriceRefresh: true))
+            XCTAssertNil(result.pending)
+            XCTAssertTrue(result.failures.isEmpty)
+            let rescan = try await service.refreshApp(intent: .deepRescan(chainId: "bitcoin"), conditions: DeviceConditions(
+                appIsActive: true, isNetworkReachable: false, isConstrainedNetwork: false,
+                isExpensiveNetwork: false, isLowPowerMode: false, batteryLevel: 1, wantsPriceRefresh: false))
+            XCTAssertFalse(rescan.failures.isEmpty)
+            XCTAssertNil(rescan.pending)
+
+        }
+
+        func testRefreshFailureDoesNotClaimCompletion() {
+            XCTAssertNotEqual(refreshOutcomeMessage(succeeded: false), refreshOutcomeMessage(succeeded: true))
+            XCTAssertEqual(refreshOutcomeMessage(succeeded: false), AppLocalization.string("Refresh failed or completed partially. See refresh errors."))
+        }
+
     }
 #endif

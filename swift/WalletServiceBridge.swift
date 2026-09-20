@@ -1,9 +1,13 @@
 import Foundation
 @MainActor final class WalletServiceBridge {
     static let shared = WalletServiceBridge()
+    private let suppliedService: WalletService?
     private let databasePath: String?
     private var stateIsOpen = false
-    init(databasePath: String? = nil) { self.databasePath = databasePath }
+    init(databasePath: String? = nil, service: WalletService? = nil) {
+        self.databasePath = databasePath
+        self.suppliedService = service
+    }
 
     /// Every async operation waits for the same core-owned database binding.
     /// Core serializes concurrent opens and retries failures without caching them.
@@ -17,22 +21,15 @@ import Foundation
     }
 
     private var _service: WalletService?
-    private static var _syncService: WalletService?
     private var _balanceRefreshEngine: BalanceRefreshEngine?
     private func service() throws -> WalletService {
         if let existing = _service { return existing }
-        let svc = try WalletService.newCatalog()
-        svc.setSecretStore(store: SpectraSecretStoreAdapter())
+        let svc = try suppliedService ?? WalletService.newCatalog()
+        if suppliedService == nil { svc.setSecretStore(store: SpectraSecretStoreAdapter()) }
         _service = svc
-        if self === Self.shared { WalletServiceBridge._syncService = svc }
         return svc
     }
-    // ── Wallet secrets ──────────────────────────────────────────────────────
-    //
-    // Synchronous on purpose: these are Keychain reads behind core's own key
-    // layout, and the callers are the same places that used to reach into
-    // `SecureSeedStore` directly. Nothing here computes a key — core does,
-    // because there were two layouts for as long as this side owned one.
+    // Wallet secrets. Synchronous Keychain reads using core-owned key names.
 
     func walletSecretState(walletID: String) -> WalletSecretState? {
         try? service().walletSecretState(walletId: walletID)
@@ -112,11 +109,8 @@ extension WalletServiceBridge {
     // command and renders the state it gets back; it does not keep its own
     // copy and mutate it. See PLAN.md.
 
-    /// Bind the core to its state database and return what is stored.
-    ///
-    /// The only place this path crosses. Twelve other methods used to take it
-    /// as an argument, so a caller could aim a write at a file core was not
-    /// opened on — core reads its own binding now.
+    /// Bind core to its state database and return the stored state.
+    /// Subsequent operations use that binding.
     @discardableResult
     func openState() async throws -> CoreAppState {
         // Use core's serialized open for launch snapshots too: an unlocked
@@ -221,19 +215,10 @@ extension WalletServiceBridge {
         try await readyService().importWallets(commit: commit)
     }
 
-    // ── Transaction history persistence (Rust SQLite) ──────────────────────────
-    /// Empty the history table.
-    ///
-    /// Went through `replaceAllHistoryRecords([])`, which was a third spelling
-    /// of a command `TransactionCommand` already has.
-    /// Where the next history fetch for this (chain, wallet) starts.
-    ///
-    /// One call rather than three getters.
-    nonisolated func historyCursor(chainId: String, walletId: String) -> HistoryCursor {
-        MainActor.assumeIsolated {
-            WalletServiceBridge._syncService?.historyCursor(chainId: chainId, walletId: walletId)
-                ?? HistoryCursor(nextCursor: nil, nextPage: 0, isExhausted: false)
-        }
+    // Where the next history fetch for this (chain, wallet) starts.
+    func historyCursor(chainId: String, walletId: String) -> HistoryCursor {
+        _service?.historyCursor(chainId: chainId, walletId: walletId)
+            ?? HistoryCursor(nextCursor: nil, nextPage: 0, isExhausted: false)
     }
     private func sqliteDbPath() -> String {
         if let databasePath { return databasePath }

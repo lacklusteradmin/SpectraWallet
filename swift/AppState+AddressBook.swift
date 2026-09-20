@@ -82,7 +82,7 @@ extension AppState {
     /// A refusal arrives as an `addressBookRejected` event carrying the reason
     /// core decided on; surfacing it beats silently doing nothing.
     private func sendAddressBookCommand(_ command: StateCommand) async {
-        guard let transition = try? await WalletServiceBridge.shared.applyStateCommand(command)
+        guard let transition = try? await self.bridge.applyStateCommand(command)
         else { return }
         // A read begun while the write was pending may hold the old contacts.
         // Invalidate it when the committed command returns, not when it starts.

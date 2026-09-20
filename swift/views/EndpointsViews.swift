@@ -4,7 +4,7 @@ struct EndpointCatalogSettingsView: View {
     @State private var newEsploraEndpoint: String = ""
     private let copy = EndpointsContentCopy.current
     private var endpointSections: [Chain] {
-        Chain.mainnets.filter { AppEndpointDirectory.hasEndpoints($0.displayName) }
+        Chain.mainnets.filter { AppEndpointDirectory.hasEndpoints($0.id) }
     }
     private var customEsploraEndpoints: [String] { parseBitcoinEsploraEndpoints(raw: store.appSettings.bitcoinEsploraEndpoints) }
     /// A family's networks, each with its own endpoints, the selected one
@@ -19,7 +19,7 @@ struct EndpointCatalogSettingsView: View {
     ) -> [AppEndpointGroupedSettingsEntry] {
         let selected = store.networkChainID(forFamily: chain.id)
         return chain.networkChoices.map { choice in
-            AppEndpointGroupedSettingsEntry(title: choice.title, endpoints: endpoints(choice, choice.chainId == selected))
+            AppEndpointGroupedSettingsEntry(networkId: choice.chainId, title: choice.title, endpoints: endpoints(choice, choice.chainId == selected))
         }
     }
     private func esploraEndpointsByNetwork(of chain: Chain) -> [AppEndpointGroupedSettingsEntry] {
@@ -35,15 +35,15 @@ struct EndpointCatalogSettingsView: View {
             if !custom.isEmpty { endpoints.append(custom) }
             let catalog =
                 choice.isTestnet
-                ? AppEndpointDirectory.evmRPCEndpoints(for: choice.title)
-                : AppEndpointDirectory.evmEndpointsWithSupplemental(for: choice.title)
+                ? AppEndpointDirectory.evmRPCEndpoints(for: choice.chainId)
+                : AppEndpointDirectory.evmEndpointsWithSupplemental(for: choice.chainId)
             for endpoint in catalog where !endpoints.contains(endpoint) { endpoints.append(endpoint) }
             return endpoints
         }
     }
     private func backendEndpoints(of chain: Chain) -> [String] {
         let stored = store.appSettings.moneroBackendBaseUrl
-        return stored.isEmpty ? AppEndpointDirectory.settingsEndpoints(for: chain.displayName) : [stored]
+        return stored.isEmpty ? AppEndpointDirectory.settingsEndpoints(for: chain.id) : [stored]
     }
     private func addEsploraEndpoint() {
         let trimmed = newEsploraEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -87,7 +87,7 @@ struct EndpointCatalogSettingsView: View {
     }
     @ViewBuilder
     private func esploraSectionBody(_ chain: Chain) -> some View {
-        ForEach(esploraEndpointsByNetwork(of: chain), id: \.title) { group in
+        ForEach(esploraEndpointsByNetwork(of: chain), id: \.networkId) { group in
             namedEndpointGroup(title: group.title, endpoints: group.endpoints)
         }
         TextField(copy.addEsploraEndpointPlaceholder, text: $newEsploraEndpoint).textInputAutocapitalization(.never)
@@ -118,12 +118,7 @@ struct EndpointCatalogSettingsView: View {
         readOnlyFootnote
     }
 
-    /// The custom-RPC field, for any EVM chain.
-    ///
-    /// Ethereum had this and the other twenty-two EVM mainnets did not — not
-    /// because the field was missing here, but because the setting behind it
-    /// was a single `ethereum_rpc_endpoint` string read through an accessor
-    /// that returned nil for every other name.
+    /// The custom-RPC field for any EVM chain.
     @ViewBuilder
     private func customRPCField(for chainName: String) -> some View {
         SettingTextField(title: copy.customRPCURLPlaceholder, value: store.rpcEndpoint(forChain: chainName), endpoint: .evmRpc) {
@@ -145,21 +140,21 @@ struct EndpointCatalogSettingsView: View {
                 esploraSectionBody(chain)
             } else if chain.isEVM {
                 if chain.networkChoices.count > 1 {
-                    ForEach(evmEndpointsByNetwork(of: chain), id: \.title) { group in
+                    ForEach(evmEndpointsByNetwork(of: chain), id: \.networkId) { group in
                         namedEndpointGroup(title: group.title, endpoints: group.endpoints)
                     }
                 } else {
-                    readOnlyEVMSection(AppEndpointDirectory.evmEndpointsWithSupplemental(for: chain.displayName))
+                    readOnlyEVMSection(AppEndpointDirectory.evmEndpointsWithSupplemental(for: chain.id))
                 }
                 customRPCField(for: chain.displayName)
             } else {
-                let groups = AppEndpointDirectory.groupedSettingsEntries(for: chain.displayName)
+                let groups = AppEndpointDirectory.groupedSettingsEntries(for: chain.id)
                 if groups.count > 1 {
-                    ForEach(groups, id: \.title) { group in
+                    ForEach(groups, id: \.networkId) { group in
                         namedEndpointGroup(title: group.title, endpoints: group.endpoints)
                     }
                 } else {
-                    endpointRows(AppEndpointDirectory.settingsEndpoints(for: chain.displayName))
+                    endpointRows(AppEndpointDirectory.settingsEndpoints(for: chain.id))
                 }
             }
         }

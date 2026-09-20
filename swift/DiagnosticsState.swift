@@ -3,6 +3,9 @@ import Foundation
 @MainActor
 @Observable
 final class WalletDiagnosticsState {
+    @ObservationIgnored private let bridge: WalletServiceBridge // Persistence dependency.
+    init(bridge: WalletServiceBridge = .shared) { self.bridge = bridge }
+
     private static let operationalLogTimestampFormatter = ISO8601DateFormatter()
     private var snapshot = DiagnosticState(degraded: [:], lastGoodUnix: [:], logs: [])
     private(set) var operationalLogs: [DiagnosticLog] = []
@@ -19,11 +22,12 @@ final class WalletDiagnosticsState {
     private func enqueue(_ command: DiagnosticCommand) {
         revision &+= 1
         let previous = pendingCommand
+        let bridge = self.bridge
         // A queued event finishes even when its diagnostics view is closed.
         pendingCommand = Task { @MainActor [weak self] in
             await previous?.value
             do {
-                let result = try await WalletServiceBridge.shared.applyDiagnosticCommand(command)
+                let result = try await bridge.applyDiagnosticCommand(command)
                 self?.adopt(result)
                 self?.persistenceError = nil
             } catch { self?.persistenceError = error.localizedDescription }
@@ -33,7 +37,7 @@ final class WalletDiagnosticsState {
         await pendingCommand?.value
         let started = revision
         do {
-            let state = try await WalletServiceBridge.shared.diagnosticState()
+            let state = try await bridge.diagnosticState()
             guard started == revision else { return }
             adopt(state)
         } catch { persistenceError = error.localizedDescription }
@@ -131,9 +135,7 @@ final class WalletChainDiagnosticsState {
     }
     var endpointHealthByChain: [String: EndpointHealth] = [:]
 
-    /// When a chain's history diagnostics last ran, and whether one is in
-    /// flight. The *results* stay per chain for now — their record types still
-    /// differ — but the scalars around them never did.
+    /// Last-run time and in-flight state for each chain's history diagnostics.
     struct HistoryRun {
         var lastUpdatedAt: Date?
         var isRunning: Bool = false

@@ -18,7 +18,7 @@ extension AppState {
         guard pendingSendReview == nil else { return }
         do {
             let input = try currentSendReviewInput()
-            let review = try await WalletServiceBridge.shared.reviewOwnedSend(input: input)
+            let review = try await self.bridge.reviewOwnedSend(input: input)
             guard try currentSendReviewInput() == input else {
                 sendError = AppLocalization.string("Send inputs changed. Review the transaction again.")
                 return
@@ -52,7 +52,7 @@ extension AppState {
         defer { sendingChains.remove(chainName) }
         guard await authenticateForSensitiveAction(reason: AppLocalization.string("Authorize transaction send")) else { return }
         do {
-            let result = try await WalletServiceBridge.shared.executeOwnedSend(
+            let result = try await self.bridge.executeOwnedSend(
                 reviewID: review.id, input: currentSendReviewInput(), password: password)
             await refreshTransactionProjection()
             lastSentTransaction = transactions.first {

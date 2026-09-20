@@ -24,7 +24,7 @@ extension AppState {
     @discardableResult
     func removeWallet(id: String) async -> Bool {
         do {
-            _ = try await WalletServiceBridge.shared.applyStateCommand(.removeWallet(walletId: id))
+            _ = try await self.bridge.applyStateCommand(.removeWallet(walletId: id))
             await refreshTransactionProjection()
             await rebuildWalletDerivedStateFromCore()
             return true
@@ -42,7 +42,7 @@ extension AppState {
             guard let self else { return }
             let epoch = self.beginCoreStateRead()
             do {
-                let transition = try await WalletServiceBridge.shared.applyStateCommand(command)
+                let transition = try await self.bridge.applyStateCommand(command)
                 self.applyCoreState(transition.state, epoch: epoch)
                 await self.rebuildWalletDerivedStateFromCore()
             } catch {
@@ -58,7 +58,7 @@ extension AppState {
         Task { @MainActor [weak self] in
             guard let self else { return }
             let epoch = self.beginCoreStateRead()
-            guard let transition = try? await WalletServiceBridge.shared.applyStateCommand(command) else {
+            guard let transition = try? await self.bridge.applyStateCommand(command) else {
                 self.finishCoreStateRead(epoch)
                 return
             }

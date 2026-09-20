@@ -6,13 +6,8 @@
 
 import Foundation
 
-/// One operational log entry. Core records these, caps the list and persists
-/// it; the logs screen and a chain's diagnostics screen both read this record.
-///
-/// There were two Swift copies of it. One was rebuilt from core's row with a
-/// failable UUID parse and a string level, and dropped the row if either
-/// failed; the other was a per-chain record with a three-case level of its
-/// own that was mapped onto the four-case one to be written.
+/// An operational log entry recorded, bounded, and persisted by core.
+/// Both the logs screen and chain diagnostics read this record.
 nonisolated extension DiagnosticLog: Identifiable {
     var timestamp: Date { Date(timeIntervalSince1970: timestampUnix) }
 }

@@ -18,7 +18,7 @@ extension AppState {
     func rebuildWalletDerivedStateFromCore() async -> Bool {
         let epoch = beginCoreStateRead()
         do {
-            let snapshot = try await WalletServiceBridge.shared.portfolioSnapshot()
+            let snapshot = try await self.bridge.portfolioSnapshot()
             applyPortfolioSnapshot(snapshot, epoch: epoch)
             return true
         } catch {
@@ -53,6 +53,7 @@ extension AppState {
     /// Reconcile background services after a changed wallet projection. Reading
     /// a projection never starts another projection read.
     func applyWalletCollectionSideEffects() {
+        guard servicesEnabled else { return }
         walletSideEffectsTask?.cancel()
         walletSideEffectsTask = Task { [weak self] in
             guard let self else { return }
@@ -63,16 +64,11 @@ extension AppState {
         }
     }
 
-    /// Let the balance-refresh engine adopt the wallet list, and start the
-    /// maintenance loop once there is something to maintain.
-    ///
-    /// Runs after every replacement of the projection, including the one each
-    /// refresh sweep ends with. Core refreshes only when what a sweep fetches
-    /// changed, and stops the engine when nothing is left to fetch. This used to
-    /// sync the entries, trigger a sweep and restart the engine — whose restart
-    /// ticks at once — every time, so the end of each sweep began the next.
+    /// Adopt the wallet projection and start maintenance when needed.
+    /// Core refreshes only when fetch inputs change and stops the engine when
+    /// there is nothing to fetch; balance-only updates must not trigger a sweep.
     private func reconcileBackgroundServices() async {
-        _ = try? await WalletServiceBridge.shared.reconcileBalanceRefresh(appIsActive: appIsActive)
+        _ = try? await self.bridge.reconcileBalanceRefresh(appIsActive: appIsActive)
         if !wallets.isEmpty { startMaintenanceLoopIfNeeded() }
     }
 
@@ -80,7 +76,7 @@ extension AppState {
     @discardableResult
     func refreshTransactionProjection() async -> Bool {
         do {
-            let snapshot = try await WalletServiceBridge.shared.transactionSnapshot()
+            let snapshot = try await self.bridge.transactionSnapshot()
             guard snapshot.revision > transactionSnapshotRevision else { return true }
             transactionSnapshotRevision = snapshot.revision
             adoptTransactionsFromCore(snapshot.recentAndPending)

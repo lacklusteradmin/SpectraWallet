@@ -1,9 +1,7 @@
 import SwiftUI
 
-/// The wiki is indexed by coin. `listAssetWiki()` joins `crypto-wiki.toml` to
-/// both catalogs, so one row is one coin however many chains it lives on —
-/// ETH is one page, not the ten it used to be. Chains keep pages of their own,
-/// one level down, for what has no coin to belong to.
+/// The wiki is indexed by coin. `listAssetWiki()` joins both catalogs so
+/// each coin has one page. Chain-specific information lives one level below.
 extension AssetWikiEntry: Identifiable {
     public var id: String { tokenId }
     var accentColor: Color { color?.color ?? .accentColor }
@@ -170,9 +168,7 @@ struct AssetWikiDetailView: View {
         .spectraElevatedFill()
     }
 
-    /// A supply cap is the coin's, so it is on the coin's page. It used to be
-    /// a column on the chain, which meant the ten chains ETH runs on each
-    /// carried a copy of ETH's.
+    /// Supply caps belong to coins.
     private var circulationCard: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {

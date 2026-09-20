@@ -1,16 +1,8 @@
 import Foundation
 
-/// Ordered sequence of pages for one wallet-setup flow.
-///
-/// Replaces the three scattered switches in `SetupView` (step counter,
-/// forward routing, back routing) with one source of truth: the ordered
-/// list of pages. `currentIndex`, `next`, and `previous` derive from the
-/// list, so adding or reordering a step is one edit to the flow definition
-/// instead of four coordinated edits across switch statements.
-///
-/// `.advanced` is a side route, not part of the linear flow — it's reached
-/// from the seed-phrase page via a separate entry and isn't counted in the
-/// step indicator. The flow definitions intentionally exclude it.
+/// Ordered wallet-setup pages. Navigation and the step indicator derive
+/// from this list. `.advanced` is a side route from the seed page and is
+/// excluded from the linear flow and step count.
 struct SetupFlow {
     /// The ordered linear pages. Excludes side-routes like `.advanced`.
     let pages: [WalletSetupPage]
@@ -85,16 +77,7 @@ struct WalletSetupPageCopy {
 }
 
 extension WalletSetupPage {
-    /// The page's wording, from one exhaustive switch.
-    ///
-    /// This replaces two parallel if-chains in `SetupView` that the compiler
-    /// never checked against the enum. They had grown three unreachable
-    /// branches between them: every chain tested the six non-`details` pages
-    /// first, so the `isCreateMode` and `isWatchAddressesImportMode` arms below
-    /// them could only ever be reached on `.details`, which the arm above had
-    /// already returned for. A new page now fails to compile until it says what
-    /// it is called, instead of silently falling through to a wallet-import
-    /// title.
+    /// Page wording. Exhaustive so every new page must supply a title.
     func copy(_ content: ImportFlowContent, mode: WalletSetupMode) -> WalletSetupPageCopy {
         switch self {
         case .walletName:

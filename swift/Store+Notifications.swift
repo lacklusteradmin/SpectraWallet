@@ -5,9 +5,9 @@ extension AppState {
     /// Core evaluates its stored alerts against its stored quotes.
     func evaluatePriceAlerts() async {
         let epoch = beginCoreStateRead()
-        guard let notifications = try? await WalletServiceBridge.shared.evaluatePriceAlerts()
+        guard let notifications = try? await self.bridge.evaluatePriceAlerts()
         else { return }
-        if let state = try? await WalletServiceBridge.shared.appState() {
+        if let state = try? await self.bridge.appState() {
             applyCoreState(state, epoch: epoch)
         }
         for notification in notifications {

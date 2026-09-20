@@ -14,7 +14,7 @@ extension AppState {
         await awaitPendingAddressBookCommands()
         let outcome: ResetOutcome
         do {
-            outcome = try await WalletServiceBridge.shared.resetData(scopes: Array(scopes))
+            outcome = try await self.bridge.resetData(scopes: Array(scopes))
         } catch {
             appendOperationalLog(.error, category: "Reset", message: String(describing: error))
             return

@@ -1,17 +1,8 @@
 import Foundation
 
 /// Process-lifetime copies of core's compile-time tables.
-///
-/// Each of these is a list core parses from a bundled TOML and clones across
-/// the boundary whole on every call. The views ask for one row at a time, per
-/// render, so the list is fetched once and indexed here.
-///
-/// That is the only thing that belongs here. This file used to say "add every
-/// pure FFI helper", and it grew a cache of registry lookups that were already
-/// local dictionary reads, a pass-through that cached nothing, and a bounded
-/// cache keyed by the private-key candidates a user typed — up to 128 of them
-/// held for the life of the process, to save a string comparison. A call that
-/// is cheap, or whose input is a secret, is made where it is needed.
+/// Fetch and index each table once for per-row view lookups. Do not cache
+/// secret inputs or helpers that are already cheap local lookups.
 @MainActor
 enum CachedCoreHelpers {
     private static var assetWikiResult: [AssetWikiEntry]?
@@ -54,12 +45,7 @@ enum CachedCoreHelpers {
         return chainWikiByID?[id]
     }
 
-    // ── seed phrase lengths ───────────────────────────────────────────
-    //
-    // The five BIP-39 lengths and the entropy each carries, as core defines
-    // them. The picker renders one chip per entry; both the list and the
-    // entropy used to be written out here, next to a third copy in the import
-    // draft and two more in Rust.
+    // BIP-39 lengths and entropy as defined by core, one picker chip per entry.
     static func standardSeedPhraseLengths() -> [SeedPhraseLength] {
         if let cached = seedPhraseLengthsResult { return cached }
         let value = seedPhraseLengths()

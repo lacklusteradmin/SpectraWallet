@@ -36,15 +36,8 @@ enum StaticContentCatalog {
         }
         fatalError("Missing required resource: \(baseName).json")
     }
-    /// Every content file sits at the bundle's resource root, so the locale
-    /// lives in the file name and nowhere else.
-    ///
-    /// `resources/` is the app target's synchronized group, and Xcode copies
-    /// such a group in flat: `resources/strings/CommonContent.en.json` ships as
-    /// `CommonContent.en.json`. Three path shapes were built per lookup —
-    /// the flat one plus `Resources/strings/<locale>/` and `strings/<locale>/`
-    /// — guesses at a nested layout the bundle has never had. Only the flat one
-    /// ever opened a file; the source tree is now flat to match.
+    /// Resources are copied flat into the bundle root.
+    /// The locale belongs in the filename, such as `CommonContent.en.json`.
     private static func candidateJSONURLs(for baseName: String, localeIdentifiers: [String]) -> [URL] {
         var candidates: [URL] = []
         var seen = Set<String>()
@@ -165,13 +158,7 @@ struct CommonLocalizationContent: Decodable {
         StaticContentCatalog.loadRequiredResource("CommonContent", as: CommonLocalizationContent.self)
     }
 }
-/// Maps a human-readable color string (stored in `core/data/tokens.toml`
-/// and `core/data/chains.toml`) to a SwiftUI `Color`.
-/// The catalog's palette, as SwiftUI draws it.
-///
-/// Was `RegistryColorLookup.color(named:)`, a switch over strings whose
-/// `default` was the accent colour, so a name core did not spell the same way
-/// drew wrong without a word. Core types the column now; this is exhaustive.
+/// Exhaustive SwiftUI rendering of the core catalog's typed palette.
 extension CatalogColor {
     var color: Color {
         switch self {

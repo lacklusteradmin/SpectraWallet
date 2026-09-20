@@ -41,6 +41,8 @@ import SwiftUI
 @MainActor
 @Observable
 final class AppState {
+    @ObservationIgnored let bridge: WalletServiceBridge // Service identity is not view state.
+    @ObservationIgnored let servicesEnabled: Bool // Controls automatic platform work.
     static let exportFilenameTimestampFormatter: ISO8601DateFormatter = {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
@@ -109,12 +111,9 @@ final class AppState {
     }
     @ObservationIgnored private let walletSideEffectsDebounce = DebouncedAction(intervalMilliseconds: 30)
     @ObservationIgnored var balanceFlushTask: Task<Void, Never>?
-    /// Debounced trigger for `applyWalletCollectionSideEffects`. Replaces the
-    /// old `withObservationTracking`-based observation loop, which leaked
-    /// `self` on cancel (its `withCheckedContinuation` never resumed when the
-    /// task was cancelled mid-wait). Driving side-effects directly off
-    /// `wallets.didSet` is the native Apple pattern and lets `deinit` release
-    /// cleanly.
+    /// Debounce wallet side effects from `wallets.didSet`. Use a cancellable
+    /// task: cancelling an observation-backed checked continuation does not
+    /// resume it and can retain the state indefinitely.
     private func scheduleWalletCollectionSideEffects() {
         walletSideEffectsDebounce.fire { [weak self] in
             self?.applyWalletCollectionSideEffects()
@@ -184,9 +183,7 @@ final class AppState {
     var pendingSendReview: OwnedSendReview?
     @ObservationIgnored var isRefreshingLivePrices = false
     @ObservationIgnored var isRefreshingFiatRates = false
-    /// How long the maintenance loop sleeps before asking core again. Core
-    /// answers it with the plan; the loop used to work it out from two
-    /// constants and a derived flag.
+    /// How long the maintenance loop sleeps before asking core again, as supplied by core.
     @ObservationIgnored var lastMaintenancePollSeconds: UInt64 = 30
     @ObservationIgnored var isNetworkReachable: Bool = true
     @ObservationIgnored var isConstrainedNetwork: Bool = false
@@ -201,14 +198,10 @@ final class AppState {
     var sendingChains: Set<String> = []
     let chainDiagnosticsState = WalletChainDiagnosticsState()
 
-    /// Read-only view of the keypool for the diagnostics screen.
-    ///
-    /// Core answers without recording, so reporting the state never reserves
-    /// anything. The reserved address and its path are the ones recorded when
-    /// the index was handed out; the path this used to show was the wallet's
-    /// account path, labelled as the reserved one.
+    /// Read-only keypool diagnostics. Reading does not reserve an address.
+    /// The reserved address and path are those recorded when the index was handed out.
     func chainKeypoolDiagnostics(for chainName: String) async throws -> [KeypoolDiagnostic] {
-        try await WalletServiceBridge.shared.keypoolDiagnostics(chainName: chainName)
+        try await self.bridge.keypoolDiagnostics(chainName: chainName)
     }
     /// Display currency for prices and totals.
     ///
@@ -222,14 +215,8 @@ final class AppState {
         }
     }
 
-    /// The settings core owns, as it last committed them — with any edit sent
-    /// from here and not yet answered applied on top, by core's own rule.
-    ///
-    /// This was eighteen properties, each with a `didSet` that scheduled a
-    /// debounced commit, a hand-written diff against core's last answer, a
-    /// hand-written adoption back that re-triggered every `didSet`, and two
-    /// epochs to keep a slow load from reverting an unsent edit. Views read
-    /// fields off this value and change it through `updateSetting`.
+    /// The last committed core settings, with pending edits applied by core's rule.
+    /// Views change fields through `updateSetting`.
     private(set) var appSettings: AppSettings = appSettingsDefaults()
     @ObservationIgnored private(set) var committedAppSettings: AppSettings = appSettingsDefaults() // Runtime effects use only core-committed settings.
     /// Pending edits protect the optimistic form from readback. Committed
@@ -254,7 +241,7 @@ final class AppState {
             await previous?.value
             guard let self else { return }
             do {
-                let transition = try await WalletServiceBridge.shared.applyStateCommand(.setAppSetting(update: update))
+                let transition = try await self.bridge.applyStateCommand(.setAppSetting(update: update))
                 self.settingCommandsInFlight -= 1
                 self.applyCoreState(transition.state, epoch: self.beginCoreStateRead())
             } catch {
@@ -263,7 +250,7 @@ final class AppState {
                 // committed projection even if storage cannot be read again.
                 if self.settingCommandsInFlight == 0 { self.appSettings = self.committedAppSettings }
                 self.appendOperationalLog(.error, category: "Settings", message: error.localizedDescription)
-                if let state = try? await WalletServiceBridge.shared.appState() {
+                if let state = try? await self.bridge.appState() {
                     self.applyCoreState(state, epoch: self.beginCoreStateRead())
                 }
             }
@@ -398,11 +385,8 @@ final class AppState {
     /// Why core refused the last address-book change, if it did.
     var addressBookError: String?
     @ObservationIgnored var addressBookCommandTask: Task<Void, Never>?
-    /// The tracked-token list, as core holds it. A projection, like
-    /// `coreAddressBook`: change it with `addCustomTokenPreference` /
-    /// `removeCustomTokenPreference` / `setTokenPreferencesEnabled`, which
-    /// send commands. It used to be writable here and debounce-persisted, so
-    /// this side decided what a valid token was and core stored the answer.
+    /// The tracked-token projection. Change it through `addCustomTokenPreference`,
+    /// `removeCustomTokenPreference`, or `setTokenPreferencesEnabled`.
     private(set) var tokenPreferences: [TokenPreferenceEntry] = [] {
         didSet {
             guard tokenPreferences != oldValue else { return }
@@ -430,11 +414,8 @@ final class AppState {
     var cachedTokenPreferenceByDeploymentID: [String: TokenPreferenceEntry] = [:]
     @ObservationIgnored var cachedCurrencyFormatters: [FiatCurrency: NumberFormatter] = [:]
     @ObservationIgnored var cachedDecimalFormatters: [String: NumberFormatter] = [:]
-    // ── Memoized Rust-FFI lookups (hot path). Every asset row / wallet card
-    // / transaction row used to cross the Swift→Rust boundary 2-4 times per
-    // body eval via these helpers; we now cache the pure results and only
-    // invalidate when the inputs (display-decimals prefs, token prefs,
-    // selected fiat currency) change.
+    // Memoized Rust-FFI lookups. Invalidate when display decimals, token
+    // preferences, or the selected fiat currency change.
     @ObservationIgnored var cachedFiatAmountRules: [FiatCurrency: FiatAmountRules] = [:]
     /// Concrete testnets are never quoted.
     ///
@@ -450,7 +431,7 @@ final class AppState {
     let preferences = AppUserPreferences()
     @ObservationIgnored var sendPreviewRequestID = UUID() // Reject every completion of a superseded preview.
     var isLoadingMoreOnChainHistory: Bool = false
-    let diagnostics = WalletDiagnosticsState()
+    let diagnostics: WalletDiagnosticsState
     /// Whether a chain's deep rescan is running, and when it last finished.
     struct UTXORescanState { var isRunning: Bool = false; var lastRunAt: Date? = nil }
     var utxoRescanStateByChain: [String: UTXORescanState] = [:]
@@ -475,7 +456,7 @@ final class AppState {
         let networkPathMonitorQueue = DispatchQueue(label: "spectra.network.monitor")
     #endif
     func walletRequiresSeedPhrasePassword(_ walletID: String) -> Bool {
-        WalletServiceBridge.shared.walletSecretState(walletID: walletID)?.isSealed ?? false
+        self.bridge.walletSecretState(walletID: walletID)?.isSealed ?? false
     }
     /// Whether this wallet can sign, and with what.
     ///
@@ -484,10 +465,10 @@ final class AppState {
     /// produce it without a password, and deriving this from that read would
     /// report such a wallet as watch-only.
     func walletHasSigningMaterial(_ walletID: String) -> Bool {
-        WalletServiceBridge.shared.walletSecretState(walletID: walletID)?.hasSigningMaterial ?? false
+        self.bridge.walletSecretState(walletID: walletID)?.hasSigningMaterial ?? false
     }
     func isPrivateKeyBackedWallet(_ walletID: String) -> Bool {
-        WalletServiceBridge.shared.walletSecretState(walletID: walletID)?.hasPrivateKey ?? false
+        self.bridge.walletSecretState(walletID: walletID)?.hasPrivateKey ?? false
     }
 
     private func applyVerificationNotice(_ n: SendVerificationNotice) {
@@ -506,18 +487,13 @@ final class AppState {
             clearSendVerificationNotice()
             return
         }
-        guard let notice = try? await WalletServiceBridge.shared.sendVerificationNotice(transactionID: transactionID),
+        guard let notice = try? await self.bridge.sendVerificationNotice(transactionID: transactionID),
             lastSentTransaction?.id == transactionID
         else { return }
         applyVerificationNotice(notice)
     }
-    /// Refresh after a broadcast, then say what the stored record shows.
-    ///
-    /// Took a verification status too, and the one caller always passed
-    /// `.verified` — for a send nothing had verified — so every broadcast
-    /// logged "Broadcast verified by provider." and cleared the notice before
-    /// the record could say it was still unconfirmed. What is known about a
-    /// send is what core has recorded for it.
+    /// Refresh after broadcast and report the stored transaction status.
+    /// Broadcast acceptance alone does not establish confirmation.
     func runPostSendRefreshActions(for chainName: String) async {
         if let chain = Chain(displayName: chainName) {
             await performCoreRefresh(.afterSend(chainId: chain.id))
@@ -531,7 +507,10 @@ final class AppState {
         extraReset?()
         sendError = nil
     }
-    init(startServices: Bool = true) {
+    init(bridge: WalletServiceBridge = .shared, startServices: Bool = true) {
+        self.bridge = bridge
+        self.servicesEnabled = startServices
+        self.diagnostics = WalletDiagnosticsState(bridge: bridge)
         guard startServices else { return }
         // Wire the preferences' side effect back to AppState. A closure rather
         // than an observation loop keeps the coupling explicit.
@@ -565,7 +544,7 @@ final class AppState {
     /// a diagnostics export can see it.
     private func registerSecretStoreWithBridge() async {
         do {
-            try await SpectraSecretStoreAdapter.registerWithBridge()
+            try SpectraSecretStoreAdapter.registerWithBridge(bridge)
             secretStoreRegistrationError = nil
         } catch {
             let message = String(describing: error)
@@ -583,8 +562,7 @@ final class AppState {
         async let sqliteReload: () = reloadPersistedStateFromSQLite()
         async let fiatRefresh: () = refreshFiatExchangeRatesIfNeeded()
         _ = await (sqliteReload, fiatRefresh)
-        // No balance trigger here. Configuring the engine starts it, and its
-        // first tick is the launch sweep; a trigger beside it was a second.
+        // Configuring the engine starts it; its first tick performs the launch sweep.
     }
     deinit {
         maintenanceTask?.cancel()
@@ -627,9 +605,7 @@ final class AppState {
         }
     }
     func updateCustomTokenPreferenceDecimals(_ entry: TokenPreferenceEntry, decimals: Int) {
-        // Negative is not a precision. Everything else — including a number no
-        // token has — is core's to refuse, where this used to clamp it into
-        // range and read every later balance at the wrong scale.
+        // Reject negative precision here; core validates the token's supported range.
         guard decimals >= 0 else { return }
         Task { @MainActor [weak self] in
             await self?.sendTokenPreferenceCommand(
@@ -644,7 +620,7 @@ final class AppState {
     /// back as an event carrying its reason, and this side supplies the words.
     private func sendTokenPreferenceCommand(_ command: StateCommand) async {
         let epoch = beginCoreStateRead()
-        guard let transition = try? await WalletServiceBridge.shared.applyStateCommand(command)
+        guard let transition = try? await self.bridge.applyStateCommand(command)
         else { return }
         applyCoreState(transition.state, epoch: epoch)
         tokenPreferenceError = tokenPreferenceRejection(in: transition.events)
@@ -685,7 +661,7 @@ final class AppState {
         guard decimals >= 0 else { return localizedStoreString("That is not a number of decimal places.") }
         let epoch = beginCoreStateRead()
         guard
-            let transition = try? await WalletServiceBridge.shared.applyStateCommand(
+            let transition = try? await self.bridge.applyStateCommand(
                 .addCustomToken(
                     chainName: chain.rawValue, symbol: symbol, name: name,
                     contract: contractAddress, coingeckoId: coinGeckoId,

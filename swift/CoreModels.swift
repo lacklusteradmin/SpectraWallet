@@ -3,13 +3,7 @@ import SwiftUI
 #if canImport(UIKit)
     import UIKit
 #endif
-/// `FeePriority` is core's enum. Which values exist, how they are stored, and
-/// that anything else reads as `normal` are core's rules; this adds the wording
-/// and the iteration order a picker needs.
-///
-/// Was a second enum declared here, with its own raw strings, while core's
-/// setting held a free string — so "which priorities exist" had two answers and
-/// the typed one was the app's.
+/// Picker wording and iteration order for core's `FeePriority` enum.
 extension FeePriority: CaseIterable {
     public static var allCases: [FeePriority] { [.economy, .normal, .priority] }
     var displayName: String {
@@ -114,12 +108,8 @@ extension CoreSeedDerivationPaths {
 
     static var defaults: CoreSeedDerivationPaths { forPreset(.standard) }
 
-    /// A preset's paths, straight from the Rust chain catalog.
-    ///
-    /// There is deliberately no hardcoded Swift fallback table. The one that
-    /// used to live here restated all 44 paths from `chains.toml` and would
-    /// have drifted silently; an empty map instead surfaces a broken catalog
-    /// as a visibly missing path rather than a plausible wrong one.
+    /// Preset paths from the Rust catalog. No fallback table: an empty map
+    /// surfaces a missing catalog path rather than substituting a guessed one.
     static func forPreset(_ preset: CoreSeedDerivationPreset) -> CoreSeedDerivationPaths {
         (try? appCoreDerivationPathsForPreset(preset: preset))
             ?? CoreSeedDerivationPaths(isCustomEnabled: false, byChain: [:])
@@ -189,11 +179,6 @@ extension AddressBookEntry: Identifiable {
     }
 }
 /// A stored transaction, as core keeps it.
-///
-/// A typealias, like `Coin`. This was a 35-field Swift struct copying core's
-/// record field by field, with an initializer that copied it again and
-/// integer widths converted on the way; three chain-named fields came across
-/// with it.
 typealias TransactionRecord = CorePersistedTransactionRecord
 
 extension CorePersistedTransactionRecord: Identifiable {}
@@ -210,11 +195,7 @@ extension TransactionRecord {
         case .receive: return String(format: copy.transactionReceivedTitleFormat, symbol)
         }
     }
-    /// "Solana • Main Wallet", or "USD Coin on Solana • Main Wallet" when the
-    /// asset is not the network's own. The chain was always named, so every
-    /// native asset read "Solana on Solana" — its display name is its chain's
-    /// — and the line wrapped, costing a third row of type to say one word
-    /// twice.
+    /// Name the network and wallet, prefixing the asset name for token transfers.
     var subtitleText: String {
         let copy = CommonLocalizationContent.current
         let asset =
@@ -274,12 +255,13 @@ extension TransactionRecord {
     }
     var fullTimestampText: String { createdDate.formatted(date: .abbreviated, time: .standard) }
     var transactionExplorerURL: URL? {
-        guard let transactionHash, !transactionHash.isEmpty else { return nil }
-        return AppEndpointDirectory.transactionExplorerURL(for: chainName, transactionHash: transactionHash)
+        guard let transactionHash, !transactionHash.isEmpty,
+              let chain = Chain(displayName: chainName) else { return nil }
+        return AppEndpointDirectory.transactionExplorerURL(for: chain.id, transactionHash: transactionHash)
     }
     var transactionExplorerLabel: String? {
-        guard transactionHash != nil else { return nil }
-        return AppEndpointDirectory.transactionExplorerLabel(for: chainName)
+        guard transactionHash != nil, let chain = Chain(displayName: chainName) else { return nil }
+        return AppEndpointDirectory.transactionExplorerLabel(for: chain.id)
     }
     var rebroadcastPayload: String? {
         if let signedTransactionPayload {

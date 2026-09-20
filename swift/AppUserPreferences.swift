@@ -12,15 +12,8 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
     }
 }
 
-/// Where the five platform preferences live.
-///
-/// Four were a JSON blob core stored for the app through a generic
-/// `save_state` export, loaded after launch; the fifth, appearance, was here
-/// because it must be known before the first frame. Hidden balances had the
-/// same need and not the same store: until the blob arrived the dashboard
-/// showed what the user had hidden. None of the five is a domain fact — a CLI
-/// has no Face ID and no dashboard — so core had no reason to hold them, and
-/// `UserDefaults` answers synchronously.
+/// Device-local preferences stored synchronously in `UserDefaults`.
+/// Appearance and balance privacy must be available before the first frame.
 private enum PlatformDefaults {
     static let hideBalances = "settings.platform.hideBalances"
     static let appearanceMode = "settings.appearanceMode"

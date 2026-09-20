@@ -10,7 +10,7 @@ extension AppState {
         let results: [ChainSelfTestResult]
         do {
             guard let chain = Chain(displayName: chainName) else { return }
-            let report = try await WalletServiceBridge.shared.runConfiguredSelfTests(chainID: chain.id)
+            let report = try await self.bridge.runConfiguredSelfTests(chainID: chain.id)
             results = report.results
         } catch {
             appendChainOperationalEvent(.error, chainName: chainName, message: error.localizedDescription)
@@ -30,7 +30,7 @@ extension AppState {
                 : "\(abbrev) self-tests completed with \(failedCount) failure(s).")
     }
     func operationalEvents(for chainName: String) async -> [DiagnosticLog] {
-        await WalletServiceBridge.shared.operationalEvents(chainName: chainName)
+        await self.bridge.operationalEvents(chainName: chainName)
     }
     func runUTXORescan(chainName: String) async {
         guard let chain = Chain(displayName: chainName), !self[rescanFor: chainName].isRunning else { return }

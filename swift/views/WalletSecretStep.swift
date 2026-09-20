@@ -1,13 +1,7 @@
 import SwiftUI
 
-/// The wallet-setup secret step: recording or entering a seed phrase, pasting
-/// a private key, and verifying a recorded backup.
-///
-/// Split out of `SetupView`, which was a single 1000-line struct covering
-/// every page of the flow. This section owns the state only it uses — the
-/// focused word slot and the custom-length field — so neither travels with
-/// the rest of the wizard any more, and a keystroke in a seed slot no longer
-/// invalidates the chain grid and the button bar along with it.
+/// The wallet-setup secret step: enter or record a seed, paste a private key,
+/// and verify a backup. Focus and custom-length state belong to this step.
 struct WalletSecretStep: View {
     let store: AppState
     @Bindable var draft: WalletImportDraft
@@ -130,9 +124,7 @@ struct WalletSecretStep: View {
             }
         }
     }
-    /// One chip per length core defines, labelled with the entropy core says it
-    /// carries. The entropy was a `switch` here, which is a BIP-39 fact a view
-    /// has no business restating.
+    /// One chip per core-defined length, labelled with its entropy.
     @ViewBuilder
     private func seedPhraseLengthChip(_ length: SeedPhraseLength) -> some View {
         let wordCount = Int(length.wordCount)

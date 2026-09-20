@@ -2,12 +2,7 @@ import Foundation
 import SwiftUI
 import UIKit
 
-/// The saved recipients, as a list. Adding one is a toolbar action.
-///
-/// This was a `Form` whose first section was a five-field "New Contact" form,
-/// so a page named after a book of contacts opened on data entry and pushed
-/// the contacts themselves below the fold — on a first visit, with nothing
-/// saved, the empty state was the part you had to scroll to find.
+/// Saved recipients, with adding a contact as a toolbar action.
 struct AddressBookView: View {
     @Bindable var store: AppState
     @State private var isAddingContact = false

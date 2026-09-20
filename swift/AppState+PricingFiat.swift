@@ -18,7 +18,7 @@ extension AppState {
         var didUpdatePrices = false
         let before = livePrices
         do {
-            _ = try await WalletServiceBridge.shared.refreshOwnedPrices(force: false)
+            _ = try await self.bridge.refreshOwnedPrices(force: false)
             await rebuildWalletDerivedStateFromCore()
             didUpdatePrices = livePrices != before
         } catch {
@@ -32,7 +32,7 @@ extension AppState {
         isRefreshingFiatRates = true
         defer { isRefreshingFiatRates = false }
         do {
-            _ = try await WalletServiceBridge.shared.refreshOwnedFiatRates(force: force)
+            _ = try await self.bridge.refreshOwnedFiatRates(force: force)
             await rebuildWalletDerivedStateFromCore()
         } catch {
             fiatRatesRefreshError = error.localizedDescription
@@ -45,7 +45,7 @@ extension AppState {
     func loadCoreOwnedState() async {
         let epoch = beginCoreStateRead()
         do {
-            let state = try await WalletServiceBridge.shared.openState()
+            let state = try await self.bridge.openState()
             applyCoreState(state, epoch: epoch)
         } catch {
             finishCoreStateRead(epoch)
@@ -60,14 +60,14 @@ extension AppState {
     func setFiatCurrency(_ currency: FiatCurrency) async {
         let epoch = beginCoreStateRead()
         guard
-            let transition = try? await WalletServiceBridge.shared.applyStateCommand(
+            let transition = try? await self.bridge.applyStateCommand(
                 .setFiatCurrency(currency: currency))
         else {
             finishCoreStateRead(epoch)
             return
         }
         applyCoreState(transition.state, epoch: epoch)
-        guard transition.events.contains(where: {
+        guard servicesEnabled, transition.events.contains(where: {
             if case .fiatCurrencyChanged = $0 { return true }
             return false
         }) else { return }
@@ -81,9 +81,10 @@ extension AppState {
     /// Refresh balances now. Every wallet's: the engine sweeps its entries
     /// together, and the one this is asked from is among them.
     func refreshBalancesNow() async {
-        try? await WalletServiceBridge.shared.triggerImmediateBalanceRefresh()
+        try? await self.bridge.triggerImmediateBalanceRefresh()
     }
     func scheduleImportedWalletRefresh(_ createdWallets: [WalletView]) {
+        guard servicesEnabled else { return }
         guard !createdWallets.isEmpty else {
             return
         }

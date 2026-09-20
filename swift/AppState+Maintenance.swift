@@ -7,12 +7,8 @@ extension AppState {
         let level = UIDevice.current.batteryLevel
         return level < 0 ? 1.0 : level
     }
-    /// What only this device can tell core.
-    ///
-    /// Everything else the plan needs — the sync profile, the refresh cadence,
-    /// when each thing last ran, whether a pending send is still worth
-    /// polling — belongs to core. This was five separate questions, each
-    /// taking the piece of `AppState` it needed as an argument.
+    /// Device-local inputs to core's maintenance plan. Core owns the profile,
+    /// refresh cadence, last-run times, and pending-send polling decisions.
     private func deviceConditions() -> DeviceConditions {
         DeviceConditions(
             appIsActive: appIsActive,
@@ -24,19 +20,18 @@ extension AppState {
             wantsPriceRefresh: shouldRunScheduledPriceRefresh)
     }
     func maintenancePlan() async -> MaintenancePlan {
-        await WalletServiceBridge.shared.maintenancePlan(conditions: deviceConditions())
+        await self.bridge.maintenancePlan(conditions: deviceConditions())
     }
     func notifyPortfolioMovement() async {
         let evaluation: LargeMovementEvaluation
         do {
-            guard let result = try await WalletServiceBridge.shared.evaluatePortfolioMovement(appIsActive: appIsActive) else { return }
+            guard let result = try await self.bridge.evaluatePortfolioMovement(appIsActive: appIsActive) else { return }
             evaluation = result
         } catch {
             appendOperationalLog(.error, category: "Portfolio Movement", message: error.localizedDescription)
             return
         }
-        // Worded per direction, and through the locale files: this was the one
-        // notification built from English fragments in Swift.
+        // Localize the notification for the transfer direction.
         let percent = evaluation.ratio.formatted(.percent.precision(.fractionLength(0)))
         let content = UNMutableNotificationContent()
         content.title = localizedStoreString("Large portfolio movement detected")
@@ -55,7 +50,7 @@ extension AppState {
     @discardableResult
     func performCoreRefresh(_ intent: AppRefreshIntent) async -> Bool {
         do {
-            let result = try await WalletServiceBridge.shared.refreshApp(intent: intent, conditions: deviceConditions())
+            let result = try await self.bridge.refreshApp(intent: intent, conditions: deviceConditions())
             lastMaintenancePollSeconds = result.pollSeconds
             let portfolioReadSucceeded = await rebuildWalletDerivedStateFromCore()
             if let pending = result.pending {
@@ -67,7 +62,7 @@ extension AppState {
             }
             let historyReadSucceeded = await refreshTransactionProjection()
             if let sent = lastSentTransaction {
-                lastSentTransaction = try await WalletServiceBridge.shared.transaction(id: sent.id)
+                lastSentTransaction = try await self.bridge.transaction(id: sent.id)
             }
             await updateSendVerificationNoticeForLastSentTransaction()
             for failure in result.failures {
@@ -99,6 +94,7 @@ extension AppState {
         return succeeded
     }
     func startMaintenanceLoopIfNeeded() {
+        guard servicesEnabled else { return }
         guard maintenanceTask == nil else { return }
         // With no wallets there's nothing to maintain — no pending tx to
         // poll, no price work, no chain history to sync. Don't even spin

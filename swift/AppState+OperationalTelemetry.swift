@@ -49,12 +49,7 @@ extension AppState {
     // What is left on this side is the two things a platform has: the localized
     // text of an operational event, and a notification.
 
-    /// Adopt the projection and say what changed, out loud.
-    ///
-    /// Core polled, stored and decided; the two things left are this
-    /// platform's: the localized text of an operational event, and a
-    /// notification. The resolutions used to be built here and handed over —
-    /// core reads its own store now, so what arrives is the outcome.
+    /// Adopt core's outcome and emit localized operational text and notifications.
     func applyPendingStatusChanges(_ changes: [TransactionStatusChange]) async {
         let oldByID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
 
@@ -62,7 +57,7 @@ extension AppState {
 
         for change in changes {
             let id = change.id
-            let transaction = (try? await WalletServiceBridge.shared.transaction(id: id)) ?? oldByID[id]
+            let transaction = (try? await self.bridge.transaction(id: id)) ?? oldByID[id]
             guard let transaction else { continue }
             if change.statusChanged {
                 switch change.newStatus {
@@ -91,10 +86,7 @@ extension AppState {
         }
     }
 
-    // One message per event for every chain. Dogecoin had its own three,
-    // prefixed "DOGE", which the diagnostics screen they appear on — already
-    // one chain's — did not need; and the confirmed message every other chain
-    // got was not localized.
+    // Localized messages shared by all chains.
     private func statusPollFailedEventMessage(for transaction: TransactionRecord) -> String {
         transaction.localizedFailureReason ?? statusPollFailureMessage(for: transaction)
     }
@@ -102,7 +94,7 @@ extension AppState {
     func editPriceAlert(_ command: StateCommand) async throws {
         let epoch = beginCoreStateRead()
         do {
-            let transition = try await WalletServiceBridge.shared.applyStateCommand(command)
+            let transition = try await self.bridge.applyStateCommand(command)
             applyCoreState(transition.state, epoch: epoch)
             for case .priceAlertRejected(let reason) in transition.events {
                 throw NSError(domain: "PriceAlert", code: 1,
@@ -113,8 +105,7 @@ extension AppState {
             throw error
         }
     }
-    /// Core's reason, in this app's words. The reason used to be English prose
-    /// written by core and shown as it came, whatever the app's language.
+    /// Localize core's typed reason.
     func priceAlertRejectionMessage(_ reason: PriceAlertRejection) -> String {
         switch reason {
         case .missingCurrencyRate:

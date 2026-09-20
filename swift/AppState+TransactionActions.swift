@@ -4,7 +4,7 @@ import Foundation
 extension AppState {
     func retryUTXOTransactionStatus(for transactionID: String) async -> String {
         do {
-            let change = try await WalletServiceBridge.shared.recheckTransactionStatus(id: transactionID)
+            let change = try await self.bridge.recheckTransactionStatus(id: transactionID)
             await applyPendingStatusChanges([change])
             if change.statusChanged {
                 return AppLocalization.format("Status updated: %@.", change.newStatus.localizedTitle)
@@ -22,7 +22,7 @@ extension AppState {
             return sendError ?? AppLocalization.string("Authentication failed.")
         }
         do {
-            let transactionHash = try await WalletServiceBridge.shared.rebroadcastTransaction(id: transactionID)
+            let transactionHash = try await self.bridge.rebroadcastTransaction(id: transactionID)
             await refreshTransactionProjection()
             return AppLocalization.format("Transaction rebroadcasted: %@. Network confirmation is pending.", transactionHash)
         } catch {

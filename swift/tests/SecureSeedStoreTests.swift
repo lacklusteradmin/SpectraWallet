@@ -2,21 +2,21 @@ import XCTest
 @testable import Spectra
 final class SecureSeedStoreTests: XCTestCase {
     func testLoadMissingSeedThrows() {
-        let account = "test.seed.missing.1"
+        let account = "test.seed.missing.\(UUID().uuidString)"
         try? SecureSeedStore.deleteValue(for: account)
         XCTAssertThrowsError(try SecureSeedStore.loadValue(for: account))
     }
     // Writes use `try`, not `try?`: a store that fails to write must fail the
     // test rather than let the assertions below pass on stale or absent data.
     func testSaveThenLoadRoundTripsSeed() throws {
-        let account = "test.seed.roundtrip.1"
+        let account = "test.seed.roundtrip.\(UUID().uuidString)"
         let seed = "abandon ability able about above absent absorb abstract absurd abuse access accident"
         try SecureSeedStore.save(seed, for: account)
         defer { try? SecureSeedStore.deleteValue(for: account) }
         XCTAssertEqual(try SecureSeedStore.loadValue(for: account), seed)
     }
     func testSeedStorageDoesNotPersistPlaintextUTF8Payload() throws {
-        let account = "test.seed.encrypted.1"
+        let account = "test.seed.encrypted.\(UUID().uuidString)"
         let seed = "abandon ability able about above absent absorb abstract absurd abuse access accident"
         try SecureSeedStore.save(seed, for: account)
         defer { try? SecureSeedStore.deleteValue(for: account) }
@@ -31,7 +31,7 @@ final class SecureSeedStoreTests: XCTestCase {
         }
     }
     func testPrivateKeySaveThenLoadRoundTrips() throws {
-        let account = "test.privatekey.roundtrip.1"
+        let account = "test.privatekey.roundtrip.\(UUID().uuidString)"
         let key = String(repeating: "ab", count: 32)
         try SecurePrivateKeyStore.save(key, for: account)
         defer { try? SecurePrivateKeyStore.deleteValue(for: account) }
@@ -40,7 +40,7 @@ final class SecureSeedStoreTests: XCTestCase {
     /// A private key signs exactly as a seed does, so it is sealed the same way
     /// rather than written as the string that was pasted.
     func testPrivateKeyStorageDoesNotPersistPlaintext() throws {
-        let account = "test.privatekey.encrypted.1"
+        let account = "test.privatekey.encrypted.\(UUID().uuidString)"
         let key = "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"
         try SecurePrivateKeyStore.save(key, for: account)
         defer { try? SecurePrivateKeyStore.deleteValue(for: account) }
@@ -51,7 +51,7 @@ final class SecureSeedStoreTests: XCTestCase {
     /// A missing key is `missingValue`, which the adapter reports to core as
     /// not found. Anything else a read throws is a failure, not an absence.
     func testMissingPrivateKeyReportsMissing() {
-        let account = "test.privatekey.missing.1"
+        let account = "test.privatekey.missing.\(UUID().uuidString)"
         try? SecurePrivateKeyStore.deleteValue(for: account)
         XCTAssertThrowsError(try SecurePrivateKeyStore.loadValue(for: account)) { error in
             XCTAssertEqual(error as? KeychainStoreError, .missingValue)
@@ -63,7 +63,7 @@ final class SecureSeedStoreTests: XCTestCase {
         }
     }
     func testDeletedSeedIsNotReadableAndReportsMissing() throws {
-        let account = "test.seed.deleted.1"
+        let account = "test.seed.deleted.\(UUID().uuidString)"
         try SecureSeedStore.save("abandon abandon abandon abandon abandon about", for: account)
         try SecureSeedStore.deleteValue(for: account)
         XCTAssertNil(try SecureSeedStore.loadData(for: account))

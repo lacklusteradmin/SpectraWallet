@@ -7,7 +7,6 @@ extension AppState {
         sendDashboardPinCommand(.setDashboardAssetPinned(tokenId: tokenID, isPinned: isPinned))
     }
     func resetPinnedDashboardAssets() { sendDashboardPinCommand(.resetPinnedDashboardAssets) }
-    var dashboardAssetGroups: [DashboardAssetGroup] { cachedDashboardAssetGroups }
     var appNoticeItems: [AppNoticeItem] {
         let commonCopy = CommonLocalizationContent.current
         var notices: [AppNoticeItem] = []

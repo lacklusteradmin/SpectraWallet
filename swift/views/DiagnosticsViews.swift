@@ -10,10 +10,7 @@ struct DiagnosticsHubView: View {
         let keywords: [String]
         let chain: Chain
     }
-    /// Every mainnet gets a screen. It used to be the twenty-four a Swift enum
-    /// happened to list; the drivers behind the screen are generic over the
-    /// chain name, so the other twenty-two worked all along and were simply
-    /// unreachable.
+    /// Every mainnet has a diagnostics screen.
     private var chainDestinations: [DiagnosticsDestination] {
         Chain.mainnets.map { chain in
             DiagnosticsDestination(
@@ -132,7 +129,7 @@ struct StandardChainDiagnosticsView: View {
     /// Was `MoneroBalanceService`: three catalog record ids, three display
     /// names and a default id written out in Swift, read by index — so a
     /// catalog with two backends crashed the screen on `[2]`.
-    private var catalogBackends: [String] { AppEndpointDirectory.settingsEndpoints(for: chain.displayName) }
+    private var catalogBackends: [String] { AppEndpointDirectory.settingsEndpoints(for: chain.id) }
     private var backendChoices: [(id: String, title: String)] {
         catalogBackends.enumerated().map { index, url in
             let host = URL(string: url)?.host ?? url
@@ -316,12 +313,10 @@ struct StandardChainDiagnosticsView: View {
             let stored = store.appSettings.moneroBackendBaseUrl
             return stored.isEmpty ? catalogBackends : [stored]
         }
-        guard chain.isEVM else { return AppEndpointDirectory.settingsEndpoints(for: name) }
-        // The override used to be Ethereum's alone, so this was its own
-        // case and every other EVM chain fell through to the catalog list.
+        guard chain.isEVM else { return AppEndpointDirectory.settingsEndpoints(for: chain.id) }
         let custom = store.rpcEndpoint(forChain: name)
         var endpoints = custom.isEmpty ? [] : [custom]
-        for endpoint in AppEndpointDirectory.evmEndpointsWithSupplemental(for: name) where !endpoints.contains(endpoint) {
+        for endpoint in AppEndpointDirectory.evmEndpointsWithSupplemental(for: store.networkChainID(forFamily: chain.id)) where !endpoints.contains(endpoint) {
             endpoints.append(endpoint)
         }
         return endpoints
@@ -430,10 +425,7 @@ struct StandardChainDiagnosticsView: View {
         if chain.isEVM { rpcSettingsSection }
         if chain.needsEtherscanAPIKey { etherscanSettingsSection }
         if chain.sendsThroughBackend { backendSettingsSection }
-        // Core keeps a self-test suite for every chain in the catalog, so
-        // every chain's screen offers it. The button used to be inside the
-        // UTXO block, which left the suite unreachable everywhere else except
-        // Ethereum, which had a second button of its own.
+        // Core provides a self-test suite for every chain in the catalog.
         Section(AppLocalization.string("Chain Actions")) {
             Button(isRunningChainSelfTests ? AppLocalization.string("Running Self-Tests...") : chainSelfTestTitle) {
                 Task { await runChainSelfTests() }

@@ -167,9 +167,7 @@ final class WalletImportDraft {
         if isWatchOnlyMode { return .watchOnly }
         return isPrivateKeyImportMode ? .importPrivateKey : .importSeedPhrase
     }
-    /// Core reads the form as typed. It was handed eleven booleans this side
-    /// had already worked out, so its rule combined answers it never saw the
-    /// inputs for.
+    /// Pass the typed form to core for validation.
     var canImportWallet: Bool {
         coreValidateWalletImportDraft(
             draft: WalletImportDraftInput(
@@ -242,10 +240,6 @@ final class WalletImportDraft {
         seedPhraseEntries = Array(repeating: "", count: 12)
         selectedSeedPhraseWordCount = 12
         isWatchOnlyMode = false
-        // One line, and it clears every chain. The eighteen assignments it
-        // replaces were five short of the twenty-three fields that existed —
-        // Zcash, Bitcoin Gold, Decred, Kaspa, Dash and Bittensor were never
-        // cleared, which a table cannot get wrong.
         watchOnlyInputsByChainName = [:]
         bitcoinXpubInput = ""
         selectedChainNamesStorage = []
@@ -279,8 +273,7 @@ final class WalletImportDraft {
     }
     func regenerateSeedPhrase() {
         guard isCreateMode else { return }
-        // Core refuses a length BIP-39 does not define. This used to hold the
-        // five so it would not ask — one of four copies of that list.
+        // Core rejects lengths BIP-39 does not define.
         guard
             let generatedPhrase = WalletServiceBridge.shared.rustGenerateMnemonic(
                 wordCount: selectedSeedPhraseWordCount)
