@@ -60,7 +60,7 @@ struct PriceAlertsView: View {
                     if let formMessage { Text(formMessage).font(.caption).foregroundStyle(.secondary) }
                     Button(AppLocalization.string("Add Alert")) {
                         Task { await addAlert() }
-                    }.spectraPressable()
+                    }
                         .disabled(!canAddAlert)
                 }
             }

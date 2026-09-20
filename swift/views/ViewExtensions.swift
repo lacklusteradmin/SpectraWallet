@@ -35,29 +35,6 @@ func spectraDetailCard(title: String? = nil, @ViewBuilder content: () -> some Vi
 // MARK: — Typography helpers
 extension View {
     func spectraHintText() -> some View { font(.caption).foregroundStyle(.secondary) }
-    func spectraPressable(scale: CGFloat = 0.985, opacity: CGFloat = 0.92) -> some View {
-        modifier(SpectraPressableModifier(scale: scale, opacity: opacity))
-    }
-}
-
-private struct SpectraPressableModifier: ViewModifier {
-    let scale: CGFloat
-    let opacity: CGFloat
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @GestureState private var isPressed = false
-
-    func body(content: Content) -> some View {
-        content
-            .scaleEffect(reduceMotion || !isPressed ? 1 : scale)
-            .opacity(isPressed ? opacity : 1)
-            .animation(.snappy(duration: 0.16), value: isPressed)
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .updating($isPressed) { _, state, _ in
-                        state = true
-                    }
-            )
-    }
 }
 
 // MARK: — Semantic status colors
@@ -246,7 +223,6 @@ struct SpectraEmptyStateCard: View {
                         .padding(.vertical, 10)
                 }
                 .buttonStyle(.glassProminent)
-                .spectraPressable()
             }
         }
         .padding(20)

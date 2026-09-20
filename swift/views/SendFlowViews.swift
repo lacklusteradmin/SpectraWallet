@@ -236,7 +236,6 @@ struct SendView: View {
                 }
                 .buttonStyle(.glass)
                 .accessibilityLabel(AppLocalization.string("Back"))
-                .spectraPressable()
             }
 
             Button {
@@ -256,7 +255,6 @@ struct SendView: View {
                 .frame(minHeight: 46)
             }
             .buttonStyle(.glassProminent)
-            .spectraPressable()
             .disabled(!canUsePrimaryAction(selectedCoin: selectedCoin))
         }
     }

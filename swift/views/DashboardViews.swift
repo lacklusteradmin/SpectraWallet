@@ -205,7 +205,6 @@ struct DashboardView: View {
                         )
                     ).equatable().padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
                 }.buttonStyle(.plain)
-                    .spectraPressable()
                 if index < wallets.count - 1 { Divider().padding(.leading, 64).opacity(0.25) }
             }
         }
@@ -225,7 +224,6 @@ struct DashboardView: View {
                     DashboardAssetRowView(presentation: presentation).equatable().padding(.horizontal, SpectraLayout.rowHorizontal).padding(
                         .vertical, SpectraLayout.rowVertical)
                 }.buttonStyle(.plain)
-                    .spectraPressable()
                 if index < presentations.count - 1 { Divider().padding(.leading, 64).opacity(0.25) }
             }
         }
@@ -731,13 +729,11 @@ private struct DashboardActionButtons: View {
                     Label(AppLocalization.string("Send"), systemImage: "arrow.up.right")
                         .font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 11)
                 }.buttonStyle(.glass)
-                    .spectraPressable()
                     .disabled(!canSend)
                 Button { spectraHaptic(.medium); store.beginReceive() } label: {
                     Label(AppLocalization.string("Receive"), systemImage: "arrow.down.left")
                         .font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 11)
                 }.buttonStyle(.glassProminent)
-                    .spectraPressable()
                     .disabled(!canReceive)
             }
         }

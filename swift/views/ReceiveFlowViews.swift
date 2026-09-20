@@ -256,7 +256,6 @@ struct ReceiveView: View {
                     .padding(.vertical, 10)
             }
             .buttonStyle(.glass)
-            .spectraPressable()
             .disabled(qrImage == nil)
 
             Button {
@@ -277,7 +276,6 @@ struct ReceiveView: View {
                     .padding(.vertical, 10)
             }
             .buttonStyle(.glass)
-            .spectraPressable()
             .disabled(qrImage == nil)
         }
         .padding(20)
@@ -297,7 +295,6 @@ struct ReceiveView: View {
                         .frame(width: 46, height: 46)
                 }
                 .buttonStyle(.glass)
-                .spectraPressable()
             }
 
             Button {
@@ -324,7 +321,6 @@ struct ReceiveView: View {
                 .frame(minHeight: 46)
             }
             .buttonStyle(.glassProminent)
-            .spectraPressable()
             .disabled(isPrimaryActionDisabled)
         }
     }
@@ -424,7 +420,6 @@ private struct WalletReceiveCard: View {
         }
         .buttonStyle(.plain)
         .contentShape(Rectangle())
-        .spectraPressable()
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }

@@ -41,7 +41,6 @@ struct StakingView: View {
             VStack(spacing: 8) {
                 ForEach(Chain.stakingChains, id: \.self) { chain in
                     NavigationLink(value: chain) { chainTile(chain) }.buttonStyle(.plain)
-                        .spectraPressable()
                 }
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)

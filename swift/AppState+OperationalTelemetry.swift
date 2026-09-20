@@ -8,7 +8,7 @@ extension AppState {
         let constrained = isConstrainedNetwork ? localizedStoreString("constrained") : localizedStoreString("unconstrained")
         let expensive = isExpensiveNetwork ? localizedStoreString("expensive") : localizedStoreString("non-expensive")
         return AppLocalization.format(
-            "Network: %@, %@, %@ • Auto refresh: %d min", reachability, constrained, expensive, Int(appSettings.automaticRefreshFrequencyMinutes)
+            "Network: %@, %@, %@", reachability, constrained, expensive
         )
     }
     func exportOperationalLogsText(events: [DiagnosticLog]? = nil) -> String {

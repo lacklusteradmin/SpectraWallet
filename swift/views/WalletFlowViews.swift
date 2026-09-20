@@ -195,7 +195,6 @@ struct WalletDetailView: View {
     }
     private struct DetailPresentation {
         let wallet: WalletView
-        let nonZeroAssetCount: Int
         let walletAddress: String?
         let derivationPathsText: String?
         let walletBadge: (artworkName: String?, color: Color)
@@ -237,7 +236,7 @@ struct WalletDetailView: View {
             )
         }
         return DetailPresentation(
-            wallet: wallet, nonZeroAssetCount: visibleHoldings.count,
+            wallet: wallet,
             // A wallet is on one chain, so its address is that chain's. Sixteen
             // shims listed here and `.compactMap { $0 }.first` picked whichever
             // came back first, which is "prefer Bitcoin, then Bitcoin Cash, …"
@@ -295,7 +294,6 @@ struct WalletDetailView: View {
         ScrollView(showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: 16) {
                 walletHeroCard
-                walletStatsCard
                 walletHoldingsCard
                 if let walletAddress = detailPresentation.walletAddress {
                     walletAddressCard(walletAddress: walletAddress)
@@ -315,7 +313,8 @@ struct WalletDetailView: View {
             }
         }.navigationDestination(isPresented: $isShowingAdvancedPage) {
             WalletAdvancedDetailsView(
-                walletID: detailPresentation.wallet.id, derivationPathsText: detailPresentation.derivationPathsText
+                walletID: detailPresentation.wallet.id, derivationPathsText: detailPresentation.derivationPathsText,
+                firstActivityDateText: firstActivityDateText
             )
         }.navigationDestination(
             isPresented: Binding(
@@ -439,35 +438,6 @@ struct WalletDetailView: View {
             }
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .spectraElevatedFill()
-    }
-    @ViewBuilder
-    private var walletStatsCard: some View {
-        let presentation = detailPresentation
-        let modeValue: String =
-            isWatchOnly
-            ? localizedWalletFlowString("Watch Addresses")
-            : (isPrivateKeyWallet ? localizedWalletFlowString("Private Key") : localizedWalletFlowString("Seed-Based"))
-        let modeIcon: String = isWatchOnly ? "eye.fill" : (isPrivateKeyWallet ? "key.fill" : "doc.text.fill")
-        VStack(alignment: .leading, spacing: 12) {
-            walletStatRow(label: localizedWalletFlowString("Mode"), value: modeValue, icon: modeIcon)
-            Divider().opacity(0.25)
-            walletStatRow(
-                label: localizedWalletFlowString("Asset Count"),
-                value: "\(presentation.nonZeroAssetCount)", icon: "chart.pie.fill")
-            Divider().opacity(0.25)
-            walletStatRow(label: localizedWalletFlowString("First Activity"), value: firstActivityDateText, icon: "clock.fill")
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .spectraCardFill()
-    }
-    @ViewBuilder
-    private func walletStatRow(label: String, value: String, icon: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon).font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(width: 22)
-            Text(label).font(.subheadline).foregroundStyle(.secondary)
-            Spacer(minLength: 12)
-            Text(value).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).multilineTextAlignment(.trailing)
-                .spectraNumericTextLayout(minimumScaleFactor: 0.7)
-        }
     }
     @ViewBuilder
     private var walletHoldingsCard: some View {
@@ -613,15 +583,13 @@ struct WalletDetailView: View {
 private struct WalletAdvancedDetailsView: View {
     let walletID: String
     let derivationPathsText: String?
+    let firstActivityDateText: String
     var body: some View {
-        ZStack {
-            ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        WalletDetailRow(label: "Wallet ID", value: walletID)
-                        if let derivationPathsText { WalletDetailRow(label: "Derivation Paths", value: derivationPathsText) }
-                    }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: SpectraLayout.Radius.card)
-                }.padding(20)
+        Form {
+            Section {
+                WalletDetailRow(label: "Wallet ID", value: walletID)
+                if let derivationPathsText { WalletDetailRow(label: "Derivation Paths", value: derivationPathsText) }
+                WalletDetailRow(label: "First Activity", value: firstActivityDateText)
             }
         }.navigationTitle(localizedWalletFlowString("Advanced")).navigationBarTitleDisplayMode(.inline)
     }

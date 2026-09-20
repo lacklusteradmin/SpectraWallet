@@ -24,7 +24,7 @@ private struct HistoryTransactionRowView: View, Equatable {
                         Text(amountText).font(.headline.weight(.semibold)).foregroundStyle(row.amountColor ?? Color.primary)
                             .spectraNumericTextLayout()
                     }
-                    Text(row.subtitleText).spectraHintText()
+                    Text(row.subtitleText).spectraHintText().lineLimit(1)
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: 4) {
@@ -296,7 +296,7 @@ struct HistoryView: View {
     private func historyRowPresentation(for transaction: TransactionRecord) -> HistoryRowPresentation {
         HistoryRowPresentation(
             transaction: transaction, amountText: signedAmountText(for: transaction), amountColor: amountColor(for: transaction),
-            subtitleText: transaction.subtitleText, statusText: transaction.statusText, fullTimestampText: transaction.fullTimestampText,
+            subtitleText: transaction.walletName, statusText: transaction.statusText, fullTimestampText: transaction.fullTimestampText,
             metadataText: store.historyMetadataText(for: transaction)
         )
     }

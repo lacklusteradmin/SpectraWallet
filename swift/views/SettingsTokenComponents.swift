@@ -48,7 +48,8 @@ struct TokenRegistryEntryCardView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(entry.token.chain).font(.subheadline.weight(.semibold))
+                    Text(Chain(id: entry.token.chain)?.displayName ?? entry.hostingChain?.chain?.displayName ?? entry.token.chain)
+                        .font(.subheadline.weight(.semibold))
                     Text(entry.token.tokenStandard).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()

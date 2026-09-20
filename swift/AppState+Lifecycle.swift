@@ -29,7 +29,7 @@ extension AppState {
             return
         }
         startMaintenanceLoopIfNeeded()
-        // Resume balance refresh with the current frequency preference.
+        // Resume core-managed automatic balance refresh.
         Task { [weak self] in await self?.restartBalanceRefreshForCurrentConfiguration() }
     }
     /// Launch-time wiring. Nothing domain is seeded here: settings, tokens,

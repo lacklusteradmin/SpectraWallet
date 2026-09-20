@@ -60,7 +60,6 @@ struct NewAddressBookContactView: View {
                         .frame(minHeight: 46)
                 }
                 .buttonStyle(.glassProminent)
-                .spectraPressable()
                 .disabled(!canSave)
             }
         }
@@ -280,7 +279,6 @@ struct AddressBookContactView: View {
                 .padding(.vertical, 10)
             }
             .buttonStyle(.glass)
-            .spectraPressable()
         }
         .frame(maxWidth: .infinity)
         .padding(24)
@@ -318,7 +316,6 @@ struct AddressBookContactView: View {
         }
         .buttonStyle(.glass)
         .tint(.red)
-        .spectraPressable()
         .confirmationDialog(
             AppLocalization.string("Delete Contact"),
             isPresented: $isConfirmingDelete,

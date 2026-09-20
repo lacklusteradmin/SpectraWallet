@@ -11,7 +11,7 @@ extension AppState {
     ///
     /// Everything else the plan needs — the sync profile, the refresh cadence,
     /// when each thing last ran, whether a pending send is still worth
-    /// polling — is state core holds. This was five separate questions, each
+    /// polling — belongs to core. This was five separate questions, each
     /// taking the piece of `AppState` it needed as an argument.
     private func deviceConditions() -> DeviceConditions {
         DeviceConditions(

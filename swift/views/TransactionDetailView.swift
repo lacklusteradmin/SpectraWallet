@@ -144,7 +144,6 @@ struct TransactionDetailView: View {
                                         Text(AppLocalization.string("Speed Up This Transaction")).font(.headline).frame(maxWidth: .infinity)
                                             .padding(.vertical, 12)
                                     }.buttonStyle(.glassProminent)
-                                        .spectraPressable()
                                 }
                                 Button {
                                     Task {
@@ -156,7 +155,6 @@ struct TransactionDetailView: View {
                                     Text(AppLocalization.string("Cancel This Transaction")).font(.headline).frame(maxWidth: .infinity).padding(
                                         .vertical, 12)
                                 }.buttonStyle(.glass)
-                                    .spectraPressable()
                                 Text(
                                     AppLocalization.string(
                                         pending.canSpeedUp
@@ -194,7 +192,6 @@ struct TransactionDetailView: View {
                                         .horizontal, 12
                                     ).padding(.vertical, 8)
                                 }.buttonStyle(.glassProminent)
-                                    .spectraPressable()
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
                         }
@@ -457,7 +454,6 @@ private struct TransactionAddressBlock: View {
                         : AppLocalization.string("Copy Address"), systemImage: didCopy ? "checkmark" : "doc.on.doc"
                 ).font(.subheadline.weight(.semibold)).padding(.horizontal, 12).padding(.vertical, 8)
             }.buttonStyle(.glass)
-                .spectraPressable()
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
         .task(id: didCopy) {

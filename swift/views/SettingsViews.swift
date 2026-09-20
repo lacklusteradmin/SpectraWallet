@@ -7,7 +7,6 @@ struct SettingsView: View {
         case addressBook
         case knownTokens
         case appearance
-        case refreshFrequency
         case priceAlerts
         case largeMovementAlerts
         case pricing
@@ -32,9 +31,6 @@ struct SettingsView: View {
                 Section(AppLocalization.string("Display")) {
                     settingsToggle("Hide balances", systemImage: "eye.slash", isOn: preferenceBinding(\.hideBalances))
                     settingsLink("Appearance", systemImage: "circle.lefthalf.filled", route: .appearance)
-                }
-                Section(AppLocalization.string("Sync & Automation")) {
-                    settingsLink("Refresh Frequency", systemImage: "arrow.triangle.2.circlepath", route: .refreshFrequency)
                 }
                 Section(AppLocalization.string("Notifications")) {
                     settingsLink("Price Alerts", systemImage: "bell.badge", route: .priceAlerts)
@@ -94,7 +90,6 @@ struct SettingsView: View {
                 case .addressBook: AddressBookView(store: store)
                 case .knownTokens: TokenRegistrySettingsView(store: store)
                 case .appearance: AppearanceSettingsView(preferences: store.preferences)
-                case .refreshFrequency: BackgroundSyncSettingsView(store: store)
                 case .priceAlerts: PriceAlertsView(store: store)
                 case .largeMovementAlerts: LargeMovementAlertsSettingsView(store: store)
                 case .pricing: PricingSettingsView(store: store)

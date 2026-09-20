@@ -246,7 +246,6 @@ struct SendLastSentCard: View {
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
                 }.buttonStyle(.glassProminent)
-                    .spectraPressable()
             }
             Button {
                 spectraHaptic(.light)
@@ -263,7 +262,6 @@ struct SendLastSentCard: View {
                 .padding(.vertical, 10)
             }
             .buttonStyle(.glass)
-            .spectraPressable()
             .disabled(!store.canSaveLastSentRecipientToAddressBook())
         }
         .padding(18)

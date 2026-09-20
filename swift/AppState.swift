@@ -288,9 +288,6 @@ final class AppState {
     /// and the notification permission a newly enabled alert needs.
     private func reactToSettingsChange(from before: AppSettings) {
         let appSettings = committedAppSettings
-        if appSettings.automaticRefreshFrequencyMinutes != before.automaticRefreshFrequencyMinutes {
-            Task { @MainActor [weak self] in await self?.restartBalanceRefreshForCurrentConfiguration() }
-        }
         if appSettings.torEnabled != before.torEnabled
             || appSettings.torUseCustomProxy != before.torUseCustomProxy
         {
