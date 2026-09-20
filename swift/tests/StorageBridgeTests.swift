@@ -77,12 +77,12 @@ final class StorageBridgeTests: XCTestCase {
             derivationOverrides: CoreWalletDerivationOverrides(passphrase: nil, hmacKey: nil),
             seedPhrase: "test test test test test test test test test test test junk", privateKey: nil))
         XCTAssertEqual(outcome.wallets.count, 1)
-        XCTAssertTrue(bridge.walletSecretState(walletID: outcome.wallets[0].id)?.hasSigningMaterial == true)
+        XCTAssertTrue(bridge.walletSecretState(walletId: outcome.wallets[0].id)?.hasSigningMaterial == true)
         let reopened = WalletServiceBridge(databasePath: path, service: try WalletService(endpoints: []))
         let stored = try await reopened.portfolioSnapshot().wallets
         XCTAssertEqual(stored.count, 1)
         _ = try await bridge.applyStateCommand(.removeWallet(walletId: outcome.wallets[0].id))
-        XCTAssertFalse(bridge.walletSecretState(walletID: outcome.wallets[0].id)?.hasSigningMaterial == true)
+        XCTAssertFalse(bridge.walletSecretState(walletId: outcome.wallets[0].id)?.hasSigningMaterial == true)
     }
 
     func testUnopenedHistoryReadsThrowAcrossBinding() async throws {

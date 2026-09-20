@@ -43,6 +43,8 @@ final class TokenPreferenceBridgeTests: XCTestCase {
         let stored = try XCTUnwrap(
             accepted.state.tokenPreferences.first(where: { !$0.isBuiltIn }))
         XCTAssertEqual(stored.token.symbol, "MOON", "the symbol is trimmed and upper-cased")
+        XCTAssertEqual(stored.token.chainId, "base")
+        XCTAssertEqual(stored.token.deploymentId, "base:erc-20:\(evmContract)")
         XCTAssertFalse(stored.isBuiltIn)
 
         // The same contract in another case is the same token.
@@ -72,7 +74,7 @@ final class TokenPreferenceBridgeTests: XCTestCase {
         let builtIn = try XCTUnwrap(seeded.state.tokenPreferences.first(where: { $0.isBuiltIn }))
         let transition = try await service.applyStateCommand(
             command: .removeCustomToken(
-                chainName: builtIn.token.chain, contract: builtIn.token.contract))
+                chainName: Chain(id: builtIn.token.chainId)?.displayName ?? builtIn.token.chainId, contract: builtIn.token.contract))
         XCTAssertEqual(rejection(transition), .builtInToken)
         XCTAssertEqual(
             transition.state.tokenPreferences.count, seeded.state.tokenPreferences.count)
@@ -85,7 +87,7 @@ final class TokenPreferenceBridgeTests: XCTestCase {
         let seeded = try await service.applyStateCommand(command: .mergeBuiltInTokens)
         let target = try XCTUnwrap(seeded.state.tokenPreferences.first(where: { $0.isEnabled }))
         let key = CoreTokenPreferenceKey(
-            chainName: target.token.chain, contract: target.token.contract)
+            chainName: Chain(id: target.token.chainId)?.displayName ?? target.token.chainId, contract: target.token.contract)
 
         let off = try await service.applyStateCommand(
             command: .setTokenPreferencesEnabled(tokens: [key], isEnabled: false))
@@ -95,7 +97,7 @@ final class TokenPreferenceBridgeTests: XCTestCase {
         XCTAssertFalse(
             try XCTUnwrap(
                 off.state.tokenPreferences.first {
-                    $0.token.chain == target.token.chain
+                    $0.token.chainId == target.token.chainId
                         && $0.token.contract == target.token.contract
                 }
             ).isEnabled)

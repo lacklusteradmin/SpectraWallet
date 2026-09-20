@@ -109,7 +109,7 @@ struct StandardChainDiagnosticsView: View {
     let chain: Chain
     private let copy = DiagnosticsContentCopy.current
     @State private var copiedDiagnosticsNotice: SpectraTransientNotice?
-    @State private var selectedBackendID: String = ""
+    @State private var selectedBackendId: String = ""
     @State private var cachedEndpointRows: [StandardEndpointRow] = []
     @State private var cachedHistorySourceRows: [StandardHistorySourceRow] = []
     /// Keypool state now lives in core, so it is loaded rather than read
@@ -119,7 +119,7 @@ struct StandardChainDiagnosticsView: View {
     /// Operational events live in core now, so they load rather than read
     /// synchronously — same `.task` as the keypool rows.
     @State private var cachedOperationalEvents: [DiagnosticLog] = []
-    private let customBackendID = "custom"
+    private let customBackendId = "custom"
     private var chainDiagnosticsState: WalletChainDiagnosticsState { store.chainDiagnosticsState }
     private var displayChainTitle: String { store.displayChainTitle(for: chain.displayName) }
     private var diagnosticsLabel: String { displayChainTitle }
@@ -134,11 +134,11 @@ struct StandardChainDiagnosticsView: View {
         catalogBackends.enumerated().map { index, url in
             let host = URL(string: url)?.host ?? url
             return (url, index == 0 ? AppLocalization.format("%@ (Default)", host) : host)
-        } + [(customBackendID, AppLocalization.string("Custom URL"))]
+        } + [(customBackendId, AppLocalization.string("Custom URL"))]
     }
     /// Esplora bases are a Bitcoin-family catalog column; a chain with any has
     /// the custom-Esplora setting.
-    private var hasEsploraBases: Bool { !AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: chain.id).isEmpty }
+    private var hasEsploraBases: Bool { !AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainId: chain.id).isEmpty }
 
     /// Self-test and rescan actions, offered on the chains a rescan means
     /// something for — the ones whose addresses HD discovery walks.
@@ -251,8 +251,8 @@ struct StandardChainDiagnosticsView: View {
                 keypoolError = error.localizedDescription
             }
             cachedOperationalEvents = await store.operationalEvents(for: chain.displayName)
-        }.spectraTransientNotice($copiedDiagnosticsNotice).onChange(of: selectedBackendID) { _, newValue in
-            guard chain.sendsThroughBackend, newValue != customBackendID else { return }
+        }.spectraTransientNotice($copiedDiagnosticsNotice).onChange(of: selectedBackendId) { _, newValue in
+            guard chain.sendsThroughBackend, newValue != customBackendId else { return }
             // The first is what an empty setting already means.
             store.updateSetting(.moneroBackendBaseUrl(value: newValue == catalogBackends.first ? "" : newValue))
         }.onChange(of: store.appSettings.moneroBackendBaseUrl) { _, _ in
@@ -306,7 +306,7 @@ struct StandardChainDiagnosticsView: View {
         if hasEsploraBases {
             let custom = parseBitcoinEsploraEndpoints(raw: store.appSettings.bitcoinEsploraEndpoints)
             return custom.isEmpty
-                ? AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: store.networkChainID(forFamily: chain.id))
+                ? AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainId: store.selectedChainId(forFamily: chain.id))
                 : custom
         }
         if chain.sendsThroughBackend {
@@ -316,7 +316,7 @@ struct StandardChainDiagnosticsView: View {
         guard chain.isEVM else { return AppEndpointDirectory.settingsEndpoints(for: chain.id) }
         let custom = store.rpcEndpoint(forChain: name)
         var endpoints = custom.isEmpty ? [] : [custom]
-        for endpoint in AppEndpointDirectory.evmEndpointsWithSupplemental(for: store.networkChainID(forFamily: chain.id)) where !endpoints.contains(endpoint) {
+        for endpoint in AppEndpointDirectory.evmEndpointsWithSupplemental(for: store.selectedChainId(forFamily: chain.id)) where !endpoints.contains(endpoint) {
             endpoints.append(endpoint)
         }
         return endpoints
@@ -395,17 +395,17 @@ struct StandardChainDiagnosticsView: View {
     @ViewBuilder
     private var backendSettingsSection: some View {
         Section(AppLocalization.format("%@ Backend", chain.displayName)) {
-            Picker(AppLocalization.string("Trusted Backend"), selection: $selectedBackendID) {
+            Picker(AppLocalization.string("Trusted Backend"), selection: $selectedBackendId) {
                 ForEach(backendChoices, id: \.id) { choice in Text(choice.title).tag(choice.id) }
             }
-            if selectedBackendID == customBackendID {
+            if selectedBackendId == customBackendId {
                 SettingTextField(
                     title: AppLocalization.format("%@ Backend URL (Optional)", chain.displayName),
                     value: store.appSettings.moneroBackendBaseUrl, endpoint: .moneroBackend
                 ) { store.updateSetting(.moneroBackendBaseUrl(value: $0)) }
                 .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
             } else {
-                Text(selectedBackendID.isEmpty ? (catalogBackends.first ?? "") : selectedBackendID)
+                Text(selectedBackendId.isEmpty ? (catalogBackends.first ?? "") : selectedBackendId)
                     .font(.caption.monospaced()).textSelection(.enabled)
             }
             Text(copy.backendNote).font(.caption).foregroundStyle(.secondary)
@@ -485,10 +485,10 @@ struct StandardChainDiagnosticsView: View {
     private func syncSelectedBackendIDFromStore() {
         let trimmed = store.appSettings.moneroBackendBaseUrl
         if trimmed.isEmpty {
-            selectedBackendID = catalogBackends.first ?? customBackendID
+            selectedBackendId = catalogBackends.first ?? customBackendId
         } else {
-            selectedBackendID =
-                catalogBackends.first { $0.caseInsensitiveCompare(trimmed) == .orderedSame } ?? customBackendID
+            selectedBackendId =
+                catalogBackends.first { $0.caseInsensitiveCompare(trimmed) == .orderedSame } ?? customBackendId
         }
     }
     private var supportsUTXOChainActions: Bool { utxoActions != nil }

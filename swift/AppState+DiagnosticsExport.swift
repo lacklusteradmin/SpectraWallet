@@ -13,7 +13,7 @@ extension AppState {
     static let diagnosticsBundleChainNames = Chain.mainnets.map(\.displayName)
 
     func diagnosticsJSON(for chainName: String) -> String? {
-        coreDiagnosticsJson(
+        diagnosticsJson(
             chainName: chainName,
             endpoints: self[endpointHealthFor: chainName].results,
             historyLastUpdatedAtUnix: self[historyRunFor: chainName].lastUpdatedAt?
@@ -23,7 +23,7 @@ extension AppState {
             // Any family with a network to choose, not the one named Bitcoin:
             // Ethereum's, Dogecoin's and the rest had a selection this left out.
             extraNetworkMode: Chain(displayName: chainName).flatMap {
-                $0.networkChoices.count > 1 ? networkChainID(forFamily: $0.id) : nil
+                $0.networkChoices.count > 1 ? selectedChainId(forFamily: $0.id) : nil
             })
     }
 
@@ -108,12 +108,12 @@ extension DiagnosticsBundlePayload {
     /// substituting `"{}"` for chains with no data. Ids come from the
     /// registry, so the bundle keys stay canonical.
     static func chainKeyed(_ byChainName: [String: String?]) -> [String: String] {
-        var byChainID: [String: String] = [:]
+        var byChainId: [String: String] = [:]
         for (chainName, json) in byChainName {
             guard let id = Chain(displayName: chainName)?.id else { continue }
-            byChainID[id] = json ?? "{}"
+            byChainId[id] = json ?? "{}"
         }
-        return byChainID
+        return byChainId
     }
 
     func diagnosticsJSON(forChainNamed chainName: String) -> String? {

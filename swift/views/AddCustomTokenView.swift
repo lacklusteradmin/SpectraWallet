@@ -6,7 +6,7 @@ struct AddCustomTokenView: View {
     @State private var symbolInput: String = ""
     @State private var nameInput: String = ""
     @State private var contractInput: String = ""
-    @State private var coinGeckoIdInput: String = ""
+    @State private var coingeckoIdInput: String = ""
     @State private var decimalsInput: Int = 6
     @State private var formMessage: String?
     var body: some View {
@@ -28,7 +28,7 @@ struct AddCustomTokenView: View {
                 TextField(AppLocalization.string(selectedChain.contractAddressPrompt), text: $contractInput).textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                 Stepper(AppLocalization.format("Token Supports: %lld decimals", decimalsInput), value: $decimalsInput, in: 0...30, step: 1)
-                TextField(AppLocalization.string("CoinGecko ID (Optional)"), text: $coinGeckoIdInput).textInputAutocapitalization(.never)
+                TextField(AppLocalization.string("CoinGecko ID (Optional)"), text: $coingeckoIdInput).textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             }
             Section {
@@ -40,7 +40,7 @@ struct AddCustomTokenView: View {
                         let message = await store.addCustomTokenPreference(
                             chain: selectedChain, symbol: symbolInput, name: nameInput,
                             contractAddress: contractInput,
-                            coinGeckoId: coinGeckoIdInput, decimals: decimalsInput
+                            coingeckoId: coingeckoIdInput, decimals: decimalsInput
                         )
                         if let message {
                             formMessage = message
@@ -49,7 +49,7 @@ struct AddCustomTokenView: View {
                             symbolInput = ""
                             nameInput = ""
                             contractInput = ""
-                            coinGeckoIdInput = ""
+                            coingeckoIdInput = ""
                         }
                     }
                 }

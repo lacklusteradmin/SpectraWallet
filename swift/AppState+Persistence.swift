@@ -23,13 +23,13 @@ extension AppState {
         await refreshTransactionProjection()
     }
     /// Tell core which network of a family the user picked.
-    func commitNetworkChain(_ chainID: String) {
+    func commitSelectedChain(_ chainId: String) {
         let epoch = beginCoreStateRead()
         Task { @MainActor [weak self] in
             guard let self else { return }
             guard
                 let transition = try? await self.bridge.applyStateCommand(
-                    .selectNetworkChain(chainId: chainID))
+                    .selectChainForFamily(chainId: chainId))
             else {
                 self.finishCoreStateRead(epoch)
                 return

@@ -70,7 +70,7 @@ final class WalletDiagnosticsState {
             ]
             if let source = event.source, !source.isEmpty { parts.append("source=\(source)") }
             if let chainName = event.chainName, !chainName.isEmpty { parts.append("chain=\(chainName)") }
-            if let walletID = event.walletId { parts.append("wallet=\(walletID)") }
+            if let walletId = event.walletId { parts.append("wallet=\(walletId)") }
             if let transactionHash = event.transactionHash, !transactionHash.isEmpty { parts.append("tx=\(transactionHash)") }
             if let metadata = event.metadata, !metadata.isEmpty { parts.append("meta=\(metadata)") }
             return parts.joined(separator: " | ")
@@ -78,11 +78,11 @@ final class WalletDiagnosticsState {
         return (header + lines).joined(separator: "\n")
     }
     func appendOperationalLog(
-        _ level: DiagnosticLogLevel, category: String, message: String, chainName: String? = nil, walletID: String? = nil,
+        _ level: DiagnosticLogLevel, category: String, message: String, chainName: String? = nil, walletId: String? = nil,
         transactionHash: String? = nil, source: String? = nil, metadata: String? = nil
     ) {
         enqueue(.append(input: DiagnosticLogInput(level: level, category: category, message: message,
-            chainName: chainName, walletId: walletID, transactionHash: transactionHash, source: source, metadata: metadata)))
+            chainName: chainName, walletId: walletId, transactionHash: transactionHash, source: source, metadata: metadata)))
     }
     private func localizedDegradedMessage(_ message: String, chainName: String) -> String {
         if message.isEmpty { return message }

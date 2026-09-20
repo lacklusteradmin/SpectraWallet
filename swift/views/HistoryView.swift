@@ -50,17 +50,17 @@ struct HistoryView: View {
     let store: AppState
     @State private var selectedFilter: HistoryFilter = .all
     @State private var selectedSortOrder: HistorySortOrder = .newest
-    @State private var selectedWalletID: String?
+    @State private var selectedWalletId: String?
     @State private var searchText: String = ""
     @State private var pageRecords: [TransactionRecord] = []
     @State private var nextOffset: UInt64 = 0
     @State private var hasMoreStoredHistory = false
     @State private var pageError: String?
     @State private var isLoadingPage = false
-    @State private var pageRequestID = UUID()
+    @State private var pageRequestId = UUID()
     @State private var loadedFilterKey: String?
     @State private var isRetrying = false
-    @State private var recheckingIDs: Set<String> = []
+    @State private var recheckingIds: Set<String> = []
     var body: some View {
         NavigationStack {
             ZStack {
@@ -126,17 +126,17 @@ struct HistoryView: View {
                                             }
                                             if (row.transaction.status == .pending || row.transaction.status == .failed), row.transaction.supportsStatusRecheck {
                                                 Button {
-                                                    recheckingIDs.insert(row.id)
+                                                    recheckingIds.insert(row.id)
                                                     Task {
                                                         _ = await store.retryUTXOTransactionStatus(for: row.id)
-                                                        recheckingIDs.remove(row.id)
+                                                        recheckingIds.remove(row.id)
                                                     }
                                                 } label: {
                                                     Label(AppLocalization.string("Recheck"), systemImage: "arrow.clockwise")
                                                         .frame(minHeight: 44)
                                                 }
                                                 .buttonStyle(.glass)
-                                                .disabled(recheckingIDs.contains(row.id))
+                                                .disabled(recheckingIds.contains(row.id))
                                                 .padding(.bottom, 12)
                                             }
                                             if index < section.rows.count - 1 { Divider().padding(.leading, 64).opacity(0.25) }
@@ -164,7 +164,7 @@ struct HistoryView: View {
     }
     private var historyFilterMenu: some View {
         Menu {
-            Picker(AppLocalization.string("Wallet"), selection: $selectedWalletID) {
+            Picker(AppLocalization.string("Wallet"), selection: $selectedWalletId) {
                 Text(AppLocalization.string("All Wallets")).tag(Optional<String>.none)
                 ForEach(store.wallets) { wallet in Text(wallet.name).tag(Optional(wallet.id)) }
             }
@@ -179,11 +179,11 @@ struct HistoryView: View {
         }.accessibilityLabel(AppLocalization.string("Filter history"))
     }
 
-    private var historyWalletIDs: Set<String> {
-        if let selectedWalletID { return [selectedWalletID] }
+    private var historyWalletIds: Set<String> {
+        if let selectedWalletId { return [selectedWalletId] }
         return Set(store.wallets.map(\.id))
     }
-    private var canLoadMoreVisibleHistory: Bool { store.canLoadMoreOnChainHistory(for: historyWalletIDs) }
+    private var canLoadMoreVisibleHistory: Bool { store.canLoadMoreOnChainHistory(for: historyWalletIds) }
     private var shouldShowPagingControls: Bool {
         hasMoreStoredHistory || canLoadMoreVisibleHistory || store.isLoadingMoreOnChainHistory
     }
@@ -216,7 +216,7 @@ struct HistoryView: View {
     private var historyError: String? { pageError ?? store.historyReadError }
     private var visibleTransactions: [TransactionRecord] { pageRecords }
     private var filterKey: String {
-        "\(selectedWalletID ?? "")|\(selectedFilter)|\(selectedSortOrder)|\(searchText)"
+        "\(selectedWalletId ?? "")|\(selectedFilter)|\(selectedSortOrder)|\(searchText)"
     }
     private var queryKey: String { "\(filterKey)|\(store.transactionRevision)|\(store.walletsRevision)" }
     private func loadPage(reset: Bool) async {
@@ -226,10 +226,10 @@ struct HistoryView: View {
             hasMoreStoredHistory = false
             loadedFilterKey = filterKey
         }
-        let requestID = UUID()
-        pageRequestID = requestID
+        let requestId = UUID()
+        pageRequestId = requestId
         isLoadingPage = true
-        defer { if pageRequestID == requestID { isLoadingPage = false } }
+        defer { if pageRequestId == requestId { isLoadingPage = false } }
         let filter: HistoryQueryFilter
         switch selectedFilter {
         case .all: filter = .all
@@ -239,9 +239,9 @@ struct HistoryView: View {
         }
         do {
             let page = try await WalletServiceBridge.shared.historyPage(HistoryQuery(
-                walletId: selectedWalletID, filter: filter, search: searchText,
+                walletId: selectedWalletId, filter: filter, search: searchText,
                 oldestFirst: selectedSortOrder == .oldest, offset: reset ? 0 : nextOffset, limit: 20))
-            guard !Task.isCancelled, pageRequestID == requestID, queryKey == key else { return }
+            guard !Task.isCancelled, pageRequestId == requestId, queryKey == key else { return }
             if reset { pageRecords = page.records }
             else {
                 let present = Set(pageRecords.map(\.id))
@@ -251,7 +251,7 @@ struct HistoryView: View {
             hasMoreStoredHistory = page.hasMore
             pageError = nil
         } catch {
-            guard !Task.isCancelled, pageRequestID == requestID, queryKey == key else { return }
+            guard !Task.isCancelled, pageRequestId == requestId, queryKey == key else { return }
             pageError = error.localizedDescription
         }
     }
@@ -259,7 +259,7 @@ struct HistoryView: View {
         Button {
             Task {
                 if !hasMoreStoredHistory {
-                    await store.loadMoreOnChainHistory(for: historyWalletIDs)
+                    await store.loadMoreOnChainHistory(for: historyWalletIds)
                     await loadPage(reset: true)
                 } else {
                     await loadPage(reset: false)

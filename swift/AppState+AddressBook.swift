@@ -29,11 +29,11 @@ extension AppState {
             ? AppLocalization.format("%@ addresses look like %@", chainName, hint)
             : AppLocalization.format("Enter a valid %@ address — they look like %@", chainName, hint)
     }
-    func isDuplicateAddressBookAddress(_ address: String, chainName: String, excluding entryID: String? = nil) -> Bool {
+    func isDuplicateAddressBookAddress(_ address: String, chainName: String, excluding entryId: String? = nil) -> Bool {
         let normalized = normalizedAddress(address, for: chainName)
         guard !normalized.isEmpty else { return false }
         return addressBook.contains {
-            $0.id != entryID && $0.chainName == chainName && $0.address.caseInsensitiveCompare(normalized) == .orderedSame
+            $0.id != entryId && $0.chainName == chainName && $0.address.caseInsensitiveCompare(normalized) == .orderedSame
         }
     }
     func canSaveAddressBookEntry(name: String, address: String, chainName: String) -> Bool {

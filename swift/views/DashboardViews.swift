@@ -3,7 +3,7 @@ struct DashboardView: View {
     @Bindable var store: AppState
     @State private var dashboardPage: DashboardPage = .assets
     @State private var isNavigatingToPinnedAssets = false
-    @State private var selectedWalletID: String?
+    @State private var selectedWalletId: String?
     @State private var selectedAssetGroup: DashboardAssetGroup?
     private var deleteWalletMessage: String {
         guard let pendingWallet = store.walletPendingDeletion else { return "" }
@@ -13,8 +13,8 @@ struct DashboardView: View {
         return AppLocalization.string("Please take note of your seed phrase because you can't recover this wallet after deletion.")
     }
     private var selectedWallet: WalletView? {
-        guard let selectedWalletID else { return nil }
-        return store.wallet(for: selectedWalletID)
+        guard let selectedWalletId else { return nil }
+        return store.wallet(for: selectedWalletId)
     }
     var body: some View {
         NavigationStack {
@@ -68,8 +68,8 @@ struct DashboardView: View {
                 }
             }.navigationDestination(isPresented: $store.isShowingAddWalletEntry) {
                 AddWalletEntryView(store: store)
-            }.navigationDestination(item: $selectedWalletID) { walletID in
-                if let wallet = store.wallets.first(where: { $0.id == walletID }) {
+            }.navigationDestination(item: $selectedWalletId) { walletId in
+                if let wallet = store.wallets.first(where: { $0.id == walletId }) {
                     WalletDetailView(store: store, wallet: wallet)
                 }
             }.navigationDestination(item: $selectedAssetGroup) { assetGroup in AssetGroupDetailView(store: store, assetGroup: assetGroup) }
@@ -191,13 +191,13 @@ struct DashboardView: View {
         } else {
             ForEach(Array(wallets.enumerated()), id: \.element.id) { index, wallet in
                 let badge = Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, .mint)
-                Button { selectedWalletID = wallet.id } label: {
+                Button { selectedWalletId = wallet.id } label: {
                     WalletCardView(
                         presentation: WalletCardView.Presentation(
                             walletName: wallet.name, chainTitleText: store.displayChainTitle(for: wallet),
                             totalValueText: store.preferences.hideBalances
                                 ? "••••••"
-                                : store.formattedWalletTotal(walletID: wallet.id),
+                                : store.formattedWalletTotal(walletId: wallet.id),
                             assetCountText: AppLocalization.format(
                                 "%lld assets", wallet.holdings.filter { $0.amount > 0 }.count),
                             isWatchOnly: store.isWatchOnlyWallet(wallet), badgeArtworkName: badge.0,
@@ -248,7 +248,7 @@ struct DashboardView: View {
             DashboardAssetRowPresentation(
                 assetGroup: assetGroup,
                 amountText: store.formattedAssetAmount(
-                    assetGroup.totalAmount, symbol: assetGroup.symbol, deploymentID: assetGroup.identity.holdingKey
+                    assetGroup.totalAmount, symbol: assetGroup.symbol, deploymentId: assetGroup.identity.holdingKey
                 ),
                 totalValueText: hideBalances
                     ? "••••••"
@@ -329,7 +329,7 @@ struct AssetGroupDetailView: View {
     /// Where the coin lives, from core's asset wiki — the same join the wiki
     /// screen renders, rather than a second dashboard-only cache of it.
     private var places: [AssetWikiPlace] {
-        CachedCoreHelpers.assetWikiEntry(tokenID: assetGroup.id)?.livesOn ?? []
+        CachedCoreHelpers.assetWikiEntry(tokenId: assetGroup.id)?.livesOn ?? []
     }
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -356,7 +356,7 @@ struct AssetContractsDetailView: View {
     let store: AppState
     let assetGroup: DashboardAssetGroup
     private var places: [AssetWikiPlace] {
-        CachedCoreHelpers.assetWikiEntry(tokenID: assetGroup.id)?.livesOn ?? []
+        CachedCoreHelpers.assetWikiEntry(tokenId: assetGroup.id)?.livesOn ?? []
     }
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -403,7 +403,7 @@ private struct AssetSummaryStatsCard: View {
             statRow(
                 label: AppLocalization.string("Total Amount"),
                 value: store.formattedAssetAmount(
-                    assetGroup.totalAmount, symbol: assetGroup.symbol, deploymentID: assetGroup.identity.holdingKey),
+                    assetGroup.totalAmount, symbol: assetGroup.symbol, deploymentId: assetGroup.identity.holdingKey),
                 icon: "scalemass.fill")
             Divider().opacity(0.4)
             statRow(
@@ -460,7 +460,7 @@ private struct AssetChainBreakdownCard: View {
                         tokenStandard: holding.coin.tokenStandard,
                         amountText: store.formattedAssetAmount(
                             holding.coin.amount, symbol: holding.coin.symbol,
-                            deploymentID: holding.coin.holdingKey),
+                            deploymentId: holding.coin.holdingKey),
                         valueText: store.formattedFiatAmountOrUnavailable(fromUSD: holding.valueUsd),
                         fallbackColor: holding.coin.color
                     )
@@ -544,7 +544,7 @@ struct PinnedAssetsView: View {
     }
     private func binding(for option: DashboardPinOption) -> Binding<Bool> {
         Binding(
-            get: { option.isPinned }, set: { isPinned in store.setDashboardAssetPinned(isPinned, tokenID: option.tokenId) }
+            get: { option.isPinned }, set: { isPinned in store.setDashboardAssetPinned(isPinned, tokenId: option.tokenId) }
         )
     }
 }
@@ -568,11 +568,11 @@ struct PortfolioWalletSelectionView: View {
             }
         }.navigationTitle(AppLocalization.string("Portfolio Wallets"))
     }
-    private func binding(for walletID: String) -> Binding<Bool> {
+    private func binding(for walletId: String) -> Binding<Bool> {
         Binding(
             get: {
-                store.wallets.first(where: { $0.id == walletID })?.includeInPortfolioTotal ?? true
-            }, set: { isIncluded in store.setPortfolioInclusion(isIncluded, for: walletID) }
+                store.wallets.first(where: { $0.id == walletId })?.includeInPortfolioTotal ?? true
+            }, set: { isIncluded in store.setPortfolioInclusion(isIncluded, for: walletId) }
         )
     }
 }

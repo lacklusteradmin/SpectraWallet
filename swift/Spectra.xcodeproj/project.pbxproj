@@ -44,7 +44,7 @@
 		90F002000000000000000031 /* AppState+Reset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000031 /* AppState+Reset.swift */; };
 		90F002000000000000000032 /* AppState+DerivedState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000032 /* AppState+DerivedState.swift */; };
 		90F002000000000000000035 /* WalletDerivedCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000035 /* WalletDerivedCache.swift */; };
-		90F002000000000000000037 /* WalletRustEndpointCatalogBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000037 /* WalletRustEndpointCatalogBridge.swift */; };
+		90F002000000000000000037 /* AppEndpointDirectory.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000037 /* AppEndpointDirectory.swift */; };
 		90F002000000000000000038 /* WalletServiceBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000038 /* WalletServiceBridge.swift */; };
 		90F002000000000000000039 /* AppState+TorLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000039 /* AppState+TorLifecycle.swift */; };
 		90F00200000000000000003B /* SetupFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003B /* SetupFlow.swift */; };
@@ -131,7 +131,7 @@
 		90F001000000000000000031 /* AppState+Reset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+Reset.swift"; sourceTree = "<group>"; };
 		90F001000000000000000032 /* AppState+DerivedState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+DerivedState.swift"; sourceTree = "<group>"; };
 		90F001000000000000000035 /* WalletDerivedCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletDerivedCache.swift; sourceTree = "<group>"; };
-		90F001000000000000000037 /* WalletRustEndpointCatalogBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRustEndpointCatalogBridge.swift; sourceTree = "<group>"; };
+		90F001000000000000000037 /* AppEndpointDirectory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEndpointDirectory.swift; sourceTree = "<group>"; };
 		90F001000000000000000038 /* WalletServiceBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletServiceBridge.swift; sourceTree = "<group>"; };
 		90F001000000000000000039 /* AppState+TorLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TorLifecycle.swift"; sourceTree = "<group>"; };
 		90F00100000000000000003B /* SetupFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlow.swift; sourceTree = "<group>"; };
@@ -252,7 +252,7 @@
 				90F00100000000000000002C /* StaticContentCatalog.swift */,
 				90F00100000000000000002F /* AppState+DiagnosticsExport.swift */,
 				90F001000000000000000035 /* WalletDerivedCache.swift */,
-				90F001000000000000000037 /* WalletRustEndpointCatalogBridge.swift */,
+				90F001000000000000000037 /* AppEndpointDirectory.swift */,
 				90F001000000000000000038 /* WalletServiceBridge.swift */,
 				90F001000000000000000001 /* AppState+AddressResolution.swift */,
 				90F001000000000000000002 /* AppState+BalanceRefresh.swift */,
@@ -497,7 +497,7 @@
 				90F00200000000000000002C /* StaticContentCatalog.swift in Sources */,
 				90F00200000000000000002F /* AppState+DiagnosticsExport.swift in Sources */,
 				90F002000000000000000035 /* WalletDerivedCache.swift in Sources */,
-				90F002000000000000000037 /* WalletRustEndpointCatalogBridge.swift in Sources */,
+				90F002000000000000000037 /* AppEndpointDirectory.swift in Sources */,
 				90F002000000000000000038 /* WalletServiceBridge.swift in Sources */,
 				90F00200000000000000003B /* SetupFlow.swift in Sources */,
 				90F00200000000000000003C /* ImportDraft.swift in Sources */,

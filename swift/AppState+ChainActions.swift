@@ -10,7 +10,7 @@ extension AppState {
         let results: [ChainSelfTestResult]
         do {
             guard let chain = Chain(displayName: chainName) else { return }
-            let report = try await self.bridge.runConfiguredSelfTests(chainID: chain.id)
+            let report = try await self.bridge.runConfiguredSelfTests(chainId: chain.id)
             results = report.results
         } catch {
             appendChainOperationalEvent(.error, chainName: chainName, message: error.localizedDescription)

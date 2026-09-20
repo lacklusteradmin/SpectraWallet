@@ -7,7 +7,7 @@ struct SendTransactionLiveActivityAttributes: ActivityAttributes {
     /// so the identity travels in the attributes: `Activity.activities` is then
     /// enough to find the one activity a status change concerns, and it still
     /// works after a relaunch, when no Swift-side handle survived.
-    let transactionID: String
+    let transactionId: String
 
     struct ContentState: Codable, Hashable {
         enum Phase: String, Codable, Hashable {

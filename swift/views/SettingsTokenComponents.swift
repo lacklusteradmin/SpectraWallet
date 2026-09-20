@@ -7,7 +7,7 @@ extension TokenHostingChain {
     }
 }
 extension TokenPreferenceEntry {
-    var settingsArtworkName: String { coreTokenArtworkName(tokenId: token.tokenId) }
+    var settingsArtworkName: String { tokenArtworkName(tokenId: token.tokenId) }
     var settingsFallbackMark: String {
         String(token.symbol.trimmingCharacters(in: .whitespacesAndNewlines).prefix(2)).uppercased()
     }
@@ -48,7 +48,7 @@ struct TokenRegistryEntryCardView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(Chain(id: entry.token.chain)?.displayName ?? entry.hostingChain?.chain?.displayName ?? entry.token.chain)
+                    Text(Chain(id: entry.token.chainId)?.displayName ?? entry.hostingChain?.chain?.displayName ?? entry.token.chainId)
                         .font(.subheadline.weight(.semibold))
                     Text(entry.token.tokenStandard).font(.caption).foregroundStyle(.secondary)
                 }

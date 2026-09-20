@@ -21,8 +21,8 @@ cd "$(dirname "$0")/.."
 python3 - <<'PY'
 import pathlib, re, sys, tomllib
 
-networks = tomllib.loads(pathlib.Path('core/data/chains.toml').read_text())['networks']
-chain_words = {n['name'] for n in networks} | {n['id'] for n in networks}
+chains = tomllib.loads(pathlib.Path('core/data/chains.toml').read_text())['chains']
+chain_words = {n['name'] for n in chains} | {n['id'] for n in chains}
 
 LITERAL = re.compile(r'"((?:[^"\\\n]|\\.)*)"')
 

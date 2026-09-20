@@ -49,10 +49,10 @@ import Foundation
         }
         func testExportOperationalLogsTextIncludesHeaderAndMetadata() async throws {
             let state = WalletDiagnosticsState(bridge: bridge)
-            let walletID = UUID()
+            let walletId = UUID()
             state.appendOperationalLog(
                 .warning, category: "Chain Sync", message: "Ethereum refresh timed out.", chainName: "Ethereum",
-                walletID: walletID.uuidString,
+                walletId: walletId.uuidString,
                 transactionHash: "0xabc", source: "network", metadata: "cached"
             )
             await state.flushPendingPersistence()
@@ -61,7 +61,7 @@ import Foundation
             XCTAssertTrue(text.contains("Entries: 1"))
             XCTAssertTrue(text.contains("Network Status: Healthy"))
             XCTAssertTrue(text.contains("[WARNING]"))
-            XCTAssertTrue(text.contains("wallet=\(walletID.uuidString)"))
+            XCTAssertTrue(text.contains("wallet=\(walletId.uuidString)"))
             XCTAssertTrue(text.contains("tx=0xabc"))
             XCTAssertTrue(text.contains("meta=cached"))
         }

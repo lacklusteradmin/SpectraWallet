@@ -10,7 +10,7 @@ extension AppState {
         importDraft.setupModeChoice = setupMode
         importError = nil
         isImportingWallet = false
-        editingWalletID = nil
+        editingWalletId = nil
         isShowingWalletImporter = true
     }
     func beginWatchAddressesImport() {
@@ -20,7 +20,7 @@ extension AppState {
         importDraft.setupModeChoice = .simple
         importError = nil
         isImportingWallet = false
-        editingWalletID = nil
+        editingWalletId = nil
         isShowingWalletImporter = true
     }
     func beginWalletCreation(setupMode: SetupModeChoice = .simple) {
@@ -28,18 +28,18 @@ extension AppState {
         importDraft.setupModeChoice = setupMode
         importError = nil
         isImportingWallet = false
-        editingWalletID = nil
+        editingWalletId = nil
         isShowingWalletImporter = true
     }
     func cancelWalletImport() {
         importDraft.configureForNewWallet()
         importError = nil
         isImportingWallet = false
-        editingWalletID = nil
+        editingWalletId = nil
         isShowingWalletImporter = false
     }
     func beginEditingWallet(_ wallet: WalletView) {
-        editingWalletID = wallet.id
+        editingWalletId = wallet.id
         importError = nil
         isImportingWallet = false
         importDraft.configureForEditing(wallet: wallet)
@@ -55,21 +55,21 @@ extension AppState {
         else {
             return
         }
-        let deletedWalletID = walletPendingDeletion.id
+        let deletedWalletId = walletPendingDeletion.id
         // Core forgets the wallet's secrets, owned addresses, history
         // pagination and diagnostics rows in the same removal.
-        guard await removeWallet(id: deletedWalletID) else { return }
+        guard await removeWallet(id: deletedWalletId) else { return }
         chainDiagnosticsState.diagnosticsRevision &+= 1
         await diagnostics.loadFromSQLite()
-        if receiveWalletID == deletedWalletID {
-            receiveWalletID = ""
+        if receiveWalletId == deletedWalletId {
+            receiveWalletId = ""
             receiveHoldingKey = ""
             receiveResolvedAddress = ""
             isResolvingReceiveAddress = false
         }
-        if sendWalletID == deletedWalletID { cancelSend() }
-        if editingWalletID == deletedWalletID {
-            editingWalletID = nil
+        if sendWalletId == deletedWalletId { cancelSend() }
+        if editingWalletId == deletedWalletId {
+            editingWalletId = nil
             isShowingWalletImporter = false
         }
         selectedMainTab = .home
@@ -81,8 +81,8 @@ extension AppState {
         guard !isImportingWallet else { return }
         importError = nil
         let trimmedWalletName = importDraft.walletName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let editingWalletID {
-            await renameWallet(id: editingWalletID, to: trimmedWalletName)
+        if let editingWalletId {
+            await renameWallet(id: editingWalletId, to: trimmedWalletName)
             return
         }
         if importDraft.requiresBackupVerification && !importDraft.isBackupVerificationComplete {
@@ -100,7 +100,7 @@ extension AppState {
             return paths
         }()
         var importedWalletsForRefresh: [WalletView] = []
-        if editingWalletID == nil {
+        if editingWalletId == nil {
             // Core mints the wallet ids, derives every address from the secret
             // the commit carries, and reads each family's network from its own
             // settings; only a watch-only import supplies addresses, typed, in
@@ -152,7 +152,7 @@ extension AppState {
         importError = notice
         importDraft.clearSensitiveInputs()
         resetImportForm()
-        editingWalletID = nil
+        editingWalletId = nil
         isShowingWalletImporter = false
         // Also pop the Add Wallet entry page so the user lands back on
         // Dashboard after a successful import — they started on Dashboard,

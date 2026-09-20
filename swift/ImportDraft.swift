@@ -108,7 +108,7 @@ final class WalletImportDraft {
     /// Edit mode resets the grid, so an empty entry answers "nothing to say"
     /// without a mode guard of its own.
     var seedPhraseVerdict: SeedPhraseVerdict {
-        coreCheckSeedPhrase(
+        checkSeedPhrase(
             check: SeedPhraseCheck(
                 words: seedPhraseEntries,
                 language: seedPhraseLanguage,
@@ -122,7 +122,7 @@ final class WalletImportDraft {
         return trimmed.isEmpty ? nil : trimmed
     }
     var walletPasswordValidationError: String? {
-        guard let reason = coreValidateWalletPassword(password: walletPassword, confirmation: walletPasswordConfirmation) else { return nil }
+        guard let reason = validateWalletPassword(password: walletPassword, confirmation: walletPasswordConfirmation) else { return nil }
         switch reason {
         case .tooShort: return AppLocalization.string("Wallet password must be at least 4 characters, or leave it blank.")
         case .confirmationMismatch: return AppLocalization.string("Wallet password confirmation does not match.")
@@ -133,7 +133,7 @@ final class WalletImportDraft {
     }
     /// Core interprets exact secret input and refuses unsupported overrides.
     var resolvedDerivationOverrides: CoreWalletDerivationOverrides {
-        coreParseWalletDerivationInput(input: WalletDerivationInput(
+        parseWalletDerivationInput(input: WalletDerivationInput(
             passphrase: overridePassphrase, hmacKey: overrideHmacKey))
     }
     /// The selected chains, in catalog order rather than selection order.
@@ -169,7 +169,7 @@ final class WalletImportDraft {
     }
     /// Pass the typed form to core for validation.
     var canImportWallet: Bool {
-        coreValidateWalletImportDraft(
+        validateWalletImportDraft(
             draft: WalletImportDraftInput(
                 mode: draftMode, selectedChainNames: selectedChainNames, walletName: walletName,
                 seedPhraseWords: seedPhraseEntries, seedPhraseLanguage: seedPhraseLanguage,

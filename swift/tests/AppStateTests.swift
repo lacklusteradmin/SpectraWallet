@@ -11,9 +11,9 @@ import Foundation
                 .appendingPathComponent("pins-\(UUID().uuidString).sqlite").path
             let initial = try await service.openState(databasePath: path)
             XCTAssertEqual(initial.settings.pinnedDashboardTokenIds.count, 4)
-            for tokenID in initial.settings.pinnedDashboardTokenIds {
+            for tokenId in initial.settings.pinnedDashboardTokenIds {
                 _ = try await service.applyStateCommand(
-                    command: .setDashboardAssetPinned(tokenId: tokenID, isPinned: false))
+                    command: .setDashboardAssetPinned(tokenId: tokenId, isPinned: false))
             }
             let reopened = try WalletService(endpoints: [])
             let saved = try await reopened.openState(databasePath: path)
@@ -95,7 +95,7 @@ import Foundation
         func testEditingWalletNamePreservesExistingHoldings() async throws {
             let store = makeState()
             let existingHolding = Coin.makeCustom(
-                name: "Ethereum", symbol: "ETH", coinGeckoId: "ethereum", chainName: "Ethereum",
+                name: "Ethereum", symbol: "ETH", coingeckoId: "ethereum", chainName: "Ethereum",
                 tokenStandard: "Native", contractAddress: nil, amount: 2, priceUsd: 3000
             )
             let wallet = WalletView(
@@ -103,7 +103,7 @@ import Foundation
                 selectedChain: "Ethereum", holdings: [existingHolding], includeInPortfolioTotal: false
             )
             try await store.seedWalletForTesting(wallet)
-            store.editingWalletID = wallet.id
+            store.editingWalletId = wallet.id
             store.importDraft.configureForEditing(wallet: wallet)
             store.importDraft.walletName = "Renamed ETH"
             store.importDraft.selectedChainNamesStorage = []
@@ -114,7 +114,7 @@ import Foundation
             XCTAssertEqual(store.wallets[0].holdings[0].amount, existingHolding.amount)
             XCTAssertEqual(store.wallets[0].holdings[0].priceUsd, existingHolding.priceUsd)
             XCTAssertFalse(store.wallets[0].includeInPortfolioTotal)
-            XCTAssertNil(store.editingWalletID)
+            XCTAssertNil(store.editingWalletId)
             XCTAssertFalse(store.isShowingWalletImporter)
             XCTAssertNil(store.importError)
         }
@@ -142,7 +142,7 @@ import Foundation
         /// argument is what exposed it.
         func testImportingBitcoinWalletOnTestnet4StoresTheMainnetDerivedAddress() async {
             let store = makeState()
-            store.selectNetworkChain("bitcoin-testnet-4")
+            store.selectChainForFamily("bitcoin-testnet-4")
             await store.awaitPendingCoreStateWrites()
             store.importDraft.walletName = "Primary BTC Testnet4"
             store.importDraft.setSeedPhraseForTesting("test test test test test test test test test test test junk")
@@ -173,7 +173,7 @@ import Foundation
         }
         func testBitcoinDisplayNetworkNameUsesSelectedMode() async {
             let store = makeState()
-            store.selectNetworkChain("bitcoin-testnet-4")
+            store.selectChainForFamily("bitcoin-testnet-4")
             await store.awaitPendingCoreStateWrites()
             XCTAssertEqual(store.displayChainTitle(for: "Bitcoin"), "Bitcoin Testnet4")
         }
@@ -181,7 +181,7 @@ import Foundation
         func testBitcoinWalletDisplayTitleUsesWalletSpecificNetwork() {
             let store = makeState()
             let wallet = WalletView(
-                name: "BTC Testnet4", networkChainID: "bitcoin-testnet-4",
+                name: "BTC Testnet4", selectedChainId: "bitcoin-testnet-4",
                 addresses: ["Bitcoin": "tb1qexample"], selectedChain: "Bitcoin", holdings: []
             )
             XCTAssertEqual(store.displayChainTitle(for: wallet), "Bitcoin Testnet4")
@@ -191,7 +191,7 @@ import Foundation
             let transaction = TransactionRecord(id: UUID().uuidString, kind: .send, status: .confirmed,
                 walletName: "Historical", assetDisplayName: "Ethereum", symbol: "ETH",
                 chainName: "Ethereum Sepolia", amount: 1, address: "0x1111111111111111111111111111111111111111")
-            store.selectNetworkChain("ethereum-hoodi")
+            store.selectChainForFamily("ethereum-hoodi")
             await store.awaitPendingCoreStateWrites()
             XCTAssertEqual(store.displayChainTitle(for: transaction), "Ethereum Sepolia")
         }
@@ -204,22 +204,22 @@ import Foundation
                 XCTFail("Unsupported staking must refuse before network access")
             } catch { }
             do {
-                _ = try await bridge.receiveAddress(walletID: "missing", chainId: "ethereum", reserve: true)
+                _ = try await bridge.receiveAddress(walletId: "missing", chainId: "ethereum", reserve: true)
                 XCTFail("A missing wallet must not produce an address or a message-as-address")
             } catch { }
         }
 
         /// Async because the selection round-trips through core: assigning the
-        /// mirror sends `SelectNetworkChain` and the unpriced set is adopted
+        /// mirror sends `SelectChainForFamily` and the unpriced set is adopted
         /// when the new state comes back. Deriving it in Swift instead would
         /// put a second copy of the rule here, which is what this whole slice
         /// removed.
         func testBitcoinTestnet4AssetsAreUnpriced() async {
             let store = makeState()
-            store.selectNetworkChain("bitcoin-testnet-4")
+            store.selectChainForFamily("bitcoin-testnet-4")
             await store.awaitPendingCoreStateWrites()
             let coin = Coin.makeCustom(
-                name: "Bitcoin", symbol: "BTC", coinGeckoId: "", chainName: "Bitcoin Testnet4", tokenStandard: "Native",
+                name: "Bitcoin", symbol: "BTC", coingeckoId: "", chainName: "Bitcoin Testnet4", tokenStandard: "Native",
                 contractAddress: nil, amount: 1.25, priceUsd: 64000
             )
             XCTAssertEqual(store.assetIdentityKey(for: coin), "bitcoin-testnet-4:native")
@@ -227,7 +227,7 @@ import Foundation
             XCTAssertNil(store.currentPriceIfAvailable(for: coin))
             XCTAssertNil(store.currentValueIfAvailable(for: coin))
             let mainnet = Coin.makeCustom(
-                name: "Bitcoin", symbol: "BTC", coinGeckoId: "bitcoin", chainName: "Bitcoin", tokenStandard: "Native",
+                name: "Bitcoin", symbol: "BTC", coingeckoId: "bitcoin", chainName: "Bitcoin", tokenStandard: "Native",
                 contractAddress: nil, amount: 1, priceUsd: 0)
             store.livePrices[mainnet.holdingKey] = 64000
             XCTAssertEqual(store.currentPriceIfAvailable(for: mainnet), 64000)
@@ -248,13 +248,13 @@ import Foundation
 
         func testBitcoinTestnet4EndpointsAreAvailable() {
             XCTAssertEqual(
-                AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: "bitcoin-testnet-4"),
+                AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainId: "bitcoin-testnet-4"),
                 ["https://mempool.space/testnet4/api"]
             )
         }
         func testEthereumDisplayNetworkNameUsesSelectedMode() async {
             let store = makeState()
-            store.selectNetworkChain("ethereum-hoodi")
+            store.selectChainForFamily("ethereum-hoodi")
             await store.awaitPendingCoreStateWrites()
             XCTAssertEqual(store.displayChainTitle(for: "Ethereum"), "Ethereum Hoodi")
         }
@@ -312,8 +312,8 @@ import Foundation
             XCTAssertEqual(AppEndpointDirectory.evmRPCEndpoints(for: "ethereum-sepolia"), ["https://ethereum-sepolia-rpc.publicnode.com"])
             XCTAssertEqual(AppEndpointDirectory.evmRPCEndpoints(for: "ethereum-hoodi"), ["https://ethereum-hoodi-rpc.publicnode.com"])
             let groups = AppEndpointDirectory.groupedSettingsEntries(for: "ethereum")
-            XCTAssertTrue(groups.contains { $0.networkId == "ethereum-sepolia" && $0.title == "Ethereum Sepolia" })
-            XCTAssertEqual(AppEndpointDirectory.groupedSettingsEntries(for: "ethereum-sepolia").map(\.networkId), ["ethereum-sepolia"])
+            XCTAssertTrue(groups.contains { $0.chainId == "ethereum-sepolia" && $0.title == "Ethereum Sepolia" })
+            XCTAssertEqual(AppEndpointDirectory.groupedSettingsEntries(for: "ethereum-sepolia").map(\.chainId), ["ethereum-sepolia"])
         }
         /// A watch-only wallet on a chain outside the old hand-written
         /// 14-chain list was dropped from the store on load. Storage is now a
@@ -592,9 +592,9 @@ import Foundation
         }
 
         func testPasswordVerdictsCrossTheBindingWithoutEnglishMessages() {
-            XCTAssertEqual(coreValidateWalletPassword(password: "短密碼", confirmation: "短密碼"), .tooShort)
-            XCTAssertEqual(coreValidateWalletPassword(password: "abcd", confirmation: "abce"), .confirmationMismatch)
-            XCTAssertNil(coreValidateWalletPassword(password: "密碼測試", confirmation: "密碼測試"))
+            XCTAssertEqual(validateWalletPassword(password: "短密碼", confirmation: "短密碼"), .tooShort)
+            XCTAssertEqual(validateWalletPassword(password: "abcd", confirmation: "abce"), .confirmationMismatch)
+            XCTAssertNil(validateWalletPassword(password: "密碼測試", confirmation: "密碼測試"))
         }
 
         func testDerivationInputPreservesSecretWhitespace() throws {

@@ -4,11 +4,11 @@ import LocalAuthentication
 @MainActor
 extension AppState {
     func unlockApp() async {
-        guard preferences.useFaceID else { isAppLocked = false; appLockError = nil; return }
+        guard preferences.useFaceId else { isAppLocked = false; appLockError = nil; return }
         if await authenticateForSensitiveAction(reason: AppLocalization.string("Authenticate to unlock Spectra")) { isAppLocked = false; appLockError = nil }
     }
     func authenticateForSensitiveAction(reason: String, allowWhenAuthenticationUnavailable: Bool = false) async -> Bool {
-        guard preferences.useFaceID, preferences.requireBiometricForSendActions else { return true }
+        guard preferences.useFaceId, preferences.requireBiometricForSendActions else { return true }
         let context = LAContext(); var authError: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &authError) else {
             if allowWhenAuthenticationUnavailable { return true }

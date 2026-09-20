@@ -7,7 +7,7 @@ struct PriceAlertsView: View {
     @State private var targetPriceText: String = ""
     @State private var isSubmitting = false
     @State private var formMessage: String?
-    @State private var removingAlertID: String?
+    @State private var removingAlertId: String?
     private var alertableHoldingKeys: Set<String> { Set(store.alertableCoins.map(\.holdingKey)) }
     private var selectedCoin: Coin? {
         store.alertableCoins.first(where: { $0.holdingKey == selectedHoldingKey })
@@ -93,7 +93,7 @@ struct PriceAlertsView: View {
                                 }.buttonStyle(.borderless)
                                 Spacer()
                                 Button(AppLocalization.string("Remove"), role: .destructive) {
-                                    removingAlertID = alert.id
+                                    removingAlertId = alert.id
                                 }.buttonStyle(.borderless)
                             }.font(.caption)
                         }.padding(.vertical, 4)
@@ -103,17 +103,17 @@ struct PriceAlertsView: View {
         }.navigationTitle(AppLocalization.string("Price Alerts"))
         .confirmationDialog(
             AppLocalization.string("Remove Alert"),
-            isPresented: Binding(get: { removingAlertID != nil }, set: { if !$0 { removingAlertID = nil } }),
+            isPresented: Binding(get: { removingAlertId != nil }, set: { if !$0 { removingAlertId = nil } }),
             titleVisibility: .visible
         ) {
             Button(AppLocalization.string("Remove"), role: .destructive) {
-                if let id = removingAlertID {
+                if let id = removingAlertId {
                     spectraHaptic(.medium)
                     Task { await editAlert(.removePriceAlert(id: id)) }
                 }
-                removingAlertID = nil
+                removingAlertId = nil
             }
-            Button(AppLocalization.string("Cancel"), role: .cancel) { removingAlertID = nil }
+            Button(AppLocalization.string("Cancel"), role: .cancel) { removingAlertId = nil }
         } message: {
             Text(AppLocalization.string("This alert rule will be permanently removed."))
         }

@@ -6,9 +6,9 @@ import Foundation
 @MainActor
 enum CachedCoreHelpers {
     private static var assetWikiResult: [AssetWikiEntry]?
-    private static var assetWikiByTokenID: [String: AssetWikiEntry]?
+    private static var assetWikiByTokenId: [String: AssetWikiEntry]?
     private static var chainWikiResult: [ChainWikiEntry]?
-    private static var chainWikiByID: [String: ChainWikiEntry]?
+    private static var chainWikiById: [String: ChainWikiEntry]?
     private static var seedPhraseLengthsResult: [SeedPhraseLength]?
 
     // ── wiki.* ────────────────────────────────────────────────────────
@@ -24,12 +24,12 @@ enum CachedCoreHelpers {
         assetWikiResult = value
         return value
     }
-    static func assetWikiEntry(tokenID: String) -> AssetWikiEntry? {
-        if assetWikiByTokenID == nil {
-            assetWikiByTokenID = Dictionary(
+    static func assetWikiEntry(tokenId: String) -> AssetWikiEntry? {
+        if assetWikiByTokenId == nil {
+            assetWikiByTokenId = Dictionary(
                 assetWiki().map { ($0.tokenId, $0) }, uniquingKeysWith: { first, _ in first })
         }
-        return assetWikiByTokenID?[tokenID]
+        return assetWikiByTokenId?[tokenId]
     }
     static func chainWiki() -> [ChainWikiEntry] {
         if let cached = chainWikiResult { return cached }
@@ -38,11 +38,11 @@ enum CachedCoreHelpers {
         return value
     }
     static func chainWikiEntry(id: String) -> ChainWikiEntry? {
-        if chainWikiByID == nil {
-            chainWikiByID = Dictionary(
+        if chainWikiById == nil {
+            chainWikiById = Dictionary(
                 chainWiki().map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         }
-        return chainWikiByID?[id]
+        return chainWikiById?[id]
     }
 
     // BIP-39 lengths and entropy as defined by core, one picker chip per entry.

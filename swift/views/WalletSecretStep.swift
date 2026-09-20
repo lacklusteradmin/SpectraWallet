@@ -347,7 +347,7 @@ struct WalletSecretStep: View {
     @ViewBuilder
     private var privateKeyEditor: some View {
         let trimmed = draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
-        let isLikelyValid = !trimmed.isEmpty && coreIsPrivateKeyHex(rawValue: draft.privateKeyInput)
+        let isLikelyValid = !trimmed.isEmpty && isPrivateKeyHex(rawValue: draft.privateKeyInput)
         let isInvalidShape = !trimmed.isEmpty && !isLikelyValid
         let borderColor: Color? =
             isInvalidShape
@@ -382,7 +382,7 @@ struct WalletSecretStep: View {
     private var privateKeyValidationFeedback: (message: String, icon: String, color: Color)? {
         let trimmed = draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
-        if !coreIsPrivateKeyHex(rawValue: draft.privateKeyInput) {
+        if !isPrivateKeyHex(rawValue: draft.privateKeyInput) {
             return (
                 AppLocalization.string("Enter a valid 32-byte hex private key."), "exclamationmark.triangle.fill",
                 .red.opacity(0.92)

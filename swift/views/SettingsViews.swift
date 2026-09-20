@@ -42,9 +42,9 @@ struct SettingsView: View {
                     settingsLink("Large Movement Alerts", systemImage: "chart.line.uptrend.xyaxis", route: .largeMovementAlerts)
                 }
                 Section(AppLocalization.string("Security & Privacy")) {
-                    settingsToggle("Use Face ID", systemImage: "faceid", isOn: preferenceBinding(\.useFaceID))
+                    settingsToggle("Use Face ID", systemImage: "faceid", isOn: preferenceBinding(\.useFaceId))
                     settingsToggle("Auto Lock", systemImage: "lock", isOn: preferenceBinding(\.useAutoLock))
-                        .disabled(!store.preferences.useFaceID)
+                        .disabled(!store.preferences.useFaceId)
                 }
                 Section(AppLocalization.string("Tor")) {
                     NavigationLink(value: Route.tor) {

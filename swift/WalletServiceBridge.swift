@@ -31,11 +31,11 @@ import Foundation
     }
     // Wallet secrets. Synchronous Keychain reads using core-owned key names.
 
-    func walletSecretState(walletID: String) -> WalletSecretState? {
-        try? service().walletSecretState(walletId: walletID)
+    func walletSecretState(walletId: String) -> WalletSecretState? {
+        try? service().walletSecretState(walletId: walletId)
     }
-    func walletSeedPhrase(walletID: String, password: String?) throws -> String {
-        try service().walletSeedPhrase(walletId: walletID, password: password)
+    func walletSeedPhrase(walletId: String, password: String?) throws -> String {
+        try service().walletSeedPhrase(walletId: walletId, password: password)
     }
     func resetData(scopes: [ResetScope]) async throws -> ResetOutcome {
         try await readyService().resetData(scopes: scopes)
@@ -44,34 +44,34 @@ import Foundation
     func evaluatePortfolioMovement(appIsActive: Bool) async throws -> LargeMovementEvaluation? {
         try await readyService().evaluatePortfolioMovement(appIsActive: appIsActive)
     }
-    func runConfiguredSelfTests(chainID: String) async throws -> ConfiguredSelfTestReport {
-        try await readyService().runConfiguredSelfTests(chainId: chainID)
+    func runConfiguredSelfTests(chainId: String) async throws -> ConfiguredSelfTestReport {
+        try await readyService().runConfiguredSelfTests(chainId: chainId)
     }
     func fetchStakingValidators(chainId: String) async throws -> [StakingValidator] {
         try await readyService().fetchStakingValidators(chainId: chainId)
     }
-    func receiveAddress(walletID: String, chainId: String, reserve: Bool) async throws -> String? {
-        try await readyService().receiveAddress(walletId: walletID, chainId: chainId, reserve: reserve)
+    func receiveAddress(walletId: String, chainId: String, reserve: Bool) async throws -> String? {
+        try await readyService().receiveAddress(walletId: walletId, chainId: chainId, reserve: reserve)
     }
 
-    func knownUTXOAddresses(walletID: String, chainId: String) async throws -> [String] {
-        try await readyService().knownUtxoAddresses(walletId: walletID, chainId: chainId)
+    func knownUTXOAddresses(walletId: String, chainId: String) async throws -> [String] {
+        try await readyService().knownUtxoAddresses(walletId: walletId, chainId: chainId)
     }
 
     func refreshApp(intent: AppRefreshIntent, conditions: DeviceConditions) async throws -> AppRefreshResult {
         try await readyService().refreshApp(intent: intent, conditions: conditions)
     }
-    func previewOwnedSend(walletID: String, holdingKey: String, amount: String, destination: String, explicitNonce: Int64?, customFees: EvmCustomFeeConfiguration?) async throws -> SendPreview? {
-        try await readyService().previewOwnedSend(walletId: walletID, holdingKey: holdingKey, amount: amount, destination: destination, explicitNonce: explicitNonce, customFees: customFees)
+    func previewOwnedSend(walletId: String, holdingKey: String, amount: String, destination: String, explicitNonce: Int64?, customFees: EvmCustomFeeConfiguration?) async throws -> SendPreview? {
+        try await readyService().previewOwnedSend(walletId: walletId, holdingKey: holdingKey, amount: amount, destination: destination, explicitNonce: explicitNonce, customFees: customFees)
     }
-    func replacementDraft(transactionID: String, cancel: Bool) async throws -> OwnedReplacementDraft {
-        try await readyService().replacementDraft(transactionId: transactionID, cancel: cancel)
+    func replacementDraft(transactionId: String, cancel: Bool) async throws -> OwnedReplacementDraft {
+        try await readyService().replacementDraft(transactionId: transactionId, cancel: cancel)
     }
     func reviewOwnedSend(input: SendReviewInput) async throws -> OwnedSendReview {
         try await readyService().reviewOwnedSend(input: input)
     }
-    func executeOwnedSend(reviewID: String, input: SendReviewInput, password: String?) async throws -> SendExecutionResult {
-        try await readyService().executeOwnedSend(reviewId: reviewID, input: input, password: password)
+    func executeOwnedSend(reviewId: String, input: SendReviewInput, password: String?) async throws -> SendExecutionResult {
+        try await readyService().executeOwnedSend(reviewId: reviewId, input: input, password: password)
     }
 
     func resolveSendDestination(chainId: String, input: String, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
@@ -80,9 +80,9 @@ import Foundation
         }
         return try await readyService().resolveSendDestination(chainId: chainId, input: input)
     }
-    func sendDestinationRisk(walletID: String, holdingKey: String, destination: String) async throws -> SendDestinationRisk {
+    func sendDestinationRisk(walletId: String, holdingKey: String, destination: String) async throws -> SendDestinationRisk {
         try await readyService().sendDestinationRisk(
-            walletId: walletID, holdingKey: holdingKey, destinationInput: destination)
+            walletId: walletId, holdingKey: holdingKey, destinationInput: destination)
     }
     /// `destinationAddress` prices an extra output where the chain has one —
     /// Litecoin's MWEB peg-in — so the preview core builds already includes it.
@@ -167,13 +167,13 @@ extension WalletServiceBridge {
     }
 
     /// What to tell the user about a send, from its stored record.
-    func sendVerificationNotice(transactionID: String) async throws -> SendVerificationNotice {
-        try await readyService().sendVerificationNotice(transactionId: transactionID)
+    func sendVerificationNotice(transactionId: String) async throws -> SendVerificationNotice {
+        try await readyService().sendVerificationNotice(transactionId: transactionId)
     }
 
     /// Every address a wallet is known to hold, on any chain.
-    func knownWalletAddresses(walletID: String) async throws -> [String] {
-        try await readyService().knownWalletAddresses(walletId: walletID)
+    func knownWalletAddresses(walletId: String) async throws -> [String] {
+        try await readyService().knownWalletAddresses(walletId: walletId)
     }
 
     // ── Confirmation-poll backoff ─────────────────────────────────────────
@@ -196,8 +196,8 @@ extension WalletServiceBridge {
     func rebroadcastTransaction(id: String) async throws -> String {
         try await readyService().rebroadcastTransaction(transactionId: id)
     }
-    func probeChainEndpoints(chainID: String) async throws -> [EndpointProbe] {
-        try await readyService().probeChainEndpoints(chainId: chainID)
+    func probeChainEndpoints(chainId: String) async throws -> [EndpointProbe] {
+        try await readyService().probeChainEndpoints(chainId: chainId)
     }
 
     // ── Keypool ───────────────────────────────────────────────────────────

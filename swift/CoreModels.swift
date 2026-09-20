@@ -41,11 +41,11 @@ extension AssetHolding: Identifiable {
     public var id: String { holdingIdentity(holding: self) }
     var color: Color { Coin.displayColor(for: symbol) }
     static func makeCustom(
-        name: String, symbol: String, coinGeckoId: String, chainName: String, tokenStandard: String,
+        name: String, symbol: String, coingeckoId: String, chainName: String, tokenStandard: String,
         contractAddress: String?, amount: Double, priceUsd: Double
     ) -> Coin {
         AssetHolding(
-            name: name, symbol: symbol, coinGeckoId: coinGeckoId, chainName: chainName,
+            name: name, symbol: symbol, coingeckoId: coingeckoId, chainName: chainName,
             tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUsd)
     }
     var holdingKey: String { id }
@@ -111,7 +111,7 @@ extension CoreSeedDerivationPaths {
     /// Preset paths from the Rust catalog. No fallback table: an empty map
     /// surfaces a missing catalog path rather than substituting a guessed one.
     static func forPreset(_ preset: CoreSeedDerivationPreset) -> CoreSeedDerivationPaths {
-        (try? appCoreDerivationPathsForPreset(preset: preset))
+        (try? derivationPathsForPreset(preset: preset))
             ?? CoreSeedDerivationPaths(isCustomEnabled: false, byChain: [:])
     }
 }
@@ -185,7 +185,7 @@ extension CorePersistedTransactionRecord: Identifiable {}
 
 extension TransactionRecord {
     /// History with no deployment identity draws its letter.
-    var artworkName: String { coreDeploymentArtworkName(deploymentId: deploymentId) }
+    var artworkName: String { deploymentArtworkName(deploymentId: deploymentId) }
     /// When it was recorded. Core stores Swift reference seconds.
     var createdDate: Date { Date(timeIntervalSinceReferenceDate: createdAt) }
     var titleText: String {

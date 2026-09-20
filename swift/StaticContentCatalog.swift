@@ -13,15 +13,15 @@ private final class LockedValue<Value>: @unchecked Sendable {
 enum StaticContentCatalog {
     private final class BundleMarker {}
     // Memoize decoded resources across the app: `XxxContentCopy.current` is
-    // read from view bodies. Keyed by `(localeSignature, baseName, typeID)` so a
+    // read from view bodies. Keyed by `(localeSignature, baseName, typeId)` so a
     // language switch invalidates on the next read.
     private static let decodedResourceCache = LockedValue<[String: Any]>([:])
-    private static func cacheKey(baseName: String, typeID: String) -> String {
+    private static func cacheKey(baseName: String, typeId: String) -> String {
         let signature = AppLocalization.preferredLocalizationIdentifiers().joined(separator: ",")
-        return "\(signature)|\(baseName)|\(typeID)"
+        return "\(signature)|\(baseName)|\(typeId)"
     }
     static func loadRequiredResource<T: Decodable>(_ baseName: String, as type: T.Type) -> T {
-        let key = cacheKey(baseName: baseName, typeID: String(describing: type))
+        let key = cacheKey(baseName: baseName, typeId: String(describing: type))
         if let cached = decodedResourceCache.withLock({ $0[key] as? T }) { return cached }
         let value: T = loadRequiredResourceUncached(baseName)
         decodedResourceCache.withLock { $0[key] = value }

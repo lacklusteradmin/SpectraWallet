@@ -161,7 +161,7 @@ private struct AddressBookContactCard: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.compact)
         // The row said "Copied" for the rest of the screen's life: the state
-        // was one `copiedEntryID` on the page and nothing ever cleared it.
+        // was one `copiedEntryId` on the page and nothing ever cleared it.
         // `.task(id:)` cancels with the row, so a card scrolled away mid-timer
         // does not come back still claiming it.
         .task(id: didCopy) {

@@ -16,7 +16,7 @@ final class PresentationCatalogTests: XCTestCase {
         XCTAssertEqual(Coin.displayColor(for: "  usdt \n"), .green)
         XCTAssertEqual(Coin.displayColor(for: "AAVE"), .indigo)
         XCTAssertEqual(Coin.displayColor(for: "not-a-catalog-asset"), .gray)
-        for token in listTokens(chainId: "") where !token.coingeckoId.isEmpty {
+        for token in listTokenDeployments(chainId: "") where !token.coingeckoId.isEmpty {
             XCTAssertEqual(Coin.displayColor(for: token.symbol), token.color?.color)
         }
     }

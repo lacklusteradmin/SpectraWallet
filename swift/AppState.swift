@@ -77,7 +77,7 @@ final class AppState {
     /// because the composer's Speed Up / Cancel buttons read it.
     var replaceableSends: [ReplaceableSend] = []
     private(set) var transactionRevision: UInt64 = 0
-    @ObservationIgnored var cachedFirstActivityDateByWalletID: [String: Date] = [:]
+    @ObservationIgnored var cachedFirstActivityDateByWalletId: [String: Date] = [:]
     /// Imported wallets.
     ///
     /// Domain state: core owns the list and persists it. This is a projection
@@ -90,7 +90,7 @@ final class AppState {
     /// **Observation note for view code**: SwiftUI's `@Observable` tracks
     /// access to this property as a whole — any mutation invalidates every
     /// view that read `store.wallets` for any reason, even a single
-    /// wallet's balance update. Prefer reading from `cachedWalletByID[id]`
+    /// wallet's balance update. Prefer reading from `cachedWalletById[id]`
     /// (or another `walletDerivedCache` projection) when you only need a
     /// specific wallet — those projections are recomputed on rebuild but
     /// observed views see only the relevant change once SwiftUI's
@@ -133,11 +133,11 @@ final class AppState {
     /// value, so the rebuild is one assignment rather than 17 mutations; the
     /// `cached*` properties below read fields out of it.
     var walletDerivedCache: WalletDerivedCache = .empty
-    var cachedWalletByID: [String: WalletView] { walletDerivedCache.walletByID }
+    var cachedWalletById: [String: WalletView] { walletDerivedCache.walletById }
     var cachedIncludedPortfolioWallets: [WalletView] { walletDerivedCache.includedPortfolioWallets }
     var cachedPortfolio: [Coin] { walletDerivedCache.portfolio }
-    var cachedAvailableSendCoinsByWalletID: [String: [Coin]] { walletDerivedCache.availableSendCoinsByWalletID }
-    var cachedAvailableReceiveCoinsByWalletID: [String: [Coin]] { walletDerivedCache.availableReceiveCoinsByWalletID }
+    var cachedAvailableSendCoinsByWalletId: [String: [Coin]] { walletDerivedCache.availableSendCoinsByWalletId }
+    var cachedAvailableReceiveCoinsByWalletId: [String: [Coin]] { walletDerivedCache.availableReceiveCoinsByWalletId }
     var cachedSendEnabledWallets: [WalletView] { walletDerivedCache.sendEnabledWallets }
     var cachedReceiveEnabledWallets: [WalletView] { walletDerivedCache.receiveEnabledWallets }
     var cachedRefreshableChainNames: Set<String> { walletDerivedCache.refreshableChainNames }
@@ -149,8 +149,8 @@ final class AppState {
     var isShowingSendSheet: Bool = false
     var isShowingReceiveSheet: Bool = false
     var walletPendingDeletion: WalletView?
-    var editingWalletID: String? = nil
-    var sendWalletID: String = ""
+    var editingWalletId: String? = nil
+    var sendWalletId: String = ""
     var sendHoldingKey: String = ""
     var sendAmount: String = ""
     var sendAddress: String = ""
@@ -163,11 +163,11 @@ final class AppState {
     var isShowingHighRiskSendConfirmation: Bool = false
     var sendVerificationNotice: String? = nil
     var sendVerificationNoticeIsWarning: Bool = false
-    var receiveWalletID: String = ""
+    var receiveWalletId: String = ""
     var receiveHoldingKey: String = ""
     var receiveResolvedAddress: String = ""
     var receiveAddressError: String?
-    @ObservationIgnored var receiveAddressRequestID = UUID() // Reject stale asynchronous results.
+    @ObservationIgnored var receiveAddressRequestId = UUID() // Reject stale asynchronous results.
     var isResolvingReceiveAddress: Bool = false
     var selectedMainTab: MainAppTab = .home
     var isAppLocked: Bool = false
@@ -179,7 +179,7 @@ final class AppState {
     var isPreparingReplacementContext: Bool = false
     /// Chains currently computing a send fee preview. Observed by send UI to show loading state.
     var preparingChains: Set<String> = []
-    @ObservationIgnored var sendDestinationProbeRequestID = UUID() // Reject stale recipient probes.
+    @ObservationIgnored var sendDestinationProbeRequestId = UUID() // Reject stale recipient probes.
     var pendingSendReview: OwnedSendReview?
     @ObservationIgnored var isRefreshingLivePrices = false
     @ObservationIgnored var isRefreshingFiatRates = false
@@ -341,7 +341,7 @@ final class AppState {
         if refreshPortfolio { rebuildWalletDerivedState() }
         // Synchronous on purpose: the render path reads this, and adopting it a
         // tick later quotes a testnet at mainnet prices in between.
-        let unpriced = Set(coreUnpricedChainNames())
+        let unpriced = Set(Spectra.unpricedChainNames())
         if unpriced != unpricedChainNames { unpricedChainNames = unpriced }
         return true
     }
@@ -362,14 +362,14 @@ final class AppState {
     }
     /// A family with no selection reports itself, so the mainnet id is the
     /// default without being stored as one.
-    func networkChainID(forFamily family: String) -> String {
-        appSettings.networkChainByFamily[family] ?? family
+    func selectedChainId(forFamily family: String) -> String {
+        appSettings.selectedChainByFamily[family] ?? family
     }
     /// Switch a family's network. Core stores it — resetting the family's
     /// derivation state and history feed in the same command — and hands the
     /// settings back.
-    func selectNetworkChain(_ chainID: String) {
-        commitNetworkChain(chainID)
+    func selectChainForFamily(_ chainId: String) {
+        commitSelectedChain(chainId)
     }
     var isUserInitiatedRefreshInProgress: Bool = false
     /// Read-only projection adopted from core; edits send individual intents.
@@ -411,7 +411,7 @@ final class AppState {
     var cachedAvailableDashboardPinOptions: [DashboardPinOption] = []
     var cachedDashboardAssetGroups: [DashboardAssetGroup] = []
 
-    var cachedTokenPreferenceByDeploymentID: [String: TokenPreferenceEntry] = [:]
+    var cachedTokenPreferenceByDeploymentId: [String: TokenPreferenceEntry] = [:]
     @ObservationIgnored var cachedCurrencyFormatters: [FiatCurrency: NumberFormatter] = [:]
     @ObservationIgnored var cachedDecimalFormatters: [String: NumberFormatter] = [:]
     // Memoized Rust-FFI lookups. Invalidate when display decimals, token
@@ -429,7 +429,7 @@ final class AppState {
     /// The five preferences this platform keeps for itself. Split out so views
     /// that only read them are not invalidated by wallet or balance changes.
     let preferences = AppUserPreferences()
-    @ObservationIgnored var sendPreviewRequestID = UUID() // Reject every completion of a superseded preview.
+    @ObservationIgnored var sendPreviewRequestId = UUID() // Reject every completion of a superseded preview.
     var isLoadingMoreOnChainHistory: Bool = false
     let diagnostics: WalletDiagnosticsState
     /// Whether a chain's deep rescan is running, and when it last finished.
@@ -455,8 +455,8 @@ final class AppState {
         let networkPathMonitor = NWPathMonitor()
         let networkPathMonitorQueue = DispatchQueue(label: "spectra.network.monitor")
     #endif
-    func walletRequiresSeedPhrasePassword(_ walletID: String) -> Bool {
-        self.bridge.walletSecretState(walletID: walletID)?.isSealed ?? false
+    func walletRequiresSeedPhrasePassword(_ walletId: String) -> Bool {
+        self.bridge.walletSecretState(walletId: walletId)?.isSealed ?? false
     }
     /// Whether this wallet can sign, and with what.
     ///
@@ -464,11 +464,11 @@ final class AppState {
     /// wallet has signing material even though a seed reveal cannot
     /// produce it without a password, and deriving this from that read would
     /// report such a wallet as watch-only.
-    func walletHasSigningMaterial(_ walletID: String) -> Bool {
-        self.bridge.walletSecretState(walletID: walletID)?.hasSigningMaterial ?? false
+    func walletHasSigningMaterial(_ walletId: String) -> Bool {
+        self.bridge.walletSecretState(walletId: walletId)?.hasSigningMaterial ?? false
     }
-    func isPrivateKeyBackedWallet(_ walletID: String) -> Bool {
-        self.bridge.walletSecretState(walletID: walletID)?.hasPrivateKey ?? false
+    func isPrivateKeyBackedWallet(_ walletId: String) -> Bool {
+        self.bridge.walletSecretState(walletId: walletId)?.hasPrivateKey ?? false
     }
 
     private func applyVerificationNotice(_ n: SendVerificationNotice) {
@@ -483,12 +483,12 @@ final class AppState {
     /// This rebuilt a snapshot of the record from the projection, with the
     /// kind and status spelled as strings, and handed it back to be judged.
     func updateSendVerificationNoticeForLastSentTransaction() async {
-        guard let transactionID = lastSentTransaction?.id else {
+        guard let transactionId = lastSentTransaction?.id else {
             clearSendVerificationNotice()
             return
         }
-        guard let notice = try? await self.bridge.sendVerificationNotice(transactionID: transactionID),
-            lastSentTransaction?.id == transactionID
+        guard let notice = try? await self.bridge.sendVerificationNotice(transactionId: transactionId),
+            lastSentTransaction?.id == transactionId
         else { return }
         applyVerificationNotice(notice)
     }
@@ -585,7 +585,7 @@ final class AppState {
     /// rather than by an id this side and core would each have to spell the
     /// same way.
     private func tokenKey(_ entry: TokenPreferenceEntry) -> CoreTokenPreferenceKey {
-        CoreTokenPreferenceKey(chainName: entry.token.chain, contract: entry.token.contract)
+        CoreTokenPreferenceKey(chainName: Chain(id: entry.token.chainId)?.displayName ?? entry.token.chainId, contract: entry.token.contract)
     }
     func setTokenPreferenceEnabled(_ entry: TokenPreferenceEntry, isEnabled: Bool) {
         setTokenPreferencesEnabled([entry], isEnabled: isEnabled)
@@ -601,7 +601,7 @@ final class AppState {
     func removeCustomTokenPreference(_ entry: TokenPreferenceEntry) {
         Task { @MainActor [weak self] in
             await self?.sendTokenPreferenceCommand(
-                .removeCustomToken(chainName: entry.token.chain, contract: entry.token.contract))
+                .removeCustomToken(chainName: Chain(id: entry.token.chainId)?.displayName ?? entry.token.chainId, contract: entry.token.contract))
         }
     }
     func updateCustomTokenPreferenceDecimals(_ entry: TokenPreferenceEntry, decimals: Int) {
@@ -610,7 +610,7 @@ final class AppState {
         Task { @MainActor [weak self] in
             await self?.sendTokenPreferenceCommand(
                 .setCustomTokenDecimals(
-                    chainName: entry.token.chain, contract: entry.token.contract,
+                    chainName: Chain(id: entry.token.chainId)?.displayName ?? entry.token.chainId, contract: entry.token.contract,
                     decimals: UInt32(decimals)))
         }
     }
@@ -656,7 +656,7 @@ final class AppState {
     /// `default` assumed EVM.
     func addCustomTokenPreference(
         chain: TokenHostingChain, symbol: String, name: String, contractAddress: String,
-        coinGeckoId: String = "", decimals: Int
+        coingeckoId: String = "", decimals: Int
     ) async -> String? {
         guard decimals >= 0 else { return localizedStoreString("That is not a number of decimal places.") }
         let epoch = beginCoreStateRead()
@@ -664,7 +664,7 @@ final class AppState {
             let transition = try? await self.bridge.applyStateCommand(
                 .addCustomToken(
                     chainName: chain.rawValue, symbol: symbol, name: name,
-                    contract: contractAddress, coingeckoId: coinGeckoId,
+                    contract: contractAddress, coingeckoId: coingeckoId,
                     decimals: UInt32(decimals)))
         else { return localizedStoreString("This token could not be saved.") }
         applyCoreState(transition.state, epoch: epoch)

@@ -19,7 +19,7 @@ struct SetupChainSelectionDescriptor: Identifiable {
         self.titleKey = title
         self.symbol = symbol
         self.chainName = chainName
-        self.artworkName = coreNetworkArtworkName(networkId: id)
+        self.artworkName = chainArtworkName(chainId: id)
         self.color = color
         self.category = category
     }
@@ -80,12 +80,12 @@ struct SetupView: View {
         )
     }
     /// The picker's initial list, ordered by `popular_rank` in `chain-ui.toml`.
-    private static let popularChainSelectionIDs: [String] = Chain.all.compactMap(\.entry)
+    private static let popularChainSelectionIds: [String] = Chain.all.compactMap(\.entry)
         .compactMap { chain in chain.popularRank.map { (rank: $0, id: chain.id) } }
         .sorted { $0.rank < $1.rank }
         .map(\.id)
     private static let nonPopularChainSelectionDescriptors = chainSelectionDescriptors.filter { d in
-        !popularChainSelectionIDs.contains(d.id)
+        !popularChainSelectionIds.contains(d.id)
     }
     /// Type alias kept for site-local readability — the underlying type
     /// lives in `SetupFlow.swift` so `SetupFlow` can reference it.
@@ -218,7 +218,7 @@ struct SetupView: View {
         store.canImportWallet && !store.isImportingWallet
     }
     private var popularChainSelectionDescriptors: [SetupChainSelectionDescriptor] {
-        Self.popularChainSelectionIDs.compactMap { id in
+        Self.popularChainSelectionIds.compactMap { id in
             Self.chainSelectionDescriptors.first { $0.id == id }
         }
     }
@@ -383,7 +383,7 @@ struct SetupView: View {
     /// page-level title above already names the step.
     @ViewBuilder
     private var chainSelectionCard: some View {
-        let popularIDSet = Set(Self.popularChainSelectionIDs)
+        let popularIDSet = Set(Self.popularChainSelectionIds)
         let extraSelectionCount = draft.selectedChainNames.filter { name in
             !Self.chainSelectionDescriptors.contains(where: { $0.chainName == name && popularIDSet.contains($0.id) })
         }.count
@@ -501,7 +501,7 @@ struct SetupView: View {
     /// other sixteen chains judged against mainnet regardless of the selected
     /// network. It is the same rule for every chain.
     private func watchedAddressKind(for chain: Chain) -> String {
-        Chain(id: store.networkChainID(forFamily: chain.id))?.addressValidationKind
+        Chain(id: store.selectedChainId(forFamily: chain.id))?.addressValidationKind
             ?? chain.addressValidationKind
     }
 
@@ -632,7 +632,7 @@ struct SetupView: View {
             Text(advancedDescriptionText).font(.subheadline).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 16) {
                 ForEach(draft.selectableDerivationChains) { family in
-                    let chain = Chain(id: store.networkChainID(forFamily: family.mainnetCounterpart.id)) ?? family
+                    let chain = Chain(id: store.selectedChainId(forFamily: family.mainnetCounterpart.id)) ?? family
                     SeedPathSlotEditor(
                         title: chain.displayName,
                         path: Binding(

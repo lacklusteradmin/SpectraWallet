@@ -17,7 +17,7 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
 private enum PlatformDefaults {
     static let hideBalances = "settings.platform.hideBalances"
     static let appearanceMode = "settings.appearanceMode"
-    static let useFaceID = "settings.platform.useFaceID"
+    static let useFaceId = "settings.platform.useFaceId"
     static let useAutoLock = "settings.platform.useAutoLock"
     static let requireBiometricForSendActions = "settings.platform.requireBiometricForSendActions"
 
@@ -52,11 +52,11 @@ final class AppUserPreferences {
     }
 
     // ── Security ────────────────────────────────────────────────────────
-    var useFaceID: Bool = PlatformDefaults.bool(PlatformDefaults.useFaceID, default: true) {
+    var useFaceId: Bool = PlatformDefaults.bool(PlatformDefaults.useFaceId, default: true) {
         didSet {
-            guard useFaceID != oldValue else { return }
-            PlatformDefaults.set(useFaceID, PlatformDefaults.useFaceID)
-            if !useFaceID { useFaceIDDisabledHandler?() }
+            guard useFaceId != oldValue else { return }
+            PlatformDefaults.set(useFaceId, PlatformDefaults.useFaceId)
+            if !useFaceId { useFaceIDDisabledHandler?() }
         }
     }
     var useAutoLock: Bool = PlatformDefaults.bool(PlatformDefaults.useAutoLock, default: false) {
@@ -82,7 +82,7 @@ final class AppUserPreferences {
     func resetToDefaults() {
         hideBalances = false
         appearanceMode = .dark
-        useFaceID = true
+        useFaceId = true
         useAutoLock = false
         requireBiometricForSendActions = true
     }

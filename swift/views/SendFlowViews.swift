@@ -36,7 +36,7 @@ private enum SendFlowStep: Int, CaseIterable, Identifiable {
 
 struct SendView: View {
     @Bindable var store: AppState
-    @State private var selectedAddressBookEntryID: String = ""
+    @State private var selectedAddressBookEntryId: String = ""
     @State private var isShowingQRScanner: Bool = false
     @State private var qrScannerErrorMessage: String?
     @State private var currentStep: SendFlowStep = .from
@@ -53,7 +53,7 @@ struct SendView: View {
     private var isSendBusy: Bool { !store.sendingChains.isEmpty || !store.preparingChains.isEmpty }
 
     private var selectedNetworkSendCoin: Coin? {
-        store.availableSendCoins(for: store.sendWalletID).first(where: { $0.holdingKey == store.sendHoldingKey })
+        store.availableSendCoins(for: store.sendWalletId).first(where: { $0.holdingKey == store.sendHoldingKey })
     }
 
     var body: some View {
@@ -131,7 +131,7 @@ struct SendView: View {
         .onChange(of: store.isShowingHighRiskSendConfirmation) { _, showing in
             if !showing { sendWalletPassword = "" }
         }
-        .onChange(of: store.sendHoldingKey) { _, _ in selectedAddressBookEntryID = "" }
+        .onChange(of: store.sendHoldingKey) { _, _ in selectedAddressBookEntryId = "" }
         .onChange(of: store.lastSentTransaction?.id) { old, new in
             if old == nil, new != nil {
                 spectraNotificationHaptic(.success)
@@ -185,7 +185,7 @@ struct SendView: View {
         case .recipient:
             SendRecipientPage(
                 store: store,
-                selectedAddressBookEntryID: $selectedAddressBookEntryID,
+                selectedAddressBookEntryId: $selectedAddressBookEntryId,
                 isShowingQRScanner: $isShowingQRScanner,
                 qrScannerErrorMessage: $qrScannerErrorMessage,
                 validationError: recipientError,
@@ -343,11 +343,11 @@ struct SendView: View {
         }
     }
 
-    private var recipientKey: String { [store.sendWalletID, store.sendHoldingKey, store.sendAddress].joined(separator: "|") }
+    private var recipientKey: String { [store.sendWalletId, store.sendHoldingKey, store.sendAddress].joined(separator: "|") }
 
     private var previewRefreshKey: String {
         [
-            store.sendWalletID,
+            store.sendWalletId,
             store.sendHoldingKey,
             store.sendAddress,
             store.sendAmount,
@@ -383,7 +383,7 @@ struct SendView: View {
     /// is on for the selected asset's family.
     private var scannedPayloadNetwork: Chain? {
         guard let coin = store.selectedSendCoin, let family = Chain(displayName: coin.chainName)?.id else { return nil }
-        let networkID = store.selectedWalletForSend()?.networkChainId ?? store.networkChainID(forFamily: family)
-        return Chain(id: networkID)
+        let chainId = store.selectedWalletForSend()?.chainId ?? store.selectedChainId(forFamily: family)
+        return Chain(id: chainId)
     }
 }

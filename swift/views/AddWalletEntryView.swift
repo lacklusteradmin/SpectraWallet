@@ -46,7 +46,7 @@ struct AddWalletEntryView: View {
         .navigationTitle(AppLocalization.string("Add Wallet")).navigationBarTitleDisplayMode(.inline)
         .navigationDestination(
             isPresented: Binding(
-                get: { store.isShowingWalletImporter && store.editingWalletID == nil },
+                get: { store.isShowingWalletImporter && store.editingWalletId == nil },
                 set: { isPresented in
                     if !isPresented { store.isShowingWalletImporter = false }
                 }

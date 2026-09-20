@@ -4,8 +4,8 @@ extension AppState {
     /// names, so a formatter or a send can ask "is this token known, and with
     /// what decimals" without walking the list.
     func rebuildTokenPreferenceDerivedState() {
-        cachedTokenPreferenceByDeploymentID = Dictionary(
-            tokenPreferences.map { ($0.token.id, $0) }, uniquingKeysWith: { first, _ in first })
+        cachedTokenPreferenceByDeploymentId = Dictionary(
+            tokenPreferences.map { ($0.token.deploymentId, $0) }, uniquingKeysWith: { first, _ in first })
     }
     func rebuildWalletDerivedState() {
         Task { @MainActor [weak self] in await self?.rebuildWalletDerivedStateFromCore() }
@@ -35,17 +35,17 @@ extension AppState {
         applyQuoteProjection(snapshot.state)
         portfolioValuation = snapshot.valuation
         let derived = snapshot.derived
-        let walletByID = Dictionary(uniqueKeysWithValues: snapshot.wallets.map { ($0.id, $0) })
+        let walletById = Dictionary(uniqueKeysWithValues: snapshot.wallets.map { ($0.id, $0) })
         if wallets != snapshot.wallets { setWalletProjection(snapshot.wallets) }
         walletDerivedCache = WalletDerivedCache(
-            resolvedAddressesByWalletID: derived.resolvedAddressesByWalletId,
-            walletByID: walletByID,
+            resolvedAddressesByWalletId: derived.resolvedAddressesByWalletId,
+            walletById: walletById,
             includedPortfolioWallets: snapshot.wallets.filter(\.includeInPortfolioTotal),
             portfolio: derived.portfolio,
-            availableSendCoinsByWalletID: derived.sendCoinsByWalletId,
-            availableReceiveCoinsByWalletID: derived.receiveCoinsByWalletId,
-            sendEnabledWallets: derived.sendEnabledWalletIds.compactMap { walletByID[$0] },
-            receiveEnabledWallets: derived.receiveEnabledWalletIds.compactMap { walletByID[$0] },
+            availableSendCoinsByWalletId: derived.sendCoinsByWalletId,
+            availableReceiveCoinsByWalletId: derived.receiveCoinsByWalletId,
+            sendEnabledWallets: derived.sendEnabledWalletIds.compactMap { walletById[$0] },
+            receiveEnabledWallets: derived.receiveEnabledWalletIds.compactMap { walletById[$0] },
             refreshableChainNames: Set(derived.refreshableChainNames))
         cachedDashboardAssetGroups = snapshot.groups
         cachedAvailableDashboardPinOptions = snapshot.pinOptions
@@ -82,7 +82,7 @@ extension AppState {
             adoptTransactionsFromCore(snapshot.recentAndPending)
             replaceableSends = snapshot.replaceable
             transactionCount = snapshot.totalCount
-            cachedFirstActivityDateByWalletID = Dictionary(uniqueKeysWithValues: snapshot.earliest.map {
+            cachedFirstActivityDateByWalletId = Dictionary(uniqueKeysWithValues: snapshot.earliest.map {
                 ($0.walletId, Date(timeIntervalSince1970: $0.earliestCreatedAtUnix))
             })
             historyReadError = nil

@@ -14,7 +14,7 @@ extension WalletView {
     init(
         id: UUID = UUID(),
         name: String,
-        networkChainID: String? = nil,
+        selectedChainId: String? = nil,
         addresses: [String: String] = [:],
         bitcoinXpub: String? = nil,
         seedDerivationPreset: CoreSeedDerivationPreset = .standard,
@@ -26,7 +26,7 @@ extension WalletView {
     ) {
         self.init(
             id: id.uuidString, name: name,
-            networkChainId: networkChainID ?? Chain(displayName: selectedChain)?.id ?? "",
+            chainId: selectedChainId ?? Chain(displayName: selectedChain)?.id ?? "",
             addresses: Dictionary(
                 addresses.compactMap { chainName, address in
                     Chain(displayName: chainName).map { ($0.addressSlot, address) }
@@ -63,14 +63,14 @@ extension WalletView {
     /// supplies it — see `WalletState` in `core/src/store/state.rs`.
     func walletState(isWatchOnly: Bool) -> WalletState {
         let chain = Chain(displayName: selectedChain)
-        let path = Chain(id: networkChainId).map { seedDerivationPaths.path(for: $0) }.flatMap { $0.isEmpty ? nil : $0 }
+        let path = Chain(id: chainId).map { seedDerivationPaths.path(for: $0) }.flatMap { $0.isEmpty ? nil : $0 }
         // The wallet's own slot first: core reads the first receive address as
         // the primary one.
         let ownSlot = chain?.addressSlot
         let slots = addresses.keys.sorted { ($0 == ownSlot ? 0 : 1, $0) < ($1 == ownSlot ? 0 : 1, $1) }
         return WalletState(
             id: id, name: name, isWatchOnly: isWatchOnly, chainName: selectedChain,
-            includeInPortfolioTotal: includeInPortfolioTotal, networkId: networkChainId, xpub: bitcoinXpub,
+            includeInPortfolioTotal: includeInPortfolioTotal, chainId: chainId, xpub: bitcoinXpub,
             derivationPreset: seedDerivationPreset, derivationPath: path, derivationOverrides: derivationOverrides,
             holdings: holdings,
             addresses: slots.compactMap { slot in

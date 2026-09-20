@@ -20,7 +20,7 @@ extension AppState {
     }
     func setAppIsActive(_ isActive: Bool) {
         appIsActive = isActive
-        if !isActive, preferences.useFaceID, preferences.useAutoLock { isAppLocked = true; appLockError = nil }
+        if !isActive, preferences.useFaceId, preferences.useAutoLock { isAppLocked = true; appLockError = nil }
         if !isActive {
             maintenanceTask?.cancel(); maintenanceTask = nil
             // Stop the Rust balance-refresh engine so it isn't firing

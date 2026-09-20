@@ -2,19 +2,19 @@ import Foundation
 
 @MainActor
 extension AppState {
-    func wallet(for walletID: String) -> WalletView? { cachedWalletByID[walletID] }
+    func wallet(for walletId: String) -> WalletView? { cachedWalletById[walletId] }
     /// Every address this wallet is known to hold: stored, used by its own
     /// transactions, or handed out by its keypool.
     ///
     /// This assembled the list from the app's projections — and derived nothing
     /// core had not already stored — then sent it to core to be deduplicated.
-    func knownOwnedAddresses(for walletID: String) async -> [String] {
-        (try? await self.bridge.knownWalletAddresses(walletID: walletID)) ?? []
+    func knownOwnedAddresses(for walletId: String) async -> [String] {
+        (try? await self.bridge.knownWalletAddresses(walletId: walletId)) ?? []
     }
     /// A sealed wallet can be revealed with its password, so this asks what is
     /// stored rather than whether it can be read without one.
-    func canRevealSeedPhrase(for walletID: String) -> Bool {
-        guard let state = self.bridge.walletSecretState(walletID: walletID) else { return false }
+    func canRevealSeedPhrase(for walletId: String) -> Bool {
+        guard let state = self.bridge.walletSecretState(walletId: walletId) else { return false }
         return state.hasSigningMaterial && !state.hasPrivateKey
     }
     func isWatchOnlyWallet(_ wallet: WalletView) -> Bool { !walletHasSigningMaterial(wallet.id) }
@@ -33,7 +33,7 @@ extension AppState {
         let seedPhrase: String
         do {
             seedPhrase = try self.bridge.walletSeedPhrase(
-                walletID: wallet.id, password: providedPassword)
+                walletId: wallet.id, password: providedPassword)
         } catch {
             throw providedPassword == nil
                 ? SeedPhraseRevealError.unavailable

@@ -6,7 +6,7 @@ struct TokenRegistryDetailView: View {
     private var groupEntries: [TokenPreferenceEntry] {
         store.tokenPreferences.filter { TokenRegistryGrouping.key(for: $0) == groupKey }
             .sorted { lhs, rhs in
-                if lhs.token.chain != rhs.token.chain { return lhs.token.chain < rhs.token.chain }
+                if lhs.token.chainId != rhs.token.chainId { return lhs.token.chainId < rhs.token.chainId }
                 return lhs.token.contract < rhs.token.contract
             }
     }

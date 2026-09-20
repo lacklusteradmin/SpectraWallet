@@ -75,8 +75,8 @@ extension AppState {
     }
 
     var portfolioQuotedTotal: QuotedTotal? { portfolioValuation?.portfolio }
-    func setPortfolioInclusion(_ isIncluded: Bool, for walletID: String) {
-        changeWallet(.setWalletPortfolioInclusion(walletId: walletID, included: isIncluded))
+    func setPortfolioInclusion(_ isIncluded: Bool, for walletId: String) {
+        changeWallet(.setWalletPortfolioInclusion(walletId: walletId, included: isIncluded))
     }
     /// Refresh balances now. Every wallet's: the engine sweeps its entries
     /// together, and the one this is asked from is among them.

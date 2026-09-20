@@ -4,18 +4,18 @@ extension AppState {
     func historyPaginationExhausted(chainId: String, walletId: String) -> Bool {
         self.bridge.historyCursor(chainId: chainId, walletId: walletId).isExhausted
     }
-    func canLoadMoreHistory(for walletID: String) -> Bool {
-        guard let wallet = cachedWalletByID[walletID], let chain = Chain(displayName: wallet.selectedChain) else { return false }
-        return !historyPaginationExhausted(chainId: chain.id, walletId: walletID)
+    func canLoadMoreHistory(for walletId: String) -> Bool {
+        guard let wallet = cachedWalletById[walletId], let chain = Chain(displayName: wallet.selectedChain) else { return false }
+        return !historyPaginationExhausted(chainId: chain.id, walletId: walletId)
     }
-    func canLoadMoreOnChainHistory(for walletIDs: Set<String>) -> Bool {
-        !isLoadingMoreOnChainHistory && walletIDs.contains(where: canLoadMoreHistory(for:))
+    func canLoadMoreOnChainHistory(for walletIds: Set<String>) -> Bool {
+        !isLoadingMoreOnChainHistory && walletIds.contains(where: canLoadMoreHistory(for:))
     }
-    func loadMoreOnChainHistory(for walletIDs: Set<String>) async {
-        guard !isLoadingMoreOnChainHistory, !walletIDs.isEmpty else { return }
+    func loadMoreOnChainHistory(for walletIds: Set<String>) async {
+        guard !isLoadingMoreOnChainHistory, !walletIds.isEmpty else { return }
         isLoadingMoreOnChainHistory = true
         defer { isLoadingMoreOnChainHistory = false }
-        await adoptHistoryRefresh(scope: .wallets(walletIds: Array(walletIDs)), loadMore: true)
+        await adoptHistoryRefresh(scope: .wallets(walletIds: Array(walletIds)), loadMore: true)
     }
     func refreshHistory(chainName: String) async {
         guard let chain = Chain(displayName: chainName) else { return }

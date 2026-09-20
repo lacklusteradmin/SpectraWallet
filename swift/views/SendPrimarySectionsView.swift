@@ -14,10 +14,10 @@ fileprivate struct SendComposerPresentation {
 
     init(store: AppState) {
         sendWallets = store.sendEnabledWallets
-        selectedWallet = sendWallets.first(where: { $0.id == store.sendWalletID })
-        availableSendCoins = store.availableSendCoins(for: store.sendWalletID)
+        selectedWallet = sendWallets.first(where: { $0.id == store.sendWalletId })
+        availableSendCoins = store.availableSendCoins(for: store.sendWalletId)
         selectedCoin = availableSendCoins.first(where: { $0.holdingKey == store.sendHoldingKey })
-        selectedCoinAmountText = selectedCoin.map { store.formattedAssetAmount($0.amount, symbol: $0.symbol, deploymentID: $0.holdingKey) }
+        selectedCoinAmountText = selectedCoin.map { store.formattedAssetAmount($0.amount, symbol: $0.symbol, deploymentId: $0.holdingKey) }
         let sendAmount = Double(store.sendAmount) ?? 0
         if let selectedCoin, !sendAmount.isZero {
             selectedCoinApproximateFiatText = store.formattedFiatAmount(sendAmount, of: selectedCoin)
@@ -53,11 +53,11 @@ struct SendFromPage: View {
                 Text(AppLocalization.string("From")).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
                 Spacer()
                 if presentation.sendWallets.count > 1 {
-                    Picker("", selection: $store.sendWalletID) {
+                    Picker("", selection: $store.sendWalletId) {
                         ForEach(presentation.sendWallets) { wallet in Text(wallet.name).tag(wallet.id) }
                     }
                     .pickerStyle(.menu)
-                    .onChange(of: store.sendWalletID) { _, _ in store.syncSendAssetSelection() }
+                    .onChange(of: store.sendWalletId) { _, _ in store.syncSendAssetSelection() }
                     .font(.subheadline.weight(.semibold))
                 }
             }
@@ -115,7 +115,7 @@ struct SendFromPage: View {
                     )
                     Text(coin.symbol).font(.headline)
                 }
-                Text(store.formattedAssetAmount(coin.amount, symbol: coin.symbol, deploymentID: coin.holdingKey))
+                Text(store.formattedAssetAmount(coin.amount, symbol: coin.symbol, deploymentId: coin.holdingKey))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .spectraNumericTextLayout()
@@ -140,7 +140,7 @@ struct SendFromPage: View {
 @MainActor
 struct SendRecipientPage: View {
     @Bindable var store: AppState
-    @Binding var selectedAddressBookEntryID: String
+    @Binding var selectedAddressBookEntryId: String
     @Binding var isShowingQRScanner: Bool
     @Binding var qrScannerErrorMessage: String?
     let validationError: String?
@@ -199,7 +199,7 @@ struct SendRecipientPage: View {
             }
 
             if !presentation.addressBookEntries.isEmpty {
-                Picker(AppLocalization.string("Saved Recipient"), selection: $selectedAddressBookEntryID) {
+                Picker(AppLocalization.string("Saved Recipient"), selection: $selectedAddressBookEntryId) {
                     Text(AppLocalization.string("None")).tag("")
                     ForEach(presentation.addressBookEntries) { entry in
                         Text("\(entry.name) · \(entry.chainName)").tag(entry.id)
@@ -207,7 +207,7 @@ struct SendRecipientPage: View {
                 }
                 .pickerStyle(.menu)
                 .font(.subheadline)
-                .onChange(of: selectedAddressBookEntryID) { _, newValue in
+                .onChange(of: selectedAddressBookEntryId) { _, newValue in
                     guard let entry = presentation.addressBookEntries.first(where: { $0.id == newValue }) else { return }
                     store.sendAddress = entry.address
                 }

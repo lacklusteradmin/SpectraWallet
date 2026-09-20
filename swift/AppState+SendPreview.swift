@@ -2,7 +2,7 @@ import Foundation
 
 /// Raw form identity, including invalid edits that may parse to the same nil value.
 struct SendPreviewInputSnapshot: Equatable {
-    let walletID: String
+    let walletId: String
     let holdingKey: String
     let amount: String
     let destination: String
@@ -15,20 +15,20 @@ struct SendPreviewInputSnapshot: Equatable {
 
 extension AppState {
     var sendPreviewInputSnapshot: SendPreviewInputSnapshot {
-        SendPreviewInputSnapshot(walletID: sendWalletID, holdingKey: sendHoldingKey,
+        SendPreviewInputSnapshot(walletId: sendWalletId, holdingKey: sendHoldingKey,
             amount: sendPreviewAmountInput, destination: sendAddress,
             nonceEnabled: evmManualNonceEnabled, nonce: evmManualNonce,
             feesEnabled: useCustomEvmFees, maxFee: customEvmMaxFeeGwei,
             priorityFee: customEvmPriorityFeeGwei)
     }
 
-    func isCurrentSendPreview(requestID: UUID, input: SendPreviewInputSnapshot) -> Bool {
-        !Task.isCancelled && sendPreviewRequestID == requestID && sendPreviewInputSnapshot == input
+    func isCurrentSendPreview(requestId: UUID, input: SendPreviewInputSnapshot) -> Bool {
+        !Task.isCancelled && sendPreviewRequestId == requestId && sendPreviewInputSnapshot == input
     }
 
-    func adoptSendPreviewResult(_ result: Result<SendPreview?, Error>, requestID: UUID,
+    func adoptSendPreviewResult(_ result: Result<SendPreview?, Error>, requestId: UUID,
                                input: SendPreviewInputSnapshot, chainName: String) {
-        guard isCurrentSendPreview(requestID: requestID, input: input) else { return }
+        guard isCurrentSendPreview(requestId: requestId, input: input) else { return }
         switch result {
         case .success(let preview):
             sendPreviewStore.apply(preview, forChainNamed: chainName)
@@ -43,12 +43,12 @@ extension AppState {
 
     /// Every completion, including errors and loading cleanup, belongs to one request.
     func refreshSendPreview() async {
-        let requestID = UUID()
-        sendPreviewRequestID = requestID
+        let requestId = UUID()
+        sendPreviewRequestId = requestId
         let input = sendPreviewInputSnapshot
         guard let coin = selectedSendCoin else {
             preparingChains = []
-            sendDestinationProbeRequestID = UUID()
+            sendDestinationProbeRequestId = UUID()
             sendPreviewStore.resetAll()
             sendDestinationRiskWarning = nil
             sendDestinationInfoMessage = nil
@@ -57,7 +57,7 @@ extension AppState {
         }
         let slot = SendPreviewStore.slot(forChainNamed: coin.chainName) ?? coin.chainName
         preparingChains = [slot]
-        defer { if sendPreviewRequestID == requestID { preparingChains = [] } }
+        defer { if sendPreviewRequestId == requestId { preparingChains = [] } }
         do {
             // Capture and validate all inputs before the first suspension.
             let nonce = try explicitEvmNonce().map(Int64.init)
@@ -66,14 +66,14 @@ extension AppState {
                 throw NSError(domain: "Send", code: 1, userInfo: [NSLocalizedDescriptionKey: error])
             }
             await refreshSendDestinationRiskWarning(for: coin)
-            guard isCurrentSendPreview(requestID: requestID, input: input) else { return }
+            guard isCurrentSendPreview(requestId: requestId, input: input) else { return }
             sendPreviewStore.resetAll(exceptSlot: slot)
             let preview = try await self.bridge.previewOwnedSend(
-                walletID: input.walletID, holdingKey: input.holdingKey, amount: input.amount,
+                walletId: input.walletId, holdingKey: input.holdingKey, amount: input.amount,
                 destination: input.destination, explicitNonce: nonce, customFees: fees)
-            adoptSendPreviewResult(.success(preview), requestID: requestID, input: input, chainName: coin.chainName)
+            adoptSendPreviewResult(.success(preview), requestId: requestId, input: input, chainName: coin.chainName)
         } catch {
-            adoptSendPreviewResult(.failure(error), requestID: requestID, input: input, chainName: coin.chainName)
+            adoptSendPreviewResult(.failure(error), requestId: requestId, input: input, chainName: coin.chainName)
         }
     }
 }

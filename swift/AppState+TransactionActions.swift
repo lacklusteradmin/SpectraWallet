@@ -2,9 +2,9 @@ import Foundation
 
 @MainActor
 extension AppState {
-    func retryUTXOTransactionStatus(for transactionID: String) async -> String {
+    func retryUTXOTransactionStatus(for transactionId: String) async -> String {
         do {
-            let change = try await self.bridge.recheckTransactionStatus(id: transactionID)
+            let change = try await self.bridge.recheckTransactionStatus(id: transactionId)
             await applyPendingStatusChanges([change])
             if change.statusChanged {
                 return AppLocalization.format("Status updated: %@.", change.newStatus.localizedTitle)
@@ -17,12 +17,12 @@ extension AppState {
             return message
         }
     }
-    func rebroadcastSignedTransaction(for transactionID: String) async -> String {
+    func rebroadcastSignedTransaction(for transactionId: String) async -> String {
         guard await authenticateForSensitiveAction(reason: AppLocalization.string("Authorize transaction rebroadcast")) else {
             return sendError ?? AppLocalization.string("Authentication failed.")
         }
         do {
-            let transactionHash = try await self.bridge.rebroadcastTransaction(id: transactionID)
+            let transactionHash = try await self.bridge.rebroadcastTransaction(id: transactionId)
             await refreshTransactionProjection()
             return AppLocalization.format("Transaction rebroadcasted: %@. Network confirmation is pending.", transactionHash)
         } catch {

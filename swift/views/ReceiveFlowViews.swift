@@ -33,11 +33,11 @@ struct ReceiveView: View {
     @State private var qrImageSaver: PhotoLibraryImageSaver?
 
     private var selectedWallet: WalletView? {
-        store.receiveEnabledWallets.first(where: { $0.id == store.receiveWalletID })
+        store.receiveEnabledWallets.first(where: { $0.id == store.receiveWalletId })
     }
 
     private var selectedCoin: Coin? {
-        store.selectedReceiveCoin(for: store.receiveWalletID)
+        store.selectedReceiveCoin(for: store.receiveWalletId)
     }
 
     private var resolvedAddress: String {
@@ -163,7 +163,7 @@ struct ReceiveView: View {
                     ForEach(store.receiveEnabledWallets) { wallet in
                         WalletReceiveCard(
                             wallet: wallet,
-                            isSelected: wallet.id == store.receiveWalletID
+                            isSelected: wallet.id == store.receiveWalletId
                         ) {
                             select(wallet)
                         }
@@ -332,9 +332,9 @@ struct ReceiveView: View {
     }
 
     private func select(_ wallet: WalletView) {
-        guard store.receiveWalletID != wallet.id else { return }
+        guard store.receiveWalletId != wallet.id else { return }
         spectraHaptic(.light)
-        store.receiveWalletID = wallet.id
+        store.receiveWalletId = wallet.id
         store.syncReceiveAssetSelection()
     }
 
@@ -346,7 +346,7 @@ struct ReceiveView: View {
     }
 
     private var receiveRefreshKey: String {
-        "\(currentStep.rawValue)|\(store.receiveWalletID)|\(store.receiveHoldingKey)"
+        "\(currentStep.rawValue)|\(store.receiveWalletId)|\(store.receiveHoldingKey)"
     }
 
 }

@@ -394,11 +394,11 @@ struct TransactionDetailView: View {
     private func rebuildDisplayedTransactionState() async {
         let resolvedTransaction = (try? await WalletServiceBridge.shared.transaction(id: transaction.id)) ?? transaction
         liveTransaction = resolvedTransaction
-        guard let walletID = resolvedTransaction.walletId else {
+        guard let walletId = resolvedTransaction.walletId else {
             liveOwnedAddresses = []
             return
         }
-        let owned = await store.knownOwnedAddresses(for: walletID)
+        let owned = await store.knownOwnedAddresses(for: walletId)
         liveOwnedAddresses = Set(owned.compactMap { normalizedAddress($0) })
     }
     private struct TransactionTimelineItem: Identifiable {

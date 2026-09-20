@@ -60,7 +60,7 @@ struct StakingView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 CoinBadge(
-                    artworkName: coreHoldingArtworkName(holding: AssetHolding(name: "", symbol: "", coinGeckoId: "", chainName: chain.displayName, tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 0)),
+                    artworkName: holdingArtworkName(holding: AssetHolding(name: "", symbol: "", coingeckoId: "", chainName: chain.displayName, tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 0)),
                     fallbackText: chain.gasTokenSymbol, color: descriptor.tint, size: 36)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(chain.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
@@ -271,7 +271,7 @@ struct ChainStakingDetailView: View {
     private func heroCard(descriptor: StakingChainDescriptor) -> some View {
         HStack(spacing: 14) {
             CoinBadge(
-                artworkName: coreHoldingArtworkName(holding: AssetHolding(name: "", symbol: "", coinGeckoId: "", chainName: chain.displayName, tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 0)),
+                artworkName: holdingArtworkName(holding: AssetHolding(name: "", symbol: "", coingeckoId: "", chainName: chain.displayName, tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 0)),
                 fallbackText: chain.gasTokenSymbol, color: descriptor.tint, size: 56)
             VStack(alignment: .leading, spacing: 4) {
                 Text(chain.displayName).font(.title3.weight(.bold)).foregroundStyle(Color.primary)

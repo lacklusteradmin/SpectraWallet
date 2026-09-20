@@ -10,7 +10,7 @@ extension AppState {
         let overrides = nonce == nil && fees == nil ? nil : EvmSendOverridesInput(
             nonce: nonce, customFees: fees, gasLimit: nil, calldataHex: nil,
             signOnly: nil, accessListJson: nil)
-        return SendReviewInput(walletId: sendWalletID, holdingKey: sendHoldingKey,
+        return SendReviewInput(walletId: sendWalletId, holdingKey: sendHoldingKey,
             amount: sendAmount, destination: sendAddress, overrides: overrides)
     }
 
@@ -53,7 +53,7 @@ extension AppState {
         guard await authenticateForSensitiveAction(reason: AppLocalization.string("Authorize transaction send")) else { return }
         do {
             let result = try await self.bridge.executeOwnedSend(
-                reviewID: review.id, input: currentSendReviewInput(), password: password)
+                reviewId: review.id, input: currentSendReviewInput(), password: password)
             await refreshTransactionProjection()
             lastSentTransaction = transactions.first {
                 $0.transactionHash == result.transactionHash && $0.walletId == review.request.walletId

@@ -12,17 +12,17 @@ extension Chain: Identifiable {
     /// Chains with staking support, as declared by the registry.
     static let stakingChains: [Chain] = identities.filter(\.supportsStaking).map(\.chain)
 
-    private static let identities: [ChainIdentity] = coreChainIdentities()
+    private static let identities: [ChainIdentity] = chainIdentities()
     private static let identityByChain: [Chain: ChainIdentity] = Dictionary(
         uniqueKeysWithValues: identities.map { ($0.chain, $0) })
-    private static let chainByID: [String: Chain] = Dictionary(
+    private static let chainById: [String: Chain] = Dictionary(
         uniqueKeysWithValues: identities.map { ($0.id, $0.chain) })
     private static let chainByName: [String: Chain] = Dictionary(
         uniqueKeysWithValues: identities.map { ($0.name, $0.chain) })
     private static let entryByChain: [Chain: ChainEntry] = {
-        let byID = Dictionary(uniqueKeysWithValues: listAllChains().map { ($0.id, $0) })
+        let byId = Dictionary(uniqueKeysWithValues: listAllChains().map { ($0.id, $0) })
         return identities.reduce(into: [:]) { out, identity in
-            if let entry = byID[identity.id] { out[identity.chain] = entry }
+            if let entry = byId[identity.id] { out[identity.chain] = entry }
         }
     }()
 
@@ -106,11 +106,11 @@ extension Chain: Identifiable {
     /// Monero derives from the seed directly.
     ///
     var defaultDerivationPath: String {
-        (try? appCoreResolveDerivationPath(chain: displayName, derivationPath: "")) ?? ""
+        (try? resolveDerivationPath(chain: displayName, derivationPath: "")) ?? ""
     }
 
     init?(id: String) {
-        guard let chain = Self.chainByID[id] else { return nil }
+        guard let chain = Self.chainById[id] else { return nil }
         self = chain
     }
 

@@ -3,14 +3,14 @@ import SwiftUI
 @MainActor
 extension AppState {
     private func clearAllChainSendState() {
-        sendPreviewRequestID = UUID()
+        sendPreviewRequestId = UUID()
         sendPreviewStore.resetAll()
         sendingChains = []
         preparingChains = []
         clearHighRiskSendConfirmation()
     }
     private func resetSendComposerFields() {
-        sendDestinationProbeRequestID = UUID()
+        sendDestinationProbeRequestId = UUID()
         sendAmount = ""; sendAddress = ""; sendError = nil; sendDestinationRiskWarning = nil; sendDestinationInfoMessage = nil;
         isCheckingSendDestinationBalance = false
         clearSendVerificationNotice()
@@ -21,15 +21,15 @@ extension AppState {
     }
     func beginSend() {
         guard let firstWallet = sendEnabledWallets.first else { return }
-        sendWalletID = firstWallet.id
-        sendHoldingKey = availableSendCoins(for: sendWalletID).first?.holdingKey ?? ""
+        sendWalletId = firstWallet.id
+        sendHoldingKey = availableSendCoins(for: sendWalletId).first?.holdingKey ?? ""
         resetSendComposerFields()
         syncSendAssetSelection()
         isShowingSendSheet = true
     }
     func syncSendAssetSelection() {
-        sendDestinationProbeRequestID = UUID()
-        let availableHoldingKeys = availableSendCoins(for: sendWalletID).map(\.holdingKey)
+        sendDestinationProbeRequestId = UUID()
+        let availableHoldingKeys = availableSendCoins(for: sendWalletId).map(\.holdingKey)
         if !availableHoldingKeys.contains(sendHoldingKey) { sendHoldingKey = availableHoldingKeys.first ?? "" }
         // Keep EIP-1559 fees and manual nonce when switching within the EVM
         // family; clear them when leaving it.
@@ -43,7 +43,7 @@ extension AppState {
     }
     func cancelSend() { isShowingSendSheet = false; resetSendComposerFields() }
     var selectedSendCoin: Coin? {
-        availableSendCoins(for: sendWalletID).first(where: { $0.holdingKey == sendHoldingKey })
+        availableSendCoins(for: sendWalletId).first(where: { $0.holdingKey == sendHoldingKey })
     }
     var sendAmountDecimals: UInt32? {
         guard let coin = selectedSendCoin else { return nil }
@@ -126,7 +126,7 @@ extension AppState {
         guard evmManualNonceEnabled else { return nil }
         return Int(try parseEvmNonce(raw: evmManualNonce))
     }
-    func selectedWalletForSend() -> WalletView? { wallet(for: sendWalletID) }
+    func selectedWalletForSend() -> WalletView? { wallet(for: sendWalletId) }
     /// The pending send the composer can replace as it stands: core's rule,
     /// scoped to the wallet and chain the composer is on.
     ///
@@ -140,13 +140,13 @@ extension AppState {
     var replaceableSendForSelectedWallet: ReplaceableSend? {
         guard let selectedSendCoin else { return nil }
         return replaceableSends.first {
-            $0.walletId.caseInsensitiveCompare(sendWalletID) == .orderedSame
+            $0.walletId.caseInsensitiveCompare(sendWalletId) == .orderedSame
                 && $0.chainName == selectedSendCoin.chainName
         }
     }
-    func replaceableSend(forTransaction transactionID: String) -> ReplaceableSend? {
+    func replaceableSend(forTransaction transactionId: String) -> ReplaceableSend? {
         replaceableSends.first {
-            $0.transactionId.caseInsensitiveCompare(transactionID) == .orderedSame
+            $0.transactionId.caseInsensitiveCompare(transactionId) == .orderedSame
         }
     }
     func prepareReplacementContext(cancel: Bool) async {
@@ -156,8 +156,8 @@ extension AppState {
         }
         await prepareReplacementContext(pending: pending, cancel: cancel)
     }
-    func openReplacementComposer(for transactionID: String, cancel: Bool) async -> String? {
-        guard let pending = replaceableSend(forTransaction: transactionID) else {
+    func openReplacementComposer(for transactionId: String, cancel: Bool) async -> String? {
+        guard let pending = replaceableSend(forTransaction: transactionId) else {
             let message = localizedStoreString(
                 "This transaction is no longer pending, so replacement and cancel are unavailable.")
             sendError = message
@@ -173,8 +173,8 @@ extension AppState {
         isPreparingReplacementContext = true; defer { isPreparingReplacementContext = false }
         do {
             let draft = try await self.bridge.replacementDraft(
-                transactionID: pending.transactionId, cancel: cancel)
-            sendWalletID = draft.walletId
+                transactionId: pending.transactionId, cancel: cancel)
+            sendWalletId = draft.walletId
             sendHoldingKey = draft.holdingKey
             sendAddress = draft.destination
             sendAmount = draft.amount
@@ -204,7 +204,7 @@ extension AppState {
     /// address, so a TON jetton's case-significant address is not lowercased
     /// into a non-match.
     func supportedToken(for coin: Coin) -> TokenPreferenceEntry? {
-        guard let entry = cachedTokenPreferenceByDeploymentID[coin.holdingKey], entry.isEnabled else { return nil }
+        guard let entry = cachedTokenPreferenceByDeploymentId[coin.holdingKey], entry.isEnabled else { return nil }
         return entry
     }
 
@@ -239,36 +239,36 @@ extension AppState {
     func knownUTXOAddresses(for wallet: WalletView, chainName: String) async -> [String]? {
         guard let chain = Chain(displayName: chainName) else { return [] }
         do {
-            return try await self.bridge.knownUTXOAddresses(walletID: wallet.id, chainId: chain.id)
+            return try await self.bridge.knownUTXOAddresses(walletId: wallet.id, chainId: chain.id)
         } catch {
             appendOperationalLog(
                 .error, category: "Owned Addresses",
                 message: "Known \(chainName) addresses could not be read: \(String(describing: error))",
-                chainName: chainName, walletID: wallet.id)
+                chainName: chainName, walletId: wallet.id)
             return nil
         }
     }
 
     func refreshSendDestinationRiskWarning(for coin: Coin) async {
-        let requestID = UUID()
-        sendDestinationProbeRequestID = requestID
-        let walletID = sendWalletID
+        let requestId = UUID()
+        sendDestinationProbeRequestId = requestId
+        let walletId = sendWalletId
         let holdingKey = coin.holdingKey
         let input = sendAddress
         func isCurrent() -> Bool {
-            !Task.isCancelled && sendDestinationProbeRequestID == requestID
-                && sendWalletID == walletID && sendHoldingKey == holdingKey && sendAddress == input
+            !Task.isCancelled && sendDestinationProbeRequestId == requestId
+                && sendWalletId == walletId && sendHoldingKey == holdingKey && sendAddress == input
         }
         sendDestinationRiskWarning = nil
         sendDestinationInfoMessage = nil
         isCheckingSendDestinationBalance = !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        defer { if sendDestinationProbeRequestID == requestID { isCheckingSendDestinationBalance = false } }
+        defer { if sendDestinationProbeRequestId == requestId { isCheckingSendDestinationBalance = false } }
         guard isCheckingSendDestinationBalance else { return }
         do {
             // Core resolves the typed input and identifies the stored deployment.
             // No ticker-based cache or cross-protocol address normalization lives here.
             let risk = try await self.bridge.sendDestinationRisk(
-                walletID: walletID, holdingKey: holdingKey, destination: input)
+                walletId: walletId, holdingKey: holdingKey, destination: input)
             guard isCurrent() else { return }
             let messages = chainRiskProbeMessages(chainName: coin.chainName, symbol: coin.symbol,
                 balanceIsZero: risk.balanceIsZero, hasHistory: risk.hasHistory)
@@ -296,7 +296,7 @@ extension AppState {
             : nil
         return (warning, info)
     }
-    func availableSendCoins(for walletID: String) -> [Coin] { cachedAvailableSendCoinsByWalletID[walletID] ?? [] }
+    func availableSendCoins(for walletId: String) -> [Coin] { cachedAvailableSendCoinsByWalletId[walletId] ?? [] }
     var sendEnabledWallets: [WalletView] { cachedSendEnabledWallets }
     var canBeginSend: Bool { !sendEnabledWallets.isEmpty }
     var replacementNonceStateMessage: String? {

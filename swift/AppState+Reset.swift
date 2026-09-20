@@ -30,13 +30,13 @@ extension AppState {
         if plan.clearNetworkAndTransportCaches { clearNetworkAndTransportCaches() }
     }
     private func resetWalletsAndSecretsState() async {
-        receiveWalletID = ""
+        receiveWalletId = ""
         receiveHoldingKey = ""
         receiveResolvedAddress = ""
         isResolvingReceiveAddress = false
         walletPendingDeletion = nil
-        editingWalletID = nil
-        sendWalletID = ""
+        editingWalletId = nil
+        sendWalletId = ""
         sendHoldingKey = ""
         sendAmount = ""
         sendAddress = ""
@@ -57,8 +57,8 @@ extension AppState {
         sendPreviewStore.resetAll()
         sendingChains = []
         preparingChains = []
-        sendPreviewRequestID = UUID()
-        sendDestinationProbeRequestID = UUID()
+        sendPreviewRequestId = UUID()
+        sendDestinationProbeRequestId = UUID()
         pendingSendReview = nil
         // Core prunes status trackers against committed history on the next
         // maintenance sweep, including when there is no remaining work.

@@ -17,15 +17,15 @@ struct EndpointCatalogSettingsView: View {
     private func endpointsByNetwork(
         of chain: Chain, endpoints: (NetworkChoice, _ isSelected: Bool) -> [String]
     ) -> [AppEndpointGroupedSettingsEntry] {
-        let selected = store.networkChainID(forFamily: chain.id)
+        let selected = store.selectedChainId(forFamily: chain.id)
         return chain.networkChoices.map { choice in
-            AppEndpointGroupedSettingsEntry(networkId: choice.chainId, title: choice.title, endpoints: endpoints(choice, choice.chainId == selected))
+            AppEndpointGroupedSettingsEntry(chainId: choice.chainId, title: choice.title, endpoints: endpoints(choice, choice.chainId == selected))
         }
     }
     private func esploraEndpointsByNetwork(of chain: Chain) -> [AppEndpointGroupedSettingsEntry] {
         endpointsByNetwork(of: chain) { choice, isSelected in
             let custom = isSelected ? customEsploraEndpoints : []
-            return custom.isEmpty ? AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: choice.chainId) : custom
+            return custom.isEmpty ? AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainId: choice.chainId) : custom
         }
     }
     private func evmEndpointsByNetwork(of chain: Chain) -> [AppEndpointGroupedSettingsEntry] {
@@ -87,7 +87,7 @@ struct EndpointCatalogSettingsView: View {
     }
     @ViewBuilder
     private func esploraSectionBody(_ chain: Chain) -> some View {
-        ForEach(esploraEndpointsByNetwork(of: chain), id: \.networkId) { group in
+        ForEach(esploraEndpointsByNetwork(of: chain), id: \.chainId) { group in
             namedEndpointGroup(title: group.title, endpoints: group.endpoints)
         }
         TextField(copy.addEsploraEndpointPlaceholder, text: $newEsploraEndpoint).textInputAutocapitalization(.never)
@@ -136,11 +136,11 @@ struct EndpointCatalogSettingsView: View {
         Section(chain.displayName) {
             if chain.sendsThroughBackend {
                 backendSectionBody(chain)
-            } else if !AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainID: chain.id).isEmpty {
+            } else if !AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainId: chain.id).isEmpty {
                 esploraSectionBody(chain)
             } else if chain.isEVM {
                 if chain.networkChoices.count > 1 {
-                    ForEach(evmEndpointsByNetwork(of: chain), id: \.networkId) { group in
+                    ForEach(evmEndpointsByNetwork(of: chain), id: \.chainId) { group in
                         namedEndpointGroup(title: group.title, endpoints: group.endpoints)
                     }
                 } else {
@@ -150,7 +150,7 @@ struct EndpointCatalogSettingsView: View {
             } else {
                 let groups = AppEndpointDirectory.groupedSettingsEntries(for: chain.id)
                 if groups.count > 1 {
-                    ForEach(groups, id: \.networkId) { group in
+                    ForEach(groups, id: \.chainId) { group in
                         namedEndpointGroup(title: group.title, endpoints: group.endpoints)
                     }
                 } else {

@@ -14,7 +14,7 @@ struct SendConfirmationStep: View {
     private var sendPreviewStore: SendPreviewStore { store.sendPreviewStore }
     private var isSendBusy: Bool { !store.sendingChains.isEmpty || !store.preparingChains.isEmpty }
     private var selectedCoin: Coin? {
-        store.availableSendCoins(for: store.sendWalletID).first(where: { $0.holdingKey == store.sendHoldingKey })
+        store.availableSendCoins(for: store.sendWalletId).first(where: { $0.holdingKey == store.sendHoldingKey })
     }
 
     var body: some View {

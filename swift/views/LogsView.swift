@@ -91,8 +91,8 @@ struct LogsView: View {
                                 Text(AppLocalization.format("chain: %@", chainName)).font(.caption.monospaced()).foregroundStyle(
                                     .secondary)
                             }
-                            if let walletID = event.walletId {
-                                Text(AppLocalization.format("wallet: %@", walletID)).font(.caption.monospaced()).foregroundStyle(
+                            if let walletId = event.walletId {
+                                Text(AppLocalization.format("wallet: %@", walletId)).font(.caption.monospaced()).foregroundStyle(
                                     .secondary
                                 ).textSelection(.enabled)
                             }

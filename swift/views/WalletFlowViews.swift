@@ -214,7 +214,7 @@ struct WalletDetailView: View {
         store.wallets.first(where: { $0.id == wallet.id }) ?? wallet
     }
     private var firstActivityDateText: String {
-        guard let firstDate = store.cachedFirstActivityDateByWalletID[wallet.id] else {
+        guard let firstDate = store.cachedFirstActivityDateByWalletId[wallet.id] else {
             return localizedWalletFlowString("No activity yet")
         }
         return Self.firstActivityFormatter.string(from: firstDate)
@@ -230,7 +230,7 @@ struct WalletDetailView: View {
         let holdingPresentations = visibleHoldings.map { entry in
             HoldingPresentation(
                 coin: entry.coin,
-                amountText: store.formattedAssetAmount(entry.coin.amount, symbol: entry.coin.symbol, deploymentID: entry.coin.holdingKey),
+                amountText: store.formattedAssetAmount(entry.coin.amount, symbol: entry.coin.symbol, deploymentId: entry.coin.holdingKey),
                 valueText: store.preferences.hideBalances
                     ? "••••••" : store.formattedFiatAmountOrUnavailable(fromUSD: entry.quotedValue >= 0 ? entry.quotedValue : nil)
             )
@@ -247,13 +247,13 @@ struct WalletDetailView: View {
             walletBadge: Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, .mint),
             visibleHoldingPresentations: holdingPresentations,
             walletTotalValueText: store.preferences.hideBalances
-                ? "••••••" : store.formattedWalletTotal(walletID: wallet.id)
+                ? "••••••" : store.formattedWalletTotal(walletId: wallet.id)
         )
     }
     /// The wallet's configured derivation path, when it has one.
     private func derivationPathsText(for wallet: WalletView) -> String? {
         guard !isWatchOnly, !isPrivateKeyWallet,
-            let chain = Chain(id: wallet.networkChainId)
+            let chain = Chain(id: wallet.chainId)
         else { return nil }
         let path = wallet.seedDerivationPaths.path(for: chain)
         guard !path.isEmpty else { return nil }
@@ -313,12 +313,12 @@ struct WalletDetailView: View {
             }
         }.navigationDestination(isPresented: $isShowingAdvancedPage) {
             WalletAdvancedDetailsView(
-                walletID: detailPresentation.wallet.id, derivationPathsText: detailPresentation.derivationPathsText,
+                walletId: detailPresentation.wallet.id, derivationPathsText: detailPresentation.derivationPathsText,
                 firstActivityDateText: firstActivityDateText
             )
         }.navigationDestination(
             isPresented: Binding(
-                get: { store.isShowingWalletImporter && store.editingWalletID == wallet.id },
+                get: { store.isShowingWalletImporter && store.editingWalletId == wallet.id },
                 set: { isPresented in
                     if !isPresented { store.isShowingWalletImporter = false }
                 }
@@ -581,13 +581,13 @@ struct WalletDetailView: View {
     }
 }
 private struct WalletAdvancedDetailsView: View {
-    let walletID: String
+    let walletId: String
     let derivationPathsText: String?
     let firstActivityDateText: String
     var body: some View {
         Form {
             Section {
-                WalletDetailRow(label: "Wallet ID", value: walletID)
+                WalletDetailRow(label: "Wallet ID", value: walletId)
                 if let derivationPathsText { WalletDetailRow(label: "Derivation Paths", value: derivationPathsText) }
                 WalletDetailRow(label: "First Activity", value: firstActivityDateText)
             }
@@ -609,7 +609,7 @@ struct SeedPathSlotEditor: View {
     @Binding var path: String
     let defaultPath: String
     private var segments: [DerivationPathSegment] {
-        coreParseDerivationPath(rawPath: path) ?? coreParseDerivationPath(rawPath: defaultPath) ?? []
+        parseDerivationPath(rawPath: path) ?? parseDerivationPath(rawPath: defaultPath) ?? []
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -644,10 +644,10 @@ struct SeedPathSlotEditor: View {
 }
     }
     private func updateSegment(at index: Int, value: String) {
-        guard var resolvedSegments = coreParseDerivationPath(rawPath: path) ?? coreParseDerivationPath(rawPath: defaultPath),
+        guard var resolvedSegments = parseDerivationPath(rawPath: path) ?? parseDerivationPath(rawPath: defaultPath),
             resolvedSegments.indices.contains(index), let numericValue = UInt32(value.filter(\.isNumber))
         else { return }
         resolvedSegments[index].value = numericValue
-        path = coreDerivationPathString(segments: resolvedSegments)
+        path = formatDerivationPath(segments: resolvedSegments)
     }
 }

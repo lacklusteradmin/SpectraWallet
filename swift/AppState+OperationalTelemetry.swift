@@ -15,11 +15,11 @@ extension AppState {
         diagnostics.exportOperationalLogsText(networkSyncStatusText: networkSyncStatusText, events: events)
     }
     func appendOperationalLog(
-        _ level: DiagnosticLogLevel, category: String, message: String, chainName: String? = nil, walletID: String? = nil,
+        _ level: DiagnosticLogLevel, category: String, message: String, chainName: String? = nil, walletId: String? = nil,
         transactionHash: String? = nil, source: String? = nil, metadata: String? = nil
     ) {
         diagnostics.appendOperationalLog(
-            level, category: category, message: message, chainName: chainName, walletID: walletID, transactionHash: transactionHash,
+            level, category: category, message: message, chainName: chainName, walletId: walletId, transactionHash: transactionHash,
             source: source, metadata: metadata
         )
     }
@@ -51,13 +51,13 @@ extension AppState {
 
     /// Adopt core's outcome and emit localized operational text and notifications.
     func applyPendingStatusChanges(_ changes: [TransactionStatusChange]) async {
-        let oldByID = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
+        let oldById = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
 
         await refreshTransactionProjection()
 
         for change in changes {
             let id = change.id
-            let transaction = (try? await self.bridge.transaction(id: id)) ?? oldByID[id]
+            let transaction = (try? await self.bridge.transaction(id: id)) ?? oldById[id]
             guard let transaction else { continue }
             if change.statusChanged {
                 switch change.newStatus {

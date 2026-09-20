@@ -35,7 +35,7 @@ extension AppState {
         guard let chain = Chain(displayName: chainName) else { return }
         await withEndpointCheck(for: chainName) { publish in
             do {
-                let rows = try await self.bridge.probeChainEndpoints(chainID: chain.id)
+                let rows = try await self.bridge.probeChainEndpoints(chainId: chain.id)
                 publish(rows.map { EndpointHealthRow(label: $0.checked ? "" : "Not checked", endpoint: $0.endpoint, reachable: $0.reachable, statusCode: nil, detail: $0.detail) })
             } catch {
                 publish([EndpointHealthRow(label: "", endpoint: chainName, reachable: false, statusCode: nil, detail: error.localizedDescription)])

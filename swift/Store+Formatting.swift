@@ -80,8 +80,8 @@ extension AppState {
     /// Callers that render the symbol in a separate label — the send Live
     /// Activity does — need the value without it, and the rounding rules are
     /// the same either way.
-    func formattedAssetAmountValue(_ amount: Double, deploymentID: String?) -> String {
-        formattedAmountValue(amount, assetDecimals: UInt32(supportedDecimalPlaces(deploymentID: deploymentID)))
+    func formattedAssetAmountValue(_ amount: Double, deploymentId: String?) -> String {
+        formattedAmountValue(amount, assetDecimals: UInt32(supportedDecimalPlaces(deploymentId: deploymentId)))
     }
     /// An amount at the places core picks for it on an asset with
     /// `assetDecimals` of its own, trailing zeros trimmed.
@@ -99,18 +99,18 @@ extension AppState {
         )
         return formatter.string(from: NSNumber(value: amount)) ?? ""
     }
-    func formattedAssetAmount(_ amount: Double, symbol: String, deploymentID: String?) -> String {
-        "\(formattedAssetAmountValue(amount, deploymentID: deploymentID)) \(symbol)"
+    func formattedAssetAmount(_ amount: Double, symbol: String, deploymentId: String?) -> String {
+        "\(formattedAssetAmountValue(amount, deploymentId: deploymentId)) \(symbol)"
     }
 
     func formattedTransactionAmount(_ transaction: TransactionRecord) -> String? {
         guard transaction.amount.isFinite, transaction.amount >= 0 else { return nil }
-        return formattedAssetAmount(transaction.amount, symbol: transaction.symbol, deploymentID: transaction.deploymentId)
+        return formattedAssetAmount(transaction.amount, symbol: transaction.symbol, deploymentId: transaction.deploymentId)
     }
     func formattedTransactionDetailAmount(_ transaction: TransactionRecord) -> String? {
         guard transaction.amount.isFinite, transaction.amount >= 0 else { return nil }
         return formattedTransactionDetailAssetAmount(
-            transaction.amount, symbol: transaction.symbol, deploymentID: transaction.deploymentId
+            transaction.amount, symbol: transaction.symbol, deploymentId: transaction.deploymentId
         )
     }
     func currentValueIfAvailable(for coin: Coin) -> Double? {
@@ -124,8 +124,8 @@ extension AppState {
         guard total.unpricedCount > 0 else { return amount }
         return amount + " · " + AppLocalization.format("%lld without a price", total.unpricedCount)
     }
-    func formattedWalletTotal(walletID: String) -> String {
-        formattedQuotedTotal(portfolioValuation?.wallets[walletID])
+    func formattedWalletTotal(walletId: String) -> String {
+        formattedQuotedTotal(portfolioValuation?.wallets[walletId])
     }
     func assetIdentityKey(for coin: Coin) -> String { coin.holdingKey }
     /// Hot path — called per coin during portfolio totals and per row in the
@@ -152,8 +152,8 @@ extension AppState {
     func formattedNetworkFeeWithFiat(_ fee: Double, chain: Chain) -> String {
         let native = formattedNetworkFee(fee, chain: chain)
         guard isPricedChain(chain.displayName),
-            let deploymentID = chain.entry?.nativeDeploymentId,
-            let price = livePrices[deploymentID],
+            let deploymentId = chain.entry?.nativeDeploymentId,
+            let price = livePrices[deploymentId],
             let fiat = formattedFiatAmountIfAvailable(fromUSD: fee * price)
         else { return native }
         return "\(native) (~\(fiat))"
@@ -199,24 +199,24 @@ extension AppState {
     /// what the stored id means; the sentence around a chain's providers is
     /// this app's to translate, and Spectra's own reader is not named at all.
     func historySourceText(for transaction: TransactionRecord) -> String? {
-        switch transaction.transactionHistorySource.flatMap({ coreHistorySource(source: $0) }) {
+        switch transaction.transactionHistorySource.flatMap({ historySource(source: $0) }) {
         case .provider(let name): return name
         case .chainProviders(let chainName): return AppLocalization.format("%@ providers", chainName)
         case .internal, nil: return nil
         }
     }
 
-    private func formattedTransactionDetailAssetAmount(_ amount: Double, symbol: String, deploymentID: String?) -> String {
-        let supportedDecimals = supportedDecimalPlaces(deploymentID: deploymentID)
+    private func formattedTransactionDetailAssetAmount(_ amount: Double, symbol: String, deploymentId: String?) -> String {
+        let supportedDecimals = supportedDecimalPlaces(deploymentId: deploymentId)
         let formatter = decimalFormatter(
             minimumFractionDigits: 0, maximumFractionDigits: supportedDecimals, usesGroupingSeparator: false
         )
         let formattedValue = formatter.string(from: NSNumber(value: amount)) ?? ""
         return "\(formattedValue) \(symbol)"
     }
-    private func supportedDecimalPlaces(deploymentID: String?) -> Int {
-        let customDecimals = deploymentID.flatMap { cachedTokenPreferenceByDeploymentID[$0]?.token.decimals }
-        return Int(tokenDisplayDecimals(deploymentId: deploymentID, customDecimals: customDecimals))
+    private func supportedDecimalPlaces(deploymentId: String?) -> Int {
+        let customDecimals = deploymentId.flatMap { cachedTokenPreferenceByDeploymentId[$0]?.token.decimals }
+        return Int(tokenDisplayDecimals(deploymentId: deploymentId, customDecimals: customDecimals))
     }
 
 }

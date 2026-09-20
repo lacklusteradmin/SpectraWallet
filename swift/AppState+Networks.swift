@@ -9,13 +9,13 @@ extension AppState {
         guard let family = Chain(displayName: chainName)?.id, !family.isEmpty else {
             return chainName
         }
-        let chainID = networkChainID(forFamily: family)
-        return Chain(id: chainID)?.displayName ?? chainID
+        let chainId = selectedChainId(forFamily: family)
+        return Chain(id: chainId)?.displayName ?? chainId
     }
     /// The network a wallet is on — "Bitcoin Testnet4" — which is its own,
     /// whatever the app is set to now.
     func displayChainTitle(for wallet: WalletView) -> String {
-        Chain(id: wallet.networkChainId)?.displayName ?? wallet.selectedChain
+        Chain(id: wallet.chainId)?.displayName ?? wallet.selectedChain
     }
     /// A transaction names the network it was on when it was recorded.
     func displayChainTitle(for transaction: TransactionRecord) -> String {
@@ -24,7 +24,7 @@ extension AppState {
     func supportsDeepUTXODiscovery(chainName: String) -> Bool { (Chain(displayName: chainName)?.supportsDeepUTXODiscovery ?? false) }
     /// The networks this chain family offers, mainnet first. Core answers, so
     /// no front end enumerates them.
-    nonisolated func networkChoices(forChainID chainID: String) -> [NetworkChoice] {
-        (Chain(id: chainID)?.networkChoices ?? [])
+    nonisolated func networkChoices(forChainId chainId: String) -> [NetworkChoice] {
+        (Chain(id: chainId)?.networkChoices ?? [])
     }
 }

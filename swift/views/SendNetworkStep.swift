@@ -23,7 +23,7 @@ struct SendNetworkStep: View {
     }
 
     private var selectedCoin: Coin? {
-        store.availableSendCoins(for: store.sendWalletID).first(where: { $0.holdingKey == store.sendHoldingKey })
+        store.availableSendCoins(for: store.sendWalletId).first(where: { $0.holdingKey == store.sendHoldingKey })
     }
 
     private func networkStep(selectedCoin: Coin?) -> some View {
@@ -313,7 +313,7 @@ struct SendNetworkStep: View {
     }
 
     private func formattedPreviewAssetAmount(_ amount: Double, for coin: Coin) -> String {
-        store.formattedAssetAmount(amount, symbol: coin.symbol, deploymentID: coin.holdingKey)
+        store.formattedAssetAmount(amount, symbol: coin.symbol, deploymentId: coin.holdingKey)
     }
 
     /// Core reads the stored spelling; the parenthetical is this view's.
