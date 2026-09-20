@@ -3,6 +3,15 @@ import XCTest
 @testable import Spectra
 
 final class PresentationCatalogTests: XCTestCase {
+    func testTestnetSymbolsKeepTheirLowercasePrefix() {
+        for chain in Chain.all where chain.isTestnet {
+            XCTAssertEqual(chain.gasTokenSymbol, "t" + chain.mainnetCounterpart.gasTokenSymbol)
+        }
+        XCTAssertEqual(Chain(id: "bitcoin")?.gasTokenSymbol, "BTC")
+        XCTAssertEqual(Chain(id: "bitcoin-testnet-4")?.gasTokenSymbol, "tBTC")
+        XCTAssertEqual(Chain(id: "ethereum-sepolia")?.gasTokenSymbol, "tETH")
+    }
+
     func testCoinColorsUseCatalogAndNormalizeSymbols() {
         XCTAssertEqual(Coin.displayColor(for: "  usdt \n"), .green)
         XCTAssertEqual(Coin.displayColor(for: "AAVE"), .indigo)

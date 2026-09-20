@@ -79,7 +79,7 @@ struct SetupView: View {
             color: chain.color.color, category: category
         )
     }
-    /// The picker's initial list, ordered by `popular_rank` in `chains.toml`.
+    /// The picker's initial list, ordered by `popular_rank` in `chain-ui.toml`.
     private static let popularChainSelectionIDs: [String] = Chain.all.compactMap(\.entry)
         .compactMap { chain in chain.popularRank.map { (rank: $0, id: chain.id) } }
         .sorted { $0.rank < $1.rank }
@@ -631,7 +631,8 @@ struct SetupView: View {
         VStack(alignment: .leading, spacing: 14) {
             Text(advancedDescriptionText).font(.subheadline).foregroundStyle(.secondary)
             VStack(alignment: .leading, spacing: 16) {
-                ForEach(draft.selectableDerivationChains) { chain in
+                ForEach(draft.selectableDerivationChains) { family in
+                    let chain = Chain(id: store.networkChainID(forFamily: family.mainnetCounterpart.id)) ?? family
                     SeedPathSlotEditor(
                         title: chain.displayName,
                         path: Binding(

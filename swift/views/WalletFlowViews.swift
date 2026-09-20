@@ -253,11 +253,11 @@ struct WalletDetailView: View {
     /// The wallet's configured derivation path, when it has one.
     private func derivationPathsText(for wallet: WalletView) -> String? {
         guard !isWatchOnly, !isPrivateKeyWallet,
-            let chain = Chain(displayName: wallet.selectedChain)
+            let chain = Chain(id: wallet.networkChainId)
         else { return nil }
         let path = wallet.seedDerivationPaths.path(for: chain)
         guard !path.isEmpty else { return nil }
-        return AppLocalization.format("wallet.detail.chainPath", wallet.selectedChain, path)
+        return AppLocalization.format("wallet.detail.chainPath", chain.displayName, path)
     }
     private var watchOnlyBadge: some View {
         Label(localizedWalletFlowString("Watching"), systemImage: "eye").font(.caption.weight(.semibold)).foregroundStyle(.orange).padding(

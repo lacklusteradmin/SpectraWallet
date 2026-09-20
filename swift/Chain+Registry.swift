@@ -80,9 +80,8 @@ extension Chain: Identifiable {
     var evmSeedDerivationChain: String? { identity?.evmSeedDerivationChain }
     /// The mainnet this chain belongs to, or itself.
     var mainnetCounterpart: Chain { identity?.mainnetCounterpart ?? self }
-    /// Where a configured derivation path for this chain is stored. Testnets
-    /// share their mainnet's slot, which is what that says.
-    var seedDerivationPathKey: String { mainnetCounterpart.id }
+    /// Paths are stored under the concrete network ID.
+    var seedDerivationPathKey: String { id }
     /// The networks this chain's family offers, mainnet first.
     var networkChoices: [NetworkChoice] { identity?.networkChoices ?? [] }
 
@@ -103,13 +102,9 @@ extension Chain: Identifiable {
     var searchKeywords: [String] { entry?.searchKeywords ?? [] }
 
     /// The catalog's default BIP-32 path for account 0, as core resolves it:
-    /// a testnet answers with its mainnet's path, which is the one it derives
-    /// on. Empty for chains that have no path at all — Monero derives from the
-    /// seed directly.
+    /// each network supplies its own path. Empty for chains with no path —
+    /// Monero derives from the seed directly.
     ///
-    /// Was a second resolver in Swift that picked the default entry, replaced
-    /// `{account}` and checked for `m/` itself, and answered "" for every
-    /// testnet because the catalog lists their paths on the mainnet.
     var defaultDerivationPath: String {
         (try? appCoreResolveDerivationPath(chain: displayName, derivationPath: "")) ?? ""
     }

@@ -63,7 +63,7 @@ extension WalletView {
     /// supplies it — see `WalletState` in `core/src/store/state.rs`.
     func walletState(isWatchOnly: Bool) -> WalletState {
         let chain = Chain(displayName: selectedChain)
-        let path = chain.map { seedDerivationPaths.path(for: $0) }.flatMap { $0.isEmpty ? nil : $0 }
+        let path = Chain(id: networkChainId).map { seedDerivationPaths.path(for: $0) }.flatMap { $0.isEmpty ? nil : $0 }
         // The wallet's own slot first: core reads the first receive address as
         // the primary one.
         let ownSlot = chain?.addressSlot
@@ -75,7 +75,8 @@ extension WalletView {
             holdings: holdings,
             addresses: slots.compactMap { slot in
                 guard let owner = Chain.all.first(where: { $0.addressSlot == slot }), let address = addresses[slot] else { return nil }
-                return WalletAddress(chainName: owner.displayName, address: address, kind: "receive", derivationPath: path)
+                let networkPath = seedDerivationPaths.path(for: owner)
+                return WalletAddress(chainName: owner.displayName, address: address, kind: "receive", derivationPath: networkPath.isEmpty ? nil : networkPath)
             })
     }
 }

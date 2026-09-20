@@ -166,6 +166,10 @@ import Foundation
                 "the displayed address is testnet4, got \(shown)"
             )
             XCTAssertNotEqual(shown, stored, "the two networks are different keys")
+            let wallet = store.wallets[0]
+            XCTAssertEqual(wallet.seedDerivationPaths.path(for: .bitcoin), "m/84'/0'/0'/0/0")
+            XCTAssertEqual(wallet.seedDerivationPaths.path(for: .bitcoinTestnet4), "m/84'/1'/0'/0/0")
+            XCTAssertEqual(wallet.holdings.first?.symbol, "tBTC")
         }
         func testBitcoinDisplayNetworkNameUsesSelectedMode() async {
             let store = makeState()
