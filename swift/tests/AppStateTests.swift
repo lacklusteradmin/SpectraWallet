@@ -536,20 +536,20 @@ import Foundation
         /// on screen at once, by core's own rule, not after the round trip.
         func testSettingsGoThroughCoreAndSurviveIntoAFreshAppState() async throws {
             let store = makeState()
-            store.updateSetting(.etherscanApiKey(value: "  ABC123  "))
+            store.updateSetting(.moneroBackendBaseUrl(value: "  https://wallet.example  "))
             store.updateSetting(.bitcoinStopGap(value: 9_999))
             store.updateSetting(.useLargeMovementNotifications(value: false))
-            XCTAssertEqual(store.appSettings.etherscanApiKey, "ABC123", "core's rule trims before the command lands")
+            XCTAssertEqual(store.appSettings.moneroBackendBaseUrl, "https://wallet.example", "core's rule trims before the command lands")
             XCTAssertEqual(store.appSettings.bitcoinStopGap, 200, "9999 is outside 1...200")
             await store.awaitPendingSettingCommands()
 
             let fresh = makeState()
             await fresh.loadCoreOwnedState()
-            XCTAssertEqual(fresh.appSettings.etherscanApiKey, "ABC123")
+            XCTAssertEqual(fresh.appSettings.moneroBackendBaseUrl, "https://wallet.example")
             XCTAssertEqual(fresh.appSettings.bitcoinStopGap, 200)
             XCTAssertFalse(fresh.appSettings.useLargeMovementNotifications)
 
-            store.updateSetting(.etherscanApiKey(value: ""))
+            store.updateSetting(.moneroBackendBaseUrl(value: ""))
             store.updateSetting(.bitcoinStopGap(value: 10))
             store.updateSetting(.useLargeMovementNotifications(value: true))
             await store.awaitPendingSettingCommands()

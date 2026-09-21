@@ -56,10 +56,6 @@ extension Chain: Identifiable {
     var supportsStaking: Bool { identity?.supportsStaking ?? false }
     /// The send screen has a network card to show for this chain.
     var hasSendPreview: Bool { identity?.hasSendPreview ?? false }
-    /// Which endpoint slot this chain's supplemental explorer endpoints go in.
-    var supplementalEndpointSlot: AppCoreEndpointSlot {
-        identity?.supplementalEndpointSlot ?? .explorer
-    }
     /// Which `TokenHostingChain` this chain is, if it can host known tokens.
     var tokenHostingChain: TokenHostingChain? { identity?.tokenHostingChain }
     var sendExecutionShape: SendExecutionShape? { identity?.sendExecutionShape }
@@ -68,8 +64,6 @@ extension Chain: Identifiable {
     /// Core's sends here go through the configured backend, which is what the
     /// backend URL and key settings are for.
     var sendsThroughBackend: Bool { sendBroadcastMode == .preparesWithBackend }
-    /// This chain's history needs the Etherscan key.
-    var needsEtherscanAPIKey: Bool { identity?.needsEtherscanApiKey ?? false }
     /// The JSON-RPC method that answers "is this node alive", or nil when this
     /// chain's endpoints are checked over plain HTTP.
     var rpcHealthMethod: String? { identity?.rpcHealthMethod }

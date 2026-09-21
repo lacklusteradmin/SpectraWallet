@@ -1,6 +1,6 @@
 {
   "pricingIntro": "价格同时向多个公开数据源请求，谁答就用谁——某个源挂掉或没收录某个资产，都不会让它没有价格。没有任何源报价的资产会显示为无价格，而不是一个猜出来的数字。",
-  "publicProviderNote": "该提供商使用公开的批量报价接口。当前构建无需 API 密钥。",
+  "publicProviderNote": "该提供商使用公开的批量报价接口。",
   "aboutTitle": "Spectra",
   "aboutSubtitle": "一个专注于本地控制、透明网络访问和最小信任假设的自托管多链钱包。",
   "aboutEthosTitle": "Spectra 理念",

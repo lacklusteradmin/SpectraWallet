@@ -47,13 +47,7 @@ extension CoreTokenHostingChain: CaseIterable, Codable, Identifiable {
     var tokenStandard: String { chain?.entry?.tokenStandard ?? "" }
     var filterDisplayName: String { "\(rawValue) (\(tokenStandard))" }
     var contractAddressPrompt: String { chain?.entry?.contractAddressPrompt ?? "Contract Address" }
-    static func forChainName(_ chainName: String) -> TokenHostingChain? {
-        let normalized = chainName.trimmingCharacters(in: .whitespacesAndNewlines)
-        return byNormalizedName[normalized.lowercased()]
-    }
-    private static let byNormalizedName: [String: TokenHostingChain] = Dictionary(
-        uniqueKeysWithValues: allCases.map { ($0.rawValue.lowercased(), $0) }
-    )
+
 }
 typealias TokenPreferenceEntry = CoreTokenPreferenceEntry
 nonisolated extension CoreTokenPreferenceEntry: Identifiable {

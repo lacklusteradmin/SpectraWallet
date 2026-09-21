@@ -21,7 +21,7 @@
   "buyListingNote": "按字母順序排列。Spectra 與其中任何一家都無關聯，也不從中收取費用。",
   "buyWarning": "Spectra 不處理購買流程。付款前請務必再次確認錢包地址、所選鏈和資產，因為加密轉賬通常不可逆。",
   "pricingIntro": "價格同時向多個公開資料來源請求，誰回應就用誰——某個來源掛掉或沒收錄某個資產，都不會讓它沒有價格。沒有任何來源報價的資產會顯示為無價格，而不是一個猜出來的數字。",
-  "publicProviderNote": "該提供商使用公開的批量報價接口。當前構建無需 API 密鑰。",
+  "publicProviderNote": "該提供商使用公開的批量報價接口。",
   "reportProblemActionTitle": "打開反饋表單",
   "reportProblemDescription": "使用此頁面打開未來的支持表單或問題跟蹤器。下方鏈接目前仍是佔位地址。"
 }

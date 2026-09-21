@@ -40,14 +40,6 @@ extension AssetHolding: Identifiable {
     /// makes SwiftUI treat every row as new on each rebuild.
     public var id: String { holdingIdentity(holding: self) }
     var color: Color { Coin.displayColor(for: symbol) }
-    static func makeCustom(
-        name: String, symbol: String, coingeckoId: String, chainName: String, tokenStandard: String,
-        contractAddress: String?, amount: Double, priceUsd: Double
-    ) -> Coin {
-        AssetHolding(
-            name: name, symbol: symbol, coingeckoId: coingeckoId, chainName: chainName,
-            tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUsd)
-    }
     var holdingKey: String { id }
     var chain: Chain? { Chain(displayName: chainName) }
     var isUTXOChain: Bool { chain?.supportsDeepUTXODiscovery ?? false }

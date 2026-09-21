@@ -11,7 +11,7 @@ final class WalletDiagnosticsState {
     private(set) var operationalLogs: [DiagnosticLog] = []
     private(set) var operationalLogsRevision: UInt64 = 0
     private(set) var persistenceError: String?
-    @ObservationIgnored private var pendingCommand: Task<Void, Never>?
+    @ObservationIgnored private(set) var pendingCommand: Task<Void, Never>?
     @ObservationIgnored private var revision: UInt64 = 0
 
     private func adopt(_ state: DiagnosticState) {
@@ -42,7 +42,6 @@ final class WalletDiagnosticsState {
             adopt(state)
         } catch { persistenceError = error.localizedDescription }
     }
-    func flushPendingPersistence() async { await pendingCommand?.value }
     func reset() { enqueue(.reset) }
     var chainDegradedMessages: [String: String] { snapshot.degraded }
     var lastGoodChainSyncByName: [String: Date] { snapshot.lastGoodUnix.mapValues { Date(timeIntervalSince1970: $0) } }

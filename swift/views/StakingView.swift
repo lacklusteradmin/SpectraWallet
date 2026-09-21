@@ -139,14 +139,6 @@ extension Chain {
                 detailedExplanation:
                     AppLocalization.string("Each stake position is its own on-chain stake account. Spectra creates a fresh keypair, initializes the account with `StakeProgram`, and delegates to the vote account you pick. Rewards land at every epoch boundary.")
             )
-        case .cardano:
-            return StakingChainDescriptor(
-                tint: .indigo, apyEstimate: AppLocalization.string("~3% APY"),
-                shortMechanic: AppLocalization.string("Delegate to a stake pool; rewards every 5-day epoch."),
-                unbondingPeriod: AppLocalization.string("No unbonding (instant)"), minimumStake: AppLocalization.string("2 ADA registration deposit"),
-                detailedExplanation:
-                    AppLocalization.string("First-time delegations register your stake address (refundable 2 ADA deposit) and attach a delegation certificate to your chosen pool. Re-delegating is just a new certificate — funds never leave your wallet.")
-            )
         case .sui:
             return StakingChainDescriptor(
                 tint: .mint, apyEstimate: AppLocalization.string("~3% APY"),

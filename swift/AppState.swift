@@ -287,8 +287,8 @@ final class AppState {
     // before it awaits, and a result from an epoch older than the last applied
     // is dropped — otherwise a slow reload lands after a command and reverts
     // the mirror to what core held before that command ran.
-    @ObservationIgnored private var coreStateEpoch: UInt64 = 0
-    @ObservationIgnored private var appliedCoreStateEpoch: UInt64 = 0
+    @ObservationIgnored private(set) var coreStateEpoch: UInt64 = 0
+    @ObservationIgnored private(set) var appliedCoreStateEpoch: UInt64 = 0
 
     /// Claim an epoch before awaiting core. Pass it back to `applyCoreState`.
     func beginCoreStateRead() -> UInt64 {
@@ -297,21 +297,9 @@ final class AppState {
     }
 
     /// Mark an epoch settled without adopting a state — the command failed.
-    /// Without this a failed write would leave `awaitPendingCoreStateWrites`
-    /// waiting forever.
+    /// A failed write must settle its read epoch as well.
     func finishCoreStateRead(_ epoch: UInt64) {
         if epoch > appliedCoreStateEpoch { appliedCoreStateEpoch = epoch }
-    }
-
-    /// Wait until every command sent so far has come back and been applied.
-    ///
-    /// Mirrors settle a runloop hop after the assignment that sends them, which
-    /// is fine for a UI and awkward for a test asserting the effect. Tests
-    /// await this rather than each deriving the rule locally.
-    func awaitPendingCoreStateWrites() async {
-        while appliedCoreStateEpoch < coreStateEpoch {
-            await Task.yield()
-        }
     }
 
     /// The only place the core-owned mirrors are written. Everything else goes

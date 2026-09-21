@@ -40,25 +40,6 @@ enum AppEndpointDirectory {
     static func serviceEndpoints(for chainId: String) -> [String] { entry(chainId)?.serviceEndpoints ?? [] }
     static func backends(for chainId: String) -> [String] { entry(chainId)?.backends ?? [] }
     static func evmRPCEndpoints(for chainId: String) -> [String] { entry(chainId)?.evmRpc ?? [] }
-    static func explorerSupplementalEndpoints(for chainId: String) -> [String] {
-        entry(chainId)?.explorerSupplemental ?? []
-    }
-
-    /// A chain's RPC endpoints followed by any explorer endpoints that
-    /// supplement them, deduplicated.
-    ///
-    /// Only a handful of chains have a supplement; for the rest the second
-    /// list is empty, so asking for both costs nothing and stops the next
-    /// chain that gains one from needing a case anywhere. Two view files each
-    /// had a private copy of this.
-    static func evmEndpointsWithSupplemental(for chainId: String) -> [String] {
-        var endpoints = evmRPCEndpoints(for: chainId)
-        for endpoint in explorerSupplementalEndpoints(for: chainId)
-        where !endpoints.contains(endpoint) {
-            endpoints.append(endpoint)
-        }
-        return endpoints
-    }
     static func transactionExplorerLabel(for chainId: String) -> String? {
         entry(chainId)?.transactionExplorer?.label
     }

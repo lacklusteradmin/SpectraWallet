@@ -316,7 +316,7 @@ struct StandardChainDiagnosticsView: View {
         guard chain.isEVM else { return AppEndpointDirectory.serviceEndpoints(for: store.selectedChainId(forFamily: chain.id)) }
         let custom = store.rpcEndpoint(forChain: name)
         var endpoints = custom.isEmpty ? [] : [custom]
-        for endpoint in AppEndpointDirectory.evmEndpointsWithSupplemental(for: store.selectedChainId(forFamily: chain.id)) where !endpoints.contains(endpoint) {
+        for endpoint in AppEndpointDirectory.evmRPCEndpoints(for: store.selectedChainId(forFamily: chain.id)) where !endpoints.contains(endpoint) {
             endpoints.append(endpoint)
         }
         return endpoints
@@ -377,21 +377,6 @@ struct StandardChainDiagnosticsView: View {
             Text(copy.customRPCNote).font(.caption).foregroundStyle(.secondary)
         }
     }
-    /// The Etherscan key, on the chains whose history reads it.
-    ///
-    /// It was on Ethereum's screen, whose history comes from Blockscout, and
-    /// its note named seven chains — one of them wrong — that had no screen
-    /// offering the field.
-    @ViewBuilder
-    private var etherscanSettingsSection: some View {
-        Section(AppLocalization.string("Etherscan (Optional)")) {
-            SettingTextField(title: AppLocalization.string("Etherscan API Key"), value: store.appSettings.etherscanApiKey) {
-                store.updateSetting(.etherscanApiKey(value: $0))
-            }
-            .textInputAutocapitalization(.never).autocorrectionDisabled()
-            Text(copy.etherscanNote).font(.caption).foregroundStyle(.secondary)
-        }
-    }
     @ViewBuilder
     private var backendSettingsSection: some View {
         Section(AppLocalization.format("%@ Backend", chain.displayName)) {
@@ -409,12 +394,6 @@ struct StandardChainDiagnosticsView: View {
                     .font(.caption.monospaced()).textSelection(.enabled)
             }
             Text(copy.backendNote).font(.caption).foregroundStyle(.secondary)
-            SettingTextField(
-                title: AppLocalization.format("%@ Backend API Key (Optional)", chain.displayName),
-                value: store.appSettings.moneroBackendApiKey
-            ) { store.updateSetting(.moneroBackendApiKey(value: $0)) }
-            .textInputAutocapitalization(.never).autocorrectionDisabled()
-            Text(copy.backendAPIKeyNote).font(.caption).foregroundStyle(.secondary)
         }
     }
     @ViewBuilder
@@ -423,7 +402,6 @@ struct StandardChainDiagnosticsView: View {
         // about it, not which chain it is.
         if hasEsploraBases { esploraSettingsSection }
         if chain.isEVM { rpcSettingsSection }
-        if chain.needsEtherscanAPIKey { etherscanSettingsSection }
         if chain.sendsThroughBackend { backendSettingsSection }
         // Core provides a self-test suite for every chain in the catalog.
         Section(AppLocalization.string("Chain Actions")) {

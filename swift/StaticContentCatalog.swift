@@ -98,9 +98,7 @@ struct DiagnosticsContentCopy: Decodable {
     let noEndpointChecksYet: String
     let bitcoinEsploraHint: String
     let customRPCNote: String
-    let etherscanNote: String
     let backendNote: String
-    let backendAPIKeyNote: String
     let historySourcesSectionTitleFormat: String
     let endpointReachabilitySectionTitleFormat: String
     let degradedLastGoodSyncFormat: String
@@ -220,7 +218,6 @@ struct DonationsContentCopy: Decodable {
 struct EndpointsContentCopy: Decodable {
     let navigationTitle: String
     let intro: String
-    let readOnlyFootnote: String
     let addEsploraEndpointPlaceholder: String
     let addEndpointButtonTitle: String
     let clearCustomEsploraEndpointsTitle: String

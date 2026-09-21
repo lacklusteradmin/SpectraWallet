@@ -116,3 +116,33 @@ extension WalletImportDraft {
         seedPhrase = words.joined(separator: " ")
     }
 }
+
+extension AssetHolding {
+    static func makeCustom(
+        name: String, symbol: String, coingeckoId: String, chainName: String, tokenStandard: String,
+        contractAddress: String?, amount: Double, priceUsd: Double
+    ) -> Coin {
+        AssetHolding(
+            name: name, symbol: symbol, coingeckoId: coingeckoId, chainName: chainName,
+            tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUsd)
+    }
+}
+
+@MainActor
+extension AppState {
+    /// Wait until every command sent so far has come back and been applied.
+    ///
+    /// Mirrors settle a runloop hop after the assignment that sends them, which
+    /// is fine for a UI and awkward for a test asserting the effect. Tests
+    /// await this rather than each deriving the rule locally.
+    func awaitPendingCoreStateWrites() async {
+        while appliedCoreStateEpoch < coreStateEpoch {
+            await Task.yield()
+        }
+    }
+}
+
+@MainActor
+extension WalletDiagnosticsState {
+    func flushPendingPersistence() async { await pendingCommand?.value }
+}
