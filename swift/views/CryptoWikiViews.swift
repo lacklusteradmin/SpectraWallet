@@ -24,7 +24,7 @@ extension ChainDerivationPathEntry: Identifiable {
 struct CryptoWikiLibraryView: View {
     @State private var searchText: String = ""
     @State private var selectedTag: String?
-    private var allEntries: [AssetWikiEntry] { CachedCoreHelpers.assetWiki() }
+    private var allEntries: [AssetWikiEntry] { CoreReferenceTables.assetWiki() }
     private var filteredEntries: [AssetWikiEntry] {
         var entries = allEntries
         if let selectedTag { entries = entries.filter { $0.tags.contains(selectedTag) } }

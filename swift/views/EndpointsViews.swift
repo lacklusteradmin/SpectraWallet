@@ -7,44 +7,6 @@ struct EndpointCatalogSettingsView: View {
         Chain.mainnets.filter { AppEndpointDirectory.hasEndpoints($0.id) }
     }
     private var customEsploraEndpoints: [String] { parseBitcoinEsploraEndpoints(raw: store.appSettings.bitcoinEsploraEndpoints) }
-    /// A family's networks, each with its own endpoints, the selected one
-    /// carrying whatever the user configured.
-    ///
-    /// Bitcoin and Ethereum each had a copy of this naming their own family,
-    /// and Dogecoin a third reading the catalog's grouping instead; the other
-    /// multi-network families showed one flat list. Which list a network reads
-    /// is the only thing that differs, so it is the only thing passed in.
-    private func endpointsByNetwork(
-        of chain: Chain, endpoints: (NetworkChoice, _ isSelected: Bool) -> [String]
-    ) -> [AppEndpointGroupedSettingsEntry] {
-        let selected = store.selectedChainId(forFamily: chain.id)
-        return chain.networkChoices.map { choice in
-            AppEndpointGroupedSettingsEntry(chainId: choice.chainId, title: choice.title, endpoints: endpoints(choice, choice.chainId == selected))
-        }
-    }
-    private func esploraEndpointsByNetwork(of chain: Chain) -> [AppEndpointGroupedSettingsEntry] {
-        endpointsByNetwork(of: chain) { choice, isSelected in
-            let custom = isSelected ? customEsploraEndpoints : []
-            return custom.isEmpty ? AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainId: choice.chainId) : custom
-        }
-    }
-    private func evmEndpointsByNetwork(of chain: Chain) -> [AppEndpointGroupedSettingsEntry] {
-        endpointsByNetwork(of: chain) { choice, isSelected in
-            var endpoints: [String] = []
-            let custom = isSelected ? store.rpcEndpoint(forChain: chain.displayName) : ""
-            if !custom.isEmpty { endpoints.append(custom) }
-            let catalog =
-                choice.isTestnet
-                ? AppEndpointDirectory.evmRPCEndpoints(for: choice.chainId)
-                : AppEndpointDirectory.evmEndpointsWithSupplemental(for: choice.chainId)
-            for endpoint in catalog where !endpoints.contains(endpoint) { endpoints.append(endpoint) }
-            return endpoints
-        }
-    }
-    private func backendEndpoints(of chain: Chain) -> [String] {
-        let stored = store.appSettings.moneroBackendBaseUrl
-        return stored.isEmpty ? AppEndpointDirectory.settingsEndpoints(for: chain.id) : [stored]
-    }
     private func addEsploraEndpoint() {
         let trimmed = newEsploraEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return }
@@ -86,10 +48,8 @@ struct EndpointCatalogSettingsView: View {
         }
     }
     @ViewBuilder
-    private func esploraSectionBody(_ chain: Chain) -> some View {
-        ForEach(esploraEndpointsByNetwork(of: chain), id: \.chainId) { group in
-            namedEndpointGroup(title: group.title, endpoints: group.endpoints)
-        }
+    private func esploraSectionBody() -> some View {
+        endpointRows(customEsploraEndpoints)
         TextField(copy.addEsploraEndpointPlaceholder, text: $newEsploraEndpoint).textInputAutocapitalization(.never)
             .autocorrectionDisabled().keyboardType(.URL)
         if let error = endpointValidationError(field: .bitcoinEsploraList, raw: newEsploraEndpoint) {
@@ -105,19 +65,15 @@ struct EndpointCatalogSettingsView: View {
         }
     }
     @ViewBuilder
-    private func backendSectionBody(_ chain: Chain) -> some View {
-        endpointRows(backendEndpoints(of: chain))
+    private func backendSectionBody() -> some View {
+        if !store.appSettings.moneroBackendBaseUrl.isEmpty {
+            endpointRows([store.appSettings.moneroBackendBaseUrl])
+        }
         SettingTextField(
             title: copy.customBackendURLPlaceholder, value: store.appSettings.moneroBackendBaseUrl, endpoint: .moneroBackend
         ) { store.updateSetting(.moneroBackendBaseUrl(value: $0)) }
         .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
     }
-    @ViewBuilder
-    private func readOnlyEVMSection(_ endpoints: [String]) -> some View {
-        endpointRows(endpoints)
-        readOnlyFootnote
-    }
-
     /// The custom-RPC field for any EVM chain.
     @ViewBuilder
     private func customRPCField(for chainName: String) -> some View {
@@ -126,41 +82,25 @@ struct EndpointCatalogSettingsView: View {
         }
         .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
     }
-    /// One section per chain the catalog says has endpoints worth showing.
-    ///
-    /// Which body a chain gets follows from what it has — a backend setting,
-    /// Esplora bases, an EVM RPC, or more than one network — rather than from
-    /// a switch naming Bitcoin, Ethereum, Monero and Dogecoin.
     @ViewBuilder
     private func endpointSection(_ chain: Chain) -> some View {
         Section(chain.displayName) {
-            if chain.sendsThroughBackend {
-                backendSectionBody(chain)
-            } else if !AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainId: chain.id).isEmpty {
-                esploraSectionBody(chain)
-            } else if chain.isEVM {
-                if chain.networkChoices.count > 1 {
-                    ForEach(evmEndpointsByNetwork(of: chain), id: \.chainId) { group in
-                        namedEndpointGroup(title: group.title, endpoints: group.endpoints)
-                    }
-                } else {
-                    readOnlyEVMSection(AppEndpointDirectory.evmEndpointsWithSupplemental(for: chain.id))
+            let groups = AppEndpointDirectory.groupedSettingsEntries(for: chain.id)
+            if groups.count > 1 {
+                ForEach(groups, id: \.chainId) { group in
+                    namedEndpointGroup(title: group.title, endpoints: group.endpoints)
                 }
-                customRPCField(for: chain.displayName)
             } else {
-                let groups = AppEndpointDirectory.groupedSettingsEntries(for: chain.id)
-                if groups.count > 1 {
-                    ForEach(groups, id: \.chainId) { group in
-                        namedEndpointGroup(title: group.title, endpoints: group.endpoints)
-                    }
-                } else {
-                    endpointRows(AppEndpointDirectory.settingsEndpoints(for: chain.id))
-                }
+                endpointRows(AppEndpointDirectory.settingsEndpoints(for: chain.id))
+            }
+            if chain.sendsThroughBackend {
+                backendSectionBody()
+            } else if !AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainId: chain.id).isEmpty {
+                esploraSectionBody()
+            } else if chain.isEVM {
+                customRPCField(for: chain.displayName)
             }
         }
-    }
-    private var readOnlyFootnote: some View {
-        Text(copy.readOnlyFootnote).font(.caption).foregroundStyle(.secondary)
     }
     var body: some View {
         Form {

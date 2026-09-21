@@ -360,14 +360,14 @@ private struct WalletReceiveCard: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let badge = Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, Color.mint)
+        let badge = Coin.nativeChainBadge(chainName: wallet.familyName) ?? (nil, Color.mint)
 
         Button(action: onSelect) {
             HStack(spacing: 14) {
                 ZStack(alignment: .topTrailing) {
                     CoinBadge(
                         artworkName: badge.artworkName,
-                        fallbackText: wallet.selectedChain,
+                        fallbackText: wallet.familyName,
                         color: badge.color,
                         size: 42
                     )
@@ -385,7 +385,7 @@ private struct WalletReceiveCard: View {
                         .font(.headline)
                         .foregroundStyle(Color.primary)
                         .lineLimit(1)
-                    Text(wallet.selectedChain)
+                    Text(wallet.familyName)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

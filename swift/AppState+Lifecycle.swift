@@ -34,7 +34,7 @@ extension AppState {
     }
     /// Launch-time wiring. Nothing domain is seeded here: settings, tokens,
     /// alerts, contacts, keypools and logs all arrive from core, through
-    /// `applyCoreState` and `reloadPersistedStateFromSQLite()`.
+    /// `applyCoreState` and `reloadCoreProjections()`.
     func restorePersistedRuntimeConfigurationAndState() {
         rebuildTokenPreferenceDerivedState()
         livePrices = [:]

@@ -190,18 +190,18 @@ struct DashboardView: View {
             addWalletEmptyState
         } else {
             ForEach(Array(wallets.enumerated()), id: \.element.id) { index, wallet in
-                let badge = Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, .mint)
+                let badge = Coin.nativeChainBadge(chainName: wallet.familyName) ?? (nil, .mint)
                 Button { selectedWalletId = wallet.id } label: {
                     WalletCardView(
                         presentation: WalletCardView.Presentation(
-                            walletName: wallet.name, chainTitleText: store.displayChainTitle(for: wallet),
+                            walletName: wallet.name, chainTitleText: wallet.networkTitle,
                             totalValueText: store.preferences.hideBalances
                                 ? "••••••"
                                 : store.formattedWalletTotal(walletId: wallet.id),
                             assetCountText: AppLocalization.format(
                                 "%lld assets", wallet.holdings.filter { $0.amount > 0 }.count),
                             isWatchOnly: store.isWatchOnlyWallet(wallet), badgeArtworkName: badge.0,
-                            badgeMark: wallet.selectedChain, badgeColor: badge.1
+                            badgeMark: wallet.familyName, badgeColor: badge.1
                         )
                     ).equatable().padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
                 }.buttonStyle(.plain)
@@ -329,7 +329,7 @@ struct AssetGroupDetailView: View {
     /// Where the coin lives, from core's asset wiki — the same join the wiki
     /// screen renders, rather than a second dashboard-only cache of it.
     private var places: [AssetWikiPlace] {
-        CachedCoreHelpers.assetWikiEntry(tokenId: assetGroup.id)?.livesOn ?? []
+        CoreReferenceTables.assetWikiEntry(tokenId: assetGroup.id)?.livesOn ?? []
     }
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -356,7 +356,7 @@ struct AssetContractsDetailView: View {
     let store: AppState
     let assetGroup: DashboardAssetGroup
     private var places: [AssetWikiPlace] {
-        CachedCoreHelpers.assetWikiEntry(tokenId: assetGroup.id)?.livesOn ?? []
+        CoreReferenceTables.assetWikiEntry(tokenId: assetGroup.id)?.livesOn ?? []
     }
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -456,7 +456,7 @@ private struct AssetChainBreakdownCard: View {
                 ForEach(Array(assetGroup.holdings.enumerated()), id: \.offset) { index, holding in
                     AssetChainBreakdownRow(
                         chainName: holding.coin.chainName,
-                        chainTitle: store.displayChainTitle(for: holding.coin.chainName),
+                        chainTitle: store.selectedNetworkTitle(forFamilyName: holding.coin.chainName),
                         tokenStandard: holding.coin.tokenStandard,
                         amountText: store.formattedAssetAmount(
                             holding.coin.amount, symbol: holding.coin.symbol,
@@ -555,7 +555,7 @@ struct PortfolioWalletSelectionView: View {
             Section {
                 ForEach(store.wallets) { wallet in
                     Toggle(isOn: binding(for: wallet.id)) {
-                        PortfolioWalletToggleRowView(walletName: wallet.name, chainTitleText: store.displayChainTitle(for: wallet))
+                        PortfolioWalletToggleRowView(walletName: wallet.name, chainTitleText: wallet.networkTitle)
                             .equatable()
                     }
                 }

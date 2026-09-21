@@ -743,7 +743,6 @@
   "endpointCapability.token-history": "代幣轉帳歷史",
   "endpointCapability.token-discovery": "代幣探索",
   "endpointCapability.token-balance": "代幣餘額",
-  "endpointCapability.read": "讀取",
   "endpointCapability.utxo": "UTXO",
   "endpointCapability.verification": "校驗",
   "endpointKind.backend": "後端",

@@ -242,9 +242,9 @@ struct WalletDetailView: View {
             // came back first, which is "prefer Bitcoin, then Bitcoin Cash, …"
             // dressed as a fallback — and eight chains were not in the list at
             // all, so a Zcash or TON wallet showed no address.
-            walletAddress: wallet.address(forChainNamed: wallet.selectedChain),
+            walletAddress: wallet.address(forChainNamed: wallet.familyName),
             derivationPathsText: derivationPathsText(for: wallet),
-            walletBadge: Coin.nativeChainBadge(chainName: wallet.selectedChain) ?? (nil, .mint),
+            walletBadge: Coin.nativeChainBadge(chainName: wallet.familyName) ?? (nil, .mint),
             visibleHoldingPresentations: holdingPresentations,
             walletTotalValueText: store.preferences.hideBalances
                 ? "••••••" : store.formattedWalletTotal(walletId: wallet.id)
@@ -421,7 +421,7 @@ struct WalletDetailView: View {
         HStack(spacing: 14) {
             CoinBadge(
                 artworkName: presentation.walletBadge.artworkName,
-                fallbackText: presentation.wallet.selectedChain,
+                fallbackText: presentation.wallet.familyName,
                 color: presentation.walletBadge.color, size: 56
             )
             VStack(alignment: .leading, spacing: 6) {
@@ -431,7 +431,7 @@ struct WalletDetailView: View {
                     Spacer(minLength: 0)
                     if isWatchOnly { watchOnlyBadge }
                 }
-                Text(store.displayChainTitle(for: presentation.wallet)).font(.subheadline.weight(.medium))
+                Text(presentation.wallet.networkTitle).font(.subheadline.weight(.medium))
                     .foregroundStyle(presentation.walletBadge.color)
                 Text(presentation.walletTotalValueText).font(.title3.weight(.semibold)).foregroundStyle(Color.primary)
                     .spectraNumericTextLayout(minimumScaleFactor: 0.7)

@@ -310,3 +310,9 @@ extension TransactionRecord {
         return !requireSendKind || kind == .send
     }
 }
+
+extension WalletView {
+    var networkTitle: String {
+        Chain(id: chainId)?.displayName ?? familyName
+    }
+}

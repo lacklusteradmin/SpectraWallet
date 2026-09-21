@@ -68,7 +68,7 @@ struct TransactionDetailView: View {
                         detailRow(label: "Status", value: displayedTransaction.statusText)
                         detailRow(label: "Wallet", value: displayedTransaction.walletName)
                         detailRow(label: "Asset", value: displayedTransaction.assetDisplayName)
-                        detailRow(label: "Network", value: store.displayChainTitle(for: displayedTransaction))
+                        detailRow(label: "Network", value: displayedTransaction.chainName)
                         detailRow(label: "Timestamp", value: displayedTransaction.fullTimestampText)
                         if let amountText = store.formattedTransactionDetailAmount(displayedTransaction) {
                             detailRow(label: "Amount", value: amountText)

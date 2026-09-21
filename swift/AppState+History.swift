@@ -5,7 +5,7 @@ extension AppState {
         self.bridge.historyCursor(chainId: chainId, walletId: walletId).isExhausted
     }
     func canLoadMoreHistory(for walletId: String) -> Bool {
-        guard let wallet = cachedWalletById[walletId], let chain = Chain(displayName: wallet.selectedChain) else { return false }
+        guard let wallet = cachedWalletById[walletId], let chain = Chain(displayName: wallet.familyName) else { return false }
         return !historyPaginationExhausted(chainId: chain.id, walletId: walletId)
     }
     func canLoadMoreOnChainHistory(for walletIds: Set<String>) -> Bool {

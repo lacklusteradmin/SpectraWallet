@@ -38,6 +38,8 @@ enum AppEndpointDirectory {
         entry(chainId)?.groupedSettings ?? []
     }
     static func settingsEndpoints(for chainId: String) -> [String] { groupedSettingsEntries(for: chainId).flatMap(\.endpoints) }
+    static func serviceEndpoints(for chainId: String) -> [String] { entry(chainId)?.serviceEndpoints ?? [] }
+    static func backends(for chainId: String) -> [String] { entry(chainId)?.backends ?? [] }
     static func evmRPCEndpoints(for chainId: String) -> [String] { entry(chainId)?.evmRpc ?? [] }
     static func explorerSupplementalEndpoints(for chainId: String) -> [String] {
         entry(chainId)?.explorerSupplemental ?? []

@@ -109,11 +109,11 @@ struct WalletSecretStep: View {
                         draft.regenerateSeedPhrase()
                     } label: {
                         Label(AppLocalization.string("Regenerate"), systemImage: "arrow.clockwise").font(.caption.weight(.semibold))
-                    }.buttonStyle(.glass).tint(.orange).disabled(!CachedCoreHelpers.isStandardSeedPhraseLength(draft.selectedSeedPhraseWordCount))
+                    }.buttonStyle(.glass).tint(.orange).disabled(!CoreReferenceTables.isStandardSeedPhraseLength(draft.selectedSeedPhraseWordCount))
                 }
             }
             HStack(spacing: 6) {
-                ForEach(CachedCoreHelpers.standardSeedPhraseLengths(), id: \.wordCount) { length in
+                ForEach(CoreReferenceTables.standardSeedPhraseLengths(), id: \.wordCount) { length in
                     seedPhraseLengthChip(length)
                 }
             }
@@ -143,7 +143,7 @@ struct WalletSecretStep: View {
     }
     @ViewBuilder
     private var seedPhraseCustomLengthField: some View {
-        let isCustomSelected = !CachedCoreHelpers.isStandardSeedPhraseLength(draft.selectedSeedPhraseWordCount)
+        let isCustomSelected = !CoreReferenceTables.isStandardSeedPhraseLength(draft.selectedSeedPhraseWordCount)
         DisclosureGroup {
             HStack(spacing: 8) {
                 TextField(localizedWalletFlowString("Custom word count"), text: $customSeedPhraseWordCountInput).keyboardType(.numberPad)

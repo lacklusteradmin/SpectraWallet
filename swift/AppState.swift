@@ -365,12 +365,6 @@ final class AppState {
     func selectedChainId(forFamily family: String) -> String {
         appSettings.selectedChainByFamily[family] ?? family
     }
-    /// Switch a family's network. Core stores it — resetting the family's
-    /// derivation state and history feed in the same command — and hands the
-    /// settings back.
-    func selectChainForFamily(_ chainId: String) {
-        commitSelectedChain(chainId)
-    }
     var isUserInitiatedRefreshInProgress: Bool = false
     /// Read-only projection adopted from core; edits send individual intents.
     private(set) var priceAlerts: [PriceAlertRule] = []
@@ -559,9 +553,9 @@ final class AppState {
         startMaintenanceLoopIfNeeded()
         await registerSecretStoreWithBridge()
         setupRustRefreshEngine()
-        async let sqliteReload: () = reloadPersistedStateFromSQLite()
+        async let projectionReload: () = reloadCoreProjections()
         async let fiatRefresh: () = refreshFiatExchangeRatesIfNeeded()
-        _ = await (sqliteReload, fiatRefresh)
+        _ = await (projectionReload, fiatRefresh)
         // Configuring the engine starts it; its first tick performs the launch sweep.
     }
     deinit {

@@ -15,7 +15,7 @@ struct DiagnosticsHubView: View {
         Chain.mainnets.map { chain in
             DiagnosticsDestination(
                 id: chain.id,
-                title: AppLocalization.format("%@ Diagnostics", store.displayChainTitle(for: chain.displayName)),
+                title: AppLocalization.format("%@ Diagnostics", store.selectedNetworkTitle(forFamilyName: chain.displayName)),
                 keywords: chain.searchKeywords, chain: chain)
         }
     }
@@ -121,7 +121,7 @@ struct StandardChainDiagnosticsView: View {
     @State private var cachedOperationalEvents: [DiagnosticLog] = []
     private let customBackendId = "custom"
     private var chainDiagnosticsState: WalletChainDiagnosticsState { store.chainDiagnosticsState }
-    private var displayChainTitle: String { store.displayChainTitle(for: chain.displayName) }
+    private var displayChainTitle: String { store.selectedNetworkTitle(forFamilyName: chain.displayName) }
     private var diagnosticsLabel: String { displayChainTitle }
     /// The backends the catalog lists for this chain, first being the one core
     /// uses when the setting is empty.
@@ -129,7 +129,7 @@ struct StandardChainDiagnosticsView: View {
     /// Was `MoneroBalanceService`: three catalog record ids, three display
     /// names and a default id written out in Swift, read by index — so a
     /// catalog with two backends crashed the screen on `[2]`.
-    private var catalogBackends: [String] { AppEndpointDirectory.settingsEndpoints(for: chain.id) }
+    private var catalogBackends: [String] { AppEndpointDirectory.backends(for: chain.id) }
     private var backendChoices: [(id: String, title: String)] {
         catalogBackends.enumerated().map { index, url in
             let host = URL(string: url)?.host ?? url
@@ -313,7 +313,7 @@ struct StandardChainDiagnosticsView: View {
             let stored = store.appSettings.moneroBackendBaseUrl
             return stored.isEmpty ? catalogBackends : [stored]
         }
-        guard chain.isEVM else { return AppEndpointDirectory.settingsEndpoints(for: chain.id) }
+        guard chain.isEVM else { return AppEndpointDirectory.serviceEndpoints(for: store.selectedChainId(forFamily: chain.id)) }
         let custom = store.rpcEndpoint(forChain: name)
         var endpoints = custom.isEmpty ? [] : [custom]
         for endpoint in AppEndpointDirectory.evmEndpointsWithSupplemental(for: store.selectedChainId(forFamily: chain.id)) where !endpoints.contains(endpoint) {

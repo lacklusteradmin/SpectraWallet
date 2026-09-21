@@ -743,7 +743,6 @@
   "endpointCapability.token-history": "Token transfers",
   "endpointCapability.token-discovery": "Token discovery",
   "endpointCapability.token-balance": "Token balance",
-  "endpointCapability.read": "Read",
   "endpointCapability.utxo": "UTXOs",
   "endpointCapability.verification": "Verification",
   "endpointKind.backend": "Backend",

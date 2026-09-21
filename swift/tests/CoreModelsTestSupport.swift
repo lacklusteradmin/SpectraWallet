@@ -20,13 +20,13 @@ extension WalletView {
         seedDerivationPreset: CoreSeedDerivationPreset = .standard,
         seedDerivationPaths: CoreSeedDerivationPaths? = nil,
         derivationOverrides: CoreWalletDerivationOverrides = CoreWalletDerivationOverrides(passphrase: nil, hmacKey: nil),
-        selectedChain: String,
+        familyName: String,
         holdings: [Coin] = [],
         includeInPortfolioTotal: Bool = true
     ) {
         self.init(
             id: id.uuidString, name: name,
-            chainId: selectedChainId ?? Chain(displayName: selectedChain)?.id ?? "",
+            chainId: selectedChainId ?? Chain(displayName: familyName)?.id ?? "",
             addresses: Dictionary(
                 addresses.compactMap { chainName, address in
                     Chain(displayName: chainName).map { ($0.addressSlot, address) }
@@ -35,7 +35,7 @@ extension WalletView {
             seedDerivationPreset: seedDerivationPreset,
             seedDerivationPaths: seedDerivationPaths ?? .forPreset(seedDerivationPreset),
             derivationOverrides: derivationOverrides,
-            selectedChain: selectedChain, holdings: holdings,
+            familyName: familyName, holdings: holdings,
             includeInPortfolioTotal: includeInPortfolioTotal
         )
     }
@@ -62,14 +62,14 @@ extension WalletView {
     /// `isWatchOnly` is a Keychain fact the record cannot carry, so the caller
     /// supplies it — see `WalletState` in `core/src/store/state.rs`.
     func walletState(isWatchOnly: Bool) -> WalletState {
-        let chain = Chain(displayName: selectedChain)
+        let chain = Chain(displayName: familyName)
         let path = Chain(id: chainId).map { seedDerivationPaths.path(for: $0) }.flatMap { $0.isEmpty ? nil : $0 }
         // The wallet's own slot first: core reads the first receive address as
         // the primary one.
         let ownSlot = chain?.addressSlot
         let slots = addresses.keys.sorted { ($0 == ownSlot ? 0 : 1, $0) < ($1 == ownSlot ? 0 : 1, $1) }
         return WalletState(
-            id: id, name: name, isWatchOnly: isWatchOnly, chainName: selectedChain,
+            id: id, name: name, isWatchOnly: isWatchOnly, chainName: familyName,
             includeInPortfolioTotal: includeInPortfolioTotal, chainId: chainId, xpub: bitcoinXpub,
             derivationPreset: seedDerivationPreset, derivationPath: path, derivationOverrides: derivationOverrides,
             holdings: holdings,

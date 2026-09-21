@@ -24,7 +24,7 @@
 		90F00200000000000000000E /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000E /* AppState.swift */; };
 		90F00200000000000000000F /* AppStateTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000F /* AppStateTypes.swift */; };
 		90F002000000000000000010 /* AppUserPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000010 /* AppUserPreferences.swift */; };
-		90F002000000000000000012 /* CachedCoreHelpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000012 /* CachedCoreHelpers.swift */; };
+		90F002000000000000000012 /* CoreReferenceTables.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000012 /* CoreReferenceTables.swift */; };
 		90F002000000000000000016 /* ChainTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000016 /* ChainTypes.swift */; };
 		90F002000000000000000017 /* CoreModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000017 /* CoreModels.swift */; };
 		90F002000000000000000018 /* AppState+Dashboard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000018 /* AppState+Dashboard.swift */; };
@@ -111,7 +111,7 @@
 		90F00100000000000000000E /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		90F00100000000000000000F /* AppStateTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTypes.swift; sourceTree = "<group>"; };
 		90F001000000000000000010 /* AppUserPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUserPreferences.swift; sourceTree = "<group>"; };
-		90F001000000000000000012 /* CachedCoreHelpers.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CachedCoreHelpers.swift; sourceTree = "<group>"; };
+		90F001000000000000000012 /* CoreReferenceTables.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreReferenceTables.swift; sourceTree = "<group>"; };
 		90F001000000000000000016 /* ChainTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChainTypes.swift; sourceTree = "<group>"; };
 		90F001000000000000000017 /* CoreModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CoreModels.swift; sourceTree = "<group>"; };
 		90F001000000000000000018 /* AppState+Dashboard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+Dashboard.swift"; sourceTree = "<group>"; };
@@ -236,7 +236,7 @@
 				90F00100000000000000000E /* AppState.swift */,
 				90F00100000000000000000F /* AppStateTypes.swift */,
 				90F001000000000000000010 /* AppUserPreferences.swift */,
-				90F001000000000000000012 /* CachedCoreHelpers.swift */,
+				90F001000000000000000012 /* CoreReferenceTables.swift */,
 				90F001000000000000000100 /* Chain+Registry.swift */,
 				90F001000000000000000016 /* ChainTypes.swift */,
 				90F001000000000000000017 /* CoreModels.swift */,
@@ -481,7 +481,7 @@
 				90F00200000000000000000E /* AppState.swift in Sources */,
 				90F00200000000000000000F /* AppStateTypes.swift in Sources */,
 				90F002000000000000000010 /* AppUserPreferences.swift in Sources */,
-				90F002000000000000000012 /* CachedCoreHelpers.swift in Sources */,
+				90F002000000000000000012 /* CoreReferenceTables.swift in Sources */,
 				90F002000000000000000016 /* ChainTypes.swift in Sources */,
 				90F002000000000000000100 /* Chain+Registry.swift in Sources */,
 				90F002000000000000000017 /* CoreModels.swift in Sources */,

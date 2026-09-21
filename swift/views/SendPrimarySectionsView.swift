@@ -63,17 +63,17 @@ struct SendFromPage: View {
             }
 
             if let selectedWallet = presentation.selectedWallet {
-                let badge = Coin.nativeChainBadge(chainName: selectedWallet.selectedChain) ?? (nil, Color.mint)
+                let badge = Coin.nativeChainBadge(chainName: selectedWallet.familyName) ?? (nil, Color.mint)
                 HStack(spacing: 12) {
                     CoinBadge(
                         artworkName: badge.artworkName,
-                        fallbackText: selectedWallet.selectedChain,
+                        fallbackText: selectedWallet.familyName,
                         color: badge.color,
                         size: 38
                     )
                     VStack(alignment: .leading, spacing: 2) {
                         Text(selectedWallet.name).font(.headline)
-                        Text(selectedWallet.selectedChain).font(.subheadline).foregroundStyle(.secondary)
+                        Text(selectedWallet.familyName).font(.subheadline).foregroundStyle(.secondary)
                     }
                     Spacer()
                 }

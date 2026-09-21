@@ -4,12 +4,12 @@ import Foundation
 /// Fetch and index each table once for per-row view lookups. Do not cache
 /// secret inputs or helpers that are already cheap local lookups.
 @MainActor
-enum CachedCoreHelpers {
-    private static var assetWikiResult: [AssetWikiEntry]?
+enum CoreReferenceTables {
+    private static var assetWikiEntries: [AssetWikiEntry]?
     private static var assetWikiByTokenId: [String: AssetWikiEntry]?
-    private static var chainWikiResult: [ChainWikiEntry]?
+    private static var chainWikiEntries: [ChainWikiEntry]?
     private static var chainWikiById: [String: ChainWikiEntry]?
-    private static var seedPhraseLengthsResult: [SeedPhraseLength]?
+    private static var standardPhraseLengths: [SeedPhraseLength]?
 
     // ── wiki.* ────────────────────────────────────────────────────────
     //
@@ -19,9 +19,9 @@ enum CachedCoreHelpers {
     // resolves one coin. Scanning the list for those meant a full FFI clone
     // and a linear search per row, per render.
     static func assetWiki() -> [AssetWikiEntry] {
-        if let cached = assetWikiResult { return cached }
+        if let cached = assetWikiEntries { return cached }
         let value = listAssetWiki()
-        assetWikiResult = value
+        assetWikiEntries = value
         return value
     }
     static func assetWikiEntry(tokenId: String) -> AssetWikiEntry? {
@@ -32,9 +32,9 @@ enum CachedCoreHelpers {
         return assetWikiByTokenId?[tokenId]
     }
     static func chainWiki() -> [ChainWikiEntry] {
-        if let cached = chainWikiResult { return cached }
+        if let cached = chainWikiEntries { return cached }
         let value = listChainWiki()
-        chainWikiResult = value
+        chainWikiEntries = value
         return value
     }
     static func chainWikiEntry(id: String) -> ChainWikiEntry? {
@@ -47,9 +47,9 @@ enum CachedCoreHelpers {
 
     // BIP-39 lengths and entropy as defined by core, one picker chip per entry.
     static func standardSeedPhraseLengths() -> [SeedPhraseLength] {
-        if let cached = seedPhraseLengthsResult { return cached }
+        if let cached = standardPhraseLengths { return cached }
         let value = seedPhraseLengths()
-        seedPhraseLengthsResult = value
+        standardPhraseLengths = value
         return value
     }
     /// Whether BIP-39 defines a phrase of this length.

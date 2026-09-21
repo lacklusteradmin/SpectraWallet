@@ -41,7 +41,7 @@ struct PriceAlertsView: View {
                 } else {
                     Picker(AppLocalization.string("Asset"), selection: $selectedHoldingKey) {
                         ForEach(store.alertableCoins, id: \.holdingKey) { coin in
-                            Text(AppLocalization.format("%@ on %@", coin.symbol, store.displayChainTitle(for: coin.chainName))).tag(
+                            Text(AppLocalization.format("%@ on %@", coin.symbol, store.selectedNetworkTitle(forFamilyName: coin.chainName))).tag(
                                 coin.holdingKey)
                         }
                     }

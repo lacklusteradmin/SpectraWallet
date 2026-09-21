@@ -26,7 +26,7 @@ struct AssetPlacesCard: View {
                     // A chain still has a page — for consensus, state model
                     // and derivation paths, which have no coin to belong to.
                     // It is one level down from the coin now, reached here.
-                    if let chain = CachedCoreHelpers.chainWikiEntry(id: place.chainId) {
+                    if let chain = CoreReferenceTables.chainWikiEntry(id: place.chainId) {
                         NavigationLink { ChainWikiDetailView(chain: chain) } label: { row(place) }
                             .buttonStyle(.plain)
                     } else {

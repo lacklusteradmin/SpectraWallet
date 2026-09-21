@@ -1,6 +1,6 @@
 import Foundation
 extension AppState {
-    func reloadPersistedStateFromSQLite() async {
+    func reloadCoreProjections() async {
         // Core-owned domain state first: it is the authority, so anything
         // loaded after it must not contradict it.
         await loadCoreOwnedState()
@@ -21,20 +21,5 @@ extension AppState {
         // from `UserDefaults` when `preferences` was created.
         await rebuildWalletDerivedStateFromCore()
         await refreshTransactionProjection()
-    }
-    /// Tell core which network of a family the user picked.
-    func commitSelectedChain(_ chainId: String) {
-        let epoch = beginCoreStateRead()
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            guard
-                let transition = try? await self.bridge.applyStateCommand(
-                    .selectChainForFamily(chainId: chainId))
-            else {
-                self.finishCoreStateRead(epoch)
-                return
-            }
-            self.applyCoreState(transition.state, epoch: epoch)
-        }
     }
 }
