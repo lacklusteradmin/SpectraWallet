@@ -4,6 +4,20 @@ import XCTest
 
 @MainActor
 final class WalletSetupPageCopyTests: XCTestCase {
+    func testBackupQuizRemainsRequiredOnlyForWalletCreation() {
+        let draft = WalletImportDraft()
+        draft.selectedChainNamesStorage = ["Ethereum"]
+        draft.seedPhraseEntries = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".components(separatedBy: " ")
+        XCTAssertTrue(draft.canImportWallet)
+        draft.mode = .createNew
+        XCTAssertFalse(draft.canImportWallet)
+        draft.backupVerificationWordIndices = [0, 5, 11]
+        draft.backupVerificationEntries = ["abandon", "abandon", "about"]
+        XCTAssertTrue(draft.canImportWallet)
+        draft.backupVerificationEntries[2] = "abandon"
+        XCTAssertFalse(draft.canImportWallet)
+    }
+
     private let content = ImportFlowContent.current
 
     private func mode(editing: Bool = false, creating: Bool = false, privateKey: Bool = false) -> WalletSetupMode {

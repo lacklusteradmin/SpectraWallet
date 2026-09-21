@@ -286,7 +286,8 @@ import Foundation
         func testEndpointTokenCapabilitiesHaveLocalizedLabels() throws {
             let endpoint = "https://eth.blockscout.com"
             let summary = try XCTUnwrap(AppEndpointDirectory.tagSummary(for: endpoint))
-            for capability in ["native-history", "token-history", "token-discovery", "token-balance"] {
+            XCTAssertTrue(summary.hasPrefix("blockscout"))
+            for capability in ["history", "token-history", "token-discovery", "token-balance"] {
                 let key = "endpointCapability.\(capability)"
                 let label = AppLocalization.string(key)
                 XCTAssertNotEqual(label, key)
@@ -493,22 +494,23 @@ import Foundation
 
         func testTorDoesNotActivateOrStopForAnUncommittedToggle() async throws {
             _ = try await bridge.applyStateCommand(.setAppSetting(update: .torEnabled(value: false)))
+            _ = try await service.configureNetworkRuntime(cacheDir: directory.path)
             let store = makeState()
             store.updateSetting(.torUseCustomProxy(value: true))
             store.updateSetting(.torCustomProxyAddress(value: "socks5://127.0.0.1:19050"))
             await store.awaitPendingSettingCommands()
-            XCTAssertEqual(store.torStatus, .stopped)
+            XCTAssertEqual(torStatus(), .stopped)
             store.updateSetting(.torEnabled(value: true))
             XCTAssertTrue(store.appSettings.torEnabled)
             XCTAssertFalse(store.committedAppSettings.torEnabled)
-            XCTAssertEqual(store.torStatus, .stopped)
+            XCTAssertEqual(torStatus(), .stopped)
             await store.awaitPendingSettingCommands()
             XCTAssertTrue(store.committedAppSettings.torEnabled)
-            XCTAssertEqual(store.torStatus, .ready)
+            XCTAssertEqual(torStatus(), .ready)
             store.updateSetting(.torEnabled(value: false))
-            XCTAssertEqual(store.torStatus, .ready)
+            XCTAssertEqual(torStatus(), .ready)
             await store.awaitPendingSettingCommands()
-            XCTAssertEqual(store.torStatus, .stopped)
+            XCTAssertEqual(torStatus(), .stopped)
             store.updateSetting(.torUseCustomProxy(value: false))
             store.updateSetting(.torCustomProxyAddress(value: "socks5://127.0.0.1:9050"))
             await store.awaitPendingSettingCommands()

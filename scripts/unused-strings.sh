@@ -28,7 +28,7 @@ import json, pathlib, re, sys
 
 STRINGS = pathlib.Path('resources/strings')
 FORMAT = re.compile(r'%(?:@|%|lld|llu|ld|lu|d|u|f|s|\d*\.\d+f|\.\d+f)')
-# Catalog IDs can contain hyphens, e.g. endpointCapability.native-history.
+# Catalog IDs can contain hyphens, e.g. endpointCapability.token-history.
 DOTTED = re.compile(r'^[a-zA-Z_]+[._][a-zA-Z0-9_.-]+$')
 
 def corpus():

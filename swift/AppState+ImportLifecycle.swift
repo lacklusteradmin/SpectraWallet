@@ -49,8 +49,8 @@ extension AppState {
     func deletePendingWallet() async {
         guard let walletPendingDeletion else { return }
         guard
-            await authenticateForSensitiveAction(
-                reason: AppLocalization.string("Authenticate to delete wallet"), allowWhenAuthenticationUnavailable: true
+            await authenticateForSensitiveAction(.deleteWallet,
+                reason: AppLocalization.string("Authenticate to delete wallet")
             )
         else {
             return

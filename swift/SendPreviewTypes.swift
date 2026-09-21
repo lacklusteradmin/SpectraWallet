@@ -34,20 +34,24 @@ extension SendPreview {
 @MainActor
 @Observable
 final class SendPreviewStore {
-    /// The composer's preview, keyed by mainnet id. Refresh names the holding's
-    /// chain while review names its resolved network; both map to the same key.
+    /// The composer's quote is bound to a concrete wallet, holding and network.
     private var slot: String?
-    private var preview: SendPreview?
+    private var quote: OwnedSendPreview?
 
-    func apply(_ preview: SendPreview?, forChainNamed chainName: String) {
+    func apply(_ quote: OwnedSendPreview?, forChainNamed chainName: String) {
         slot = Self.slot(forChainNamed: chainName)
-        self.preview = slot == nil ? nil : preview
+        self.quote = quote?.chainId == slot ? quote : nil
     }
 
     /// A preview asked for by another chain than it was made for is none.
     func taggedPreview(forChainNamed chainName: String) -> SendPreview? {
         guard let slot, slot == Self.slot(forChainNamed: chainName) else { return nil }
-        return preview
+        return quote?.preview
+    }
+
+    func ownedQuote(walletId: String, holdingKey: String) -> OwnedSendPreview? {
+        guard let quote, quote.walletId == walletId, quote.holdingKey == holdingKey else { return nil }
+        return quote
     }
 
     func clearPreview(forChainNamed chainName: String) {
@@ -59,14 +63,14 @@ final class SendPreviewStore {
         taggedPreview(forChainNamed: chainName)?.estimatedNetworkFee
     }
 
-    /// The slot a chain's preview is stored under: its mainnet's registry id.
+    /// Never share a preview between a mainnet and its testnets.
     static func slot(forChainNamed chainName: String) -> String? {
-        Chain(displayName: chainName)?.mainnetCounterpart.id
+        Chain(displayName: chainName)?.id
     }
 
     func resetAll() {
         slot = nil
-        preview = nil
+        quote = nil
     }
 
     /// Clear the preview unless it is `slot`'s.

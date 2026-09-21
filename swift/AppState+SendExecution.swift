@@ -30,7 +30,6 @@ extension AppState {
             let network = Chain(id: review.request.chainId)?.displayName ?? review.request.chainId
             reasons.insert("\(review.request.amountStr) → \(review.request.toAddress) (\(network))", at: 0)
             if let preview = review.preview {
-                sendPreviewStore.apply(preview, forChainNamed: network)
                 // `String(Double)` printed the fee as Swift spells a double —
                 // `2.1e-05 ETH` for a small one — beside a review the user is
                 // about to confirm.
@@ -50,7 +49,7 @@ extension AppState {
         guard !sendingChains.contains(chainName) else { return }
         sendingChains.insert(chainName)
         defer { sendingChains.remove(chainName) }
-        guard await authenticateForSensitiveAction(reason: AppLocalization.string("Authorize transaction send")) else { return }
+        guard await authenticateForSensitiveAction(.send, reason: AppLocalization.string("Authorize transaction send")) else { return }
         do {
             let result = try await self.bridge.executeOwnedSend(
                 reviewId: review.id, input: currentSendReviewInput(), password: password)

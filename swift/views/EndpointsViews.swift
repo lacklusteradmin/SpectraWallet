@@ -21,10 +21,6 @@ struct EndpointCatalogSettingsView: View {
     }
     /// One endpoint: the URL, and what the catalog says it is.
     ///
-    /// The tag line is why the `kind` / `capabilities` split exists — six
-    /// identical-looking URLs under one chain gave no way to tell the node
-    /// that answers balances from the indexer that answers history. An
-    /// endpoint the user typed has no catalog row and shows the URL alone.
     @ViewBuilder
     private func endpointRow(_ endpoint: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {

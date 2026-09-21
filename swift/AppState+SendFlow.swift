@@ -68,18 +68,11 @@ extension AppState {
     }
     func sendShortcutAmount(percentage: UInt32) -> String? {
         guard let coin = selectedSendCoin, preparingChains.isEmpty else { return nil }
-        return quotedSendAmount(
-            preview: sendPreviewStore.taggedPreview(forChainNamed: coin.chainName),
-            chainName: coin.chainName, isNative: coin.isNativeCoin,
-            tokenDecimals: supportedToken(for: coin)?.token.decimals, percentage: percentage)
+        return sendPreviewStore.ownedQuote(walletId: sendWalletId, holdingKey: coin.holdingKey)?.shortcuts[percentage]
     }
 
     func sendPreviewDetails(for coin: Coin) -> SendPreviewDetails? {
-        guard
-            let c = computeSendPreviewDetails(
-                preview: sendPreviewStore.taggedPreview(forChainNamed: coin.chainName),
-                coinAmount: coin.amount)
-        else { return nil }
+        guard let c = sendPreviewStore.ownedQuote(walletId: sendWalletId, holdingKey: coin.holdingKey)?.details else { return nil }
         return SendPreviewDetails(
             spendableBalance: c.spendableBalance, feeRateDescription: c.feeRateDescription,
             estimatedTransactionBytes: c.estimatedTransactionBytes.map(Int.init), selectedInputCount: c.selectedInputCount.map(Int.init),
@@ -271,7 +264,7 @@ extension AppState {
                 walletId: walletId, holdingKey: holdingKey, destination: input)
             guard isCurrent() else { return }
             let messages = chainRiskProbeMessages(chainName: coin.chainName, symbol: coin.symbol,
-                balanceIsZero: risk.balanceIsZero, hasHistory: risk.hasHistory)
+                activity: risk.activity)
             sendDestinationRiskWarning = messages.warning
             sendDestinationInfoMessage = messages.info
         } catch {
@@ -280,21 +273,19 @@ extension AppState {
         }
     }
     /// Localized title and message for a destination verdict.
-    func chainRiskProbeMessages(chainName: String, symbol: String, balanceIsZero: Bool, hasHistory: Bool) -> (
+    func chainRiskProbeMessages(chainName: String, symbol: String, activity: SendDestinationActivity) -> (
         warning: String?, info: String?
     ) {
-        let warning: String? =
-            (balanceIsZero && !hasHistory)
-            ? AppLocalization.format(
+        switch activity {
+        case .unused:
+            return (AppLocalization.format(
                 "Warning: this %@ address has zero %@ balance and no transaction history. Double-check recipient details.",
-                chainName, symbol)
-            : nil
-        let info: String? =
-            (balanceIsZero && hasHistory)
-            ? AppLocalization.format(
-                "Note: this %@ address has transaction history but currently zero %@ balance.", chainName, symbol)
-            : nil
-        return (warning, info)
+                chainName, symbol), nil)
+        case .emptyPreviouslyUsed:
+            return (nil, AppLocalization.format(
+                "Note: this %@ address has transaction history but currently zero %@ balance.", chainName, symbol))
+        case .funded: return (nil, nil)
+        }
     }
     func availableSendCoins(for walletId: String) -> [Coin] { cachedAvailableSendCoinsByWalletId[walletId] ?? [] }
     var sendEnabledWallets: [WalletView] { cachedSendEnabledWallets }

@@ -5,6 +5,7 @@ import XCTest
 @MainActor
 class IsolatedAppStateTestCase: XCTestCase {
     var bridge: WalletServiceBridge!
+    var service: WalletService!
     var directory: URL!
     private var states: [AppState] = []
 
@@ -12,7 +13,7 @@ class IsolatedAppStateTestCase: XCTestCase {
         try await super.setUp()
         directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let service = try WalletService(endpoints: [])
+        service = try WalletService(endpoints: [])
         service.setSecretStore(store: TestSecretStore())
         bridge = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.sqlite").path, service: service)
         _ = try await bridge.openState()
@@ -33,6 +34,7 @@ class IsolatedAppStateTestCase: XCTestCase {
         }
         states.removeAll()
         bridge = nil
+        service = nil
         try FileManager.default.removeItem(at: directory)
         directory = nil
         try await super.tearDown()

@@ -275,15 +275,6 @@ final class AppState {
     /// and the notification permission a newly enabled alert needs.
     private func reactToSettingsChange(from before: AppSettings) {
         let appSettings = committedAppSettings
-        if appSettings.torEnabled != before.torEnabled
-            || appSettings.torUseCustomProxy != before.torUseCustomProxy
-        {
-            handleTorEnabledChange()
-        } else if appSettings.torUseCustomProxy,
-            appSettings.torCustomProxyAddress != before.torCustomProxyAddress
-        {
-            reconnectTor()
-        }
         if (appSettings.useTransactionStatusNotifications && !before.useTransactionStatusNotifications)
             || (appSettings.useLargeMovementNotifications && !before.useLargeMovementNotifications)
         {
@@ -553,12 +544,14 @@ final class AppState {
         startMaintenanceLoopIfNeeded()
         await registerSecretStoreWithBridge()
         setupRustRefreshEngine()
+        observeTorStatus()
         async let projectionReload: () = reloadCoreProjections()
         async let fiatRefresh: () = refreshFiatExchangeRatesIfNeeded()
         _ = await (projectionReload, fiatRefresh)
         // Configuring the engine starts it; its first tick performs the launch sweep.
     }
     deinit {
+        torStatusPollingTask?.cancel()
         maintenanceTask?.cancel()
         userInitiatedRefreshTask?.cancel()
         importRefreshTask?.cancel()

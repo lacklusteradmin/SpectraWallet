@@ -1,17 +1,28 @@
 import Foundation
 import LocalAuthentication
 
+enum DeviceAuthenticationAction {
+    case unlock, send, deleteWallet, resetData
+
+    func requiresAuthentication(useFaceId: Bool, authenticateSends: Bool) -> Bool {
+        switch self {
+        case .send: return useFaceId && authenticateSends
+        case .unlock, .deleteWallet, .resetData: return useFaceId
+        }
+    }
+}
+
 @MainActor
 extension AppState {
     func unlockApp() async {
         guard preferences.useFaceId else { isAppLocked = false; appLockError = nil; return }
-        if await authenticateForSensitiveAction(reason: AppLocalization.string("Authenticate to unlock Spectra")) { isAppLocked = false; appLockError = nil }
+        if await authenticateForSensitiveAction(.unlock, reason: AppLocalization.string("Authenticate to unlock Spectra")) { isAppLocked = false; appLockError = nil }
     }
-    func authenticateForSensitiveAction(reason: String, allowWhenAuthenticationUnavailable: Bool = false) async -> Bool {
-        guard preferences.useFaceId, preferences.requireBiometricForSendActions else { return true }
+    func authenticateForSensitiveAction(_ action: DeviceAuthenticationAction, reason: String) async -> Bool {
+        guard action.requiresAuthentication(useFaceId: preferences.useFaceId,
+            authenticateSends: preferences.requireBiometricForSendActions) else { return true }
         let context = LAContext(); var authError: NSError?
         guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &authError) else {
-            if allowWhenAuthenticationUnavailable { return true }
             let message = AppLocalization.format(
                 "Device authentication unavailable: %@",
                 authError?.localizedDescription ?? AppLocalization.string("unknown error"))

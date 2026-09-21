@@ -18,7 +18,7 @@ extension AppState {
         }
     }
     func rebroadcastSignedTransaction(for transactionId: String) async -> String {
-        guard await authenticateForSensitiveAction(reason: AppLocalization.string("Authorize transaction rebroadcast")) else {
+        guard await authenticateForSensitiveAction(.send, reason: AppLocalization.string("Authorize transaction rebroadcast")) else {
             return sendError ?? AppLocalization.string("Authentication failed.")
         }
         do {

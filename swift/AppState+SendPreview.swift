@@ -26,7 +26,7 @@ extension AppState {
         !Task.isCancelled && sendPreviewRequestId == requestId && sendPreviewInputSnapshot == input
     }
 
-    func adoptSendPreviewResult(_ result: Result<SendPreview?, Error>, requestId: UUID,
+    func adoptSendPreviewResult(_ result: Result<OwnedSendPreview?, Error>, requestId: UUID,
                                input: SendPreviewInputSnapshot, chainName: String) {
         guard isCurrentSendPreview(requestId: requestId, input: input) else { return }
         switch result {

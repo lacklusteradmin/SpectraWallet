@@ -3,8 +3,8 @@ extension AppState {
     func resetSelectedData(scopes: Set<ResetScope>) async {
         guard !scopes.isEmpty else { return }
         guard
-            await authenticateForSensitiveAction(
-                reason: AppLocalization.string("Authenticate to reset wallet data"), allowWhenAuthenticationUnavailable: true
+            await authenticateForSensitiveAction(.resetData,
+                reason: AppLocalization.string("Authenticate to reset wallet data")
             )
         else {
             return

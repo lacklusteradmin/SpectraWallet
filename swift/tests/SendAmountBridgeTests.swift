@@ -4,10 +4,25 @@ import XCTest
 @MainActor
 final class SendAmountBridgeTests: IsolatedAppStateTestCase {
 
+    func testQuoteCannotBeReusedForAnotherWalletHoldingOrNetwork() {
+        let store = SendPreviewStore()
+        let preview = SendPreview.solana(preview: SolanaSendPreview(
+            estimatedNetworkFee: 0.000005, spendableBalance: 1, feeRateDescription: nil,
+            estimatedTransactionBytes: nil, selectedInputCount: nil, usesChangeOutput: nil, maxSendable: 0.999995))
+        let quote = OwnedSendPreview(walletId: "w", holdingKey: "solana:native", chainId: "solana",
+            preview: preview, details: nil, shortcuts: [100: "0.999994999"])
+        store.apply(quote, forChainNamed: "Solana")
+        XCTAssertEqual(store.ownedQuote(walletId: "w", holdingKey: "solana:native")?.shortcuts[100], "0.999994999")
+        XCTAssertNil(store.ownedQuote(walletId: "other", holdingKey: "solana:native"))
+        XCTAssertNil(store.ownedQuote(walletId: "w", holdingKey: "solana:spl:other"))
+        store.apply(quote, forChainNamed: "Ethereum")
+        XCTAssertNil(store.taggedPreview(forChainNamed: "Ethereum"))
+        XCTAssertNotEqual(SendPreviewStore.slot(forChainNamed: "Ethereum"), SendPreviewStore.slot(forChainNamed: "Ethereum Sepolia"))
+    }
+
     func testFeeAdjustedShortcutIsFlooredAcrossBinding() {
         XCTAssertEqual(sendAmountShortcut(maximum: 0.99999, decimals: 8, percentage: 100), "0.99998999")
         XCTAssertNil(sendAmountShortcut(maximum: .infinity, decimals: 8, percentage: 100))
-        XCTAssertNil(quotedSendAmount(preview: nil, chainName: "Bitcoin", isNative: true, tokenDecimals: nil, percentage: 100))
         XCTAssertNil(parseAmountInput(text: "340282366920938463463374607431768211456", maxDecimals: 0))
     }
 

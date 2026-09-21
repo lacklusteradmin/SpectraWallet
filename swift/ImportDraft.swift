@@ -161,20 +161,18 @@ final class WalletImportDraft {
             bySlot: watchOnlyEntriesBySlot,
             bitcoinXpub: isWatchOnlyMode && !trimmedXpub.isEmpty ? trimmedXpub : nil)
     }
-    private var draftMode: WalletImportDraftMode {
-        if isEditingWallet { return .rename }
-        if isCreateMode { return .create }
-        if isWatchOnlyMode { return .watchOnly }
-        return isPrivateKeyImportMode ? .importPrivateKey : .importSeedPhrase
-    }
-    /// Pass the typed form to core for validation.
+    /// Form completeness is view state. Domain validation remains mandatory
+    /// in core's import/rename operations even when a client skips this check.
     var canImportWallet: Bool {
-        validateWalletImportDraft(
-            draft: WalletImportDraftInput(
-                mode: draftMode, selectedChainNames: selectedChainNames, walletName: walletName,
-                seedPhraseWords: seedPhraseEntries, seedPhraseLanguage: seedPhraseLanguage,
-                seedPhraseWordCount: UInt32(selectedSeedPhraseWordCount), privateKey: privateKeyInput,
-                backupVerified: isBackupVerificationComplete, watchOnlyEntries: watchOnlyImportEntries))
+        if isEditingWallet { return !walletName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+        guard !selectedChainNames.isEmpty else { return false }
+        if isWatchOnlyMode {
+            return !watchOnlyEntriesBySlot.values.flatMap { $0 }.isEmpty || watchOnlyImportEntries.bitcoinXpub != nil
+        }
+        if isPrivateKeyImportMode {
+            return unsupportedPrivateKeyChainNames.isEmpty && isPrivateKeyHex(rawValue: privateKeyInput)
+        }
+        return seedPhraseVerdict.checksumValid && (!requiresBackupVerification || isBackupVerificationComplete)
     }
     var requiresBackupVerification: Bool { isCreateMode }
     var isBackupVerificationComplete: Bool {

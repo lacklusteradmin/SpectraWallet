@@ -15,6 +15,9 @@ import Foundation
         let svc = try service()
         if !stateIsOpen {
             _ = try await svc.openState(databasePath: sqliteDbPath())
+            if suppliedService == nil {
+                _ = try await svc.configureNetworkRuntime(cacheDir: AppState.torCacheDirectory())
+            }
             stateIsOpen = true
         }
         return svc
@@ -41,6 +44,10 @@ import Foundation
         try await readyService().resetData(scopes: scopes)
     }
 
+    func reconnectTor() async throws -> TorStatus {
+        try await readyService().reconnectTor()
+    }
+
     func evaluatePortfolioMovement(appIsActive: Bool) async throws -> LargeMovementEvaluation? {
         try await readyService().evaluatePortfolioMovement(appIsActive: appIsActive)
     }
@@ -61,7 +68,7 @@ import Foundation
     func refreshApp(intent: AppRefreshIntent, conditions: DeviceConditions) async throws -> AppRefreshResult {
         try await readyService().refreshApp(intent: intent, conditions: conditions)
     }
-    func previewOwnedSend(walletId: String, holdingKey: String, amount: String, destination: String, explicitNonce: Int64?, customFees: EvmCustomFeeConfiguration?) async throws -> SendPreview? {
+    func previewOwnedSend(walletId: String, holdingKey: String, amount: String, destination: String, explicitNonce: Int64?, customFees: EvmCustomFeeConfiguration?) async throws -> OwnedSendPreview? {
         try await readyService().previewOwnedSend(walletId: walletId, holdingKey: holdingKey, amount: amount, destination: destination, explicitNonce: explicitNonce, customFees: customFees)
     }
     func replacementDraft(transactionId: String, cancel: Bool) async throws -> OwnedReplacementDraft {
@@ -115,9 +122,8 @@ extension WalletServiceBridge {
     func openState() async throws -> CoreAppState {
         // Use core's serialized open for launch snapshots too: an unlocked
         // appState read could overtake an in-flight settings commit.
-        let state = try await service().openState(databasePath: sqliteDbPath())
-        stateIsOpen = true
-        return state
+        let svc = try await readyService()
+        return try await svc.openState(databasePath: sqliteDbPath())
     }
 
     /// Apply a command to the owned state. Core persists before returning.
