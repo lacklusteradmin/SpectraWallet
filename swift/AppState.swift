@@ -316,14 +316,6 @@ final class AppState {
         if unpriced != unpricedChainNames { unpricedChainNames = unpriced }
         return true
     }
-    /// The custom RPC a chain is pointed at, or "" for the catalog's list.
-    func rpcEndpoint(forChain chainName: String) -> String {
-        appSettings.rpcEndpointByChain[chainName] ?? ""
-    }
-    /// Point a chain at a custom RPC; an empty value returns it to the catalog.
-    func setRPCEndpoint(_ raw: String, forChain chainName: String) {
-        updateSetting(.rpcEndpoint(chain: chainName, value: raw))
-    }
     /// A chain with no stored pick confirms at the default rate.
     func feePriority(forChain chainName: String) -> FeePriority {
         appSettings.feePriorityByChain[chainName] ?? .normal

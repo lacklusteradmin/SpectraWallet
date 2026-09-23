@@ -1,9 +1,7 @@
 {
   "navigationTitle": "端點",
-  "intro": "此頁面列出 Spectra 目前使用的鏈端點。若此版本已支援自訂覆寫，則可以在這裡編輯。",
-  "addEsploraEndpointPlaceholder": "新增 Esplora 端點",
-  "addEndpointButtonTitle": "新增端點",
-  "clearCustomEsploraEndpointsTitle": "清除自訂 Esplora 端點",
-  "customRPCURLPlaceholder": "自訂 RPC 位址",
-  "customBackendURLPlaceholder": "自訂後端位址"
+  "addEndpointTitle": "新增端點",
+  "typeTitle": "類型",
+  "urlPlaceholder": "端點 URL",
+  "invalidEndpointMessage": "請輸入此網路和 API 類型的有效 HTTP 或 HTTPS 端點，且不能與已有端點重複。"
 }

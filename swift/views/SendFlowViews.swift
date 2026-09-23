@@ -22,7 +22,7 @@ private enum SendFlowStep: Int, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .from: return "creditcard.fill"
-        case .recipient: return "person.crop.circle.badge.arrow.forward.fill"
+        case .recipient: return "person.crop.circle.fill"
         case .amount: return "number.circle.fill"
         case .confirm: return "checkmark.shield.fill"
         }

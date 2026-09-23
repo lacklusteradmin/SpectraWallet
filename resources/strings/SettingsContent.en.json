@@ -1,6 +1,4 @@
 {
-  "pricingIntro": "Prices come from several public providers at once — whichever answers is used, so one being down or not listing an asset does not leave it unpriced. An asset nobody quotes is shown without a price rather than at a guessed one.",
-  "publicProviderNote": "This provider uses public batched quote endpoints.",
   "aboutTitle": "Spectra",
   "aboutSubtitle": "A self-custodial multi-chain wallet focused on local control, transparent network access, and minimal trust assumptions.",
   "aboutEthosTitle": "Spectra Ethos",
@@ -17,7 +15,6 @@
     "Your wallet data stays on your device unless you explicitly choose to share it. Spectra is designed so key material, watched addresses, and local transaction state remain under your control.",
     "You keep control over recovery phrases and private keys at all times. The app is a client, not a custodian, and it should be understood as local wallet software that talks to chain infrastructure rather than a hosted account platform."
   ],
-  "reportProblemDescription": "Use this page to open the future support form or issue tracker. The link below is a placeholder for now.",
   "reportProblemActionTitle": "Open Report Form",
   "buyProvidersIntro": "Two ways to turn cash into crypto. Availability, fees, identity checks, supported networks and regional coverage differ by provider — check before you pay.",
   "buyOnrampNote": "On-ramps send what you buy straight to a wallet address you enter, so the coins arrive in Spectra without a second step.",

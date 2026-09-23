@@ -1,112 +1,86 @@
 import SwiftUI
+
 struct EndpointCatalogSettingsView: View {
-    @Bindable var store: AppState
-    @State private var newEsploraEndpoint: String = ""
+    let store: AppState
+    @State private var entries: [EndpointDirectoryEntry] = []
+    @State private var loadError: String?
+    @State private var sourceFilter = "All"
     private let copy = EndpointsContentCopy.current
+
     private var endpointSections: [Chain] {
-        Chain.mainnets.filter { AppEndpointDirectory.hasEndpoints($0.id) }
-    }
-    private var customEsploraEndpoints: [String] { parseBitcoinEsploraEndpoints(raw: store.appSettings.bitcoinEsploraEndpoints) }
-    private func addEsploraEndpoint() {
-        let trimmed = newEsploraEndpoint.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        var endpoints = customEsploraEndpoints
-        guard !endpoints.contains(trimmed) else {
-            newEsploraEndpoint = ""
-            return
+        Chain.mainnets.filter { chain in
+            !visibleEntries(for: chain).isEmpty
         }
-        endpoints.append(trimmed)
-        store.updateSetting(.bitcoinEsploraEndpoints(value: endpoints.joined(separator: "\n")))
-        newEsploraEndpoint = ""
     }
-    /// One endpoint: the URL, and what the catalog says it is.
-    ///
-    @ViewBuilder
-    private func endpointRow(_ endpoint: String) -> some View {
+    private func visibleEntries(for chain: Chain) -> [EndpointDirectoryEntry] {
+        let ids = Set(AppEndpointDirectory.groupedSettingsEntries(for: chain.id).map(\.chainId) + [chain.id])
+        var seen = Set<String>()
+        return entries.filter {
+            ids.contains($0.record.chainId)
+                && seen.insert($0.record.chainId + "\n" + $0.record.endpoint + ($0.isBuiltIn ? "" : $0.apiName)).inserted
+                && (sourceFilter == "All" || $0.isBuiltIn == (sourceFilter == "Built-In"))
+        }
+    }
+    private func endpointRow(_ entry: EndpointDirectoryEntry) -> some View {
         VStack(alignment: .leading, spacing: 2) {
-            Text(endpoint).font(.caption.monospaced()).textSelection(.enabled).lineLimit(3)
-            if let summary = AppEndpointDirectory.tagSummary(for: endpoint) {
-                Text(summary).font(.caption2).foregroundStyle(.secondary)
+            Text(entry.record.endpoint).font(.caption.monospaced()).textSelection(.enabled).lineLimit(3)
+            let tags = ([entry.apiName].filter { !$0.isEmpty }
+                + entry.record.capabilities.map { AppLocalization.string("endpointCapability.\($0)") })
+            if !tags.isEmpty {
+                Text(tags.joined(separator: " · ")).font(.caption2).foregroundStyle(.secondary)
             }
-        }
-    }
-    private func endpointRows(_ endpoints: [String]) -> some View {
-        ForEach(endpoints, id: \.self) { endpoint in endpointRow(endpoint) }
-    }
-    @ViewBuilder
-    private func namedEndpointGroup(title: String, endpoints: [String]) -> some View {
-        if !endpoints.isEmpty {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title).font(.subheadline.weight(.semibold))
-                ForEach(endpoints, id: \.self) { endpoint in endpointRow(endpoint)
-                }
-            }.padding(.vertical, 2)
-        }
-    }
-    @ViewBuilder
-    private func esploraSectionBody() -> some View {
-        endpointRows(customEsploraEndpoints)
-        TextField(copy.addEsploraEndpointPlaceholder, text: $newEsploraEndpoint).textInputAutocapitalization(.never)
-            .autocorrectionDisabled().keyboardType(.URL)
-        if let error = endpointValidationError(field: .bitcoinEsploraList, raw: newEsploraEndpoint) {
-            Text(error).font(.caption).foregroundStyle(.red)
-        }
-        Button(copy.addEndpointButtonTitle) {
-            addEsploraEndpoint()
-        }.disabled(endpointValidationError(field: .bitcoinEsploraList, raw: newEsploraEndpoint) != nil)
-        if !customEsploraEndpoints.isEmpty {
-            Button(copy.clearCustomEsploraEndpointsTitle, role: .destructive) {
-                store.updateSetting(.bitcoinEsploraEndpoints(value: ""))
-            }
-        }
-    }
-    @ViewBuilder
-    private func backendSectionBody() -> some View {
-        if !store.appSettings.moneroBackendBaseUrl.isEmpty {
-            endpointRows([store.appSettings.moneroBackendBaseUrl])
-        }
-        SettingTextField(
-            title: copy.customBackendURLPlaceholder, value: store.appSettings.moneroBackendBaseUrl, endpoint: .moneroBackend
-        ) { store.updateSetting(.moneroBackendBaseUrl(value: $0)) }
-        .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
-    }
-    /// The custom-RPC field for any EVM chain.
-    @ViewBuilder
-    private func customRPCField(for chainName: String) -> some View {
-        SettingTextField(title: copy.customRPCURLPlaceholder, value: store.rpcEndpoint(forChain: chainName), endpoint: .evmRpc) {
-            store.setRPCEndpoint($0, forChain: chainName)
-        }
-        .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
-    }
-    @ViewBuilder
-    private func endpointSection(_ chain: Chain) -> some View {
-        Section(chain.displayName) {
-            let groups = AppEndpointDirectory.groupedSettingsEntries(for: chain.id)
-            if groups.count > 1 {
-                ForEach(groups, id: \.chainId) { group in
-                    namedEndpointGroup(title: group.title, endpoints: group.endpoints)
-                }
-            } else {
-                endpointRows(AppEndpointDirectory.settingsEndpoints(for: chain.id))
-            }
-            if chain.sendsThroughBackend {
-                backendSectionBody()
-            } else if !AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainId: chain.id).isEmpty {
-                esploraSectionBody()
-            } else if chain.isEVM {
-                customRPCField(for: chain.displayName)
-            }
+            Text(AppLocalization.string(entry.isBuiltIn ? "Built-In" : "Custom"))
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
     var body: some View {
         Form {
-            Section {
-                Text(copy.intro).font(.caption).foregroundStyle(.secondary)
-                if let loadError = AppEndpointDirectory.loadError {
-                    Text(loadError).font(.caption).foregroundStyle(.red)
+            if let loadError { Section { Text(loadError).foregroundStyle(.red) } }
+            ForEach(endpointSections) { chain in
+                Section(chain.displayName) {
+                    let rows = visibleEntries(for: chain)
+                    let groups = AppEndpointDirectory.groupedSettingsEntries(for: chain.id)
+                    if groups.count > 1 {
+                        ForEach(groups, id: \.chainId) { group in
+                            let groupRows = rows.filter { $0.record.chainId == group.chainId }
+                            if !groupRows.isEmpty {
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(group.title).font(.subheadline.weight(.semibold))
+                                    ForEach(groupRows, id: \.record.id) { endpointRow($0) }
+                                }.padding(.vertical, 2)
+                            }
+                        }
+                    } else {
+                        ForEach(rows, id: \.record.id) { endpointRow($0) }
+                    }
                 }
             }
-            ForEach(endpointSections) { chain in endpointSection(chain) }
-        }.navigationTitle(copy.navigationTitle)
+        }
+        .navigationTitle(copy.navigationTitle)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    AddCustomEndpointView(store: store, directory: entries)
+                } label: { Image(systemName: "plus") }
+                .accessibilityLabel(copy.addEndpointTitle)
+                .disabled(entries.isEmpty)
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Picker(AppLocalization.string("Source"), selection: $sourceFilter) {
+                        Text(AppLocalization.string("All")).tag("All")
+                        Text(AppLocalization.string("Built-In")).tag("Built-In")
+                        Text(AppLocalization.string("Custom")).tag("Custom")
+                    }
+                } label: {
+                    Image(systemName: sourceFilter == "All"
+                        ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill")
+                }.accessibilityLabel(AppLocalization.string("Filters"))
+            }
+        }
+        .task {
+            do { entries = try await store.bridge.endpointDirectory(); loadError = nil }
+            catch { loadError = error.localizedDescription }
+        }
     }
 }

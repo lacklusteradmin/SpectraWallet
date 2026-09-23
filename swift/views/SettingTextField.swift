@@ -11,8 +11,6 @@ struct SettingTextField: View {
     let title: String
     /// What core has stored.
     let value: String
-    /// The URL rule the draft is checked against as it is typed.
-    var endpoint: EndpointField?
     let commit: (String) -> Void
     @State private var draft: String?
     @FocusState private var isFocused: Bool
@@ -32,9 +30,6 @@ struct SettingTextField: View {
                 guard !Task.isCancelled else { return }
                 send()
             }
-        if let endpoint, let error = endpointValidationError(field: endpoint, raw: text) {
-            Text(error).font(.caption).foregroundStyle(.red)
-        }
     }
 
     private func send() {

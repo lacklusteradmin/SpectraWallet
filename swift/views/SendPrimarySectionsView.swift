@@ -156,7 +156,7 @@ struct SendRecipientPage: View {
             spectraPageHeader(
                 title: "Recipient",
                 subtitle: "Enter a destination address or scan a QR code.",
-                systemImage: "person.crop.circle.badge.arrow.forward.fill"
+                systemImage: "person.crop.circle.fill"
             )
 
             toCard

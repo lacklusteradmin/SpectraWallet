@@ -5,9 +5,6 @@ struct ReportProblemView: View {
     private var reportProblemURL: URL? { URL(string: AppLinks.current.reportProblem) }
     var body: some View {
         Form {
-            Section {
-                Text(copy.reportProblemDescription).font(.caption).foregroundStyle(.secondary)
-            }
             Section(AppLocalization.string("Support Link")) {
                 if let url = reportProblemURL {
                     Link(destination: url) {

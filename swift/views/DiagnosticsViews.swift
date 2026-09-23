@@ -171,7 +171,7 @@ struct StandardChainDiagnosticsView: View {
     @State private var isRefreshing = false
     @State private var refreshNotice: String?
     @State private var copiedDiagnosticsNotice: SpectraTransientNotice?
-    @State private var selectedBackendId: String = ""
+    @State private var configuredEndpoints: [String] = []
     @State private var cachedEndpointRows: [StandardEndpointRow] = []
     @State private var cachedHistorySourceRows: [StandardHistorySourceRow] = []
     /// Keypool state now lives in core, so it is loaded rather than read
@@ -181,23 +181,9 @@ struct StandardChainDiagnosticsView: View {
     /// Operational events live in core now, so they load rather than read
     /// synchronously — same `.task` as the keypool rows.
     @State private var cachedOperationalEvents: [DiagnosticLog] = []
-    private let customBackendId = "custom"
     private var chainDiagnosticsState: WalletChainDiagnosticsState { store.chainDiagnosticsState }
     private var displayChainTitle: String { store.selectedNetworkTitle(forFamilyName: chain.displayName) }
     private var diagnosticsLabel: String { displayChainTitle }
-    /// The backends the catalog lists for this chain, first being the one core
-    /// uses when the setting is empty.
-    ///
-    /// Was `MoneroBalanceService`: three catalog record ids, three display
-    /// names and a default id written out in Swift, read by index — so a
-    /// catalog with two backends crashed the screen on `[2]`.
-    private var catalogBackends: [String] { AppEndpointDirectory.backends(for: chain.id) }
-    private var backendChoices: [(id: String, title: String)] {
-        catalogBackends.enumerated().map { index, url in
-            let host = URL(string: url)?.host ?? url
-            return (url, index == 0 ? AppLocalization.format("%@ (Default)", host) : host)
-        } + [(customBackendId, AppLocalization.string("Custom URL"))]
-    }
     /// Esplora bases are a Bitcoin-family catalog column; a chain with any has
     /// the custom-Esplora setting.
     private var hasEsploraBases: Bool { !AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainId: chain.id).isEmpty }
@@ -312,9 +298,15 @@ struct StandardChainDiagnosticsView: View {
             }
             chainSpecificSections
         }.navigationTitle(AppLocalization.format("%@ Diagnostics", displayChainTitle)).onAppear {
-            if chain.sendsThroughBackend { syncSelectedBackendIDFromStore() }
             rebuildCachedRows()
         }.task(id: chain.id) {
+            do {
+                let network = store.selectedChainId(forFamily: chain.id)
+                configuredEndpoints = try await store.bridge.endpointDirectory()
+                    .filter { $0.record.chainId == network && !$0.apiName.isEmpty }.map(\.record.endpoint)
+                rebuildEndpointRows()
+            } catch { keypoolError = error.localizedDescription }
+
             do {
                 cachedKeypoolDiagnostics = try await store.chainKeypoolDiagnostics(for: chain.displayName)
                 keypoolError = nil
@@ -323,14 +315,7 @@ struct StandardChainDiagnosticsView: View {
                 keypoolError = error.localizedDescription
             }
             cachedOperationalEvents = await store.operationalEvents(for: chain.displayName)
-        }.spectraTransientNotice($copiedDiagnosticsNotice).onChange(of: selectedBackendId) { _, newValue in
-            guard chain.sendsThroughBackend, newValue != customBackendId else { return }
-            // The first is what an empty setting already means.
-            store.updateSetting(.moneroBackendBaseUrl(value: newValue == catalogBackends.first ? "" : newValue))
-        }.onChange(of: store.appSettings.moneroBackendBaseUrl) { _, _ in
-            guard chain.sendsThroughBackend else { return }
-            syncSelectedBackendIDFromStore()
-        }.onChange(of: historyLastUpdatedAt) { _, _ in
+        }.spectraTransientNotice($copiedDiagnosticsNotice).onChange(of: historyLastUpdatedAt) { _, _ in
             rebuildHistorySourceRows()
         }.onChange(of: historyWalletCount) { _, _ in
             rebuildHistorySourceRows()
@@ -373,26 +358,7 @@ struct StandardChainDiagnosticsView: View {
         }
     }
     /// The endpoints this chain would actually use, as the screen lists them.
-    private func configuredEndpointsForCurrentChain() -> [String] {
-        let name = chain.displayName
-        if hasEsploraBases {
-            let custom = parseBitcoinEsploraEndpoints(raw: store.appSettings.bitcoinEsploraEndpoints)
-            return custom.isEmpty
-                ? AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainId: store.selectedChainId(forFamily: chain.id))
-                : custom
-        }
-        if chain.sendsThroughBackend {
-            let stored = store.appSettings.moneroBackendBaseUrl
-            return stored.isEmpty ? catalogBackends : [stored]
-        }
-        guard chain.isEVM else { return AppEndpointDirectory.serviceEndpoints(for: store.selectedChainId(forFamily: chain.id)) }
-        let custom = store.rpcEndpoint(forChain: name)
-        var endpoints = custom.isEmpty ? [] : [custom]
-        for endpoint in AppEndpointDirectory.evmRPCEndpoints(for: store.selectedChainId(forFamily: chain.id)) where !endpoints.contains(endpoint) {
-            endpoints.append(endpoint)
-        }
-        return endpoints
-    }
+    private func configuredEndpointsForCurrentChain() -> [String] { configuredEndpoints }
     private func rebuildHistorySourceRows() {
         let sources = chain.dispatch.historySummary(store).sources
         var counts: [String: Int] = [:]
@@ -424,48 +390,6 @@ struct StandardChainDiagnosticsView: View {
                     Text(priority.displayName).tag(priority)
                 }
             }.pickerStyle(.segmented)
-            SettingTextField(
-                title: AppLocalization.string("Custom Esplora endpoints (comma-separated, optional)"),
-                value: store.appSettings.bitcoinEsploraEndpoints, endpoint: .bitcoinEsploraList
-            ) { store.updateSetting(.bitcoinEsploraEndpoints(value: $0)) }
-            .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
-            Text(copy.bitcoinEsploraHint).font(.caption).foregroundStyle(.secondary)
-        }
-    }
-    /// The custom RPC, for every EVM chain.
-    ///
-    /// Core has kept a custom RPC per chain since `rpc_endpoint_by_chain`
-    /// replaced `ethereum_rpc_endpoint`, and this screen already listed a
-    /// custom RPC first for any EVM chain that had one — but only Ethereum's
-    /// screen offered a way to set it.
-    @ViewBuilder
-    private var rpcSettingsSection: some View {
-        Section(AppLocalization.format("%@ RPC", chain.displayName)) {
-            SettingTextField(
-                title: AppLocalization.format("%@ RPC URL (Optional)", chain.displayName),
-                value: store.rpcEndpoint(forChain: chain.displayName), endpoint: .evmRpc
-            ) { store.setRPCEndpoint($0, forChain: chain.displayName) }
-            .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
-            Text(copy.customRPCNote).font(.caption).foregroundStyle(.secondary)
-        }
-    }
-    @ViewBuilder
-    private var backendSettingsSection: some View {
-        Section(AppLocalization.format("%@ Backend", chain.displayName)) {
-            Picker(AppLocalization.string("Trusted Backend"), selection: $selectedBackendId) {
-                ForEach(backendChoices, id: \.id) { choice in Text(choice.title).tag(choice.id) }
-            }
-            if selectedBackendId == customBackendId {
-                SettingTextField(
-                    title: AppLocalization.format("%@ Backend URL (Optional)", chain.displayName),
-                    value: store.appSettings.moneroBackendBaseUrl, endpoint: .moneroBackend
-                ) { store.updateSetting(.moneroBackendBaseUrl(value: $0)) }
-                .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
-            } else {
-                Text(selectedBackendId.isEmpty ? (catalogBackends.first ?? "") : selectedBackendId)
-                    .font(.caption.monospaced()).textSelection(.enabled)
-            }
-            Text(copy.backendNote).font(.caption).foregroundStyle(.secondary)
         }
     }
     @ViewBuilder
@@ -473,8 +397,11 @@ struct StandardChainDiagnosticsView: View {
         // Which settings a chain has is what the registry and the catalog say
         // about it, not which chain it is.
         if hasEsploraBases { esploraSettingsSection }
-        if chain.isEVM { rpcSettingsSection }
-        if chain.sendsThroughBackend { backendSettingsSection }
+        Section {
+            NavigationLink { EndpointCatalogSettingsView(store: store) } label: {
+                Text(EndpointsContentCopy.current.navigationTitle)
+            }
+        }
         Section(AppLocalization.string("Operational Events")) {
             let events = cachedOperationalEvents
             if events.isEmpty {
@@ -517,15 +444,6 @@ struct StandardChainDiagnosticsView: View {
                     }.padding(.vertical, 2)
                 }
             }
-        }
-    }
-    private func syncSelectedBackendIDFromStore() {
-        let trimmed = store.appSettings.moneroBackendBaseUrl
-        if trimmed.isEmpty {
-            selectedBackendId = catalogBackends.first ?? customBackendId
-        } else {
-            selectedBackendId =
-                catalogBackends.first { $0.caseInsensitiveCompare(trimmed) == .orderedSame } ?? customBackendId
         }
     }
     private var isRunningChainSelfTests: Bool { store.selfTests(for: chain.displayName).isRunning }

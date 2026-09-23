@@ -1,13 +1,10 @@
 {
   "actionsSectionTitle": "操作",
-  "bitcoinEsploraHint": "將端點留空即可使用當前網絡的內置端點集合。",
   "chainsSectionTitle": "鏈",
   "endpointHealthFormat": "端點健康度：%@/%@ 可達",
-  "customRPCNote": "可選。留空將使用目錄中的公共端點。新增你自己的 RPC 位址，可讓專屬提供商優先用於此鏈的餘額和發送。",
   "historyNotRunYet": "歷史診斷尚未運行。",
   "lastEndpointCheckFormat": "上次端點檢查：%@",
   "lastHistoryRunFormat": "上次歷史運行：%@",
-  "backendNote": "用於此鏈的餘額、歷史和發送。目錄中的第一個後端為預設後端；切換到自訂 URL 可覆蓋。",
   "mostUsedHistorySourceFormat": "使用最多的歷史來源：%@ (%@)",
   "navigationTitle": "診斷",
   "noEndpointChecksYet": "尚無端點檢查記錄。",

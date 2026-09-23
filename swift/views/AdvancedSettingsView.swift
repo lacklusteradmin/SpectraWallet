@@ -14,12 +14,6 @@ struct AdvancedSettingsView: View {
                         get: { preferences.requireBiometricForSendActions }, set: { preferences.requireBiometricForSendActions = $0 }
                     )
                 )
-                Toggle(
-                    AppLocalization.string("Strict RPC Only (Disable Ledger Fallback)"),
-                    isOn: store.settingBinding(\.useStrictRpcOnly) { .useStrictRpcOnly(value: $0) }
-                )
-                Text(AppLocalization.string("When enabled, balances only come from live RPC responses.")).font(.caption).foregroundStyle(
-                    .secondary)
                 Button(AppLocalization.string("Lock App Now")) {
                     store.isAppLocked = true
                     maintenanceNotice = AppLocalization.string("App locked.")

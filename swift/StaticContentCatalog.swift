@@ -65,15 +65,12 @@ enum StaticContentCatalog {
     }()
 }
 struct SettingsContentCopy: Decodable {
-    let pricingIntro: String
-    let publicProviderNote: String
     let aboutTitle: String
     let aboutSubtitle: String
     let aboutEthosTitle: String
     let aboutEthosLines: [String]
     let aboutNarrativeTitle: String
     let aboutNarrativeParagraphs: [String]
-    let reportProblemDescription: String
     let reportProblemActionTitle: String
     let buyProvidersIntro: String
     let buyWarning: String
@@ -96,9 +93,6 @@ struct DiagnosticsContentCopy: Decodable {
     let endpointHealthFormat: String
     let noHistoryTelemetryYet: String
     let noEndpointChecksYet: String
-    let bitcoinEsploraHint: String
-    let customRPCNote: String
-    let backendNote: String
     let historySourcesSectionTitleFormat: String
     let endpointReachabilitySectionTitleFormat: String
     let degradedLastGoodSyncFormat: String
@@ -217,15 +211,11 @@ struct DonationsContentCopy: Decodable {
 }
 struct EndpointsContentCopy: Decodable {
     let navigationTitle: String
-    let intro: String
-    let addEsploraEndpointPlaceholder: String
-    let addEndpointButtonTitle: String
-    let clearCustomEsploraEndpointsTitle: String
-    let customRPCURLPlaceholder: String
-    let customBackendURLPlaceholder: String
-    static var current: EndpointsContentCopy {
-        StaticContentCatalog.loadRequiredResource("EndpointsContent", as: EndpointsContentCopy.self)
-    }
+    let addEndpointTitle: String
+    let typeTitle: String
+    let urlPlaceholder: String
+    let invalidEndpointMessage: String
+    static var current: EndpointsContentCopy { StaticContentCatalog.loadRequiredResource("EndpointsContent", as: EndpointsContentCopy.self) }
 }
 /// The token-hosting chain a name or id stands for.
 enum AppLocalization {

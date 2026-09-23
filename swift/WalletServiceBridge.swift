@@ -93,6 +93,7 @@ import Foundation
         try await readyService().inspectSend(id: id)
     }
     func listSends() async throws -> [SendArtifact] { try await readyService().listSends() }
+    func endpointDirectory() async throws -> [EndpointDirectoryEntry] { try await readyService().endpointDirectory() }
     func sendEndpoints(chainId: String) async throws -> [String] { try await readyService().sendEndpoints(chainId: chainId) }
     func resolveSendDestination(chainId: String, input: String, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
         if let expectedAddress {
