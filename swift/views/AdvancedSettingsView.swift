@@ -1,17 +1,9 @@
 import Foundation
 import SwiftUI
-import UniformTypeIdentifiers
 struct AdvancedSettingsView: View {
     @Bindable var store: AppState
     @State private var isRunningMaintenance = false
     @State private var maintenanceNotice: String?
-    @State private var isShowingDiagnosticsImporter = false
-    @State private var isShowingDiagnosticsExportsBrowser = false
-    @State private var lastExportedDiagnosticsURL: URL?
-    /// Every mainnet. `performUserInitiatedRefresh(forChain:)` takes any name,
-    /// so the twenty-two spelled here were the only ones with a button, not
-    /// the only ones that could be refreshed.
-    private var singleChainRefreshNames: [String] { Chain.mainnets.map(\.displayName) }
     var body: some View {
         @Bindable var preferences = store.preferences
         return Form {
@@ -45,51 +37,7 @@ struct AdvancedSettingsView: View {
                         maintenanceNotice = refreshOutcomeMessage(succeeded: succeeded)
                     }
                 }.disabled(isRunningMaintenance)
-                Button(
-                    isRunningMaintenance
-                        ? AppLocalization.string("Running Diagnostics...") : AppLocalization.string("Run All Endpoint Checks")
-                ) {
-                    // "All" is the list the diagnostics hub offers, which is
-                    // the catalog's mainnets. Twenty-two calls stood here, six
-                    // of them through a per-chain wrapper, and the list had
-                    // been written before Base, Polygon, Zcash, Kaspa, Dash,
-                    // Decred, Bitcoin SV, Bitcoin Gold, Dogecoin, Sei and the
-                    // newer rollups existed here — so "Run All" skipped them.
-                    Task {
-                        isRunningMaintenance = true
-                        for chain in Chain.mainnets { await store.runEndpointDiagnostics(for: chain) }
-                        isRunningMaintenance = false
-                        maintenanceNotice = AppLocalization.string("Endpoint checks completed.")
-                    }
-                }.disabled(isRunningMaintenance)
-                ForEach(singleChainRefreshNames, id: \.self) { chainName in
-                    Button(refreshButtonTitle(for: chainName)) {
-                        refreshSingleChain(chainName)
-                    }.disabled(isRunningMaintenance)
-                }
                 if let maintenanceNotice { Text(maintenanceNotice).font(.caption).foregroundStyle(.secondary) }
-            }
-            Section(AppLocalization.string("Diagnostics Bundle")) {
-                Button(AppLocalization.string("Export Diagnostics Bundle")) {
-                    do {
-                        let url = try store.exportDiagnosticsBundle()
-                        lastExportedDiagnosticsURL = url
-                        maintenanceNotice = AppLocalization.format("Diagnostics exported to %@", url.lastPathComponent)
-                    } catch {
-                        maintenanceNotice = AppLocalization.format("Export failed: %@", error.localizedDescription)
-                    }
-                }
-                Button(AppLocalization.string("Past Exports")) {
-                    isShowingDiagnosticsExportsBrowser = true
-                }
-                if let lastExportedDiagnosticsURL {
-                    ShareLink(item: lastExportedDiagnosticsURL) {
-                        Label(AppLocalization.string("Share Last Export"), systemImage: "square.and.arrow.up")
-                    }
-                }
-                Button(AppLocalization.string("Import Diagnostics Bundle")) {
-                    isShowingDiagnosticsImporter = true
-                }
             }
             Section(AppLocalization.string("Status")) {
                 Text(store.networkSyncStatusText).font(.caption).foregroundStyle(.secondary)
@@ -100,36 +48,7 @@ struct AdvancedSettingsView: View {
                 Text(AppLocalization.format("Known token checks enabled: %lld", store.tokenPreferences.filter { $0.isEnabled }.count))
                     .font(.caption).foregroundStyle(.secondary)
             }
-        }.navigationTitle(AppLocalization.string("Advanced")).sheet(isPresented: $isShowingDiagnosticsExportsBrowser) {
-            DiagnosticsExportsBrowserView(model: .live(store: store))
-        }.fileImporter(
-            isPresented: $isShowingDiagnosticsImporter, allowedContentTypes: [UTType.json], allowsMultipleSelection: false
-        ) { result in
-            do {
-                guard let fileURL = try result.get().first else { return }
-                let didAccess = fileURL.startAccessingSecurityScopedResource()
-                defer {
-                    if didAccess { fileURL.stopAccessingSecurityScopedResource() }
-                }
-                let payload = try store.importDiagnosticsBundle(from: fileURL)
-                maintenanceNotice = AppLocalization.format(
-                    "Imported diagnostics bundle (%@).", payload.generatedAtDate.formatted(date: .abbreviated, time: .shortened))
-            } catch {
-                maintenanceNotice = AppLocalization.format("Import failed: %@", error.localizedDescription)
-            }
-        }
-    }
-    private func refreshSingleChain(_ chainName: String) {
-        Task {
-            isRunningMaintenance = true
-            let succeeded = await store.performUserInitiatedRefresh(forChain: chainName)
-            isRunningMaintenance = false
-            maintenanceNotice = refreshOutcomeMessage(succeeded: succeeded)
-        }
-    }
-    private func refreshButtonTitle(for chainName: String, label: String? = nil) -> String {
-        let title = label ?? chainName
-        return isRunningMaintenance ? AppLocalization.format("Refreshing %@...", title) : AppLocalization.format("Refresh %@", title)
+        }.navigationTitle(AppLocalization.string("Advanced"))
     }
 }
 

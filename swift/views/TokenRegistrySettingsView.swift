@@ -28,21 +28,8 @@ struct TokenRegistrySettingsView: View {
     @State private var sourceFilter: TokenRegistrySourceFilter = .all
     var body: some View {
         Form {
-            Section(AppLocalization.string("Filters")) {
-                Picker(AppLocalization.string("Network"), selection: $chainFilter) {
-                    ForEach(Self.chainFilterOptions, id: \.self) { chain in
-                        Text(chain?.filterDisplayName ?? AppLocalization.string("All")).tag(chain)
-                    }
-                }
-                Picker(AppLocalization.string("Source"), selection: $sourceFilter) {
-                    ForEach(TokenRegistrySourceFilter.allCases) { filter in Text(filter.title).tag(filter) }
-                }
-                if chainFilter != nil || sourceFilter != .all {
-                    Button(AppLocalization.string("Clear Filters")) {
-                        chainFilter = nil
-                        sourceFilter = .all
-                    }
-                }
+            if let error = store.tokenPreferenceError {
+                Section { Text(error).foregroundStyle(.red) }
             }
             Section(AppLocalization.string("Known Tokens")) {
                 if store.tokenPreferences.isEmpty {
@@ -61,12 +48,14 @@ struct TokenRegistrySettingsView: View {
                             } label: {
                                 TokenRegistryGroupRowView(group: group)
                             }.buttonStyle(.plain)
-                            Toggle(
-                                isOn: Binding(
-                                    get: { group.isEnabled },
-                                    set: { store.setTokenPreferencesEnabled(group.entries, isEnabled: $0) }
-                                )
-                            ) { EmptyView() }.labelsHidden().scaleEffect(0.9)
+                            Toggle(isOn: Binding(
+                                get: { group.representativeEntry.isEnabled },
+                                set: { store.setTokenPreferenceEnabled(group.representativeEntry, isEnabled: $0) }
+                            )) {
+                                Text(AppLocalization.string("Discover Token") + " · " + group.name)
+                            }
+                            .labelsHidden()
+                            .accessibilityHint(AppLocalization.string("Applies to every known network for this token."))
                         }
                     }
                 }
@@ -82,7 +71,33 @@ struct TokenRegistrySettingsView: View {
                         Text(AppLocalization.string("New Token"))
                     }
                 }
+                ToolbarItem(placement: .topBarTrailing) {
+                    filterMenu
+                }
             }
+    }
+    private var filterMenu: some View {
+        Menu {
+            Picker(AppLocalization.string("Network"), selection: $chainFilter) {
+                ForEach(Self.chainFilterOptions, id: \.self) { chain in
+                    Text(chain?.rawValue ?? AppLocalization.string("All")).tag(chain)
+                }
+            }
+            Picker(AppLocalization.string("Source"), selection: $sourceFilter) {
+                ForEach(TokenRegistrySourceFilter.allCases) { filter in Text(filter.title).tag(filter) }
+            }
+            if chainFilter != nil || sourceFilter != .all {
+                Button(AppLocalization.string("Clear Filters")) {
+                    chainFilter = nil
+                    sourceFilter = .all
+                }
+            }
+        } label: {
+            Image(systemName: chainFilter != nil || sourceFilter != .all
+                ? "line.3.horizontal.decrease.circle.fill"
+                : "line.3.horizontal.decrease.circle")
+        }
+        .accessibilityLabel(AppLocalization.string("Filters"))
     }
     private var filteredGroups: [TokenRegistryGroup] {
         let allEntries = store.tokenPreferences
@@ -114,7 +129,8 @@ struct TokenRegistrySettingsView: View {
             let haystack =
                 ([group.symbol, group.name]
                 + group.entries.flatMap { entry in
-                    [entry.token.chainId, entry.token.tokenStandard, entry.token.contract, entry.token.coingeckoId]
+                    [Chain(id: entry.token.chainId)?.displayName ?? entry.token.chainId,
+                     entry.token.tokenStandard, entry.token.contract, entry.token.coingeckoId, entry.token.coinpaprikaId]
                 })
                 .joined(separator: " ").lowercased()
             return haystack.contains(query)

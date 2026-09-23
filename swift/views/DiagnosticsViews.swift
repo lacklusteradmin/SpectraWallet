@@ -1,7 +1,13 @@
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 struct DiagnosticsHubView: View {
     let store: AppState
+    @State private var isCheckingAllEndpoints = false
+    @State private var diagnosticsNotice: String?
+    @State private var isShowingDiagnosticsImporter = false
+    @State private var isShowingDiagnosticsExportsBrowser = false
+    @State private var lastExportedDiagnosticsURL: URL?
     @State private var searchText: String = ""
     private let copy = DiagnosticsContentCopy.current
     private struct DiagnosticsDestination: Identifiable {
@@ -41,9 +47,63 @@ struct DiagnosticsHubView: View {
     }
     var body: some View {
         Form {
+            Section(copy.actionsSectionTitle) {
+                Button(AppLocalization.string(isCheckingAllEndpoints ? "Running Diagnostics..." : "Run All Endpoint Checks")) {
+                    isCheckingAllEndpoints = true
+                    Task {
+                        for chain in Chain.mainnets { await store.runEndpointDiagnostics(for: chain) }
+                        isCheckingAllEndpoints = false
+                        diagnosticsNotice = AppLocalization.string("Endpoint checks completed.")
+                    }
+                }.disabled(isCheckingAllEndpoints)
+            }
             destinationSection(copy.chainsSectionTitle, destinations: chainDestinations)
+            Section(AppLocalization.string("Diagnostics Bundle")) {
+                Button(AppLocalization.string("Export Diagnostics Bundle")) {
+                    do {
+                        let url = try store.exportDiagnosticsBundle()
+                        lastExportedDiagnosticsURL = url
+                        diagnosticsNotice = AppLocalization.format("Diagnostics exported to %@", url.lastPathComponent)
+                    } catch {
+                        diagnosticsNotice = AppLocalization.format("Export failed: %@", error.localizedDescription)
+                    }
+                }
+                Button(AppLocalization.string("Past Exports")) {
+                    isShowingDiagnosticsExportsBrowser = true
+                }
+                if let lastExportedDiagnosticsURL {
+                    ShareLink(item: lastExportedDiagnosticsURL) {
+                        Label(AppLocalization.string("Share Last Export"), systemImage: "square.and.arrow.up")
+                    }
+                }
+                Button(AppLocalization.string("Import Diagnostics Bundle")) {
+                    isShowingDiagnosticsImporter = true
+                }
+            }
+            if let diagnosticsNotice {
+                Section {
+                    Text(diagnosticsNotice).font(.caption).foregroundStyle(.secondary)
+                }
+            }
         }.navigationTitle(copy.navigationTitle).navigationBarTitleDisplayMode(.inline).searchable(
-            text: $searchText, prompt: copy.searchPrompt)
+            text: $searchText, prompt: copy.searchPrompt).sheet(isPresented: $isShowingDiagnosticsExportsBrowser) {
+            DiagnosticsExportsBrowserView(model: .live(store: store))
+        }.fileImporter(
+            isPresented: $isShowingDiagnosticsImporter, allowedContentTypes: [UTType.json], allowsMultipleSelection: false
+        ) { result in
+            do {
+                guard let fileURL = try result.get().first else { return }
+                let didAccess = fileURL.startAccessingSecurityScopedResource()
+                defer {
+                    if didAccess { fileURL.stopAccessingSecurityScopedResource() }
+                }
+                let payload = try store.importDiagnosticsBundle(from: fileURL)
+                diagnosticsNotice = AppLocalization.format(
+                    "Imported diagnostics bundle (%@).", payload.generatedAtDate.formatted(date: .abbreviated, time: .shortened))
+            } catch {
+                diagnosticsNotice = AppLocalization.format("Import failed: %@", error.localizedDescription)
+            }
+        }
     }
 }
 /// How one chain's diagnostics screen reads store state.
@@ -108,6 +168,8 @@ struct StandardChainDiagnosticsView: View {
     @Bindable var store: AppState
     let chain: Chain
     private let copy = DiagnosticsContentCopy.current
+    @State private var isRefreshing = false
+    @State private var refreshNotice: String?
     @State private var copiedDiagnosticsNotice: SpectraTransientNotice?
     @State private var selectedBackendId: String = ""
     @State private var cachedEndpointRows: [StandardEndpointRow] = []
@@ -140,31 +202,31 @@ struct StandardChainDiagnosticsView: View {
     /// the custom-Esplora setting.
     private var hasEsploraBases: Bool { !AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainId: chain.id).isEmpty }
 
-    /// Self-test and rescan actions, offered on the chains a rescan means
-    /// something for — the ones whose addresses HD discovery walks.
-    private var utxoActions: (selfTestTitle: String, rescanTitle: String, rescanInFlightTitle: String)? {
-        guard chain.supportsDeepUTXODiscovery else { return nil }
-        let ticker = chain.gasTokenSymbol
-        return (
-            AppLocalization.format("Run %@ Self-Tests", ticker),
-            AppLocalization.format("Run %@ Rescan", ticker),
-            AppLocalization.format("Rescanning %@...", ticker)
-        )
-    }
-
     var body: some View {
         Form {
             Section(copy.actionsSectionTitle) {
+                Button(AppLocalization.string(isRefreshing ? "Refreshing..." : "Refresh Balances and History")) {
+                    isRefreshing = true
+                    refreshNotice = nil
+                    Task {
+                        let succeeded = await store.performUserInitiatedRefresh(forChain: chain.displayName)
+                        isRefreshing = false
+                        refreshNotice = refreshOutcomeMessage(succeeded: succeeded)
+                    }
+                }.disabled(isRefreshing)
+                if let refreshNotice {
+                    Text(refreshNotice).font(.caption).foregroundStyle(.secondary)
+                }
                 Button(
                     isRunningHistory
-                        ? AppLocalization.format("Running %@ History Diagnostics...", diagnosticsLabel)
-                        : AppLocalization.format("Run %@ History Diagnostics", diagnosticsLabel)
+                        ? AppLocalization.string("Running History Diagnostics...")
+                        : AppLocalization.string("Run History Diagnostics")
                 ) {
                     Task {
                         await runHistoryDiagnostics()
                     }
                 }.disabled(isRunningHistory)
-                Button(AppLocalization.format("Copy %@ Diagnostics JSON", diagnosticsLabel)) {
+                Button(AppLocalization.string("Copy Diagnostics JSON")) {
                     if let payload = diagnosticsJSON {
                         UIPasteboard.general.string = payload
                         copiedDiagnosticsNotice = SpectraTransientNotice(
@@ -176,13 +238,23 @@ struct StandardChainDiagnosticsView: View {
                 }
                 Button(
                     isCheckingEndpoints
-                        ? AppLocalization.format("Checking %@ Endpoints...", diagnosticsLabel)
-                        : AppLocalization.format("Check %@ Endpoints", diagnosticsLabel)
+                        ? AppLocalization.string("Checking Endpoints...")
+                        : AppLocalization.string("Check Endpoints")
                 ) {
                     Task {
                         await runEndpointDiagnostics()
                     }
                 }.disabled(isCheckingEndpoints)
+                Button(isRunningChainSelfTests ? AppLocalization.string("Running Self-Tests...") : AppLocalization.string("Run Self-Tests")) {
+                    Task { await runChainSelfTests() }
+                }.disabled(isRunningChainSelfTests)
+                if chain.supportsDeepUTXODiscovery {
+                    Button(AppLocalization.string(isRunningChainRescan ? "Rescanning..." : "Run Rescan")) {
+                        Task {
+                            await runChainRescan()
+                        }
+                    }.disabled(isRunningChainRescan)
+                }
                 if let copiedDiagnosticsNotice {
                     Text(copiedDiagnosticsNotice.text).font(.caption).foregroundStyle(.secondary)
                 }
@@ -403,19 +475,6 @@ struct StandardChainDiagnosticsView: View {
         if hasEsploraBases { esploraSettingsSection }
         if chain.isEVM { rpcSettingsSection }
         if chain.sendsThroughBackend { backendSettingsSection }
-        // Core provides a self-test suite for every chain in the catalog.
-        Section(AppLocalization.string("Chain Actions")) {
-            Button(isRunningChainSelfTests ? AppLocalization.string("Running Self-Tests...") : chainSelfTestTitle) {
-                Task { await runChainSelfTests() }
-            }.disabled(isRunningChainSelfTests)
-            if supportsUTXOChainActions {
-                Button(isRunningChainRescan ? chainRescanInFlightTitle : chainRescanTitle) {
-                    Task {
-                        await runChainRescan()
-                    }
-                }.disabled(isRunningChainRescan)
-            }
-        }
         Section(AppLocalization.string("Operational Events")) {
             let events = cachedOperationalEvents
             if events.isEmpty {
@@ -469,18 +528,8 @@ struct StandardChainDiagnosticsView: View {
                 catalogBackends.first { $0.caseInsensitiveCompare(trimmed) == .orderedSame } ?? customBackendId
         }
     }
-    private var supportsUTXOChainActions: Bool { utxoActions != nil }
     private var isRunningChainSelfTests: Bool { store.selfTests(for: chain.displayName).isRunning }
     private var isRunningChainRescan: Bool { store[rescanFor: chain.displayName].isRunning }
-    private var chainSelfTestTitle: String {
-        utxoActions?.selfTestTitle ?? AppLocalization.string("Run Self-Tests")
-    }
-    private var chainRescanTitle: String {
-        utxoActions?.rescanTitle ?? AppLocalization.string("Run Rescan")
-    }
-    private var chainRescanInFlightTitle: String {
-        utxoActions?.rescanInFlightTitle ?? AppLocalization.string("Rescanning...")
-    }
     private func runChainSelfTests() async { await store.runSelfTests(for: chain.displayName) }
     private func runChainRescan() async { await store.runUTXORescan(chainName: chain.displayName) }
 }

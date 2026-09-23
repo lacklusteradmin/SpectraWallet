@@ -562,23 +562,16 @@ final class AppState {
                 .removeCustomToken(chainName: Chain(id: entry.token.chainId)?.displayName ?? entry.token.chainId, contract: entry.token.contract))
         }
     }
-    func updateCustomTokenPreferenceDecimals(_ entry: TokenPreferenceEntry, decimals: Int) {
-        // Reject negative precision here; core validates the token's supported range.
-        guard decimals >= 0 else { return }
-        Task { @MainActor [weak self] in
-            await self?.sendTokenPreferenceCommand(
-                .setCustomTokenDecimals(
-                    chainName: Chain(id: entry.token.chainId)?.displayName ?? entry.token.chainId, contract: entry.token.contract,
-                    decimals: UInt32(decimals)))
-        }
-    }
     /// Send a token-preference command and mirror the result.
     ///
     /// Same shape as `sendAddressBookCommand`: core decides, the refusal comes
     /// back as an event carrying its reason, and this side supplies the words.
     private func sendTokenPreferenceCommand(_ command: StateCommand) async {
         guard let transition = try? await self.bridge.applyStateCommand(command)
-        else { return }
+        else {
+            tokenPreferenceError = localizedStoreString("This token could not be saved.")
+            return
+        }
         applyCoreState(transition.state)
         tokenPreferenceError = tokenPreferenceRejection(in: transition.events)
             .map(tokenPreferenceRejectionMessage)
@@ -594,9 +587,10 @@ final class AppState {
         case .unknownChain: return localizedStoreString("That network cannot hold tokens.")
         case .emptySymbol: return localizedStoreString("Symbol is required.")
         case .symbolTooLong: return localizedStoreString("Symbol is too long.")
+        case .invalidPriceId: return localizedStoreString("Enter a price provider ID, not a URL or name.")
         case .emptyName: return localizedStoreString("Token name is required.")
-        case .emptyContract: return localizedStoreString("Contract address is required.")
-        case .invalidContract: return localizedStoreString("That contract is not valid for this network.")
+        case .emptyContract: return localizedStoreString("Token identifier is required.")
+        case .invalidContract: return localizedStoreString("That token identifier is not valid for this network.")
         case .duplicateToken: return localizedStoreString("This network already knows this token.")
         case .tooManyDecimals: return localizedStoreString("That is more decimal places than a token has.")
         case .builtInToken: return localizedStoreString("Built-in tokens cannot be edited or removed.")
@@ -613,16 +607,24 @@ final class AppState {
     /// `default` assumed EVM.
     func addCustomTokenPreference(
         chain: TokenHostingChain, symbol: String, name: String, contractAddress: String,
-        coingeckoId: String = "", decimals: Int
+        coingeckoId: String = "", coinpaprikaId: String = "", decimals: Int, editing: TokenPreferenceEntry? = nil
     ) async -> String? {
         guard decimals >= 0 else { return localizedStoreString("That is not a number of decimal places.") }
 
+        let command: StateCommand
+        if let editing {
+            command = .updateCustomToken(
+                chainName: Chain(id: editing.token.chainId)?.displayName ?? editing.token.chainId,
+                contract: editing.token.contract, symbol: symbol, name: name,
+                coingeckoId: coingeckoId, coinpaprikaId: coinpaprikaId, decimals: UInt32(decimals))
+        } else {
+            command = .addCustomToken(
+                chainName: chain.rawValue, symbol: symbol, name: name,
+                contract: contractAddress, coingeckoId: coingeckoId,
+                coinpaprikaId: coinpaprikaId, decimals: UInt32(decimals))
+        }
         guard
-            let transition = try? await self.bridge.applyStateCommand(
-                .addCustomToken(
-                    chainName: chain.rawValue, symbol: symbol, name: name,
-                    contract: contractAddress, coingeckoId: coingeckoId,
-                    decimals: UInt32(decimals)))
+            let transition = try? await self.bridge.applyStateCommand(command)
         else { return localizedStoreString("This token could not be saved.") }
         applyCoreState(transition.state)
         guard let reason = tokenPreferenceRejection(in: transition.events) else {

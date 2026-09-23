@@ -1,10 +1,8 @@
 import Foundation
 import SwiftUI
+
 extension TokenHostingChain {
-    /// The chain's colour, from the catalog.
-    var settingsIconTint: Color {
-        chain?.entry?.color.color ?? .accentColor
-    }
+    var settingsIconTint: Color { chain?.entry?.color.color ?? .accentColor }
 }
 extension TokenPreferenceEntry {
     var settingsArtworkName: String { tokenArtworkName(tokenId: token.tokenId) }
@@ -19,7 +17,6 @@ struct TokenRegistryGroup: Identifiable {
     let entries: [TokenPreferenceEntry]
     var id: String { key }
     var representativeEntry: TokenPreferenceEntry { entries[0] }
-    var isEnabled: Bool { entries.contains(where: \.isEnabled) }
 }
 struct TokenRegistryGroupRowView: View {
     let group: TokenRegistryGroup
@@ -28,81 +25,32 @@ struct TokenRegistryGroupRowView: View {
             CoinBadge(
                 artworkName: group.representativeEntry.settingsArtworkName,
                 fallbackText: group.representativeEntry.settingsFallbackMark,
-                color: group.representativeEntry.hostingChain?.settingsIconTint ?? .accentColor, size: 30
-            )
+                color: group.representativeEntry.hostingChain?.settingsIconTint ?? .accentColor, size: 36)
             VStack(alignment: .leading, spacing: 4) {
-                Text(group.name).font(.subheadline.weight(.semibold)).foregroundStyle(.primary)
-                Text(group.symbol).font(.caption).foregroundStyle(.secondary)
+                Text(group.name).font(.body.weight(.semibold)).foregroundStyle(.primary)
+                Text(group.symbol).font(.subheadline).foregroundStyle(.secondary)
+                Text(group.entries.map { Chain(id: $0.token.chainId)?.displayName ?? $0.token.chainId }.joined(separator: " · "))
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
             Spacer(minLength: 8)
-        }.padding(.vertical, 2)
+            if !group.representativeEntry.isBuiltIn {
+                Text(AppLocalization.string("Custom")).font(.caption).foregroundStyle(.secondary)
+            }
+        }.padding(.vertical, 4)
     }
 }
 struct TokenRegistryEntryCardView: View {
     let entry: TokenPreferenceEntry
-    let setEnabled: (Bool) -> Void
-    let updateDecimals: (Int) -> Void
-    let removeToken: () -> Void
-    @State private var isShowingRemoveConfirmation = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(Chain(id: entry.token.chainId)?.displayName ?? entry.hostingChain?.chain?.displayName ?? entry.token.chainId)
-                        .font(.subheadline.weight(.semibold))
-                    Text(entry.token.tokenStandard).font(.caption).foregroundStyle(.secondary)
-                }
-                Spacer()
-                Toggle(
-                    AppLocalization.string("Shown"), isOn: Binding(get: { entry.isEnabled }, set: { v in setEnabled(v) })
-                ).labelsHidden()
-            }
-            SettingsTokenDetailRow(
-                title: AppLocalization.string("Source"),
-                value: entry.isBuiltIn ? AppLocalization.string("Built-In") : AppLocalization.string("Custom"))
-            SettingsTokenDetailRow(title: AppLocalization.string("Supported Decimals"), value: "\(entry.token.decimals)")
+        VStack(alignment: .leading, spacing: 12) {
+            Text(Chain(id: entry.token.chainId)?.displayName ?? entry.token.chainId)
+                .font(.headline)
+            LabeledContent(AppLocalization.string("Token Standard"), value: entry.token.tokenStandard)
+            LabeledContent(AppLocalization.string("Supported Decimals"), value: "\(entry.token.decimals)")
             VStack(alignment: .leading, spacing: 6) {
-                Text(AppLocalization.string("Contract / Mint")).font(.caption).foregroundStyle(.secondary)
+                Text(AppLocalization.string("Token Identifier")).foregroundStyle(.secondary)
                 Text(entry.token.contract).font(.caption.monospaced()).textSelection(.enabled)
             }
-            if !entry.token.coingeckoId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                SettingsTokenDetailRow(title: AppLocalization.string("CoinGecko ID"), value: entry.token.coingeckoId)
-            }
-            if !entry.isBuiltIn {
-                Stepper(
-                    AppLocalization.format("Supports: %lld decimals", Int(entry.token.decimals)),
-                    value: Binding(get: { Int(entry.token.decimals) }, set: { v in updateDecimals(v) }), in: 0...30, step: 1
-                )
-                Button(role: .destructive) {
-                    isShowingRemoveConfirmation = true
-                } label: {
-                    Label(AppLocalization.string("Remove Token"), systemImage: "trash")
-                }
-            }
         }.padding(.vertical, 4)
-        .confirmationDialog(
-            AppLocalization.string("Remove Token"),
-            isPresented: $isShowingRemoveConfirmation,
-            titleVisibility: .visible
-        ) {
-            Button(AppLocalization.string("Remove"), role: .destructive) {
-                spectraHaptic(.medium)
-                removeToken()
-            }
-            Button(AppLocalization.string("Cancel"), role: .cancel) {}
-        } message: {
-            Text(AppLocalization.string("This custom token will be removed and will no longer appear in your portfolio."))
-        }
-    }
-}
-private struct SettingsTokenDetailRow: View {
-    let title: String
-    let value: String
-    var body: some View {
-        HStack {
-            Text(title).foregroundStyle(.secondary)
-            Spacer()
-            Text(value).multilineTextAlignment(.trailing)
-        }
     }
 }

@@ -45,14 +45,11 @@ extension CoreTokenHostingChain: CaseIterable, Codable, Identifiable {
     }
     public var id: String { rawValue }
     var tokenStandard: String { chain?.entry?.tokenStandard ?? "" }
-    var filterDisplayName: String { "\(rawValue) (\(tokenStandard))" }
-    var contractAddressPrompt: String { chain?.entry?.contractAddressPrompt ?? "Contract Address" }
 
 }
 typealias TokenPreferenceEntry = CoreTokenPreferenceEntry
 nonisolated extension CoreTokenPreferenceEntry: Identifiable {
-    /// A token's identity is its contract on its chain.
-    public var id: String { "\(token.chainId)|\(token.contract)" }
+    public var id: String { token.deploymentId }
     /// The chain enum, where the registry has one for this chain.
     var hostingChain: TokenHostingChain? { Chain(id: token.chainId)?.tokenHostingChain }
 }

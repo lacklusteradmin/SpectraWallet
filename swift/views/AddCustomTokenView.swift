@@ -1,59 +1,82 @@
 import Foundation
 import SwiftUI
+
 struct AddCustomTokenView: View {
     let store: AppState
+    var editing: TokenPreferenceEntry? = nil
+    @Environment(\.dismiss) private var dismiss
     @State private var selectedChain: TokenHostingChain = .ethereum
-    @State private var symbolInput: String = ""
-    @State private var nameInput: String = ""
-    @State private var contractInput: String = ""
-    @State private var coingeckoIdInput: String = ""
-    @State private var decimalsInput: Int = 6
+    @State private var symbolInput = ""
+    @State private var nameInput = ""
+    @State private var identifierInput = ""
+    @State private var coingeckoIdInput = ""
+    @State private var coinpaprikaIdInput = ""
+    @State private var decimalsInput = 6
     @State private var formMessage: String?
+    @State private var isSaving = false
+    @State private var hasLoaded = false
+
     var body: some View {
         Form {
-            Section {
-                Text(
-                    AppLocalization.string(
-                        "Add a custom token contract, mint address, coin type, package address, account ID, or jetton master address for Ethereum, Arbitrum, Optimism, BNB Chain, Avalanche, Hyperliquid, Solana, Sui, Aptos, TON, NEAR, or Tron."
-                    )
-                ).font(.caption).foregroundStyle(.secondary)
+            Section(AppLocalization.string("Network")) {
+                if let editing {
+                    LabeledContent(AppLocalization.string("Network"), value: selectedChain.rawValue)
+                    Text(editing.token.contract).font(.caption.monospaced()).textSelection(.enabled)
+                } else {
+                    Picker(AppLocalization.string("Network"), selection: $selectedChain) {
+                        ForEach(TokenHostingChain.allCases) { chain in Text(chain.rawValue).tag(chain) }
+                    }
+                    TextField(AppLocalization.string("Token Identifier"), text: $identifierInput)
+                        .textInputAutocapitalization(.never).autocorrectionDisabled()
+                }
             }
             Section(AppLocalization.string("Token Details")) {
-                Picker(AppLocalization.string("Chain"), selection: $selectedChain) {
-                    ForEach(TokenHostingChain.allCases) { chain in Text(chain.rawValue).tag(chain) }
-                }
-                TextField(AppLocalization.string("Symbol"), text: $symbolInput).textInputAutocapitalization(.characters)
-                    .autocorrectionDisabled()
                 TextField(AppLocalization.string("Name"), text: $nameInput)
-                TextField(AppLocalization.string(selectedChain.contractAddressPrompt), text: $contractInput).textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                Stepper(AppLocalization.format("Token Supports: %lld decimals", decimalsInput), value: $decimalsInput, in: 0...30, step: 1)
-                TextField(AppLocalization.string("CoinGecko ID (Optional)"), text: $coingeckoIdInput).textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
+                TextField(AppLocalization.string("Symbol"), text: $symbolInput)
+                    .textInputAutocapitalization(.characters).autocorrectionDisabled()
+                Stepper(AppLocalization.format("Token Supports: %lld decimals", decimalsInput), value: $decimalsInput, in: 0...30)
             }
             Section {
-                if let formMessage { Text(formMessage).font(.caption).foregroundStyle(.secondary) }
-                Button(AppLocalization.string("Add Token")) {
-                    // Core decides, so the answer arrives with the state it
-                    // changed rather than before it.
-                    Task { @MainActor in
-                        let message = await store.addCustomTokenPreference(
-                            chain: selectedChain, symbol: symbolInput, name: nameInput,
-                            contractAddress: contractInput,
-                            coingeckoId: coingeckoIdInput, decimals: decimalsInput
-                        )
-                        if let message {
-                            formMessage = message
-                        } else {
-                            formMessage = AppLocalization.string("Token added.")
-                            symbolInput = ""
-                            nameInput = ""
-                            contractInput = ""
-                            coingeckoIdInput = ""
-                        }
-                    }
-                }
+                TextField(AppLocalization.string("CoinGecko ID (Optional)"), text: $coingeckoIdInput)
+                TextField(AppLocalization.string("CoinPaprika ID (Optional)"), text: $coinpaprikaIdInput)
+            } header: {
+                Text(AppLocalization.string("Price Sources"))
+            } footer: {
+                Text(AppLocalization.string("Both price sources are optional. Use the provider's token ID, not its website URL."))
+            }.textInputAutocapitalization(.never).autocorrectionDisabled()
+            if let formMessage {
+                Section { Text(formMessage).foregroundStyle(.red) }
             }
-        }.navigationTitle(AppLocalization.string("New Token"))
+        }
+        .navigationTitle(AppLocalization.string(editing == nil ? "New Token" : "Edit Token"))
+        .navigationBarTitleDisplayMode(.inline)
+        .disabled(isSaving)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button(AppLocalization.string("Save")) {
+                    isSaving = true
+                    Task { @MainActor in
+                        formMessage = await store.addCustomTokenPreference(
+                            chain: selectedChain, symbol: symbolInput, name: nameInput,
+                            contractAddress: identifierInput, coingeckoId: coingeckoIdInput,
+                            coinpaprikaId: coinpaprikaIdInput, decimals: decimalsInput, editing: editing)
+                        isSaving = false
+                        if formMessage == nil { dismiss() }
+                    }
+                }.disabled(isSaving)
+            }
+        }
+        .onAppear {
+            guard !hasLoaded else { return }
+            hasLoaded = true
+            guard let editing else { return }
+            selectedChain = editing.hostingChain ?? .ethereum
+            symbolInput = editing.token.symbol
+            nameInput = editing.token.name
+            identifierInput = editing.token.contract
+            coingeckoIdInput = editing.token.coingeckoId
+            coinpaprikaIdInput = editing.token.coinpaprikaId
+            decimalsInput = Int(editing.token.decimals)
+        }
     }
 }
