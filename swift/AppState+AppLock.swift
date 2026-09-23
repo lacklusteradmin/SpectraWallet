@@ -19,6 +19,7 @@ extension AppState {
         if await authenticateForSensitiveAction(.unlock, reason: AppLocalization.string("Authenticate to unlock Spectra")) { isAppLocked = false; appLockError = nil }
     }
     func authenticateForSensitiveAction(_ action: DeviceAuthenticationAction, reason: String) async -> Bool {
+        let sendSessionId = sendSession.id
         guard action.requiresAuthentication(useFaceId: preferences.useFaceId,
             authenticateSends: preferences.requireBiometricForSendActions) else { return true }
         let context = LAContext(); var authError: NSError?
@@ -36,6 +37,10 @@ extension AppState {
                 // is gone by the time the prompt returns, and a `guard let
                 // self else { return }` here would leak it instead.
                 Task { @MainActor [weak self] in
+                    if case .send = action, self?.sendSession.id != sendSessionId {
+                        continuation.resume(returning: false)
+                        return
+                    }
                     if success {
                         self?.appLockError = nil
                     } else {

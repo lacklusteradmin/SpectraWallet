@@ -61,10 +61,7 @@ extension AppState {
                 lastPendingTransactionRefreshAt = Date()
             }
             let historyReadSucceeded = await refreshTransactionProjection()
-            if let sent = lastSentTransaction {
-                lastSentTransaction = try await self.bridge.transaction(id: sent.id)
-            }
-            await updateSendVerificationNoticeForLastSentTransaction()
+            await updateStagedSendVerificationNotice()
             for failure in result.failures {
                 appendOperationalLog(.error, category: "Refresh", message: failure)
             }
@@ -102,21 +99,26 @@ extension AppState {
         // `applyWalletCollectionSideEffects` re-invokes this once a wallet
         // exists. The loop also self-exits below when wallets drop to 0.
         guard !wallets.isEmpty else { return }
-        maintenanceTask = Task { @MainActor [weak self] in
-            guard let self else { return }
+        maintenanceTask = makeMaintenanceTask()
+    }
+
+    func makeMaintenanceTask() -> Task<Void, Never> {
+        Task { @MainActor [weak self] in
             while !Task.isCancelled {
                 // Self-exit when the user deletes all wallets. Lets the
                 // loop terminate naturally instead of sleeping forever
                 // doing nothing — matches the no-wallet startup gate.
-                if self.wallets.isEmpty {
-                    self.maintenanceTask = nil
-                    break
+                guard self != nil else { return }
+                if self?.wallets.isEmpty == true {
+                    self?.maintenanceTask = nil
+                    return
                 }
-                await self.runScheduledMaintenanceOnce()
+                await self?.runScheduledMaintenanceOnce()
+                guard !Task.isCancelled, let seconds = self?.lastMaintenancePollSeconds else { return }
                 // The cadence comes back with the plan: core knows whether
                 // anything is pending and what the sync profile allows.
                 try? await Task.sleep(
-                    nanoseconds: self.lastMaintenancePollSeconds * 1_000_000_000)
+                    nanoseconds: seconds * 1_000_000_000)
             }
         }
     }

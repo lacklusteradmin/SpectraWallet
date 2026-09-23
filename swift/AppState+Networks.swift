@@ -17,17 +17,6 @@ extension AppState {
     /// derivation state and history feed in the same command — and hands the
     /// settings back.
     func selectChainForFamily(_ chainId: String) {
-        let epoch = beginCoreStateRead()
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            guard
-                let transition = try? await self.bridge.applyStateCommand(
-                    .selectChainForFamily(chainId: chainId))
-            else {
-                self.finishCoreStateRead(epoch)
-                return
-            }
-            self.applyCoreState(transition.state, epoch: epoch)
-        }
+        enqueueStateCommand(.selectChainForFamily(chainId: chainId))
     }
 }

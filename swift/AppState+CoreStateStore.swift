@@ -35,18 +35,16 @@ extension AppState {
     }
 
     /// Send a field intent and adopt only the committed projection.
-    func changeWallet(_ command: StateCommand) {
-        let previous = walletMutationTask
-        walletMutationTask = Task { [weak self] in
+    func enqueueStateCommand(_ command: StateCommand) {
+        let previous = stateCommandTask
+        stateCommandTask = Task { [weak self] in
             await previous?.value
             guard let self else { return }
-            let epoch = self.beginCoreStateRead()
             do {
                 let transition = try await self.bridge.applyStateCommand(command)
-                self.applyCoreState(transition.state, epoch: epoch)
+                self.applyCoreState(transition.state, refreshPortfolio: false)
                 await self.rebuildWalletDerivedStateFromCore()
             } catch {
-                self.finishCoreStateRead(epoch)
                 self.importError = error.localizedDescription
             }
         }
@@ -57,12 +55,10 @@ extension AppState {
     func sendDashboardPinCommand(_ command: StateCommand) {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            let epoch = self.beginCoreStateRead()
             guard let transition = try? await self.bridge.applyStateCommand(command) else {
-                self.finishCoreStateRead(epoch)
                 return
             }
-            self.applyCoreState(transition.state, epoch: epoch)
+            self.applyCoreState(transition.state)
         }
     }
 

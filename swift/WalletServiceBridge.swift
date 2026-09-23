@@ -74,13 +74,26 @@ import Foundation
     func replacementDraft(transactionId: String, cancel: Bool) async throws -> OwnedReplacementDraft {
         try await readyService().replacementDraft(transactionId: transactionId, cancel: cancel)
     }
-    func reviewOwnedSend(input: SendReviewInput) async throws -> OwnedSendReview {
-        try await readyService().reviewOwnedSend(input: input)
+    func moneroSyncStatus(walletId: String) async throws -> MoneroSyncStatus? {
+        try await readyService().moneroSyncStatus(walletId: walletId)
     }
-    func executeOwnedSend(reviewId: String, input: SendReviewInput, password: String?) async throws -> SendExecutionResult {
-        try await readyService().executeOwnedSend(reviewId: reviewId, input: input, password: password)
+    func syncMoneroWallet(walletId: String, password: String?, restoreHeight: UInt64?) async throws -> MoneroSyncStatus {
+        try await readyService().syncMoneroWallet(walletId: walletId, password: password, restoreHeight: restoreHeight)
     }
-
+    func buildOwnedSend(input: SendReviewInput) async throws -> SendArtifact {
+        try await readyService().buildOwnedSend(input: input)
+    }
+    func signSend(id: String, reviewDigest: String, password: String?) async throws -> SendArtifact {
+        try await readyService().signSend(id: id, reviewDigest: reviewDigest, password: password)
+    }
+    func broadcastSend(id: String, endpoints: [String]) async throws -> SendArtifact {
+        try await readyService().broadcastSend(id: id, endpoints: endpoints)
+    }
+    func inspectSend(id: String) async throws -> SendArtifact {
+        try await readyService().inspectSend(id: id)
+    }
+    func listSends() async throws -> [SendArtifact] { try await readyService().listSends() }
+    func sendEndpoints(chainId: String) async throws -> [String] { try await readyService().sendEndpoints(chainId: chainId) }
     func resolveSendDestination(chainId: String, input: String, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
         if let expectedAddress {
             return try await readyService().verifySendDestination(chainId: chainId, input: input, expectedAddress: expectedAddress)

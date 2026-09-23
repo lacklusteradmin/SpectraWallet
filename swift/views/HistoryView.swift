@@ -102,29 +102,24 @@ struct HistoryView: View {
                                                 HistoryTransactionRowView(row: row).equatable()
                                                     .padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
                                             }.buttonStyle(.plain).contextMenu {
-                                                if row.transaction.status == .pending || row.transaction.status == .failed {
-                                                    // `supportsStatusRecheck` carries the `kind == .send`
-                                                    // rule for the chains that want it; a blanket gate here
-                                                    // hid the button from the one chain that does not.
-                                                    if row.transaction.supportsStatusRecheck {
-                                                        Button {
-                                                            spectraHaptic(.light)
-                                                            Task { _ = await store.retryUTXOTransactionStatus(for: row.transaction.id) }
-                                                        } label: {
-                                                            Label(AppLocalization.string("Recheck"), systemImage: "arrow.clockwise")
-                                                        }
+                                                if row.transaction.actions.recheckUnavailableReason == nil {
+                                                    Button {
+                                                        spectraHaptic(.light)
+                                                        Task { _ = await store.retryUTXOTransactionStatus(for: row.transaction.id) }
+                                                    } label: {
+                                                        Label(AppLocalization.string("Recheck"), systemImage: "arrow.clockwise")
                                                     }
-                                                    if row.transaction.supportsSignedRebroadcast {
-                                                        Button {
-                                                            spectraHaptic(.light)
-                                                            Task { _ = await store.rebroadcastSignedTransaction(for: row.transaction.id) }
-                                                        } label: {
-                                                            Label(AppLocalization.string("Rebroadcast"), systemImage: "dot.radiowaves.up.forward")
-                                                        }
+                                                }
+                                                if row.transaction.actions.rebroadcastUnavailableReason == nil {
+                                                    Button {
+                                                        spectraHaptic(.light)
+                                                        Task { _ = await store.rebroadcastSignedTransaction(for: row.transaction.id) }
+                                                    } label: {
+                                                        Label(AppLocalization.string("Rebroadcast"), systemImage: "dot.radiowaves.up.forward")
                                                     }
                                                 }
                                             }
-                                            if (row.transaction.status == .pending || row.transaction.status == .failed), row.transaction.supportsStatusRecheck {
+                                            if row.transaction.actions.recheckUnavailableReason == nil {
                                                 Button {
                                                     recheckingIds.insert(row.id)
                                                     Task {

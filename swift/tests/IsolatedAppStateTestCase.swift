@@ -29,7 +29,7 @@ class IsolatedAppStateTestCase: XCTestCase {
         for state in states {
             await state.awaitPendingSettingCommands()
             await state.awaitPendingAddressBookCommands()
-            await state.walletMutationTask?.value
+            await state.stateCommandTask?.value
             await state.diagnostics.flushPendingPersistence()
         }
         states.removeAll()

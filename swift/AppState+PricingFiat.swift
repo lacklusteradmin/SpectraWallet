@@ -43,12 +43,10 @@ extension AppState {
 
     /// Load core's state and mirror it. Call once at launch.
     func loadCoreOwnedState() async {
-        let epoch = beginCoreStateRead()
         do {
             let state = try await self.bridge.openState()
-            applyCoreState(state, epoch: epoch)
+            applyCoreState(state, refreshPortfolio: false)
         } catch {
-            finishCoreStateRead(epoch)
             appendOperationalLog(.error, category: "Storage", message: error.localizedDescription)
         }
     }
@@ -58,15 +56,13 @@ extension AppState {
     /// Core decides — it normalizes the code and reports whether anything
     /// actually changed, so the rate refresh only runs on a real change.
     func setFiatCurrency(_ currency: FiatCurrency) async {
-        let epoch = beginCoreStateRead()
         guard
             let transition = try? await self.bridge.applyStateCommand(
                 .setFiatCurrency(currency: currency))
         else {
-            finishCoreStateRead(epoch)
             return
         }
-        applyCoreState(transition.state, epoch: epoch)
+        applyCoreState(transition.state)
         guard servicesEnabled, transition.events.contains(where: {
             if case .fiatCurrencyChanged = $0 { return true }
             return false
@@ -76,7 +72,7 @@ extension AppState {
 
     var portfolioQuotedTotal: QuotedTotal? { portfolioValuation?.portfolio }
     func setPortfolioInclusion(_ isIncluded: Bool, for walletId: String) {
-        changeWallet(.setWalletPortfolioInclusion(walletId: walletId, included: isIncluded))
+        enqueueStateCommand(.setWalletPortfolioInclusion(walletId: walletId, included: isIncluded))
     }
     /// Refresh balances now. Every wallet's: the engine sweeps its entries
     /// together, and the one this is asked from is among them.
@@ -117,12 +113,12 @@ extension AppState {
 /// Core's currencies, with what a picker needs: an order, a name and an icon.
 /// The code comes from core's formatting rules, which carry it.
 extension FiatCurrency: CaseIterable, Identifiable {
-    public static var allCases: [FiatCurrency] {
-        [.usd, .eur, .gbp, .jpy, .cny, .inr, .cad, .aud, .chf, .brl, .sgd, .aed]
-    }
+    private static let catalog = fiatCurrencyCatalog()
+    public static var allCases: [FiatCurrency] { catalog.map(\.currency) }
+    var displayRules: FiatAmountRules { Self.catalog.first { $0.currency == self }! }
     public var id: String { code }
     /// The ISO 4217 code.
-    var code: String { formattingFiatAmountRules(currency: self).code }
+    var code: String { displayRules.code }
     var iconName: String? {
         switch self {
         case .usd: return "fiat/usd"

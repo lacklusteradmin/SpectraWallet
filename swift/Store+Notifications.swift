@@ -4,11 +4,10 @@ import UserNotifications
 extension AppState {
     /// Core evaluates its stored alerts against its stored quotes.
     func evaluatePriceAlerts() async {
-        let epoch = beginCoreStateRead()
         guard let notifications = try? await self.bridge.evaluatePriceAlerts()
         else { return }
         if let state = try? await self.bridge.appState() {
-            applyCoreState(state, epoch: epoch)
+            applyCoreState(state)
         }
         for notification in notifications {
             sendPriceAlertNotification(for: notification)

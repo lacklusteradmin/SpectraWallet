@@ -25,6 +25,29 @@ final class StorageBridgeTests: XCTestCase {
         XCTAssertEqual(stored.settings.fiatCurrency, .eur)
     }
 
+    func testTransactionActionsAndUnixTimeCrossBindingAndReopen() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let path = directory.appendingPathComponent("actions.sqlite").path
+        let service = try WalletService(endpoints: [])
+        _ = try await service.openState(databasePath: path)
+        var record = TransactionRecord(id: "tx", kind: .send, status: .failed,
+            walletName: "Watch", assetDisplayName: "Bitcoin", symbol: "BTC", chainName: "Bitcoin",
+            amount: 1, address: "recipient", transactionHash: String(repeating: "a", count: 64))
+        record.createdAtUnix = 1_700_000_000.125
+        // Caller-supplied availability must not survive storage; core derives it on read.
+        record.actions = TransactionActions(recheckUnavailableReason: "wrong", rebroadcastUnavailableReason: nil)
+        _ = try await service.applyTransactionCommand(command: .upsert(records: [record]))
+        let reopened = try WalletService(endpoints: [])
+        _ = try await reopened.openState(databasePath: path)
+        let result = try await reopened.transaction(id: "tx")
+        let stored = try XCTUnwrap(result)
+        XCTAssertNil(stored.actions.recheckUnavailableReason)
+        XCTAssertNotNil(stored.actions.rebroadcastUnavailableReason)
+        XCTAssertEqual(stored.createdDate.timeIntervalSince1970, 1_700_000_000.125)
+    }
+
     func testOwnedClosureOperationsAcrossAsyncBinding() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -72,7 +95,7 @@ final class StorageBridgeTests: XCTestCase {
             password: nil,
             request: WalletImportRequest(walletName: "Imported", selectedChainNames: ["Ethereum"],
                 isWatchOnlyImport: false, isPrivateKeyImport: false,
-                watchOnlyEntries: WalletImportWatchOnlyEntries(bySlot: [:], bitcoinXpub: nil)),
+                watchOnlyEntries: WalletImportWatchOnlyEntries(byChainId: [:], bitcoinXpub: nil)),
             seedDerivationPreset: .standard, seedDerivationPaths: .defaults,
             derivationOverrides: CoreWalletDerivationOverrides(passphrase: nil, hmacKey: nil),
             seedPhrase: "test test test test test test test test test test test junk", privateKey: nil))

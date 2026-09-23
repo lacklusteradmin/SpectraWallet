@@ -91,6 +91,7 @@ extension TransactionRecord {
         nonce: Int64? = nil, failureReason: String? = nil
     ) {
         self.init(
+            actions: TransactionActions(recheckUnavailableReason: "Not evaluated", rebroadcastUnavailableReason: "Not evaluated"),
             deploymentId: deploymentId, id: id, walletId: walletId, kind: kind, status: status,
             walletName: walletName, assetDisplayName: assetDisplayName, symbol: symbol,
             chainName: chainName, amount: amount, address: address, transactionHash: transactionHash,
@@ -101,7 +102,7 @@ extension TransactionRecord {
             changeDerivationPath: nil, sourceAddress: nil, changeAddress: nil,
             signedTransactionPayload: nil, signedTransactionPayloadFormat: nil,
             failureReason: failureReason, transactionHistorySource: nil,
-            createdAt: Date().timeIntervalSinceReferenceDate)
+            createdAtUnix: Date().timeIntervalSince1970)
     }
 }
 
@@ -136,9 +137,9 @@ extension AppState {
     /// is fine for a UI and awkward for a test asserting the effect. Tests
     /// await this rather than each deriving the rule locally.
     func awaitPendingCoreStateWrites() async {
-        while appliedCoreStateEpoch < coreStateEpoch {
-            await Task.yield()
-        }
+        await stateCommandTask?.value
+        await awaitPendingSettingCommands()
+        await rebuildWalletDerivedStateFromCore()
     }
 }
 

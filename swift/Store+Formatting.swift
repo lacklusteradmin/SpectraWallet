@@ -27,17 +27,9 @@ extension AppState {
         guard let amountUSD else { return "—" }
         return formattedFiatAmountIfAvailable(fromUSD: amountUSD) ?? "—"
     }
-    /// Memoized accessor for the Rust-side fiat formatting rules. Pure,
-    /// input-only function on the Rust side, so we can cache forever.
-    private func fiatAmountRules(for currency: FiatCurrency) -> FiatAmountRules {
-        if let cached = cachedFiatAmountRules[currency] { return cached }
-        let rules = formattingFiatAmountRules(currency: currency)
-        cachedFiatAmountRules[currency] = rules
-        return rules
-    }
     private func fiatFormatter(for currency: FiatCurrency) -> NumberFormatter {
         if let formatter = cachedCurrencyFormatters[currency] { return formatter }
-        let rules = fiatAmountRules(for: currency)
+        let rules = currency.displayRules
         let decimals = Int(rules.decimals)
         let formatter = NumberFormatter()
         formatter.numberStyle = .currency
@@ -62,7 +54,7 @@ extension AppState {
         let formatter = fiatFormatter(for: currency)
         // Memoized: this runs on every fiat render, thousands of times on the
         // dashboard.
-        let minimumVisibleAmount = fiatAmountRules(for: currency).minimumVisible
+        let minimumVisibleAmount = currency.displayRules.minimumVisible
         if amount > 0, amount < minimumVisibleAmount, let thresholdString = formatter.string(from: NSNumber(value: minimumVisibleAmount)) {
             return "<\(thresholdString)"
         }

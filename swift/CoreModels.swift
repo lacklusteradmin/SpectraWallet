@@ -62,21 +62,6 @@ extension WalletView {
     }
 }
 
-/// Watch-only entries keyed by storage slot, the shape core's import reads.
-///
-/// Slots come from the registry via `Chain.addressSlot`, so the UI never
-/// hardcodes a key. Chains that share a slot — the EVM family — have their
-/// lists concatenated rather than overwriting each other; a chain the registry
-/// does not know is dropped.
-func addressSlotMap(_ byChainName: [String: [String]]) -> [String: [String]] {
-    var bySlot: [String: [String]] = [:]
-    for (chainName, addresses) in byChainName where !addresses.isEmpty {
-        guard let slot = Chain(displayName: chainName)?.addressSlot, !slot.isEmpty else { continue }
-        bySlot[slot, default: []].append(contentsOf: addresses)
-    }
-    return bySlot
-}
-
 typealias SeedDerivationPaths = CoreSeedDerivationPaths
 extension CoreSeedDerivationPaths {
     /// Storage key for a chain. Testnets share their mainnet counterpart's
@@ -178,8 +163,8 @@ extension CorePersistedTransactionRecord: Identifiable {}
 extension TransactionRecord {
     /// History with no deployment identity draws its letter.
     var artworkName: String { deploymentArtworkName(deploymentId: deploymentId) }
-    /// When it was recorded. Core stores Swift reference seconds.
-    var createdDate: Date { Date(timeIntervalSinceReferenceDate: createdAt) }
+    /// When it was recorded. Core stores Unix seconds.
+    var createdDate: Date { Date(timeIntervalSince1970: createdAtUnix) }
     var titleText: String {
         let copy = CommonLocalizationContent.current
         switch kind {
@@ -255,22 +240,6 @@ extension TransactionRecord {
         guard transactionHash != nil, let chain = Chain(displayName: chainName) else { return nil }
         return AppEndpointDirectory.transactionExplorerLabel(for: chain.id)
     }
-    var rebroadcastPayload: String? {
-        if let signedTransactionPayload {
-            let trimmed = signedTransactionPayload.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty { return trimmed }
-        }
-        return nil
-    }
-    var rebroadcastPayloadFormat: String? {
-        if let signedTransactionPayloadFormat {
-            let trimmed = signedTransactionPayloadFormat.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty { return trimmed }
-        }
-        return nil
-    }
-    var supportsSignedRebroadcast: Bool { kind == .send && rebroadcastPayload != nil && rebroadcastPayloadFormat != nil }
-
     /// The failure reason to show, localized.
     ///
     /// Core stores a code. A localized sentence written into the database
@@ -288,19 +257,7 @@ extension TransactionRecord {
         }
     }
 
-    /// Whether this transaction's status can be rechecked against the chain.
-    ///
-    /// The rule is `Chain::pending_status_poll`: the chain is polled
-    /// UTXO-style, and either it does not require a send or this is one.
-    /// Litecoin is `require_send_kind: false` because its explorer confirms
-    /// receives on its own cadence.
-    var supportsStatusRecheck: Bool {
-        guard transactionHash != nil,
-            let chain = Chain(displayName: chainName),
-            case .utxo(_, let requireSendKind) = chain.pendingStatusPoll
-        else { return false }
-        return !requireSendKind || kind == .send
-    }
+
 }
 
 extension WalletView {

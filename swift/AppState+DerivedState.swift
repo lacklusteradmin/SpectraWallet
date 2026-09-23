@@ -16,21 +16,19 @@ extension AppState {
     /// re-walk.
     @discardableResult
     func rebuildWalletDerivedStateFromCore() async -> Bool {
-        let epoch = beginCoreStateRead()
         do {
             let snapshot = try await self.bridge.portfolioSnapshot()
-            applyPortfolioSnapshot(snapshot, epoch: epoch)
+            applyPortfolioSnapshot(snapshot)
             return true
         } catch {
-            finishCoreStateRead(epoch)
             appendOperationalLog(.error, category: "Portfolio", message: error.localizedDescription)
             return false
         }
     }
     /// Every wallet/quote/dashboard field is adopted together on the main actor.
-    func applyPortfolioSnapshot(_ snapshot: PortfolioSnapshot, epoch: UInt64) {
-        guard snapshot.revision > portfolioSnapshotRevision else { finishCoreStateRead(epoch); return }
-        guard applyCoreState(snapshot.state, epoch: epoch, refreshPortfolio: false) else { return }
+    func applyPortfolioSnapshot(_ snapshot: PortfolioSnapshot) {
+        guard snapshot.revision > portfolioSnapshotRevision else { return }
+        guard applyCoreState(snapshot.state, refreshPortfolio: false) else { return }
         portfolioSnapshotRevision = snapshot.revision
         applyQuoteProjection(snapshot.state)
         portfolioValuation = snapshot.valuation

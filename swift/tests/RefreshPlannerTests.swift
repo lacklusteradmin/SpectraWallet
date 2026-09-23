@@ -54,6 +54,29 @@ import Foundation
 
         }
 
+        func testMaintenanceSleepDoesNotKeepAppStateAlive() async throws {
+            let wallet = WalletView(name: "Watch", addresses: ["Ethereum": "0x" + String(repeating: "1", count: 40)], familyName: "Ethereum")
+            _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState(isWatchOnly: true)))
+            var store: AppState? = AppState(bridge: bridge, startServices: false)
+            store?.isNetworkReachable = false
+            await store?.rebuildWalletDerivedStateFromCore()
+            store?.lastMaintenancePollSeconds = 0
+            weak var released = store
+            store?.maintenanceTask = store?.makeMaintenanceTask()
+            // Wait for a complete tick, then drop the only external owner during its sleep.
+            for _ in 0..<100 {
+                if (store?.lastMaintenancePollSeconds ?? 0) > 0 { break }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            XCTAssertGreaterThan(store?.lastMaintenancePollSeconds ?? 0, 0)
+            store = nil
+            for _ in 0..<100 {
+                if released == nil { break }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            XCTAssertNil(released, "the maintenance loop must not own AppState across sleep")
+        }
+
         func testRefreshFailureDoesNotClaimCompletion() {
             XCTAssertNotEqual(refreshOutcomeMessage(succeeded: false), refreshOutcomeMessage(succeeded: true))
             XCTAssertEqual(refreshOutcomeMessage(succeeded: false), AppLocalization.string("Refresh failed or completed partially. See refresh errors."))

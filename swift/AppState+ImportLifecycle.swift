@@ -144,8 +144,8 @@ extension AppState {
         scheduleImportedWalletRefresh(importedWalletsForRefresh)
     }
     func renameWallet(id: String, to newName: String) async {
-        changeWallet(.renameWallet(walletId: id, name: newName))
-        await walletMutationTask?.value
+        enqueueStateCommand(.renameWallet(walletId: id, name: newName))
+        await stateCommandTask?.value
         if importError == nil { finishWalletImportFlow() }
     }
     func finishWalletImportFlow(notice: String? = nil) {

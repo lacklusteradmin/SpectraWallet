@@ -92,17 +92,11 @@ extension AppState {
     }
 
     func editPriceAlert(_ command: StateCommand) async throws {
-        let epoch = beginCoreStateRead()
-        do {
-            let transition = try await self.bridge.applyStateCommand(command)
-            applyCoreState(transition.state, epoch: epoch)
-            for case .priceAlertRejected(let reason) in transition.events {
-                throw NSError(domain: "PriceAlert", code: 1,
-                    userInfo: [NSLocalizedDescriptionKey: priceAlertRejectionMessage(reason)])
-            }
-        } catch {
-            finishCoreStateRead(epoch)
-            throw error
+        let transition = try await self.bridge.applyStateCommand(command)
+        applyCoreState(transition.state)
+        for case .priceAlertRejected(let reason) in transition.events {
+            throw NSError(domain: "PriceAlert", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: priceAlertRejectionMessage(reason)])
         }
     }
     /// Localize core's typed reason.

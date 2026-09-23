@@ -146,19 +146,20 @@ final class WalletImportDraft {
             .filter { !$0.isEmpty }
     }
 
-    /// Watch-only entries keyed by the storage slot Rust expects. Empty when
+    /// Watch-only entries keyed by chain identity. Empty when
     /// the draft is not in watch-only mode.
-    var watchOnlyEntriesBySlot: [String: [String]] {
+    var watchOnlyEntriesByChainId: [String: [String]] {
         guard isWatchOnlyMode else { return [:] }
-        return addressSlotMap(
-            watchOnlyInputsByChainName.mapValues { watchOnlyEntries(from: $0) }
-        )
+        return Dictionary(uniqueKeysWithValues: watchOnlyInputsByChainName.compactMap { name, raw in
+            guard let chain = Chain(displayName: name) else { return nil }
+            return (chain.id, watchOnlyEntries(from: raw))
+        })
     }
     /// The watch-only inputs as core reads them, for the check and the import.
     var watchOnlyImportEntries: WalletImportWatchOnlyEntries {
         let trimmedXpub = bitcoinXpubInput.trimmingCharacters(in: .whitespacesAndNewlines)
         return WalletImportWatchOnlyEntries(
-            bySlot: watchOnlyEntriesBySlot,
+            byChainId: watchOnlyEntriesByChainId,
             bitcoinXpub: isWatchOnlyMode && !trimmedXpub.isEmpty ? trimmedXpub : nil)
     }
     /// Form completeness is view state. Domain validation remains mandatory
@@ -167,7 +168,7 @@ final class WalletImportDraft {
         if isEditingWallet { return !walletName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         guard !selectedChainNames.isEmpty else { return false }
         if isWatchOnlyMode {
-            return !watchOnlyEntriesBySlot.values.flatMap { $0 }.isEmpty || watchOnlyImportEntries.bitcoinXpub != nil
+            return !watchOnlyEntriesByChainId.values.flatMap { $0 }.isEmpty || watchOnlyImportEntries.bitcoinXpub != nil
         }
         if isPrivateKeyImportMode {
             return unsupportedPrivateKeyChainNames.isEmpty && isPrivateKeyHex(rawValue: privateKeyInput)

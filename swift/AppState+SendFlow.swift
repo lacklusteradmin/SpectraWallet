@@ -5,7 +5,6 @@ extension AppState {
     private func clearAllChainSendState() {
         sendPreviewRequestId = UUID()
         sendPreviewStore.resetAll()
-        sendingChains = []
         preparingChains = []
         clearHighRiskSendConfirmation()
     }
@@ -16,7 +15,7 @@ extension AppState {
         clearSendVerificationNotice()
         useCustomEvmFees = false; customEvmMaxFeeGwei = ""; customEvmPriorityFeeGwei = ""
         evmManualNonceEnabled = false; evmManualNonce = ""
-        lastSentTransaction = nil
+        invalidateSendSession()
         clearAllChainSendState()
     }
     func beginSend() {
@@ -37,7 +36,7 @@ extension AppState {
             useCustomEvmFees = false; customEvmMaxFeeGwei = ""; customEvmPriorityFeeGwei = "";
             evmManualNonceEnabled = false; evmManualNonce = ""
         }
-        lastSentTransaction = nil
+        invalidateSendSession()
         clearAllChainSendState()
         sendDestinationRiskWarning = nil; sendDestinationInfoMessage = nil; isCheckingSendDestinationBalance = false
     }
@@ -163,10 +162,14 @@ extension AppState {
         return sendError
     }
     func prepareReplacementContext(pending: ReplaceableSend, cancel: Bool) async {
-        isPreparingReplacementContext = true; defer { isPreparingReplacementContext = false }
+        invalidateSendSession()
+        let session = sendSession.id
+        isPreparingReplacementContext = true
+        defer { if sendSession.id == session { isPreparingReplacementContext = false } }
         do {
             let draft = try await self.bridge.replacementDraft(
                 transactionId: pending.transactionId, cancel: cancel)
+            guard sendSession.isCurrent(session) else { return }
             sendWalletId = draft.walletId
             sendHoldingKey = draft.holdingKey
             sendAddress = draft.destination
@@ -180,6 +183,7 @@ extension AppState {
                 cancel ? "Cancellation context loaded. Review fees and tap Send." : "Replacement context loaded. Review fees and tap Send.")
             await refreshSendPreview()
         } catch {
+            guard sendSession.isCurrent(session) else { return }
             sendError = AppLocalization.format("Unable to prepare replacement context: %@", error.localizedDescription)
         }
     }
@@ -217,12 +221,10 @@ extension AppState {
         }
         return try await self.bridge.resolveSendDestination(chainId: chainId, input: input, expectedAddress: expectedAddress)
     }
-    func clearHighRiskSendConfirmation() { pendingSendReview = nil; pendingHighRiskSendReasons = []; isShowingHighRiskSendConfirmation = false }
-    func confirmHighRiskSendAndSubmit(password: String?) async {
+    func clearHighRiskSendConfirmation() { isShowingHighRiskSendConfirmation = false }
+    func confirmSigning(password: String?) async {
         isShowingHighRiskSendConfirmation = false
-        guard let review = pendingSendReview else { return }
-        pendingSendReview = nil
-        await submitReviewedSend(review, password: password)
+        await signPreparedSend(password: password)
     }
 
     /// `nil` when the lookup failed, which is a different answer from an

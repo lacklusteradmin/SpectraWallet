@@ -10,7 +10,7 @@ extension AppState {
             return
         }
         await awaitPendingSettingCommands()
-        await walletMutationTask?.value
+        await stateCommandTask?.value
         await awaitPendingAddressBookCommands()
         let outcome: ResetOutcome
         do {
@@ -19,8 +19,8 @@ extension AppState {
             appendOperationalLog(.error, category: "Reset", message: String(describing: error))
             return
         }
-        let epoch = beginCoreStateRead()
-        applyCoreState(outcome.state, epoch: epoch)
+
+        applyCoreState(outcome.state)
         await refreshTransactionProjection()
         let plan = outcome.plan
         if plan.resetWalletsAndSecrets { await resetWalletsAndSecretsState() }
@@ -43,7 +43,6 @@ extension AppState {
         sendError = nil
         sendDestinationRiskWarning = nil
         sendDestinationInfoMessage = nil
-        pendingHighRiskSendReasons = []
         isShowingHighRiskSendConfirmation = false
         isCheckingSendDestinationBalance = false
         clearSendVerificationNotice()
@@ -53,13 +52,11 @@ extension AppState {
         evmManualNonceEnabled = false
         evmManualNonce = ""
         isPreparingReplacementContext = false
-        lastSentTransaction = nil
+        invalidateSendSession()
         sendPreviewStore.resetAll()
-        sendingChains = []
         preparingChains = []
         sendPreviewRequestId = UUID()
         sendDestinationProbeRequestId = UUID()
-        pendingSendReview = nil
         // Core prunes status trackers against committed history on the next
         // maintenance sweep, including when there is no remaining work.
         isShowingWalletImporter = false

@@ -7,7 +7,6 @@ private enum SendFlowStep: Int, CaseIterable, Identifiable {
     case recipient
     case amount
     case confirm
-    case result
 
     var id: Int { rawValue }
 
@@ -17,7 +16,6 @@ private enum SendFlowStep: Int, CaseIterable, Identifiable {
         case .recipient: return "To"
         case .amount: return "Amount"
         case .confirm: return "Review"
-        case .result: return "Sent"
         }
     }
 
@@ -27,7 +25,6 @@ private enum SendFlowStep: Int, CaseIterable, Identifiable {
         case .recipient: return "person.crop.circle.badge.arrow.forward.fill"
         case .amount: return "number.circle.fill"
         case .confirm: return "checkmark.shield.fill"
-        case .result: return "checkmark.circle.fill"
         }
     }
 
@@ -50,7 +47,7 @@ struct SendView: View {
     @State private var sendWalletPassword = ""
 
     private var sendPreviewStore: SendPreviewStore { store.sendPreviewStore }
-    private var isSendBusy: Bool { !store.sendingChains.isEmpty || !store.preparingChains.isEmpty }
+    private var isSendBusy: Bool { store.isSending || !store.preparingChains.isEmpty }
 
     private var selectedNetworkSendCoin: Coin? {
         store.availableSendCoins(for: store.sendWalletId).first(where: { $0.holdingKey == store.sendHoldingKey })
@@ -63,17 +60,13 @@ struct SendView: View {
 
             ScrollView(showsIndicators: false) {
                 LazyVStack(alignment: .leading, spacing: 18) {
-                    if currentStep != .result {
-                        stepProgress
-                    }
+                    stepProgress
 
                     stepContent
                         .id(currentStep)
                         .transition(stepTransition)
 
-                    if currentStep != .result {
-                        SendStatusCards(store: store)
-                    }
+                    SendStatusCards(store: store)
                 }
                 .padding(20)
 
@@ -127,20 +120,21 @@ struct SendView: View {
         } message: {
             if let qrScannerErrorMessage { Text(verbatim: qrScannerErrorMessage) }
         }
-        .onDisappear { sendWalletPassword = "" }
+        .task(id: currentStep) {
+            if currentStep == .from { await store.loadSavedSends() }
+        }
+        .onDisappear {
+            sendWalletPassword = ""
+            store.invalidateSendSession()
+        }
         .onChange(of: store.isShowingHighRiskSendConfirmation) { _, showing in
             if !showing { sendWalletPassword = "" }
         }
         .onChange(of: store.sendHoldingKey) { _, _ in selectedAddressBookEntryId = "" }
-        .onChange(of: store.lastSentTransaction?.id) { old, new in
-            if old == nil, new != nil {
-                spectraNotificationHaptic(.success)
-                go(to: .result)
-            }
-        }
         .task(id: previewRefreshKey) {
             let key = previewRefreshKey
             quotedInputKey = nil
+            guard store.sendArtifact == nil else { return }
             do {
                 try await Task.sleep(for: .milliseconds(350))
                 while !store.preparingChains.isEmpty {
@@ -152,20 +146,24 @@ struct SendView: View {
                 quotedInputKey = key
             } catch { return }
         }
-        .alert(AppLocalization.string("Confirm Send"), isPresented: $store.isShowingHighRiskSendConfirmation) {
-            if store.pendingSendReview?.requiresWalletPassword == true {
+        .alert(AppLocalization.string("Confirm Signing"), isPresented: $store.isShowingHighRiskSendConfirmation) {
+            if store.stagedSendRequiresPassword {
                 SecureField(AppLocalization.string("Wallet Password"), text: $sendWalletPassword)
             }
             Button(AppLocalization.string("Cancel"), role: .cancel) {
                 sendWalletPassword = ""
                 store.clearHighRiskSendConfirmation()
             }
-            Button(AppLocalization.string("Send"), role: .destructive) {
-                let password = store.pendingSendReview?.requiresWalletPassword == true ? sendWalletPassword : nil
+            Button(AppLocalization.string("Sign Transaction"), role: .destructive) {
+                let password = store.stagedSendRequiresPassword ? sendWalletPassword : nil
                 sendWalletPassword = ""
-                Task { await store.confirmHighRiskSendAndSubmit(password: password) }
+                let session = store.sendSession.id
+                Task {
+                    guard store.sendSession.isCurrent(session) else { return }
+                    await store.confirmSigning(password: password)
+                }
             }
-            .disabled(store.pendingSendReview?.requiresWalletPassword == true && sendWalletPassword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            .disabled(store.stagedSendRequiresPassword && sendWalletPassword.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
         } message: {
             Text(
                 store.pendingHighRiskSendReasons.joined(separator: "\n• ").isEmpty
@@ -182,6 +180,23 @@ struct SendView: View {
         switch currentStep {
         case .from:
             SendFromPage(store: store)
+            MoneroSyncView(store: store).id(store.sendWalletId)
+            if !store.savedSendArtifacts.isEmpty {
+                DisclosureGroup(AppLocalization.string("Resume a transaction")) {
+                    ForEach(store.savedSendArtifacts, id: \.id) { artifact in
+                        Button {
+                            Task {
+                                if await store.resumeSend(id: artifact.id) { go(to: .confirm) }
+                            }
+                        } label: {
+                            VStack(alignment: .leading) {
+                                Text(verbatim: "\(artifact.amount) · \(artifact.chainId)")
+                                Text(verbatim: artifact.recipient).font(.caption).lineLimit(1)
+                            }
+                        }
+                    }
+                }
+            }
         case .recipient:
             SendRecipientPage(
                 store: store,
@@ -196,9 +211,11 @@ struct SendView: View {
         case .amount:
             SendAmountPage(store: store, quoteIsCurrent: quotedInputKey == previewRefreshKey)
         case .confirm:
-            SendConfirmationStep(store: store, showsResult: false)
-        case .result:
-            SendConfirmationStep(store: store, showsResult: true)
+            if let artifact = store.sendArtifact {
+                SendStagesView(store: store, artifact: artifact)
+            } else {
+                SendConfirmationStep(store: store)
+            }
         }
     }
 
@@ -225,7 +242,7 @@ struct SendView: View {
     @ViewBuilder
     private func flowBottomBar(selectedCoin: Coin?) -> some View {
         SpectraBottomActionBar {
-            if currentStep != .from && currentStep != .result {
+            if currentStep != .from {
                 Button {
                     spectraHaptic(.light)
                     goBack()
@@ -263,15 +280,16 @@ struct SendView: View {
         switch currentStep {
         case .from, .recipient: return "Next"
         case .amount: return "Review"
-        case .confirm: return "Send"
-        case .result: return "Done"
+        case .confirm:
+            guard let artifact = store.sendArtifact else { return "Build Transaction" }
+            if artifact.stage == .prepared { return "Sign Transaction" }
+            return artifact.attempts.isEmpty ? "Broadcast Transaction" : "Retry Same Transaction"
         }
     }
 
     private var primaryActionSystemImage: String {
         switch currentStep {
         case .confirm: return "arrow.up.circle.fill"
-        case .result: return "checkmark"
         default: return "chevron.right"
         }
     }
@@ -289,22 +307,23 @@ struct SendView: View {
         case .amount:
             guard let coin = selectedCoin else { return }
             let input = store.sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+            let session = store.sendSession.id
             Task {
                 do {
                     let resolved = try await store.resolveSendDestination(input: input, for: coin.chainName)
-                    guard currentStep == .amount,
+                    guard store.sendSession.isCurrent(session), currentStep == .amount,
                           store.sendAddress.trimmingCharacters(in: .whitespacesAndNewlines) == input,
                           selectedNetworkSendCoin?.holdingKey == coin.holdingKey else { return }
-                    store.reviewedSendDestination = (input, coin.chainName, resolved.address)
                     if resolved.usedEns { store.sendDestinationInfoMessage = AppLocalization.format("Resolved ENS %@ to %@.", input, resolved.address) }
                     go(to: .confirm)
-                } catch { store.sendError = error.localizedDescription }
+                } catch { if store.sendSession.isCurrent(session) { store.sendError = error.localizedDescription } }
             }
         case .confirm:
             spectraHaptic(.heavy)
-            Task { await store.submitSend() }
-        case .result:
-            store.cancelSend()
+            if let artifact = store.sendArtifact {
+                if artifact.stage == .prepared { store.isShowingHighRiskSendConfirmation = true }
+                else { Task { await store.broadcastPreparedSend() } }
+            } else { Task { await store.submitSend() } }
         }
     }
 
@@ -317,6 +336,9 @@ struct SendView: View {
         case .amount:
             return store.sendAmountIsValid
         case .confirm:
+            if let artifact = store.sendArtifact {
+                return !isSendBusy && (artifact.stage == .prepared || !store.selectedSendEndpoints.isEmpty)
+            }
             return !isSendBusy
                 && store.selectedWalletForSend() != nil
                 && selectedCoin != nil
@@ -325,12 +347,13 @@ struct SendView: View {
                 && quotedInputKey == previewRefreshKey
                 && store.customEvmFeeValidationError == nil
                 && store.evmNonceValidationError == nil
-        case .result:
-            return true
         }
     }
 
     private func goBack() {
+        if currentStep == .confirm {
+            store.invalidateSendSession()
+        }
         guard let previous = SendFlowStep(rawValue: currentStep.rawValue - 1) else { return }
         go(to: previous)
     }
@@ -347,6 +370,7 @@ struct SendView: View {
 
     private var previewRefreshKey: String {
         [
+            store.sendArtifact?.id ?? "",
             store.sendWalletId,
             store.sendHoldingKey,
             store.sendAddress,

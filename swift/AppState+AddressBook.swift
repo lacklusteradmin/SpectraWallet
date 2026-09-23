@@ -49,12 +49,12 @@ extension AppState {
             id: UUID().uuidString, name: name, chainName: chainName,
             address: address, note: note))
     }
-    func canSaveLastSentRecipientToAddressBook() -> Bool {
-        guard let tx = lastSentTransaction, tx.kind == .send else { return false }
+    func canSaveStagedRecipientToAddressBook() -> Bool {
+        guard let tx = stagedSendTransaction, tx.kind == .send else { return false }
         return canSaveAddressBookEntry(name: AppLocalization.format("%@ Recipient", tx.symbol), address: tx.address, chainName: tx.chainName)
     }
-    func saveLastSentRecipientToAddressBook() {
-        guard let tx = lastSentTransaction, tx.kind == .send else { return }
+    func saveStagedRecipientToAddressBook() {
+        guard let tx = stagedSendTransaction, tx.kind == .send else { return }
         addAddressBookEntry(
             name: AppLocalization.format("%@ Recipient", tx.symbol), address: tx.address, chainName: tx.chainName,
             note: AppLocalization.string("Saved from recent send"))
@@ -86,7 +86,7 @@ extension AppState {
         else { return }
         // A read begun while the write was pending may hold the old contacts.
         // Invalidate it when the committed command returns, not when it starts.
-        applyCoreState(transition.state, epoch: beginCoreStateRead())
+        applyCoreState(transition.state)
         addressBookError = nil
         for case .addressBookRejected(let reason) in transition.events {
             addressBookError = addressBookRejectionMessage(reason)

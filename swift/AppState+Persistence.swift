@@ -9,7 +9,7 @@ extension AppState {
         // the merge and stores it, so this only adopts the answer — assigning
         // through the `didSet` would send it straight back.
         if let merged = try? await self.bridge.mergeBuiltInTokenPreferences() {
-            applyCoreState(merged, epoch: beginCoreStateRead())
+            applyCoreState(merged, refreshPortfolio: false)
         }
         // Price alerts arrive with the rest of the state — `loadCoreOwnedState()`
         // above already set them.

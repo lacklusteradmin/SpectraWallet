@@ -36,6 +36,7 @@
 		90F002000000000000000026 /* RegistryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000026 /* RegistryModels.swift */; };
 		90F002000000000000000027 /* SecureStores.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000027 /* SecureStores.swift */; };
 		90F002000000000000000029 /* SendPreviewTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000029 /* SendPreviewTypes.swift */; };
+		91D900000000000000000002 /* SendSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91D900000000000000000001 /* SendSession.swift */; };
 		90F00200000000000000002C /* StaticContentCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002C /* StaticContentCatalog.swift */; };
 		90F00200000000000000002D /* Store+Formatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002D /* Store+Formatting.swift */; };
 		90F00200000000000000002E /* Store+Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002E /* Store+Notifications.swift */; };
@@ -123,6 +124,7 @@
 		90F001000000000000000026 /* RegistryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistryModels.swift; sourceTree = "<group>"; };
 		90F001000000000000000027 /* SecureStores.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureStores.swift; sourceTree = "<group>"; };
 		90F001000000000000000029 /* SendPreviewTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendPreviewTypes.swift; sourceTree = "<group>"; };
+		91D900000000000000000001 /* SendSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendSession.swift; sourceTree = "<group>"; };
 		90F00100000000000000002C /* StaticContentCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaticContentCatalog.swift; sourceTree = "<group>"; };
 		90F00100000000000000002D /* Store+Formatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Formatting.swift"; sourceTree = "<group>"; };
 		90F00100000000000000002E /* Store+Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Notifications.swift"; sourceTree = "<group>"; };
@@ -249,6 +251,7 @@
 				90F001000000000000000026 /* RegistryModels.swift */,
 				90F001000000000000000027 /* SecureStores.swift */,
 				90F001000000000000000029 /* SendPreviewTypes.swift */,
+				91D900000000000000000001 /* SendSession.swift */,
 				90F00100000000000000002C /* StaticContentCatalog.swift */,
 				90F00100000000000000002F /* AppState+DiagnosticsExport.swift */,
 				90F001000000000000000035 /* WalletDerivedCache.swift */,
@@ -494,6 +497,7 @@
 				90F002000000000000000026 /* RegistryModels.swift in Sources */,
 				90F002000000000000000027 /* SecureStores.swift in Sources */,
 				90F002000000000000000029 /* SendPreviewTypes.swift in Sources */,
+				91D900000000000000000002 /* SendSession.swift in Sources */,
 				90F00200000000000000002C /* StaticContentCatalog.swift in Sources */,
 				90F00200000000000000002F /* AppState+DiagnosticsExport.swift in Sources */,
 				90F002000000000000000035 /* WalletDerivedCache.swift in Sources */,

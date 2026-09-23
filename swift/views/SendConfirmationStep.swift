@@ -1,28 +1,21 @@
 import SwiftUI
 
-/// The send flow's confirmation and result pages, plus the status cards that
-/// report what the last send did.
+/// The pre-build review form and transient send status cards.
 ///
 /// Like `SendNetworkStep`, split out of `SendView`: none of this reads the
 /// flow's own state — the current step, the scanner, the address-book
 /// selection — so it had no reason to re-evaluate whenever that state moved.
 struct SendConfirmationStep: View {
     @Bindable var store: AppState
-    /// `true` renders the post-send result page instead of the confirmation.
-    let showsResult: Bool
 
     private var sendPreviewStore: SendPreviewStore { store.sendPreviewStore }
-    private var isSendBusy: Bool { !store.sendingChains.isEmpty || !store.preparingChains.isEmpty }
+    private var isSendBusy: Bool { store.isSending || !store.preparingChains.isEmpty }
     private var selectedCoin: Coin? {
         store.availableSendCoins(for: store.sendWalletId).first(where: { $0.holdingKey == store.sendHoldingKey })
     }
 
     var body: some View {
-        if showsResult {
-            resultStep
-        } else {
-            confirmStep(selectedCoin: selectedCoin)
-        }
+        confirmStep(selectedCoin: selectedCoin)
     }
 
     private func confirmStep(selectedCoin: Coin?) -> some View {
@@ -94,38 +87,6 @@ struct SendConfirmationStep: View {
         .spectraElevatedFill()
     }
 
-    private var resultStep: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            spectraPageHeader(
-                title: "Sent",
-                subtitle: "The transaction has been queued for network confirmation.",
-                systemImage: "checkmark.circle.fill"
-            )
-
-            if let lastSentTransaction = store.lastSentTransaction {
-                SendLastSentCard(store: store, tx: lastSentTransaction)
-            } else if let chainName = store.sendingChains.first {
-                SpectraLoadingCard(
-                    title: AppLocalization.format("Broadcasting %@ transaction...", chainName),
-                    subtitle: "Waiting for the network to accept the signed transaction.",
-                    lineCount: 2
-                )
-            }
-
-            if let sendVerificationNotice = store.sendVerificationNotice {
-                HStack(spacing: 10) {
-                    Image(systemName: "exclamationmark.circle.fill")
-                        .foregroundStyle(store.sendVerificationNoticeIsWarning ? .red : .orange)
-                    Text(sendVerificationNotice).font(.subheadline)
-                        .foregroundStyle(store.sendVerificationNoticeIsWarning ? .red : .orange)
-                }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .glassEffect(.regular.tint(.orange.opacity(0.06)), in: .rect(cornerRadius: SpectraLayout.Radius.compact))
-            }
-        }
-    }
-
     private func confirmationRow(label: String, value: String, icon: String) -> some View {
         HStack(alignment: .top, spacing: 12) {
             Image(systemName: icon)
@@ -170,12 +131,9 @@ struct SendConfirmationStep: View {
     }
 }
 
-/// The cards under the send flow that report what the last send is doing.
-/// Shown on every step except the result page, which says it in full itself.
+/// Transient errors and core-derived confirmation notices.
 struct SendStatusCards: View {
     let store: AppState
-
-    private var isSendBusy: Bool { !store.sendingChains.isEmpty || !store.preparingChains.isEmpty }
 
     var body: some View {
         sendStatusCards
@@ -205,30 +163,20 @@ struct SendStatusCards: View {
             .glassEffect(.regular.tint(.orange.opacity(0.06)), in: .rect(cornerRadius: SpectraLayout.Radius.compact))
         }
 
-        if let lastSentTransaction = store.lastSentTransaction {
-            SendLastSentCard(store: store, tx: lastSentTransaction)
-        }
 
-        if let chainName = store.sendingChains.first {
-            SpectraLoadingCard(
-                title: AppLocalization.format("Broadcasting %@ transaction...", chainName),
-                subtitle: "Submitting the signed transaction.",
-                lineCount: 2
-            )
-        }
     }
 
 }
 
-/// The "last sent" summary, shown both under the flow and on the result page.
-struct SendLastSentCard: View {
+/// History details and recipient actions for the displayed durable artifact.
+struct SendTransactionCard: View {
     let store: AppState
     let tx: TransactionRecord
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text(AppLocalization.string("Last Sent")).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
+                Text(AppLocalization.string("Transaction")).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
                 Spacer()
                 TransactionStatusBadge(status: tx.status)
             }
@@ -249,20 +197,20 @@ struct SendLastSentCard: View {
             }
             Button {
                 spectraHaptic(.light)
-                store.saveLastSentRecipientToAddressBook()
+                store.saveStagedRecipientToAddressBook()
             } label: {
                 Label(
-                    store.canSaveLastSentRecipientToAddressBook()
+                    store.canSaveStagedRecipientToAddressBook()
                         ? AppLocalization.string("Save Recipient To Address Book")
                         : AppLocalization.string("Recipient Already Saved"),
-                    systemImage: store.canSaveLastSentRecipientToAddressBook() ? "book.closed" : "checkmark.circle"
+                    systemImage: store.canSaveStagedRecipientToAddressBook() ? "book.closed" : "checkmark.circle"
                 )
                 .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
             }
             .buttonStyle(.glass)
-            .disabled(!store.canSaveLastSentRecipientToAddressBook())
+            .disabled(!store.canSaveStagedRecipientToAddressBook())
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)

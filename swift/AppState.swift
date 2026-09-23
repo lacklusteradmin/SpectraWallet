@@ -154,12 +154,13 @@ final class AppState {
     var sendHoldingKey: String = ""
     var sendAmount: String = ""
     var sendAddress: String = ""
-    var reviewedSendDestination: (input: String, chain: String, address: String)?
-    var sendError: String? = nil
+    var sendError: String? {
+        get { sendSession.error }
+        set { sendSession.error = newValue }
+    }
     var sendDestinationRiskWarning: String? = nil
     var sendDestinationInfoMessage: String? = nil
     var isCheckingSendDestinationBalance: Bool = false
-    var pendingHighRiskSendReasons: [String] = []
     var isShowingHighRiskSendConfirmation: Bool = false
     var sendVerificationNotice: String? = nil
     var sendVerificationNoticeIsWarning: Bool = false
@@ -180,7 +181,14 @@ final class AppState {
     /// Chains currently computing a send fee preview. Observed by send UI to show loading state.
     var preparingChains: Set<String> = []
     @ObservationIgnored var sendDestinationProbeRequestId = UUID() // Reject stale recipient probes.
-    var pendingSendReview: OwnedSendReview?
+    let sendSession = SendSession()
+    var sendArtifact: SendArtifact? { sendSession.artifact }
+    var savedSendArtifacts: [SendArtifact] = []
+    var sendEndpointChoices: [String] { sendSession.endpoints }
+    var selectedSendEndpoints: Set<String> {
+        get { sendSession.selectedEndpoints }
+        set { sendSession.selectedEndpoints = newValue }
+    }
     @ObservationIgnored var isRefreshingLivePrices = false
     @ObservationIgnored var isRefreshingFiatRates = false
     /// How long the maintenance loop sleeps before asking core again, as supplied by core.
@@ -188,14 +196,16 @@ final class AppState {
     @ObservationIgnored var isNetworkReachable: Bool = true
     @ObservationIgnored var isConstrainedNetwork: Bool = false
     @ObservationIgnored var isExpensiveNetwork: Bool = false
-    var lastSentTransaction: TransactionRecord?
+    var stagedSendTransaction: TransactionRecord? {
+        guard let id = sendArtifact?.id else { return nil }
+        return transactions.first { $0.id == id }
+    }
     var lastPendingTransactionRefreshAt: Date? = nil
     // Send previews live in a dedicated sub-store so updates during the send flow
     // do not invalidate every view that observes AppState. Views that need the
     // preview values should observe `sendPreviewStore` directly.
     let sendPreviewStore = SendPreviewStore()
-    /// Chains currently broadcasting a send transaction. Observed by send UI to show loading state.
-    var sendingChains: Set<String> = []
+    var isSending: Bool { sendSession.operation != nil }
     let chainDiagnosticsState = WalletChainDiagnosticsState()
 
     /// Read-only keypool diagnostics. Reading does not reserve an address.
@@ -243,7 +253,7 @@ final class AppState {
             do {
                 let transition = try await self.bridge.applyStateCommand(.setAppSetting(update: update))
                 self.settingCommandsInFlight -= 1
-                self.applyCoreState(transition.state, epoch: self.beginCoreStateRead())
+                self.applyCoreState(transition.state)
             } catch {
                 self.settingCommandsInFlight -= 1
                 // A failed write never changes runtime services. Restore the
@@ -251,7 +261,7 @@ final class AppState {
                 if self.settingCommandsInFlight == 0 { self.appSettings = self.committedAppSettings }
                 self.appendOperationalLog(.error, category: "Settings", message: error.localizedDescription)
                 if let state = try? await self.bridge.appState() {
-                    self.applyCoreState(state, epoch: self.beginCoreStateRead())
+                    self.applyCoreState(state)
                 }
             }
         }
@@ -282,32 +292,14 @@ final class AppState {
         }
     }
 
-    // Core round-trips are async and can overlap: the launch reload runs
-    // concurrently with whatever the user is doing. Each one claims an epoch
-    // before it awaits, and a result from an epoch older than the last applied
-    // is dropped — otherwise a slow reload lands after a command and reverts
-    // the mirror to what core held before that command ran.
-    @ObservationIgnored private(set) var coreStateEpoch: UInt64 = 0
-    @ObservationIgnored private(set) var appliedCoreStateEpoch: UInt64 = 0
-
-    /// Claim an epoch before awaiting core. Pass it back to `applyCoreState`.
-    func beginCoreStateRead() -> UInt64 {
-        coreStateEpoch &+= 1
-        return coreStateEpoch
-    }
-
-    /// Mark an epoch settled without adopting a state — the command failed.
-    /// A failed write must settle its read epoch as well.
-    func finishCoreStateRead(_ epoch: UInt64) {
-        if epoch > appliedCoreStateEpoch { appliedCoreStateEpoch = epoch }
-    }
+    @ObservationIgnored private(set) var appliedCoreStateRevision: UInt64 = 0
 
     /// The only place the core-owned mirrors are written. Everything else goes
     /// through a `StateCommand` and lands back here.
     @discardableResult
-    func applyCoreState(_ state: CoreAppState, epoch: UInt64, refreshPortfolio: Bool = true) -> Bool {
-        guard epoch >= appliedCoreStateEpoch else { return false }
-        appliedCoreStateEpoch = epoch
+    func applyCoreState(_ state: CoreAppState, refreshPortfolio: Bool = true) -> Bool {
+        guard state.revision >= appliedCoreStateRevision else { return false }
+        appliedCoreStateRevision = state.revision
         if state.settings != committedAppSettings {
             let before = committedAppSettings
             committedAppSettings = state.settings
@@ -373,7 +365,7 @@ final class AppState {
     }
     /// Why core refused the last token-preference change, if it did.
     var tokenPreferenceError: String?
-    @ObservationIgnored var walletMutationTask: Task<Void, Never>?
+    @ObservationIgnored var stateCommandTask: Task<Void, Never>?
     // Prices and groups are adopted together from the same core snapshot.
     var livePrices: [String: Double] = [:]
     /// USD → display-currency rates, as core holds them. A projection: core
@@ -387,9 +379,6 @@ final class AppState {
     var cachedTokenPreferenceByDeploymentId: [String: TokenPreferenceEntry] = [:]
     @ObservationIgnored var cachedCurrencyFormatters: [FiatCurrency: NumberFormatter] = [:]
     @ObservationIgnored var cachedDecimalFormatters: [String: NumberFormatter] = [:]
-    // Memoized Rust-FFI lookups. Invalidate when display decimals, token
-    // preferences, or the selected fiat currency change.
-    @ObservationIgnored var cachedFiatAmountRules: [FiatCurrency: FiatAmountRules] = [:]
     /// Concrete testnets are never quoted.
     ///
     /// Core decides; this is the projection the render path reads.
@@ -455,13 +444,14 @@ final class AppState {
     ///
     /// This rebuilt a snapshot of the record from the projection, with the
     /// kind and status spelled as strings, and handed it back to be judged.
-    func updateSendVerificationNoticeForLastSentTransaction() async {
-        guard let transactionId = lastSentTransaction?.id else {
+    func updateStagedSendVerificationNotice() async {
+        let session = sendSession.id
+        guard let transactionId = stagedSendTransaction?.id else {
             clearSendVerificationNotice()
             return
         }
         guard let notice = try? await self.bridge.sendVerificationNotice(transactionId: transactionId),
-            lastSentTransaction?.id == transactionId
+            sendSession.isCurrent(session), stagedSendTransaction?.id == transactionId
         else { return }
         applyVerificationNotice(notice)
     }
@@ -471,14 +461,7 @@ final class AppState {
         if let chain = Chain(displayName: chainName) {
             await performCoreRefresh(.afterSend(chainId: chain.id))
         }
-        await updateSendVerificationNoticeForLastSentTransaction()
-    }
-    func resetSendComposerState(afterSend extraReset: (() -> Void)? = nil) {
-        sendAmount = ""
-        sendAddress = ""
-        reviewedSendDestination = nil
-        extraReset?()
-        sendError = nil
+        await updateStagedSendVerificationNotice()
     }
     init(bridge: WalletServiceBridge = .shared, startServices: Bool = true) {
         self.bridge = bridge
@@ -594,10 +577,9 @@ final class AppState {
     /// Same shape as `sendAddressBookCommand`: core decides, the refusal comes
     /// back as an event carrying its reason, and this side supplies the words.
     private func sendTokenPreferenceCommand(_ command: StateCommand) async {
-        let epoch = beginCoreStateRead()
         guard let transition = try? await self.bridge.applyStateCommand(command)
         else { return }
-        applyCoreState(transition.state, epoch: epoch)
+        applyCoreState(transition.state)
         tokenPreferenceError = tokenPreferenceRejection(in: transition.events)
             .map(tokenPreferenceRejectionMessage)
     }
@@ -634,7 +616,7 @@ final class AppState {
         coingeckoId: String = "", decimals: Int
     ) async -> String? {
         guard decimals >= 0 else { return localizedStoreString("That is not a number of decimal places.") }
-        let epoch = beginCoreStateRead()
+
         guard
             let transition = try? await self.bridge.applyStateCommand(
                 .addCustomToken(
@@ -642,7 +624,7 @@ final class AppState {
                     contract: contractAddress, coingeckoId: coingeckoId,
                     decimals: UInt32(decimals)))
         else { return localizedStoreString("This token could not be saved.") }
-        applyCoreState(transition.state, epoch: epoch)
+        applyCoreState(transition.state)
         guard let reason = tokenPreferenceRejection(in: transition.events) else {
             tokenPreferenceError = nil
             return nil

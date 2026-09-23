@@ -396,10 +396,10 @@ import Foundation
             await store.awaitPendingAddressBookCommands()
             XCTAssertEqual(store.addressBook.count, 3)
             let stale = try await bridge.appState()
-            let oldEpoch = store.beginCoreStateRead()
+
             for entry in store.addressBook { store.removeAddressBookEntry(id: entry.id) }
             await store.awaitPendingAddressBookCommands()
-            store.applyCoreState(stale, epoch: oldEpoch)
+            store.applyCoreState(stale)
             XCTAssertTrue(store.addressBook.isEmpty, "an earlier read must not resurrect removed contacts")
             let persisted = try await bridge.appState()
             XCTAssertTrue(persisted.addressBook.isEmpty)
@@ -519,7 +519,7 @@ import Foundation
         func testSettingsRuntimeUsesCommittedValuesWhileEditsAreQueued() async throws {
             let store = makeState()
             let state = try await bridge.appState()
-            store.applyCoreState(state, epoch: store.beginCoreStateRead(), refreshPortfolio: false)
+            store.applyCoreState(state, refreshPortfolio: false)
             let initial = store.committedAppSettings.bitcoinStopGap
             let next: UInt32 = initial == 30 ? 40 : 30
             store.updateSetting(.bitcoinStopGap(value: next))
@@ -569,10 +569,10 @@ import Foundation
             _ = try await service.applyStateCommand(command: .setFiatCurrency(currency: .eur))
             let new = try await service.portfolioSnapshot()
             let store = makeState()
-            let olderRequest = store.beginCoreStateRead()
-            let newerRequest = store.beginCoreStateRead()
-            store.applyPortfolioSnapshot(new, epoch: newerRequest)
-            store.applyPortfolioSnapshot(old, epoch: olderRequest)
+
+
+            store.applyPortfolioSnapshot(new)
+            store.applyPortfolioSnapshot(old)
             XCTAssertEqual(store.portfolioSnapshotRevision, new.revision)
             XCTAssertEqual(store.portfolioValuation?.currency, .eur)
             XCTAssertNil(store.portfolioValuation?.portfolio.fiatTotal)
@@ -583,13 +583,35 @@ import Foundation
             let service = try WalletService(endpoints: [])
             let stale = try await service.portfolioSnapshot()
             let store = makeState()
-            let oldRead = store.beginCoreStateRead()
+
             let transition = try await service.applyStateCommand(command: .setFiatCurrency(currency: .eur))
-            store.applyCoreState(transition.state, epoch: store.beginCoreStateRead(), refreshPortfolio: false)
-            store.applyPortfolioSnapshot(stale, epoch: oldRead)
+            store.applyCoreState(transition.state, refreshPortfolio: false)
+            store.applyPortfolioSnapshot(stale)
             XCTAssertEqual(store.selectedFiatCurrency, .eur)
             XCTAssertNil(store.portfolioValuation)
             XCTAssertEqual(store.portfolioSnapshotRevision, 0)
+        }
+
+        func testCoreVersionWinsRegardlessOfRequestCompletionOrder() async throws {
+            let old = try await bridge.appState()
+            let changed = try await bridge.applyStateCommand(.setFiatCurrency(currency: .eur))
+            // A failed operation after the successful write must not discard its result.
+            do {
+                _ = try await bridge.recheckTransactionStatus(id: "missing")
+                XCTFail("missing transaction must fail")
+            } catch {}
+            let store = makeState()
+            XCTAssertTrue(store.applyCoreState(changed.state, refreshPortfolio: false))
+            XCTAssertFalse(store.applyCoreState(old, refreshPortfolio: false))
+            XCTAssertEqual(store.selectedFiatCurrency, .eur)
+            XCTAssertEqual(store.appliedCoreStateRevision, changed.state.revision)
+        }
+
+        func testFiatCatalogSuppliesStableIdentityAndDisplayMetadata() {
+            XCTAssertEqual(FiatCurrency.allCases.count, 12)
+            XCTAssertEqual(Set(FiatCurrency.allCases.map(\.code)).count, 12)
+            XCTAssertEqual(FiatCurrency.jpy.displayRules.decimals, 0)
+            XCTAssertEqual(FiatCurrency.usd.displayRules.minimumVisible, 0.01)
         }
 
         func testPasswordVerdictsCrossTheBindingWithoutEnglishMessages() {
