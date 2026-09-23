@@ -14,13 +14,13 @@ fileprivate struct SendComposerPresentation {
 
     init(store: AppState) {
         sendWallets = store.sendEnabledWallets
-        selectedWallet = sendWallets.first(where: { $0.id == store.sendWalletId })
-        availableSendCoins = store.availableSendCoins(for: store.sendWalletId)
-        selectedCoin = availableSendCoins.first(where: { $0.holdingKey == store.sendHoldingKey })
-        selectedCoinAmountText = selectedCoin.map { store.formattedAssetAmount($0.amount, symbol: $0.symbol, deploymentId: $0.holdingKey) }
-        let sendAmount = Double(store.sendAmount) ?? 0
+        selectedWallet = sendWallets.first(where: { $0.id == store.sendFlow.walletId })
+        availableSendCoins = store.availableSendCoins(for: store.sendFlow.walletId)
+        selectedCoin = availableSendCoins.first(where: { $0.holdingKey == store.sendFlow.holdingKey })
+        selectedCoinAmountText = selectedCoin.map { store.amounts.formattedAssetAmount($0.amount, symbol: $0.symbol, deploymentId: $0.holdingKey) }
+        let sendAmount = Double(store.sendFlow.amount) ?? 0
         if let selectedCoin, !sendAmount.isZero {
-            selectedCoinApproximateFiatText = store.formattedFiatAmount(sendAmount, of: selectedCoin)
+            selectedCoinApproximateFiatText = store.amounts.formattedFiatAmount(sendAmount, of: selectedCoin)
         } else {
             selectedCoinApproximateFiatText = nil
         }
@@ -53,11 +53,11 @@ struct SendFromPage: View {
                 Text(AppLocalization.string("From")).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
                 Spacer()
                 if presentation.sendWallets.count > 1 {
-                    Picker("", selection: $store.sendWalletId) {
+                    Picker("", selection: Bindable(store.sendFlow).walletId) {
                         ForEach(presentation.sendWallets) { wallet in Text(wallet.name).tag(wallet.id) }
                     }
                     .pickerStyle(.menu)
-                    .onChange(of: store.sendWalletId) { _, _ in store.syncSendAssetSelection() }
+                    .onChange(of: store.sendFlow.walletId) { _, _ in store.syncSendAssetSelection() }
                     .font(.subheadline.weight(.semibold))
                 }
             }
@@ -86,7 +86,7 @@ struct SendFromPage: View {
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 10) {
                             ForEach(presentation.availableSendCoins, id: \.holdingKey) { coin in
-                                coinChip(coin: coin, isSelected: coin.holdingKey == store.sendHoldingKey)
+                                coinChip(coin: coin, isSelected: coin.holdingKey == store.sendFlow.holdingKey)
                             }
                         }
                         .padding(.vertical, 2)
@@ -102,7 +102,7 @@ struct SendFromPage: View {
     private func coinChip(coin: Coin, isSelected: Bool) -> some View {
         Button {
             guard !isSelected else { return }
-            store.sendHoldingKey = coin.holdingKey
+            store.sendFlow.holdingKey = coin.holdingKey
             spectraHaptic(.light)
         } label: {
             VStack(alignment: .leading, spacing: 10) {
@@ -115,7 +115,7 @@ struct SendFromPage: View {
                     )
                     Text(coin.symbol).font(.headline)
                 }
-                Text(store.formattedAssetAmount(coin.amount, symbol: coin.symbol, deploymentId: coin.holdingKey))
+                Text(store.amounts.formattedAssetAmount(coin.amount, symbol: coin.symbol, deploymentId: coin.holdingKey))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .spectraNumericTextLayout()
@@ -168,7 +168,7 @@ struct SendRecipientPage: View {
             Text(AppLocalization.string("To")).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
 
             HStack(spacing: 10) {
-                TextField(AppLocalization.string("Recipient address"), text: $store.sendAddress)
+                TextField(AppLocalization.string("Recipient address"), text: Bindable(store.sendFlow).address)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .font(.subheadline.monospaced())
@@ -209,7 +209,7 @@ struct SendRecipientPage: View {
                 .font(.subheadline)
                 .onChange(of: selectedAddressBookEntryId) { _, newValue in
                     guard let entry = presentation.addressBookEntries.first(where: { $0.id == newValue }) else { return }
-                    store.sendAddress = entry.address
+                    store.sendFlow.address = entry.address
                 }
             }
 
@@ -238,7 +238,7 @@ struct SendRecipientPage: View {
         }
 
         if let coin = presentation.selectedCoin,
-           isExtensionBlockSendDestination(chainName: coin.chainName, destination: store.sendAddress) {
+           isExtensionBlockSendDestination(chainName: coin.chainName, destination: store.sendFlow.address) {
             HStack(spacing: 6) {
                 Image(systemName: "lock.shield.fill").font(.caption2.weight(.semibold))
                 Text(AppLocalization.string("MWEB · Privacy Send")).font(.caption.weight(.semibold))
@@ -251,16 +251,16 @@ struct SendRecipientPage: View {
             .clipShape(.capsule)
         }
 
-        if store.isCheckingSendDestinationBalance {
+        if store.sendFlow.isCheckingDestination {
             SpectraLoadingRow(title: "Checking destination on-chain balance...")
         }
 
-        if let warning = store.sendDestinationRiskWarning {
+        if let warning = store.sendFlow.destinationRiskWarning {
             Label(warning, systemImage: "exclamationmark.triangle.fill")
                 .font(.caption).foregroundStyle(.orange)
         }
 
-        if let info = store.sendDestinationInfoMessage {
+        if let info = store.sendFlow.destinationInfoMessage {
             Text(info).font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -291,7 +291,7 @@ struct SendAmountPage: View {
             (dynamicTypeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(alignment: .trailing, spacing: 12))
                 : AnyLayout(HStackLayout(spacing: 12))) {
-                TextField("0", text: $store.sendAmount)
+                TextField("0", text: Bindable(store.sendFlow).amount)
                     .keyboardType(.decimalPad)
                     .font(.largeTitle.weight(.semibold))
                     .accessibilityLabel(AppLocalization.string("Amount"))
@@ -336,7 +336,7 @@ struct SendAmountPage: View {
                     Text(AppLocalization.string("A fee estimate is required for amount shortcuts. Enter an amount to continue."))
                         .font(.subheadline).foregroundStyle(.secondary)
                 }
-                if !store.sendAmount.isEmpty && !store.sendAmountIsValid {
+                if !store.sendFlow.amount.isEmpty && !store.sendAmountIsValid {
                     Text(AppLocalization.string("Enter a positive decimal amount within this asset's precision."))
                         .font(.subheadline).foregroundStyle(.red)
                 }
@@ -358,7 +358,7 @@ struct SendAmountPage: View {
         let amount = quoteIsCurrent ? store.sendShortcutAmount(percentage: percentage) : nil
         return Button {
             guard let amount else { return }
-            store.sendAmount = amount
+            store.sendFlow.amount = amount
             spectraHaptic(.light)
         } label: {
             Text(percentage == 100 ? "MAX" : "\(percentage)%")

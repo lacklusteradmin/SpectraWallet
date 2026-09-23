@@ -57,7 +57,7 @@ struct TransactionDetailView: View {
                             Spacer()
                             statusChip
                         }
-                        if let amountText = store.formattedTransactionDetailAmount(displayedTransaction) {
+                        if let amountText = store.amounts.formattedTransactionDetailAmount(displayedTransaction) {
                             Text(amountText).font(.title.weight(.bold)).foregroundStyle(Color.primary)
                                 .spectraNumericTextLayout(minimumScaleFactor: 0.5)
                         }
@@ -70,10 +70,10 @@ struct TransactionDetailView: View {
                         detailRow(label: "Asset", value: displayedTransaction.assetDisplayName)
                         detailRow(label: "Network", value: displayedTransaction.chainName)
                         detailRow(label: "Timestamp", value: displayedTransaction.fullTimestampText)
-                        if let amountText = store.formattedTransactionDetailAmount(displayedTransaction) {
+                        if let amountText = store.amounts.formattedTransactionDetailAmount(displayedTransaction) {
                             detailRow(label: "Amount", value: amountText)
                         }
-                        if let historySourceText = store.historySourceText(for: displayedTransaction) {
+                        if let historySourceText = store.amounts.historySourceText(for: displayedTransaction) {
                             detailRow(label: "History Source", value: historySourceText)
                         }
                         if let receiptBlockNumberText = displayedTransaction.receiptBlockNumberText {
@@ -83,19 +83,19 @@ struct TransactionDetailView: View {
                             detailRow(label: "Confirmations", value: confirmationCountText)
                         }
                         if let receiptGasUsed = displayedTransaction.receiptGasUsed { detailRow(label: "Gas Used", value: receiptGasUsed) }
-                        if let receiptEffectiveGasPriceText = store.receiptEffectiveGasPriceText(for: displayedTransaction) {
+                        if let receiptEffectiveGasPriceText = store.amounts.receiptEffectiveGasPriceText(for: displayedTransaction) {
                             detailRow(label: "Effective Gas Price", value: receiptEffectiveGasPriceText)
                         }
-                        if let receiptNetworkFeeText = store.receiptNetworkFeeText(for: displayedTransaction) {
+                        if let receiptNetworkFeeText = store.amounts.receiptNetworkFeeText(for: displayedTransaction) {
                             detailRow(label: "Network Fee", value: receiptNetworkFeeText)
                         }
                         if let storedFeePriorityText = displayedTransaction.storedFeePriorityText {
                             detailRow(label: "Fee Priority", value: storedFeePriorityText)
                         }
-                        if let confirmedNetworkFeeText = store.confirmedNetworkFeeText(for: displayedTransaction) {
+                        if let confirmedNetworkFeeText = store.amounts.confirmedNetworkFeeText(for: displayedTransaction) {
                             detailRow(label: "Confirmed Fee", value: confirmedNetworkFeeText)
                         }
-                        if let storedFeeRateText = store.storedFeeRateText(for: displayedTransaction) {
+                        if let storedFeeRateText = store.amounts.storedFeeRateText(for: displayedTransaction) {
                             detailRow(label: "Fee Rate", value: storedFeeRateText)
                         }
                         if let storedUsedChangeOutputText = displayedTransaction.storedUsedChangeOutputText {
@@ -127,7 +127,7 @@ struct TransactionDetailView: View {
                     // transfers it could not rebuild.
                     if let pending = store.replaceableSend(forTransaction: displayedTransaction.id) {
                         spectraDetailCard(title: AppLocalization.format("%@ Mempool Actions", pending.chainName)) {
-                            if store.isPreparingReplacementContext {
+                            if store.sendFlow.isPreparingReplacement {
                                 SpectraLoadingRow(title: "Preparing replacement/cancel context...")
                             } else {
                                 if pending.canSpeedUp {

@@ -2,48 +2,24 @@ import Foundation
 import SwiftUI
 @MainActor
 extension AppState {
-    func resetImportForm() {
-        importDraft.configureForNewWallet()
-    }
     func beginWalletImport(setupMode: SetupModeChoice = .simple) {
-        importDraft.configureForNewWallet()
-        importDraft.setupModeChoice = setupMode
-        importError = nil
-        isImportingWallet = false
-        editingWalletId = nil
-        isShowingWalletImporter = true
+        walletImport.begin {
+            $0.configureForNewWallet()
+            $0.setupModeChoice = setupMode
+        }
     }
     func beginWatchAddressesImport() {
-        importDraft.configureForWatchAddressesImport()
-        // Watch mode doesn't use derivation, so the simple/advanced toggle is
-        // irrelevant — always reset to simple so the state is deterministic.
-        importDraft.setupModeChoice = .simple
-        importError = nil
-        isImportingWallet = false
-        editingWalletId = nil
-        isShowingWalletImporter = true
+        walletImport.begin { $0.configureForWatchAddressesImport() }
     }
     func beginWalletCreation(setupMode: SetupModeChoice = .simple) {
-        importDraft.configureForCreatedWallet()
-        importDraft.setupModeChoice = setupMode
-        importError = nil
-        isImportingWallet = false
-        editingWalletId = nil
-        isShowingWalletImporter = true
+        walletImport.begin {
+            $0.configureForCreatedWallet()
+            $0.setupModeChoice = setupMode
+        }
     }
-    func cancelWalletImport() {
-        importDraft.configureForNewWallet()
-        importError = nil
-        isImportingWallet = false
-        editingWalletId = nil
-        isShowingWalletImporter = false
-    }
+    func cancelWalletImport() { walletImport.close() }
     func beginEditingWallet(_ wallet: WalletView) {
-        editingWalletId = wallet.id
-        importError = nil
-        isImportingWallet = false
-        importDraft.configureForEditing(wallet: wallet)
-        isShowingWalletImporter = true
+        walletImport.begin(editing: wallet) { $0.configureForEditing(wallet: wallet) }
     }
     func confirmDeleteWallet(_ wallet: WalletView) { walletPendingDeletion = wallet }
     func deletePendingWallet() async {
@@ -61,103 +37,55 @@ extension AppState {
         guard await removeWallet(id: deletedWalletId) else { return }
         chainDiagnosticsState.diagnosticsRevision &+= 1
         await diagnostics.loadFromSQLite()
-        if receiveWalletId == deletedWalletId {
-            receiveWalletId = ""
-            receiveHoldingKey = ""
-            receiveResolvedAddress = ""
-            isResolvingReceiveAddress = false
+        if receiveFlow.walletId == deletedWalletId {
+            receiveFlow.reset()
         }
-        if sendWalletId == deletedWalletId { cancelSend() }
-        if editingWalletId == deletedWalletId {
-            editingWalletId = nil
-            isShowingWalletImporter = false
+        if sendFlow.walletId == deletedWalletId { cancelSend() }
+        if walletImport.editingWalletId == deletedWalletId {
+            walletImport.close()
         }
         selectedMainTab = .home
         self.walletPendingDeletion = nil
         if wallets.isEmpty { cancelWalletImport() }
     }
     func importWallet() async {
-        guard canImportWallet else { return }
-        guard !isImportingWallet else { return }
-        importError = nil
-        let trimmedWalletName = importDraft.walletName.trimmingCharacters(in: .whitespacesAndNewlines)
-        if let editingWalletId {
-            await renameWallet(id: editingWalletId, to: trimmedWalletName)
+        guard canImportWallet, !walletImport.isBusy else { return }
+        let draft = walletImport.draft
+        let name = draft.walletName.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let walletId = walletImport.editingWalletId {
+            await renameWallet(id: walletId, to: name)
             return
         }
-        if importDraft.requiresBackupVerification && !importDraft.isBackupVerificationComplete {
-            importError = AppLocalization.string("Confirm your seed backup words before importing the wallet.")
-            return
-        }
-        isImportingWallet = true
-        defer { isImportingWallet = false }
-        let trimmedWalletPassword = importDraft.normalizedWalletPassword
-        let draft = importDraft
-        let selectedDerivationPreset = importDraft.seedDerivationPreset
-        let selectedDerivationPaths: CoreSeedDerivationPaths = {
-            var paths = importDraft.seedDerivationPaths
-            paths.isCustomEnabled = true
-            return paths
-        }()
-        var importedWalletsForRefresh: [WalletView] = []
-        if editingWalletId == nil {
-            // Core mints the wallet ids, derives every address from the secret
-            // the commit carries, and reads each family's network from its own
-            // settings; only a watch-only import supplies addresses, typed, in
-            // `watchOnlyEntries`.
-            let importPlanRequest = WalletImportRequest(
-                walletName: trimmedWalletName, selectedChainNames: draft.selectedChainNames,
+        // Snapshot all user input before suspension. The draft may be replaced
+        // while core commits, but that must not alter this operation's inputs.
+        var paths = draft.seedDerivationPaths
+        paths.isCustomEnabled = true
+        let commit = WalletImportCommit(
+            password: draft.normalizedWalletPassword,
+            request: WalletImportRequest(
+                walletName: name, selectedChainNames: draft.selectedChainNames,
                 isWatchOnlyImport: draft.isWatchOnlyMode, isPrivateKeyImport: draft.isPrivateKeyImportMode,
-                watchOnlyEntries: draft.watchOnlyImportEntries)
-            // Core derives addresses, stores secrets through the registered
-            // callback and commits the entire wallet batch before returning.
-            let outcome: WalletImportOutcome
-            do {
-                outcome = try await self.bridge.importWallets(
-                    WalletImportCommit(
-                        password: trimmedWalletPassword,
-                        request: importPlanRequest,
-                        seedDerivationPreset: selectedDerivationPreset,
-                        seedDerivationPaths: selectedDerivationPaths,
-                        derivationOverrides: draft.resolvedDerivationOverrides,
-                        seedPhrase: draft.seedPhrase,
-                        privateKey: draft.privateKeyInput
-                    )
-                )
-            } catch {
-                importError = error.localizedDescription
-                return
-            }
-            // Core refuses addresses that do not parse for their chain. Wallets
-            // it did create are already stored, so this is a notice rather than
-            // a failure — but it has to be shown. Dropping it silently is how a
-            // typo becomes a wallet whose receive address is missing.
-            if !outcome.rejectedAddresses.isEmpty {
-                let refused = outcome.rejectedAddresses.joined(separator: ", ")
-                importError = AppLocalization.format("These addresses were not valid and were not imported: %@", refused)
-            }
-            let createdWallets = outcome.wallets
-            importedWalletsForRefresh = createdWallets
+                watchOnlyEntries: draft.watchOnlyImportEntries),
+            seedDerivationPreset: draft.seedDerivationPreset, seedDerivationPaths: paths,
+            derivationOverrides: draft.resolvedDerivationOverrides,
+            seedPhrase: draft.seedPhrase, privateKey: draft.privateKeyInput)
+        let completed = await walletImport.submit {
+            let outcome = try await self.bridge.importWallets(commit)
+            await self.rebuildWalletDerivedStateFromCore()
+            self.scheduleImportedWalletRefresh(outcome.wallets)
+            return outcome.rejectedAddresses.isEmpty ? nil : AppLocalization.format(
+                "These addresses were not valid and were not imported: %@",
+                outcome.rejectedAddresses.joined(separator: ", "))
         }
-        await rebuildWalletDerivedStateFromCore()
-        finishWalletImportFlow(notice: importError)
-        scheduleImportedWalletRefresh(importedWalletsForRefresh)
+        if completed { isShowingAddWalletEntry = false }
     }
     func renameWallet(id: String, to newName: String) async {
-        enqueueStateCommand(.renameWallet(walletId: id, name: newName))
-        await stateCommandTask?.value
-        if importError == nil { finishWalletImportFlow() }
-    }
-    func finishWalletImportFlow(notice: String? = nil) {
-        importError = notice
-        importDraft.clearSensitiveInputs()
-        resetImportForm()
-        editingWalletId = nil
-        isShowingWalletImporter = false
-        // Also pop the Add Wallet entry page so the user lands back on
-        // Dashboard after a successful import — they started on Dashboard,
-        // pushed Add Wallet, pushed the Importer, and shouldn't be stranded
-        // on the intermediate Add Wallet page after finishing.
-        isShowingAddWalletEntry = false
+        let completed = await walletImport.submit {
+            let transition = try await self.bridge.applyStateCommand(.renameWallet(walletId: id, name: newName))
+            self.applyCoreState(transition.state, refreshPortfolio: false)
+            await self.rebuildWalletDerivedStateFromCore()
+            return nil
+        }
+        if completed { isShowingAddWalletEntry = false }
     }
 }

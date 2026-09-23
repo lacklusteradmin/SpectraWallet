@@ -36,7 +36,6 @@
 		90F002000000000000000026 /* RegistryModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000026 /* RegistryModels.swift */; };
 		90F002000000000000000027 /* SecureStores.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000027 /* SecureStores.swift */; };
 		90F002000000000000000029 /* SendPreviewTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000029 /* SendPreviewTypes.swift */; };
-		91D900000000000000000002 /* SendSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91D900000000000000000001 /* SendSession.swift */; };
 		90F00200000000000000002C /* StaticContentCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002C /* StaticContentCatalog.swift */; };
 		90F00200000000000000002D /* Store+Formatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002D /* Store+Formatting.swift */; };
 		90F00200000000000000002E /* Store+Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000002E /* Store+Notifications.swift */; };
@@ -60,6 +59,12 @@
 		90F002000000000000000205 /* AppState+Networks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000205 /* AppState+Networks.swift */; };
 		90F002000000000000000206 /* AppState+Wallets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000206 /* AppState+Wallets.swift */; };
 		91C100012F70000100AAA001 /* SpectraLiveActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 91C100032F70000100AAA001 /* SpectraLiveActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		91D900000000000000000002 /* SendSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91D900000000000000000001 /* SendSession.swift */; };
+		91DB00000000000000000001 /* SendFlowState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DA00000000000000000001 /* SendFlowState.swift */; };
+		91DB00000000000000000002 /* ReceiveFlowState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DA00000000000000000002 /* ReceiveFlowState.swift */; };
+		91DB00000000000000000003 /* WalletImportSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DA00000000000000000003 /* WalletImportSession.swift */; };
+		91DC00000000000000000003 /* AmountPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DC00000000000000000001 /* AmountPresentation.swift */; };
+		91DC00000000000000000004 /* AssetPresentationCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DC00000000000000000002 /* AssetPresentationCatalog.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -124,7 +129,6 @@
 		90F001000000000000000026 /* RegistryModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RegistryModels.swift; sourceTree = "<group>"; };
 		90F001000000000000000027 /* SecureStores.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SecureStores.swift; sourceTree = "<group>"; };
 		90F001000000000000000029 /* SendPreviewTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendPreviewTypes.swift; sourceTree = "<group>"; };
-		91D900000000000000000001 /* SendSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendSession.swift; sourceTree = "<group>"; };
 		90F00100000000000000002C /* StaticContentCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StaticContentCatalog.swift; sourceTree = "<group>"; };
 		90F00100000000000000002D /* Store+Formatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Formatting.swift"; sourceTree = "<group>"; };
 		90F00100000000000000002E /* Store+Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Store+Notifications.swift"; sourceTree = "<group>"; };
@@ -149,6 +153,12 @@
 		90F001000000000000000206 /* AppState+Wallets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+Wallets.swift"; sourceTree = "<group>"; };
 		91B000012F5B000100AAA001 /* SpectraTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpectraTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		91C100032F70000100AAA001 /* SpectraLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpectraLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		91D900000000000000000001 /* SendSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendSession.swift; sourceTree = "<group>"; };
+		91DA00000000000000000001 /* SendFlowState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendFlowState.swift; sourceTree = "<group>"; };
+		91DA00000000000000000002 /* ReceiveFlowState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiveFlowState.swift; sourceTree = "<group>"; };
+		91DA00000000000000000003 /* WalletImportSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletImportSession.swift; sourceTree = "<group>"; };
+		91DC00000000000000000001 /* AmountPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountPresentation.swift; sourceTree = "<group>"; };
+		91DC00000000000000000002 /* AssetPresentationCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetPresentationCatalog.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -239,6 +249,8 @@
 				90F00100000000000000000F /* AppStateTypes.swift */,
 				90F001000000000000000010 /* AppUserPreferences.swift */,
 				90F001000000000000000012 /* CoreReferenceTables.swift */,
+				91DC00000000000000000002 /* AssetPresentationCatalog.swift */,
+				91DC00000000000000000001 /* AmountPresentation.swift */,
 				90F001000000000000000100 /* Chain+Registry.swift */,
 				90F001000000000000000016 /* ChainTypes.swift */,
 				90F001000000000000000017 /* CoreModels.swift */,
@@ -252,6 +264,9 @@
 				90F001000000000000000027 /* SecureStores.swift */,
 				90F001000000000000000029 /* SendPreviewTypes.swift */,
 				91D900000000000000000001 /* SendSession.swift */,
+				91DA00000000000000000003 /* WalletImportSession.swift */,
+				91DA00000000000000000002 /* ReceiveFlowState.swift */,
+				91DA00000000000000000001 /* SendFlowState.swift */,
 				90F00100000000000000002C /* StaticContentCatalog.swift */,
 				90F00100000000000000002F /* AppState+DiagnosticsExport.swift */,
 				90F001000000000000000035 /* WalletDerivedCache.swift */,
@@ -485,6 +500,8 @@
 				90F00200000000000000000F /* AppStateTypes.swift in Sources */,
 				90F002000000000000000010 /* AppUserPreferences.swift in Sources */,
 				90F002000000000000000012 /* CoreReferenceTables.swift in Sources */,
+				91DC00000000000000000004 /* AssetPresentationCatalog.swift in Sources */,
+				91DC00000000000000000003 /* AmountPresentation.swift in Sources */,
 				90F002000000000000000016 /* ChainTypes.swift in Sources */,
 				90F002000000000000000100 /* Chain+Registry.swift in Sources */,
 				90F002000000000000000017 /* CoreModels.swift in Sources */,
@@ -498,6 +515,9 @@
 				90F002000000000000000027 /* SecureStores.swift in Sources */,
 				90F002000000000000000029 /* SendPreviewTypes.swift in Sources */,
 				91D900000000000000000002 /* SendSession.swift in Sources */,
+				91DB00000000000000000003 /* WalletImportSession.swift in Sources */,
+				91DB00000000000000000002 /* ReceiveFlowState.swift in Sources */,
+				91DB00000000000000000001 /* SendFlowState.swift in Sources */,
 				90F00200000000000000002C /* StaticContentCatalog.swift in Sources */,
 				90F00200000000000000002F /* AppState+DiagnosticsExport.swift in Sources */,
 				90F002000000000000000035 /* WalletDerivedCache.swift in Sources */,

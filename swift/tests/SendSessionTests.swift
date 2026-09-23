@@ -80,7 +80,7 @@ final class SendSessionTests: XCTestCase {
         XCTAssertNil(session.artifact)
     }
 
-    func testBroadcastCompletionAfterCloseDoesNotReopenArtifact() async {
+    func testBroadcastCompletionAfterCloseStillReturnsCommittedResultWithoutReopeningArtifact() async {
         let session = SendSession()
         session.artifact = artifact("old", stage: .signed)
         session.endpoints = ["selected", "unselected"]
@@ -96,11 +96,47 @@ final class SendSessionTests: XCTestCase {
         }
         _ = await XCTWaiter.fulfillment(of: [gate.entered], timeout: 2)
         session.reset()
+        session.artifact = artifact("new")
+        session.error = "New session error"
         gate.resume(true)
         let result = await work.value
-        XCTAssertNil(result)
-        XCTAssertNil(session.artifact)
+        XCTAssertEqual(result?.id, "old", "Application completion must run even after the composer closes")
+        XCTAssertEqual(session.artifact?.id, "new")
+        XCTAssertEqual(session.error, "New session error")
     }
+    func testBroadcastCompletionRefreshesApplicationAfterComposerIsReplaced() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let service = try WalletService(endpoints: [])
+        let bridge = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.sqlite").path, service: service)
+        _ = try await bridge.openState()
+        let store = AppState(bridge: bridge, startServices: false)
+        let wallet = WalletView(name: "Sender", addresses: ["Ethereum": "0x1111111111111111111111111111111111111111"], familyName: "Ethereum")
+        _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState(isWatchOnly: true)))
+        store.sendFlow.session.artifact = artifact("old", stage: .signed)
+        let gate = SendSessionGate<Bool>()
+        let work = Task {
+            guard let result = await store.sendFlow.session.broadcast(submit: { _, _ in
+                _ = await gate.wait()
+                let record = TransactionRecord(id: "old", walletId: wallet.id, kind: .send, status: .pending,
+                    walletName: wallet.name, assetDisplayName: "Ether", symbol: "ETH", chainName: "Ethereum",
+                    amount: 1, address: "0x2222222222222222222222222222222222222222")
+                _ = try await service.applyTransactionCommand(command: .upsert(records: [record]))
+                return self.artifact("old", stage: .signed)
+            }) else { return }
+            await store.handleBroadcastCompletion(result)
+        }
+        _ = await XCTWaiter.fulfillment(of: [gate.entered], timeout: 2)
+        store.sendFlow.reset()
+        store.sendFlow.session.artifact = artifact("new")
+        gate.resume(true)
+        await work.value
+        XCTAssertEqual(store.transactions.map(\.id), ["old"])
+        XCTAssertEqual(store.transactionCount, 1)
+        XCTAssertEqual(store.sendFlow.artifact?.id, "new")
+    }
+
 }
 
 @MainActor

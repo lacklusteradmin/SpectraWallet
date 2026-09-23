@@ -18,8 +18,7 @@ final class CoinBadgeArtworkTests: XCTestCase {
 
     func testCatalogTokenIdentityLoadsItsArtwork() {
         for entry in CoreReferenceTables.assetWiki() {
-            let badge = CoinBadge(artworkName: tokenArtworkName(tokenId: entry.tokenId), fallbackText: entry.symbol, color: .orange)
-            XCTAssertEqual(badge.artworkName, entry.face.artworkName)
+            let badge = CoinBadge(artworkName: entry.face.artworkName, fallbackText: entry.symbol, color: .orange)
             assertDrawsItsMark(badge, entry.symbol)
         }
     }
@@ -34,8 +33,8 @@ final class CoinBadgeArtworkTests: XCTestCase {
             XCTAssertEqual(badge.artworkName, token.artworkName, token.deploymentId)
             assertDrawsItsMark(badge, token.deploymentId)
         }
-        XCTAssertEqual(deploymentArtworkName(deploymentId: "base:native"), "ethereum")
-        XCTAssertEqual(deploymentArtworkName(deploymentId: nil), "")
+        XCTAssertEqual(AssetPresentationCatalog.artwork(deploymentId: "base:native"), "ethereum")
+        XCTAssertEqual(AssetPresentationCatalog.artwork(deploymentId: nil), "")
     }
 
     /// Network wiki artwork must also reach real bundled images.
@@ -59,10 +58,10 @@ final class CoinBadgeArtworkTests: XCTestCase {
             XCTAssertNotNil(UIImage(named: badge.artworkName), "\(chain.displayName) drew a letter")
         }
         let base = CoinBadge(
-            artworkName: chainArtworkName(chainId: "base"),
+            artworkName: Chain(id: "base")?.entry?.artworkName,
             fallbackText: "BASE", color: .orange)
         let etherOnBase = CoinBadge(
-            artworkName: holdingArtworkName(holding: AssetHolding(name: "", symbol: "ETH", coingeckoId: "", chainName: "Base", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 0)),
+            artworkName: AssetHolding(name: "", symbol: "ETH", coingeckoId: "", chainName: "Base", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 0).artworkName,
             fallbackText: "ETH", color: .orange)
         XCTAssertEqual(base.artworkName, "base")
         XCTAssertEqual(etherOnBase.artworkName, "ethereum")
@@ -71,8 +70,25 @@ final class CoinBadgeArtworkTests: XCTestCase {
     /// A custom contract cannot borrow USDC artwork by copying its symbol.
     func testAnUnknownCoinFallsBackToItsLetter() {
         let unknown = CoinBadge(
-            artworkName: holdingArtworkName(holding: AssetHolding(name: "USD Coin", symbol: "USDC", coingeckoId: "usd-coin", chainName: "Ethereum", tokenStandard: "ERC-20", contractAddress: "0xdead", amount: 0, priceUsd: 0)),
+            artworkName: AssetHolding(name: "USD Coin", symbol: "USDC", coingeckoId: "usd-coin", chainName: "Ethereum", tokenStandard: "ERC-20", contractAddress: "0xdead", amount: 0, priceUsd: 0).artworkName,
             fallbackText: "USDCE", color: .orange)
         XCTAssertEqual(unknown.artworkName, "")
+    }
+    func testCachedIdentityAndArtworkIgnoreBalanceAndTickerButKeepNetwork() {
+        var coin = AssetHolding(name: "Ether", symbol: "ETH", coingeckoId: "ethereum", chainName: "Base",
+            tokenStandard: "Native", contractAddress: nil, amount: 1, priceUsd: 2)
+        let id = coin.holdingKey
+        XCTAssertEqual(coin.artworkName, "ethereum")
+        coin.amount = 10
+        coin.priceUsd = 20
+        coin.symbol = "USDC"
+        coin.name = "Changed label"
+        XCTAssertEqual(coin.holdingKey, id)
+        XCTAssertEqual(coin.artworkName, "ethereum")
+        coin.chainName = "Ethereum"
+        XCTAssertNotEqual(coin.holdingKey, id)
+        coin.tokenStandard = "ERC-20"
+        coin.contractAddress = "0x1111111111111111111111111111111111111111"
+        XCTAssertEqual(coin.artworkName, "", "An unknown deployment cannot borrow the ticker's artwork")
     }
 }

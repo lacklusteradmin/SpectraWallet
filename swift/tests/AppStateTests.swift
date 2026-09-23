@@ -61,12 +61,12 @@ import Foundation
         /// Solana wallet is not asked to produce a Bitcoin address.
         func testAWalletAnswersForItsOwnChainsAndNoOthers() async {
             let store = makeState()
-            store.importDraft.walletName = "Catalog Coverage"
-            store.importDraft.setSeedPhraseForTesting(
+            store.walletImport.draft.walletName = "Catalog Coverage"
+            store.walletImport.draft.setSeedPhraseForTesting(
                 "test test test test test test test test test test test junk")
-            store.importDraft.selectedChainNamesStorage = ["Ethereum"]
+            store.walletImport.draft.selectedChainNamesStorage = ["Ethereum"]
             await store.importWallet()
-            XCTAssertNil(store.importError)
+            XCTAssertNil(store.walletImport.error)
             guard let wallet = store.wallets.first else { return XCTFail("no wallet") }
 
             let resolved = Chain.mainnets.filter {
@@ -103,10 +103,9 @@ import Foundation
                 familyName: "Ethereum", holdings: [existingHolding], includeInPortfolioTotal: false
             )
             try await store.seedWalletForTesting(wallet)
-            store.editingWalletId = wallet.id
-            store.importDraft.configureForEditing(wallet: wallet)
-            store.importDraft.walletName = "Renamed ETH"
-            store.importDraft.selectedChainNamesStorage = []
+            store.beginEditingWallet(wallet)
+            store.walletImport.draft.walletName = "Renamed ETH"
+            store.walletImport.draft.selectedChainNamesStorage = []
             await store.importWallet()
             XCTAssertEqual(store.wallets.count, 1)
             XCTAssertEqual(store.wallets[0].name, "Renamed ETH")
@@ -114,17 +113,17 @@ import Foundation
             XCTAssertEqual(store.wallets[0].holdings[0].amount, existingHolding.amount)
             XCTAssertEqual(store.wallets[0].holdings[0].priceUsd, existingHolding.priceUsd)
             XCTAssertFalse(store.wallets[0].includeInPortfolioTotal)
-            XCTAssertNil(store.editingWalletId)
-            XCTAssertFalse(store.isShowingWalletImporter)
-            XCTAssertNil(store.importError)
+            XCTAssertNil(store.walletImport.editingWalletId)
+            XCTAssertFalse(store.walletImport.isPresented)
+            XCTAssertNil(store.walletImport.error)
         }
         func testImportingBitcoinWalletPersistsDerivedAddress() async {
             let store = makeState()
-            store.importDraft.walletName = "Primary BTC"
-            store.importDraft.setSeedPhraseForTesting("test test test test test test test test test test test junk")
-            store.importDraft.selectedChainNamesStorage = ["Bitcoin"]
+            store.walletImport.draft.walletName = "Primary BTC"
+            store.walletImport.draft.setSeedPhraseForTesting("test test test test test test test test test test test junk")
+            store.walletImport.draft.selectedChainNamesStorage = ["Bitcoin"]
             await store.importWallet()
-            XCTAssertNil(store.importError)
+            XCTAssertNil(store.walletImport.error)
             XCTAssertEqual(store.wallets.count, 1)
             XCTAssertEqual(store.wallets.first?.familyName, "Bitcoin")
             XCTAssertNotNil(store.wallets.first?.address(forChainNamed: "Bitcoin"))
@@ -144,11 +143,11 @@ import Foundation
             let store = makeState()
             store.selectChainForFamily("bitcoin-testnet-4")
             await store.awaitPendingCoreStateWrites()
-            store.importDraft.walletName = "Primary BTC Testnet4"
-            store.importDraft.setSeedPhraseForTesting("test test test test test test test test test test test junk")
-            store.importDraft.selectedChainNamesStorage = ["Bitcoin"]
+            store.walletImport.draft.walletName = "Primary BTC Testnet4"
+            store.walletImport.draft.setSeedPhraseForTesting("test test test test test test test test test test test junk")
+            store.walletImport.draft.selectedChainNamesStorage = ["Bitcoin"]
             await store.importWallet()
-            XCTAssertNil(store.importError)
+            XCTAssertNil(store.walletImport.error)
             XCTAssertEqual(store.wallets.count, 1)
             XCTAssertEqual(store.wallets.first?.familyName, "Bitcoin")
             let stored = store.wallets.first?.address(forChainNamed: "Bitcoin") ?? ""
@@ -221,15 +220,15 @@ import Foundation
                 name: "Bitcoin", symbol: "BTC", coingeckoId: "", chainName: "Bitcoin Testnet4", tokenStandard: "Native",
                 contractAddress: nil, amount: 1.25, priceUsd: 64000
             )
-            XCTAssertEqual(store.assetIdentityKey(for: coin), "bitcoin-testnet-4:native")
+            XCTAssertEqual(coin.holdingKey, "bitcoin-testnet-4:native")
             store.livePrices[coin.holdingKey] = 64000
-            XCTAssertNil(store.currentPriceIfAvailable(for: coin))
-            XCTAssertNil(store.currentValueIfAvailable(for: coin))
+            XCTAssertNil(store.amounts.currentPriceIfAvailable(for: coin))
+            XCTAssertNil(store.amounts.currentValueIfAvailable(for: coin))
             let mainnet = Coin.makeCustom(
                 name: "Bitcoin", symbol: "BTC", coingeckoId: "bitcoin", chainName: "Bitcoin", tokenStandard: "Native",
                 contractAddress: nil, amount: 1, priceUsd: 0)
             store.livePrices[mainnet.holdingKey] = 64000
-            XCTAssertEqual(store.currentPriceIfAvailable(for: mainnet), 64000)
+            XCTAssertEqual(store.amounts.currentPriceIfAvailable(for: mainnet), 64000)
         }
         func testMissingFiatRateIsUnavailableAndPartialTotalsAreLabelled() async {
             let store = makeState()
@@ -237,11 +236,11 @@ import Foundation
             let before = store.selectedFiatCurrency
             await store.setFiatCurrency(.eur)
             store.fiatRatesFromUSD = [:]
-            XCTAssertNil(store.formattedFiatAmountIfAvailable(fromUSD: 500))
-            XCTAssertEqual(store.formattedFiatAmount(fromUSD: 500), "—")
-            XCTAssertEqual(store.formattedQuotedTotal(nil), "—")
+            XCTAssertNil(store.amounts.formattedFiatAmountIfAvailable(fromUSD: 500))
+            XCTAssertEqual(store.amounts.formattedFiatAmount(fromUSD: 500), "—")
+            XCTAssertEqual(store.amounts.formattedQuotedTotal(nil), "—")
             let incomplete = QuotedTotal(total: 6000, unpricedCount: 1, fiatTotal: 5400)
-            XCTAssertTrue(store.formattedQuotedTotal(incomplete).contains(AppLocalization.format("%lld without a price", 1)))
+            XCTAssertTrue(store.amounts.formattedQuotedTotal(incomplete).contains(AppLocalization.format("%lld without a price", 1)))
             await store.setFiatCurrency(before)
         }
 
@@ -287,11 +286,17 @@ import Foundation
             let endpoint = "https://eth.blockscout.com"
             let summary = try XCTUnwrap(AppEndpointDirectory.tagSummary(for: endpoint))
             XCTAssertTrue(summary.hasPrefix("blockscout"))
-            for capability in ["history", "token-history", "token-discovery", "token-balance"] {
+            for capability in ["history", "token-history"] {
                 let key = "endpointCapability.\(capability)"
                 let label = AppLocalization.string(key)
                 XCTAssertNotEqual(label, key)
                 XCTAssertTrue(summary.contains(label), capability)
+            }
+            for capability in ["token-discovery", "token-balance"] {
+                let key = "endpointCapability.\(capability)"
+                let label = AppLocalization.string(key)
+                XCTAssertNotEqual(label, key)
+                XCTAssertFalse(summary.contains(label), capability)
             }
             let node = try XCTUnwrap(AppEndpointDirectory.tagSummary(for: "https://ethereum-rpc.publicnode.com"))
             XCTAssertTrue(node.contains(AppLocalization.string("endpointCapability.token-balance")))
@@ -554,11 +559,14 @@ import Foundation
             await store.awaitPendingSettingCommands()
         }
 
-        func testImportCompletionPreservesAPartialSuccessNotice() {
+        func testImportCompletionPreservesAPartialSuccessNotice() async {
             let store = makeState()
-            store.finishWalletImportFlow(notice: "Some addresses were refused")
-            XCTAssertEqual(store.importError, "Some addresses were refused")
-            XCTAssertFalse(store.isShowingWalletImporter)
+            store.beginWatchAddressesImport()
+            await store.walletImport.submit { "Some addresses were refused" }
+            // SwiftUI can write the dismissed binding again after completion.
+            store.walletImport.isPresented = false
+            XCTAssertEqual(store.walletImport.error, "Some addresses were refused")
+            XCTAssertFalse(store.walletImport.isPresented)
             XCTAssertTrue(store.appNoticeItems.contains { $0.message == "Some addresses were refused" })
         }
 

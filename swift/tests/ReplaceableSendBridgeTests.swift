@@ -15,8 +15,10 @@ import Foundation
     final class ReplaceableSendBridgeTests: IsolatedAppStateTestCase {
 
         func testReplacementFieldsCrossTheAsyncBridge() async throws {
+            let wallet = WalletView(name: "Main", addresses: ["Arbitrum": "0x1111111111111111111111111111111111111111"], familyName: "Arbitrum")
+            _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState(isWatchOnly: true)))
             let record = TransactionRecord(
-                id: UUID().uuidString, walletId: "wallet-1", deploymentId: "arbitrum:native",
+                id: UUID().uuidString, walletId: wallet.id, deploymentId: "arbitrum:native",
                 kind: .send, status: .pending, walletName: "Main", assetDisplayName: "Arbitrum",
                 symbol: "ETH", chainName: "Arbitrum", amount: 1.5,
                 address: "0x1111111111111111111111111111111111111111",

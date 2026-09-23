@@ -73,10 +73,10 @@ struct DashboardView: View {
                     WalletDetailView(store: store, wallet: wallet)
                 }
             }.navigationDestination(item: $selectedAssetGroup) { assetGroup in AssetGroupDetailView(store: store, assetGroup: assetGroup) }
-                .navigationDestination(isPresented: $store.isShowingSendSheet) {
+                .navigationDestination(isPresented: Bindable(store.sendFlow).isPresented) {
                     SendView(store: store)
                 }.navigationDestination(
-                    isPresented: $store.isShowingReceiveSheet
+                    isPresented: Bindable(store.receiveFlow).isPresented
                 ) {
                     ReceiveView(store: store)
                 }.alert(
@@ -197,7 +197,7 @@ struct DashboardView: View {
                             walletName: wallet.name, chainTitleText: wallet.networkTitle,
                             totalValueText: store.preferences.hideBalances
                                 ? "••••••"
-                                : store.formattedWalletTotal(walletId: wallet.id),
+                                : store.amounts.formattedWalletTotal(walletId: wallet.id),
                             assetCountText: AppLocalization.format(
                                 "%lld assets", wallet.holdings.filter { $0.amount > 0 }.count),
                             isWatchOnly: store.isWatchOnlyWallet(wallet), badgeArtworkName: badge.0,
@@ -247,12 +247,12 @@ struct DashboardView: View {
         return portfolio.map { assetGroup in
             DashboardAssetRowPresentation(
                 assetGroup: assetGroup,
-                amountText: store.formattedAssetAmount(
+                amountText: store.amounts.formattedAssetAmount(
                     assetGroup.totalAmount, symbol: assetGroup.symbol, deploymentId: assetGroup.identity.holdingKey
                 ),
                 totalValueText: hideBalances
                     ? "••••••"
-                    : store.formattedFiatAmountOrUnavailable(fromUSD: assetGroup.totalValueUsd),
+                    : store.amounts.formattedFiatAmountOrUnavailable(fromUSD: assetGroup.totalValueUsd),
                 priceText: dashboardAssetPriceText(for: assetGroup, hideBalances: hideBalances)
             )
         }
@@ -272,10 +272,10 @@ struct DashboardView: View {
     }
     private func dashboardAssetPriceText(for assetGroup: DashboardAssetGroup, hideBalances: Bool) -> String {
         if hideBalances { return "••••••" }
-        guard let price = store.currentPriceIfAvailable(for: assetGroup.identity) else {
-            return store.formattedFiatAmountOrUnavailable(fromUSD: nil)
+        guard let price = store.amounts.currentPriceIfAvailable(for: assetGroup.identity) else {
+            return store.amounts.formattedFiatAmountOrUnavailable(fromUSD: nil)
         }
-        return store.formattedFiatAmountOrUnavailable(fromUSD: price)
+        return store.amounts.formattedFiatAmountOrUnavailable(fromUSD: price)
     }
 }
 enum DashboardPage {
@@ -385,7 +385,7 @@ private struct AssetDetailHeroCard: View {
                 Text(assetGroup.symbol).font(.subheadline.weight(.semibold).monospaced())
                     .foregroundStyle(assetGroup.color)
                 if !compact {
-                    Text(store.formattedFiatAmountOrUnavailable(fromUSD: assetGroup.totalValueUsd))
+                    Text(store.amounts.formattedFiatAmountOrUnavailable(fromUSD: assetGroup.totalValueUsd))
                         .font(.title3.weight(.semibold)).foregroundStyle(Color.primary)
                         .spectraNumericTextLayout(minimumScaleFactor: 0.7)
                 }
@@ -402,13 +402,13 @@ private struct AssetSummaryStatsCard: View {
         VStack(alignment: .leading, spacing: 12) {
             statRow(
                 label: AppLocalization.string("Total Amount"),
-                value: store.formattedAssetAmount(
+                value: store.amounts.formattedAssetAmount(
                     assetGroup.totalAmount, symbol: assetGroup.symbol, deploymentId: assetGroup.identity.holdingKey),
                 icon: "scalemass.fill")
             Divider().opacity(0.4)
             statRow(
                 label: AppLocalization.string("Total Value"),
-                value: store.formattedFiatAmountOrUnavailable(fromUSD: assetGroup.totalValueUsd),
+                value: store.amounts.formattedFiatAmountOrUnavailable(fromUSD: assetGroup.totalValueUsd),
                 icon: "dollarsign.circle.fill")
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .spectraCardFill()
@@ -458,10 +458,10 @@ private struct AssetChainBreakdownCard: View {
                         chainName: holding.coin.chainName,
                         chainTitle: store.selectedNetworkTitle(forFamilyName: holding.coin.chainName),
                         tokenStandard: holding.coin.tokenStandard,
-                        amountText: store.formattedAssetAmount(
+                        amountText: store.amounts.formattedAssetAmount(
                             holding.coin.amount, symbol: holding.coin.symbol,
                             deploymentId: holding.coin.holdingKey),
-                        valueText: store.formattedFiatAmountOrUnavailable(fromUSD: holding.valueUsd),
+                        valueText: store.amounts.formattedFiatAmountOrUnavailable(fromUSD: holding.valueUsd),
                         fallbackColor: holding.coin.color
                     )
                     if index < assetGroup.holdings.count - 1 { Divider().opacity(0.3) }
@@ -696,7 +696,7 @@ private struct DashboardPortfolioHeader: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Text(AppLocalization.string("Portfolio")).font(.subheadline).foregroundStyle(.secondary)
                     let quoted = store.portfolioQuotedTotal
-                    Text(store.preferences.hideBalances ? "••••••" : store.formattedQuotedTotal(quoted))
+                    Text(store.preferences.hideBalances ? "••••••" : store.amounts.formattedQuotedTotal(quoted))
                         .font(.title.weight(.bold)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.5).allowsTightening(true)
                     Text(AppLocalization.format("%lld in total", store.cachedIncludedPortfolioWallets.count)).font(.footnote).foregroundStyle(.secondary)
 

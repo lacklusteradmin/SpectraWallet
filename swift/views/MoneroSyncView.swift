@@ -23,7 +23,7 @@ struct MoneroSyncView: View {
                         Button(AppLocalization.string("Cancel")) { running = false }
                             .buttonStyle(.glass)
                     } else {
-                        if store.bridge.walletSecretState(walletId: store.sendWalletId)?.isSealed ?? true {
+                        if store.bridge.walletSecretState(walletId: store.sendFlow.walletId)?.isSealed ?? true {
                             SecureField(AppLocalization.string("Wallet Password"), text: $password)
                                 .spectraInputFieldStyle()
                         }
@@ -42,8 +42,8 @@ struct MoneroSyncView: View {
                 .spectraCardFill()
             }
         }
-        .task(id: store.sendWalletId) {
-            do { status = try await store.bridge.moneroSyncStatus(walletId: store.sendWalletId) }
+        .task(id: store.sendFlow.walletId) {
+            do { status = try await store.bridge.moneroSyncStatus(walletId: store.sendFlow.walletId) }
             catch { self.error = error.localizedDescription }
         }
         .task(id: running) {
@@ -59,7 +59,7 @@ struct MoneroSyncView: View {
                     }
                     height = parsed
                 }
-                let walletId = store.sendWalletId
+                let walletId = store.sendFlow.walletId
                 let secret = password.isEmpty ? nil : password
                 repeat {
                     try Task.checkCancellation()

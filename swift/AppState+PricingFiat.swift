@@ -19,12 +19,13 @@ extension AppState {
         let before = livePrices
         do {
             _ = try await self.bridge.refreshOwnedPrices(force: false)
+            let notifications = await evaluatePriceAlertNotifications()
             await rebuildWalletDerivedStateFromCore()
+            deliverPriceAlertNotifications(notifications)
             didUpdatePrices = livePrices != before
         } catch {
             quoteRefreshError = error.localizedDescription
         }
-        if didUpdatePrices { await evaluatePriceAlerts() }
         return didUpdatePrices
     }
     func refreshFiatExchangeRatesIfNeeded(force: Bool = false) async {
@@ -38,7 +39,6 @@ extension AppState {
             fiatRatesRefreshError = error.localizedDescription
         }
     }
-    func activePriceKey(for coin: Coin) -> String { assetIdentityKey(for: coin) }
     // ── Fiat currency (core-owned) ────────────────────────────────────────
 
     /// Load core's state and mirror it. Call once at launch.
@@ -99,16 +99,7 @@ extension AppState {
     var shouldRunScheduledPriceRefresh: Bool { selectedMainTab == .home }
     var refreshableChainNames: Set<String> { cachedRefreshableChainNames }
     var includedPortfolioWallets: [WalletView] { cachedIncludedPortfolioWallets }
-    func currentPriceIfAvailable(for coin: Coin) -> Double? {
-        guard isPricedAsset(coin) else { return nil }
-        guard let price = livePrices[activePriceKey(for: coin)], price.isFinite, price > 0 else { return nil }
-        return price
-    }
-    func fiatRateIfAvailable(for currency: FiatCurrency) -> Double? {
-        if currency == .usd { return 1.0 }
-        guard let rate = fiatRatesFromUSD[currency.code], rate.isFinite, rate > 0 else { return nil }
-        return rate
-    }
+
 }
 /// Core's currencies, with what a picker needs: an order, a name and an icon.
 /// The code comes from core's formatting rules, which carry it.

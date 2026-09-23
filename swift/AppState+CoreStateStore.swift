@@ -27,9 +27,10 @@ extension AppState {
             _ = try await self.bridge.applyStateCommand(.removeWallet(walletId: id))
             await refreshTransactionProjection()
             await rebuildWalletDerivedStateFromCore()
+            walletCommandError = nil
             return true
         } catch {
-            importError = error.localizedDescription
+            walletCommandError = error.localizedDescription
             return false
         }
     }
@@ -44,8 +45,9 @@ extension AppState {
                 let transition = try await self.bridge.applyStateCommand(command)
                 self.applyCoreState(transition.state, refreshPortfolio: false)
                 await self.rebuildWalletDerivedStateFromCore()
+                self.walletCommandError = nil
             } catch {
-                self.importError = error.localizedDescription
+                self.walletCommandError = error.localizedDescription
             }
         }
     }

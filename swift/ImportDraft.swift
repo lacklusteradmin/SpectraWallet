@@ -245,14 +245,6 @@ final class WalletImportDraft {
         backupVerificationWordIndices = []
         backupVerificationEntries = []
     }
-    func clearSensitiveInputs() {
-        seedPhrase = ""
-        walletPassword = ""
-        walletPasswordConfirmation = ""
-        privateKeyInput = ""
-        seedPhraseEntries = Array(repeating: "", count: selectedSeedPhraseWordCount)
-        backupVerificationEntries = Array(repeating: "", count: backupVerificationWordIndices.count)
-    }
     func toggleChainSelection(_ chainName: String) { setSelectedChain(chainName, isEnabled: !isSelectedChain(chainName)) }
     private func isSelectedChain(_ chainName: String) -> Bool { selectedChainNamesStorage.contains(chainName) }
     private func setSelectedChain(_ chainName: String, isEnabled: Bool) {

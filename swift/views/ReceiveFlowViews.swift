@@ -33,20 +33,20 @@ struct ReceiveView: View {
     @State private var qrImageSaver: PhotoLibraryImageSaver?
 
     private var selectedWallet: WalletView? {
-        store.receiveEnabledWallets.first(where: { $0.id == store.receiveWalletId })
+        store.receiveEnabledWallets.first(where: { $0.id == store.receiveFlow.walletId })
     }
 
     private var selectedCoin: Coin? {
-        store.selectedReceiveCoin(for: store.receiveWalletId)
+        store.selectedReceiveCoin(for: store.receiveFlow.walletId)
     }
 
     private var resolvedAddress: String {
-        store.receiveResolvedAddress
+        store.receiveFlow.resolvedAddress
     }
 
     private var canUseResolvedAddress: Bool {
         !resolvedAddress.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && !store.isResolvingReceiveAddress
+            && !store.receiveFlow.isResolving
     }
 
     /// The QR as an image, for sharing and saving. `nil` until an address
@@ -163,7 +163,7 @@ struct ReceiveView: View {
                     ForEach(store.receiveEnabledWallets) { wallet in
                         WalletReceiveCard(
                             wallet: wallet,
-                            isSelected: wallet.id == store.receiveWalletId
+                            isSelected: wallet.id == store.receiveFlow.walletId
                         ) {
                             select(wallet)
                         }
@@ -225,7 +225,7 @@ struct ReceiveView: View {
                 }
             }
 
-            Text(canUseResolvedAddress ? resolvedAddress : (store.receiveAddressError ?? AppLocalization.string("Loading receive address…")))
+            Text(canUseResolvedAddress ? resolvedAddress : (store.receiveFlow.error ?? AppLocalization.string("Loading receive address…")))
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -332,9 +332,9 @@ struct ReceiveView: View {
     }
 
     private func select(_ wallet: WalletView) {
-        guard store.receiveWalletId != wallet.id else { return }
+        guard store.receiveFlow.walletId != wallet.id else { return }
         spectraHaptic(.light)
-        store.receiveWalletId = wallet.id
+        store.receiveFlow.walletId = wallet.id
         store.syncReceiveAssetSelection()
     }
 
@@ -346,7 +346,7 @@ struct ReceiveView: View {
     }
 
     private var receiveRefreshKey: String {
-        "\(currentStep.rawValue)|\(store.receiveWalletId)|\(store.receiveHoldingKey)"
+        "\(currentStep.rawValue)|\(store.receiveFlow.walletId)|\(store.receiveFlow.holdingKey)"
     }
 
 }

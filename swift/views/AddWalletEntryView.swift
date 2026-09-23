@@ -46,13 +46,13 @@ struct AddWalletEntryView: View {
         .navigationTitle(AppLocalization.string("Add Wallet")).navigationBarTitleDisplayMode(.inline)
         .navigationDestination(
             isPresented: Binding(
-                get: { store.isShowingWalletImporter && store.editingWalletId == nil },
+                get: { store.walletImport.isPresented && store.walletImport.editingWalletId == nil },
                 set: { isPresented in
-                    if !isPresented { store.isShowingWalletImporter = false }
+                    if !isPresented { store.walletImport.isPresented = false }
                 }
             )
         ) {
-            SetupView(store: store, draft: store.importDraft)
+            SetupView(store: store, draft: store.walletImport.draft)
         }
         .navigationDestination(
             isPresented: $isShowingFundsFinder

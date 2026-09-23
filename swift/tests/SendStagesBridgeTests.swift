@@ -52,7 +52,7 @@ final class SendStagesBridgeTests: IsolatedAppStateTestCase {
 
     func testSignedStageRendersInspectablePayloadAndExplicitDestinations() async throws {
         let state = makeState()
-        state.sendSession.endpoints = ["https://ethereum.example/rpc"]
+        state.sendFlow.session.endpoints = ["https://ethereum.example/rpc"]
         let artifact = SendArtifact(id: "render-fixture", revision: 1, stage: .signed,
             walletId: "fixture", chainId: "ethereum-sepolia",
             sender: "0x1111111111111111111111111111111111111111",
@@ -61,7 +61,7 @@ final class SendStagesBridgeTests: IsolatedAppStateTestCase {
             review: SendArtifactReview(warnings: [.newAddress], recipientWarnings: [], requiresSelfSendConfirmation: true),
             preparedDetails: "Nonce: 7\nMaximum gas: 25200", signingPayloadHex: "02",
             signedPayload: "0x02…", transactionHash: "0x1234", attempts: [], selectedEndpoints: [])
-        state.sendSession.artifact = artifact
+        state.sendFlow.session.artifact = artifact
         XCTAssertTrue(state.pendingHighRiskSendReasons[0].contains("1.000000000000000001"))
         XCTAssertEqual(state.pendingHighRiskSendReasons.count, 3)
         let view = ScrollView {
@@ -89,6 +89,6 @@ final class SendStagesBridgeTests: IsolatedAppStateTestCase {
         attachment.name = "Signed transaction awaiting broadcast"
         attachment.lifetime = .keepAlways
         add(attachment)
-        XCTAssertTrue(state.selectedSendEndpoints.isEmpty, "Rendering must not select destinations or submit")
+        XCTAssertTrue(state.sendFlow.selectedEndpoints.isEmpty, "Rendering must not select destinations or submit")
     }
 }

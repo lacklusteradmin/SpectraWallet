@@ -49,10 +49,6 @@ final class AppState {
         return formatter
     }()
     static let operationalLogTimestampFormatter = ISO8601DateFormatter()
-    // Each `DebouncedAction` captures its target's coalescing window at
-    // construction so the interval is visible next to the field declaration
-    // instead of being a magic number buried in an async closure.
-    @ObservationIgnored private let tokenPreferenceRebuild = DebouncedAction(intervalMilliseconds: 30)
     /// Recorded transactions.
     ///
     /// Domain state: core owns the store and its persistence. This is a
@@ -71,6 +67,9 @@ final class AppState {
     @ObservationIgnored var portfolioSnapshotRevision: UInt64 = 0 // Core snapshot order, not request order.
     @ObservationIgnored var transactionSnapshotRevision: UInt64 = 0 // Reject delayed history summaries.
     var portfolioValuation: PortfolioValuation?
+    private(set) var assetPrecision: AssetPrecisionCatalog?
+
+    func adoptAssetPrecision(_ precision: AssetPrecisionCatalog) { assetPrecision = precision }
     var transactionCount: UInt64 = 0
     /// The pending sends core says can still be replaced on their chain.
     /// Adopted with the rest of the transaction-derived views; observed,
@@ -121,8 +120,7 @@ final class AppState {
     }
     private(set) var walletsRevision: UInt64 = 0
     // Derived caches. Recomputed by `applyWalletCollectionSideEffects`,
-    // `rebuildWalletDerivedState` and
-    // `rebuildTokenPreferenceDerivedState`.
+    // `rebuildWalletDerivedState`.
     //
     // No revision counter here. Under `@Observable` a view already tracks the
     // properties it reads, so a counter bumped on every cache write could only
@@ -141,35 +139,12 @@ final class AppState {
     var cachedSendEnabledWallets: [WalletView] { walletDerivedCache.sendEnabledWallets }
     var cachedReceiveEnabledWallets: [WalletView] { walletDerivedCache.receiveEnabledWallets }
     var cachedRefreshableChainNames: Set<String> { walletDerivedCache.refreshableChainNames }
-    let importDraft = WalletImportDraft()
-    var importError: String? = nil
-    var isImportingWallet: Bool = false
-    var isShowingWalletImporter: Bool = false
     var isShowingAddWalletEntry: Bool = false
-    var isShowingSendSheet: Bool = false
-    var isShowingReceiveSheet: Bool = false
+    let sendFlow = SendFlowState()
+    let receiveFlow = ReceiveFlowState()
+    let walletImport = WalletImportSession()
+    var walletCommandError: String?
     var walletPendingDeletion: WalletView?
-    var editingWalletId: String? = nil
-    var sendWalletId: String = ""
-    var sendHoldingKey: String = ""
-    var sendAmount: String = ""
-    var sendAddress: String = ""
-    var sendError: String? {
-        get { sendSession.error }
-        set { sendSession.error = newValue }
-    }
-    var sendDestinationRiskWarning: String? = nil
-    var sendDestinationInfoMessage: String? = nil
-    var isCheckingSendDestinationBalance: Bool = false
-    var isShowingHighRiskSendConfirmation: Bool = false
-    var sendVerificationNotice: String? = nil
-    var sendVerificationNoticeIsWarning: Bool = false
-    var receiveWalletId: String = ""
-    var receiveHoldingKey: String = ""
-    var receiveResolvedAddress: String = ""
-    var receiveAddressError: String?
-    @ObservationIgnored var receiveAddressRequestId = UUID() // Reject stale asynchronous results.
-    var isResolvingReceiveAddress: Bool = false
     var selectedMainTab: MainAppTab = .home
     var isAppLocked: Bool = false
     var appLockError: String? = nil
@@ -177,18 +152,6 @@ final class AppState {
     /// Observed: nothing that touches a seed or a private key works without
     /// it, so the failure has to reach the user rather than only the log.
     var secretStoreRegistrationError: String? = nil
-    var isPreparingReplacementContext: Bool = false
-    /// Chains currently computing a send fee preview. Observed by send UI to show loading state.
-    var preparingChains: Set<String> = []
-    @ObservationIgnored var sendDestinationProbeRequestId = UUID() // Reject stale recipient probes.
-    let sendSession = SendSession()
-    var sendArtifact: SendArtifact? { sendSession.artifact }
-    var savedSendArtifacts: [SendArtifact] = []
-    var sendEndpointChoices: [String] { sendSession.endpoints }
-    var selectedSendEndpoints: Set<String> {
-        get { sendSession.selectedEndpoints }
-        set { sendSession.selectedEndpoints = newValue }
-    }
     @ObservationIgnored var isRefreshingLivePrices = false
     @ObservationIgnored var isRefreshingFiatRates = false
     /// How long the maintenance loop sleeps before asking core again, as supplied by core.
@@ -196,16 +159,7 @@ final class AppState {
     @ObservationIgnored var isNetworkReachable: Bool = true
     @ObservationIgnored var isConstrainedNetwork: Bool = false
     @ObservationIgnored var isExpensiveNetwork: Bool = false
-    var stagedSendTransaction: TransactionRecord? {
-        guard let id = sendArtifact?.id else { return nil }
-        return transactions.first { $0.id == id }
-    }
     var lastPendingTransactionRefreshAt: Date? = nil
-    // Send previews live in a dedicated sub-store so updates during the send flow
-    // do not invalidate every view that observes AppState. Views that need the
-    // preview values should observe `sendPreviewStore` directly.
-    let sendPreviewStore = SendPreviewStore()
-    var isSending: Bool { sendSession.operation != nil }
     let chainDiagnosticsState = WalletChainDiagnosticsState()
 
     /// Read-only keypool diagnostics. Reading does not reserve an address.
@@ -344,17 +298,7 @@ final class AppState {
     @ObservationIgnored var addressBookCommandTask: Task<Void, Never>?
     /// The tracked-token projection. Change it through `addCustomTokenPreference`,
     /// `removeCustomTokenPreference`, or `setTokenPreferencesEnabled`.
-    private(set) var tokenPreferences: [TokenPreferenceEntry] = [] {
-        didSet {
-            guard tokenPreferences != oldValue else { return }
-            // Token-decimals overrides feed into the Rust asset-decimals
-            // resolver, so drop the memoized cache when the overrides change.
-            tokenPreferenceRebuild.fire { [weak self] in
-                guard let self else { return }
-                self.rebuildTokenPreferenceDerivedState()
-            }
-        }
-    }
+    private(set) var tokenPreferences: [TokenPreferenceEntry] = []
     /// Why core refused the last token-preference change, if it did.
     var tokenPreferenceError: String?
     @ObservationIgnored var stateCommandTask: Task<Void, Never>?
@@ -368,22 +312,19 @@ final class AppState {
     var cachedAvailableDashboardPinOptions: [DashboardPinOption] = []
     var cachedDashboardAssetGroups: [DashboardAssetGroup] = []
 
-    var cachedTokenPreferenceByDeploymentId: [String: TokenPreferenceEntry] = [:]
-    @ObservationIgnored var cachedCurrencyFormatters: [FiatCurrency: NumberFormatter] = [:]
-    @ObservationIgnored var cachedDecimalFormatters: [String: NumberFormatter] = [:]
+    var amounts: AmountPresentation {
+        AmountPresentation(selectedFiatCurrency: selectedFiatCurrency,
+            fiatRatesFromUSD: fiatRatesFromUSD, livePrices: livePrices,
+            unpricedChainNames: unpricedChainNames, assetPrecision: assetPrecision,
+            portfolioValuation: portfolioValuation)
+    }
     /// Concrete testnets are never quoted.
     ///
     /// Core decides; this is the projection the render path reads.
     private(set) var unpricedChainNames: Set<String> = []
-    var useCustomEvmFees: Bool = false
-    var customEvmMaxFeeGwei: String = ""
-    var customEvmPriorityFeeGwei: String = ""
-    var evmManualNonceEnabled: Bool = false
-    var evmManualNonce: String = ""
     /// The five preferences this platform keeps for itself. Split out so views
     /// that only read them are not invalidated by wallet or balance changes.
     let preferences = AppUserPreferences()
-    @ObservationIgnored var sendPreviewRequestId = UUID() // Reject every completion of a superseded preview.
     var isLoadingMoreOnChainHistory: Bool = false
     let diagnostics: WalletDiagnosticsState
     /// Whether a chain's deep rescan is running, and when it last finished.
@@ -426,24 +367,21 @@ final class AppState {
     }
 
     private func applyVerificationNotice(_ n: SendVerificationNotice) {
-        sendVerificationNotice = n.notice
-        sendVerificationNoticeIsWarning = n.isWarning
-    }
-    func clearSendVerificationNotice() {
-        applyVerificationNotice(SendVerificationNotice(notice: nil, isWarning: false))
+        sendFlow.verificationNotice = n.notice
+        sendFlow.verificationNoticeIsWarning = n.isWarning
     }
     /// What core says about the last send, from its stored record.
     ///
     /// This rebuilt a snapshot of the record from the projection, with the
     /// kind and status spelled as strings, and handed it back to be judged.
     func updateStagedSendVerificationNotice() async {
-        let session = sendSession.id
-        guard let transactionId = stagedSendTransaction?.id else {
-            clearSendVerificationNotice()
+        let session = sendFlow.session.id
+        guard let transactionId = sendFlow.artifact?.id else {
+            sendFlow.clearVerificationNotice()
             return
         }
         guard let notice = try? await self.bridge.sendVerificationNotice(transactionId: transactionId),
-            sendSession.isCurrent(session), stagedSendTransaction?.id == transactionId
+            sendFlow.session.isCurrent(session), sendFlow.artifact?.id == transactionId
         else { return }
         applyVerificationNotice(notice)
     }
@@ -453,7 +391,6 @@ final class AppState {
         if let chain = Chain(displayName: chainName) {
             await performCoreRefresh(.afterSend(chainId: chain.id))
         }
-        await updateStagedSendVerificationNotice()
     }
     init(bridge: WalletServiceBridge = .shared, startServices: Bool = true) {
         self.bridge = bridge
@@ -522,13 +459,12 @@ final class AppState {
         balanceFlushTask?.cancel()
         settingCommandTask?.cancel()
         walletSideEffectsDebounce.cancel()
-        tokenPreferenceRebuild.cancel()
         #if canImport(Network)
             networkPathMonitor.cancel()
         #endif
     }
     var canImportWallet: Bool {
-        importDraft.canImportWallet
+        walletImport.draft.canImportWallet
     }
 
     /// A token is addressed by what it is — its contract on its chain —

@@ -38,7 +38,8 @@ extension AssetHolding: Identifiable {
     /// The list key, from what identifies the holding. Was a stored field each
     /// producer filled its own way — one of them with a fresh `UUID`, which
     /// makes SwiftUI treat every row as new on each rebuild.
-    public var id: String { holdingIdentity(holding: self) }
+    // Cache core's answer by its identity inputs, not balance or display labels.
+    public var id: String { AssetPresentationCatalog.identity(for: self) }
     var color: Color { Coin.displayColor(for: symbol) }
     var holdingKey: String { id }
     var chain: Chain? { Chain(displayName: chainName) }
@@ -162,7 +163,7 @@ extension CorePersistedTransactionRecord: Identifiable {}
 
 extension TransactionRecord {
     /// History with no deployment identity draws its letter.
-    var artworkName: String { deploymentArtworkName(deploymentId: deploymentId) }
+    var artworkName: String { AssetPresentationCatalog.artwork(deploymentId: deploymentId) }
     /// When it was recorded. Core stores Unix seconds.
     var createdDate: Date { Date(timeIntervalSince1970: createdAtUnix) }
     var titleText: String {

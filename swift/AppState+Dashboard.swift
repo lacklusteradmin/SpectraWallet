@@ -35,18 +35,20 @@ extension AppState {
                     systemImage: "antenna.radiowaves.left.and.right.slash", timestamp: banner.lastGoodSyncAt
                 )
             })
-        if let importError = importError?.trimmingCharacters(in: .whitespacesAndNewlines), !importError.isEmpty {
+        for error in [walletImport.error, walletCommandError].compactMap({ $0 }) {
+            let importNotice = error.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !importNotice.isEmpty else { continue }
             notices.append(
                 AppNoticeItem(
-                    title: commonCopy.walletImportErrorTitle, message: importError, severity: .error,
+                    title: commonCopy.walletImportErrorTitle, message: importNotice, severity: .error,
                     systemImage: "square.and.arrow.down.badge.exclamationmark"
                 )
             )
         }
-        if let sendError = sendError?.trimmingCharacters(in: .whitespacesAndNewlines), !sendError.isEmpty {
+        if let sendNotice = sendFlow.error?.trimmingCharacters(in: .whitespacesAndNewlines), !sendNotice.isEmpty {
             notices.append(
                 AppNoticeItem(
-                    title: commonCopy.sendErrorTitle, message: sendError, severity: .error, systemImage: "paperplane.circle"
+                    title: commonCopy.sendErrorTitle, message: sendNotice, severity: .error, systemImage: "paperplane.circle"
                 )
             )
         }

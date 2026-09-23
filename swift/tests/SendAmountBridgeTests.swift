@@ -85,31 +85,31 @@ final class SendAmountBridgeTests: IsolatedAppStateTestCase {
     func testPreviewDiscardsStaleSuccessAndFailureForEveryFormEdit() {
         let store = makeState()
         let edits: [(AppState) -> Void] = [
-            { $0.sendWalletId = "other" }, { $0.sendHoldingKey = "other" },
-            { $0.sendAmount = "2" }, { $0.sendAddress = "other" },
-            { $0.evmManualNonceEnabled.toggle() }, { $0.evmManualNonce = "invalid" },
-            { $0.useCustomEvmFees.toggle() }, { $0.customEvmMaxFeeGwei = "invalid" },
-            { $0.customEvmPriorityFeeGwei = "invalid" },
-            { $0.sendPreviewRequestId = UUID() },
+            { $0.sendFlow.walletId = "other" }, { $0.sendFlow.holdingKey = "other" },
+            { $0.sendFlow.amount = "2" }, { $0.sendFlow.address = "other" },
+            { $0.sendFlow.evmManualNonceEnabled.toggle() }, { $0.sendFlow.evmManualNonce = "invalid" },
+            { $0.sendFlow.useCustomEvmFees.toggle() }, { $0.sendFlow.customEvmMaxFeeGwei = "invalid" },
+            { $0.sendFlow.customEvmPriorityFeeGwei = "invalid" },
+            { $0.sendFlow.previewRequestId = UUID() },
         ]
         for edit in edits {
             let input = store.sendPreviewInputSnapshot
-            let request = store.sendPreviewRequestId
+            let request = store.sendFlow.previewRequestId
             edit(store)
-            store.sendError = "current form message"
+            store.sendFlow.error = "current form message"
             store.adoptSendPreviewResult(.failure(NSError(domain: "old", code: 1)),
                 requestId: request, input: input, chainName: "Ethereum")
-            XCTAssertEqual(store.sendError, "current form message")
+            XCTAssertEqual(store.sendFlow.error, "current form message")
             store.adoptSendPreviewResult(.success(nil), requestId: request, input: input, chainName: "Ethereum")
-            XCTAssertEqual(store.sendError, "current form message")
+            XCTAssertEqual(store.sendFlow.error, "current form message")
         }
         store.adoptSendPreviewResult(.failure(NSError(domain: "current", code: 1,
             userInfo: [NSLocalizedDescriptionKey: "current failure"])),
-            requestId: store.sendPreviewRequestId, input: store.sendPreviewInputSnapshot, chainName: "Ethereum")
-        XCTAssertEqual(store.sendError, "current failure")
-        let oldRequest = store.sendPreviewRequestId
+            requestId: store.sendFlow.previewRequestId, input: store.sendPreviewInputSnapshot, chainName: "Ethereum")
+        XCTAssertEqual(store.sendFlow.error, "current failure")
+        let oldRequest = store.sendFlow.previewRequestId
         store.cancelSend()
-        XCTAssertNotEqual(store.sendPreviewRequestId, oldRequest)
+        XCTAssertNotEqual(store.sendFlow.previewRequestId, oldRequest)
     }
 
 }

@@ -15,15 +15,15 @@ struct SendPreviewInputSnapshot: Equatable {
 
 extension AppState {
     var sendPreviewInputSnapshot: SendPreviewInputSnapshot {
-        SendPreviewInputSnapshot(walletId: sendWalletId, holdingKey: sendHoldingKey,
-            amount: sendPreviewAmountInput, destination: sendAddress,
-            nonceEnabled: evmManualNonceEnabled, nonce: evmManualNonce,
-            feesEnabled: useCustomEvmFees, maxFee: customEvmMaxFeeGwei,
-            priorityFee: customEvmPriorityFeeGwei)
+        SendPreviewInputSnapshot(walletId: sendFlow.walletId, holdingKey: sendFlow.holdingKey,
+            amount: sendPreviewAmountInput, destination: sendFlow.address,
+            nonceEnabled: sendFlow.evmManualNonceEnabled, nonce: sendFlow.evmManualNonce,
+            feesEnabled: sendFlow.useCustomEvmFees, maxFee: sendFlow.customEvmMaxFeeGwei,
+            priorityFee: sendFlow.customEvmPriorityFeeGwei)
     }
 
     func isCurrentSendPreview(requestId: UUID, input: SendPreviewInputSnapshot) -> Bool {
-        !Task.isCancelled && sendPreviewRequestId == requestId && sendPreviewInputSnapshot == input
+        !Task.isCancelled && sendFlow.previewRequestId == requestId && sendPreviewInputSnapshot == input
     }
 
     func adoptSendPreviewResult(_ result: Result<OwnedSendPreview?, Error>, requestId: UUID,
@@ -31,33 +31,33 @@ extension AppState {
         guard isCurrentSendPreview(requestId: requestId, input: input) else { return }
         switch result {
         case .success(let preview):
-            sendPreviewStore.apply(preview, forChainNamed: chainName)
-            sendError = nil
-            clearSendVerificationNotice()
+            sendFlow.previewStore.apply(preview, forChainNamed: chainName)
+            sendFlow.error = nil
+            sendFlow.clearVerificationNotice()
         case .failure(let error):
             guard !isCancelledRequest(error) else { return }
-            sendPreviewStore.clearPreview(forChainNamed: chainName)
-            sendError = error.localizedDescription
+            sendFlow.previewStore.clearPreview(forChainNamed: chainName)
+            sendFlow.error = error.localizedDescription
         }
     }
 
     /// Every completion, including errors and loading cleanup, belongs to one request.
     func refreshSendPreview() async {
         let requestId = UUID()
-        sendPreviewRequestId = requestId
+        sendFlow.previewRequestId = requestId
         let input = sendPreviewInputSnapshot
         guard let coin = selectedSendCoin else {
-            preparingChains = []
-            sendDestinationProbeRequestId = UUID()
-            sendPreviewStore.resetAll()
-            sendDestinationRiskWarning = nil
-            sendDestinationInfoMessage = nil
-            isCheckingSendDestinationBalance = false
+            sendFlow.preparingChains = []
+            sendFlow.destinationProbeRequestId = UUID()
+            sendFlow.previewStore.resetAll()
+            sendFlow.destinationRiskWarning = nil
+            sendFlow.destinationInfoMessage = nil
+            sendFlow.isCheckingDestination = false
             return
         }
         let slot = SendPreviewStore.slot(forChainNamed: coin.chainName) ?? coin.chainName
-        preparingChains = [slot]
-        defer { if sendPreviewRequestId == requestId { preparingChains = [] } }
+        sendFlow.preparingChains = [slot]
+        defer { if sendFlow.previewRequestId == requestId { sendFlow.preparingChains = [] } }
         do {
             // Capture and validate all inputs before the first suspension.
             let nonce = try explicitEvmNonce().map(Int64.init)
@@ -67,7 +67,7 @@ extension AppState {
             }
             await refreshSendDestinationRiskWarning(for: coin)
             guard isCurrentSendPreview(requestId: requestId, input: input) else { return }
-            sendPreviewStore.resetAll(exceptSlot: slot)
+            sendFlow.previewStore.resetAll(exceptSlot: slot)
             let preview = try await self.bridge.previewOwnedSend(
                 walletId: input.walletId, holdingKey: input.holdingKey, amount: input.amount,
                 destination: input.destination, explicitNonce: nonce, customFees: fees)

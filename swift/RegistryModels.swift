@@ -58,7 +58,7 @@ extension Coin {
     /// A chain's network artwork and catalog colour.
     static func nativeChainBadge(chainName: String) -> (artworkName: String?, color: Color)? {
         guard let chain = Chain(displayName: chainName), let entry = chain.entry else { return nil }
-        return (chainArtworkName(chainId: chain.id), entry.color.color)
+        return (entry.artworkName, entry.color.color)
     }
     /// A symbol's colour: the first chain in the catalog that pays fees in it,
     /// then the built-in token that has it, then grey.
@@ -75,6 +75,6 @@ extension Coin {
     static func displayColor(for symbol: String) -> Color {
         colorsBySymbol[symbol.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()] ?? .gray
     }
-    var artworkName: String { holdingArtworkName(holding: self) }
+    var artworkName: String { AssetPresentationCatalog.artwork(deploymentId: holdingKey) }
 
 }

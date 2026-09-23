@@ -5,7 +5,8 @@ extension AppState {
     func retryUTXOTransactionStatus(for transactionId: String) async -> String {
         do {
             let change = try await self.bridge.recheckTransactionStatus(id: transactionId)
-            await applyPendingStatusChanges([change])
+            await refreshTransactionProjection()
+            await deliverPendingStatusChanges([change])
             if change.statusChanged {
                 return AppLocalization.format("Status updated: %@.", change.newStatus.localizedTitle)
             }
@@ -19,7 +20,7 @@ extension AppState {
     }
     func rebroadcastSignedTransaction(for transactionId: String) async -> String {
         guard await authenticateForSensitiveAction(.send, reason: AppLocalization.string("Authorize transaction rebroadcast")) else {
-            return sendError ?? AppLocalization.string("Authentication failed.")
+            return sendFlow.error ?? AppLocalization.string("Authentication failed.")
         }
         do {
             let transactionHash = try await self.bridge.rebroadcastTransaction(id: transactionId)

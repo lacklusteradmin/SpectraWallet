@@ -43,7 +43,7 @@ struct PriceAlertsView: View {
                         Text(
                             AppLocalization.format(
                                 "Current price: %@",
-                                store.formattedFiatAmountOrUnavailable(fromUSD: store.currentPriceIfAvailable(for: selectedCoin)))
+                                store.amounts.formattedFiatAmountOrUnavailable(fromUSD: store.amounts.currentPriceIfAvailable(for: selectedCoin)))
                         ).spectraHintText().spectraNumericTextLayout()
                     }
                     if let formMessage { Text(formMessage).font(.caption).foregroundStyle(.secondary) }
@@ -66,7 +66,7 @@ struct PriceAlertsView: View {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(alert.titleText).font(.headline)
-                                    Text("\(alert.condition.displayName) \(store.formattedFiatAmount(fromUSD: alert.targetPrice))").font(
+                                    Text("\(alert.condition.displayName) \(store.amounts.formattedFiatAmount(fromUSD: alert.targetPrice))").font(
                                         .caption
                                     ).foregroundStyle(.secondary).spectraNumericTextLayout()
                                 }

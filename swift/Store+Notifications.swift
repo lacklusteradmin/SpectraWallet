@@ -2,16 +2,16 @@ import Foundation
 import UserNotifications
 @MainActor
 extension AppState {
-    /// Core evaluates its stored alerts against its stored quotes.
-    func evaluatePriceAlerts() async {
-        guard let notifications = try? await self.bridge.evaluatePriceAlerts()
-        else { return }
-        if let state = try? await self.bridge.appState() {
-            applyCoreState(state)
+    /// Evaluate core-owned alerts before the caller adopts its final snapshot.
+    func evaluatePriceAlertNotifications() async -> [PriceAlertNotification] {
+        do { return try await bridge.evaluatePriceAlerts() }
+        catch {
+            appendOperationalLog(.error, category: "Price Alerts", message: error.localizedDescription)
+            return []
         }
-        for notification in notifications {
-            sendPriceAlertNotification(for: notification)
-        }
+    }
+    func deliverPriceAlertNotifications(_ notifications: [PriceAlertNotification]) {
+        for notification in notifications { sendPriceAlertNotification(for: notification) }
     }
     private func requestStandardNotificationPermission() {
         UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { _, _ in
@@ -45,8 +45,8 @@ extension AppState {
             title: AppLocalization.format("%@ price alert", notification.symbol),
             body: AppLocalization.format(
                 template, notification.assetDisplayName, notification.chainName,
-                formattedFiatAmount(fromUSD: notification.livePrice),
-                formattedFiatAmount(fromUSD: notification.targetPrice)
+                amounts.formattedFiatAmount(fromUSD: notification.livePrice),
+                amounts.formattedFiatAmount(fromUSD: notification.targetPrice)
             )
         )
     }

@@ -30,42 +30,12 @@ extension AppState {
         if plan.clearNetworkAndTransportCaches { clearNetworkAndTransportCaches() }
     }
     private func resetWalletsAndSecretsState() async {
-        receiveWalletId = ""
-        receiveHoldingKey = ""
-        receiveResolvedAddress = ""
-        isResolvingReceiveAddress = false
+        receiveFlow.reset()
+        sendFlow.reset()
+        walletImport.close()
         walletPendingDeletion = nil
-        editingWalletId = nil
-        sendWalletId = ""
-        sendHoldingKey = ""
-        sendAmount = ""
-        sendAddress = ""
-        sendError = nil
-        sendDestinationRiskWarning = nil
-        sendDestinationInfoMessage = nil
-        isShowingHighRiskSendConfirmation = false
-        isCheckingSendDestinationBalance = false
-        clearSendVerificationNotice()
-        useCustomEvmFees = false
-        customEvmMaxFeeGwei = ""
-        customEvmPriorityFeeGwei = ""
-        evmManualNonceEnabled = false
-        evmManualNonce = ""
-        isPreparingReplacementContext = false
-        invalidateSendSession()
-        sendPreviewStore.resetAll()
-        preparingChains = []
-        sendPreviewRequestId = UUID()
-        sendDestinationProbeRequestId = UUID()
-        // Core prunes status trackers against committed history on the next
-        // maintenance sweep, including when there is no remaining work.
-        isShowingWalletImporter = false
+        walletCommandError = nil
         isShowingAddWalletEntry = false
-        isShowingSendSheet = false
-        isShowingReceiveSheet = false
-        importError = nil
-        isImportingWallet = false
-        cancelWalletImport()
     }
     private func resetHistoryAndCacheState() async {
         chainDiagnosticsState.historyRunByChain = [:]

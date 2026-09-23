@@ -111,7 +111,7 @@ final class StorageBridgeTests: XCTestCase {
     func testUnopenedHistoryReadsThrowAcrossBinding() async throws {
         let service = try WalletService(endpoints: [])
         let reads: [() async throws -> Void] = [
-            { _ = try await service.historyPage(query: HistoryQuery(walletId: nil, filter: .all, search: "", oldestFirst: false, offset: 0, limit: 20)) },
+            { _ = try await service.historyPage(query: HistoryQuery(walletId: nil, filter: .all, search: "", oldestFirst: false, cursor: nil, limit: 20)) },
             { _ = try await service.transactionSnapshot() },
             { _ = try await service.replaceableSends() },
         ]
@@ -132,13 +132,50 @@ final class StorageBridgeTests: XCTestCase {
         let service = try WalletService(endpoints: [])
         _ = try await service.openState(databasePath: directory.appendingPathComponent("history.sqlite").path)
         let page = try await service.historyPage(query: HistoryQuery(
-            walletId: nil, filter: .all, search: "", oldestFirst: false, offset: 0, limit: 20))
+            walletId: nil, filter: .all, search: "", oldestFirst: false, cursor: nil, limit: 20))
         XCTAssertTrue(page.records.isEmpty)
         XCTAssertFalse(page.hasMore)
+        XCTAssertNil(page.nextCursor)
+        do {
+            _ = try await service.historyPage(query: HistoryQuery(
+                walletId: nil, filter: .all, search: "", oldestFirst: false, cursor: "invalid", limit: 20))
+            XCTFail("Malformed history cursor must be rejected through the async binding")
+        } catch { /* Core validates cursors, including through UniFFI. */ }
         let summary = try await service.transactionSnapshot()
         XCTAssertEqual(summary.totalCount, 0)
         let missing = try await service.transaction(id: "missing")
         XCTAssertNil(missing)
+    }
+
+    func testHistoryCursorContinuesAcrossAsyncBindingAndReopen() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let path = directory.appendingPathComponent("cursor.sqlite").path
+        let service = try WalletService(endpoints: [])
+        _ = try await service.openState(databasePath: path)
+        let wallet = WalletView(name: "Cursor", addresses: ["Ethereum": "0x1111111111111111111111111111111111111111"], familyName: "Ethereum")
+        _ = try await service.applyStateCommand(command: .upsertWallet(wallet: wallet.walletState(isWatchOnly: true)))
+        let records = ["a", "b", "c"].map { id in
+            var record = TransactionRecord(id: id, walletId: wallet.id, deploymentId: "ethereum:native",
+                kind: .receive, status: .confirmed, walletName: "Cursor", assetDisplayName: "Ether",
+                symbol: "ETH", chainName: "Ethereum", amount: 1, address: "recipient", transactionHash: id)
+            record.createdAtUnix = 1_700_000_000.125
+            return record
+        }
+        _ = try await service.applyTransactionCommand(command: .upsert(records: records))
+        let first = try await service.historyPage(query: HistoryQuery(
+            walletId: nil, filter: .all, search: "", oldestFirst: false, cursor: nil, limit: 2))
+        XCTAssertEqual(first.records.map(\.id), ["a", "b"])
+        XCTAssertTrue(first.hasMore)
+        let cursor = try XCTUnwrap(first.nextCursor)
+        let reopened = try WalletService(endpoints: [])
+        _ = try await reopened.openState(databasePath: path)
+        let next = try await reopened.historyPage(query: HistoryQuery(
+            walletId: nil, filter: .all, search: "", oldestFirst: false, cursor: cursor, limit: 2))
+        XCTAssertEqual(next.records.map(\.id), ["c"])
+        XCTAssertFalse(next.hasMore)
+        XCTAssertNil(next.nextCursor)
     }
 
     func testAlertIntentsKeepSubcentTargetsAcrossAsyncBinding() async throws {

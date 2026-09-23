@@ -22,15 +22,14 @@ extension AppState {
     func maintenancePlan() async -> MaintenancePlan {
         await self.bridge.maintenancePlan(conditions: deviceConditions())
     }
-    func notifyPortfolioMovement() async {
-        let evaluation: LargeMovementEvaluation
-        do {
-            guard let result = try await self.bridge.evaluatePortfolioMovement(appIsActive: appIsActive) else { return }
-            evaluation = result
-        } catch {
+    func evaluatePortfolioMovement() async -> LargeMovementEvaluation? {
+        do { return try await bridge.evaluatePortfolioMovement(appIsActive: appIsActive) }
+        catch {
             appendOperationalLog(.error, category: "Portfolio Movement", message: error.localizedDescription)
-            return
+            return nil
         }
+    }
+    func deliverPortfolioMovement(_ evaluation: LargeMovementEvaluation) async {
         // Localize the notification for the transfer direction.
         let percent = evaluation.ratio.formatted(.percent.precision(.fractionLength(0)))
         let content = UNMutableNotificationContent()
@@ -39,7 +38,7 @@ extension AppState {
             evaluation.directionUp
                 ? "Your portfolio rose by %@ (%@) since the last sync."
                 : "Your portfolio fell by %@ (%@) since the last sync.",
-            formattedFiatAmount(fromUSD: evaluation.absoluteDelta), percent)
+            amounts.formattedFiatAmount(fromUSD: evaluation.absoluteDelta), percent)
         content.sound = .default
         let request = UNNotificationRequest(
             identifier: "portfolio-movement-\(UUID().uuidString)", content: content, trigger: nil
@@ -52,22 +51,25 @@ extension AppState {
         do {
             let result = try await self.bridge.refreshApp(intent: intent, conditions: deviceConditions())
             lastMaintenancePollSeconds = result.pollSeconds
+            // Complete domain mutations first, then adopt each projection once.
+            let notifications = await evaluatePriceAlertNotifications()
+            let movement = await evaluatePortfolioMovement()
             let portfolioReadSucceeded = await rebuildWalletDerivedStateFromCore()
+            let historyReadSucceeded = await refreshTransactionProjection()
             if let pending = result.pending {
-                await applyPendingStatusChanges(pending.changes)
+                await deliverPendingStatusChanges(pending.changes)
                 for failure in pending.failures {
                     appendOperationalLog(.error, category: "Pending Transactions", message: failure.message)
                 }
                 lastPendingTransactionRefreshAt = Date()
             }
-            let historyReadSucceeded = await refreshTransactionProjection()
             await updateStagedSendVerificationNotice()
             for failure in result.failures {
                 appendOperationalLog(.error, category: "Refresh", message: failure)
             }
             await diagnostics.loadFromSQLite()
-            await evaluatePriceAlerts()
-            await notifyPortfolioMovement()
+            deliverPriceAlertNotifications(notifications)
+            if let movement { await deliverPortfolioMovement(movement) }
             return portfolioReadSucceeded && historyReadSucceeded
                 && result.failures.isEmpty && (result.pending?.failures.isEmpty ?? true)
         } catch {

@@ -11,7 +11,7 @@ import SwiftUI
 struct SendNetworkStep: View {
     @Bindable var store: AppState
 
-    private var sendPreviewStore: SendPreviewStore { store.sendPreviewStore }
+    private var sendPreviewStore: SendPreviewStore { store.sendFlow.previewStore }
 
     private func hasNetworkSendSections(for coin: Coin?) -> Bool {
         guard let coin, let chain = Chain(displayName: coin.chainName) else { return false }
@@ -23,7 +23,7 @@ struct SendNetworkStep: View {
     }
 
     private var selectedCoin: Coin? {
-        store.availableSendCoins(for: store.sendWalletId).first(where: { $0.holdingKey == store.sendHoldingKey })
+        store.availableSendCoins(for: store.sendFlow.walletId).first(where: { $0.holdingKey == store.sendFlow.holdingKey })
     }
 
     private func networkStep(selectedCoin: Coin?) -> some View {
@@ -120,11 +120,11 @@ struct SendNetworkStep: View {
             } else {
                 switch sendPreviewStore.taggedPreview(forChainNamed: selectedCoin.chainName) {
                 case .dogecoin(let preview):
-                    Text(AppLocalization.format("Estimated Network Fee: %@", store.formattedNetworkFeeWithFiat(preview.estimatedNetworkFee, chain: chain)))
+                    Text(AppLocalization.format("Estimated Network Fee: %@", store.amounts.formattedNetworkFeeWithFiat(preview.estimatedNetworkFee, chain: chain)))
                     Text(AppLocalization.format("Confirmation Preference: %@", confirmationPreferenceText(for: preview.feePriority)))
                 case .utxo(let preview):
                     Text(AppLocalization.format("Estimated Fee Rate: %@ sat/vB", "\(preview.estimatedFeeRateSatVb)"))
-                    Text(AppLocalization.format("Estimated Network Fee: %@", store.formattedNetworkFeeWithFiat(preview.estimatedNetworkFee, chain: chain)))
+                    Text(AppLocalization.format("Estimated Network Fee: %@", store.amounts.formattedNetworkFeeWithFiat(preview.estimatedNetworkFee, chain: chain)))
                 default:
                     Text(AppLocalization.format("Enter amount to preview estimated %@ network fee.", selectedCoin.chainName))
                         .font(.caption).foregroundStyle(.secondary)
@@ -137,12 +137,12 @@ struct SendNetworkStep: View {
     private func evmNetworkContent(selectedCoin: Coin, chain: Chain) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             networkSectionHeader(AppLocalization.format("%@ Network", selectedCoin.chainName))
-            Toggle(AppLocalization.string("Use Custom Fees"), isOn: $store.useCustomEvmFees)
-            if store.useCustomEvmFees {
-                TextField(AppLocalization.string("Max Fee (gwei)"), text: $store.customEvmMaxFeeGwei)
+            Toggle(AppLocalization.string("Use Custom Fees"), isOn: Bindable(store.sendFlow).useCustomEvmFees)
+            if store.sendFlow.useCustomEvmFees {
+                TextField(AppLocalization.string("Max Fee (gwei)"), text: Bindable(store.sendFlow).customEvmMaxFeeGwei)
                     .keyboardType(.decimalPad).padding(.horizontal, 12).padding(.vertical, 10)
                     .spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.pill)
-                TextField(AppLocalization.string("Priority Fee (gwei)"), text: $store.customEvmPriorityFeeGwei)
+                TextField(AppLocalization.string("Priority Fee (gwei)"), text: Bindable(store.sendFlow).customEvmPriorityFeeGwei)
                     .keyboardType(.decimalPad).padding(.horizontal, 12).padding(.vertical, 10)
                     .spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.pill)
                 if let customEvmFeeValidationError = store.customEvmFeeValidationError {
@@ -152,9 +152,9 @@ struct SendNetworkStep: View {
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
-            Toggle(AppLocalization.string("Manual Nonce"), isOn: $store.evmManualNonceEnabled)
-            if store.evmManualNonceEnabled {
-                TextField(AppLocalization.string("Nonce"), text: $store.evmManualNonce)
+            Toggle(AppLocalization.string("Manual Nonce"), isOn: Bindable(store.sendFlow).evmManualNonceEnabled)
+            if store.sendFlow.evmManualNonceEnabled {
+                TextField(AppLocalization.string("Nonce"), text: Bindable(store.sendFlow).evmManualNonce)
                     .keyboardType(.numberPad).padding(.horizontal, 12).padding(.vertical, 10)
                     .spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.pill)
                 if let evmNonceValidationError = store.evmNonceValidationError {
@@ -163,7 +163,7 @@ struct SendNetworkStep: View {
             }
             // Replacement is offered wherever core says a pending send can
             // still be replaced — every EVM chain, not the one named Ethereum.
-            if store.isPreparingReplacementContext {
+            if store.sendFlow.isPreparingReplacement {
                 SpectraLoadingRow(title: "Preparing replacement/cancel context...")
             } else if let pending = store.replaceableSendForSelectedWallet {
                 if pending.canSpeedUp {
@@ -185,9 +185,9 @@ struct SendNetworkStep: View {
             } else if case .ethereum(let evmSendPreview)? = sendPreviewStore.taggedPreview(forChainNamed: selectedCoin.chainName) {
                 Text(AppLocalization.format("Nonce: %lld", evmSendPreview.nonce))
                 Text(AppLocalization.format("Gas Limit: %lld", evmSendPreview.gasLimit))
-                Text(AppLocalization.format("Max Fee: %@", store.formattedGasPrice(gwei: evmSendPreview.maxFeePerGasGwei, chain: chain)))
-                Text(AppLocalization.format("Priority Fee: %@", store.formattedGasPrice(gwei: evmSendPreview.maxPriorityFeePerGasGwei, chain: chain)))
-                Text(AppLocalization.format("Estimated Network Fee: %@", store.formattedNetworkFeeWithFiat(evmSendPreview.estimatedNetworkFee, chain: chain)))
+                Text(AppLocalization.format("Max Fee: %@", store.amounts.formattedGasPrice(gwei: evmSendPreview.maxFeePerGasGwei, chain: chain)))
+                Text(AppLocalization.format("Priority Fee: %@", store.amounts.formattedGasPrice(gwei: evmSendPreview.maxPriorityFeePerGasGwei, chain: chain)))
+                Text(AppLocalization.format("Estimated Network Fee: %@", store.amounts.formattedNetworkFeeWithFiat(evmSendPreview.estimatedNetworkFee, chain: chain)))
                     .font(.subheadline.weight(.semibold))
             } else {
                 Text(AppLocalization.string("Enter an amount to load a live nonce and fee preview. Add a valid destination address before sending."))
@@ -221,7 +221,7 @@ struct SendNetworkStep: View {
             if store.isPreparingSendPreview(forChainNamed: chainName) {
                 SpectraLoadingRow(title: AppLocalization.format("Loading %@ fee estimate...", chainName))
             } else if let preview = sendPreviewStore.taggedPreview(forChainNamed: chainName) {
-                Text(AppLocalization.format("Estimated Network Fee: %@", store.formattedNetworkFeeWithFiat(preview.estimatedNetworkFee, chain: chain)))
+                Text(AppLocalization.format("Estimated Network Fee: %@", store.amounts.formattedNetworkFeeWithFiat(preview.estimatedNetworkFee, chain: chain)))
                     .font(.subheadline.weight(.semibold))
                 ForEach(previewDetailLines(preview), id: \.self) { Text($0) }
                 // Every token pays its chain's gas token, which Tron and
@@ -313,7 +313,7 @@ struct SendNetworkStep: View {
     }
 
     private func formattedPreviewAssetAmount(_ amount: Double, for coin: Coin) -> String {
-        store.formattedAssetAmount(amount, symbol: coin.symbol, deploymentId: coin.holdingKey)
+        store.amounts.formattedAssetAmount(amount, symbol: coin.symbol, deploymentId: coin.holdingKey)
     }
 
     /// Core reads the stored spelling; the parenthetical is this view's.

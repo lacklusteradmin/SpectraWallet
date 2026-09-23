@@ -8,10 +8,10 @@ import SwiftUI
 struct SendConfirmationStep: View {
     @Bindable var store: AppState
 
-    private var sendPreviewStore: SendPreviewStore { store.sendPreviewStore }
-    private var isSendBusy: Bool { store.isSending || !store.preparingChains.isEmpty }
+    private var sendPreviewStore: SendPreviewStore { store.sendFlow.previewStore }
+    private var isSendBusy: Bool { store.sendFlow.isBusy || !store.sendFlow.preparingChains.isEmpty }
     private var selectedCoin: Coin? {
-        store.availableSendCoins(for: store.sendWalletId).first(where: { $0.holdingKey == store.sendHoldingKey })
+        store.availableSendCoins(for: store.sendFlow.walletId).first(where: { $0.holdingKey == store.sendFlow.holdingKey })
     }
 
     var body: some View {
@@ -69,14 +69,14 @@ struct SendConfirmationStep: View {
                 }
             }
 
-            if store.isCheckingSendDestinationBalance || isSendBusy {
+            if store.sendFlow.isCheckingDestination || isSendBusy {
                 SpectraLoadingRow(
                     title: isSendBusy ? "Preparing transaction..." : "Checking recipient...",
                     subtitle: isSendBusy ? "Keep this screen open while Spectra prepares the transfer." : nil
                 )
             }
 
-            if let warning = store.sendDestinationRiskWarning {
+            if let warning = store.sendFlow.destinationRiskWarning {
                 Label(warning, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
                     .foregroundStyle(.orange)
@@ -106,18 +106,18 @@ struct SendConfirmationStep: View {
 
     private func confirmAmountText(selectedCoin: Coin?) -> String {
         let symbol = selectedCoin?.symbol ?? ""
-        let amount = store.sendAmount.trimmingCharacters(in: .whitespacesAndNewlines)
+        let amount = store.sendFlow.amount.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !amount.isEmpty else { return AppLocalization.string("No amount") }
         return symbol.isEmpty ? amount : "\(amount) \(symbol)"
     }
 
     private func confirmFiatAmountText(selectedCoin: Coin?) -> String? {
-        guard let selectedCoin, let amount = Double(store.sendAmount), amount > 0 else { return nil }
-        return store.formattedFiatAmount(amount, of: selectedCoin)
+        guard let selectedCoin, let amount = Double(store.sendFlow.amount), amount > 0 else { return nil }
+        return store.amounts.formattedFiatAmount(amount, of: selectedCoin)
     }
 
     private var recipientPreviewText: String {
-        let trimmed = store.sendAddress.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmed = store.sendFlow.address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return AppLocalization.string("No recipient") }
         return trimmed
     }
@@ -127,7 +127,7 @@ struct SendConfirmationStep: View {
             let chain = Chain(displayName: coin.chainName),
             let fee = sendPreviewStore.estimatedFee(forChainNamed: coin.chainName)
         else { return nil }
-        return store.formattedNetworkFee(fee, chain: chain)
+        return store.amounts.formattedNetworkFee(fee, chain: chain)
     }
 }
 
@@ -141,7 +141,7 @@ struct SendStatusCards: View {
 
     @ViewBuilder
     private var sendStatusCards: some View {
-        if let sendError = store.sendError {
+        if let sendError = store.sendFlow.error {
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
                 Text(sendError).font(.subheadline).foregroundStyle(.red)
@@ -151,12 +151,12 @@ struct SendStatusCards: View {
             .glassEffect(.regular.tint(.red.opacity(0.06)), in: .rect(cornerRadius: SpectraLayout.Radius.compact))
         }
 
-        if let sendVerificationNotice = store.sendVerificationNotice {
+        if let sendVerificationNotice = store.sendFlow.verificationNotice {
             HStack(spacing: 10) {
                 Image(systemName: "exclamationmark.circle.fill")
-                    .foregroundStyle(store.sendVerificationNoticeIsWarning ? .red : .orange)
+                    .foregroundStyle(store.sendFlow.verificationNoticeIsWarning ? .red : .orange)
                 Text(sendVerificationNotice).font(.subheadline)
-                    .foregroundStyle(store.sendVerificationNoticeIsWarning ? .red : .orange)
+                    .foregroundStyle(store.sendFlow.verificationNoticeIsWarning ? .red : .orange)
             }
             .padding(16)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -197,20 +197,20 @@ struct SendTransactionCard: View {
             }
             Button {
                 spectraHaptic(.light)
-                store.saveStagedRecipientToAddressBook()
+                store.saveRecipientToAddressBook(tx)
             } label: {
                 Label(
-                    store.canSaveStagedRecipientToAddressBook()
+                    store.canSaveRecipientToAddressBook(tx)
                         ? AppLocalization.string("Save Recipient To Address Book")
                         : AppLocalization.string("Recipient Already Saved"),
-                    systemImage: store.canSaveStagedRecipientToAddressBook() ? "book.closed" : "checkmark.circle"
+                    systemImage: store.canSaveRecipientToAddressBook(tx) ? "book.closed" : "checkmark.circle"
                 )
                 .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
             }
             .buttonStyle(.glass)
-            .disabled(!store.canSaveStagedRecipientToAddressBook())
+            .disabled(!store.canSaveRecipientToAddressBook(tx))
         }
         .padding(18)
         .frame(maxWidth: .infinity, alignment: .leading)

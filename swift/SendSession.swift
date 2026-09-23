@@ -75,9 +75,12 @@ final class SendSession {
         defer { finish(request) }
         do {
             let result = try await submit(artifact.id, endpoints.filter(selectedEndpoints.contains))
-            guard isCurrent(request), self.artifact?.id == artifact.id else { return nil }
-            self.artifact = result
-            error = nil
+            // A committed broadcast belongs to the application even after its
+            // composer closes. Only the form's adoption is session-scoped.
+            if isCurrent(request), self.artifact?.id == artifact.id {
+                self.artifact = result
+                error = nil
+            }
             return result
         } catch {
             if isCurrent(request) { self.error = error.localizedDescription }

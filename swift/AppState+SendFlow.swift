@@ -2,76 +2,59 @@ import Foundation
 import SwiftUI
 @MainActor
 extension AppState {
-    private func clearAllChainSendState() {
-        sendPreviewRequestId = UUID()
-        sendPreviewStore.resetAll()
-        preparingChains = []
-        clearHighRiskSendConfirmation()
-    }
-    private func resetSendComposerFields() {
-        sendDestinationProbeRequestId = UUID()
-        sendAmount = ""; sendAddress = ""; sendError = nil; sendDestinationRiskWarning = nil; sendDestinationInfoMessage = nil;
-        isCheckingSendDestinationBalance = false
-        clearSendVerificationNotice()
-        useCustomEvmFees = false; customEvmMaxFeeGwei = ""; customEvmPriorityFeeGwei = ""
-        evmManualNonceEnabled = false; evmManualNonce = ""
-        invalidateSendSession()
-        clearAllChainSendState()
-    }
     func beginSend() {
         guard let firstWallet = sendEnabledWallets.first else { return }
-        sendWalletId = firstWallet.id
-        sendHoldingKey = availableSendCoins(for: sendWalletId).first?.holdingKey ?? ""
-        resetSendComposerFields()
+        sendFlow.walletId = firstWallet.id
+        sendFlow.holdingKey = availableSendCoins(for: sendFlow.walletId).first?.holdingKey ?? ""
+        sendFlow.resetComposer()
         syncSendAssetSelection()
-        isShowingSendSheet = true
+        sendFlow.isPresented = true
     }
     func syncSendAssetSelection() {
-        sendDestinationProbeRequestId = UUID()
-        let availableHoldingKeys = availableSendCoins(for: sendWalletId).map(\.holdingKey)
-        if !availableHoldingKeys.contains(sendHoldingKey) { sendHoldingKey = availableHoldingKeys.first ?? "" }
+        sendFlow.destinationProbeRequestId = UUID()
+        let availableHoldingKeys = availableSendCoins(for: sendFlow.walletId).map(\.holdingKey)
+        if !availableHoldingKeys.contains(sendFlow.holdingKey) { sendFlow.holdingKey = availableHoldingKeys.first ?? "" }
         // Keep EIP-1559 fees and manual nonce when switching within the EVM
         // family; clear them when leaving it.
         if selectedSendCoin?.isEVMChain != true {
-            useCustomEvmFees = false; customEvmMaxFeeGwei = ""; customEvmPriorityFeeGwei = "";
-            evmManualNonceEnabled = false; evmManualNonce = ""
+            sendFlow.useCustomEvmFees = false; sendFlow.customEvmMaxFeeGwei = ""; sendFlow.customEvmPriorityFeeGwei = "";
+            sendFlow.evmManualNonceEnabled = false; sendFlow.evmManualNonce = ""
         }
-        invalidateSendSession()
-        clearAllChainSendState()
-        sendDestinationRiskWarning = nil; sendDestinationInfoMessage = nil; isCheckingSendDestinationBalance = false
+        sendFlow.invalidateSession()
+        sendFlow.clearPreview()
+        sendFlow.destinationRiskWarning = nil; sendFlow.destinationInfoMessage = nil; sendFlow.isCheckingDestination = false
     }
-    func cancelSend() { isShowingSendSheet = false; resetSendComposerFields() }
+    func cancelSend() { sendFlow.isPresented = false; sendFlow.resetComposer() }
     var selectedSendCoin: Coin? {
-        availableSendCoins(for: sendWalletId).first(where: { $0.holdingKey == sendHoldingKey })
+        availableSendCoins(for: sendFlow.walletId).first(where: { $0.holdingKey == sendFlow.holdingKey })
     }
     var sendAmountDecimals: UInt32? {
         guard let coin = selectedSendCoin else { return nil }
-        if coin.isNativeCoin { return Chain(displayName: coin.chainName)?.nativeDecimals }
-        return supportedToken(for: coin)?.token.decimals
+        return assetPrecision?.byDeploymentId[coin.holdingKey]
     }
     var sendAmountIsValid: Bool {
         guard let decimals = sendAmountDecimals else { return false }
-        return parseAmountInput(text: sendAmount, maxDecimals: decimals) != nil
+        return parseAmountInput(text: sendFlow.amount, maxDecimals: decimals) != nil
     }
     // A provisional quote can load before the user types; it never changes the
     // amount field and is replaced by a quote for the entered amount.
     var sendPreviewAmountInput: String {
-        guard sendAmount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              let coin = selectedSendCoin, let decimals = sendAmountDecimals else { return sendAmount }
+        guard sendFlow.amount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+              let coin = selectedSendCoin, let decimals = sendAmountDecimals else { return sendFlow.amount }
         return sendAmountShortcut(maximum: coin.amount, decimals: decimals, percentage: 10) ?? "0"
     }
-    /// Whether a preview for this chain is being fetched. `preparingChains`
+    /// Whether a preview for this chain is being fetched. `sendFlow.preparingChains`
     /// holds preview slots, so the question goes through the same key.
     func isPreparingSendPreview(forChainNamed chainName: String) -> Bool {
-        SendPreviewStore.slot(forChainNamed: chainName).map(preparingChains.contains) ?? false
+        SendPreviewStore.slot(forChainNamed: chainName).map(sendFlow.preparingChains.contains) ?? false
     }
     func sendShortcutAmount(percentage: UInt32) -> String? {
-        guard let coin = selectedSendCoin, preparingChains.isEmpty else { return nil }
-        return sendPreviewStore.ownedQuote(walletId: sendWalletId, holdingKey: coin.holdingKey)?.shortcuts[percentage]
+        guard let coin = selectedSendCoin, sendFlow.preparingChains.isEmpty else { return nil }
+        return sendFlow.previewStore.ownedQuote(walletId: sendFlow.walletId, holdingKey: coin.holdingKey)?.shortcuts[percentage]
     }
 
     func sendPreviewDetails(for coin: Coin) -> SendPreviewDetails? {
-        guard let c = sendPreviewStore.ownedQuote(walletId: sendWalletId, holdingKey: coin.holdingKey)?.details else { return nil }
+        guard let c = sendFlow.previewStore.ownedQuote(walletId: sendFlow.walletId, holdingKey: coin.holdingKey)?.details else { return nil }
         return SendPreviewDetails(
             spendableBalance: c.spendableBalance, feeRateDescription: c.feeRateDescription,
             estimatedTransactionBytes: c.estimatedTransactionBytes.map(Int.init), selectedInputCount: c.selectedInputCount.map(Int.init),
@@ -80,11 +63,11 @@ extension AppState {
     private var parsedCustomEvmFees: Result<EvmCustomFeeConfiguration, Error>? {
         // The toggle is cleared outside the EVM family; only EVM preview and
         // submit paths read these fees.
-        guard useCustomEvmFees else { return nil }
+        guard sendFlow.useCustomEvmFees else { return nil }
         return Result {
             try parseEvmCustomFees(
-                maxFeeGweiRaw: customEvmMaxFeeGwei,
-                priorityFeeGweiRaw: customEvmPriorityFeeGwei)
+                maxFeeGweiRaw: sendFlow.customEvmMaxFeeGwei,
+                priorityFeeGweiRaw: sendFlow.customEvmPriorityFeeGwei)
         }
     }
     var customEvmFeeValidationError: String? {
@@ -115,10 +98,10 @@ extension AppState {
         }
     }
     func explicitEvmNonce() throws -> Int? {
-        guard evmManualNonceEnabled else { return nil }
-        return Int(try parseEvmNonce(raw: evmManualNonce))
+        guard sendFlow.evmManualNonceEnabled else { return nil }
+        return Int(try parseEvmNonce(raw: sendFlow.evmManualNonce))
     }
-    func selectedWalletForSend() -> WalletView? { wallet(for: sendWalletId) }
+    func selectedWalletForSend() -> WalletView? { wallet(for: sendFlow.walletId) }
     /// The pending send the composer can replace as it stands: core's rule,
     /// scoped to the wallet and chain the composer is on.
     ///
@@ -132,7 +115,7 @@ extension AppState {
     var replaceableSendForSelectedWallet: ReplaceableSend? {
         guard let selectedSendCoin else { return nil }
         return replaceableSends.first {
-            $0.walletId.caseInsensitiveCompare(sendWalletId) == .orderedSame
+            $0.walletId.caseInsensitiveCompare(sendFlow.walletId) == .orderedSame
                 && $0.chainName == selectedSendCoin.chainName
         }
     }
@@ -143,7 +126,7 @@ extension AppState {
     }
     func prepareReplacementContext(cancel: Bool) async {
         guard let pending = replaceableSendForSelectedWallet else {
-            sendError = localizedStoreString("No pending transaction found for this wallet.")
+            sendFlow.error = localizedStoreString("No pending transaction found for this wallet.")
             return
         }
         await prepareReplacementContext(pending: pending, cancel: cancel)
@@ -152,39 +135,39 @@ extension AppState {
         guard let pending = replaceableSend(forTransaction: transactionId) else {
             let message = localizedStoreString(
                 "This transaction is no longer pending, so replacement and cancel are unavailable.")
-            sendError = message
+            sendFlow.error = message
             return message
         }
         selectedMainTab = .home
         await Task.yield()
-        isShowingSendSheet = true
+        sendFlow.isPresented = true
         await prepareReplacementContext(pending: pending, cancel: cancel)
-        return sendError
+        return sendFlow.error
     }
     func prepareReplacementContext(pending: ReplaceableSend, cancel: Bool) async {
-        invalidateSendSession()
-        let session = sendSession.id
-        isPreparingReplacementContext = true
-        defer { if sendSession.id == session { isPreparingReplacementContext = false } }
+        sendFlow.invalidateSession()
+        let session = sendFlow.session.id
+        sendFlow.isPreparingReplacement = true
+        defer { if sendFlow.session.id == session { sendFlow.isPreparingReplacement = false } }
         do {
             let draft = try await self.bridge.replacementDraft(
                 transactionId: pending.transactionId, cancel: cancel)
-            guard sendSession.isCurrent(session) else { return }
-            sendWalletId = draft.walletId
-            sendHoldingKey = draft.holdingKey
-            sendAddress = draft.destination
-            sendAmount = draft.amount
-            evmManualNonceEnabled = true
-            evmManualNonce = String(draft.nonce)
-            useCustomEvmFees = true
-            customEvmMaxFeeGwei = draft.maxFeeGwei
-            customEvmPriorityFeeGwei = draft.priorityFeeGwei
-            sendError = localizedStoreString(
+            guard sendFlow.session.isCurrent(session) else { return }
+            sendFlow.walletId = draft.walletId
+            sendFlow.holdingKey = draft.holdingKey
+            sendFlow.address = draft.destination
+            sendFlow.amount = draft.amount
+            sendFlow.evmManualNonceEnabled = true
+            sendFlow.evmManualNonce = String(draft.nonce)
+            sendFlow.useCustomEvmFees = true
+            sendFlow.customEvmMaxFeeGwei = draft.maxFeeGwei
+            sendFlow.customEvmPriorityFeeGwei = draft.priorityFeeGwei
+            sendFlow.error = localizedStoreString(
                 cancel ? "Cancellation context loaded. Review fees and tap Send." : "Replacement context loaded. Review fees and tap Send.")
             await refreshSendPreview()
         } catch {
-            guard sendSession.isCurrent(session) else { return }
-            sendError = AppLocalization.format("Unable to prepare replacement context: %@", error.localizedDescription)
+            guard sendFlow.session.isCurrent(session) else { return }
+            sendFlow.error = AppLocalization.format("Unable to prepare replacement context: %@", error.localizedDescription)
         }
     }
     func prepareSpeedUpContext() async { await prepareReplacementContext(cancel: false) }
@@ -195,16 +178,6 @@ extension AppState {
         return false
     }
     func isEVMChain(_ chainName: String) -> Bool { (Chain(displayName: chainName)?.isEVM ?? false) }
-    /// The known-token entry for a holding, on any chain that hosts tokens.
-    ///
-    /// The contract normaliser is core's rather than a lowercasing of the
-    /// address, so a TON jetton's case-significant address is not lowercased
-    /// into a non-match.
-    func supportedToken(for coin: Coin) -> TokenPreferenceEntry? {
-        guard let entry = cachedTokenPreferenceByDeploymentId[coin.holdingKey], entry.isEnabled else { return nil }
-        return entry
-    }
-
     /// The address is judged against the network the family is on.
     func isValidAddress(_ address: String, for chainName: String) -> Bool {
         isValidSendAddress(chainName: chainName, address: address)
@@ -221,9 +194,9 @@ extension AppState {
         }
         return try await self.bridge.resolveSendDestination(chainId: chainId, input: input, expectedAddress: expectedAddress)
     }
-    func clearHighRiskSendConfirmation() { isShowingHighRiskSendConfirmation = false }
+    func clearHighRiskSendConfirmation() { sendFlow.isShowingHighRiskConfirmation = false }
     func confirmSigning(password: String?) async {
-        isShowingHighRiskSendConfirmation = false
+        sendFlow.isShowingHighRiskConfirmation = false
         await signPreparedSend(password: password)
     }
 
@@ -246,19 +219,19 @@ extension AppState {
 
     func refreshSendDestinationRiskWarning(for coin: Coin) async {
         let requestId = UUID()
-        sendDestinationProbeRequestId = requestId
-        let walletId = sendWalletId
+        sendFlow.destinationProbeRequestId = requestId
+        let walletId = sendFlow.walletId
         let holdingKey = coin.holdingKey
-        let input = sendAddress
+        let input = sendFlow.address
         func isCurrent() -> Bool {
-            !Task.isCancelled && sendDestinationProbeRequestId == requestId
-                && sendWalletId == walletId && sendHoldingKey == holdingKey && sendAddress == input
+            !Task.isCancelled && sendFlow.destinationProbeRequestId == requestId
+                && sendFlow.walletId == walletId && sendFlow.holdingKey == holdingKey && sendFlow.address == input
         }
-        sendDestinationRiskWarning = nil
-        sendDestinationInfoMessage = nil
-        isCheckingSendDestinationBalance = !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        defer { if sendDestinationProbeRequestId == requestId { isCheckingSendDestinationBalance = false } }
-        guard isCheckingSendDestinationBalance else { return }
+        sendFlow.destinationRiskWarning = nil
+        sendFlow.destinationInfoMessage = nil
+        sendFlow.isCheckingDestination = !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        defer { if sendFlow.destinationProbeRequestId == requestId { sendFlow.isCheckingDestination = false } }
+        guard sendFlow.isCheckingDestination else { return }
         do {
             // Core resolves the typed input and identifies the stored deployment.
             // No ticker-based cache or cross-protocol address normalization lives here.
@@ -267,26 +240,11 @@ extension AppState {
             guard isCurrent() else { return }
             let messages = chainRiskProbeMessages(chainName: coin.chainName, symbol: coin.symbol,
                 activity: risk.activity)
-            sendDestinationRiskWarning = messages.warning
-            sendDestinationInfoMessage = messages.info
+            sendFlow.destinationRiskWarning = messages.warning
+            sendFlow.destinationInfoMessage = messages.info
         } catch {
             guard isCurrent() else { return }
-            sendDestinationInfoMessage = localizedStoreString("Unable to verify this address's activity. Try again later.")
-        }
-    }
-    /// Localized title and message for a destination verdict.
-    func chainRiskProbeMessages(chainName: String, symbol: String, activity: SendDestinationActivity) -> (
-        warning: String?, info: String?
-    ) {
-        switch activity {
-        case .unused:
-            return (AppLocalization.format(
-                "Warning: this %@ address has zero %@ balance and no transaction history. Double-check recipient details.",
-                chainName, symbol), nil)
-        case .emptyPreviouslyUsed:
-            return (nil, AppLocalization.format(
-                "Note: this %@ address has transaction history but currently zero %@ balance.", chainName, symbol))
-        case .funded: return (nil, nil)
+            sendFlow.destinationInfoMessage = localizedStoreString("Unable to verify this address's activity. Try again later.")
         }
     }
     func availableSendCoins(for walletId: String) -> [Coin] { cachedAvailableSendCoinsByWalletId[walletId] ?? [] }

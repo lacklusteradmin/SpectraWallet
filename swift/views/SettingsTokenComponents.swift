@@ -5,7 +5,7 @@ extension TokenHostingChain {
     var settingsIconTint: Color { chain?.entry?.color.color ?? .accentColor }
 }
 extension TokenPreferenceEntry {
-    var settingsArtworkName: String { tokenArtworkName(tokenId: token.tokenId) }
+    var settingsArtworkName: String { AssetPresentationCatalog.artwork(deploymentId: token.deploymentId) }
     var settingsFallbackMark: String {
         String(token.symbol.trimmingCharacters(in: .whitespacesAndNewlines).prefix(2)).uppercased()
     }

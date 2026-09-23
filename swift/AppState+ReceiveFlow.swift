@@ -6,47 +6,41 @@ extension AppState {
     func beginReceive() {
         let wallets = receiveEnabledWallets
         guard !wallets.isEmpty else { return }
-        receiveWalletId = wallets.count == 1 ? wallets[0].id : ""
+        receiveFlow.walletId = wallets.count == 1 ? wallets[0].id : ""
         syncReceiveAssetSelection()
-        isShowingReceiveSheet = true
+        receiveFlow.isPresented = true
     }
     func syncReceiveAssetSelection() {
-        receiveHoldingKey = selectedReceiveCoin(for: receiveWalletId)?.holdingKey ?? ""
-        receiveResolvedAddress = ""
-        receiveAddressError = nil
-        receiveAddressRequestId = UUID()
-        isResolvingReceiveAddress = false
+        receiveFlow.holdingKey = selectedReceiveCoin(for: receiveFlow.walletId)?.holdingKey ?? ""
+        receiveFlow.clearAddress()
     }
     func cancelReceive() {
-        isShowingReceiveSheet = false
-        receiveResolvedAddress = ""
-        receiveAddressError = nil
-        receiveAddressRequestId = UUID()
-        isResolvingReceiveAddress = false
+        receiveFlow.isPresented = false
+        receiveFlow.clearAddress()
     }
     func refreshReceiveAddress() async {
         let requestId = UUID()
-        receiveAddressRequestId = requestId
-        receiveResolvedAddress = ""
-        receiveAddressError = nil
-        isResolvingReceiveAddress = false
-        guard let wallet = wallet(for: receiveWalletId),
-            let coin = selectedReceiveCoin(for: receiveWalletId),
+        receiveFlow.requestId = requestId
+        receiveFlow.resolvedAddress = ""
+        receiveFlow.error = nil
+        receiveFlow.isResolving = false
+        guard let wallet = wallet(for: receiveFlow.walletId),
+            let coin = selectedReceiveCoin(for: receiveFlow.walletId),
             let chain = Chain(displayName: coin.chainName) else { return }
-        isResolvingReceiveAddress = true
+        receiveFlow.isResolving = true
         defer {
-            if receiveAddressRequestId == requestId { isResolvingReceiveAddress = false }
+            if receiveFlow.requestId == requestId { receiveFlow.isResolving = false }
         }
         do {
             let address = try await self.bridge.receiveAddress(
                 walletId: wallet.id, chainId: chain.id, reserve: true)
-            guard !Task.isCancelled, receiveAddressRequestId == requestId,
-                receiveWalletId == wallet.id, receiveHoldingKey == coin.holdingKey else { return }
-            receiveResolvedAddress = address ?? ""
-            if address == nil { receiveAddressError = AppLocalization.string("No receive address is available for this wallet and network.") }
+            guard !Task.isCancelled, receiveFlow.requestId == requestId,
+                receiveFlow.walletId == wallet.id, receiveFlow.holdingKey == coin.holdingKey else { return }
+            receiveFlow.resolvedAddress = address ?? ""
+            if address == nil { receiveFlow.error = AppLocalization.string("No receive address is available for this wallet and network.") }
         } catch {
-            guard !Task.isCancelled, receiveAddressRequestId == requestId else { return }
-            receiveAddressError = error.localizedDescription
+            guard !Task.isCancelled, receiveFlow.requestId == requestId else { return }
+            receiveFlow.error = error.localizedDescription
         }
     }
     func availableReceiveCoins(for walletId: String) -> [Coin] { cachedAvailableReceiveCoinsByWalletId[walletId] ?? [] }

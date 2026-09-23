@@ -222,7 +222,7 @@ struct WalletDetailView: View {
     private var detailPresentation: DetailPresentation {
         let wallet = displayedWallet
         let visibleHoldings = wallet.holdings.filter { $0.amount > 0 }
-            .map { holding in (coin: holding, quotedValue: store.currentValueIfAvailable(for: holding) ?? -1) }
+            .map { holding in (coin: holding, quotedValue: store.amounts.currentValueIfAvailable(for: holding) ?? -1) }
             .sorted {
                 if abs($0.quotedValue - $1.quotedValue) > 0.000001 { return $0.quotedValue > $1.quotedValue }
                 return $0.coin.symbol.localizedCaseInsensitiveCompare($1.coin.symbol) == .orderedAscending
@@ -230,9 +230,9 @@ struct WalletDetailView: View {
         let holdingPresentations = visibleHoldings.map { entry in
             HoldingPresentation(
                 coin: entry.coin,
-                amountText: store.formattedAssetAmount(entry.coin.amount, symbol: entry.coin.symbol, deploymentId: entry.coin.holdingKey),
+                amountText: store.amounts.formattedAssetAmount(entry.coin.amount, symbol: entry.coin.symbol, deploymentId: entry.coin.holdingKey),
                 valueText: store.preferences.hideBalances
-                    ? "••••••" : store.formattedFiatAmountOrUnavailable(fromUSD: entry.quotedValue >= 0 ? entry.quotedValue : nil)
+                    ? "••••••" : store.amounts.formattedFiatAmountOrUnavailable(fromUSD: entry.quotedValue >= 0 ? entry.quotedValue : nil)
             )
         }
         return DetailPresentation(
@@ -247,7 +247,7 @@ struct WalletDetailView: View {
             walletBadge: Coin.nativeChainBadge(chainName: wallet.familyName) ?? (nil, .mint),
             visibleHoldingPresentations: holdingPresentations,
             walletTotalValueText: store.preferences.hideBalances
-                ? "••••••" : store.formattedWalletTotal(walletId: wallet.id)
+                ? "••••••" : store.amounts.formattedWalletTotal(walletId: wallet.id)
         )
     }
     /// The wallet's configured derivation path, when it has one.
@@ -318,13 +318,13 @@ struct WalletDetailView: View {
             )
         }.navigationDestination(
             isPresented: Binding(
-                get: { store.isShowingWalletImporter && store.editingWalletId == wallet.id },
+                get: { store.walletImport.isPresented && store.walletImport.editingWalletId == wallet.id },
                 set: { isPresented in
-                    if !isPresented { store.isShowingWalletImporter = false }
+                    if !isPresented { store.walletImport.isPresented = false }
                 }
             )
         ) {
-            SetupView(store: store, draft: store.importDraft)
+            SetupView(store: store, draft: store.walletImport.draft)
         }.alert(localizedWalletFlowString("Delete Wallet?"), isPresented: $isShowingDeleteWalletAlert) {
             Button(localizedWalletFlowString("Delete"), role: .destructive) {
                 Task {

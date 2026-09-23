@@ -53,14 +53,13 @@ struct HistoryView: View {
     @State private var selectedWalletId: String?
     @State private var searchText: String = ""
     @State private var pageRecords: [TransactionRecord] = []
-    @State private var nextOffset: UInt64 = 0
+    @State private var nextCursor: String?
     @State private var hasMoreStoredHistory = false
     @State private var pageError: String?
     @State private var isLoadingPage = false
     @State private var pageRequestId = UUID()
     @State private var loadedFilterKey: String?
     @State private var isRetrying = false
-    @State private var recheckingIds: Set<String> = []
     var body: some View {
         NavigationStack {
             ZStack {
@@ -118,21 +117,6 @@ struct HistoryView: View {
                                                         Label(AppLocalization.string("Rebroadcast"), systemImage: "dot.radiowaves.up.forward")
                                                     }
                                                 }
-                                            }
-                                            if row.transaction.actions.recheckUnavailableReason == nil {
-                                                Button {
-                                                    recheckingIds.insert(row.id)
-                                                    Task {
-                                                        _ = await store.retryUTXOTransactionStatus(for: row.id)
-                                                        recheckingIds.remove(row.id)
-                                                    }
-                                                } label: {
-                                                    Label(AppLocalization.string("Recheck"), systemImage: "arrow.clockwise")
-                                                        .frame(minHeight: 44)
-                                                }
-                                                .buttonStyle(.glass)
-                                                .disabled(recheckingIds.contains(row.id))
-                                                .padding(.bottom, 12)
                                             }
                                             if index < section.rows.count - 1 { Divider().padding(.leading, 64).opacity(0.25) }
                                         }
@@ -235,14 +219,14 @@ struct HistoryView: View {
         do {
             let page = try await WalletServiceBridge.shared.historyPage(HistoryQuery(
                 walletId: selectedWalletId, filter: filter, search: searchText,
-                oldestFirst: selectedSortOrder == .oldest, offset: reset ? 0 : nextOffset, limit: 20))
+                oldestFirst: selectedSortOrder == .oldest, cursor: reset ? nil : nextCursor, limit: 20))
             guard !Task.isCancelled, pageRequestId == requestId, queryKey == key else { return }
             if reset { pageRecords = page.records }
             else {
                 let present = Set(pageRecords.map(\.id))
                 pageRecords += page.records.filter { !present.contains($0.id) }
             }
-            nextOffset = page.nextOffset
+            nextCursor = page.nextCursor
             hasMoreStoredHistory = page.hasMore
             pageError = nil
         } catch {
@@ -292,11 +276,11 @@ struct HistoryView: View {
         HistoryRowPresentation(
             transaction: transaction, amountText: signedAmountText(for: transaction), amountColor: amountColor(for: transaction),
             subtitleText: transaction.walletName, statusText: transaction.statusText, fullTimestampText: transaction.fullTimestampText,
-            metadataText: store.historyMetadataText(for: transaction)
+            metadataText: store.amounts.historyMetadataText(for: transaction)
         )
     }
     private func signedAmountText(for transaction: TransactionRecord) -> String? {
-        guard let amountText = store.formattedTransactionAmount(transaction) else { return nil }
+        guard let amountText = store.amounts.formattedTransactionAmount(transaction) else { return nil }
         switch transaction.kind {
         case .receive: return "+\(amountText)"
         case .send: return "-\(amountText)"

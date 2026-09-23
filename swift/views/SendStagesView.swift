@@ -4,6 +4,8 @@ import SwiftUI
 struct SendStagesView: View {
     @Bindable var store: AppState
     let artifact: SendArtifact
+    @State private var transaction: TransactionRecord?
+    @State private var transactionError: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -49,12 +51,12 @@ struct SendStagesView: View {
             if artifact.stage == .signed {
                 VStack(alignment: .leading, spacing: 12) {
                     Text(AppLocalization.string("Broadcast destinations")).font(.headline)
-                    ForEach(store.sendEndpointChoices, id: \.self) { endpoint in
+                    ForEach(store.sendFlow.endpointChoices, id: \.self) { endpoint in
                         Toggle(isOn: Binding(
-                            get: { store.selectedSendEndpoints.contains(endpoint) },
+                            get: { store.sendFlow.selectedEndpoints.contains(endpoint) },
                             set: { selected in
-                                if selected { store.selectedSendEndpoints.insert(endpoint) }
-                                else { store.selectedSendEndpoints.remove(endpoint) }
+                                if selected { store.sendFlow.selectedEndpoints.insert(endpoint) }
+                                else { store.sendFlow.selectedEndpoints.remove(endpoint) }
                             }
                         )) { Text(verbatim: endpoint).font(.caption.monospaced()).textSelection(.enabled) }
                     }
@@ -64,7 +66,7 @@ struct SendStagesView: View {
                 .padding(18)
                 .spectraCardFill(cornerRadius: SpectraLayout.Radius.card)
             }
-            if let transaction = store.transactions.first(where: { $0.id == artifact.id }) {
+            if let transaction, transaction.id == artifact.id {
                 SendTransactionCard(store: store, tx: transaction)
                 LabeledContent(AppLocalization.string("On-chain status"), value: AppLocalization.string(
                     transaction.status == .confirmed ? "Confirmed" : transaction.status == .failed ? "Failed" : "Awaiting confirmation"))
@@ -78,6 +80,24 @@ struct SendStagesView: View {
                 }
                 .padding(18)
                 .spectraCardFill(cornerRadius: SpectraLayout.Radius.card)
+            }
+            if let transactionError {
+                Text(transactionError).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .task(id: "\(artifact.id):\(store.transactionRevision)") {
+            if transaction?.id != artifact.id {
+                transaction = nil
+                transactionError = nil
+            }
+            do {
+                let record = try await store.bridge.transaction(id: artifact.id)
+                guard !Task.isCancelled else { return }
+                transaction = record
+                transactionError = nil
+            } catch {
+                guard !Task.isCancelled else { return }
+                transactionError = error.localizedDescription
             }
         }
     }

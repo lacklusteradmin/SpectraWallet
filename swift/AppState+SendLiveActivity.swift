@@ -141,7 +141,7 @@ extension AppState {
     ) -> SendTransactionLiveActivityAttributes.ContentState {
         sendLiveActivityContentState(
             for: transaction, phase: phase,
-            amountText: formattedAssetAmountValue(
+            amountText: amounts.formattedAssetAmountValue(
                 transaction.amount, deploymentId: transaction.deploymentId))
     }
 
@@ -176,15 +176,34 @@ extension AppState {
     func reconcileSendLiveActivities() async {
         let runningIds = SendLiveActivityStore.runningTransactionIds
         guard !runningIds.isEmpty else { return }
-        let byId = Dictionary(uniqueKeysWithValues: transactions.map { ($0.id, $0) })
-        for transactionId in runningIds {
-            guard let transaction = byId[transactionId] else {
-                await SendLiveActivityStore.end(
-                    transactionId: transactionId, state: nil, lingering: false)
-                continue
-            }
-            guard transaction.status != .pending else { continue }
-            await finishSendLiveActivity(for: transaction, newStatus: transaction.status)
-        }
+        await reconcileSendActivities(transactionIds: runningIds,
+            lookup: { try await self.bridge.transaction(id: $0) },
+            finish: { id, transaction in
+                if let transaction {
+                    await self.finishSendLiveActivity(for: transaction, newStatus: transaction.status)
+                } else {
+                    await SendLiveActivityStore.end(transactionId: id, state: nil, lingering: false)
+                }
+            }, failed: {
+                self.appendOperationalLog(.error, category: "Live Activity", message: $0.localizedDescription)
+            })
+    }
+}
+
+/// Reconcile native activities by their stored IDs. A read failure retains the
+/// activity for retry; an absent record removes it without inventing a status.
+@MainActor
+func reconcileSendActivities(
+    transactionIds: Set<String>,
+    lookup: (String) async throws -> TransactionRecord?,
+    finish: (String, TransactionRecord?) async -> Void,
+    failed: (Error) -> Void
+) async {
+    for id in transactionIds {
+        do {
+            let transaction = try await lookup(id)
+            guard transaction?.status != .pending else { continue }
+            await finish(id, transaction)
+        } catch { failed(error) }
     }
 }

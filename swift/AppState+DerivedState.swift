@@ -1,12 +1,5 @@
 import Foundation
 extension AppState {
-    /// The one index over the token preferences: the deployment a holding
-    /// names, so a formatter or a send can ask "is this token known, and with
-    /// what decimals" without walking the list.
-    func rebuildTokenPreferenceDerivedState() {
-        cachedTokenPreferenceByDeploymentId = Dictionary(
-            tokenPreferences.map { ($0.token.deploymentId, $0) }, uniquingKeysWith: { first, _ in first })
-    }
     func rebuildWalletDerivedState() {
         Task { @MainActor [weak self] in await self?.rebuildWalletDerivedStateFromCore() }
     }
@@ -32,6 +25,7 @@ extension AppState {
         portfolioSnapshotRevision = snapshot.revision
         applyQuoteProjection(snapshot.state)
         portfolioValuation = snapshot.valuation
+        adoptAssetPrecision(snapshot.assetPrecision)
         let derived = snapshot.derived
         let walletById = Dictionary(uniqueKeysWithValues: snapshot.wallets.map { ($0.id, $0) })
         if wallets != snapshot.wallets { setWalletProjection(snapshot.wallets) }

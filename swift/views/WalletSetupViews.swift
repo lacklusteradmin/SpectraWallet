@@ -19,7 +19,7 @@ struct SetupChainSelectionDescriptor: Identifiable {
         self.titleKey = title
         self.symbol = symbol
         self.chainName = chainName
-        self.artworkName = chainArtworkName(chainId: id)
+        self.artworkName = Chain(id: id)?.entry?.artworkName
         self.color = color
         self.category = category
     }
@@ -141,22 +141,22 @@ struct SetupView: View {
     private var setupTitle: String { pageCopy.title }
     private var setupSubtitle: String { pageCopy.subtitle }
     private var canContinueFromSecretStep: Bool {
-        walletSetupCanContinueFromSecretStep(draft: draft, isImporting: store.isImportingWallet)
+        walletSetupCanContinueFromSecretStep(draft: draft, isImporting: store.walletImport.isBusy)
     }
     private var canContinueToBackupVerification: Bool {
         canContinueFromSecretStep
             && draft.walletPasswordValidationError == nil
-            && !store.isImportingWallet
+            && !store.walletImport.isBusy
     }
     private var canSubmitFromPasswordStep: Bool {
         draft.walletPasswordValidationError == nil
             && store.canImportWallet
-            && !store.isImportingWallet
+            && !store.walletImport.isBusy
     }
     private var canAdvanceFromDetailsPage: Bool {
-        if usesSeedPhraseFlow { return !draft.selectedChainNames.isEmpty && !store.isImportingWallet }
-        if usesWatchAddressesFlow { return !draft.selectedChainNames.isEmpty && !store.isImportingWallet }
-        return store.canImportWallet && !store.isImportingWallet
+        if usesSeedPhraseFlow { return !draft.selectedChainNames.isEmpty && !store.walletImport.isBusy }
+        if usesWatchAddressesFlow { return !draft.selectedChainNames.isEmpty && !store.walletImport.isBusy }
+        return store.canImportWallet && !store.walletImport.isBusy
     }
     /// What the primary button says on the page that submits rather than
     /// advances. Shared by every page that reaches the end of its flow.
@@ -166,7 +166,7 @@ struct SetupView: View {
         return isWatchAddressesImportMode
             ? AppLocalization.string("import_flow.watch_addresses") : AppLocalization.string("import_flow.import_wallet")
     }
-    private var canSubmitSetup: Bool { store.canImportWallet && !store.isImportingWallet }
+    private var canSubmitSetup: Bool { store.canImportWallet && !store.walletImport.isBusy }
     private var primaryActionTitle: String {
         let next = AppLocalization.string("import_flow.next")
         switch setupPage {
@@ -215,7 +215,7 @@ struct SetupView: View {
         }
     }
     private var canAdvanceFromWatchAddressesPage: Bool {
-        store.canImportWallet && !store.isImportingWallet
+        store.canImportWallet && !store.walletImport.isBusy
     }
     private var popularChainSelectionDescriptors: [SetupChainSelectionDescriptor] {
         Self.popularChainSelectionIds.compactMap { id in
@@ -600,10 +600,10 @@ struct SetupView: View {
     }
     @ViewBuilder
     private var importStatusSection: some View {
-        if let importError = store.importError {
+        if let importError = store.walletImport.error {
             Text(importError).font(.footnote).foregroundStyle(.red.opacity(0.9))
         }
-        if store.isImportingWallet {
+        if store.walletImport.isBusy {
             HStack(spacing: 10) {
                 SpectraLoadingGlyph(size: 22, tint: .orange)
                 Text(AppLocalization.string("import_flow.initializing_wallet_connections")).font(.footnote).foregroundStyle(.secondary)
@@ -624,7 +624,11 @@ struct SetupView: View {
             withAnimation { setupPage = nextPage }
             return
         }
-        Task { await store.importWallet() }
+        let session = store.walletImport.id
+        Task {
+            guard store.walletImport.id == session else { return }
+            await store.importWallet()
+        }
     }
     @ViewBuilder
     private var derivationAdvancedContent: some View {
@@ -683,8 +687,9 @@ struct SetupView: View {
             return
         }
         if !isEditingWallet {
-            store.isShowingWalletImporter = false
+            store.walletImport.isPresented = false
         } else {
+            store.cancelWalletImport()
             dismiss()
         }
     }
