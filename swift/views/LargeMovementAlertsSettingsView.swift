@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 struct LargeMovementAlertsSettingsView: View {
     @Bindable var store: AppState
+    @FocusState private var amountFieldFocused: Bool
     private var settings: AppSettings { store.appSettings }
     var body: some View {
         Form {
@@ -9,12 +10,6 @@ struct LargeMovementAlertsSettingsView: View {
                 Toggle(isOn: store.settingBinding(\.useLargeMovementNotifications) { .useLargeMovementNotifications(value: $0) }) {
                     Label(AppLocalization.string("Large Portfolio Movement Alerts"), systemImage: "chart.line.uptrend.xyaxis")
                 }
-                Text(
-                    settings.useLargeMovementNotifications
-                        ? AppLocalization.string(
-                            "Spectra can notify you when your total portfolio moves beyond your configured thresholds.")
-                        : AppLocalization.string("Large movement notifications are currently off.")
-                ).font(.caption).foregroundStyle(.secondary)
             }
             Section(AppLocalization.string("Alert Controls")) {
                 Stepper(
@@ -26,19 +21,25 @@ struct LargeMovementAlertsSettingsView: View {
                         .largeMovementAlertPercentThreshold(value: $0)
                     }, in: 1...90, step: 1
                 ).disabled(!settings.useLargeMovementNotifications)
-                Stepper(
-                    AppLocalization.format("Large movement minimum: %lld USD", Int(settings.largeMovementAlertUsdThreshold)),
-                    value: store.settingBinding(\.largeMovementAlertUsdThreshold) {
-                        .largeMovementAlertUsdThreshold(value: $0)
-                    }, in: 1...100_000, step: 5
-                ).disabled(!settings.useLargeMovementNotifications)
-            }
-            Section {
-                Text(
-                    AppLocalization.string(
-                        "These controls tune when portfolio movement notifications are sent during portfolio balance refreshes.")
-                ).font(.caption).foregroundStyle(.secondary)
+                LabeledContent(AppLocalization.string("Minimum movement (USD)")) {
+                    TextField(
+                        AppLocalization.string("Minimum movement (USD)"),
+                        value: store.settingBinding(\.largeMovementAlertUsdThreshold) {
+                            .largeMovementAlertUsdThreshold(value: $0)
+                        },
+                        format: .number.grouping(.never)
+                    )
+                    .keyboardType(.decimalPad)
+                    .multilineTextAlignment(.trailing)
+                    .focused($amountFieldFocused)
+                }.disabled(!settings.useLargeMovementNotifications)
             }
         }.navigationTitle(AppLocalization.string("Large Movement Alerts"))
+        .toolbar {
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button(AppLocalization.string("Done")) { amountFieldFocused = false }
+            }
+        }
     }
 }

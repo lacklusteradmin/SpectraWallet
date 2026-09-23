@@ -14,22 +14,11 @@ struct PriceAlertsView: View {
     }
     var body: some View {
         Form {
-            Section {
-                Text(
-                    AppLocalization.string(
-                        "Create alert rules for imported assets. When the current price reaches your target, Spectra sends a local notification. Alerts depend on price refreshes from your selected pricing source and fall back to built-in prices when live data is unavailable. Spectra refreshes prices when the app becomes active and on a repeating in-app watch cycle while it stays open."
-                    )
-                ).spectraHintText()
-            }
             Section(AppLocalization.string("Notifications")) {
                 Toggle(
                     AppLocalization.string("Enable Price Alerts"),
                     isOn: store.settingBinding(\.usePriceAlerts) { .usePriceAlerts(value: $0) }
                 )
-                Text(
-                    AppLocalization.string(
-                        "You can keep rules configured even when alerts are disabled. Re-enable this later to resume notifications.")
-                ).spectraHintText()
             }
             Section(AppLocalization.string("New Alert")) {
                 if store.alertableCoins.isEmpty {

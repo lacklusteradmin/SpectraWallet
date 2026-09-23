@@ -536,7 +536,7 @@ import Foundation
         /// on screen at once, by core's own rule, not after the round trip.
         func testSettingsGoThroughCoreAndSurviveIntoAFreshAppState() async throws {
             let store = makeState()
-            store.updateSetting(.addCustomEndpoint(chainId: "monero", api: "monero-daemon-rpc", endpoint: "  https://wallet.example  "))
+            store.updateSetting(.addCustomEndpoint(capabilities: ["fee", "broadcast", "verification"], chainId: "monero", api: "monero-daemon-rpc", endpoint: "  https://wallet.example  "))
             store.updateSetting(.bitcoinStopGap(value: 9_999))
             store.updateSetting(.useLargeMovementNotifications(value: false))
             XCTAssertEqual(store.appSettings.customEndpoints.last?.endpoint, "https://wallet.example", "core's rule trims before the command lands")

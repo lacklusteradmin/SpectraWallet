@@ -78,7 +78,7 @@ struct EndpointCatalogSettingsView: View {
                 }.accessibilityLabel(AppLocalization.string("Filters"))
             }
         }
-        .task {
+        .task(id: store.appSettings.customEndpoints) {
             do { entries = try await store.bridge.endpointDirectory(); loadError = nil }
             catch { loadError = error.localizedDescription }
         }
