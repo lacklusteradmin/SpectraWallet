@@ -34,7 +34,7 @@ extension AppState {
     /// Save a recipient. Core trims, normalizes the address, validates it,
     /// rejects duplicates and assigns the entry's id.
     func addAddressBookEntry(name: String, address: String, chain: Chain, note: String = "") {
-        enqueueAddressBookCommand(.addAddressBookEntry(
+        sendAddressBookCommand(.addAddressBookEntry(
             name: name, chainId: chain.id, address: address, note: note))
     }
     func canSaveRecipientToAddressBook(_ tx: TransactionRecord) -> Bool {
@@ -48,36 +48,24 @@ extension AppState {
             note: AppLocalization.string("Saved from recent send"))
     }
     func renameAddressBookEntry(id: String, to newName: String) {
-        enqueueAddressBookCommand(.renameAddressBookEntry(id: id, name: newName))
+        sendAddressBookCommand(.renameAddressBookEntry(id: id, name: newName))
     }
     func removeAddressBookEntry(id: String) {
-        enqueueAddressBookCommand(.removeAddressBookEntry(id: id))
+        sendAddressBookCommand(.removeAddressBookEntry(id: id))
     }
-    /// Preserve UI intent order across actor reentrancy. Core still owns every
-    /// mutation; this task chain only orders the shell's forwarding and adoption.
-    private func enqueueAddressBookCommand(_ command: StateCommand) {
-        let previous = addressBookCommandTask
-        addressBookCommandTask = Task { @MainActor [weak self] in
-            await previous?.value
-            await self?.sendAddressBookCommand(command)
-        }
-    }
-    func awaitPendingAddressBookCommands() async {
-        await addressBookCommandTask?.value
-    }
-    /// Send an address-book command and mirror the result.
-    ///
-    /// A refusal arrives as an `addressBookRejected` event carrying the reason
-    /// core decided on; surfacing it beats silently doing nothing.
-    private func sendAddressBookCommand(_ command: StateCommand) async {
-        guard let transition = try? await self.bridge.applyStateCommand(command)
-        else { return }
-        // A read begun while the write was pending may hold the old contacts.
-        // Invalidate it when the committed command returns, not when it starts.
-        applyCoreState(transition.state)
-        addressBookError = nil
-        for case .addressBookRejected(let reason) in transition.events {
-            addressBookError = addressBookRejectionMessage(reason)
+    /// Send an address-book command. A refusal arrives as an
+    /// `addressBookRejected` event carrying the reason core decided on.
+    private func sendAddressBookCommand(_ command: StateCommand) {
+        enqueueStateCommand(command) { store, result in
+            switch result {
+            case .success(let transition):
+                store.addressBookError = nil
+                for case .addressBookRejected(let reason) in transition.events {
+                    store.addressBookError = store.addressBookRejectionMessage(reason)
+                }
+            case .failure(let error):
+                store.addressBookError = error.localizedDescription
+            }
         }
     }
     private func addressBookRejectionMessage(_ reason: AddressBookRejection) -> String {

@@ -5,13 +5,17 @@ import Foundation
     var validators: [StakingValidator] = []
     var isLoading = false
     var error: Error?
-    init(chain: Chain) { self.chain = chain }
+    @ObservationIgnored private let bridge: WalletServiceBridge // Service identity is not view state.
+    init(chain: Chain, bridge: WalletServiceBridge) {
+        self.chain = chain
+        self.bridge = bridge
+    }
     func loadValidators() async {
         guard !isLoading else { return }
         isLoading = true
         error = nil
         defer { isLoading = false }
-        do { validators = try await WalletServiceBridge.shared.fetchStakingValidators(chainId: chain.id) }
+        do { validators = try await bridge.ready().fetchStakingValidators(chainId: chain.id) }
         catch { self.error = error }
     }
     func dismissError() { error = nil }

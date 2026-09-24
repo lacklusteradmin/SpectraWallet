@@ -8,37 +8,37 @@ final class SendStagesBridgeTests: IsolatedAppStateTestCase {
         let wallet = WalletView(name: "Local XMR", chainId: "monero", addresses: ["monero":
             "48ZFsbBKZAnN9Tyw7XsCakJ4dBxBpaD3wa9Az6V5ZwAK99kYQzcgckSNVv5iZhMp8o37fhNzY7eM2ERGoTWr4B282s4mcDi"],
             signing: .seedPhrase(passwordProtected: false))
-        _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState()))
-        let status = try await bridge.moneroSyncStatus(walletId: wallet.id)
+        _ = try await bridge.ready().applyStateCommand(command: .upsertWallet(wallet: wallet.walletState()))
+        let status = try await bridge.ready().moneroSyncStatus(walletId: wallet.id)
         XCTAssertEqual(status?.scannedHeight, 0)
         XCTAssertEqual(status?.complete, false)
         do {
-            _ = try await bridge.syncMoneroWallet(walletId: wallet.id, password: nil, restoreHeight: nil)
+            _ = try await bridge.ready().syncMoneroWallet(walletId: wallet.id, password: nil, restoreHeight: nil)
             XCTFail("Sync requires the locally owned signing keys")
         } catch {
-            let after = try await bridge.moneroSyncStatus(walletId: wallet.id)
+            let after = try await bridge.ready().moneroSyncStatus(walletId: wallet.id)
             XCTAssertEqual(after?.scannedHeight, 0)
         }
     }
 
     func testStageStorageAndRefusalsCrossTheAsyncRuntime() async throws {
-        let artifacts = try await bridge.listSends()
+        let artifacts = try await bridge.ready().listSends()
         XCTAssertTrue(artifacts.isEmpty)
         do {
-            _ = try await bridge.buildOwnedSend(input: SendReviewInput(walletId: "missing",
+            _ = try await bridge.ready().buildOwnedSend(input: SendReviewInput(walletId: "missing",
                 holdingKey: "ethereum:native", amount: "1", destination: "0x1111111111111111111111111111111111111111", overrides: nil))
             XCTFail("Building requires a core-owned wallet and holding")
         } catch {
             XCTAssertTrue(error.localizedDescription.contains("wallet"))
         }
         do {
-            _ = try await bridge.signSend(id: "missing", reviewDigest: "changed", password: nil)
+            _ = try await bridge.ready().signSend(id: "missing", reviewDigest: "changed", password: nil)
             XCTFail("A caller cannot sign an artifact core does not own")
         } catch {
             XCTAssertTrue(error.localizedDescription.contains("artifact not found"))
         }
         do {
-            _ = try await bridge.broadcastSend(id: "missing", endpoints: ["http://127.0.0.1:1"])
+            _ = try await bridge.ready().broadcastSend(id: "missing", endpoints: ["http://127.0.0.1:1"])
             XCTFail("A caller cannot submit arbitrary content")
         } catch {
             XCTAssertTrue(error.localizedDescription.contains("artifact not found"))
@@ -46,7 +46,7 @@ final class SendStagesBridgeTests: IsolatedAppStateTestCase {
         let reopened = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.sqlite").path,
             service: try WalletService(endpoints: []))
         _ = try await reopened.openState()
-        let restored = try await reopened.listSends()
+        let restored = try await reopened.ready().listSends()
         XCTAssertTrue(restored.isEmpty)
     }
 

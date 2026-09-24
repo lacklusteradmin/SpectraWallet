@@ -49,44 +49,38 @@ final class PresentationCatalogTests: XCTestCase {
             wallet(onChain("Bitcoin", Chain.displayName(forId: "bitcoin-testnet-4"))))
     }
 
-    /// Every localized content file decodes in every locale the manifest
-    /// declares — read from the manifest rather than listed here, so adding a
-    /// locale cannot leave a file silently untested.
-    func testBundledCopyDecodesInEveryDeclaredLocale() throws {
+    /// One string table per declared locale, every table with the same keys —
+    /// read from the manifest rather than listed here, so adding a locale
+    /// cannot leave a table silently missing.
+    func testEveryDeclaredLocaleShipsTheSameStringTable() throws {
         let locales = try declaredLocales()
         XCTAssertTrue(locales.contains("en"), "the source language must ship")
+        let source = try Set(table("en").keys)
         for locale in locales {
-            try decode("CommonContent", locale: locale, as: CommonLocalizationContent.self)
-            try decode("DiagnosticsContent", locale: locale, as: DiagnosticsContentCopy.self)
-            try decode("DonationsContent", locale: locale, as: DonationsContentCopy.self)
-            try decode("EndpointsContent", locale: locale, as: EndpointsContentCopy.self)
-            try decode("ImportFlowContent", locale: locale, as: ImportFlowContent.self)
-            try decode("SettingsContent", locale: locale, as: SettingsContentCopy.self)
+            XCTAssertEqual(try Set(table(locale).keys), source, locale)
         }
     }
 
-    /// A localized file ships per locale and nothing else; a locale-independent
-    /// one ships unsuffixed and nothing else.
-    ///
-    /// `StaticContentCatalog` tries `<name>.<locale>.json` first and falls back
-    /// to `<name>.json`, which is how `AppLinks` and `BuyProviders` — URLs and
-    /// provider lists, the same in every language — are found. The fallback
-    /// also meant six localized files could ship an unsuffixed byte-identical
-    /// copy of their `.en` twin without anything reading it: `en` always
-    /// resolves first, because `preferredLocalizationIdentifiers` appends the
-    /// manifest's `sourceLanguage` before it ever reaches `Base`. Two copies of
-    /// one string, one of them unreachable, is the drift `resources/` is flat
-    /// to avoid — so the absence is asserted rather than left to be noticed.
-    func testLocalizedCopyShipsPerLocaleAndNothingElse() throws {
+    /// Donation addresses are funds destinations: each must be a valid address
+    /// on the chain it names, and there is one list for every language.
+    func testDonationAddressesAreValidForTheirChains() {
+        let destinations = DonationsContentCopy.current.destinations
+        XCTAssertFalse(destinations.isEmpty)
+        for destination in destinations {
+            XCTAssertNotNil(Chain(id: destination.chainId), destination.chainId)
+            XCTAssertTrue(isValidSendAddress(chainId: destination.chainId, address: destination.address), destination.chainId)
+        }
+    }
+
+    /// A localized string ships in a locale's table and nothing else; a
+    /// locale-independent data file ships once, unsuffixed.
+    func testLocaleIndependentDataShipsOnce() {
+        for name in ["AppLinks", "BuyProviders", "Donations"] {
+            XCTAssertNotNil(Bundle.main.url(forResource: name, withExtension: "json"), name)
+        }
         for name in ["CommonContent", "DiagnosticsContent", "DonationsContent",
                      "EndpointsContent", "ImportFlowContent", "SettingsContent"] {
-            XCTAssertNil(
-                Bundle.main.url(forResource: name, withExtension: "json"),
-                "\(name).json shadows \(name).en.json and is never read"
-            )
-        }
-        for name in ["AppLinks", "BuyProviders"] {
-            XCTAssertNotNil(Bundle.main.url(forResource: name, withExtension: "json"), name)
+            XCTAssertNil(Bundle.main.url(forResource: "\(name).en", withExtension: "json"), name)
         }
     }
 
@@ -102,9 +96,9 @@ final class PresentationCatalogTests: XCTestCase {
         return try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: url)).availableLocales
     }
 
-    private func decode<T: Decodable>(_ name: String, locale: String, as type: T.Type) throws {
-        let filename = "\(name).\(locale)"
-        let url = try XCTUnwrap(Bundle.main.url(forResource: filename, withExtension: "json"), filename)
-        _ = try JSONDecoder().decode(type, from: Data(contentsOf: url))
+    private func table(_ locale: String) throws -> [String: String] {
+        let name = "RuntimeStrings.\(locale)"
+        let url = try XCTUnwrap(Bundle.main.url(forResource: name, withExtension: "json"), name)
+        return try JSONDecoder().decode([String: String].self, from: Data(contentsOf: url))
     }
 }

@@ -13,7 +13,7 @@ extension AppState {
         isRefreshingFiatRates = true
         defer { isRefreshingFiatRates = false }
         do {
-            _ = try await self.bridge.refreshOwnedFiatRates(force: force)
+            _ = try await self.bridge.ready().refreshOwnedFiatRates(force: force)
             await rebuildWalletDerivedStateFromCore()
         } catch {
             fiatRatesRefreshError = error.localizedDescription
@@ -25,7 +25,7 @@ extension AppState {
     func loadCoreOwnedState() async {
         do {
             let state = try await self.bridge.openState()
-            applyCoreState(state, refreshPortfolio: false)
+            applyCoreState(state)
         } catch {
             appendOperationalLog(.error, category: "Storage", message: error.localizedDescription)
         }
@@ -36,13 +36,14 @@ extension AppState {
     /// Core decides — it normalizes the code and reports whether anything
     /// actually changed, so the rate refresh only runs on a real change.
     func setFiatCurrency(_ currency: FiatCurrency) async {
-        guard
-            let transition = try? await self.bridge.applyStateCommand(
-                .setFiatCurrency(currency: currency))
-        else {
+        let transition: StateTransition
+        do {
+            transition = try await applyStateCommand(.setFiatCurrency(currency: currency))
+            commandError = nil
+        } catch {
+            commandError = error.localizedDescription
             return
         }
-        applyCoreState(transition.state)
         guard servicesEnabled, transition.events.contains(where: {
             if case .fiatCurrencyChanged = $0 { return true }
             return false
@@ -52,7 +53,7 @@ extension AppState {
 
     var portfolioQuotedTotal: QuotedTotal? { portfolioValuation?.portfolio }
     func setPortfolioInclusion(_ isIncluded: Bool, for walletId: String) {
-        enqueueStateCommand(.setWalletPortfolioInclusion(walletId: walletId, included: isIncluded))
+        sendStateCommand(.setWalletPortfolioInclusion(walletId: walletId, included: isIncluded))
     }
     func scheduleImportedWalletRefresh(_ createdWallets: [WalletView]) {
         guard servicesEnabled else { return }
@@ -68,7 +69,6 @@ extension AppState {
     }
     var alertableCoins: [Coin] { portfolio }
     var portfolio: [Coin] { cachedPortfolio }
-    var shouldRunScheduledPriceRefresh: Bool { selectedMainTab == .home }
 
 }
 /// Core's currencies, with what a picker needs: an order, a name and an icon.

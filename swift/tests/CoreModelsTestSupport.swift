@@ -137,8 +137,7 @@ extension AppState {
     /// is fine for a UI and awkward for a test asserting the effect. Tests
     /// await this rather than each deriving the rule locally.
     func awaitPendingCoreStateWrites() async {
-        await stateCommandTask?.value
-        await awaitPendingSettingCommands()
+        await awaitPendingStateCommands()
         await rebuildWalletDerivedStateFromCore()
     }
 }

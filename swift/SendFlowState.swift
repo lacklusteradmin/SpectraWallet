@@ -14,13 +14,15 @@ final class SendFlowState {
     }
     var destinationRiskWarning: String? = nil
     var destinationInfoMessage: String? = nil
-    var isCheckingDestination: Bool = false
+    /// The recipient is checked inside the preview request.
+    var isCheckingDestination: Bool {
+        isPreparingPreview && !address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
     var isShowingHighRiskConfirmation: Bool = false
     var verificationNotice: String? = nil
     var verificationNoticeIsWarning: Bool = false
     var isPreparingReplacement: Bool = false
     var isPreparingPreview: Bool = false
-    @ObservationIgnored var destinationProbeRequestId = UUID() // Reject stale recipient probes.
     let session = SendSession()
     var artifact: SendArtifact? { session.artifact }
     var savedArtifacts: [SendArtifact] = []
@@ -49,9 +51,7 @@ final class SendFlowState {
     func invalidateSession() {
         session.reset()
         previewRequestId = UUID()
-        destinationProbeRequestId = UUID()
         isPreparingPreview = false
-        isCheckingDestination = false
         isPreparingReplacement = false
         isShowingHighRiskConfirmation = false
         clearVerificationNotice()

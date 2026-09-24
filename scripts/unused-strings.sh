@@ -1,21 +1,18 @@
 #!/usr/bin/env bash
 # Shipped copy nothing reads.
 #
-# Everything under `resources/` ships whether or not it is read, and two
-# shapes of copy rot differently:
+# Everything under `resources/` ships whether or not it is read. The
+# `RuntimeStrings` tables are the only localized copy, and most keys are the
+# English string itself, so a line deleted from a view leaves its
+# translations behind. 543 of 1389 once had no source left anywhere.
 #
-#   * A `*Content.<locale>.json` key with no field on its `Decodable` struct
-#     is dropped on the floor by `JSONDecoder` — silently, because decoding
-#     ignores unknown keys. Seven of `DiagnosticsContent`'s twenty-nine were.
-#   * A `RuntimeStrings` key is looked up by the English string itself, so a
-#     line deleted from a view leaves its translations behind. 543 of 1389
-#     had no source left anywhere.
-#
-# A runtime key is reachable when its text, with `%@`/`%lld`/… treated as a
-# wildcard, appears anywhere that can produce it: Swift, Rust (core writes
-# English templates too — see `diagnostics/degraded.rs`), another resource
-# file, or the chain catalog. Dotted keys are built at runtime from an id
-# (`addressHint.bitcoin.empty`), so a namespace prefix is enough.
+# A key is reachable when its text, with `%@`/`%lld`/… treated as a wildcard,
+# appears anywhere that can produce it: Swift, Rust (core writes English
+# templates too — see `diagnostics/degraded.rs`), another resource file, or
+# the chain catalog. A dotted key is reachable when it is spelled out — the
+# screen copy structs name theirs — or when its namespace is interpolated
+# with an id (`"addressHint.\(chain.id).empty"`). The reverse holds too: a
+# dotted key Swift spells out must be in the source table.
 #
 # Locales are checked against each other as well: a key set that drifts means
 # one language silently falls back to another.
@@ -62,9 +59,10 @@ def locales(base):
 
 failures = []
 haystack = corpus()
-swift = '\n'.join(p.read_text() for p in pathlib.Path('swift').rglob('*.swift')
-                  if 'generated' not in p.parts)
-swift_identifiers = set(re.findall(r'[A-Za-z_][A-Za-z_0-9]*', swift))
+
+def dotted_reachable(key):
+    namespace = re.split(r'[._]', key, maxsplit=1)[0]
+    return key in haystack or f'{namespace}.\\(' in haystack or f'{namespace}_\\(' in haystack
 
 bases = sorted({p.name.split('.')[0] for p in STRINGS.glob('*.*.json')
                 if not p.name.endswith('.manifest.json')})
@@ -83,13 +81,19 @@ for base in bases:
 
     source = json.loads(files[0].read_text())
     for key in sorted(source):
-        if base == 'RuntimeStrings':
-            if DOTTED.match(key) and ' ' not in key:
-                continue
-            if not reachable(key, haystack):
-                failures.append(f"  {base:<36} no source produces {key!r}")
-        elif key not in swift_identifiers:
-            failures.append(f"  {base:<36} no struct field decodes {key!r}")
+        found = (dotted_reachable(key) if DOTTED.match(key) and ' ' not in key
+                 else reachable(key, haystack))
+        if not found:
+            failures.append(f"  {base:<36} no source produces {key!r}")
+
+# The reverse: a dotted key spelled out in Swift must be in the source table,
+# or the screen shows the key itself.
+source_keys = set(json.loads((STRINGS / 'RuntimeStrings.en.json').read_text()))
+swift = '\n'.join(p.read_text() for p in pathlib.Path('swift').rglob('*.swift')
+                  if 'generated' not in p.parts)
+for key in sorted(set(re.findall(r'AppLocalization\.(?:string|format)\("([A-Za-z_]+\.[A-Za-z0-9_.-]+)"', swift))):
+    if key not in source_keys:
+        failures.append(f"  {'RuntimeStrings.en.json':<36} Swift names a missing key {key!r}")
 
 for line in failures:
     print(line)

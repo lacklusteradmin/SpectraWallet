@@ -95,7 +95,7 @@ extension CoreSeedDerivationPaths {
     /// surfaces a missing catalog path rather than substituting a guessed one.
     static func forPreset(_ preset: CoreSeedDerivationPreset) -> CoreSeedDerivationPaths {
         (try? derivationPathsForPreset(preset: preset))
-            ?? CoreSeedDerivationPaths(isCustomEnabled: false, byChain: [:])
+            ?? CoreSeedDerivationPaths(byChain: [:])
     }
 }
 extension TransactionStatus {
@@ -107,13 +107,18 @@ extension TransactionStatus {
         }
     }
 }
-enum HistoryFilter: String, CaseIterable, Identifiable {
-    case all = "All"
-    case sends = "Sends"
-    case receives = "Receives"
-    case pending = "Pending"
-    var id: String { rawValue }
-    var localizedTitle: String { AppLocalization.string(rawValue) }
+/// Picker order and wording for core's history filter.
+extension HistoryQueryFilter: CaseIterable, Identifiable {
+    public static var allCases: [HistoryQueryFilter] { [.all, .send, .receive, .pending] }
+    public var id: Self { self }
+    var localizedTitle: String {
+        switch self {
+        case .all: return AppLocalization.string("All")
+        case .send: return AppLocalization.string("Sends")
+        case .receive: return AppLocalization.string("Receives")
+        case .pending: return AppLocalization.string("Pending")
+        }
+    }
 }
 enum HistorySortOrder: String, CaseIterable, Identifiable {
     case newest = "Newest"

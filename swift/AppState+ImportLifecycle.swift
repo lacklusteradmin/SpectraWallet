@@ -24,11 +24,8 @@ extension AppState {
     func confirmDeleteWallet(_ wallet: WalletView) { walletPendingDeletion = wallet }
     func deletePendingWallet() async {
         guard let walletPendingDeletion else { return }
-        guard
-            await authenticateForSensitiveAction(.deleteWallet,
-                reason: AppLocalization.string("Authenticate to delete wallet")
-            )
-        else {
+        if let failure = await authenticate(.deleteWallet, reason: AppLocalization.string("Authenticate to delete wallet")) {
+            commandError = failure
             return
         }
         let deletedWalletId = walletPendingDeletion.id
@@ -58,8 +55,7 @@ extension AppState {
         }
         // Snapshot all user input before suspension. The draft may be replaced
         // while core commits, but that must not alter this operation's inputs.
-        var paths = draft.seedDerivationPaths
-        paths.isCustomEnabled = true
+        let paths = draft.seedDerivationPaths
         let commit = WalletImportCommit(
             password: draft.walletPasswordInput,
             request: WalletImportRequest(
@@ -70,7 +66,7 @@ extension AppState {
             derivationOverrides: draft.resolvedDerivationOverrides,
             seedPhrase: draft.seedPhrase, privateKey: draft.privateKeyInput)
         let completed = await walletImport.submit {
-            let outcome = try await self.bridge.importWallets(commit)
+            let outcome = try await self.bridge.ready().importWallets(commit: commit)
             await self.rebuildWalletDerivedStateFromCore()
             self.scheduleImportedWalletRefresh(outcome.wallets)
             return outcome.rejectedAddresses.isEmpty ? nil : AppLocalization.format(
@@ -81,9 +77,7 @@ extension AppState {
     }
     func renameWallet(id: String, to newName: String) async {
         let completed = await walletImport.submit {
-            let transition = try await self.bridge.applyStateCommand(.renameWallet(walletId: id, name: newName))
-            self.applyCoreState(transition.state, refreshPortfolio: false)
-            await self.rebuildWalletDerivedStateFromCore()
+            try await self.applyStateCommand(.renameWallet(walletId: id, name: newName))
             return nil
         }
         if completed { isShowingAddWalletEntry = false }

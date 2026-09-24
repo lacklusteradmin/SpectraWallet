@@ -1,8 +1,5 @@
 import Foundation
 extension AppState {
-    func rebuildWalletDerivedState() {
-        Task { @MainActor [weak self] in await self?.rebuildWalletDerivedStateFromCore() }
-    }
     /// Core resolves the whole thing — grouping, price-request set, and which
     /// coins each wallet can send or receive on. It holds the wallets, so it
     /// hands back coins rather than indices into a list the caller has to
@@ -10,7 +7,7 @@ extension AppState {
     @discardableResult
     func rebuildWalletDerivedStateFromCore() async -> Bool {
         do {
-            let snapshot = try await self.bridge.portfolioSnapshot()
+            let snapshot = try await self.bridge.ready().portfolioSnapshot()
             applyPortfolioSnapshot(snapshot)
             return true
         } catch {
@@ -21,7 +18,7 @@ extension AppState {
     /// Every wallet/quote/dashboard field is adopted together on the main actor.
     func applyPortfolioSnapshot(_ snapshot: PortfolioSnapshot) {
         guard snapshot.revision > portfolioSnapshotRevision else { return }
-        guard applyCoreState(snapshot.state, refreshPortfolio: false) else { return }
+        guard applyCoreState(snapshot.state) else { return }
         portfolioSnapshotRevision = snapshot.revision
         applyQuoteProjection(snapshot.state)
         portfolioValuation = snapshot.valuation
@@ -53,24 +50,24 @@ extension AppState {
         }
     }
 
-    /// Adopt the wallet projection and start maintenance when needed.
-    /// Core refreshes only when fetch inputs change and stops the engine when
-    /// there is nothing to fetch; balance-only updates must not trigger a sweep.
+    /// Core refreshes only when fetch inputs change, and runs its loops only
+    /// while there is something to fetch; balance-only updates must not
+    /// trigger a sweep.
     private func reconcileBackgroundServices() async {
-        _ = try? await self.bridge.reconcileBalanceRefresh(appIsActive: appIsActive)
-        if !wallets.isEmpty { startMaintenanceLoopIfNeeded() }
+        _ = try? await self.bridge.refreshEngine().reconcileWallets()
     }
 
     /// Refresh the bounded recent/pending projection and indexed aggregates together.
     @discardableResult
     func refreshTransactionProjection() async -> Bool {
         do {
-            let snapshot = try await self.bridge.transactionSnapshot()
+            let snapshot = try await self.bridge.ready().transactionSnapshot()
             guard snapshot.revision > transactionSnapshotRevision else { return true }
             transactionSnapshotRevision = snapshot.revision
             adoptTransactionsFromCore(snapshot.recentAndPending)
             replaceableSends = snapshot.replaceable
             transactionCount = snapshot.totalCount
+            walletsWithMoreHistory = Set(snapshot.walletsWithMoreHistory)
             cachedFirstActivityDateByWalletId = Dictionary(uniqueKeysWithValues: snapshot.earliest.map {
                 ($0.walletId, Date(timeIntervalSince1970: $0.earliestCreatedAtUnix))
             })

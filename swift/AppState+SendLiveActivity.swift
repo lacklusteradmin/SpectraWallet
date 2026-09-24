@@ -177,7 +177,7 @@ extension AppState {
         let runningIds = SendLiveActivityStore.runningTransactionIds
         guard !runningIds.isEmpty else { return }
         await reconcileSendActivities(transactionIds: runningIds,
-            lookup: { try await self.bridge.transaction(id: $0) },
+            lookup: { try await self.bridge.ready().transaction(id: $0) },
             finish: { id, transaction in
                 if let transaction {
                     await self.finishSendLiveActivity(for: transaction, newStatus: transaction.status)

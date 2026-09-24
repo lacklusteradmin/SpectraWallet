@@ -7,10 +7,12 @@ extension AppState {
     /// password goes to core as typed; core applies its password rule and
     /// says why a phrase was not revealed.
     func revealSeedPhrase(for wallet: WalletView, password: String? = nil) async throws -> String {
-        let authenticated = await authenticateForSeedPhraseReveal(reason: AppLocalization.format("Authenticate to view seed phrase for %@", wallet.name))
-        guard authenticated else { throw SeedPhraseRevealError.authenticationRequired }
+        if let failure = await authenticate(.revealSeedPhrase,
+            reason: AppLocalization.format("Authenticate to view seed phrase for %@", wallet.name)) {
+            throw SeedPhraseRevealError.authenticationFailed(failure)
+        }
         let supplied = password.flatMap { $0.isEmpty ? nil : $0 }
-        switch try self.bridge.revealSeedPhrase(walletId: wallet.id, password: supplied) {
+        switch try self.bridge.service().revealSeedPhrase(walletId: wallet.id, password: supplied) {
         case .phrase(let phrase): return phrase
         case .notStored: throw SeedPhraseRevealError.unavailable
         case .passwordRequired: throw SeedPhraseRevealError.passwordRequired

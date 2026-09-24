@@ -1,7 +1,0 @@
-{
-  "navigationTitle": "端点",
-  "addEndpointTitle": "添加端点",
-  "typeTitle": "类型",
-  "urlPlaceholder": "端点 URL",
-  "invalidEndpointMessage": "请输入此网络和 API 类型的有效 HTTP 或 HTTPS 端点，且不能与已有端点重复。"
-}

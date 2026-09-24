@@ -3,25 +3,6 @@ import UIKit
 import UserNotifications
 
 extension AppState {
-    func currentBatteryLevel() -> Float {
-        let level = UIDevice.current.batteryLevel
-        return level < 0 ? 1.0 : level
-    }
-    /// Device-local inputs to core's maintenance plan. Core owns the profile,
-    /// refresh cadence, last-run times, and pending-send polling decisions.
-    private func deviceConditions() -> DeviceConditions {
-        DeviceConditions(
-            appIsActive: appIsActive,
-            isNetworkReachable: isNetworkReachable,
-            isConstrainedNetwork: isConstrainedNetwork,
-            isExpensiveNetwork: isExpensiveNetwork,
-            isLowPowerMode: ProcessInfo.processInfo.isLowPowerModeEnabled,
-            batteryLevel: currentBatteryLevel(),
-            wantsPriceRefresh: shouldRunScheduledPriceRefresh)
-    }
-    func maintenancePlan() async -> MaintenancePlan {
-        await self.bridge.maintenancePlan(conditions: deviceConditions())
-    }
     func deliverPortfolioMovement(_ evaluation: LargeMovementEvaluation) async {
         // Localize the notification for the transfer direction.
         let percent = evaluation.ratio.formatted(.percent.precision(.fractionLength(0)))
@@ -39,35 +20,36 @@ extension AppState {
         do { try await UNUserNotificationCenter.current().add(request) }
         catch { appendOperationalLog(.error, category: "Portfolio Movement", message: error.localizedDescription) }
     }
+
+    /// Ask core to refresh for `intent` and adopt the result. Scheduled ticks
+    /// are core's own; they arrive through the refresh observer.
     @discardableResult
     func performCoreRefresh(_ intent: AppRefreshIntent) async -> Bool {
         do {
-            let result = try await self.bridge.refreshApp(intent: intent, conditions: deviceConditions())
-            lastMaintenancePollSeconds = result.pollSeconds
-            // Core evaluated alerts and movement after its own writes; adopt
-            // each projection once, then tell the user.
-            let portfolioReadSucceeded = await rebuildWalletDerivedStateFromCore()
-            let historyReadSucceeded = await refreshTransactionProjection()
-            if let pending = result.pending {
-                await deliverPendingStatusChanges(pending.changes)
-                for failure in pending.failures {
-                    appendOperationalLog(.error, category: "Pending Transactions", message: failure.message)
-                }
-                lastPendingTransactionRefreshAt = Date()
-            }
-            await updateStagedSendVerificationNotice()
-            for failure in result.failures {
-                appendOperationalLog(.error, category: "Refresh", message: failure)
-            }
-            await diagnostics.loadFromSQLite()
-            deliverPriceAlertNotifications(result.priceAlerts)
-            if let movement = result.movement { await deliverPortfolioMovement(movement) }
-            return portfolioReadSucceeded && historyReadSucceeded
-                && result.failures.isEmpty && (result.pending?.failures.isEmpty ?? true)
+            let result = try await self.bridge.ready().refreshApp(intent: intent, conditions: deviceConditions())
+            return await adoptRefreshResult(result)
         } catch {
             appendOperationalLog(.error, category: "Refresh", message: error.localizedDescription)
             return false
         }
+    }
+
+    /// Core evaluated alerts and movement after its own writes and logged its
+    /// failures; adopt what it says changed, once, then tell the user.
+    @discardableResult
+    func adoptRefreshResult(_ result: AppRefreshResult) async -> Bool {
+        let portfolioReadSucceeded = await rebuildWalletDerivedStateFromCore()
+        let historyReadSucceeded = result.transactionsChanged ? await refreshTransactionProjection() : true
+        if let pending = result.pending {
+            await deliverPendingStatusChanges(pending.changes)
+            lastPendingTransactionRefreshAt = Date()
+        }
+        if result.transactionsChanged { await updateStagedSendVerificationNotice() }
+        if result.diagnosticsChanged { await diagnostics.loadFromSQLite() }
+        deliverPriceAlertNotifications(result.priceAlerts)
+        if let movement = result.movement { await deliverPortfolioMovement(movement) }
+        return portfolioReadSucceeded && historyReadSucceeded
+            && result.failures.isEmpty && (result.pending?.failures.isEmpty ?? true)
     }
 
     @discardableResult
@@ -83,43 +65,6 @@ extension AppState {
         let succeeded = await task.value
         userInitiatedRefreshTask = nil
         return succeeded
-    }
-    func startMaintenanceLoopIfNeeded() {
-        guard servicesEnabled else { return }
-        guard maintenanceTask == nil else { return }
-        // With no wallets there's nothing to maintain — no pending tx to
-        // poll, no price work, no chain history to sync. Don't even spin
-        // the loop until something's worth checking.
-        // `applyWalletCollectionSideEffects` re-invokes this once a wallet
-        // exists. The loop also self-exits below when wallets drop to 0.
-        guard !wallets.isEmpty else { return }
-        maintenanceTask = makeMaintenanceTask()
-    }
-
-    func makeMaintenanceTask() -> Task<Void, Never> {
-        Task { @MainActor [weak self] in
-            while !Task.isCancelled {
-                // Self-exit when the user deletes all wallets. Lets the
-                // loop terminate naturally instead of sleeping forever
-                // doing nothing — matches the no-wallet startup gate.
-                guard self != nil else { return }
-                if self?.wallets.isEmpty == true {
-                    self?.maintenanceTask = nil
-                    return
-                }
-                await self?.runScheduledMaintenanceOnce()
-                guard !Task.isCancelled, let seconds = self?.lastMaintenancePollSeconds else { return }
-                // The cadence comes back with the plan: core knows whether
-                // anything is pending and what the sync profile allows.
-                try? await Task.sleep(
-                    nanoseconds: seconds * 1_000_000_000)
-            }
-        }
-    }
-    /// One tick. Core decides what it is, from its own clock and this device's
-    /// conditions; four questions and a `Date?` on this side became one.
-    func runScheduledMaintenanceOnce() async {
-        await performCoreRefresh(.scheduled)
     }
     var pendingTransactionRefreshStatusText: String? {
         guard let at = lastPendingTransactionRefreshAt else { return nil }

@@ -7,7 +7,7 @@ import Foundation
         /// Core marks a chain degraded or healthy as part of the refresh that
         /// found it so; this state only adopts what core recorded.
         func testADegradedChainShowsABannerAndSurvivesAReload() async throws {
-            _ = try await bridge.applyDiagnosticCommand(
+            _ = try await bridge.ready().applyDiagnosticCommand(command: 
                 .degraded(chainId: "ethereum", reason: .failed(message: "Ethereum refresh timed out. Using cached balances and history.")))
             let state = WalletDiagnosticsState(bridge: bridge)
             await state.loadFromSQLite()
@@ -19,8 +19,8 @@ import Foundation
             XCTAssertEqual(state.operationalLogs.first?.input.chainId, "ethereum")
         }
         func testAHealthyChainClearsItsBannerAndLogsTheRecovery() async throws {
-            _ = try await bridge.applyDiagnosticCommand(.degraded(chainId: "solana", reason: .historyRefreshFailed))
-            _ = try await bridge.applyDiagnosticCommand(.healthy(chainId: "solana"))
+            _ = try await bridge.ready().applyDiagnosticCommand(command: .degraded(chainId: "solana", reason: .historyRefreshFailed))
+            _ = try await bridge.ready().applyDiagnosticCommand(command: .healthy(chainId: "solana"))
             let state = WalletDiagnosticsState(bridge: bridge)
             await state.loadFromSQLite()
             XCTAssertNil(state.chainDegraded["solana"])
@@ -30,11 +30,13 @@ import Foundation
             XCTAssertEqual(state.operationalLogs.first?.input.chainId, "solana")
             XCTAssertEqual(state.operationalLogs.first?.input.message, "Chain recovered")
         }
-        func testAppendOperationalLogTrimsFieldsAndCapsAtEightHundredEntries() async throws {
+        /// An appended line crosses the binding with every field. Trimming and
+        /// the 800-line cap are core's rules, tested in `operational_events.rs`.
+        func testAppendedLogCrossesTheBindingWithEveryField() async throws {
             let state = WalletDiagnosticsState(bridge: bridge)
             state.appendOperationalLog(
-                .error, category: "  Network  ", message: "  Request failed  ", chainId: "  bitcoin  ", source: "  rpc  ",
-                metadata: "  timeout  "
+                .error, category: "Network", message: "Request failed", chainId: "bitcoin", source: "rpc",
+                metadata: "timeout"
             )
             await state.flushPendingPersistence()
             XCTAssertEqual(state.operationalLogs.first?.input.category, "Network")
@@ -42,9 +44,6 @@ import Foundation
             XCTAssertEqual(state.operationalLogs.first?.input.chainId, "bitcoin")
             XCTAssertEqual(state.operationalLogs.first?.input.source, "rpc")
             XCTAssertEqual(state.operationalLogs.first?.input.metadata, "timeout")
-            for index in 0..<810 { state.appendOperationalLog(.info, category: "Load", message: "Event \(index)") }
-            await state.flushPendingPersistence()
-            XCTAssertEqual(state.operationalLogs.count, 800)
         }
         func testExportOperationalLogsTextIncludesHeaderAndMetadata() async throws {
             let state = WalletDiagnosticsState(bridge: bridge)

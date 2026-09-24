@@ -10,4 +10,13 @@ final class DeviceAuthenticationTests: XCTestCase {
         XCTAssertFalse(DeviceAuthenticationAction.send.requiresAuthentication(useFaceId: true, authenticateSends: false))
         XCTAssertTrue(DeviceAuthenticationAction.send.requiresAuthentication(useFaceId: true, authenticateSends: true))
     }
+
+    func testRevealingASeedPhraseAlwaysRequiresAuthentication() {
+        for useFaceId in [true, false] {
+            for authenticateSends in [true, false] {
+                XCTAssertTrue(DeviceAuthenticationAction.revealSeedPhrase.requiresAuthentication(
+                    useFaceId: useFaceId, authenticateSends: authenticateSends))
+            }
+        }
+    }
 }

@@ -51,13 +51,18 @@ final class SendSession {
         }
     }
 
-    func sign(password: String?, authenticate: () async -> Bool,
+    func sign(password: String?, authenticate: () async -> String?,
               sign: (String, String, String?) async throws -> SendArtifact) async {
         guard operation == nil, let artifact, artifact.stage == .prepared else { return }
         let request = id
         operation = .sign
         defer { finish(request) }
-        guard await authenticate(), isCurrent(request), self.artifact?.id == artifact.id else { return }
+        let failure = await authenticate()
+        guard isCurrent(request), self.artifact?.id == artifact.id else { return }
+        if let failure {
+            error = failure
+            return
+        }
         do {
             let signed = try await sign(artifact.id, artifact.reviewDigest, password)
             guard isCurrent(request), self.artifact?.id == artifact.id else { return }

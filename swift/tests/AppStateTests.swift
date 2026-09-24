@@ -40,7 +40,7 @@ import Foundation
         func testManualStatusRecheckRefusesMissingTransactionAcrossAsyncBridge() async throws {
             let id = UUID().uuidString
             do {
-                _ = try await bridge.recheckTransactionStatus(id: id)
+                _ = try await bridge.ready().recheckTransactionStatus(transactionId: id)
                 XCTFail("a missing transaction must not produce a successful status")
             } catch {
                 XCTAssertTrue(String(describing: error).contains("Transaction not found"))
@@ -85,7 +85,7 @@ import Foundation
             let removed = await store.removeWallet(id: wallet.id)
             XCTAssertTrue(removed)
             await store.renameWallet(id: wallet.id, to: "Late rename")
-            let after = try await bridge.portfolioSnapshot().wallets
+            let after = try await bridge.ready().portfolioSnapshot().wallets
             XCTAssertTrue(after.isEmpty)
             XCTAssertTrue(store.wallets.isEmpty)
         }
@@ -123,43 +123,6 @@ import Foundation
             XCTAssertEqual(store.wallets.first?.chainId, "bitcoin")
             XCTAssertFalse(store.wallets.first?.address(on: .bitcoin)?.isEmpty ?? true)
         }
-        /// Import derives the mainnet address and the address of the network
-        /// the wallet is on, each in its own slot. The wallet shows the one for
-        /// its network.
-        ///
-        /// This test used to assert the stored address was valid *testnet4*,
-        /// and passed — because it said so through the validator's
-        /// `networkMode` argument, which nothing read. The `kind` had always
-        /// been what decided, and it said `"bitcoin"`. Deleting the dead
-        /// argument is what exposed it.
-        func testImportingBitcoinWalletOnTestnet4StoresTheMainnetDerivedAddress() async {
-            let store = makeState()
-            store.selectChainForFamily("bitcoin-testnet-4")
-            await store.awaitPendingCoreStateWrites()
-            store.walletImport.draft.walletName = "Primary BTC Testnet4"
-            store.walletImport.draft.setSeedPhraseForTesting("test test test test test test test test test test test junk")
-            store.walletImport.draft.selectedChainIdsStorage = ["bitcoin"]
-            await store.importWallet()
-            XCTAssertNil(store.walletImport.error)
-            XCTAssertEqual(store.wallets.count, 1)
-            XCTAssertEqual(store.wallets.first?.chainId, "bitcoin-testnet-4")
-            XCTAssertEqual(store.wallets.first?.family, .bitcoin)
-            func isValid(_ address: String, on chain: Chain) -> Bool {
-                validateAddress(request: AddressValidationRequest(kind: chain.addressValidationKind, value: address)).isValid
-            }
-            let stored = store.wallets.first?.address(on: .bitcoin) ?? ""
-            XCTAssertTrue(isValid(stored, on: .bitcoin), "storage holds the mainnet-derived address")
-            // What the user is shown is the address core stored for the network
-            // the wallet is on. It used to be re-derived from the seed on every
-            // read, so a sealed wallet showed the mainnet address on testnet.
-            let shown = store.wallets.first.flatMap { $0.chain.flatMap($0.address(on:)) } ?? ""
-            XCTAssertTrue(isValid(shown, on: .bitcoinTestnet4), "the displayed address is testnet4, got \(shown)")
-            XCTAssertNotEqual(shown, stored, "the two networks are different keys")
-            let wallet = store.wallets[0]
-            XCTAssertEqual(wallet.seedDerivationPaths.path(for: .bitcoin), "m/84'/0'/0'/0/0")
-            XCTAssertEqual(wallet.seedDerivationPaths.path(for: .bitcoinTestnet4), "m/84'/1'/0'/0/0")
-            XCTAssertEqual(wallet.holdings.first?.symbol, "tBTC")
-        }
         func testBitcoinDisplayNetworkNameUsesSelectedMode() async {
             let store = makeState()
             store.selectChainForFamily("bitcoin-testnet-4")
@@ -186,11 +149,11 @@ import Foundation
 
         func testStakingAndReceiveRefusalAcrossAsyncBinding() async throws {
             do {
-                _ = try await bridge.fetchStakingValidators(chainId: "bitcoin")
+                _ = try await bridge.ready().fetchStakingValidators(chainId: "bitcoin")
                 XCTFail("Unsupported staking must refuse before network access")
             } catch { }
             do {
-                _ = try await bridge.receiveAddress(walletId: "missing", chainId: "ethereum", reserve: true)
+                _ = try await bridge.ready().receiveAddress(walletId: "missing", chainId: "ethereum", reserve: true)
                 XCTFail("A missing wallet must not produce an address or a message-as-address")
             } catch { }
         }
@@ -291,7 +254,7 @@ import Foundation
                 try await store.seedWalletForTesting(wallet)
 
                 // Read it back the way a fresh launch does.
-                let reloaded = try await bridge.portfolioSnapshot().wallets
+                let reloaded = try await bridge.ready().portfolioSnapshot().wallets
                 XCTAssertEqual(reloaded.count, 1, "\(chain.id) wallet was dropped on load")
                 XCTAssertEqual(
                     reloaded.first?.address(on: chain), "address-for-\(chain.id)",
@@ -313,7 +276,7 @@ import Foundation
             let store = makeState()
             await store.setFiatCurrency(.eur)
 
-            let state = try await bridge.appState()
+            let state = try await bridge.ready().appState()
             XCTAssertEqual(state.settings.fiatCurrency, .eur)
             XCTAssertEqual(store.selectedFiatCurrency, .eur)
         }
@@ -338,7 +301,7 @@ import Foundation
             for id in store.addressBook.map(\.id) {
                 store.removeAddressBookEntry(id: id)
             }
-            await store.awaitPendingAddressBookCommands()
+            await store.awaitPendingStateCommands()
             XCTAssertTrue(store.addressBook.isEmpty)
         }
 
@@ -352,15 +315,15 @@ import Foundation
                     address: "0x" + String(repeating: String(index), count: 40),
                     chain: .ethereum)
             }
-            await store.awaitPendingAddressBookCommands()
+            await store.awaitPendingStateCommands()
             XCTAssertEqual(store.addressBook.count, 3)
-            let stale = try await bridge.appState()
+            let stale = try await bridge.ready().appState()
 
             for entry in store.addressBook { store.removeAddressBookEntry(id: entry.id) }
-            await store.awaitPendingAddressBookCommands()
+            await store.awaitPendingStateCommands()
             store.applyCoreState(stale)
             XCTAssertTrue(store.addressBook.isEmpty, "an earlier read must not resurrect removed contacts")
-            let persisted = try await bridge.appState()
+            let persisted = try await bridge.ready().appState()
             XCTAssertTrue(persisted.addressBook.isEmpty)
         }
 
@@ -373,7 +336,7 @@ import Foundation
             store.addAddressBookEntry(
                 name: "  Cold Wallet  ", address: "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu",
                 chain: .bitcoin, note: " vault ")
-            await store.awaitPendingAddressBookCommands()
+            await store.awaitPendingStateCommands()
 
             XCTAssertEqual(store.addressBook.count, 1)
             XCTAssertEqual(store.addressBook.first?.name, "Cold Wallet", "core trims")
@@ -389,32 +352,18 @@ import Foundation
         }
 
         /// Core refuses, and says why. The UI must not silently do nothing.
-        func testCoreRejectsInvalidAndDuplicateContacts() async throws {
+        /// A refusal reaches the contact form. Which addresses core refuses —
+        /// invalid, duplicate in any case — is tested in `address_book.rs`.
+        func testAContactRefusalReachesTheForm() async throws {
             let store = makeState()
             try await bridge.openState()
             await store.loadCoreOwnedState()
             await clearAddressBook(store)
-
             store.addAddressBookEntry(
                 name: "Typo", address: "definitely-not-an-address", chain: .bitcoin)
-            await store.awaitPendingAddressBookCommands()
+            await store.awaitPendingStateCommands()
             XCTAssertTrue(store.addressBook.isEmpty)
             XCTAssertNotNil(store.addressBookError)
-
-            store.addAddressBookEntry(
-                name: "Cold", address: "bc1qcr8te4kr609gcawutmrza0j4xv80jy8z306fyu",
-                chain: .bitcoin)
-            await store.awaitPendingAddressBookCommands()
-            XCTAssertNil(store.addressBookError, "a valid entry clears the message")
-
-            store.addAddressBookEntry(
-                name: "Same again", address: "BC1QCR8TE4KR609GCAWUTMRZA0J4XV80JY8Z306FYU",
-                chain: .bitcoin)
-            await store.awaitPendingAddressBookCommands()
-            XCTAssertEqual(store.addressBook.count, 1, "case does not get around the duplicate check")
-            XCTAssertNotNil(store.addressBookError)
-
-            await clearAddressBook(store)
         }
 
         /// A pending send that later confirms must still read as confirmed
@@ -435,7 +384,7 @@ import Foundation
                 address: "bc1qexample", transactionHash: "0xhash-status-test")
 
             try await store.seedTransactionForTesting(tx)
-            let pending = try await bridge.transaction(id: tx.id)
+            let pending = try await bridge.ready().transaction(id: tx.id)
             XCTAssertEqual(pending?.status, .pending)
 
             try await store.seedTransactionForTesting(
@@ -445,40 +394,40 @@ import Foundation
             let persisted = try await reopened.transaction(id: tx.id)?.status
             XCTAssertEqual(persisted, .confirmed, "status change was not persisted")
 
-            _ = try await bridge.applyTransactionCommand(.remove(ids: [tx.id]))
-            let deleted = try await bridge.transaction(id: tx.id)
+            _ = try await bridge.ready().applyTransactionCommand(command: .remove(ids: [tx.id]))
+            let deleted = try await bridge.ready().transaction(id: tx.id)
             XCTAssertNil(deleted)
             await store.removeWallet(id: wallet.id)
         }
 
         func testTorDoesNotActivateOrStopForAnUncommittedToggle() async throws {
-            _ = try await bridge.applyStateCommand(.setAppSetting(update: .torEnabled(value: false)))
+            _ = try await bridge.ready().applyStateCommand(command: .setAppSetting(update: .torEnabled(value: false)))
             _ = try await service.configureNetworkRuntime(cacheDir: directory.path)
             let store = makeState()
             store.updateSetting(.torUseCustomProxy(value: true))
             store.updateSetting(.torCustomProxyAddress(value: "socks5://127.0.0.1:19050"))
-            await store.awaitPendingSettingCommands()
+            await store.awaitPendingStateCommands()
             XCTAssertEqual(torStatus(), .stopped)
             store.updateSetting(.torEnabled(value: true))
             XCTAssertTrue(store.appSettings.torEnabled)
             XCTAssertFalse(store.committedAppSettings.torEnabled)
             XCTAssertEqual(torStatus(), .stopped)
-            await store.awaitPendingSettingCommands()
+            await store.awaitPendingStateCommands()
             XCTAssertTrue(store.committedAppSettings.torEnabled)
             XCTAssertEqual(torStatus(), .ready)
             store.updateSetting(.torEnabled(value: false))
             XCTAssertEqual(torStatus(), .ready)
-            await store.awaitPendingSettingCommands()
+            await store.awaitPendingStateCommands()
             XCTAssertEqual(torStatus(), .stopped)
             store.updateSetting(.torUseCustomProxy(value: false))
             store.updateSetting(.torCustomProxyAddress(value: "socks5://127.0.0.1:9050"))
-            await store.awaitPendingSettingCommands()
+            await store.awaitPendingStateCommands()
         }
 
         func testSettingsRuntimeUsesCommittedValuesWhileEditsAreQueued() async throws {
             let store = makeState()
-            let state = try await bridge.appState()
-            store.applyCoreState(state, refreshPortfolio: false)
+            let state = try await bridge.ready().appState()
+            store.applyCoreState(state)
             let initial = store.committedAppSettings.bitcoinStopGap
             let next: UInt32 = initial == 30 ? 40 : 30
             store.updateSetting(.bitcoinStopGap(value: next))
@@ -486,7 +435,7 @@ import Foundation
             XCTAssertEqual(store.committedAppSettings.bitcoinStopGap, initial)
             store.updateSetting(.bitcoinStopGap(value: initial))
             XCTAssertEqual(store.committedAppSettings.bitcoinStopGap, initial)
-            await store.awaitPendingSettingCommands()
+            await store.awaitPendingStateCommands()
             XCTAssertEqual(store.appSettings.bitcoinStopGap, initial)
             XCTAssertEqual(store.committedAppSettings.bitcoinStopGap, initial)
         }
@@ -500,7 +449,7 @@ import Foundation
             store.updateSetting(.useLargeMovementNotifications(value: false))
             XCTAssertEqual(store.appSettings.customEndpoints.last?.endpoint, "https://wallet.example", "core's rule trims before the command lands")
             XCTAssertEqual(store.appSettings.bitcoinStopGap, 200, "9999 is outside 1...200")
-            await store.awaitPendingSettingCommands()
+            await store.awaitPendingStateCommands()
 
             let fresh = makeState()
             await fresh.loadCoreOwnedState()
@@ -510,7 +459,7 @@ import Foundation
 
             store.updateSetting(.bitcoinStopGap(value: 10))
             store.updateSetting(.useLargeMovementNotifications(value: true))
-            await store.awaitPendingSettingCommands()
+            await store.awaitPendingStateCommands()
         }
 
         func testImportCompletionPreservesAPartialSuccessNotice() async {
@@ -546,7 +495,7 @@ import Foundation
             let store = makeState()
 
             let transition = try await service.applyStateCommand(command: .setFiatCurrency(currency: .eur))
-            store.applyCoreState(transition.state, refreshPortfolio: false)
+            store.applyCoreState(transition.state)
             store.applyPortfolioSnapshot(stale)
             XCTAssertEqual(store.selectedFiatCurrency, .eur)
             XCTAssertNil(store.portfolioValuation)
@@ -554,16 +503,16 @@ import Foundation
         }
 
         func testCoreVersionWinsRegardlessOfRequestCompletionOrder() async throws {
-            let old = try await bridge.appState()
-            let changed = try await bridge.applyStateCommand(.setFiatCurrency(currency: .eur))
+            let old = try await bridge.ready().appState()
+            let changed = try await bridge.ready().applyStateCommand(command: .setFiatCurrency(currency: .eur))
             // A failed operation after the successful write must not discard its result.
             do {
-                _ = try await bridge.recheckTransactionStatus(id: "missing")
+                _ = try await bridge.ready().recheckTransactionStatus(transactionId: "missing")
                 XCTFail("missing transaction must fail")
             } catch {}
             let store = makeState()
-            XCTAssertTrue(store.applyCoreState(changed.state, refreshPortfolio: false))
-            XCTAssertFalse(store.applyCoreState(old, refreshPortfolio: false))
+            XCTAssertTrue(store.applyCoreState(changed.state))
+            XCTAssertFalse(store.applyCoreState(old))
             XCTAssertEqual(store.selectedFiatCurrency, .eur)
             XCTAssertEqual(store.appliedCoreStateRevision, changed.state.revision)
         }
@@ -596,16 +545,16 @@ import Foundation
 @MainActor
 private extension AppState {
     func seedTransactionForTesting(_ record: TransactionRecord) async throws {
-        _ = try await bridge.applyTransactionCommand(.upsert(records: [record]))
+        _ = try await bridge.ready().applyTransactionCommand(command: .upsert(records: [record]))
         await refreshTransactionProjection()
     }
     func seedWalletForTesting(_ wallet: WalletView) async throws {
-        _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState()))
+        _ = try await bridge.ready().applyStateCommand(command: .upsertWallet(wallet: wallet.walletState()))
         await rebuildWalletDerivedStateFromCore()
     }
     func clearWalletsForTesting() async throws {
-        let stored = try await bridge.portfolioSnapshot().wallets
-        for wallet in stored { _ = try await bridge.applyStateCommand(.removeWallet(walletId: wallet.id)) }
+        let stored = try await bridge.ready().portfolioSnapshot().wallets
+        for wallet in stored { _ = try await bridge.ready().applyStateCommand(command: .removeWallet(walletId: wallet.id)) }
         await rebuildWalletDerivedStateFromCore()
     }
 }

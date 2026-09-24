@@ -15,6 +15,7 @@ struct FundsFinderHit: Identifiable {
 /// properties behind six forwarding ones, with a comment claiming
 /// `@Observable` required that shape.
 struct FundsFinderView: View {
+    let bridge: WalletServiceBridge
     @State private var seedPhrase: String = ""
     @State private var passphrase: String = ""
     @State private var showPassphrase: Bool = false
@@ -90,8 +91,8 @@ struct FundsFinderView: View {
         isScanning = true
         scanTask = Task { @MainActor in
             do {
-                let scan = try WalletServiceBridge.shared.beginFundsScan(
-                    request: FundsFinderRequest(seedPhrase: seedPhrase, passphrase: passphrase))
+                let scan = try bridge.service().beginFundsScan(
+                    request: FundsFinderRequest(seedPhrase: seedPhrase, passphrase: passphrase), chainId: nil)
                 repeat {
                     let batch = await scan.nextBatch()
                     guard !Task.isCancelled else { return }

@@ -1,0 +1,22 @@
+[
+  {
+    "chainId": "bitcoin",
+    "address": "bc1pc7vh4gd3qcghvyplv2e8kg7wfrdduvus98chqfka3kl7cl3g9n0qa2xk03"
+  },
+  {
+    "chainId": "ethereum",
+    "address": "0xefa039ed09c3fe6aeceb89b365b2740e4050365c"
+  },
+  {
+    "chainId": "solana",
+    "address": "Cbjxsz2mtdxo8ZRStCDpAjuRcHcAg9kMNMgVjE6E9VBv"
+  },
+  {
+    "chainId": "tron",
+    "address": "TUYaUXqRKoLs6GSWrrGgc6BUg8cgyHbB44"
+  },
+  {
+    "chainId": "monero",
+    "address": "89vtA958CURTLxDnteLZUUQk43nL8RcCaSDAPUcToQi9NmeAECDRxnie15sLa9rFWDZuzjXKJs3i6fweiqEJGKWoJuUkLKh"
+  }
+]

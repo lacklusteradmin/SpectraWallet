@@ -1,66 +1,76 @@
-// MARK: - Wallet/transactions/address-book mutation helpers
+// MARK: - State commands
 //
-// Core is the canonical store for all three collections; the `@Observable`
-// arrays on AppState are projections of it, with one writer each. These helpers
-// send the `StateCommand` and update the projection, so direct assignment to
-// `self.wallets`, `self.transactions` or `self.addressBook` is a bug — it
-// desynchronises the projection from the store rather than failing loudly.
+// Core is the canonical store for wallets, settings, contacts, tokens, alerts
+// and pins; the `@Observable` values on AppState are projections of it, with
+// one writer each. Every change is a `StateCommand` sent through the one queue
+// below, and what core committed lands back through `applyCoreState` and the
+// portfolio snapshot. Assigning a projection directly is a bug.
 
 import Foundation
 
 @MainActor
 extension AppState {
-    // ── Wallets ────────────────────────────────────────────────────────
-    //
-    // Core owns the list. Commands persist first; the coherent snapshot then
-    // replaces the displayed wallets and their derived values together.
+    /// Send a command after every command issued before it, then adopt what core
+    /// committed. `then` runs after adoption, inside the queue, with the result.
+    ///
+    /// Core serialises its own writes and stamps each state with a revision, so
+    /// adoption order is already safe; the queue keeps the order the user acted
+    /// in, so a later edit is never overtaken by an earlier one.
+    @discardableResult
+    func enqueueStateCommand(
+        _ command: StateCommand,
+        then handle: @escaping @MainActor (AppState, Result<StateTransition, Error>) async -> Void = { _, _ in }
+    ) -> Task<StateTransition, Error> {
+        let previous = stateCommandTask
+        let task = Task { @MainActor [weak self] () throws -> StateTransition in
+            await previous?.value
+            guard let self else { throw CancellationError() }
+            do {
+                let transition = try await self.bridge.ready().applyStateCommand(command: command)
+                self.applyCoreState(transition.state)
+                await self.rebuildWalletDerivedStateFromCore()
+                await handle(self, .success(transition))
+                return transition
+            } catch {
+                await handle(self, .failure(error))
+                throw error
+            }
+        }
+        stateCommandTask = Task { _ = try? await task.value }
+        return task
+    }
 
-    // Wallet writes are awaitable, unlike the transaction ones. They are rare —
-    // import, rename, delete, a balance change — and a caller that needs to know
-    // the wallet is durably stored before moving on (import, above all) must be
-    // able to wait. The `Task`-wrapping variants exist only for the synchronous
-    // UI entry points.
+    /// Send a command, wait for it to be committed and adopted, and return it.
+    @discardableResult
+    func applyStateCommand(_ command: StateCommand) async throws -> StateTransition {
+        try await enqueueStateCommand(command).value
+    }
+
+    /// Send a command whose only failure surface is `commandError`.
+    func sendStateCommand(_ command: StateCommand) {
+        enqueueStateCommand(command) { store, result in
+            switch result {
+            case .success: store.commandError = nil
+            case .failure(let error): store.commandError = error.localizedDescription
+            }
+        }
+    }
+
+    /// Wait until every command issued so far has been committed and adopted.
+    func awaitPendingStateCommands() async {
+        await stateCommandTask?.value
+    }
 
     @discardableResult
     func removeWallet(id: String) async -> Bool {
         do {
-            _ = try await self.bridge.applyStateCommand(.removeWallet(walletId: id))
+            try await applyStateCommand(.removeWallet(walletId: id))
             await refreshTransactionProjection()
-            await rebuildWalletDerivedStateFromCore()
-            walletCommandError = nil
+            commandError = nil
             return true
         } catch {
-            walletCommandError = error.localizedDescription
+            commandError = error.localizedDescription
             return false
-        }
-    }
-
-    /// Send a field intent and adopt only the committed projection.
-    func enqueueStateCommand(_ command: StateCommand) {
-        let previous = stateCommandTask
-        stateCommandTask = Task { [weak self] in
-            await previous?.value
-            guard let self else { return }
-            do {
-                let transition = try await self.bridge.applyStateCommand(command)
-                self.applyCoreState(transition.state, refreshPortfolio: false)
-                await self.rebuildWalletDerivedStateFromCore()
-                self.walletCommandError = nil
-            } catch {
-                self.walletCommandError = error.localizedDescription
-            }
-        }
-    }
-
-    /// Send a pin command; the projection that comes back is the authority,
-    /// not what was sent.
-    func sendDashboardPinCommand(_ command: StateCommand) {
-        Task { @MainActor [weak self] in
-            guard let self else { return }
-            guard let transition = try? await self.bridge.applyStateCommand(command) else {
-                return
-            }
-            self.applyCoreState(transition.state)
         }
     }
 

@@ -27,7 +27,7 @@ final class WalletDiagnosticsState {
         pendingCommand = Task { @MainActor [weak self] in
             await previous?.value
             do {
-                let result = try await bridge.applyDiagnosticCommand(command)
+                let result = try await bridge.ready().applyDiagnosticCommand(command: command)
                 self?.adopt(result)
                 self?.persistenceError = nil
             } catch { self?.persistenceError = error.localizedDescription }
@@ -37,7 +37,7 @@ final class WalletDiagnosticsState {
         await pendingCommand?.value
         let started = revision
         do {
-            let state = try await bridge.diagnosticState()
+            let state = try await bridge.ready().diagnosticState()
             guard started == revision else { return }
             adopt(state)
         } catch { persistenceError = error.localizedDescription }
@@ -116,7 +116,7 @@ final class WalletDiagnosticsState {
 final class WalletChainDiagnosticsState {
     var diagnosticsRevision: Int = 0
 
-    /// One chain's self-test state, keyed by chain display name.
+    /// One chain's self-test state, keyed by chain id.
     struct SelfTests {
         var results: [ChainSelfTestResult] = []
         var isRunning: Bool = false
@@ -124,7 +124,7 @@ final class WalletChainDiagnosticsState {
     }
     var selfTestsByChain: [String: SelfTests] = [:]
 
-    /// One chain's endpoint-health state, keyed by chain display name.
+    /// One chain's endpoint-health state, keyed by chain id.
     struct EndpointHealth {
         var results: [EndpointHealthRow] = []
         var lastUpdatedAt: Date?

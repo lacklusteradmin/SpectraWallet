@@ -11,7 +11,6 @@ extension AppState {
         sendFlow.isPresented = true
     }
     func syncSendAssetSelection() {
-        sendFlow.destinationProbeRequestId = UUID()
         let availableHoldingKeys = availableSendCoins(for: sendFlow.walletId).map(\.holdingKey)
         if !availableHoldingKeys.contains(sendFlow.holdingKey) { sendFlow.holdingKey = availableHoldingKeys.first ?? "" }
         // Keep EIP-1559 fees and manual nonce when switching within the EVM
@@ -22,7 +21,7 @@ extension AppState {
         }
         sendFlow.invalidateSession()
         sendFlow.clearPreview()
-        sendFlow.destinationRiskWarning = nil; sendFlow.destinationInfoMessage = nil; sendFlow.isCheckingDestination = false
+        sendFlow.destinationRiskWarning = nil; sendFlow.destinationInfoMessage = nil
     }
     func cancelSend() { sendFlow.isPresented = false; sendFlow.resetComposer() }
     var selectedSendCoin: Coin? {
@@ -152,7 +151,7 @@ extension AppState {
         sendFlow.isPreparingReplacement = true
         defer { if sendFlow.session.id == session { sendFlow.isPreparingReplacement = false } }
         do {
-            let draft = try await self.bridge.replacementDraft(
+            let draft = try await self.bridge.ready().replacementDraft(
                 transactionId: pending.transactionId, cancel: cancel)
             guard sendFlow.session.isCurrent(session) else { return }
             sendFlow.walletId = draft.walletId
@@ -164,8 +163,6 @@ extension AppState {
             sendFlow.useCustomEvmFees = true
             sendFlow.customEvmMaxFeeGwei = draft.maxFeeGwei
             sendFlow.customEvmPriorityFeeGwei = draft.priorityFeeGwei
-            sendFlow.error = localizedStoreString(
-                cancel ? "Cancellation context loaded. Review fees and tap Send." : "Replacement context loaded. Review fees and tap Send.")
             await refreshSendPreview()
         } catch {
             guard sendFlow.session.isCurrent(session) else { return }
@@ -174,22 +171,18 @@ extension AppState {
     }
     func prepareSpeedUpContext() async { await prepareReplacementContext(cancel: false) }
     func prepareCancelContext() async { await prepareReplacementContext(cancel: true) }
-    func isCancelledRequest(_ error: Error) -> Bool {
-        if error is CancellationError { return true }
-        if let urlError = error as? URLError, urlError.code == .cancelled { return true }
-        return false
-    }
     func isValidAddress(_ address: String, on chain: Chain) -> Bool {
         isValidSendAddress(chainId: chain.id, address: address)
-    }
-    func normalizedAddress(_ address: String, on chain: Chain) -> String {
-        normalizedSendAddress(chainId: chain.id, address: address)
     }
     /// The address this send is going to, from whatever is in the field.
     ///
     /// Core owns resolution; the optional address binds the visible review.
     func resolveSendDestination(input: String, on chain: Chain, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
-        try await self.bridge.resolveSendDestination(chainId: chain.id, input: input, expectedAddress: expectedAddress)
+        let service = try await self.bridge.ready()
+        if let expectedAddress {
+            return try await service.verifySendDestination(chainId: chain.id, input: input, expectedAddress: expectedAddress)
+        }
+        return try await service.resolveSendDestination(chainId: chain.id, input: input)
     }
     func clearHighRiskSendConfirmation() { sendFlow.isShowingHighRiskConfirmation = false }
     func confirmSigning(password: String?) async {
@@ -197,36 +190,6 @@ extension AppState {
         await signPreparedSend(password: password)
     }
 
-    func refreshSendDestinationRiskWarning(for coin: Coin) async {
-        let requestId = UUID()
-        sendFlow.destinationProbeRequestId = requestId
-        let walletId = sendFlow.walletId
-        let holdingKey = coin.holdingKey
-        let input = sendFlow.address
-        func isCurrent() -> Bool {
-            !Task.isCancelled && sendFlow.destinationProbeRequestId == requestId
-                && sendFlow.walletId == walletId && sendFlow.holdingKey == holdingKey && sendFlow.address == input
-        }
-        sendFlow.destinationRiskWarning = nil
-        sendFlow.destinationInfoMessage = nil
-        sendFlow.isCheckingDestination = !input.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        defer { if sendFlow.destinationProbeRequestId == requestId { sendFlow.isCheckingDestination = false } }
-        guard sendFlow.isCheckingDestination else { return }
-        do {
-            // Core resolves the typed input and identifies the stored deployment.
-            // No ticker-based cache or cross-protocol address normalization lives here.
-            let risk = try await self.bridge.sendDestinationRisk(
-                walletId: walletId, holdingKey: holdingKey, destination: input)
-            guard isCurrent() else { return }
-            let messages = chainRiskProbeMessages(chainName: coin.chainName, symbol: coin.symbol,
-                activity: risk.activity)
-            sendFlow.destinationRiskWarning = messages.warning
-            sendFlow.destinationInfoMessage = messages.info
-        } catch {
-            guard isCurrent() else { return }
-            sendFlow.destinationInfoMessage = localizedStoreString("Unable to verify this address's activity. Try again later.")
-        }
-    }
     func availableSendCoins(for walletId: String) -> [Coin] { cachedAvailableSendCoinsByWalletId[walletId] ?? [] }
     var sendEnabledWallets: [WalletView] { cachedSendEnabledWallets }
     var canBeginSend: Bool { !sendEnabledWallets.isEmpty }

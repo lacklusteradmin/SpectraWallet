@@ -5,10 +5,6 @@ extension AppState {
     func deliverPriceAlertNotifications(_ notifications: [PriceAlertNotification]) {
         for notification in notifications { sendPriceAlertNotification(for: notification) }
     }
-    private func requestStandardNotificationPermission() {
-        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { _, _ in
-        }
-    }
     private func postNotification(identifier: String, title: String, body: String) {
         let content = UNMutableNotificationContent()
         content.title = title
@@ -17,11 +13,12 @@ extension AppState {
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: nil)
         UNUserNotificationCenter.current().add(request)
     }
-    func requestPriceAlertNotificationPermission() { requestStandardNotificationPermission() }
-    func requestNotificationPermissionIfNeeded() { requestStandardNotificationPermission() }
+    func requestNotificationPermission() {
+        UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .badge, .sound]) { _, _ in }
+    }
     func requestTransactionStatusNotificationPermission() {
         guard committedAppSettings.useTransactionStatusNotifications || committedAppSettings.useLargeMovementNotifications else { return }
-        requestNotificationPermissionIfNeeded()
+        requestNotificationPermission()
     }
     /// One sentence per condition. The single template took the condition's
     /// raw value, lowercased, as a word — so a Chinese notification read

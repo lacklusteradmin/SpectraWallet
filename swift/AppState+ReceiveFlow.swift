@@ -32,7 +32,7 @@ extension AppState {
             if receiveFlow.requestId == requestId { receiveFlow.isResolving = false }
         }
         do {
-            let address = try await self.bridge.receiveAddress(
+            let address = try await self.bridge.ready().receiveAddress(
                 walletId: wallet.id, chainId: chain.id, reserve: true)
             guard !Task.isCancelled, receiveFlow.requestId == requestId,
                 receiveFlow.walletId == wallet.id, receiveFlow.holdingKey == coin.holdingKey else { return }

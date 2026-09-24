@@ -50,6 +50,8 @@ extension Chain: Identifiable {
     var supportsDeepUTXODiscovery: Bool { identity?.supportsDeepUtxoDiscovery ?? false }
     /// A watch-only import can carry addresses for this chain.
     var supportsWatchOnlyImport: Bool { identity?.supportsWatchOnlyImport ?? false }
+    /// An import can carry an account xpub for this chain, instead of addresses.
+    var acceptsAccountXpub: Bool { identity?.acceptsAccountXpub ?? false }
 
     /// A private key alone yields an address on this chain.
     var derivesFromPrivateKey: Bool { identity?.derivesFromPrivateKey ?? false }
@@ -86,11 +88,11 @@ extension Chain: Identifiable {
 
     /// The catalog's default BIP-32 path for account 0, as core resolves it:
     /// each network supplies its own path. Empty for chains with no path —
-    /// Monero derives from the seed directly.
-    ///
-    var defaultDerivationPath: String {
-        (try? resolveDerivationPath(chainId: id, derivationPath: "")) ?? ""
-    }
+    /// Monero derives from the seed directly. Resolved once per chain.
+    var defaultDerivationPath: String { Self.defaultDerivationPaths[self] ?? "" }
+    private static let defaultDerivationPaths: [Chain: String] = Dictionary(uniqueKeysWithValues: all.map {
+        ($0, (try? resolveDerivationPath(chainId: $0.id, derivationPath: "")) ?? "")
+    })
 
     init?(id: String) {
         guard let chain = Self.chainById[id] else { return nil }

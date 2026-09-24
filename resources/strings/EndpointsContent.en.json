@@ -1,7 +1,0 @@
-{
-  "navigationTitle": "Endpoints",
-  "addEndpointTitle": "Add Endpoint",
-  "typeTitle": "Type",
-  "urlPlaceholder": "Endpoint URL",
-  "invalidEndpointMessage": "Enter a valid, unique HTTP or HTTPS endpoint for this network and API type."
-}

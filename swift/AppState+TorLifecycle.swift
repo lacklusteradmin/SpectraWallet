@@ -1,24 +1,12 @@
 import Foundation
 
-private func fetchTorStatusFromRust() -> TorStatus { torStatus() }
-
 extension AppState {
-    /// Settings effects run in core; the shell only observes status.
-    func observeTorStatus() {
-        torStatusPollingTask?.cancel()
-        torStatusPollingTask = Task { @MainActor [weak self] in
-            while !Task.isCancelled {
-                self?.torStatus = fetchTorStatusFromRust()
-                guard self != nil else { return }
-                try? await Task.sleep(for: .seconds(1))
-            }
-        }
-    }
-
+    /// Settings effects run in core, and core's refresh engine reports every
+    /// status change through the observer; this only asks for a reconnect.
     func reconnectTor() {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            do { self.torStatus = try await self.bridge.reconnectTor() }
+            do { self.torStatus = try await self.bridge.ready().reconnectTor() }
             catch { self.torStatus = .error(message: error.localizedDescription) }
         }
     }

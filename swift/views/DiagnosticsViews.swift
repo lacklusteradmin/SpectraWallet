@@ -301,7 +301,7 @@ struct StandardChainDiagnosticsView: View {
         }.task(id: chain.id) {
             do {
                 let network = store.selectedChainId(forFamily: chain.id)
-                configuredEndpoints = try await store.bridge.endpointDirectory()
+                configuredEndpoints = try await store.bridge.ready().endpointDirectory()
                     .filter { $0.record.chainId == network && !$0.apiName.isEmpty }.map(\.record.endpoint)
                 rebuildEndpointRows()
             } catch { keypoolError = error.localizedDescription }

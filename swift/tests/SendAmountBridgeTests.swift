@@ -11,7 +11,7 @@ final class SendAmountBridgeTests: IsolatedAppStateTestCase {
             estimatedTransactionBytes: nil, selectedInputCount: nil, usesChangeOutput: nil, maxSendable: 0.999995))
         let quote = OwnedSendPreview(walletId: "w", holdingKey: "solana:native", chainId: "solana", amount: "1",
             preview: preview, networkFee: "0.000005", networkFeeValue: nil, amountValue: nil,
-            details: nil, shortcuts: [100: "0.999994999"])
+            details: nil, shortcuts: [100: "0.999994999"], recipient: nil)
         store.apply(quote)
         let sol = Coin.fixture(name: "Solana", symbol: "SOL", chainId: "solana", amount: "1")
         XCTAssertEqual(store.quote(walletId: "w", coin: sol)?.shortcuts[100], "0.999994999")

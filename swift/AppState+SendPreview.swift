@@ -34,25 +34,38 @@ extension AppState {
             sendFlow.previewStore.apply(preview)
             sendFlow.error = nil
             sendFlow.clearVerificationNotice()
+            adoptRecipientCheck(preview?.recipient)
         case .failure(let error):
-            guard !isCancelledRequest(error) else { return }
+            guard !(error is CancellationError) else { return }
             sendFlow.previewStore.reset()
             sendFlow.error = error.localizedDescription
         }
     }
 
-    /// Every completion, including errors and loading cleanup, belongs to one request.
+    /// Core checks the destination beside the quote; this only words it.
+    private func adoptRecipientCheck(_ check: RecipientCheck?) {
+        guard let check, let coin = selectedSendCoin else { return }
+        switch check {
+        case .checked(let activity):
+            let messages = chainRiskProbeMessages(chainName: coin.chainName, symbol: coin.symbol, activity: activity)
+            sendFlow.destinationRiskWarning = messages.warning
+            sendFlow.destinationInfoMessage = messages.info
+        case .unavailable:
+            sendFlow.destinationInfoMessage = localizedStoreString("Unable to verify this address's activity. Try again later.")
+        }
+    }
+
+    /// Every completion, including errors and loading cleanup, belongs to one
+    /// request. Core quotes and checks the recipient in the same call.
     func refreshSendPreview() async {
         let requestId = UUID()
         sendFlow.previewRequestId = requestId
         let input = sendPreviewInputSnapshot
-        guard let coin = selectedSendCoin else {
+        sendFlow.destinationRiskWarning = nil
+        sendFlow.destinationInfoMessage = nil
+        guard selectedSendCoin != nil else {
             sendFlow.isPreparingPreview = false
-            sendFlow.destinationProbeRequestId = UUID()
             sendFlow.previewStore.reset()
-            sendFlow.destinationRiskWarning = nil
-            sendFlow.destinationInfoMessage = nil
-            sendFlow.isCheckingDestination = false
             return
         }
         sendFlow.isPreparingPreview = true
@@ -64,9 +77,7 @@ extension AppState {
             if let error = customEvmFeeValidationError {
                 throw NSError(domain: "Send", code: 1, userInfo: [NSLocalizedDescriptionKey: error])
             }
-            await refreshSendDestinationRiskWarning(for: coin)
-            guard isCurrentSendPreview(requestId: requestId, input: input) else { return }
-            let preview = try await self.bridge.previewOwnedSend(
+            let preview = try await self.bridge.ready().previewOwnedSend(
                 walletId: input.walletId, holdingKey: input.holdingKey, amount: input.amount,
                 destination: input.destination, explicitNonce: nonce, customFees: fees)
             adoptSendPreviewResult(.success(preview), requestId: requestId, input: input)

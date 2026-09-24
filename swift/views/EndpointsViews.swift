@@ -79,7 +79,7 @@ struct EndpointCatalogSettingsView: View {
             }
         }
         .task(id: store.appSettings.customEndpoints) {
-            do { entries = try await store.bridge.endpointDirectory(); loadError = nil }
+            do { entries = try await store.bridge.ready().endpointDirectory(); loadError = nil }
             catch { loadError = error.localizedDescription }
         }
     }

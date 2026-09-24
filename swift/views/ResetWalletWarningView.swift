@@ -4,6 +4,7 @@ struct ResetWalletWarningView: View {
     let store: AppState
     @Environment(\.dismiss) private var dismiss
     @State private var selectedScopes = Set(ResetScope.allCases)
+    @State private var errorMessage: String?
     var body: some View {
         NavigationStack {
             Form {
@@ -54,11 +55,6 @@ struct ResetWalletWarningView: View {
                     if selectedScopes.contains(.dashboardCustomization) {
                         Label(AppLocalization.string("Pinned assets and dashboard customization choices"), systemImage: "square.grid.2x2")
                     }
-                    if selectedScopes.contains(.providerState) {
-                        Label(
-                            AppLocalization.string("Provider selections, reliability memory, and low-level network state"),
-                            systemImage: "network")
-                    }
                     if selectedScopes.isEmpty {
                         Text(AppLocalization.string("Select at least one category to enable reset.")).foregroundStyle(.secondary)
                     }
@@ -66,10 +62,13 @@ struct ResetWalletWarningView: View {
                 Section {
                     Button(AppLocalization.string("Reset Selected Data"), role: .destructive) {
                         Task {
-                            await store.resetSelectedData(scopes: selectedScopes)
-                            dismiss()
+                            errorMessage = await store.resetSelectedData(scopes: selectedScopes)
+                            if errorMessage == nil { dismiss() }
                         }
                     }.disabled(selectedScopes.isEmpty)
+                    if let errorMessage {
+                        Text(errorMessage).font(.caption).foregroundStyle(.red)
+                    }
                 }
             }.navigationTitle(AppLocalization.string("Reset Wallet")).toolbar {
                 ToolbarItem(placement: .topBarLeading) {

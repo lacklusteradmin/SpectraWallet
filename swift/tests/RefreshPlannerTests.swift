@@ -3,40 +3,19 @@ import Foundation
     import XCTest
     @testable import Spectra
 
-    /// What this side of the refresh decision still owns.
-    ///
-    /// It used to own the decision: `WalletRefreshPlanner` packed five
-    /// `AppState` properties and two dictionaries into request records, asked
-    /// core the arithmetic, and unpacked the answer — so these tests asserted
-    /// core's arithmetic through a Swift wrapper. Core holds the clock now and
-    /// `policy.rs` tests the arithmetic against it, including the case no test
-    /// here could reach: that a stamped clock is the *same* clock the next
-    /// question reads.
-    ///
-    /// What is left is the half core cannot know — this device's conditions —
-    /// and that the plan comes back and drives the loop.
+    /// What this side of the refresh decision still owns: this device's
+    /// conditions. Core holds the clock, plans the cadence and runs both loops;
+    /// `refresh_policy.rs` and `refresh_engine.rs` test those.
     @MainActor
     final class WalletRefreshPlannerTests: IsolatedAppStateTestCase {
-        func testMaintenancePlanReportsThisDeviceAndComesBackWithACadence() async {
+        func testDeviceConditionsReportThisDeviceAndTheVisibleTab() {
             let store = makeState()
-            let plan = await store.maintenancePlan()
-            XCTAssertGreaterThan(plan.pollSeconds, 0, "a cadence of zero would spin the loop")
-            // No wallets and nothing pending, so there is nothing to refresh —
-            // but the loop still gets told how long to wait.
-            XCTAssertFalse(plan.refreshPendingTransactions)
-        }
-
-        func testAnUnreachableNetworkStopsTheBackgroundTick() async {
-            let store = makeState()
-            store.appIsActive = false
             store.isNetworkReachable = false
-            let offline = await store.maintenancePlan()
-            XCTAssertFalse(offline.runBackgroundTick, "no network, nothing to do")
-            XCTAssertFalse(offline.allowHeavyBackgroundWork)
-
-            store.isNetworkReachable = true
-            let online = await store.maintenancePlan()
-            XCTAssertTrue(online.runBackgroundTick, "a fresh clock has never ticked")
+            store.selectedMainTab = .home
+            XCTAssertFalse(store.deviceConditions().isNetworkReachable)
+            XCTAssertTrue(store.deviceConditions().wantsPriceRefresh, "prices are on the home tab")
+            store.selectedMainTab = .settings
+            XCTAssertFalse(store.deviceConditions().wantsPriceRefresh)
         }
 
         func testOfflineRefreshAndRescanCrossAsyncBinding() async throws {
@@ -54,27 +33,27 @@ import Foundation
 
         }
 
-        func testMaintenanceSleepDoesNotKeepAppStateAlive() async throws {
+        func testCoreRefreshEngineDoesNotKeepAppStateAlive() async throws {
             let wallet = WalletView(name: "Watch", chainId: "ethereum", addresses: ["ethereum": "0x" + String(repeating: "1", count: 40)])
-            _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState()))
+            _ = try await bridge.ready().applyStateCommand(command: .upsertWallet(wallet: wallet.walletState()))
             var store: AppState? = AppState(bridge: bridge, startServices: false)
             store?.isNetworkReachable = false
-            await store?.rebuildWalletDerivedStateFromCore()
-            store?.lastMaintenancePollSeconds = 0
-            weak var released = store
-            store?.maintenanceTask = store?.makeMaintenanceTask()
-            // Wait for a complete tick, then drop the only external owner during its sleep.
-            for _ in 0..<100 {
-                if (store?.lastMaintenancePollSeconds ?? 0) > 0 { break }
-                try await Task.sleep(for: .milliseconds(10))
-            }
-            XCTAssertGreaterThan(store?.lastMaintenancePollSeconds ?? 0, 0)
+            let observer = WalletRefreshObserver()
+            observer.store = store
+            try await bridge.setRefreshObserver(observer)
+            // Active and offline: core's first maintenance tick runs at once and
+            // reaches the observer without touching a network.
+            try await bridge.refreshEngine().setDeviceConditions(conditions: XCTUnwrap(store?.deviceConditions()))
+            weak let released = store
             store = nil
             for _ in 0..<100 {
                 if released == nil { break }
                 try await Task.sleep(for: .milliseconds(10))
             }
-            XCTAssertNil(released, "the maintenance loop must not own AppState across sleep")
+            XCTAssertNil(released, "core's engine holds the observer, never the state")
+            let inactive = DeviceConditions(appIsActive: false, isNetworkReachable: false, isConstrainedNetwork: false,
+                isExpensiveNetwork: false, isLowPowerMode: false, batteryLevel: 1, wantsPriceRefresh: false)
+            try await bridge.refreshEngine().setDeviceConditions(conditions: inactive)
         }
 
         func testRefreshFailureDoesNotClaimCompletion() {

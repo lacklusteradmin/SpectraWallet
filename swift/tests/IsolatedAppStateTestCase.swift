@@ -27,9 +27,7 @@ class IsolatedAppStateTestCase: XCTestCase {
 
     override func tearDown() async throws {
         for state in states {
-            await state.awaitPendingSettingCommands()
-            await state.awaitPendingAddressBookCommands()
-            await state.stateCommandTask?.value
+            await state.awaitPendingStateCommands()
             await state.diagnostics.flushPendingPersistence()
         }
         states.removeAll()

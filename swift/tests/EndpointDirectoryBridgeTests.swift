@@ -5,11 +5,11 @@ import SwiftUI
 @MainActor
 final class EndpointDirectoryBridgeTests: IsolatedAppStateTestCase {
     func testTypedEndpointsCrossTheBindingAndKeepTheirSourceAndNetwork() async throws {
-        let before = try await bridge.endpointDirectory()
-        let transition = try await bridge.applyStateCommand(.setAppSetting(update: .addCustomEndpoint(
+        let before = try await bridge.ready().endpointDirectory()
+        let transition = try await bridge.ready().applyStateCommand(command: .setAppSetting(update: .addCustomEndpoint(
             capabilities: ["balance"],             chainId: "solana", api: "solana-json-rpc", endpoint: " https://custom.example/rpc/ ")))
         XCTAssertFalse(transition.events.contains(.appSettingRejected))
-        let after = try await bridge.endpointDirectory()
+        let after = try await bridge.ready().endpointDirectory()
         XCTAssertEqual(after.filter(\.isBuiltIn).count, before.filter(\.isBuiltIn).count)
         let custom = try XCTUnwrap(after.first { !$0.isBuiltIn })
         XCTAssertEqual(custom.record.chainId, "solana")
@@ -17,17 +17,17 @@ final class EndpointDirectoryBridgeTests: IsolatedAppStateTestCase {
         XCTAssertEqual(custom.record.endpoint, "https://custom.example/rpc")
         XCTAssertEqual(custom.record.capabilities, ["balance"])
         XCTAssertNil(custom.record.probeUrl)
-        let noCapabilities = try await bridge.applyStateCommand(.setAppSetting(update: .addCustomEndpoint(
+        let noCapabilities = try await bridge.ready().applyStateCommand(command: .setAppSetting(update: .addCustomEndpoint(
             capabilities: [], chainId: "solana", api: "solana-json-rpc", endpoint: "https://empty.example")))
         XCTAssertTrue(noCapabilities.events.contains(.appSettingRejected))
-        let rejected = try await bridge.applyStateCommand(.setAppSetting(update: .addCustomEndpoint(
+        let rejected = try await bridge.ready().applyStateCommand(command: .setAppSetting(update: .addCustomEndpoint(
             capabilities: ["balance"],             chainId: "solana", api: "esplora", endpoint: "https://wrong.example")))
         XCTAssertTrue(rejected.events.contains(.appSettingRejected))
     }
 
     func testEndpointScreensRenderInARealWindow() async throws {
         let state = makeState()
-        let directory = try await bridge.endpointDirectory()
+        let directory = try await bridge.ready().endpointDirectory()
         let views: [(String, AnyView)] = [
             ("Endpoints", AnyView(NavigationStack { EndpointCatalogSettingsView(store: state) })),
             ("Add endpoint", AnyView(NavigationStack { AddCustomEndpointView(store: state, directory: directory) }))

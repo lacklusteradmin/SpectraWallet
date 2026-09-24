@@ -12,6 +12,6 @@ extension AppState {
     /// derivation state and history feed in the same command — and hands the
     /// settings back.
     func selectChainForFamily(_ chainId: String) {
-        enqueueStateCommand(.selectChainForFamily(chainId: chainId))
+        sendStateCommand(.selectChainForFamily(chainId: chainId))
     }
 }

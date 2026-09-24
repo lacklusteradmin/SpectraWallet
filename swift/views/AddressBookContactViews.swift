@@ -5,11 +5,10 @@ import UIKit
 /// Every mainnet, because core validates every mainnet, as the rows the shared
 /// chain picker draws.
 @MainActor private let addressBookChainDescriptors: [SetupChainSelectionDescriptor] =
-    Chain.mainnets.compactMap(\.entry).compactMap { chain in
-        guard let category = SetupChainCategory(chain: chain) else { return nil }
-        return SetupChainSelectionDescriptor(
+    Chain.mainnets.compactMap(\.entry).map { chain in
+        SetupChainSelectionDescriptor(
             id: chain.id, title: chain.name, symbol: chain.gasTokenSymbol,
-            chainName: chain.name, color: chain.color.color, category: category
+            chainName: chain.name, color: chain.color.color, category: SetupChainCategory(chain: chain)
         )
     }
 

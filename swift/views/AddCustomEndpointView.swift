@@ -80,12 +80,11 @@ struct AddCustomEndpointView: View {
                     isSaving = true
                     Task { @MainActor in
                         do {
-                            let transition = try await store.bridge.applyStateCommand(.setAppSetting(
+                            let transition = try await store.applyStateCommand(.setAppSetting(
                                 update: .addCustomEndpoint(capabilities: capabilities.sorted(), chainId: chainId, api: api, endpoint: url)))
                             if transition.events.contains(where: { if case .appSettingRejected = $0 { return true }; return false }) {
                                 errorMessage = copy.invalidEndpointMessage
                             } else {
-                                store.applyCoreState(transition.state, refreshPortfolio: false)
                                 dismiss()
                             }
                         } catch { errorMessage = error.localizedDescription }

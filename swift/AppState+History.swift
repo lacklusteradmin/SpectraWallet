@@ -1,15 +1,9 @@
 import Foundation
 
 extension AppState {
-    func historyPaginationExhausted(chainId: String, walletId: String) -> Bool {
-        self.bridge.historyCursor(chainId: chainId, walletId: walletId).isExhausted
-    }
-    func canLoadMoreHistory(for walletId: String) -> Bool {
-        guard let family = cachedWalletById[walletId]?.family else { return false }
-        return !historyPaginationExhausted(chainId: family.id, walletId: walletId)
-    }
+    /// Core names the wallets with history left to fetch in its snapshot.
     func canLoadMoreOnChainHistory(for walletIds: Set<String>) -> Bool {
-        !isLoadingMoreOnChainHistory && walletIds.contains(where: canLoadMoreHistory(for:))
+        !isLoadingMoreOnChainHistory && !walletIds.isDisjoint(with: walletsWithMoreHistory)
     }
     func loadMoreOnChainHistory(for walletIds: Set<String>) async {
         guard !isLoadingMoreOnChainHistory, !walletIds.isEmpty else { return }
@@ -28,14 +22,16 @@ extension AppState {
     /// scheduled refresh.
     private func adoptHistoryRefresh(scope: HistoryRefreshScope, loadMore: Bool = false, interval: TimeInterval = 0) async {
         do {
-            let results = try await self.bridge.refreshHistory(scope: scope, loadMore: loadMore, interval: interval)
+            let results = try await self.bridge.ready().refreshHistory(
+                scope: scope, loadMore: loadMore, limit: nil, intervalSecs: interval)
             for result in results {
                 guard let chain = Chain(id: result.chainId), result.outcome?.diagnostics.isEmpty == false else { continue }
                 self[historyRunFor: chain].lastUpdatedAt = Date()
             }
             chainDiagnosticsState.diagnosticsRevision &+= 1
             await diagnostics.loadFromSQLite()
-            if results.contains(where: { ($0.outcome?.added ?? 0) > 0 || ($0.outcome?.updated ?? 0) > 0 }) {
+            // Loading more always moves a cursor, even when every page was already stored.
+            if loadMore || results.contains(where: { ($0.outcome?.added ?? 0) > 0 || ($0.outcome?.updated ?? 0) > 0 }) {
                 await refreshTransactionProjection()
             }
         } catch {

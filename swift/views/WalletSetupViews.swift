@@ -46,17 +46,16 @@ enum SetupChainCategory: String, CaseIterable, Identifiable {
     /// there — a network-kind flag in a column of chain families, and the one
     /// reason `is_evm` could not be derived from `category`. Which network a
     /// row is is the registry's `isTestnet`.
-    init?(chain: ChainEntry) {
+    init(chain: ChainEntry) {
         if Chain(id: chain.id)?.isTestnet == true {
             self = .testnets
             return
         }
         switch chain.category {
-        case "bitcoin-family": self = .bitcoinFamily
-        case "evm-l1": self = .evmL1
-        case "evm-l2": self = .evmL2
-        case "other": self = .other
-        default: return nil
+        case .bitcoinFamily: self = .bitcoinFamily
+        case .evmL1: self = .evmL1
+        case .evmL2: self = .evmL2
+        case .other: self = .other
         }
     }
 }
@@ -72,11 +71,10 @@ enum SetupChainCategory: String, CaseIterable, Identifiable {
 /// declared in the type instead of hidden in field accesses. SetupView
 /// hasn't been migrated yet because its dependency surface is large.
 struct SetupView: View {
-    private static let chainSelectionDescriptors: [SetupChainSelectionDescriptor] = Chain.all.compactMap(\.entry).compactMap { chain in
-        guard let category = SetupChainCategory(chain: chain) else { return nil }
-        return SetupChainSelectionDescriptor(
+    private static let chainSelectionDescriptors: [SetupChainSelectionDescriptor] = Chain.all.compactMap(\.entry).map { chain in
+        SetupChainSelectionDescriptor(
             id: chain.id, title: chain.name, symbol: chain.gasTokenSymbol, chainName: chain.name,
-            color: chain.color.color, category: category
+            color: chain.color.color, category: SetupChainCategory(chain: chain)
         )
     }
     /// The picker's initial list, ordered by `popular_rank` in `chain-ui.toml`.
@@ -531,9 +529,10 @@ struct SetupView: View {
             caption: watchedAddressCaption(for: chain, sharing: sharing),
             validationMessage: validation.message, validationColor: validation.color
         )
-        // Bitcoin has a second form: one account xpub instead of a list of
-        // addresses. It is not an address, so it is not in the table.
-        if chain == .bitcoin {
+        // A chain whose import takes an account xpub has a second form: one
+        // xpub instead of a list of addresses. It is not an address, so it is
+        // not in the table.
+        if chain.acceptsAccountXpub {
             TextField("xpub... / zpub...", text: $draft.bitcoinXpubInput).textInputAutocapitalization(.never)
                 .autocorrectionDisabled().padding(14).spectraInputFieldStyle().foregroundStyle(Color.primary)
         }
@@ -541,7 +540,7 @@ struct SetupView: View {
 
     /// What a shared or special row needs to say beyond its title.
     private func watchedAddressCaption(for chain: Chain, sharing: [Chain]) -> String? {
-        if chain == .bitcoin { return copy.bitcoinWatchCaption }
+        if chain.acceptsAccountXpub { return copy.bitcoinWatchCaption }
         guard sharing.count > 1 else { return nil }
         let selected = sharing.filter { draft.isSelected($0.id) }.map(\.displayName)
         guard !selected.isEmpty else { return nil }

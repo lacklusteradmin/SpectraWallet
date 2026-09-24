@@ -43,13 +43,16 @@ struct MoneroSyncView: View {
             }
         }
         .task(id: store.sendFlow.walletId) {
-            do { status = try await store.bridge.moneroSyncStatus(walletId: store.sendFlow.walletId) }
+            do { status = try await store.bridge.ready().moneroSyncStatus(walletId: store.sendFlow.walletId) }
             catch { self.error = error.localizedDescription }
         }
         .task(id: running) {
             guard running else { return }
             defer { password = ""; running = false }
-            guard await store.authenticateForSensitiveAction(.send, reason: AppLocalization.string("Authorize local wallet sync")) else { return }
+            if let failure = await store.authenticate(.send, reason: AppLocalization.string("Authorize local wallet sync")) {
+                error = failure
+                return
+            }
             do {
                 var height: UInt64?
                 if status?.targetHeight == 0 && !restoreHeight.isEmpty {
@@ -63,7 +66,7 @@ struct MoneroSyncView: View {
                 let secret = password.isEmpty ? nil : password
                 repeat {
                     try Task.checkCancellation()
-                    status = try await store.bridge.syncMoneroWallet(walletId: walletId, password: secret, restoreHeight: height)
+                    status = try await store.bridge.ready().syncMoneroWallet(walletId: walletId, password: secret, restoreHeight: height)
                     height = nil
                 } while status?.complete != true
                 error = nil

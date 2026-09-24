@@ -4,9 +4,9 @@ extension AppState {
     /// Pin or unpin one asset. Core applies it to the set the dashboard shows,
     /// defaults included, and each pin option says whether it is pinned.
     func setDashboardAssetPinned(_ isPinned: Bool, tokenId: String) {
-        sendDashboardPinCommand(.setDashboardAssetPinned(tokenId: tokenId, isPinned: isPinned))
+        sendStateCommand(.setDashboardAssetPinned(tokenId: tokenId, isPinned: isPinned))
     }
-    func resetPinnedDashboardAssets() { sendDashboardPinCommand(.resetPinnedDashboardAssets) }
+    func resetPinnedDashboardAssets() { sendStateCommand(.resetPinnedDashboardAssets) }
     var appNoticeItems: [AppNoticeItem] {
         let commonCopy = CommonLocalizationContent.current
         var notices: [AppNoticeItem] = []
@@ -35,13 +35,19 @@ extension AppState {
                     systemImage: "antenna.radiowaves.left.and.right.slash", timestamp: banner.lastGoodSyncAt
                 )
             })
-        for error in [walletImport.error, walletCommandError].compactMap({ $0 }) {
-            let importNotice = error.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !importNotice.isEmpty else { continue }
+        if let importNotice = walletImport.error?.trimmingCharacters(in: .whitespacesAndNewlines), !importNotice.isEmpty {
             notices.append(
                 AppNoticeItem(
                     title: commonCopy.walletImportErrorTitle, message: importNotice, severity: .error,
                     systemImage: "square.and.arrow.down.badge.exclamationmark"
+                )
+            )
+        }
+        if let commandNotice = commandError?.trimmingCharacters(in: .whitespacesAndNewlines), !commandNotice.isEmpty {
+            notices.append(
+                AppNoticeItem(
+                    title: localizedStoreString("Action Failed"), message: commandNotice, severity: .error,
+                    systemImage: "exclamationmark.circle"
                 )
             )
         }

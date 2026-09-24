@@ -1,7 +1,7 @@
 import Foundation
 import SwiftUI
 struct ReportProblemView: View {
-    private var copy: SettingsContentCopy { .current }
+    private let copy = SettingsContentCopy.current
     private var reportProblemURL: URL? { URL(string: AppLinks.current.reportProblem) }
     var body: some View {
         Form {

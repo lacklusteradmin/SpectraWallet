@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 struct AboutView: View {
     @State private var isAnimatingHero = false
-    private var copy: SettingsContentCopy { .current }
+    private let copy = SettingsContentCopy.current
     var body: some View {
         ZStack {
             SpectraBackdrop().ignoresSafeArea()

@@ -42,7 +42,7 @@ enum MainAppTab: Hashable {
 /// What a reset clears. Core's scope, with this app's words for it.
 extension ResetScope {
     static let allCases: [ResetScope] = [
-        .walletsAndSecrets, .historyAndCache, .alertsAndContacts, .settingsAndEndpoints, .dashboardCustomization, .providerState,
+        .walletsAndSecrets, .historyAndCache, .alertsAndContacts, .settingsAndEndpoints, .dashboardCustomization,
     ]
     @MainActor
     var title: String {
@@ -52,7 +52,6 @@ extension ResetScope {
         case .alertsAndContacts: return localizedStoreString("Alerts & Contacts")
         case .settingsAndEndpoints: return localizedStoreString("Settings & Endpoints")
         case .dashboardCustomization: return localizedStoreString("Dashboard Customization")
-        case .providerState: return localizedStoreString("Provider State")
         }
     }
     @MainActor
@@ -67,8 +66,6 @@ extension ResetScope {
             return localizedStoreString("Known tokens, pricing and RPC settings, preferences, and icon customizations.")
         case .dashboardCustomization:
             return localizedStoreString("Pinned assets and other home page customization choices stored on this device.")
-        case .providerState:
-            return localizedStoreString("Provider selections, reliability memory, transport caches, and low-level network heuristics.")
         }
     }
 }
@@ -85,14 +82,14 @@ extension AppState {
 
     enum SeedPhraseRevealError: LocalizedError {
         case unavailable
-        case authenticationRequired
+        case authenticationFailed(String)
         case passwordRequired
         case invalidPassword
         case passwordNotRequired
         var errorDescription: String? {
             switch self {
             case .unavailable: return AppLocalization.string("No seed phrase is stored for this wallet.")
-            case .authenticationRequired: return AppLocalization.string("Face ID authentication is required to view this seed phrase.")
+            case .authenticationFailed(let reason): return reason
             case .passwordRequired: return AppLocalization.string("Enter the wallet password to view this seed phrase.")
             case .invalidPassword: return AppLocalization.string("The wallet password is incorrect.")
             case .passwordNotRequired: return AppLocalization.string("This wallet has no password.")

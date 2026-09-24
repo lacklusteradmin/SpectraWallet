@@ -43,7 +43,7 @@ final class SendSessionTests: XCTestCase {
     func testClosingDuringAuthenticationNeverCallsSigner() async {
         let session = SendSession()
         session.artifact = artifact("old")
-        let authentication = SendSessionGate<Bool>()
+        let authentication = SendSessionGate<String?>()
         var signed = false
         let work = Task {
             await session.sign(password: nil, authenticate: { await authentication.wait() }, sign: { _, _, _ in
@@ -54,7 +54,7 @@ final class SendSessionTests: XCTestCase {
         _ = await XCTWaiter.fulfillment(of: [authentication.entered], timeout: 2)
         session.reset()
         session.artifact = artifact("new")
-        authentication.resume(true)
+        authentication.resume(nil)
         await work.value
         XCTAssertFalse(signed)
         XCTAssertEqual(session.artifact?.id, "new")
@@ -113,7 +113,7 @@ final class SendSessionTests: XCTestCase {
         _ = try await bridge.openState()
         let store = AppState(bridge: bridge, startServices: false)
         let wallet = WalletView(name: "Sender", chainId: "ethereum", addresses: ["ethereum": "0x1111111111111111111111111111111111111111"])
-        _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState()))
+        _ = try await bridge.ready().applyStateCommand(command: .upsertWallet(wallet: wallet.walletState()))
         store.sendFlow.session.artifact = artifact("old", stage: .signed)
         let gate = SendSessionGate<Bool>()
         let work = Task {

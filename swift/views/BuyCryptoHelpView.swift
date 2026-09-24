@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 struct BuyCryptoHelpView: View {
-    private var copy: SettingsContentCopy { .current }
+    private let copy = SettingsContentCopy.current
 
     /// Resolve once per process to keep row identities stable during balance
     /// and price updates; replacing a row mid-tap can prevent its link firing.

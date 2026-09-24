@@ -57,7 +57,7 @@ struct AddWalletEntryView: View {
         .navigationDestination(
             isPresented: $isShowingFundsFinder
         ) {
-            FundsFinderView()
+            FundsFinderView(bridge: store.bridge)
         }
     }
     private var setupModePicker: some View {

@@ -1,74 +1,45 @@
 import Foundation
 extension AppState {
-    func resetSelectedData(scopes: Set<ResetScope>) async {
-        guard !scopes.isEmpty else { return }
-        guard
-            await authenticateForSensitiveAction(.resetData,
-                reason: AppLocalization.string("Authenticate to reset wallet data")
-            )
-        else {
-            return
+    /// `nil` once the reset is done; otherwise why it was not, for the reset sheet.
+    func resetSelectedData(scopes: Set<ResetScope>) async -> String? {
+        guard !scopes.isEmpty else { return nil }
+        if let failure = await authenticate(.resetData, reason: AppLocalization.string("Authenticate to reset wallet data")) {
+            return failure
         }
-        await awaitPendingSettingCommands()
-        await stateCommandTask?.value
-        await awaitPendingAddressBookCommands()
+        await awaitPendingStateCommands()
         let outcome: ResetOutcome
         do {
-            outcome = try await self.bridge.resetData(scopes: Array(scopes))
+            outcome = try await self.bridge.ready().resetData(scopes: Array(scopes))
         } catch {
-            appendOperationalLog(.error, category: "Reset", message: String(describing: error))
-            return
+            return error.localizedDescription
         }
-
         applyCoreState(outcome.state)
+        await rebuildWalletDerivedStateFromCore()
         await refreshTransactionProjection()
         let plan = outcome.plan
-        if plan.resetWalletsAndSecrets { await resetWalletsAndSecretsState() }
-        if plan.resetHistoryAndCache { await resetHistoryAndCacheState() }
-        if plan.resetSettingsAndEndpoints { await resetSettingsAndEndpointsState() }
-        if plan.resetProviderState { await resetProviderState() }
-        if plan.clearNetworkAndTransportCaches { clearNetworkAndTransportCaches() }
+        if plan.resetWalletsAndSecrets { resetWalletFlows() }
+        if plan.resetHistoryAndCache { resetDiagnosticsViewState() }
+        // The five this platform keeps for itself: hiding balances, appearance,
+        // Face ID, auto-lock and biometric-gated sends. Each writes itself back
+        // to `UserDefaults` as it changes.
+        if plan.resetSettingsAndEndpoints { preferences.resetToDefaults() }
+        return nil
     }
-    private func resetWalletsAndSecretsState() async {
+    private func resetWalletFlows() {
         receiveFlow.reset()
         sendFlow.reset()
         walletImport.close()
         walletPendingDeletion = nil
-        walletCommandError = nil
+        commandError = nil
         isShowingAddWalletEntry = false
     }
-    private func resetHistoryAndCacheState() async {
+    private func resetDiagnosticsViewState() {
         chainDiagnosticsState.historyRunByChain = [:]
         chainDiagnosticsState.endpointHealthByChain = [:]
         chainDiagnosticsState.selfTestsByChain = [:]
-        // Nothing clears `isRunning`/`isChecking` per chain below this point:
-        // the `historyRunByChain` and `endpointHealthByChain` subscripts insert
-        // a default row on write, so touching them after the maps are emptied
-        // puts rows back rather than clearing any.
+        chainDiagnosticsState.lastImportedDiagnosticsBundle = nil
         isLoadingMoreOnChainHistory = false
-        lastImportedDiagnosticsBundle = nil
         lastPendingTransactionRefreshAt = nil
-        isRefreshingLivePrices = false
-        // Ten lines naming the five UTXO chains, which is the map itself.
         utxoRescanStateByChain = [:]
-        await refreshTransactionProjection()
-    }
-    private func resetSettingsAndEndpointsState() async {
-        // The five this platform keeps for itself: hiding balances, appearance,
-        // Face ID, auto-lock and biometric-gated sends. No other front end has
-        // a use for them, so core has no default to be the copy of. Each
-        // writes itself back to `UserDefaults` as it changes.
-        preferences.resetToDefaults()
-    }
-    private func resetProviderState() async {
-        clearNetworkAndTransportCaches()
-    }
-    private func clearNetworkAndTransportCaches() {
-        URLCache.shared.removeAllCachedResponses()
-        HTTPCookieStorage.shared.removeCookies(since: .distantPast)
-        let credentialStorage = URLCredentialStorage.shared
-        for (protectionSpace, credentialsByUser) in credentialStorage.allCredentials {
-            for credential in credentialsByUser.values { credentialStorage.remove(credential, for: protectionSpace) }
-        }
     }
 }

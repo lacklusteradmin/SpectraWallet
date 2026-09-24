@@ -130,7 +130,7 @@ struct PriceAlertsView: View {
             try await store.editPriceAlert(.addPriceAlert(
                 holdingKey: selectedCoin.holdingKey, targetPrice: target,
                 currency: store.selectedFiatCurrency, condition: selectedCondition))
-            store.requestPriceAlertNotificationPermission()
+            store.requestNotificationPermission()
             targetPriceText = ""
             selectedCondition = .above
             formMessage = AppLocalization.string("Alert added. Spectra will notify you when this target is hit.")

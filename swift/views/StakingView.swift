@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct StakingView: View {
+    let bridge: WalletServiceBridge
     var body: some View {
         NavigationStack {
             ZStack {
@@ -46,7 +47,7 @@ struct StakingView: View {
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .spectraCardFill(cornerRadius: SpectraLayout.Radius.hero)
             .navigationDestination(for: Chain.self) { chain in
-                ChainStakingDetailView(chain: chain)
+                ChainStakingDetailView(chain: chain, bridge: bridge)
             }
     }
     @ViewBuilder
@@ -190,9 +191,9 @@ struct ChainStakingDetailView: View {
     @State private var vm: StakingViewModel
     @State private var selectedSection: StakingDetailSection = .overview
 
-    init(chain: Chain) {
+    init(chain: Chain, bridge: WalletServiceBridge) {
         self.chain = chain
-        self._vm = State(wrappedValue: StakingViewModel(chain: chain))
+        self._vm = State(wrappedValue: StakingViewModel(chain: chain, bridge: bridge))
     }
 
     @ViewBuilder

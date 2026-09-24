@@ -132,7 +132,7 @@ final class TokenRegistryPresentationTests: IsolatedAppStateTestCase {
 
     func testTokenManagementScreensRenderInARealWindow() async throws {
         let state = makeState()
-        let seeded = try await bridge.applyStateCommand(.mergeBuiltInTokens)
+        let seeded = try await bridge.ready().applyStateCommand(command: .mergeBuiltInTokens)
         state.applyCoreState(seeded.state)
         let entry = try XCTUnwrap(state.tokenPreferences.first { $0.token.symbol == "USDC" })
         let views: [(String, AnyView)] = [
@@ -167,9 +167,9 @@ final class TokenRegistryPresentationTests: IsolatedAppStateTestCase {
     }
 
     func testOneDeploymentToggleChangesEveryNetworkThroughBinding() async throws {
-        let seeded = try await bridge.applyStateCommand(.mergeBuiltInTokens)
+        let seeded = try await bridge.ready().applyStateCommand(command: .mergeBuiltInTokens)
         let entry = try XCTUnwrap(seeded.state.tokenPreferences.first { $0.token.symbol == "USDC" })
-        let transition = try await bridge.applyStateCommand(.setTokenPreferencesEnabled(tokens: [
+        let transition = try await bridge.ready().applyStateCommand(command: .setTokenPreferencesEnabled(tokens: [
             CoreTokenPreferenceKey(chainId: entry.token.chainId, contract: entry.token.contract)
         ], isEnabled: false))
         let deployments = transition.state.tokenPreferences.filter { $0.token.tokenId == entry.token.tokenId }

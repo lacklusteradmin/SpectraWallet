@@ -19,14 +19,14 @@ extension AppState {
         do {
             let input = try currentSendReviewInput()
             await sendFlow.session.load(operation: .build, prepare: {
-                let artifact = try await self.bridge.buildOwnedSend(input: input)
+                let artifact = try await self.bridge.ready().buildOwnedSend(input: input)
                 guard try self.currentSendReviewInput() == input else {
                     throw NSError(domain: "Send", code: 1, userInfo: [NSLocalizedDescriptionKey:
                         AppLocalization.string("Send inputs changed. Build the transaction again.")])
                 }
                 return artifact
             }, endpoints: {
-                let choices = try await self.bridge.sendEndpoints(chainId: $0)
+                let choices = try await self.bridge.ready().sendEndpoints(chainId: $0)
                 guard try self.currentSendReviewInput() == input else {
                     throw NSError(domain: "Send", code: 1, userInfo: [NSLocalizedDescriptionKey:
                         AppLocalization.string("Send inputs changed. Build the transaction again.")])
@@ -57,13 +57,13 @@ extension AppState {
 
     func signPreparedSend(password: String?) async {
         await sendFlow.session.sign(password: password, authenticate: {
-            await self.authenticateForSensitiveAction(.send, reason: AppLocalization.string("Authorize transaction signing"))
-        }, sign: { try await self.bridge.signSend(id: $0, reviewDigest: $1, password: $2) })
+            await self.authenticate(.send, reason: AppLocalization.string("Authorize transaction signing"))
+        }, sign: { try await self.bridge.ready().signSend(id: $0, reviewDigest: $1, password: $2) })
     }
 
     func broadcastPreparedSend() async {
         guard let submitted = await sendFlow.session.broadcast(submit: {
-            try await self.bridge.broadcastSend(id: $0, endpoints: $1)
+            try await self.bridge.ready().broadcastSend(id: $0, endpoints: $1)
         }) else { return }
         await handleBroadcastCompletion(submitted)
     }
@@ -73,9 +73,8 @@ extension AppState {
         await refreshTransactionProjection()
         // Resolve the completed operation by its own ID, never the current
         // composer or the bounded history summary.
-        if let transaction = try? await bridge.transaction(id: submitted.id),
+        if let transaction = try? await bridge.ready().transaction(id: submitted.id),
            submitted.attempts.contains(where: { $0.outcome == .accepted }) {
-            noteSendBroadcastQueued(for: transaction)
             startSendLiveActivity(for: transaction)
             requestTransactionStatusNotificationPermission()
             await runPostSendRefreshActions(for: transaction.chainId)
@@ -85,7 +84,7 @@ extension AppState {
     func loadSavedSends() async {
         let session = sendFlow.session.id
         do {
-            let artifacts = try await self.bridge.listSends()
+            let artifacts = try await self.bridge.ready().listSends()
             guard sendFlow.session.isCurrent(session) else { return }
             sendFlow.savedArtifacts = artifacts
         } catch { if sendFlow.session.isCurrent(session) { sendFlow.error = error.localizedDescription } }
@@ -95,8 +94,8 @@ extension AppState {
     func resumeSend(id: String) async -> Bool {
         sendFlow.invalidateSession()
         return await sendFlow.session.load(operation: .resume,
-            prepare: { try await self.bridge.inspectSend(id: id) },
-            endpoints: { try await self.bridge.sendEndpoints(chainId: $0) })
+            prepare: { try await self.bridge.ready().inspectSend(id: id) },
+            endpoints: { try await self.bridge.ready().sendEndpoints(chainId: $0) })
     }
 
 }

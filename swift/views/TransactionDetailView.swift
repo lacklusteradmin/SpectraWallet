@@ -347,8 +347,8 @@ struct TransactionDetailView: View {
         return trimmed
     }
     private func rebuildDisplayedTransactionState() async {
-        liveTransaction = (try? await store.bridge.transaction(id: transaction.id)) ?? transaction
-        endpoints = try? await store.bridge.transactionEndpoints(id: transaction.id)
+        liveTransaction = (try? await store.bridge.ready().transaction(id: transaction.id)) ?? transaction
+        endpoints = try? await store.bridge.ready().transactionEndpoints(transactionId: transaction.id)
     }
     private struct TransactionTimelineItem: Identifiable {
         let id: String

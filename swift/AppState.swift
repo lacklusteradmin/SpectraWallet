@@ -48,7 +48,6 @@ final class AppState {
         formatter.formatOptions = [.withInternetDateTime, .withDashSeparatorInDate, .withColonSeparatorInTime]
         return formatter
     }()
-    static let operationalLogTimestampFormatter = ISO8601DateFormatter()
     /// Recorded transactions.
     ///
     /// Domain state: core owns the store and its persistence. This is a
@@ -71,6 +70,8 @@ final class AppState {
 
     func adoptAssetPrecision(_ precision: AssetPrecisionCatalog) { assetPrecision = precision }
     var transactionCount: UInt64 = 0
+    /// Wallets whose chain history has pages left, from core's snapshot.
+    var walletsWithMoreHistory: Set<String> = []
     /// The pending sends core says can still be replaced on their chain.
     /// Adopted with the rest of the transaction-derived views; observed,
     /// because the composer's Speed Up / Cancel buttons read it.
@@ -99,7 +100,7 @@ final class AppState {
     private(set) var wallets: [WalletView] = [] {
         didSet {
             walletsRevision &+= 1
-            scheduleWalletCollectionSideEffects()
+            applyWalletCollectionSideEffects()
         }
     }
 
@@ -107,16 +108,6 @@ final class AppState {
     /// through a `StateCommand` and lands back here.
     func setWalletProjection(_ records: [WalletView]) {
         wallets = records
-    }
-    @ObservationIgnored private let walletSideEffectsDebounce = DebouncedAction(intervalMilliseconds: 30)
-    @ObservationIgnored var balanceFlushTask: Task<Void, Never>?
-    /// Debounce wallet side effects from `wallets.didSet`. Use a cancellable
-    /// task: cancelling an observation-backed checked continuation does not
-    /// resume it and can retain the state indefinitely.
-    private func scheduleWalletCollectionSideEffects() {
-        walletSideEffectsDebounce.fire { [weak self] in
-            self?.applyWalletCollectionSideEffects()
-        }
     }
     private(set) var walletsRevision: UInt64 = 0
     // Derived caches. Recomputed by `applyWalletCollectionSideEffects`,
@@ -141,19 +132,20 @@ final class AppState {
     let sendFlow = SendFlowState()
     let receiveFlow = ReceiveFlowState()
     let walletImport = WalletImportSession()
-    var walletCommandError: String?
+    /// Why the last state command, or a wallet deletion, did not go through.
+    /// Flows with their own refusal field — contacts, tokens, alerts — use that.
+    var commandError: String?
     var walletPendingDeletion: WalletView?
-    var selectedMainTab: MainAppTab = .home
+    var selectedMainTab: MainAppTab = .home {
+        didSet { if selectedMainTab != oldValue { reportDeviceConditions() } }
+    }
     var isAppLocked: Bool = false
     var appLockError: String? = nil
     /// Set when core could not be given the keychain-backed secret store.
     /// Observed: nothing that touches a seed or a private key works without
     /// it, so the failure has to reach the user rather than only the log.
     var secretStoreRegistrationError: String? = nil
-    @ObservationIgnored var isRefreshingLivePrices = false
     @ObservationIgnored var isRefreshingFiatRates = false
-    /// How long the maintenance loop sleeps before asking core again, as supplied by core.
-    @ObservationIgnored var lastMaintenancePollSeconds: UInt64 = 30
     @ObservationIgnored var isNetworkReachable: Bool = true
     @ObservationIgnored var isConstrainedNetwork: Bool = false
     @ObservationIgnored var isExpensiveNetwork: Bool = false
@@ -163,7 +155,7 @@ final class AppState {
     /// Read-only keypool diagnostics. Reading does not reserve an address.
     /// The reserved address and path are those recorded when the index was handed out.
     func chainKeypoolDiagnostics(for chainId: String) async throws -> [KeypoolDiagnostic] {
-        try await self.bridge.keypoolDiagnostics(chainId: chainId)
+        try await self.bridge.ready().keypoolDiagnostics(chainId: chainId)
     }
     /// Display currency for prices and totals.
     ///
@@ -184,7 +176,6 @@ final class AppState {
     /// Pending edits protect the optimistic form from readback. Committed
     /// settings still advance independently to drive runtime effects.
     @ObservationIgnored private var settingCommandsInFlight = 0
-    @ObservationIgnored private var settingCommandTask: Task<Void, Never>?
 
     /// Change one setting.
     ///
@@ -198,30 +189,16 @@ final class AppState {
         guard after != before else { return }
         appSettings = after
         settingCommandsInFlight += 1
-        let previous = settingCommandTask
-        settingCommandTask = Task { @MainActor [weak self] in
-            await previous?.value
-            guard let self else { return }
-            do {
-                let transition = try await self.bridge.applyStateCommand(.setAppSetting(update: update))
-                self.settingCommandsInFlight -= 1
-                self.applyCoreState(transition.state)
-            } catch {
-                self.settingCommandsInFlight -= 1
-                // A failed write never changes runtime services. Restore the
-                // committed projection even if storage cannot be read again.
-                if self.settingCommandsInFlight == 0 { self.appSettings = self.committedAppSettings }
-                self.appendOperationalLog(.error, category: "Settings", message: error.localizedDescription)
-                if let state = try? await self.bridge.appState() {
-                    self.applyCoreState(state)
-                }
-            }
+        enqueueStateCommand(.setAppSetting(update: update)) { store, result in
+            store.settingCommandsInFlight -= 1
+            // The last edit in flight hands the form back to core's settings.
+            // A failed write never changes runtime services, and the committed
+            // projection is restored even if storage cannot be read again.
+            if store.settingCommandsInFlight == 0 { store.appSettings = store.committedAppSettings }
+            guard case .failure(let error) = result else { return }
+            store.commandError = error.localizedDescription
+            if let state = try? await store.bridge.ready().appState() { store.applyCoreState(state) }
         }
-    }
-
-    /// Wait until every setting edit sent so far has been answered.
-    func awaitPendingSettingCommands() async {
-        await settingCommandTask?.value
     }
 
     /// A two-way binding onto one setting, for a toggle, picker or slider.
@@ -240,16 +217,17 @@ final class AppState {
         if (appSettings.useTransactionStatusNotifications && !before.useTransactionStatusNotifications)
             || (appSettings.useLargeMovementNotifications && !before.useLargeMovementNotifications)
         {
-            requestNotificationPermissionIfNeeded()
+            requestNotificationPermission()
         }
     }
 
     @ObservationIgnored private(set) var appliedCoreStateRevision: UInt64 = 0
 
     /// The only place the core-owned mirrors are written. Everything else goes
-    /// through a `StateCommand` and lands back here.
+    /// through a `StateCommand` and lands back here. Wallet-derived values come
+    /// with the portfolio snapshot, which the caller reads when it needs one.
     @discardableResult
-    func applyCoreState(_ state: CoreAppState, refreshPortfolio: Bool = true) -> Bool {
+    func applyCoreState(_ state: CoreAppState) -> Bool {
         guard state.revision >= appliedCoreStateRevision else { return false }
         appliedCoreStateRevision = state.revision
         if state.settings != committedAppSettings {
@@ -258,10 +236,9 @@ final class AppState {
             reactToSettingsChange(from: before)
         }
         if settingCommandsInFlight == 0 { appSettings = state.settings }
-        coreAddressBook = state.addressBook
+        if state.addressBook != addressBook { addressBook = state.addressBook }
         if state.tokenPreferences != tokenPreferences { tokenPreferences = state.tokenPreferences }
         if state.priceAlerts != priceAlerts { priceAlerts = state.priceAlerts }
-        if refreshPortfolio { rebuildWalletDerivedState() }
         return true
     }
     /// A chain with no stored pick confirms at the default rate.
@@ -285,16 +262,15 @@ final class AppState {
     /// the persistence. This is core's list as last adopted. Mutate it with
     /// `addAddressBookEntry` / `renameAddressBookEntry` /
     /// `removeAddressBookEntry`, which send commands.
-    var addressBook: [AddressBookEntry] { coreAddressBook }
-    private(set) var coreAddressBook: [AddressBookEntry] = []
+    private(set) var addressBook: [AddressBookEntry] = []
     /// Why core refused the last address-book change, if it did.
     var addressBookError: String?
-    @ObservationIgnored var addressBookCommandTask: Task<Void, Never>?
     /// The tracked-token projection. Change it through `addCustomTokenPreference`,
     /// `removeCustomTokenPreference`, or `setTokenPreferencesEnabled`.
     private(set) var tokenPreferences: [TokenPreferenceEntry] = []
     /// Why core refused the last token-preference change, if it did.
     var tokenPreferenceError: String?
+    /// The tail of the state-command queue; see `enqueueStateCommand`.
     @ObservationIgnored var stateCommandTask: Task<Void, Never>?
     // Quote errors and groups are adopted together from the same core snapshot;
     // every money figure arrives valued, in `portfolioValuation`.
@@ -323,14 +299,12 @@ final class AppState {
     @ObservationIgnored var importRefreshTask: Task<Void, Never>?
     @ObservationIgnored var walletSideEffectsTask: Task<Void, Never>?
     @ObservationIgnored var appIsActive = true
-    @ObservationIgnored var maintenanceTask: Task<Void, Never>?
+    @ObservationIgnored var deviceConditionsTask: Task<Void, Never>? // Orders reports to core's engine.
 
     // ── Tor routing ───────────────────────────────────────────────────────
-    /// Live Tor bootstrap/connection state polled from Rust. Drives the
+    /// Live Tor bootstrap/connection state, reported by core's refresh engine. Drives the
     /// dashboard indicator and the settings status row.
     var torStatus: TorStatus = .stopped
-    /// Background task that polls `torStatus()` from Rust every second.
-    @ObservationIgnored var torStatusPollingTask: Task<Void, Never>?
     #if canImport(Network)
         let networkPathMonitor = NWPathMonitor()
         let networkPathMonitorQueue = DispatchQueue(label: "spectra.network.monitor")
@@ -349,7 +323,7 @@ final class AppState {
             sendFlow.clearVerificationNotice()
             return
         }
-        guard let notice = try? await self.bridge.sendVerificationNotice(transactionId: transactionId),
+        guard let notice = try? await self.bridge.ready().sendVerificationNotice(transactionId: transactionId),
             sendFlow.session.isCurrent(session), sendFlow.artifact?.id == transactionId
         else { return }
         applyVerificationNotice(notice)
@@ -394,38 +368,32 @@ final class AppState {
     /// Registers the secret store before any launch work that might read a
     /// seed or a private key, and records the failure where both the user and
     /// a diagnostics export can see it.
+    /// The service registers the Keychain-backed secret store as it is created.
     private func registerSecretStoreWithBridge() async {
         do {
-            try SpectraSecretStoreAdapter.registerWithBridge(bridge)
+            _ = try bridge.service()
             secretStoreRegistrationError = nil
         } catch {
             let message = String(describing: error)
             secretStoreRegistrationError = message
             appendOperationalLog(
                 .error, category: "Secret Store", message: "Secret store registration failed: \(message)",
-                source: "SpectraSecretStoreAdapter.registerWithBridge")
+                source: "WalletServiceBridge.service")
         }
     }
     private func warmUpAfterLaunch() async {
         await refreshTransactionProjection()
-        startMaintenanceLoopIfNeeded()
         await registerSecretStoreWithBridge()
         setupRustRefreshEngine()
-        observeTorStatus()
         async let projectionReload: () = reloadCoreProjections()
         async let fiatRefresh: () = refreshFiatExchangeRatesIfNeeded()
         _ = await (projectionReload, fiatRefresh)
         // Configuring the engine starts it; its first tick performs the launch sweep.
     }
     deinit {
-        torStatusPollingTask?.cancel()
-        maintenanceTask?.cancel()
         userInitiatedRefreshTask?.cancel()
         importRefreshTask?.cancel()
         walletSideEffectsTask?.cancel()
-        balanceFlushTask?.cancel()
-        settingCommandTask?.cancel()
-        walletSideEffectsDebounce.cancel()
         #if canImport(Network)
             networkPathMonitor.cancel()
         #endif

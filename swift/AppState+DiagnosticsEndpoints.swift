@@ -30,7 +30,7 @@ extension AppState {
     func runEndpointDiagnostics(for chain: Chain) async {
         await withEndpointCheck(for: chain) { publish in
             do {
-                let rows = try await self.bridge.probeChainEndpoints(chainId: chain.id)
+                let rows = try await self.bridge.ready().probeChainEndpoints(chainId: chain.id)
                 publish(rows.map { EndpointHealthRow(label: $0.checked ? "" : "Not checked", endpoint: $0.endpoint, reachable: $0.reachable, statusCode: nil, detail: $0.detail) })
             } catch {
                 publish([EndpointHealthRow(label: "", endpoint: chain.displayName, reachable: false, statusCode: nil, detail: error.localizedDescription)])

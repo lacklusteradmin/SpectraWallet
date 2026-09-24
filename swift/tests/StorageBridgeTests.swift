@@ -10,7 +10,7 @@ final class StorageBridgeTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let bridge = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.db").path, service: try WalletService(endpoints: []))
         do {
-            _ = try await bridge.applyStateCommand(.setFiatCurrency(currency: .eur))
+            _ = try await bridge.ready().applyStateCommand(command: .setFiatCurrency(currency: .eur))
             XCTFail("a failed open must refuse the command")
         } catch {
             XCTAssertFalse(String(describing: error).contains("call open_state first"))
@@ -19,7 +19,7 @@ final class StorageBridgeTests: XCTestCase {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let state = try await bridge.openState()
         XCTAssertEqual(state.settings.fiatCurrency, .usd)
-        _ = try await bridge.applyStateCommand(.setFiatCurrency(currency: .eur))
+        _ = try await bridge.ready().applyStateCommand(command: .setFiatCurrency(currency: .eur))
         let reopened = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.db").path, service: try WalletService(endpoints: []))
         let stored = try await reopened.openState()
         XCTAssertEqual(stored.settings.fiatCurrency, .eur)
@@ -88,8 +88,8 @@ final class StorageBridgeTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         let path = directory.appendingPathComponent("state.db").path
         let bridge = WalletServiceBridge(databasePath: path, service: try WalletService(endpoints: []))
-        try bridge.registerSecretStore(secretStore)
-        let outcome = try await bridge.importWallets(WalletImportCommit(
+        try bridge.service().setSecretStore(store: secretStore)
+        let outcome = try await bridge.ready().importWallets(commit: WalletImportCommit(
             password: nil,
             request: WalletImportRequest(walletName: "Imported", selectedChainIds: ["ethereum"],
                 isWatchOnlyImport: false, isPrivateKeyImport: false,
@@ -100,15 +100,15 @@ final class StorageBridgeTests: XCTestCase {
         XCTAssertEqual(outcome.wallets.count, 1)
         XCTAssertEqual(outcome.wallets[0].signing, .seedPhrase(passwordProtected: false))
         XCTAssertEqual(
-            try bridge.revealSeedPhrase(walletId: outcome.wallets[0].id, password: nil),
+            try bridge.service().revealSeedPhrase(walletId: outcome.wallets[0].id, password: nil),
             .phrase(phrase: "test test test test test test test test test test test junk"))
         let reopened = WalletServiceBridge(databasePath: path, service: try WalletService(endpoints: []))
-        let stored = try await reopened.portfolioSnapshot().wallets
+        let stored = try await reopened.ready().portfolioSnapshot().wallets
         XCTAssertEqual(stored.count, 1)
-        _ = try await bridge.applyStateCommand(.removeWallet(walletId: outcome.wallets[0].id))
+        _ = try await bridge.ready().applyStateCommand(command: .removeWallet(walletId: outcome.wallets[0].id))
         // Removing the wallet removes its secrets with it.
         XCTAssertNotEqual(
-            try? bridge.revealSeedPhrase(walletId: outcome.wallets[0].id, password: nil),
+            try? bridge.service().revealSeedPhrase(walletId: outcome.wallets[0].id, password: nil),
             .phrase(phrase: "test test test test test test test test test test test junk"))
     }
 

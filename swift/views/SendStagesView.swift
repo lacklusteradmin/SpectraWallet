@@ -91,7 +91,7 @@ struct SendStagesView: View {
                 transactionError = nil
             }
             do {
-                let record = try await store.bridge.transaction(id: artifact.id)
+                let record = try await store.bridge.ready().transaction(id: artifact.id)
                 guard !Task.isCancelled else { return }
                 transaction = record
                 transactionError = nil

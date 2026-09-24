@@ -48,7 +48,7 @@ private struct HistoryPresentationSection: Identifiable {
 }
 struct HistoryView: View {
     let store: AppState
-    @State private var selectedFilter: HistoryFilter = .all
+    @State private var selectedFilter: HistoryQueryFilter = .all
     @State private var selectedSortOrder: HistorySortOrder = .newest
     @State private var selectedWalletId: String?
     @State private var searchText: String = ""
@@ -148,7 +148,7 @@ struct HistoryView: View {
                 ForEach(store.wallets) { wallet in Text(wallet.name).tag(Optional(wallet.id)) }
             }
             Picker(AppLocalization.string("Type"), selection: $selectedFilter) {
-                ForEach(HistoryFilter.allCases) { filter in Text(filter.localizedTitle).tag(filter) }
+                ForEach(HistoryQueryFilter.allCases) { filter in Text(filter.localizedTitle).tag(filter) }
             }
             Picker(AppLocalization.string("Sort"), selection: $selectedSortOrder) {
                 ForEach(HistorySortOrder.allCases) { sortOrder in Text(sortOrder.localizedTitle).tag(sortOrder) }
@@ -209,16 +209,9 @@ struct HistoryView: View {
         pageRequestId = requestId
         isLoadingPage = true
         defer { if pageRequestId == requestId { isLoadingPage = false } }
-        let filter: HistoryQueryFilter
-        switch selectedFilter {
-        case .all: filter = .all
-        case .sends: filter = .send
-        case .receives: filter = .receive
-        case .pending: filter = .pending
-        }
         do {
-            let page = try await WalletServiceBridge.shared.historyPage(HistoryQuery(
-                walletId: selectedWalletId, filter: filter, search: searchText,
+            let page = try await store.bridge.ready().historyPage(query: HistoryQuery(
+                walletId: selectedWalletId, filter: selectedFilter, search: searchText,
                 oldestFirst: selectedSortOrder == .oldest, cursor: reset ? nil : nextCursor, limit: 20))
             guard !Task.isCancelled, pageRequestId == requestId, queryKey == key else { return }
             if reset { pageRecords = page.records }

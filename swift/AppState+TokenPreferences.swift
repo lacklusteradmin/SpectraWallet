@@ -12,30 +12,27 @@ extension AppState {
     func setTokenPreferencesEnabled(_ entries: [TokenPreferenceEntry], isEnabled: Bool) {
         let keys = entries.map(tokenKey)
         guard !keys.isEmpty else { return }
-        Task { @MainActor [weak self] in
-            await self?.sendTokenPreferenceCommand(
-                .setTokenPreferencesEnabled(tokens: keys, isEnabled: isEnabled))
-        }
+        sendTokenPreferenceCommand(.setTokenPreferencesEnabled(tokens: keys, isEnabled: isEnabled))
     }
     func removeCustomTokenPreference(_ entry: TokenPreferenceEntry) {
-        Task { @MainActor [weak self] in
-            await self?.sendTokenPreferenceCommand(
-                .removeCustomToken(chainId: entry.token.chainId, contract: entry.token.contract))
+        sendTokenPreferenceCommand(.removeCustomToken(chainId: entry.token.chainId, contract: entry.token.contract))
+    }
+    /// Send a token-preference command. Same shape as `sendAddressBookCommand`:
+    /// core decides, the refusal comes back as an event carrying its reason,
+    /// and this side supplies the words.
+    private func sendTokenPreferenceCommand(_ command: StateCommand) {
+        enqueueStateCommand(command) { store, result in
+            store.tokenPreferenceError = store.tokenPreferenceErrorMessage(result)
         }
     }
-    /// Send a token-preference command and mirror the result.
-    ///
-    /// Same shape as `sendAddressBookCommand`: core decides, the refusal comes
-    /// back as an event carrying its reason, and this side supplies the words.
-    private func sendTokenPreferenceCommand(_ command: StateCommand) async {
-        guard let transition = try? await self.bridge.applyStateCommand(command)
-        else {
-            tokenPreferenceError = localizedStoreString("This token could not be saved.")
-            return
+    /// The words for a token command's outcome, or `nil` when core accepted it.
+    private func tokenPreferenceErrorMessage(_ result: Result<StateTransition, Error>) -> String? {
+        switch result {
+        case .success(let transition):
+            return tokenPreferenceRejection(in: transition.events).map(tokenPreferenceRejectionMessage)
+        case .failure:
+            return localizedStoreString("This token could not be saved.")
         }
-        applyCoreState(transition.state)
-        tokenPreferenceError = tokenPreferenceRejection(in: transition.events)
-            .map(tokenPreferenceRejectionMessage)
     }
     private func tokenPreferenceRejection(in events: [StateEvent]) -> TokenPreferenceRejection? {
         events.lazy.compactMap { event -> TokenPreferenceRejection? in
@@ -84,16 +81,9 @@ extension AppState {
                 contract: contractAddress, coingeckoId: coingeckoId,
                 coinpaprikaId: coinpaprikaId, decimals: UInt32(decimals))
         }
-        guard
-            let transition = try? await self.bridge.applyStateCommand(command)
-        else { return localizedStoreString("This token could not be saved.") }
-        applyCoreState(transition.state)
-        guard let reason = tokenPreferenceRejection(in: transition.events) else {
-            tokenPreferenceError = nil
-            return nil
-        }
-        let message = tokenPreferenceRejectionMessage(reason)
-        tokenPreferenceError = message
-        return message
+        let result: Result<StateTransition, Error>
+        do { result = .success(try await applyStateCommand(command)) } catch { result = .failure(error) }
+        tokenPreferenceError = tokenPreferenceErrorMessage(result)
+        return tokenPreferenceError
     }
 }

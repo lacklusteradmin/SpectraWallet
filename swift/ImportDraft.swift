@@ -52,9 +52,7 @@ final class WalletImportDraft {
     var mode: WalletDraftMode = .importExisting {
         didSet { refreshSelectionState() }
     }
-    var isEditingWallet: Bool = false {
-        didSet { refreshSelectionState() }
-    }
+    var isEditingWallet: Bool { mode == .editExisting }
     var walletName: String = ""
     var seedPhrase: String = ""
     var walletPassword: String = ""
@@ -64,7 +62,6 @@ final class WalletImportDraft {
     }
     var privateKeyInput: String = ""
     var seedDerivationPreset: CoreSeedDerivationPreset = .standard
-    var usesCustomDerivationPaths: Bool = true
     var seedDerivationPaths: SeedDerivationPaths = .defaults
     /// User's simple/advanced selection from the Add-Wallet page. Drives
     /// whether the Advanced derivation page is reachable from SetupView.
@@ -97,7 +94,7 @@ final class WalletImportDraft {
     var backupVerificationEntries: [String] = []
     private(set) var selectedChainIds: [String] = []
     var isCreateMode: Bool { mode == .createNew }
-    var isPrivateKeyImportMode: Bool { mode == .importExisting && !isEditingWallet && !isWatchOnlyMode && secretImportMode == .privateKey }
+    var isPrivateKeyImportMode: Bool { mode == .importExisting && !isWatchOnlyMode && secretImportMode == .privateKey }
     /// Selected chains a private key cannot derive an address on, by name.
     var unsupportedPrivateKeyChainNames: [String] {
         let supported = Self.supportedPrivateKeyChainIds
@@ -109,12 +106,17 @@ final class WalletImportDraft {
     /// Edit mode resets the grid, so an empty entry answers "nothing to say"
     /// without a mode guard of its own.
     var seedPhraseVerdict: SeedPhraseVerdict {
-        checkSeedPhrase(
-            check: SeedPhraseCheck(
-                words: seedPhraseEntries,
-                language: seedPhraseLanguage,
-                expectedWordCount: UInt32(selectedSeedPhraseWordCount)))
+        let check = SeedPhraseCheck(
+            words: seedPhraseEntries, language: seedPhraseLanguage,
+            expectedWordCount: UInt32(selectedSeedPhraseWordCount))
+        // One render reads this several times; ask core once per grid.
+        if let cached = seedPhraseVerdictCache, cached.check == check { return cached.verdict }
+        let verdict = checkSeedPhrase(check: check)
+        seedPhraseVerdictCache = (check, verdict)
+        return verdict
     }
+    /// The last grid core judged. Holds the words, so `reset` drops it.
+    @ObservationIgnored private var seedPhraseVerdictCache: (check: SeedPhraseCheck, verdict: SeedPhraseVerdict)?
     /// The entry grid as words. `seedPhrase` is kept in sync with the grid,
     /// so this reads the same phrase either way.
     var seedPhraseWords: [String] { seedPhraseVerdict.words }
@@ -196,32 +198,28 @@ final class WalletImportDraft {
     }
     func configureForNewWallet() {
         mode = .importExisting
-        isEditingWallet = false
         reset()
     }
     func configureForWatchAddressesImport() {
         mode = .importExisting
-        isEditingWallet = false
         reset()
         isWatchOnlyMode = true
     }
     func configureForCreatedWallet() {
+        // Reset outside create mode: resetting the word count regenerates a
+        // phrase in create mode, and this generates exactly one.
         mode = .importExisting
-        isEditingWallet = false
         reset()
         mode = .createNew
-        isWatchOnlyMode = false
         regenerateSeedPhrase()
     }
     func configureForEditing(wallet: WalletView) {
-        mode = .importExisting
-        isEditingWallet = false
-        reset()
         mode = .editExisting
-        isEditingWallet = true
+        reset()
         walletName = wallet.name
     }
     func reset() {
+        seedPhraseVerdictCache = nil
         walletName = ""
         seedPhrase = ""
         walletPassword = ""
@@ -229,7 +227,6 @@ final class WalletImportDraft {
         secretImportMode = .seedPhrase
         privateKeyInput = ""
         seedDerivationPreset = .standard
-        usesCustomDerivationPaths = true
         seedDerivationPaths = .defaults
         setupModeChoice = .simple
         overridePassphrase = ""
@@ -261,11 +258,8 @@ final class WalletImportDraft {
     }
     func regenerateSeedPhrase() {
         guard isCreateMode else { return }
-        // Core rejects lengths BIP-39 does not define.
-        guard
-            let generatedPhrase = WalletServiceBridge.shared.rustGenerateMnemonic(
-                wordCount: selectedSeedPhraseWordCount)
-        else {
+        // Core rejects lengths BIP-39 does not define rather than substituting one.
+        guard let generatedPhrase = try? generateMnemonic(wordCount: UInt32(selectedSeedPhraseWordCount)) else {
             seedPhrase = ""
             seedPhraseEntries = Array(repeating: "", count: selectedSeedPhraseWordCount)
             backupVerificationWordIndices = []
