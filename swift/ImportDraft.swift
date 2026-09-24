@@ -46,8 +46,8 @@ enum SetupModeChoice: String, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class WalletImportDraft {
-    private static var supportedPrivateKeyChainNameSet: Set<String> {
-        Set(Chain.mainnets.filter(\.derivesFromPrivateKey).map(\.displayName))
+    private static var supportedPrivateKeyChainIds: Set<String> {
+        Set(Chain.mainnets.filter(\.derivesFromPrivateKey).map(\.id))
     }
     var mode: WalletDraftMode = .importExisting {
         didSet { refreshSelectionState() }
@@ -85,25 +85,26 @@ final class WalletImportDraft {
     var isWatchOnlyMode: Bool = false {
         didSet { refreshSelectionState() }
     }
-    /// The watch-only address text, keyed by chain display name.
-    var watchOnlyInputsByChainName: [String: String] = [:]
+    /// The watch-only address text, keyed by chain id.
+    var watchOnlyInputsByChainId: [String: String] = [:]
     /// Not an address, so not in the table above: Bitcoin's account xpub stands
     /// in for the whole account and plans one wallet rather than one per line.
     var bitcoinXpubInput: String = ""
-    var selectedChainNamesStorage: [String] = [] {
+    var selectedChainIdsStorage: [String] = [] {
         didSet { refreshSelectionState() }
     }
     var backupVerificationWordIndices: [Int] = []
     var backupVerificationEntries: [String] = []
-    private(set) var selectedChainNames: [String] = []
+    private(set) var selectedChainIds: [String] = []
     var isCreateMode: Bool { mode == .createNew }
     var isPrivateKeyImportMode: Bool { mode == .importExisting && !isEditingWallet && !isWatchOnlyMode && secretImportMode == .privateKey }
+    /// Selected chains a private key cannot derive an address on, by name.
     var unsupportedPrivateKeyChainNames: [String] {
-        let supported = Self.supportedPrivateKeyChainNameSet
-        return selectedChainNames.filter { !supported.contains($0) }
+        let supported = Self.supportedPrivateKeyChainIds
+        return selectedChainIds.filter { !supported.contains($0) }.map(Chain.displayName(forId:))
     }
     private var allowsMultipleChainSelection: Bool { !isEditingWallet && !isWatchOnlyMode && !isPrivateKeyImportMode }
-    func isSelected(_ chainName: String) -> Bool { isSelectedChain(chainName) }
+    func isSelected(_ chainId: String) -> Bool { isSelectedChain(chainId) }
     /// Everything core has to say about the entry grid, decided in one pass.
     /// Edit mode resets the grid, so an empty entry answers "nothing to say"
     /// without a mode guard of its own.
@@ -117,10 +118,10 @@ final class WalletImportDraft {
     /// The entry grid as words. `seedPhrase` is kept in sync with the grid,
     /// so this reads the same phrase either way.
     var seedPhraseWords: [String] { seedPhraseVerdict.words }
-    var normalizedWalletPassword: String? {
-        let trimmed = walletPassword.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? nil : trimmed
-    }
+    /// The password as typed. Core owns what counts as a password — it
+    /// ignores surrounding whitespace everywhere a password is used, and
+    /// treats a blank one as none — so this side does not reshape it.
+    var walletPasswordInput: String? { walletPassword.isEmpty ? nil : walletPassword }
     var walletPasswordValidationError: String? {
         guard let reason = validateWalletPassword(password: walletPassword, confirmation: walletPasswordConfirmation) else { return nil }
         switch reason {
@@ -138,8 +139,8 @@ final class WalletImportDraft {
     }
     /// The selected chains, in catalog order rather than selection order.
     var selectableDerivationChains: [Chain] {
-        let selected = Set(selectedChainNames)
-        return Chain.all.filter { selected.contains($0.displayName) }
+        let selected = Set(selectedChainIds)
+        return Chain.all.filter { selected.contains($0.id) }
     }
     func watchOnlyEntries(from rawValue: String) -> [String] {
         rawValue.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
@@ -150,10 +151,7 @@ final class WalletImportDraft {
     /// the draft is not in watch-only mode.
     var watchOnlyEntriesByChainId: [String: [String]] {
         guard isWatchOnlyMode else { return [:] }
-        return Dictionary(uniqueKeysWithValues: watchOnlyInputsByChainName.compactMap { name, raw in
-            guard let chain = Chain(displayName: name) else { return nil }
-            return (chain.id, watchOnlyEntries(from: raw))
-        })
+        return watchOnlyInputsByChainId.mapValues(watchOnlyEntries(from:))
     }
     /// The watch-only inputs as core reads them, for the check and the import.
     var watchOnlyImportEntries: WalletImportWatchOnlyEntries {
@@ -166,7 +164,7 @@ final class WalletImportDraft {
     /// in core's import/rename operations even when a client skips this check.
     var canImportWallet: Bool {
         if isEditingWallet { return !walletName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-        guard !selectedChainNames.isEmpty else { return false }
+        guard !selectedChainIds.isEmpty else { return false }
         if isWatchOnlyMode {
             return !watchOnlyEntriesByChainId.values.flatMap { $0 }.isEmpty || watchOnlyImportEntries.bitcoinXpub != nil
         }
@@ -239,28 +237,27 @@ final class WalletImportDraft {
         seedPhraseEntries = Array(repeating: "", count: 12)
         selectedSeedPhraseWordCount = 12
         isWatchOnlyMode = false
-        watchOnlyInputsByChainName = [:]
+        watchOnlyInputsByChainId = [:]
         bitcoinXpubInput = ""
-        selectedChainNamesStorage = []
+        selectedChainIdsStorage = []
         backupVerificationWordIndices = []
         backupVerificationEntries = []
     }
-    func toggleChainSelection(_ chainName: String) { setSelectedChain(chainName, isEnabled: !isSelectedChain(chainName)) }
-    private func isSelectedChain(_ chainName: String) -> Bool { selectedChainNamesStorage.contains(chainName) }
-    private func setSelectedChain(_ chainName: String, isEnabled: Bool) {
+    func toggleChainSelection(_ chainId: String) { setSelectedChain(chainId, isEnabled: !isSelectedChain(chainId)) }
+    private func isSelectedChain(_ chainId: String) -> Bool { selectedChainIdsStorage.contains(chainId) }
+    private func setSelectedChain(_ chainId: String, isEnabled: Bool) {
         if isEnabled {
             if allowsMultipleChainSelection {
-                if !selectedChainNamesStorage.contains(chainName) { selectedChainNamesStorage.append(chainName) }
+                if !selectedChainIdsStorage.contains(chainId) { selectedChainIdsStorage.append(chainId) }
             } else {
-                selectedChainNamesStorage = [chainName]
+                selectedChainIdsStorage = [chainId]
             }
         } else {
-            selectedChainNamesStorage.removeAll { $0 == chainName }
+            selectedChainIdsStorage.removeAll { $0 == chainId }
         }
     }
     private func refreshSelectionState() {
-        let effectiveChainNames = allowsMultipleChainSelection ? selectedChainNamesStorage : Array(selectedChainNamesStorage.prefix(1))
-        selectedChainNames = effectiveChainNames
+        selectedChainIds = allowsMultipleChainSelection ? selectedChainIdsStorage : Array(selectedChainIdsStorage.prefix(1))
     }
     func regenerateSeedPhrase() {
         guard isCreateMode else { return }

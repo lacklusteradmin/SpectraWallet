@@ -7,9 +7,9 @@ enum TokenRegistryGrouping {
 }
 struct TokenRegistrySettingsView: View {
     let store: AppState
-    /// The chain filter uses `TokenHostingChain?`; nil includes every chain.
-    private static let chainFilterOptions: [TokenHostingChain?] =
-        [nil] + TokenHostingChain.allCases.map { Optional($0) }
+    /// The chain filter; nil includes every chain.
+    private static let chainFilterOptions: [Chain?] =
+        [nil] + Chain.tokenHostingChains.map { Optional($0) }
     private enum TokenRegistrySourceFilter: CaseIterable, Identifiable {
         case all
         case builtIn
@@ -24,7 +24,7 @@ struct TokenRegistrySettingsView: View {
         }
     }
     @State private var searchText: String = ""
-    @State private var chainFilter: TokenHostingChain? = nil
+    @State private var chainFilter: Chain? = nil
     @State private var sourceFilter: TokenRegistrySourceFilter = .all
     var body: some View {
         Form {
@@ -80,7 +80,7 @@ struct TokenRegistrySettingsView: View {
         Menu {
             Picker(AppLocalization.string("Network"), selection: $chainFilter) {
                 ForEach(Self.chainFilterOptions, id: \.self) { chain in
-                    Text(chain?.rawValue ?? AppLocalization.string("All")).tag(chain)
+                    Text(chain?.displayName ?? AppLocalization.string("All")).tag(chain)
                 }
             }
             Picker(AppLocalization.string("Source"), selection: $sourceFilter) {
@@ -116,7 +116,7 @@ struct TokenRegistrySettingsView: View {
             )
         }
         let filtered: [TokenRegistryGroup] = groups.filter { group in
-            if let selectedChain = chainFilter, !group.entries.contains(where: { $0.token.chainId == selectedChain.chain?.id }) {
+            if let selectedChain = chainFilter, !group.entries.contains(where: { $0.token.chainId == selectedChain.id }) {
                 return false
             }
             switch sourceFilter {

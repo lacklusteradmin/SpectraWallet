@@ -5,7 +5,7 @@ struct AddCustomTokenView: View {
     let store: AppState
     var editing: TokenPreferenceEntry? = nil
     @Environment(\.dismiss) private var dismiss
-    @State private var selectedChain: TokenHostingChain = .ethereum
+    @State private var selectedChain: Chain = .ethereum
     @State private var symbolInput = ""
     @State private var nameInput = ""
     @State private var identifierInput = ""
@@ -20,11 +20,11 @@ struct AddCustomTokenView: View {
         Form {
             Section(AppLocalization.string("Network")) {
                 if let editing {
-                    LabeledContent(AppLocalization.string("Network"), value: selectedChain.rawValue)
+                    LabeledContent(AppLocalization.string("Network"), value: selectedChain.displayName)
                     Text(editing.token.contract).font(.caption.monospaced()).textSelection(.enabled)
                 } else {
                     Picker(AppLocalization.string("Network"), selection: $selectedChain) {
-                        ForEach(TokenHostingChain.allCases) { chain in Text(chain.rawValue).tag(chain) }
+                        ForEach(Chain.tokenHostingChains) { chain in Text(chain.displayName).tag(chain) }
                     }
                     TextField(AppLocalization.string("Token Identifier"), text: $identifierInput)
                         .textInputAutocapitalization(.never).autocorrectionDisabled()

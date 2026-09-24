@@ -8,23 +8,18 @@ import Foundation
 
 extension AppState {
     /// Every mainnet — the same set the diagnostics hub offers a screen for.
-    /// Was a hand-typed list of twenty-four display names, the fifth copy of
-    /// the chain list in the diagnostics code.
-    static let diagnosticsBundleChainNames = Chain.mainnets.map(\.displayName)
+    static let diagnosticsBundleChains = Chain.mainnets
 
-    func diagnosticsJSON(for chainName: String) -> String? {
+    func diagnosticsJSON(for chain: Chain) -> String? {
         diagnosticsJson(
-            chainName: chainName,
-            endpoints: self[endpointHealthFor: chainName].results,
-            historyLastUpdatedAtUnix: self[historyRunFor: chainName].lastUpdatedAt?
+            chainId: chain.id,
+            endpoints: self[endpointHealthFor: chain].results,
+            historyLastUpdatedAtUnix: self[historyRunFor: chain].lastUpdatedAt?
                 .timeIntervalSince1970,
-            endpointsLastUpdatedAtUnix: self[endpointHealthFor: chainName].lastUpdatedAt?
+            endpointsLastUpdatedAtUnix: self[endpointHealthFor: chain].lastUpdatedAt?
                 .timeIntervalSince1970,
-            // Any family with a network to choose, not the one named Bitcoin:
-            // Ethereum's, Dogecoin's and the rest had a selection this left out.
-            extraNetworkMode: Chain(displayName: chainName).flatMap {
-                $0.networkChoices.count > 1 ? selectedChainId(forFamily: $0.id) : nil
-            })
+            // Any family with a network to choose.
+            extraNetworkMode: chain.networkChoices.count > 1 ? selectedChainId(forFamily: chain.id) : nil)
     }
 
     private func buildDiagnosticsBundle() -> DiagnosticsBundlePayload {
@@ -42,12 +37,11 @@ extension AppState {
             schemaVersion: 1,
             generatedAt: Date().timeIntervalSince1970,
             environment: environment,
-            chainDegradedMessages: diagnostics.chainDegradedMessages,
-            chainDiagnosticsJson: DiagnosticsBundlePayload.chainKeyed(
-                Dictionary(
-                    uniqueKeysWithValues: Self.diagnosticsBundleChainNames.map {
-                        ($0, diagnosticsJSON(for: $0))
-                    })))
+            chainDegraded: diagnostics.chainDegraded,
+            chainDiagnosticsJson: Dictionary(
+                uniqueKeysWithValues: Self.diagnosticsBundleChains.map {
+                    ($0.id, diagnosticsJSON(for: $0) ?? "{}")
+                }))
     }
 
     // MARK: File I/O
@@ -104,19 +98,5 @@ enum DiagnosticsBundleError: Error {
 extension DiagnosticsBundlePayload {
     var generatedAtDate: Date { Date(timeIntervalSince1970: generatedAt) }
 
-    /// Fold a chain-display-name → JSON table into the chain-id-keyed map,
-    /// substituting `"{}"` for chains with no data. Ids come from the
-    /// registry, so the bundle keys stay canonical.
-    static func chainKeyed(_ byChainName: [String: String?]) -> [String: String] {
-        var byChainId: [String: String] = [:]
-        for (chainName, json) in byChainName {
-            guard let id = Chain(displayName: chainName)?.id else { continue }
-            byChainId[id] = json ?? "{}"
-        }
-        return byChainId
-    }
-
-    func diagnosticsJSON(forChainNamed chainName: String) -> String? {
-        Chain(displayName: chainName).flatMap { chainDiagnosticsJson[$0.id] }
-    }
+    func diagnosticsJSON(for chain: Chain) -> String? { chainDiagnosticsJson[chain.id] }
 }

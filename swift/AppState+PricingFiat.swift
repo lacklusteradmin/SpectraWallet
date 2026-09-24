@@ -4,30 +4,10 @@ import SwiftUI
 extension AppState {
     /// Called only while adopting a newer, coherent portfolio snapshot.
     func applyQuoteProjection(_ state: CoreAppState) {
-        if livePrices != state.quotes.prices { livePrices = state.quotes.prices }
         quoteRefreshError = state.quotes.pricesError
-        if fiatRatesFromUSD != state.fiatRatesFromUsd { fiatRatesFromUSD = state.fiatRatesFromUsd }
         fiatRatesRefreshError = state.quotes.fiatError
     }
 
-    @discardableResult
-    func refreshLivePrices() async -> Bool {
-        guard !isRefreshingLivePrices else { return false }
-        isRefreshingLivePrices = true
-        defer { isRefreshingLivePrices = false }
-        var didUpdatePrices = false
-        let before = livePrices
-        do {
-            _ = try await self.bridge.refreshOwnedPrices(force: false)
-            let notifications = await evaluatePriceAlertNotifications()
-            await rebuildWalletDerivedStateFromCore()
-            deliverPriceAlertNotifications(notifications)
-            didUpdatePrices = livePrices != before
-        } catch {
-            quoteRefreshError = error.localizedDescription
-        }
-        return didUpdatePrices
-    }
     func refreshFiatExchangeRatesIfNeeded(force: Bool = false) async {
         guard !isRefreshingFiatRates else { return }
         isRefreshingFiatRates = true
@@ -74,31 +54,21 @@ extension AppState {
     func setPortfolioInclusion(_ isIncluded: Bool, for walletId: String) {
         enqueueStateCommand(.setWalletPortfolioInclusion(walletId: walletId, included: isIncluded))
     }
-    /// Refresh balances now. Every wallet's: the engine sweeps its entries
-    /// together, and the one this is asked from is among them.
-    func refreshBalancesNow() async {
-        try? await self.bridge.triggerImmediateBalanceRefresh()
-    }
     func scheduleImportedWalletRefresh(_ createdWallets: [WalletView]) {
         guard servicesEnabled else { return }
         guard !createdWallets.isEmpty else {
             return
         }
         importRefreshTask?.cancel()
-        importRefreshTask = Task { [weak self] in
+        importRefreshTask = Task { @MainActor [weak self] in
             guard let self else { return }
-            await self.refreshBalances()
-            _ = await self.refreshLivePrices()
-            await MainActor.run {
-                self.importRefreshTask = nil
-            }
+            await self.performCoreRefresh(.user)
+            self.importRefreshTask = nil
         }
     }
     var alertableCoins: [Coin] { portfolio }
     var portfolio: [Coin] { cachedPortfolio }
     var shouldRunScheduledPriceRefresh: Bool { selectedMainTab == .home }
-    var refreshableChainNames: Set<String> { cachedRefreshableChainNames }
-    var includedPortfolioWallets: [WalletView] { cachedIncludedPortfolioWallets }
 
 }
 /// Core's currencies, with what a picker needs: an order, a name and an icon.

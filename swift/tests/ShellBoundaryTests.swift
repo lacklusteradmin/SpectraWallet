@@ -4,12 +4,12 @@ import XCTest
 @MainActor
 final class ShellBoundaryTests: IsolatedAppStateTestCase {
     func testActivityReconciliationFindsOldRecordsAndKeepsReadFailures() async throws {
-        let wallet = WalletView(name: "Archive", addresses: ["Ethereum": "0x1111111111111111111111111111111111111111"], familyName: "Ethereum")
-        _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState(isWatchOnly: true)))
+        let wallet = WalletView(name: "Archive", chainId: "ethereum", addresses: ["ethereum": "0x1111111111111111111111111111111111111111"])
+        _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState()))
         var records = (0..<55).map { index in
             var record = TransactionRecord(id: "record-\(index)", walletId: wallet.id, kind: .send, status: .confirmed,
-                walletName: wallet.name, assetDisplayName: "Ether", symbol: "ETH", chainName: "Ethereum",
-                amount: 1, address: "0x2222222222222222222222222222222222222222")
+                walletName: wallet.name, assetDisplayName: "Ether", symbol: "ETH", chainId: "ethereum",
+                amount: "1", address: "0x2222222222222222222222222222222222222222")
             record.createdAtUnix = Double(index)
             return record
         }

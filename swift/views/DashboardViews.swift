@@ -7,7 +7,7 @@ struct DashboardView: View {
     @State private var selectedAssetGroup: DashboardAssetGroup?
     private var deleteWalletMessage: String {
         guard let pendingWallet = store.walletPendingDeletion else { return "" }
-        if store.isWatchOnlyWallet(pendingWallet) {
+        if pendingWallet.signing.isWatchOnly {
             return AppLocalization.string("You can't recover this wallet after deletion until you still have this address.")
         }
         return AppLocalization.string("Please take note of your seed phrase because you can't recover this wallet after deletion.")
@@ -190,7 +190,7 @@ struct DashboardView: View {
             addWalletEmptyState
         } else {
             ForEach(Array(wallets.enumerated()), id: \.element.id) { index, wallet in
-                let badge = Coin.nativeChainBadge(chainName: wallet.familyName) ?? (nil, .mint)
+                let badge = Coin.nativeChainBadge(for: wallet.family) ?? (nil, .mint)
                 Button { selectedWalletId = wallet.id } label: {
                     WalletCardView(
                         presentation: WalletCardView.Presentation(
@@ -199,8 +199,8 @@ struct DashboardView: View {
                                 ? "••••••"
                                 : store.amounts.formattedWalletTotal(walletId: wallet.id),
                             assetCountText: AppLocalization.format(
-                                "%lld assets", wallet.holdings.filter { $0.amount > 0 }.count),
-                            isWatchOnly: store.isWatchOnlyWallet(wallet), badgeArtworkName: badge.0,
+                                "%lld assets", wallet.holdings.filter(\.hasBalance).count),
+                            isWatchOnly: wallet.signing.isWatchOnly, badgeArtworkName: badge.0,
                             badgeMark: wallet.familyName, badgeColor: badge.1
                         )
                     ).equatable().padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
@@ -252,7 +252,7 @@ struct DashboardView: View {
                 ),
                 totalValueText: hideBalances
                     ? "••••••"
-                    : store.amounts.formattedFiatAmountOrUnavailable(fromUSD: assetGroup.totalValueUsd),
+                    : store.amounts.formattedFiat(assetGroup.totalValue),
                 priceText: dashboardAssetPriceText(for: assetGroup, hideBalances: hideBalances)
             )
         }
@@ -271,11 +271,7 @@ struct DashboardView: View {
         }.accessibilityLabel(AppLocalization.string("Pin Assets"))
     }
     private func dashboardAssetPriceText(for assetGroup: DashboardAssetGroup, hideBalances: Bool) -> String {
-        if hideBalances { return "••••••" }
-        guard let price = store.amounts.currentPriceIfAvailable(for: assetGroup.identity) else {
-            return store.amounts.formattedFiatAmountOrUnavailable(fromUSD: nil)
-        }
-        return store.amounts.formattedFiatAmountOrUnavailable(fromUSD: price)
+        hideBalances ? "••••••" : store.amounts.formattedFiat(assetGroup.price)
     }
 }
 enum DashboardPage {
@@ -315,13 +311,12 @@ extension CoreDashboardAssetGroup: Identifiable {
     var symbol: String { identity.symbol }
     var artworkName: String { identity.artworkName }
     var color: Color { identity.color }
-    var totalAmount: Double { holdings.reduce(0) { $0 + $1.coin.amount } }
 }
 
 typealias DashboardPinOption = CoreDashboardPinOption
 extension CoreDashboardPinOption: Identifiable {
     public var id: String { tokenId }
-    var color: Color { Coin.displayColor(for: symbol) }
+    var color: Color { AssetPresentationCatalog.color(deploymentId: deploymentId) }
 }
 struct AssetGroupDetailView: View {
     let store: AppState
@@ -385,7 +380,7 @@ private struct AssetDetailHeroCard: View {
                 Text(assetGroup.symbol).font(.subheadline.weight(.semibold).monospaced())
                     .foregroundStyle(assetGroup.color)
                 if !compact {
-                    Text(store.amounts.formattedFiatAmountOrUnavailable(fromUSD: assetGroup.totalValueUsd))
+                    Text(store.amounts.formattedFiat(assetGroup.totalValue))
                         .font(.title3.weight(.semibold)).foregroundStyle(Color.primary)
                         .spectraNumericTextLayout(minimumScaleFactor: 0.7)
                 }
@@ -408,7 +403,7 @@ private struct AssetSummaryStatsCard: View {
             Divider().opacity(0.4)
             statRow(
                 label: AppLocalization.string("Total Value"),
-                value: store.amounts.formattedFiatAmountOrUnavailable(fromUSD: assetGroup.totalValueUsd),
+                value: store.amounts.formattedFiat(assetGroup.totalValue),
                 icon: "dollarsign.circle.fill")
         }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
             .spectraCardFill()
@@ -436,7 +431,7 @@ private struct AssetChainBreakdownCard: View {
     /// names the row from its `identity` instead of synthesizing a place. The
     /// amount is checked too, because a real holding that has been emptied says
     /// the same thing to the reader and deserves the same sentence.
-    private var holdsNothing: Bool { assetGroup.holdings.isEmpty || assetGroup.totalAmount <= 0 }
+    private var holdsNothing: Bool { assetGroup.holdings.isEmpty || assetGroup.totalAmount == "0" }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -455,13 +450,13 @@ private struct AssetChainBreakdownCard: View {
             } else {
                 ForEach(Array(assetGroup.holdings.enumerated()), id: \.offset) { index, holding in
                     AssetChainBreakdownRow(
-                        chainName: holding.coin.chainName,
-                        chainTitle: store.selectedNetworkTitle(forFamilyName: holding.coin.chainName),
+                        chain: holding.coin.chain,
+                        chainTitle: holding.coin.chainName,
                         tokenStandard: holding.coin.tokenStandard,
                         amountText: store.amounts.formattedAssetAmount(
                             holding.coin.amount, symbol: holding.coin.symbol,
                             deploymentId: holding.coin.holdingKey),
-                        valueText: store.amounts.formattedFiatAmountOrUnavailable(fromUSD: holding.valueUsd),
+                        valueText: store.amounts.formattedFiat(holding.value),
                         fallbackColor: holding.coin.color
                     )
                     if index < assetGroup.holdings.count - 1 { Divider().opacity(0.3) }
@@ -480,14 +475,14 @@ private struct AssetChainBreakdownCard: View {
 /// beside it. `fallbackColor` is the asset's, for a chain the registry has no
 /// artwork for.
 private struct AssetChainBreakdownRow: View {
-    let chainName: String
+    let chain: Chain?
     let chainTitle: String
     let tokenStandard: String
     let amountText: String
     let valueText: String
     let fallbackColor: Color
     var body: some View {
-        let badge = Coin.nativeChainBadge(chainName: chainName) ?? (nil, fallbackColor)
+        let badge = Coin.nativeChainBadge(for: chain) ?? (nil, fallbackColor)
         return HStack(alignment: .center, spacing: 12) {
             CoinBadge(
                 artworkName: badge.artworkName,
@@ -698,7 +693,7 @@ private struct DashboardPortfolioHeader: View {
                     let quoted = store.portfolioQuotedTotal
                     Text(store.preferences.hideBalances ? "••••••" : store.amounts.formattedQuotedTotal(quoted))
                         .font(.title.weight(.bold)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.5).allowsTightening(true)
-                    Text(AppLocalization.format("%lld in total", store.cachedIncludedPortfolioWallets.count)).font(.footnote).foregroundStyle(.secondary)
+                    Text(AppLocalization.format("%lld in total", store.wallets.filter(\.includeInPortfolioTotal).count)).font(.footnote).foregroundStyle(.secondary)
 
                 }
                 Spacer()

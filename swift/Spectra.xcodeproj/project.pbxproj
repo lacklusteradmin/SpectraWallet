@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		9059229D2F5D2C49003ACDA5 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = 9059229C2F5D2C49003ACDA5 /* KeychainAccess */; };
 		90A5CA760000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 90A5CA750000000000000001 /* Assets.xcassets */; };
-		90F002000000000000000001 /* AppState+AddressResolution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000001 /* AppState+AddressResolution.swift */; };
 		90F002000000000000000002 /* AppState+BalanceRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000002 /* AppState+BalanceRefresh.swift */; };
 		90F002000000000000000003 /* AppState+CoreStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000003 /* AppState+CoreStateStore.swift */; };
 		90F002000000000000000004 /* AppState+DiagnosticsEndpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000004 /* AppState+DiagnosticsEndpoints.swift */; };
@@ -58,6 +57,7 @@
 		90F002000000000000000204 /* AppState+TransactionActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000204 /* AppState+TransactionActions.swift */; };
 		90F002000000000000000205 /* AppState+Networks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000205 /* AppState+Networks.swift */; };
 		90F002000000000000000206 /* AppState+Wallets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000206 /* AppState+Wallets.swift */; };
+		91DC000000000000000000A2 /* AppState+TokenPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DC000000000000000000A1 /* AppState+TokenPreferences.swift */; };
 		91C100012F70000100AAA001 /* SpectraLiveActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 91C100032F70000100AAA001 /* SpectraLiveActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		91D900000000000000000002 /* SendSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91D900000000000000000001 /* SendSession.swift */; };
 		91DB00000000000000000001 /* SendFlowState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DA00000000000000000001 /* SendFlowState.swift */; };
@@ -102,7 +102,6 @@
 		907491632F56D1E500D098D2 /* Spectra.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Spectra.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		90A5CA750000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		90AEE1792F5AFB43008CFE5E /* Spectra.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = Spectra.xctestplan; sourceTree = "<group>"; };
-		90F001000000000000000001 /* AppState+AddressResolution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+AddressResolution.swift"; sourceTree = "<group>"; };
 		90F001000000000000000002 /* AppState+BalanceRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+BalanceRefresh.swift"; sourceTree = "<group>"; };
 		90F001000000000000000003 /* AppState+CoreStateStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+CoreStateStore.swift"; sourceTree = "<group>"; };
 		90F001000000000000000004 /* AppState+DiagnosticsEndpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+DiagnosticsEndpoints.swift"; sourceTree = "<group>"; };
@@ -151,6 +150,7 @@
 		90F001000000000000000204 /* AppState+TransactionActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TransactionActions.swift"; sourceTree = "<group>"; };
 		90F001000000000000000205 /* AppState+Networks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+Networks.swift"; sourceTree = "<group>"; };
 		90F001000000000000000206 /* AppState+Wallets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+Wallets.swift"; sourceTree = "<group>"; };
+		91DC000000000000000000A1 /* AppState+TokenPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TokenPreferences.swift"; sourceTree = "<group>"; };
 		91B000012F5B000100AAA001 /* SpectraTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpectraTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		91C100032F70000100AAA001 /* SpectraLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpectraLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		91D900000000000000000001 /* SendSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendSession.swift; sourceTree = "<group>"; };
@@ -272,7 +272,6 @@
 				90F001000000000000000035 /* WalletDerivedCache.swift */,
 				90F001000000000000000037 /* AppEndpointDirectory.swift */,
 				90F001000000000000000038 /* WalletServiceBridge.swift */,
-				90F001000000000000000001 /* AppState+AddressResolution.swift */,
 				90F001000000000000000002 /* AppState+BalanceRefresh.swift */,
 				90F001000000000000000003 /* AppState+CoreStateStore.swift */,
 				90F001000000000000000004 /* AppState+DiagnosticsEndpoints.swift */,
@@ -284,6 +283,7 @@
 				90F00100000000000000000A /* AppState+SendExecution.swift */,
 				90F00100000000000000000B /* AppState+SendFlow.swift */,
 				90F001000000000000000206 /* AppState+Wallets.swift */,
+				91DC000000000000000000A1 /* AppState+TokenPreferences.swift */,
 				90F001000000000000000205 /* AppState+Networks.swift */,
 				90F001000000000000000204 /* AppState+TransactionActions.swift */,
 				90F001000000000000000203 /* AppState+AppLock.swift */,
@@ -525,7 +525,6 @@
 				90F002000000000000000038 /* WalletServiceBridge.swift in Sources */,
 				90F00200000000000000003B /* SetupFlow.swift in Sources */,
 				90F00200000000000000003C /* ImportDraft.swift in Sources */,
-				90F002000000000000000001 /* AppState+AddressResolution.swift in Sources */,
 				90F002000000000000000002 /* AppState+BalanceRefresh.swift in Sources */,
 				90F002000000000000000003 /* AppState+CoreStateStore.swift in Sources */,
 				90F002000000000000000004 /* AppState+DiagnosticsEndpoints.swift in Sources */,
@@ -537,6 +536,7 @@
 				90F00200000000000000000A /* AppState+SendExecution.swift in Sources */,
 				90F00200000000000000000B /* AppState+SendFlow.swift in Sources */,
 				90F002000000000000000206 /* AppState+Wallets.swift in Sources */,
+				91DC000000000000000000A2 /* AppState+TokenPreferences.swift in Sources */,
 				90F002000000000000000205 /* AppState+Networks.swift in Sources */,
 				90F002000000000000000204 /* AppState+TransactionActions.swift in Sources */,
 				90F002000000000000000203 /* AppState+AppLock.swift in Sources */,

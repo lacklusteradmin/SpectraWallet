@@ -1,39 +1,22 @@
 import Foundation
 extension AppState {
-    /// Self-test state for one chain, keyed by display name. Reads of an
-    /// unknown chain give the empty state rather than trapping.
-    var selfTests: [String: WalletChainDiagnosticsState.SelfTests] {
-        get { chainDiagnosticsState.selfTestsByChain }
-        set { chainDiagnosticsState.selfTestsByChain = newValue }
+    /// Self-test state for one chain. Reads of a chain with no run give the
+    /// empty state.
+    subscript(selfTestsFor chain: Chain) -> WalletChainDiagnosticsState.SelfTests {
+        get { chainDiagnosticsState.selfTestsByChain[chain.id] ?? .init() }
+        set { chainDiagnosticsState.selfTestsByChain[chain.id] = newValue }
     }
-    func selfTests(for chainName: String) -> WalletChainDiagnosticsState.SelfTests {
-        chainDiagnosticsState.selfTestsByChain[chainName] ?? .init()
+    subscript(historyRunFor chain: Chain) -> WalletChainDiagnosticsState.HistoryRun {
+        get { chainDiagnosticsState.historyRunByChain[chain.id] ?? .init() }
+        set { chainDiagnosticsState.historyRunByChain[chain.id] = newValue }
     }
-    /// Endpoint-health state for one chain, keyed by display name.
-    var endpointHealth: [String: WalletChainDiagnosticsState.EndpointHealth] {
-        get { chainDiagnosticsState.endpointHealthByChain }
-        set { chainDiagnosticsState.endpointHealthByChain = newValue }
-    }
-    func endpointHealth(for chainName: String) -> WalletChainDiagnosticsState.EndpointHealth {
-        chainDiagnosticsState.endpointHealthByChain[chainName] ?? .init()
-    }
-    subscript(historyRunFor chainName: String) -> WalletChainDiagnosticsState.HistoryRun {
-        get { chainDiagnosticsState.historyRunByChain[chainName] ?? .init() }
-        set { chainDiagnosticsState.historyRunByChain[chainName] = newValue }
-    }
-    subscript(endpointHealthFor chainName: String) -> WalletChainDiagnosticsState.EndpointHealth {
-        get { chainDiagnosticsState.endpointHealthByChain[chainName] ?? .init() }
-        set { chainDiagnosticsState.endpointHealthByChain[chainName] = newValue }
+    subscript(endpointHealthFor chain: Chain) -> WalletChainDiagnosticsState.EndpointHealth {
+        get { chainDiagnosticsState.endpointHealthByChain[chain.id] ?? .init() }
+        set { chainDiagnosticsState.endpointHealthByChain[chain.id] = newValue }
     }
     var lastImportedDiagnosticsBundle: DiagnosticsBundlePayload? {
         get { chainDiagnosticsState.lastImportedDiagnosticsBundle }
         set { chainDiagnosticsState.lastImportedDiagnosticsBundle = newValue }
-    }
-    var chainDegradedMessages: [String: String] {
-        get { diagnostics.chainDegradedMessages }
-    }
-    var lastGoodChainSyncByName: [String: Date] {
-        get { diagnostics.lastGoodChainSyncByName }
     }
     var operationalLogs: [DiagnosticLog] {
         get { diagnostics.operationalLogs }

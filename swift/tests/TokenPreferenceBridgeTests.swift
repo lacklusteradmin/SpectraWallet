@@ -20,12 +20,12 @@ final class TokenPreferenceBridgeTests: XCTestCase {
     }
 
     private func add(
-        _ service: WalletService, chain: String, symbol: String, contract: String,
+        _ service: WalletService, chainId: String, symbol: String, contract: String,
         decimals: UInt32 = 18
     ) async throws -> StateTransition {
         try await service.applyStateCommand(
             command: .addCustomToken(
-                chainName: chain, symbol: symbol, name: "A Token", contract: contract,
+                chainId: chainId, symbol: symbol, name: "A Token", contract: contract,
                 coingeckoId: "", coinpaprikaId: "", decimals: decimals))
     }
 
@@ -35,11 +35,11 @@ final class TokenPreferenceBridgeTests: XCTestCase {
         let evmContract = "0x742d35cc6634c0532925a3b844bc454e4438f44e"
 
         let wrongFamily = try await add(
-            service, chain: "Base", symbol: "USDC", contract: solanaMint, decimals: 6)
+            service, chainId: "base", symbol: "USDC", contract: solanaMint, decimals: 6)
         XCTAssertEqual(rejection(wrongFamily), .invalidContract)
 
         let accepted = try await add(
-            service, chain: "Base", symbol: "  moon ", contract: evmContract)
+            service, chainId: "base", symbol: "  moon ", contract: evmContract)
         XCTAssertNil(rejection(accepted))
         let stored = try XCTUnwrap(
             accepted.state.tokenPreferences.first(where: { !$0.isBuiltIn }))
@@ -50,7 +50,7 @@ final class TokenPreferenceBridgeTests: XCTestCase {
 
         // The same contract in another case is the same token.
         let duplicate = try await add(
-            service, chain: "Base", symbol: "SUN", contract: evmContract.uppercased())
+            service, chainId: "base", symbol: "SUN", contract: evmContract.uppercased())
         XCTAssertEqual(rejection(duplicate), .duplicateToken)
     }
 
@@ -60,7 +60,7 @@ final class TokenPreferenceBridgeTests: XCTestCase {
     func testAnImpossiblePrecisionIsRefusedRatherThanClamped() async throws {
         let service = try service()
         let transition = try await add(
-            service, chain: "Base", symbol: "DEEP",
+            service, chainId: "base", symbol: "DEEP",
             contract: "0x1111111111111111111111111111111111111111", decimals: 31)
         XCTAssertEqual(rejection(transition), .tooManyDecimals)
         XCTAssertFalse(
@@ -75,7 +75,7 @@ final class TokenPreferenceBridgeTests: XCTestCase {
         let builtIn = try XCTUnwrap(seeded.state.tokenPreferences.first(where: { $0.isBuiltIn }))
         let transition = try await service.applyStateCommand(
             command: .removeCustomToken(
-                chainName: Chain(id: builtIn.token.chainId)?.displayName ?? builtIn.token.chainId, contract: builtIn.token.contract))
+                chainId: builtIn.token.chainId, contract: builtIn.token.contract))
         XCTAssertEqual(rejection(transition), .builtInToken)
         XCTAssertEqual(
             transition.state.tokenPreferences.count, seeded.state.tokenPreferences.count)
@@ -88,7 +88,7 @@ final class TokenPreferenceBridgeTests: XCTestCase {
         let seeded = try await service.applyStateCommand(command: .mergeBuiltInTokens)
         let target = try XCTUnwrap(seeded.state.tokenPreferences.first(where: { $0.isEnabled }))
         let key = CoreTokenPreferenceKey(
-            chainName: Chain(id: target.token.chainId)?.displayName ?? target.token.chainId, contract: target.token.contract)
+            chainId: target.token.chainId, contract: target.token.contract)
 
         let off = try await service.applyStateCommand(
             command: .setTokenPreferencesEnabled(tokens: [key], isEnabled: false))
@@ -170,7 +170,7 @@ final class TokenRegistryPresentationTests: IsolatedAppStateTestCase {
         let seeded = try await bridge.applyStateCommand(.mergeBuiltInTokens)
         let entry = try XCTUnwrap(seeded.state.tokenPreferences.first { $0.token.symbol == "USDC" })
         let transition = try await bridge.applyStateCommand(.setTokenPreferencesEnabled(tokens: [
-            CoreTokenPreferenceKey(chainName: Chain(id: entry.token.chainId)!.displayName, contract: entry.token.contract)
+            CoreTokenPreferenceKey(chainId: entry.token.chainId, contract: entry.token.contract)
         ], isEnabled: false))
         let deployments = transition.state.tokenPreferences.filter { $0.token.tokenId == entry.token.tokenId }
         XCTAssertGreaterThan(deployments.count, 2)

@@ -18,7 +18,7 @@ struct NewAddressBookContactView: View {
     @Bindable var store: AppState
     @Environment(\.dismiss) private var dismiss
     @State private var name: String = ""
-    @State private var chainName: String = Chain.mainnets.first?.displayName ?? ""
+    @State private var chain: Chain = Chain.mainnets.first ?? .bitcoin
     @State private var address: String = ""
     @State private var note: String = ""
     @State private var isChoosingChain = false
@@ -26,7 +26,7 @@ struct NewAddressBookContactView: View {
 
     private var trimmedAddress: String { address.trimmingCharacters(in: .whitespacesAndNewlines) }
     private var canSave: Bool {
-        store.canSaveAddressBookEntry(name: name, address: address, chainName: chainName)
+        store.canSaveAddressBookEntry(name: name, address: address, chain: chain)
     }
 
     var body: some View {
@@ -51,7 +51,7 @@ struct NewAddressBookContactView: View {
             SpectraBottomActionBar {
                 Button {
                     spectraNotificationHaptic(.success)
-                    store.addAddressBookEntry(name: name, address: address, chainName: chainName, note: note)
+                    store.addAddressBookEntry(name: name, address: address, chain: chain, note: note)
                     dismiss()
                 } label: {
                     Label(AppLocalization.string("Save Contact"), systemImage: "checkmark")
@@ -69,9 +69,9 @@ struct NewAddressBookContactView: View {
             AllChainsSelectionView(
                 chainSearchText: $chainSearchText,
                 descriptors: addressBookChainDescriptors,
-                selectedChainNames: [chainName],
+                selectedChainIds: [chain.id],
                 toggleSelection: { picked in
-                    chainName = picked
+                    if let picked = Chain(id: picked) { chain = picked }
                     isChoosingChain = false
                 },
                 clearAllSelections: nil
@@ -122,7 +122,7 @@ struct NewAddressBookContactView: View {
     }
 
     private var chainRow: some View {
-        let badge = Coin.nativeChainBadge(chainName: chainName) ?? (nil, Color.mint)
+        let badge = Coin.nativeChainBadge(for: chain) ?? (nil, Color.mint)
 
         return Button {
             spectraHaptic(.light)
@@ -131,7 +131,7 @@ struct NewAddressBookContactView: View {
             HStack(spacing: 12) {
                 CoinBadge(
                     artworkName: badge.artworkName,
-                    fallbackText: chainName,
+                    fallbackText: chain.displayName,
                     color: badge.color,
                     size: 34
                 )
@@ -139,7 +139,7 @@ struct NewAddressBookContactView: View {
                     Text(AppLocalization.string("Chain"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
-                    Text(chainName)
+                    Text(chain.displayName)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.primary)
                         .lineLimit(1)
@@ -158,20 +158,15 @@ struct NewAddressBookContactView: View {
 
     /// A terse example of what an address on this chain looks like.
     private var addressPrompt: String {
-        Chain(displayName: chainName)?.addressPrefixHint ?? AppLocalization.string("Address")
+        let hint = chain.addressPrefixHint
+        return hint.isEmpty ? AppLocalization.string("Address") : hint
     }
 
     private var addressValidationMessage: String {
-        if store.isDuplicateAddressBookAddress(address, chainName: chainName) {
-            return AppLocalization.format("This %@ address is already saved.", chainName)
-        }
-        return store.addressBookAddressValidationMessage(for: address, chainName: chainName)
+        store.addressBookAddressValidationMessage(for: address, chain: chain)
     }
 
-    private var addressValidationColor: Color {
-        if store.isDuplicateAddressBookAddress(address, chainName: chainName) { return .orange }
-        return canSave ? .green : .secondary
-    }
+    private var addressValidationColor: Color { canSave ? .green : .secondary }
 }
 
 /// A saved recipient with rename and delete actions.
@@ -230,7 +225,7 @@ struct AddressBookContactView: View {
     }
 
     private var contactHero: some View {
-        let badge = Coin.nativeChainBadge(chainName: contact.chainName) ?? (nil, Color.mint)
+        let badge = Coin.nativeChainBadge(for: Chain(id: contact.chainId)) ?? (nil, Color.mint)
 
         return VStack(spacing: 16) {
             CoinBadge(

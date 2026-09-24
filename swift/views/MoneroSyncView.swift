@@ -23,7 +23,7 @@ struct MoneroSyncView: View {
                         Button(AppLocalization.string("Cancel")) { running = false }
                             .buttonStyle(.glass)
                     } else {
-                        if store.bridge.walletSecretState(walletId: store.sendFlow.walletId)?.isSealed ?? true {
+                        if store.wallet(for: store.sendFlow.walletId)?.signing.requiresPassword ?? true {
                             SecureField(AppLocalization.string("Wallet Password"), text: $password)
                                 .spectraInputFieldStyle()
                         }
@@ -67,7 +67,7 @@ struct MoneroSyncView: View {
                     height = nil
                 } while status?.complete != true
                 error = nil
-                await store.refreshBalancesNow()
+                await store.refreshBalances()
             } catch is CancellationError {
                 // Completed batches are already persisted by core.
             } catch { self.error = error.localizedDescription }

@@ -26,9 +26,9 @@ final class CoinBadgeArtworkTests: XCTestCase {
     func testHeldDeploymentsUseTheirOwnArtwork() {
         for token in listAllBuiltinTokenDeployments() {
             let holding = AssetHolding(
-                name: token.name, symbol: token.symbol, coingeckoId: token.coingeckoId,
-                chainName: Chain(id: token.chainId)?.displayName ?? token.chainId, tokenStandard: token.tokenStandard,
-                contractAddress: token.contract.isEmpty ? nil : token.contract, amount: 0, priceUsd: 0)
+                id: token.deploymentId, name: token.name, symbol: token.symbol, coingeckoId: token.coingeckoId,
+                chainId: token.chainId, tokenStandard: token.tokenStandard,
+                contractAddress: token.contract.isEmpty ? nil : token.contract, amount: "0")
             let badge = CoinBadge(artworkName: holding.artworkName, fallbackText: token.symbol, color: .orange)
             XCTAssertEqual(badge.artworkName, token.artworkName, token.deploymentId)
             assertDrawsItsMark(badge, token.deploymentId)
@@ -52,7 +52,7 @@ final class CoinBadgeArtworkTests: XCTestCase {
     /// keep them apart — the direction the fix could have overshot in.
     func testAChainBadgeStillDrawsTheChain() throws {
         for chain in Chain.all {
-            let native = try XCTUnwrap(Coin.nativeChainBadge(chainName: chain.displayName), chain.displayName)
+            let native = try XCTUnwrap(Coin.nativeChainBadge(for: chain), chain.displayName)
             let badge = CoinBadge(
                 artworkName: native.artworkName, fallbackText: chain.gasTokenSymbol, color: native.color)
             XCTAssertNotNil(UIImage(named: badge.artworkName), "\(chain.displayName) drew a letter")
@@ -61,7 +61,7 @@ final class CoinBadgeArtworkTests: XCTestCase {
             artworkName: Chain(id: "base")?.entry?.artworkName,
             fallbackText: "BASE", color: .orange)
         let etherOnBase = CoinBadge(
-            artworkName: AssetHolding(name: "", symbol: "ETH", coingeckoId: "", chainName: "Base", tokenStandard: "Native", contractAddress: nil, amount: 0, priceUsd: 0).artworkName,
+            artworkName: Coin.fixture(name: "", symbol: "ETH", chainId: "base", amount: "0").artworkName,
             fallbackText: "ETH", color: .orange)
         XCTAssertEqual(base.artworkName, "base")
         XCTAssertEqual(etherOnBase.artworkName, "ethereum")
@@ -70,25 +70,9 @@ final class CoinBadgeArtworkTests: XCTestCase {
     /// A custom contract cannot borrow USDC artwork by copying its symbol.
     func testAnUnknownCoinFallsBackToItsLetter() {
         let unknown = CoinBadge(
-            artworkName: AssetHolding(name: "USD Coin", symbol: "USDC", coingeckoId: "usd-coin", chainName: "Ethereum", tokenStandard: "ERC-20", contractAddress: "0xdead", amount: 0, priceUsd: 0).artworkName,
+            artworkName: Coin.fixture(name: "USD Coin", symbol: "USDC", coingeckoId: "usd-coin", chainId: "ethereum",
+                tokenStandard: "ERC-20", contractAddress: "0xdead", amount: "0").artworkName,
             fallbackText: "USDCE", color: .orange)
         XCTAssertEqual(unknown.artworkName, "")
-    }
-    func testCachedIdentityAndArtworkIgnoreBalanceAndTickerButKeepNetwork() {
-        var coin = AssetHolding(name: "Ether", symbol: "ETH", coingeckoId: "ethereum", chainName: "Base",
-            tokenStandard: "Native", contractAddress: nil, amount: 1, priceUsd: 2)
-        let id = coin.holdingKey
-        XCTAssertEqual(coin.artworkName, "ethereum")
-        coin.amount = 10
-        coin.priceUsd = 20
-        coin.symbol = "USDC"
-        coin.name = "Changed label"
-        XCTAssertEqual(coin.holdingKey, id)
-        XCTAssertEqual(coin.artworkName, "ethereum")
-        coin.chainName = "Ethereum"
-        XCTAssertNotEqual(coin.holdingKey, id)
-        coin.tokenStandard = "ERC-20"
-        coin.contractAddress = "0x1111111111111111111111111111111111111111"
-        XCTAssertEqual(coin.artworkName, "", "An unknown deployment cannot borrow the ticker's artwork")
     }
 }

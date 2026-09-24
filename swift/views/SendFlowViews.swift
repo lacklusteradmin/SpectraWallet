@@ -46,8 +46,7 @@ struct SendView: View {
     @State private var recipientValidationAttempt = 0
     @State private var sendWalletPassword = ""
 
-    private var sendPreviewStore: SendPreviewStore { store.sendFlow.previewStore }
-    private var isSendBusy: Bool { store.sendFlow.isBusy || !store.sendFlow.preparingChains.isEmpty }
+    private var isSendBusy: Bool { store.sendFlow.isBusy || store.sendFlow.isPreparingPreview }
 
     private var selectedNetworkSendCoin: Coin? {
         store.availableSendCoins(for: store.sendFlow.walletId).first(where: { $0.holdingKey == store.sendFlow.holdingKey })
@@ -98,13 +97,13 @@ struct SendView: View {
             validatedRecipientKey = nil
             recipientError = nil
             isValidatingRecipient = false
-            guard let coin = selectedNetworkSendCoin,
+            guard let chain = selectedNetworkSendCoin?.chain,
                   !store.sendFlow.address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
             isValidatingRecipient = true
             defer { if recipientKey == key { isValidatingRecipient = false } }
             do {
                 try await Task.sleep(for: .milliseconds(350))
-                _ = try await store.resolveSendDestination(input: store.sendFlow.address, for: coin.chainName)
+                _ = try await store.resolveSendDestination(input: store.sendFlow.address, on: chain)
                 guard !Task.isCancelled, recipientKey == key else { return }
                 validatedRecipientKey = key
             } catch {
@@ -137,7 +136,7 @@ struct SendView: View {
             guard store.sendFlow.artifact == nil else { return }
             do {
                 try await Task.sleep(for: .milliseconds(350))
-                while !store.sendFlow.preparingChains.isEmpty {
+                while store.sendFlow.isPreparingPreview {
                     try await Task.sleep(for: .milliseconds(100))
                 }
                 try Task.checkCancellation()
@@ -305,12 +304,12 @@ struct SendView: View {
         case .recipient:
             go(to: .amount)
         case .amount:
-            guard let coin = selectedCoin else { return }
+            guard let coin = selectedCoin, let chain = coin.chain else { return }
             let input = store.sendFlow.address.trimmingCharacters(in: .whitespacesAndNewlines)
             let session = store.sendFlow.session.id
             Task {
                 do {
-                    let resolved = try await store.resolveSendDestination(input: input, for: coin.chainName)
+                    let resolved = try await store.resolveSendDestination(input: input, on: chain)
                     guard store.sendFlow.session.isCurrent(session), currentStep == .amount,
                           store.sendFlow.address.trimmingCharacters(in: .whitespacesAndNewlines) == input,
                           selectedNetworkSendCoin?.holdingKey == coin.holdingKey else { return }
@@ -380,7 +379,7 @@ struct SendView: View {
             store.sendFlow.customEvmPriorityFeeGwei,
             store.sendFlow.evmManualNonceEnabled.description,
             store.sendFlow.evmManualNonce,
-            String(describing: store.selectedSendCoin.map { store.feePriority(forChain: $0.chainName) }),
+            String(describing: store.selectedSendCoin.map { store.feePriority(forChainId: $0.chainId) }),
         ].joined(separator: "|")
     }
 
@@ -394,7 +393,7 @@ struct SendView: View {
         // network there is nothing to judge an address against, so nothing is
         // filled in.
         guard let network = scannedPayloadNetwork,
-            let address = scannedSendAddress(chainName: network.displayName, payload: payload)
+            let address = scannedSendAddress(chainId: network.id, payload: payload)
         else {
             qrScannerErrorMessage = AppLocalization.string("The scanned QR code does not contain a valid address for the selected asset.")
             return
@@ -406,7 +405,7 @@ struct SendView: View {
     /// The network a scanned address must belong to: the one the sending wallet
     /// is on for the selected asset's family.
     private var scannedPayloadNetwork: Chain? {
-        guard let coin = store.selectedSendCoin, let family = Chain(displayName: coin.chainName)?.id else { return nil }
+        guard let family = store.selectedSendCoin?.chain?.mainnetCounterpart.id else { return nil }
         let chainId = store.selectedWalletForSend()?.chainId ?? store.selectedChainId(forFamily: family)
         return Chain(id: chainId)
     }

@@ -123,12 +123,12 @@ extension WalletSetupPage {
 /// derives entirely from the draft: nothing about it is view state.
 @MainActor
 func walletSetupCanContinueFromSecretStep(draft: WalletImportDraft, isImporting: Bool) -> Bool {
-    let hasChains = !draft.selectedChainNames.isEmpty
+    let hasChains = !draft.selectedChainIds.isEmpty
     if draft.isPrivateKeyImportMode {
         return hasChains
             && isPrivateKeyHex(rawValue: draft.privateKeyInput)
             && draft.unsupportedPrivateKeyChainNames.isEmpty
-            && draft.selectedChainNames.count == 1
+            && draft.selectedChainIds.count == 1
             && !isImporting
     }
     return hasChains && draft.seedPhraseVerdict.checksumValid && !isImporting

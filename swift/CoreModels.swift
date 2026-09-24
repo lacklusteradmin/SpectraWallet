@@ -14,13 +14,7 @@ extension FeePriority: CaseIterable {
         }
     }
 }
-struct SendPreviewDetails: Equatable {
-    let spendableBalance: Double?
-    let feeRateDescription: String?
-    let estimatedTransactionBytes: Int?
-    let selectedInputCount: Int?
-    let usesChangeOutput: Bool?
-    let maxSendable: Double?
+extension SendPreviewDetails {
     var hasVisibleContent: Bool {
         spendableBalance != nil
             || feeRateDescription != nil
@@ -30,37 +24,48 @@ struct SendPreviewDetails: Equatable {
             || maxSendable != nil
     }
 }
-/// `Coin` is the Rust-defined `AssetHolding`. Chain identity is the
-/// `(chainName, tokenStandard, contractAddress)` triple — use the
-/// core `holdingIdentity` helper rather than parsing strings ad-hoc.
+/// `Coin` is the Rust-defined `AssetHolding`. Its `id` is the deployment id
+/// core derives; every projection this app reads carries it.
 typealias Coin = AssetHolding
 extension AssetHolding: Identifiable {
-    /// The list key, from what identifies the holding. Was a stored field each
-    /// producer filled its own way — one of them with a fresh `UUID`, which
-    /// makes SwiftUI treat every row as new on each rebuild.
-    // Cache core's answer by its identity inputs, not balance or display labels.
-    public var id: String { AssetPresentationCatalog.identity(for: self) }
-    var color: Color { Coin.displayColor(for: symbol) }
+    var color: Color { AssetPresentationCatalog.color(deploymentId: id) }
     var holdingKey: String { id }
-    var chain: Chain? { Chain(displayName: chainName) }
+    var chain: Chain? { Chain(id: chainId) }
+    /// For text a person reads; identity is `chainId`.
+    var chainName: String { Chain.displayName(forId: chainId) }
     var isUTXOChain: Bool { chain?.supportsDeepUTXODiscovery ?? false }
     var isEVMChain: Bool { chain?.isEVM ?? false }
-    /// A holding is the chain's own asset when its symbol is the one fees are
-    /// paid in — `ETH` on Arbitrum, not `ARB`.
-    var isNativeCoin: Bool {
-        tokenStandard == "Native" && (contractAddress?.isEmpty ?? true)
-    }
+    /// The chain's own asset — `ETH` on Arbitrum, not `ARB` — by deployment
+    /// identity, which the catalog names for each chain.
+    var isNativeCoin: Bool { chain?.entry?.nativeDeploymentId == id }
+    /// Whether anything is held. Core stores amounts in canonical spelling,
+    /// so zero is always `"0"`.
+    var hasBalance: Bool { amount != "0" }
+}
+extension AssetWikiPlace {
+    var chainName: String { Chain.displayName(forId: chainId) }
+}
+extension FundsFinderCandidate {
+    var chainName: String { Chain.displayName(forId: chainId) }
+}
+extension DiagnosticLogInput {
+    var chainName: String? { chainId.map(Chain.displayName(forId:)) }
 }
 extension WalletView: Identifiable {}
 extension WalletView {
-    /// This wallet's address for a chain, by display name. Slot resolution
-    /// (including "every EVM chain shares Ethereum's") lives in the Rust
-    /// registry, so this never needs to know which chains exist.
-    func address(forChainNamed chainName: String) -> String? {
-        let slot = Chain(displayName: chainName)?.addressSlot ?? ""
+    /// This wallet's address on a chain. Slot resolution (including "every
+    /// EVM chain shares Ethereum's") lives in the Rust registry.
+    func address(on chain: Chain) -> String? {
+        let slot = chain.addressSlot
         guard !slot.isEmpty else { return nil }
         return addresses[slot]
     }
+    /// The network this wallet is on.
+    var chain: Chain? { Chain(id: chainId) }
+    /// The mainnet whose family this wallet belongs to.
+    var family: Chain? { chain?.mainnetCounterpart }
+    /// The family's name, for text a person reads.
+    var familyName: String { family?.displayName ?? chainId }
 }
 
 typealias SeedDerivationPaths = CoreSeedDerivationPaths
@@ -132,16 +137,7 @@ typealias PriceAlertRule = PriceAlertEvaluationAlert
 extension PriceAlertRule: Identifiable {}
 
 extension PriceAlertRule {
-    init(
-        holdingKey: String, assetDisplayName: String, symbol: String, chainName: String, targetPrice: Double,
-        condition: PriceAlertCondition
-    ) {
-        self.init(
-            id: UUID().uuidString, holdingKey: holdingKey, assetDisplayName: assetDisplayName, symbol: symbol,
-            chainName: chainName, targetPrice: targetPrice, condition: condition, isEnabled: true,
-            hasTriggered: false
-        )
-    }
+    var chainName: String { Chain.displayName(forId: chainId) }
     var titleText: String { String(format: CommonLocalizationContent.current.assetOnChainFormat, assetDisplayName, chainName) }
     var statusText: String {
         if !isEnabled { return AppLocalization.string("Paused") }
@@ -151,6 +147,7 @@ extension PriceAlertRule {
 // `AddressBookEntry` is the Rust record — core owns saved recipients, including
 // the rules about which ones are acceptable. Only display helpers live here.
 extension AddressBookEntry: Identifiable {
+    var chainName: String { Chain.displayName(forId: chainId) }
     var subtitleText: String {
         guard !note.isEmpty else { return chainName }
         return String(format: CommonLocalizationContent.current.addressBookSubtitleFormat, chainName, note)
@@ -164,6 +161,8 @@ extension CorePersistedTransactionRecord: Identifiable {}
 extension TransactionRecord {
     /// History with no deployment identity draws its letter.
     var artworkName: String { AssetPresentationCatalog.artwork(deploymentId: deploymentId) }
+    var chain: Chain? { Chain(id: chainId) }
+    var chainName: String { Chain.displayName(forId: chainId) }
     /// When it was recorded. Core stores Unix seconds.
     var createdDate: Date { Date(timeIntervalSince1970: createdAtUnix) }
     var titleText: String {
@@ -205,25 +204,18 @@ extension TransactionRecord {
         guard let receiptBlockNumber else { return nil }
         return String(receiptBlockNumber)
     }
-    var storedFeePriorityText: String? {
-        if let feePriorityRaw {
-            let trimmed = feePriorityRaw.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty { return trimmed.capitalized }
-        }
-        return nil
-    }
     var storedConfirmationCountText: String? {
-        if let confirmationCount { return "\(confirmationCount) conf" }
-        return nil
+        guard let confirmationCount else { return nil }
+        return AppLocalization.format("%lld confirmations", confirmationCount)
     }
     var storedUsedChangeOutputText: String? {
-        if let usedChangeOutput { return usedChangeOutput ? "Yes" : "No" }
-        return nil
+        guard let usedChangeOutput else { return nil }
+        return AppLocalization.string(usedChangeOutput ? "Yes" : "No")
     }
-    var rawTransactionHexText: String? {
-        guard let signedTransactionPayload, let signedTransactionPayloadFormat else { return nil }
-        guard signedTransactionPayloadFormat.lowercased().contains("hex") else { return nil }
-        let trimmed = signedTransactionPayload.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// The signed payload as stored, whatever its encoding; the format row
+    /// beside it says which.
+    var rawTransactionText: String? {
+        let trimmed = signedTransactionPayload?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return trimmed.isEmpty ? nil : trimmed
     }
     var rawTransactionFormatText: String? {
@@ -233,36 +225,32 @@ extension TransactionRecord {
     }
     var fullTimestampText: String { createdDate.formatted(date: .abbreviated, time: .standard) }
     var transactionExplorerURL: URL? {
-        guard let transactionHash, !transactionHash.isEmpty,
-              let chain = Chain(displayName: chainName) else { return nil }
-        return AppEndpointDirectory.transactionExplorerURL(for: chain.id, transactionHash: transactionHash)
+        guard let transactionHash, !transactionHash.isEmpty else { return nil }
+        return AppEndpointDirectory.transactionExplorerURL(for: chainId, transactionHash: transactionHash)
     }
     var transactionExplorerLabel: String? {
-        guard transactionHash != nil, let chain = Chain(displayName: chainName) else { return nil }
-        return AppEndpointDirectory.transactionExplorerLabel(for: chain.id)
+        guard transactionHash != nil else { return nil }
+        return AppEndpointDirectory.transactionExplorerLabel(for: chainId)
     }
-    /// The failure reason to show, localized.
-    ///
-    /// Core stores a code. A localized sentence written into the database
-    /// keeps its language when the user changes theirs, so the text is made
-    /// here and the record keeps the code.
+    /// The failure reason to show, localized. Core stores the reason; the
+    /// words are made here so they follow the reader's language.
     var localizedFailureReason: String? {
         guard let failureReason else { return nil }
         switch failureReason {
-        case "stuckAfterRetries":
+        case .stuckAfterRetries:
             return AppLocalization.format(
                 "%@ transaction appears stuck and could not be confirmed after extended retries.",
                 chainName)
-        default:
-            return failureReason
+        case .submissionOutcomeUnknown:
+            return AppLocalization.string("Submission outcome unknown; check network status before sending again.")
+        case .rebroadcastOutcomeUnknown:
+            return AppLocalization.string("Rebroadcast outcome unknown; check network status before retrying.")
+        case .reported(let message):
+            return message
         }
     }
-
-
 }
 
 extension WalletView {
-    var networkTitle: String {
-        Chain(id: chainId)?.displayName ?? familyName
-    }
+    var networkTitle: String { Chain.displayName(forId: chainId) }
 }

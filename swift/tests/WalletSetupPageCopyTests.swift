@@ -6,7 +6,7 @@ import XCTest
 final class WalletSetupPageCopyTests: XCTestCase {
     func testBackupQuizRemainsRequiredOnlyForWalletCreation() {
         let draft = WalletImportDraft()
-        draft.selectedChainNamesStorage = ["Ethereum"]
+        draft.selectedChainIdsStorage = ["ethereum"]
         draft.seedPhraseEntries = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".components(separatedBy: " ")
         XCTAssertTrue(draft.canImportWallet)
         draft.mode = .createNew

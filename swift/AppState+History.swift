@@ -5,8 +5,8 @@ extension AppState {
         self.bridge.historyCursor(chainId: chainId, walletId: walletId).isExhausted
     }
     func canLoadMoreHistory(for walletId: String) -> Bool {
-        guard let wallet = cachedWalletById[walletId], let chain = Chain(displayName: wallet.familyName) else { return false }
-        return !historyPaginationExhausted(chainId: chain.id, walletId: walletId)
+        guard let family = cachedWalletById[walletId]?.family else { return false }
+        return !historyPaginationExhausted(chainId: family.id, walletId: walletId)
     }
     func canLoadMoreOnChainHistory(for walletIds: Set<String>) -> Bool {
         !isLoadingMoreOnChainHistory && walletIds.contains(where: canLoadMoreHistory(for:))
@@ -17,8 +17,7 @@ extension AppState {
         defer { isLoadingMoreOnChainHistory = false }
         await adoptHistoryRefresh(scope: .wallets(walletIds: Array(walletIds)), loadMore: true)
     }
-    func refreshHistory(chainName: String) async {
-        guard let chain = Chain(displayName: chainName) else { return }
+    func refreshHistory(chain: Chain) async {
         await adoptHistoryRefresh(scope: .chains(chainIds: [chain.id]))
     }
     /// Run a history refresh and adopt what it changed.
@@ -32,7 +31,7 @@ extension AppState {
             let results = try await self.bridge.refreshHistory(scope: scope, loadMore: loadMore, interval: interval)
             for result in results {
                 guard let chain = Chain(id: result.chainId), result.outcome?.diagnostics.isEmpty == false else { continue }
-                self[historyRunFor: chain.displayName].lastUpdatedAt = Date()
+                self[historyRunFor: chain].lastUpdatedAt = Date()
             }
             chainDiagnosticsState.diagnosticsRevision &+= 1
             await diagnostics.loadFromSQLite()
@@ -44,8 +43,7 @@ extension AppState {
         }
     }
     @discardableResult
-    func performUserInitiatedRefresh(forChain chainName: String) async -> Bool {
-        guard let chain = Chain(displayName: chainName) else { return false }
-        return await performCoreRefresh(.chain(chainId: chain.id))
+    func performUserInitiatedRefresh(forChain chainId: String) async -> Bool {
+        await performCoreRefresh(.chain(chainId: chainId))
     }
 }

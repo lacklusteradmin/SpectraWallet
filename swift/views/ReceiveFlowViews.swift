@@ -360,7 +360,7 @@ private struct WalletReceiveCard: View {
     @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        let badge = Coin.nativeChainBadge(chainName: wallet.familyName) ?? (nil, Color.mint)
+        let badge = Coin.nativeChainBadge(for: wallet.family) ?? (nil, Color.mint)
 
         Button(action: onSelect) {
             HStack(spacing: 14) {

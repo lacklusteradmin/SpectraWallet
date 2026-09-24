@@ -11,11 +11,18 @@ import SwiftUI
 struct SendNetworkStep: View {
     @Bindable var store: AppState
 
-    private var sendPreviewStore: SendPreviewStore { store.sendFlow.previewStore }
+    /// The quote for the selected holding; nil while none is current.
+    private var quote: OwnedSendPreview? { store.sendQuote }
 
     private func hasNetworkSendSections(for coin: Coin?) -> Bool {
-        guard let coin, let chain = Chain(displayName: coin.chainName) else { return false }
-        return chain.hasSendPreview
+        coin?.chain?.hasSendPreview ?? false
+    }
+
+    /// The quoted fee, with its display-currency value when core had one.
+    private func networkFeeText(_ quote: OwnedSendPreview, chain: Chain) -> String? {
+        guard let fee = quote.networkFee else { return nil }
+        return AppLocalization.format(
+            "Estimated Network Fee: %@", store.amounts.formattedNetworkFee(fee, value: quote.networkFeeValue, chain: chain))
     }
 
     var body: some View {
@@ -76,7 +83,7 @@ struct SendNetworkStep: View {
     /// registry; nothing here names one.
     @ViewBuilder
     private func networkCardContent(selectedCoin: Coin?) -> some View {
-        if let selectedCoin, let chain = Chain(displayName: selectedCoin.chainName) {
+        if let selectedCoin, let chain = selectedCoin.chain {
             if chain.isEVM {
                 evmNetworkContent(selectedCoin: selectedCoin, chain: chain)
             } else if selectedCoin.isUTXOChain, selectedCoin.isNativeCoin {
@@ -95,7 +102,7 @@ struct SendNetworkStep: View {
     private func feePriorityContent(selectedCoin: Coin) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             networkSectionHeader("Fee Priority")
-            Picker(AppLocalization.string("Fee Priority"), selection: chainFeePriorityBinding(for: selectedCoin.chainName)) {
+            Picker(AppLocalization.string("Fee Priority"), selection: chainFeePriorityBinding(for: selectedCoin.chainId)) {
                 ForEach(FeePriority.allCases, id: \.self) { priority in Text(priority.displayName).tag(priority) }
             }.pickerStyle(.segmented)
             Text(AppLocalization.string("Spectra stores this preference per chain. Some networks still use provider-managed fee estimation in this build."))
@@ -108,27 +115,26 @@ struct SendNetworkStep: View {
     private func utxoFeePreviewContent(selectedCoin: Coin, chain: Chain) -> some View {
         VStack(alignment: .leading, spacing: 10) {
             networkSectionHeader(AppLocalization.format("%@ Network", selectedCoin.chainName))
-            Picker(AppLocalization.string("Fee Priority"), selection: chainFeePriorityBinding(for: selectedCoin.chainName)) {
+            Picker(AppLocalization.string("Fee Priority"), selection: chainFeePriorityBinding(for: selectedCoin.chainId)) {
                 ForEach(FeePriority.allCases, id: \.self) { priority in Text(priority.displayName).tag(priority) }
             }.pickerStyle(.segmented)
             Text(AppLocalization.string("Spectra stores fee priority separately for each UTXO chain and applies it to live send previews for supported chains."))
                 .font(.caption).foregroundStyle(.secondary)
             // Loading was shown for the chain named Dogecoin only; every other
             // UTXO chain showed its stale preview, or the prompt, mid-fetch.
-            if store.isPreparingSendPreview(forChainNamed: selectedCoin.chainName) {
+            if store.sendFlow.isPreparingPreview {
                 SpectraLoadingRow(title: "Loading UTXOs and fee estimate...")
-            } else {
-                switch sendPreviewStore.taggedPreview(forChainNamed: selectedCoin.chainName) {
-                case .dogecoin(let preview):
-                    Text(AppLocalization.format("Estimated Network Fee: %@", store.amounts.formattedNetworkFeeWithFiat(preview.estimatedNetworkFee, chain: chain)))
-                    Text(AppLocalization.format("Confirmation Preference: %@", confirmationPreferenceText(for: preview.feePriority)))
-                case .utxo(let preview):
+            } else if let quote {
+                if case .utxo(let preview) = quote.preview {
                     Text(AppLocalization.format("Estimated Fee Rate: %@ sat/vB", "\(preview.estimatedFeeRateSatVb)"))
-                    Text(AppLocalization.format("Estimated Network Fee: %@", store.amounts.formattedNetworkFeeWithFiat(preview.estimatedNetworkFee, chain: chain)))
-                default:
-                    Text(AppLocalization.format("Enter amount to preview estimated %@ network fee.", selectedCoin.chainName))
-                        .font(.caption).foregroundStyle(.secondary)
                 }
+                if let fee = networkFeeText(quote, chain: chain) { Text(fee) }
+                if case .dogecoin(let preview) = quote.preview {
+                    Text(AppLocalization.format("Confirmation Preference: %@", confirmationPreferenceText(for: preview.feePriority)))
+                }
+            } else {
+                Text(AppLocalization.format("Enter amount to preview estimated %@ network fee.", selectedCoin.chainName))
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
     }
@@ -180,15 +186,16 @@ struct SendNetworkStep: View {
             if let replacementNonceStateMessage = store.replacementNonceStateMessage {
                 Text(replacementNonceStateMessage).font(.caption).foregroundStyle(.secondary)
             }
-            if store.isPreparingSendPreview(forChainNamed: selectedCoin.chainName) {
+            if store.sendFlow.isPreparingPreview {
                 SpectraLoadingRow(title: "Loading nonce and fee estimate...")
-            } else if case .ethereum(let evmSendPreview)? = sendPreviewStore.taggedPreview(forChainNamed: selectedCoin.chainName) {
+            } else if let quote, case .ethereum(let evmSendPreview) = quote.preview {
                 Text(AppLocalization.format("Nonce: %lld", evmSendPreview.nonce))
                 Text(AppLocalization.format("Gas Limit: %lld", evmSendPreview.gasLimit))
                 Text(AppLocalization.format("Max Fee: %@", store.amounts.formattedGasPrice(gwei: evmSendPreview.maxFeePerGasGwei, chain: chain)))
                 Text(AppLocalization.format("Priority Fee: %@", store.amounts.formattedGasPrice(gwei: evmSendPreview.maxPriorityFeePerGasGwei, chain: chain)))
-                Text(AppLocalization.format("Estimated Network Fee: %@", store.amounts.formattedNetworkFeeWithFiat(evmSendPreview.estimatedNetworkFee, chain: chain)))
-                    .font(.subheadline.weight(.semibold))
+                if let fee = networkFeeText(quote, chain: chain) {
+                    Text(fee).font(.subheadline.weight(.semibold))
+                }
             } else {
                 Text(AppLocalization.string("Enter an amount to load a live nonce and fee preview. Add a valid destination address before sending."))
                     .font(.caption).foregroundStyle(.secondary)
@@ -218,12 +225,13 @@ struct SendNetworkStep: View {
         let chainName = selectedCoin.chainName
         VStack(alignment: .leading, spacing: 10) {
             networkSectionHeader(AppLocalization.format("%@ Network", chainName))
-            if store.isPreparingSendPreview(forChainNamed: chainName) {
+            if store.sendFlow.isPreparingPreview {
                 SpectraLoadingRow(title: AppLocalization.format("Loading %@ fee estimate...", chainName))
-            } else if let preview = sendPreviewStore.taggedPreview(forChainNamed: chainName) {
-                Text(AppLocalization.format("Estimated Network Fee: %@", store.amounts.formattedNetworkFeeWithFiat(preview.estimatedNetworkFee, chain: chain)))
-                    .font(.subheadline.weight(.semibold))
-                ForEach(previewDetailLines(preview), id: \.self) { Text($0) }
+            } else if let quote {
+                if let fee = networkFeeText(quote, chain: chain) {
+                    Text(fee).font(.subheadline.weight(.semibold))
+                }
+                ForEach(previewDetailLines(quote.preview), id: \.self) { Text($0) }
                 // Every token pays its chain's gas token, which Tron and
                 // Solana each said in a sentence of their own and no other
                 // token-hosting chain said at all.
@@ -308,11 +316,11 @@ struct SendNetworkStep: View {
         }
     }
 
-    private func chainFeePriorityBinding(for chainName: String) -> Binding<FeePriority> {
-        Binding(get: { store.feePriority(forChain: chainName) }, set: { store.setFeePriority($0, forChain: chainName) })
+    private func chainFeePriorityBinding(for chainId: String) -> Binding<FeePriority> {
+        Binding(get: { store.feePriority(forChainId: chainId) }, set: { store.setFeePriority($0, forChainId: chainId) })
     }
 
-    private func formattedPreviewAssetAmount(_ amount: Double, for coin: Coin) -> String {
+    private func formattedPreviewAssetAmount(_ amount: String, for coin: Coin) -> String {
         store.amounts.formattedAssetAmount(amount, symbol: coin.symbol, deploymentId: coin.holdingKey)
     }
 

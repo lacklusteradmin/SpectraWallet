@@ -88,21 +88,24 @@ extension AppState {
         case authenticationRequired
         case passwordRequired
         case invalidPassword
+        case passwordNotRequired
         var errorDescription: String? {
             switch self {
             case .unavailable: return AppLocalization.string("No seed phrase is stored for this wallet.")
             case .authenticationRequired: return AppLocalization.string("Face ID authentication is required to view this seed phrase.")
             case .passwordRequired: return AppLocalization.string("Enter the wallet password to view this seed phrase.")
             case .invalidPassword: return AppLocalization.string("The wallet password is incorrect.")
+            case .passwordNotRequired: return AppLocalization.string("This wallet has no password.")
             }
         }
     }
 
     struct ChainDegradedBanner: Identifiable {
-        let chainName: String
+        let chainId: String
         let message: String
         let lastGoodSyncAt: Date?
-        var id: String { chainName }
+        var id: String { chainId }
+        var chainName: String { Chain.displayName(forId: chainId) }
     }
 
 }

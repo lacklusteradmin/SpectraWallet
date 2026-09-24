@@ -55,8 +55,8 @@ import Foundation
         }
 
         func testMaintenanceSleepDoesNotKeepAppStateAlive() async throws {
-            let wallet = WalletView(name: "Watch", addresses: ["Ethereum": "0x" + String(repeating: "1", count: 40)], familyName: "Ethereum")
-            _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState(isWatchOnly: true)))
+            let wallet = WalletView(name: "Watch", chainId: "ethereum", addresses: ["ethereum": "0x" + String(repeating: "1", count: 40)])
+            _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState()))
             var store: AppState? = AppState(bridge: bridge, startServices: false)
             store?.isNetworkReachable = false
             await store?.rebuildWalletDerivedStateFromCore()

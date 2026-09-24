@@ -40,7 +40,7 @@ extension AppState {
     private func resetHistoryAndCacheState() async {
         chainDiagnosticsState.historyRunByChain = [:]
         chainDiagnosticsState.endpointHealthByChain = [:]
-        selfTests = [:]
+        chainDiagnosticsState.selfTestsByChain = [:]
         // Nothing clears `isRunning`/`isChecking` per chain below this point:
         // the `historyRunByChain` and `endpointHealthByChain` subscripts insert
         // a default row on write, so touching them after the maps are emptied

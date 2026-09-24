@@ -43,17 +43,17 @@ final class WalletDiagnosticsState {
         } catch { persistenceError = error.localizedDescription }
     }
     func reset() { enqueue(.reset) }
-    var chainDegradedMessages: [String: String] { snapshot.degraded }
-    var lastGoodChainSyncByName: [String: Date] { snapshot.lastGoodUnix.mapValues { Date(timeIntervalSince1970: $0) } }
-    /// Core keys both maps by chain display name.
+    var chainDegraded: [String: ChainDegradation] { snapshot.degraded }
+    private var lastGoodSyncByChainId: [String: Date] { snapshot.lastGoodUnix.mapValues { Date(timeIntervalSince1970: $0) } }
+    /// One banner per degraded chain, ordered by name. Core keys both maps by chain id.
     var chainDegradedBanners: [AppState.ChainDegradedBanner] {
-        snapshot.degraded.keys.sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }.map { chainName in
+        snapshot.degraded.map { chainId, reason in
             AppState.ChainDegradedBanner(
-                chainName: chainName, message: localizedDegradedMessage(snapshot.degraded[chainName] ?? "", chainName: chainName),
-                lastGoodSyncAt: lastGoodChainSyncByName[chainName])
-        }
+                chainId: chainId, message: localizedDegradedMessage(reason, chainId: chainId),
+                lastGoodSyncAt: lastGoodSyncByChainId[chainId])
+        }.sorted { $0.chainName.localizedCaseInsensitiveCompare($1.chainName) == .orderedAscending }
     }
-    func clearOperationalLogs() { enqueue(.clearLogs(chainName: nil)) }
+    func clearOperationalLogs() { enqueue(.clearLogs(chainId: nil)) }
     func exportOperationalLogsText(networkSyncStatusText: String, events: [DiagnosticLog]? = nil) -> String {
         let entries = events ?? operationalLogs
         let header = [
@@ -68,7 +68,7 @@ final class WalletDiagnosticsState {
                 "[\(event.category)]", event.message,
             ]
             if let source = event.source, !source.isEmpty { parts.append("source=\(source)") }
-            if let chainName = event.chainName, !chainName.isEmpty { parts.append("chain=\(chainName)") }
+            if let chainId = event.chainId, !chainId.isEmpty { parts.append("chain=\(chainId)") }
             if let walletId = event.walletId { parts.append("wallet=\(walletId)") }
             if let transactionHash = event.transactionHash, !transactionHash.isEmpty { parts.append("tx=\(transactionHash)") }
             if let metadata = event.metadata, !metadata.isEmpty { parts.append("meta=\(metadata)") }
@@ -77,27 +77,29 @@ final class WalletDiagnosticsState {
         return (header + lines).joined(separator: "\n")
     }
     func appendOperationalLog(
-        _ level: DiagnosticLogLevel, category: String, message: String, chainName: String? = nil, walletId: String? = nil,
+        _ level: DiagnosticLogLevel, category: String, message: String, chainId: String? = nil, walletId: String? = nil,
         transactionHash: String? = nil, source: String? = nil, metadata: String? = nil
     ) {
         enqueue(.append(input: DiagnosticLogInput(level: level, category: category, message: message,
-            chainName: chainName, walletId: walletId, transactionHash: transactionHash, source: source, metadata: metadata)))
+            chainId: chainId, walletId: walletId, transactionHash: transactionHash, source: source, metadata: metadata)))
     }
-    private func localizedDegradedMessage(_ message: String, chainName: String) -> String {
-        if message.isEmpty { return message }
-        let detail = localized(diagnosticsClassifyDegradedDetail(detail: message), chainName: chainName)
-        return [detail, degradedSyncSuffix(for: chainName)].filter { !$0.isEmpty }.joined(separator: " ")
-    }
-    /// One classification, localized.
-    private func localized(_ classified: DegradedDetail, chainName: String) -> String {
-        if let templateKey = classified.templateKey {
-            return AppLocalization.format(templateKey, chainName)
+    /// Core stores why a chain is stale; the sentence is worded here.
+    private func localizedDegradedMessage(_ reason: ChainDegradation, chainId: String) -> String {
+        let chainName = Chain.displayName(forId: chainId)
+        let detail: String
+        switch reason {
+        case .historyRefreshFailed:
+            detail = AppLocalization.format("%@ history refresh failed. Using cached history.", chainName)
+        case .historyPartiallyLoaded:
+            detail = AppLocalization.format("%@ history loaded with partial provider failures.", chainName)
+        case .failed(let message):
+            detail = message
         }
-        return localizedStoreString(classified.normalized)
+        return [detail, degradedSyncSuffix(for: chainId)].filter { !$0.isEmpty }.joined(separator: " ")
     }
-    private func degradedSyncSuffix(for chainName: String) -> String {
+    private func degradedSyncSuffix(for chainId: String) -> String {
         let copy = DiagnosticsContentCopy.current
-        if let lastGood = lastGoodChainSyncByName[chainName] {
+        if let lastGood = lastGoodSyncByChainId[chainId] {
             return String(
                 format: copy.degradedLastGoodSyncFormat, lastGood.formatted(date: .abbreviated, time: .shortened)
             )
@@ -106,13 +108,9 @@ final class WalletDiagnosticsState {
     }
 }
 
-// The per-wallet diagnostic dictionaries are not stored here: they live in
-// the Rust registry (`core/src/diagnostics/registry.rs`) and the `[String: T]`
-// vars below are writable computed delegates over UniFFI.
-//
-// SwiftUI reactivity: mutations bump `diagnosticsRevision`. Because this type
-// is `@Observable`, any view reading the revision (or reading through
-// `AppState`) invalidates when it changes.
+/// View state for the diagnostics screens: results of runs the user started
+/// in this session and whether one is in flight. Persisted diagnostics rows
+/// live in core; `diagnosticsRevision` tells views to re-read them.
 @MainActor
 @Observable
 final class WalletChainDiagnosticsState {

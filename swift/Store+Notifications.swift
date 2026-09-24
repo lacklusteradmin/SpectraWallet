@@ -2,14 +2,6 @@ import Foundation
 import UserNotifications
 @MainActor
 extension AppState {
-    /// Evaluate core-owned alerts before the caller adopts its final snapshot.
-    func evaluatePriceAlertNotifications() async -> [PriceAlertNotification] {
-        do { return try await bridge.evaluatePriceAlerts() }
-        catch {
-            appendOperationalLog(.error, category: "Price Alerts", message: error.localizedDescription)
-            return []
-        }
-    }
     func deliverPriceAlertNotifications(_ notifications: [PriceAlertNotification]) {
         for notification in notifications { sendPriceAlertNotification(for: notification) }
     }
@@ -44,9 +36,9 @@ extension AppState {
             identifier: "price-alert-\(notification.id)-\(UUID().uuidString)",
             title: AppLocalization.format("%@ price alert", notification.symbol),
             body: AppLocalization.format(
-                template, notification.assetDisplayName, notification.chainName,
-                amounts.formattedFiatAmount(fromUSD: notification.livePrice),
-                amounts.formattedFiatAmount(fromUSD: notification.targetPrice)
+                template, notification.assetDisplayName, Chain.displayName(forId: notification.chainId),
+                amounts.formattedFiat(notification.livePrice, currency: notification.currency),
+                amounts.formattedFiat(notification.targetPrice, currency: notification.currency)
             )
         )
     }

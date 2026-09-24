@@ -132,13 +132,11 @@ final class AppState {
     /// `cached*` properties below read fields out of it.
     var walletDerivedCache: WalletDerivedCache = .empty
     var cachedWalletById: [String: WalletView] { walletDerivedCache.walletById }
-    var cachedIncludedPortfolioWallets: [WalletView] { walletDerivedCache.includedPortfolioWallets }
     var cachedPortfolio: [Coin] { walletDerivedCache.portfolio }
     var cachedAvailableSendCoinsByWalletId: [String: [Coin]] { walletDerivedCache.availableSendCoinsByWalletId }
     var cachedAvailableReceiveCoinsByWalletId: [String: [Coin]] { walletDerivedCache.availableReceiveCoinsByWalletId }
     var cachedSendEnabledWallets: [WalletView] { walletDerivedCache.sendEnabledWallets }
     var cachedReceiveEnabledWallets: [WalletView] { walletDerivedCache.receiveEnabledWallets }
-    var cachedRefreshableChainNames: Set<String> { walletDerivedCache.refreshableChainNames }
     var isShowingAddWalletEntry: Bool = false
     let sendFlow = SendFlowState()
     let receiveFlow = ReceiveFlowState()
@@ -164,8 +162,8 @@ final class AppState {
 
     /// Read-only keypool diagnostics. Reading does not reserve an address.
     /// The reserved address and path are those recorded when the index was handed out.
-    func chainKeypoolDiagnostics(for chainName: String) async throws -> [KeypoolDiagnostic] {
-        try await self.bridge.keypoolDiagnostics(chainName: chainName)
+    func chainKeypoolDiagnostics(for chainId: String) async throws -> [KeypoolDiagnostic] {
+        try await self.bridge.keypoolDiagnostics(chainId: chainId)
     }
     /// Display currency for prices and totals.
     ///
@@ -235,8 +233,8 @@ final class AppState {
             set: { self.updateSetting(update($0)) })
     }
 
-    /// What a settings change sets in motion on this platform: Tor's client,
-    /// and the notification permission a newly enabled alert needs.
+    /// What a settings change sets in motion on this platform: the
+    /// notification permission a newly enabled alert needs.
     private func reactToSettingsChange(from before: AppSettings) {
         let appSettings = committedAppSettings
         if (appSettings.useTransactionStatusNotifications && !before.useTransactionStatusNotifications)
@@ -264,18 +262,14 @@ final class AppState {
         if state.tokenPreferences != tokenPreferences { tokenPreferences = state.tokenPreferences }
         if state.priceAlerts != priceAlerts { priceAlerts = state.priceAlerts }
         if refreshPortfolio { rebuildWalletDerivedState() }
-        // Synchronous on purpose: the render path reads this, and adopting it a
-        // tick later quotes a testnet at mainnet prices in between.
-        let unpriced = Set(Spectra.unpricedChainNames())
-        if unpriced != unpricedChainNames { unpricedChainNames = unpriced }
         return true
     }
     /// A chain with no stored pick confirms at the default rate.
-    func feePriority(forChain chainName: String) -> FeePriority {
-        appSettings.feePriorityByChain[chainName] ?? .normal
+    func feePriority(forChainId chainId: String) -> FeePriority {
+        appSettings.feePriorityByChain[chainId] ?? .normal
     }
-    func setFeePriority(_ priority: FeePriority, forChain chainName: String) {
-        updateSetting(.feePriority(chain: chainName, value: priority))
+    func setFeePriority(_ priority: FeePriority, forChainId chainId: String) {
+        updateSetting(.feePriority(chain: chainId, value: priority))
     }
     /// A family with no selection reports itself, so the mainnet id is the
     /// default without being stored as one.
@@ -302,26 +296,17 @@ final class AppState {
     /// Why core refused the last token-preference change, if it did.
     var tokenPreferenceError: String?
     @ObservationIgnored var stateCommandTask: Task<Void, Never>?
-    // Prices and groups are adopted together from the same core snapshot.
-    var livePrices: [String: Double] = [:]
-    /// USD → display-currency rates, as core holds them. A projection: core
-    /// fetches, merges and stores them, and `applyCoreState` adopts the result.
-    var fiatRatesFromUSD: [String: Double] = [:]
+    // Quote errors and groups are adopted together from the same core snapshot;
+    // every money figure arrives valued, in `portfolioValuation`.
     var fiatRatesRefreshError: String? = nil
     var quoteRefreshError: String? = nil
     var cachedAvailableDashboardPinOptions: [DashboardPinOption] = []
     var cachedDashboardAssetGroups: [DashboardAssetGroup] = []
 
     var amounts: AmountPresentation {
-        AmountPresentation(selectedFiatCurrency: selectedFiatCurrency,
-            fiatRatesFromUSD: fiatRatesFromUSD, livePrices: livePrices,
-            unpricedChainNames: unpricedChainNames, assetPrecision: assetPrecision,
-            portfolioValuation: portfolioValuation)
+        AmountPresentation(assetPrecision: assetPrecision, valuation: portfolioValuation,
+            selectedFiatCurrency: selectedFiatCurrency)
     }
-    /// Concrete testnets are never quoted.
-    ///
-    /// Core decides; this is the projection the render path reads.
-    private(set) var unpricedChainNames: Set<String> = []
     /// The five preferences this platform keeps for itself. Split out so views
     /// that only read them are not invalidated by wallet or balance changes.
     let preferences = AppUserPreferences()
@@ -330,9 +315,9 @@ final class AppState {
     /// Whether a chain's deep rescan is running, and when it last finished.
     struct UTXORescanState { var isRunning: Bool = false; var lastRunAt: Date? = nil }
     var utxoRescanStateByChain: [String: UTXORescanState] = [:]
-    subscript(rescanFor chainName: String) -> UTXORescanState {
-        get { utxoRescanStateByChain[chainName] ?? .init() }
-        set { utxoRescanStateByChain[chainName] = newValue }
+    subscript(rescanFor chain: Chain) -> UTXORescanState {
+        get { utxoRescanStateByChain[chain.id] ?? .init() }
+        set { utxoRescanStateByChain[chain.id] = newValue }
     }
     @ObservationIgnored var userInitiatedRefreshTask: Task<Bool, Never>?
     @ObservationIgnored var importRefreshTask: Task<Void, Never>?
@@ -350,22 +335,6 @@ final class AppState {
         let networkPathMonitor = NWPathMonitor()
         let networkPathMonitorQueue = DispatchQueue(label: "spectra.network.monitor")
     #endif
-    func walletRequiresSeedPhrasePassword(_ walletId: String) -> Bool {
-        self.bridge.walletSecretState(walletId: walletId)?.isSealed ?? false
-    }
-    /// Whether this wallet can sign, and with what.
-    ///
-    /// Read from the store rather than from a cached descriptor: a sealed
-    /// wallet has signing material even though a seed reveal cannot
-    /// produce it without a password, and deriving this from that read would
-    /// report such a wallet as watch-only.
-    func walletHasSigningMaterial(_ walletId: String) -> Bool {
-        self.bridge.walletSecretState(walletId: walletId)?.hasSigningMaterial ?? false
-    }
-    func isPrivateKeyBackedWallet(_ walletId: String) -> Bool {
-        self.bridge.walletSecretState(walletId: walletId)?.hasPrivateKey ?? false
-    }
-
     private func applyVerificationNotice(_ n: SendVerificationNotice) {
         sendFlow.verificationNotice = n.notice
         sendFlow.verificationNoticeIsWarning = n.isWarning
@@ -387,10 +356,8 @@ final class AppState {
     }
     /// Refresh after broadcast and report the stored transaction status.
     /// Broadcast acceptance alone does not establish confirmation.
-    func runPostSendRefreshActions(for chainName: String) async {
-        if let chain = Chain(displayName: chainName) {
-            await performCoreRefresh(.afterSend(chainId: chain.id))
-        }
+    func runPostSendRefreshActions(for chainId: String) async {
+        await performCoreRefresh(.afterSend(chainId: chainId))
     }
     init(bridge: WalletServiceBridge = .shared, startServices: Bool = true) {
         self.bridge = bridge
@@ -465,102 +432,5 @@ final class AppState {
     }
     var canImportWallet: Bool {
         walletImport.draft.canImportWallet
-    }
-
-    /// A token is addressed by what it is — its contract on its chain —
-    /// rather than by an id this side and core would each have to spell the
-    /// same way.
-    private func tokenKey(_ entry: TokenPreferenceEntry) -> CoreTokenPreferenceKey {
-        CoreTokenPreferenceKey(chainName: Chain(id: entry.token.chainId)?.displayName ?? entry.token.chainId, contract: entry.token.contract)
-    }
-    func setTokenPreferenceEnabled(_ entry: TokenPreferenceEntry, isEnabled: Bool) {
-        setTokenPreferencesEnabled([entry], isEnabled: isEnabled)
-    }
-    func setTokenPreferencesEnabled(_ entries: [TokenPreferenceEntry], isEnabled: Bool) {
-        let keys = entries.map(tokenKey)
-        guard !keys.isEmpty else { return }
-        Task { @MainActor [weak self] in
-            await self?.sendTokenPreferenceCommand(
-                .setTokenPreferencesEnabled(tokens: keys, isEnabled: isEnabled))
-        }
-    }
-    func removeCustomTokenPreference(_ entry: TokenPreferenceEntry) {
-        Task { @MainActor [weak self] in
-            await self?.sendTokenPreferenceCommand(
-                .removeCustomToken(chainName: Chain(id: entry.token.chainId)?.displayName ?? entry.token.chainId, contract: entry.token.contract))
-        }
-    }
-    /// Send a token-preference command and mirror the result.
-    ///
-    /// Same shape as `sendAddressBookCommand`: core decides, the refusal comes
-    /// back as an event carrying its reason, and this side supplies the words.
-    private func sendTokenPreferenceCommand(_ command: StateCommand) async {
-        guard let transition = try? await self.bridge.applyStateCommand(command)
-        else {
-            tokenPreferenceError = localizedStoreString("This token could not be saved.")
-            return
-        }
-        applyCoreState(transition.state)
-        tokenPreferenceError = tokenPreferenceRejection(in: transition.events)
-            .map(tokenPreferenceRejectionMessage)
-    }
-    private func tokenPreferenceRejection(in events: [StateEvent]) -> TokenPreferenceRejection? {
-        events.lazy.compactMap { event -> TokenPreferenceRejection? in
-            guard case .tokenPreferenceRejected(let reason) = event else { return nil }
-            return reason
-        }.first
-    }
-    func tokenPreferenceRejectionMessage(_ reason: TokenPreferenceRejection) -> String {
-        switch reason {
-        case .unknownChain: return localizedStoreString("That network cannot hold tokens.")
-        case .emptySymbol: return localizedStoreString("Symbol is required.")
-        case .symbolTooLong: return localizedStoreString("Symbol is too long.")
-        case .invalidPriceId: return localizedStoreString("Enter a price provider ID, not a URL or name.")
-        case .emptyName: return localizedStoreString("Token name is required.")
-        case .emptyContract: return localizedStoreString("Token identifier is required.")
-        case .invalidContract: return localizedStoreString("That token identifier is not valid for this network.")
-        case .duplicateToken: return localizedStoreString("This network already knows this token.")
-        case .tooManyDecimals: return localizedStoreString("That is more decimal places than a token has.")
-        case .builtInToken: return localizedStoreString("Built-in tokens cannot be edited or removed.")
-        case .unknownToken: return localizedStoreString("That token is no longer in the list.")
-        }
-    }
-    /// Teach the wallet a token the catalog does not ship.
-    ///
-    /// Returns the refusal to show beside the form, or `nil` once core has
-    /// accepted it. Every rule behind that answer — the symbol, the contract's
-    /// format for the chain that would host it, the duplicate, the precision,
-    /// and where the row sorts — is the reducer's. This method held all of
-    /// them, including a seven-arm switch over the hosting chains whose
-    /// `default` assumed EVM.
-    func addCustomTokenPreference(
-        chain: TokenHostingChain, symbol: String, name: String, contractAddress: String,
-        coingeckoId: String = "", coinpaprikaId: String = "", decimals: Int, editing: TokenPreferenceEntry? = nil
-    ) async -> String? {
-        guard decimals >= 0 else { return localizedStoreString("That is not a number of decimal places.") }
-
-        let command: StateCommand
-        if let editing {
-            command = .updateCustomToken(
-                chainName: Chain(id: editing.token.chainId)?.displayName ?? editing.token.chainId,
-                contract: editing.token.contract, symbol: symbol, name: name,
-                coingeckoId: coingeckoId, coinpaprikaId: coinpaprikaId, decimals: UInt32(decimals))
-        } else {
-            command = .addCustomToken(
-                chainName: chain.rawValue, symbol: symbol, name: name,
-                contract: contractAddress, coingeckoId: coingeckoId,
-                coinpaprikaId: coinpaprikaId, decimals: UInt32(decimals))
-        }
-        guard
-            let transition = try? await self.bridge.applyStateCommand(command)
-        else { return localizedStoreString("This token could not be saved.") }
-        applyCoreState(transition.state)
-        guard let reason = tokenPreferenceRejection(in: transition.events) else {
-            tokenPreferenceError = nil
-            return nil
-        }
-        let message = tokenPreferenceRejectionMessage(reason)
-        tokenPreferenceError = message
-        return message
     }
 }

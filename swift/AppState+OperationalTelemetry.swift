@@ -15,29 +15,19 @@ extension AppState {
         diagnostics.exportOperationalLogsText(networkSyncStatusText: networkSyncStatusText, events: events)
     }
     func appendOperationalLog(
-        _ level: DiagnosticLogLevel, category: String, message: String, chainName: String? = nil, walletId: String? = nil,
+        _ level: DiagnosticLogLevel, category: String, message: String, chainId: String? = nil, walletId: String? = nil,
         transactionHash: String? = nil, source: String? = nil, metadata: String? = nil
     ) {
         diagnostics.appendOperationalLog(
-            level, category: category, message: message, chainName: chainName, walletId: walletId, transactionHash: transactionHash,
+            level, category: category, message: message, chainId: chainId, walletId: walletId, transactionHash: transactionHash,
             source: source, metadata: metadata
         )
     }
-    func appendChainOperationalEvent(
-        _ level: DiagnosticLogLevel, chainName: String, message: String, transactionHash: String? = nil
-    ) {
-        appendOperationalLog(
-            level, category: "\(chainName) Broadcast", message: message, chainName: chainName, transactionHash: transactionHash
-        )
-    }
     func noteSendBroadcastQueued(for transaction: TransactionRecord) {
-        appendChainOperationalEvent(
-            .info, chainName: transaction.chainName, message: "\(transaction.symbol) send broadcast accepted.",
-            transactionHash: transaction.transactionHash
+        appendOperationalLog(
+            .info, category: "Broadcast", message: "\(transaction.symbol) send broadcast accepted.",
+            chainId: transaction.chainId, transactionHash: transaction.transactionHash
         )
-    }
-    func noteSendBroadcastFailure(for chainName: String, message: String) {
-        appendChainOperationalEvent(.error, chainName: chainName, message: "Send failed: \(message)")
     }
 
     func statusPollFailureMessage(for transaction: TransactionRecord) -> String {
@@ -55,15 +45,15 @@ extension AppState {
             guard let transaction = try? await bridge.transaction(id: change.id) else { continue }
             switch change.newStatus {
             case .confirmed:
-                appendChainOperationalEvent(
-                    .info, chainName: change.chainName,
+                appendOperationalLog(
+                    .info, category: "Transaction Status",
                     message: localizedStoreString("Transaction confirmed on-chain."),
-                    transactionHash: change.transactionHash)
+                    chainId: change.chainId, transactionHash: change.transactionHash)
             case .failed:
-                appendChainOperationalEvent(
-                    .error, chainName: change.chainName,
+                appendOperationalLog(
+                    .error, category: "Transaction Status",
                     message: statusPollFailedEventMessage(for: transaction),
-                    transactionHash: change.transactionHash)
+                    chainId: change.chainId, transactionHash: change.transactionHash)
             case .pending: break
             }
             sendTransactionStatusNotification(for: transaction, newStatus: change.newStatus)

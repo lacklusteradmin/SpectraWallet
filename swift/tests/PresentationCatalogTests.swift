@@ -12,13 +12,17 @@ final class PresentationCatalogTests: XCTestCase {
         XCTAssertEqual(Chain(id: "ethereum-sepolia")?.gasTokenSymbol, "tETH")
     }
 
-    func testCoinColorsUseCatalogAndNormalizeSymbols() {
-        XCTAssertEqual(Coin.displayColor(for: "  usdt \n"), .green)
-        XCTAssertEqual(Coin.displayColor(for: "AAVE"), .indigo)
-        XCTAssertEqual(Coin.displayColor(for: "not-a-catalog-asset"), .gray)
-        for token in listTokenDeployments(chainId: "") where !token.coingeckoId.isEmpty {
-            XCTAssertEqual(Coin.displayColor(for: token.symbol), token.color?.color)
+    /// Colour follows deployment identity, never the ticker: a custom token
+    /// that calls itself `ETH` is grey, not Ether's colour.
+    func testCoinColorsFollowDeploymentIdentity() {
+        for token in listTokenDeployments(chainId: "") {
+            if let color = token.color {
+                XCTAssertEqual(AssetPresentationCatalog.color(deploymentId: token.deploymentId), color.color)
+            }
         }
+        let ethereum = try? XCTUnwrap(Chain.ethereum.entry)
+        XCTAssertEqual(AssetPresentationCatalog.color(deploymentId: ethereum?.nativeDeploymentId ?? ""), ethereum?.color.color)
+        XCTAssertEqual(AssetPresentationCatalog.color(deploymentId: "ethereum:erc-20:0xnot-in-the-catalog"), .gray)
     }
 
     /// A native asset's display name is its chain's, so naming the pair
@@ -28,20 +32,21 @@ final class PresentationCatalogTests: XCTestCase {
     /// than about English.
     func testTransactionSubtitleNamesTheChainOnlyWhenItIsNotTheAsset() {
         let copy = CommonLocalizationContent.current
-        func subtitle(asset: String, chain: String) -> String {
+        func subtitle(asset: String, chainId: String) -> String {
             TransactionRecord(
                 id: "tx", kind: .receive, status: .confirmed, walletName: "Main Wallet",
-                assetDisplayName: asset, symbol: "SOL", chainName: chain, amount: 0.1, address: "address"
+                assetDisplayName: asset, symbol: "SOL", chainId: chainId, amount: "0.1", address: "address"
             ).subtitleText
         }
         func wallet(_ asset: String) -> String { String(format: copy.transactionSubtitleFormat, asset, "Main Wallet") }
         func onChain(_ asset: String, _ chain: String) -> String { String(format: copy.assetOnChainFormat, asset, chain) }
 
-        XCTAssertEqual(subtitle(asset: "Solana", chain: "Solana"), wallet("Solana"))
-        XCTAssertEqual(subtitle(asset: "solana", chain: "Solana"), wallet("solana"))
-        XCTAssertEqual(subtitle(asset: "USD Coin", chain: "Solana"), wallet(onChain("USD Coin", "Solana")))
+        XCTAssertEqual(subtitle(asset: "Solana", chainId: "solana"), wallet("Solana"))
+        XCTAssertEqual(subtitle(asset: "solana", chainId: "solana"), wallet("solana"))
+        XCTAssertEqual(subtitle(asset: "USD Coin", chainId: "solana"), wallet(onChain("USD Coin", "Solana")))
         XCTAssertEqual(
-            subtitle(asset: "Bitcoin", chain: "Bitcoin Testnet4"), wallet(onChain("Bitcoin", "Bitcoin Testnet4")))
+            subtitle(asset: "Bitcoin", chainId: "bitcoin-testnet-4"),
+            wallet(onChain("Bitcoin", Chain.displayName(forId: "bitcoin-testnet-4"))))
     }
 
     /// Every localized content file decodes in every locale the manifest

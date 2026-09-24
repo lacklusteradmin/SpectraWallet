@@ -10,43 +10,44 @@ import Foundation
 
 extension WalletView {
     /// A wallet record with every field a test does not name defaulted. The
-    /// app never builds one; core returns them.
+    /// app never builds one; core returns them. `addresses` is keyed by chain
+    /// id and stored under that chain's slot, as core stores it.
     init(
         id: UUID = UUID(),
         name: String,
-        selectedChainId: String? = nil,
+        chainId: String,
         addresses: [String: String] = [:],
         bitcoinXpub: String? = nil,
         seedDerivationPreset: CoreSeedDerivationPreset = .standard,
         seedDerivationPaths: CoreSeedDerivationPaths? = nil,
         derivationOverrides: CoreWalletDerivationOverrides = CoreWalletDerivationOverrides(passphrase: nil, hmacKey: nil),
-        familyName: String,
         holdings: [Coin] = [],
-        includeInPortfolioTotal: Bool = true
+        includeInPortfolioTotal: Bool = true,
+        signing: WalletSigning = .watchOnly
     ) {
         self.init(
-            id: id.uuidString, name: name,
-            chainId: selectedChainId ?? Chain(displayName: familyName)?.id ?? "",
+            id: id.uuidString, name: name, chainId: chainId,
             addresses: Dictionary(
-                addresses.compactMap { chainName, address in
-                    Chain(displayName: chainName).map { ($0.addressSlot, address) }
+                addresses.compactMap { chainId, address in
+                    Chain(id: chainId).map { ($0.addressSlot, address) }
                 }, uniquingKeysWith: { first, _ in first }),
             bitcoinXpub: bitcoinXpub,
             seedDerivationPreset: seedDerivationPreset,
             seedDerivationPaths: seedDerivationPaths ?? .forPreset(seedDerivationPreset),
             derivationOverrides: derivationOverrides,
-            familyName: familyName, holdings: holdings,
-            includeInPortfolioTotal: includeInPortfolioTotal
+            holdings: holdings,
+            includeInPortfolioTotal: includeInPortfolioTotal,
+            signing: signing
         )
     }
 
-    /// Set this wallet's address for a chain. Passing `nil` clears it.
+    /// Set this wallet's address on a chain. Passing `nil` clears it.
     ///
-    /// Spares the bridge tests rebuilding a 27-field record to change one
-    /// field. The app never edits a wallet record in place — it renders what
-    /// core sends and issues commands back.
-    mutating func setAddress(_ address: String?, forChainNamed chainName: String) {
-        let slot = Chain(displayName: chainName)?.addressSlot ?? ""
+    /// Spares the bridge tests rebuilding the record to change one field. The
+    /// app never edits a wallet record in place — it renders what core sends
+    /// and issues commands back.
+    mutating func setAddress(_ address: String?, on chain: Chain) {
+        let slot = chain.addressSlot
         guard !slot.isEmpty else { return }
         if let address, !address.isEmpty {
             addresses[slot] = address
@@ -58,25 +59,21 @@ extension WalletView {
     /// The authoritative model this view model was rendered from, the same
     /// mapping as core's `WalletView::to_wallet_state`, for seeding a test
     /// through the command the app issues.
-    ///
-    /// `isWatchOnly` is a Keychain fact the record cannot carry, so the caller
-    /// supplies it — see `WalletState` in `core/src/store/state.rs`.
-    func walletState(isWatchOnly: Bool) -> WalletState {
-        let chain = Chain(displayName: familyName)
-        let path = Chain(id: chainId).map { seedDerivationPaths.path(for: $0) }.flatMap { $0.isEmpty ? nil : $0 }
+    func walletState() -> WalletState {
+        let path = chain.map { seedDerivationPaths.path(for: $0) }.flatMap { $0.isEmpty ? nil : $0 }
         // The wallet's own slot first: core reads the first receive address as
         // the primary one.
-        let ownSlot = chain?.addressSlot
+        let ownSlot = family?.addressSlot
         let slots = addresses.keys.sorted { ($0 == ownSlot ? 0 : 1, $0) < ($1 == ownSlot ? 0 : 1, $1) }
         return WalletState(
-            id: id, name: name, isWatchOnly: isWatchOnly, chainName: familyName,
-            includeInPortfolioTotal: includeInPortfolioTotal, chainId: chainId, xpub: bitcoinXpub,
+            id: id, name: name, signing: signing, chainId: chainId,
+            includeInPortfolioTotal: includeInPortfolioTotal, xpub: bitcoinXpub,
             derivationPreset: seedDerivationPreset, derivationPath: path, derivationOverrides: derivationOverrides,
             holdings: holdings,
             addresses: slots.compactMap { slot in
                 guard let owner = Chain.all.first(where: { $0.addressSlot == slot }), let address = addresses[slot] else { return nil }
                 let networkPath = seedDerivationPaths.path(for: owner)
-                return WalletAddress(chainName: owner.displayName, address: address, kind: "receive", derivationPath: networkPath.isEmpty ? nil : networkPath)
+                return WalletAddress(chainId: owner.id, address: address, kind: "receive", derivationPath: networkPath.isEmpty ? nil : networkPath)
             })
     }
 }
@@ -87,16 +84,16 @@ extension TransactionRecord {
     init(
         id: String, walletId: String? = nil, deploymentId: String? = nil, kind: TransactionKind,
         status: TransactionStatus, walletName: String, assetDisplayName: String, symbol: String,
-        chainName: String, amount: Double, address: String, transactionHash: String? = nil,
-        nonce: Int64? = nil, failureReason: String? = nil
+        chainId: String, amount: String, address: String, transactionHash: String? = nil,
+        nonce: Int64? = nil, failureReason: TransactionFailure? = nil
     ) {
         self.init(
             actions: TransactionActions(recheckUnavailableReason: "Not evaluated", rebroadcastUnavailableReason: "Not evaluated"),
             deploymentId: deploymentId, id: id, walletId: walletId, kind: kind, status: status,
             walletName: walletName, assetDisplayName: assetDisplayName, symbol: symbol,
-            chainName: chainName, amount: amount, address: address, transactionHash: transactionHash,
+            chainId: chainId, amount: amount, address: address, transactionHash: transactionHash,
             nonce: nonce, receiptBlockNumber: nil, receiptGasUsed: nil,
-            receiptEffectiveGasPriceGwei: nil, receiptNetworkFee: nil, feePriorityRaw: nil,
+            receiptEffectiveGasPriceGwei: nil, receiptNetworkFee: nil,
             feeRateDescription: nil, confirmationCount: nil, confirmedNetworkFee: nil,
             estimatedFeeRatePerKb: nil, usedChangeOutput: nil, sourceDerivationPath: nil,
             changeDerivationPath: nil, sourceAddress: nil, changeAddress: nil,
@@ -119,13 +116,16 @@ extension WalletImportDraft {
 }
 
 extension AssetHolding {
-    static func makeCustom(
-        name: String, symbol: String, coingeckoId: String, chainName: String, tokenStandard: String,
-        contractAddress: String?, amount: Double, priceUsd: Double
+    /// A holding as core would project it. The id follows core's
+    /// `deployment_id` for the EVM-style contracts these tests use.
+    static func fixture(
+        name: String, symbol: String, coingeckoId: String = "", chainId: String, tokenStandard: String = "Native",
+        contractAddress: String? = nil, amount: String
     ) -> Coin {
-        AssetHolding(
-            name: name, symbol: symbol, coingeckoId: coingeckoId, chainName: chainName,
-            tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount, priceUsd: priceUsd)
+        let id = contractAddress.map { "\(chainId):\(tokenStandard.lowercased()):\($0.lowercased())" } ?? "\(chainId):native"
+        return AssetHolding(
+            id: id, name: name, symbol: symbol, coingeckoId: coingeckoId, chainId: chainId,
+            tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount)
     }
 }
 

@@ -207,9 +207,9 @@ struct WalletDetailView: View {
         formatter.timeStyle = .short
         return formatter
     }()
-    private var isWatchOnly: Bool { store.isWatchOnlyWallet(displayedWallet) }
-    private var isPrivateKeyWallet: Bool { store.isPrivateKeyWallet(displayedWallet) }
-    private var requiresSeedPhrasePassword: Bool { store.walletRequiresSeedPhrasePassword(displayedWallet.id) }
+    private var isWatchOnly: Bool { displayedWallet.signing.isWatchOnly }
+    private var isPrivateKeyWallet: Bool { displayedWallet.signing.isPrivateKey }
+    private var requiresSeedPhrasePassword: Bool { displayedWallet.signing.requiresPassword }
     private var displayedWallet: WalletView {
         store.wallets.first(where: { $0.id == wallet.id }) ?? wallet
     }
@@ -221,18 +221,18 @@ struct WalletDetailView: View {
     }
     private var detailPresentation: DetailPresentation {
         let wallet = displayedWallet
-        let visibleHoldings = wallet.holdings.filter { $0.amount > 0 }
-            .map { holding in (coin: holding, quotedValue: store.amounts.currentValueIfAvailable(for: holding) ?? -1) }
+        // Most valuable first, as core valued them; unpriced holdings last.
+        let visibleHoldings = wallet.holdings.filter(\.hasBalance)
+            .map { holding in (coin: holding, value: store.amounts.holdingValue(walletId: wallet.id, coin: holding)) }
             .sorted {
-                if abs($0.quotedValue - $1.quotedValue) > 0.000001 { return $0.quotedValue > $1.quotedValue }
+                if $0.value != $1.value { return ($0.value ?? -1) > ($1.value ?? -1) }
                 return $0.coin.symbol.localizedCaseInsensitiveCompare($1.coin.symbol) == .orderedAscending
             }
         let holdingPresentations = visibleHoldings.map { entry in
             HoldingPresentation(
                 coin: entry.coin,
                 amountText: store.amounts.formattedAssetAmount(entry.coin.amount, symbol: entry.coin.symbol, deploymentId: entry.coin.holdingKey),
-                valueText: store.preferences.hideBalances
-                    ? "••••••" : store.amounts.formattedFiatAmountOrUnavailable(fromUSD: entry.quotedValue >= 0 ? entry.quotedValue : nil)
+                valueText: store.preferences.hideBalances ? "••••••" : store.amounts.formattedFiat(entry.value)
             )
         }
         return DetailPresentation(
@@ -242,9 +242,9 @@ struct WalletDetailView: View {
             // came back first, which is "prefer Bitcoin, then Bitcoin Cash, …"
             // dressed as a fallback — and eight chains were not in the list at
             // all, so a Zcash or TON wallet showed no address.
-            walletAddress: wallet.address(forChainNamed: wallet.familyName),
+            walletAddress: wallet.chain.flatMap(wallet.address(on:)),
             derivationPathsText: derivationPathsText(for: wallet),
-            walletBadge: Coin.nativeChainBadge(chainName: wallet.familyName) ?? (nil, .mint),
+            walletBadge: Coin.nativeChainBadge(for: wallet.family) ?? (nil, .mint),
             visibleHoldingPresentations: holdingPresentations,
             walletTotalValueText: store.preferences.hideBalances
                 ? "••••••" : store.amounts.formattedWalletTotal(walletId: wallet.id)
@@ -302,7 +302,7 @@ struct WalletDetailView: View {
             }.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
         }.background(SpectraBackdrop().ignoresSafeArea())
             .refreshable {
-                await store.refreshBalancesNow()
+                await store.refreshBalances()
             }.navigationTitle(localizedWalletFlowString("Wallet Details")).navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
@@ -528,7 +528,7 @@ struct WalletDetailView: View {
                                 : localizedWalletFlowString("Show Seed Phrase")),
                         systemImage: requiresSeedPhrasePassword ? "lock.shield" : "faceid"
                     ).font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 12)
-                }.buttonStyle(.glass).tint(.orange).disabled(isRevealingSeedPhrase || !store.canRevealSeedPhrase(for: wallet.id))
+                }.buttonStyle(.glass).tint(.orange).disabled(isRevealingSeedPhrase || !wallet.signing.hasSeedPhrase)
             }
             Button(role: .destructive) {
                 spectraHaptic(.medium)

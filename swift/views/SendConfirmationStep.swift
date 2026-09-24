@@ -8,8 +8,7 @@ import SwiftUI
 struct SendConfirmationStep: View {
     @Bindable var store: AppState
 
-    private var sendPreviewStore: SendPreviewStore { store.sendFlow.previewStore }
-    private var isSendBusy: Bool { store.sendFlow.isBusy || !store.sendFlow.preparingChains.isEmpty }
+    private var isSendBusy: Bool { store.sendFlow.isBusy || store.sendFlow.isPreparingPreview }
     private var selectedCoin: Coin? {
         store.availableSendCoins(for: store.sendFlow.walletId).first(where: { $0.holdingKey == store.sendFlow.holdingKey })
     }
@@ -63,8 +62,8 @@ struct SendConfirmationStep: View {
             VStack(spacing: 12) {
                 confirmationRow(label: "Wallet", value: store.selectedWalletForSend()?.name ?? AppLocalization.string("Not selected"), icon: "wallet.pass.fill")
                 confirmationRow(label: "Asset", value: selectedCoin.map { "\($0.symbol) · \($0.chainName)" } ?? AppLocalization.string("Not selected"), icon: "circle.hexagongrid.fill")
-                confirmationRow(label: "Network Fee", value: estimatedNetworkFeeText(for: selectedCoin) ?? AppLocalization.string("Refreshing preview"), icon: "speedometer")
-                if let fiatText = confirmFiatAmountText(selectedCoin: selectedCoin) {
+                confirmationRow(label: "Network Fee", value: networkFeeText ?? AppLocalization.string("Refreshing preview"), icon: "speedometer")
+                if let fiatText = confirmFiatAmountText {
                     confirmationRow(label: "Approx. Value", value: fiatText, icon: "dollarsign.circle.fill")
                 }
             }
@@ -111,9 +110,10 @@ struct SendConfirmationStep: View {
         return symbol.isEmpty ? amount : "\(amount) \(symbol)"
     }
 
-    private func confirmFiatAmountText(selectedCoin: Coin?) -> String? {
-        guard let selectedCoin, let amount = Double(store.sendFlow.amount), amount > 0 else { return nil }
-        return store.amounts.formattedFiatAmount(amount, of: selectedCoin)
+    private var confirmedQuote: OwnedSendPreview? { store.sendQuoteForEnteredAmount }
+
+    private var confirmFiatAmountText: String? {
+        store.amounts.formattedFiatIfAvailable(confirmedQuote?.amountValue)
     }
 
     private var recipientPreviewText: String {
@@ -122,12 +122,9 @@ struct SendConfirmationStep: View {
         return trimmed
     }
 
-    private func estimatedNetworkFeeText(for coin: Coin?) -> String? {
-        guard let coin,
-            let chain = Chain(displayName: coin.chainName),
-            let fee = sendPreviewStore.estimatedFee(forChainNamed: coin.chainName)
-        else { return nil }
-        return store.amounts.formattedNetworkFee(fee, chain: chain)
+    private var networkFeeText: String? {
+        guard let quote = confirmedQuote, let fee = quote.networkFee, let chain = Chain(id: quote.chainId) else { return nil }
+        return store.amounts.formattedNetworkFee(fee, value: quote.networkFeeValue, chain: chain)
     }
 }
 

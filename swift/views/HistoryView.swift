@@ -280,7 +280,7 @@ struct HistoryView: View {
         )
     }
     private func signedAmountText(for transaction: TransactionRecord) -> String? {
-        guard let amountText = store.amounts.formattedTransactionAmount(transaction) else { return nil }
+        let amountText = store.amounts.formattedTransactionAmount(transaction)
         switch transaction.kind {
         case .receive: return "+\(amountText)"
         case .send: return "-\(amountText)"

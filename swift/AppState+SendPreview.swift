@@ -27,16 +27,16 @@ extension AppState {
     }
 
     func adoptSendPreviewResult(_ result: Result<OwnedSendPreview?, Error>, requestId: UUID,
-                               input: SendPreviewInputSnapshot, chainName: String) {
+                               input: SendPreviewInputSnapshot) {
         guard isCurrentSendPreview(requestId: requestId, input: input) else { return }
         switch result {
         case .success(let preview):
-            sendFlow.previewStore.apply(preview, forChainNamed: chainName)
+            sendFlow.previewStore.apply(preview)
             sendFlow.error = nil
             sendFlow.clearVerificationNotice()
         case .failure(let error):
             guard !isCancelledRequest(error) else { return }
-            sendFlow.previewStore.clearPreview(forChainNamed: chainName)
+            sendFlow.previewStore.reset()
             sendFlow.error = error.localizedDescription
         }
     }
@@ -47,17 +47,16 @@ extension AppState {
         sendFlow.previewRequestId = requestId
         let input = sendPreviewInputSnapshot
         guard let coin = selectedSendCoin else {
-            sendFlow.preparingChains = []
+            sendFlow.isPreparingPreview = false
             sendFlow.destinationProbeRequestId = UUID()
-            sendFlow.previewStore.resetAll()
+            sendFlow.previewStore.reset()
             sendFlow.destinationRiskWarning = nil
             sendFlow.destinationInfoMessage = nil
             sendFlow.isCheckingDestination = false
             return
         }
-        let slot = SendPreviewStore.slot(forChainNamed: coin.chainName) ?? coin.chainName
-        sendFlow.preparingChains = [slot]
-        defer { if sendFlow.previewRequestId == requestId { sendFlow.preparingChains = [] } }
+        sendFlow.isPreparingPreview = true
+        defer { if sendFlow.previewRequestId == requestId { sendFlow.isPreparingPreview = false } }
         do {
             // Capture and validate all inputs before the first suspension.
             let nonce = try explicitEvmNonce().map(Int64.init)
@@ -67,13 +66,12 @@ extension AppState {
             }
             await refreshSendDestinationRiskWarning(for: coin)
             guard isCurrentSendPreview(requestId: requestId, input: input) else { return }
-            sendFlow.previewStore.resetAll(exceptSlot: slot)
             let preview = try await self.bridge.previewOwnedSend(
                 walletId: input.walletId, holdingKey: input.holdingKey, amount: input.amount,
                 destination: input.destination, explicitNonce: nonce, customFees: fees)
-            adoptSendPreviewResult(.success(preview), requestId: requestId, input: input, chainName: coin.chainName)
+            adoptSendPreviewResult(.success(preview), requestId: requestId, input: input)
         } catch {
-            adoptSendPreviewResult(.failure(error), requestId: requestId, input: input, chainName: coin.chainName)
+            adoptSendPreviewResult(.failure(error), requestId: requestId, input: input)
         }
     }
 }

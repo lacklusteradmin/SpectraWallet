@@ -1,172 +1,122 @@
 import Foundation
 
-/// A render-time value over core projections. No storage, services or side effects.
+/// A render-time value over core projections. No storage, services or side
+/// effects, and no money arithmetic: amounts arrive as exact decimals and
+/// every fiat figure arrives in the display currency, both from core.
 @MainActor
 struct AmountPresentation {
-    let selectedFiatCurrency: FiatCurrency
-    let fiatRatesFromUSD: [String: Double]
-    let livePrices: [String: Double]
-    let unpricedChainNames: Set<String>
     let assetPrecision: AssetPrecisionCatalog?
-    let portfolioValuation: PortfolioValuation?
+    let valuation: PortfolioValuation?
+    /// The currency the fiat figures are in when core has not valued anything
+    /// yet — the user's selection.
+    let selectedFiatCurrency: FiatCurrency
 
-    func convertUSDToSelectedFiatIfAvailable(_ amountUSD: Double) -> Double? {
-        guard amountUSD.isFinite, let rate = fiatRateIfAvailable(for: selectedFiatCurrency) else { return nil }
-        let value = amountUSD * rate
-        return value.isFinite ? value : nil
+    private var currency: FiatCurrency { valuation?.currency ?? selectedFiatCurrency }
+
+    // MARK: - Fiat
+
+    /// A display-currency figure, or "—" when core has none.
+    func formattedFiat(_ value: Double?, currency explicit: FiatCurrency? = nil) -> String {
+        formattedFiatIfAvailable(value, currency: explicit) ?? "—"
     }
-    func formattedFiatAmount(fromUSD amountUSD: Double) -> String {
-        formattedFiatAmountIfAvailable(fromUSD: amountUSD) ?? "—"
-    }
-    func formattedFiatAmountIfAvailable(fromUSD amountUSD: Double) -> String? {
-        guard amountUSD.isFinite else { return nil }
-        if selectedFiatCurrency == .usd { return formatFiatAmount(amount: amountUSD, currency: .usd) }
-        guard let converted = convertUSDToSelectedFiatIfAvailable(amountUSD) else { return nil }
-        return formatFiatAmount(amount: converted, currency: selectedFiatCurrency)
-    }
-    func formattedFiatAmountOrUnavailable(fromUSD amountUSD: Double?) -> String {
-        guard let amountUSD else { return "—" }
-        return formattedFiatAmountIfAvailable(fromUSD: amountUSD) ?? "—"
-    }
-    private func formatFiatAmount(amount: Double, currency: FiatCurrency) -> String {
+    func formattedFiatIfAvailable(_ value: Double?, currency explicit: FiatCurrency? = nil) -> String? {
+        guard let value, value.isFinite else { return nil }
+        let currency = explicit ?? currency
         let formatter = AmountFormatters.shared.fiatFormatter(for: currency)
-        // Memoized: this runs on every fiat render, thousands of times on the
-        // dashboard.
-        let minimumVisibleAmount = currency.displayRules.minimumVisible
-        if amount > 0, amount < minimumVisibleAmount, let thresholdString = formatter.string(from: NSNumber(value: minimumVisibleAmount)) {
-            return "<\(thresholdString)"
+        let minimumVisible = currency.displayRules.minimumVisible
+        if value > 0, value < minimumVisible, let threshold = formatter.string(from: NSNumber(value: minimumVisible)) {
+            return "<\(threshold)"
         }
-        return formatter.string(from: NSNumber(value: amount)) ?? ""
-    }
-    /// Price `amount` using this holding's asset quote and the display currency.
-    func formattedFiatAmount(_ amount: Double, of coin: Coin) -> String? {
-        guard let price = currentPriceIfAvailable(for: coin) else { return nil }
-        return formattedFiatAmountIfAvailable(fromUSD: amount * price)
-    }
-    /// Compact rows opt into the shared display style. Details use full asset
-    /// precision and signing renders the exact artifact amount.
-    /// The amount alone, at the asset's own precision.
-    ///
-    /// Callers that render the symbol in a separate label — the send Live
-    /// Activity does — need the value without it, and the rounding rules are
-    /// the same either way.
-    func formattedAssetAmountValue(_ amount: Double, deploymentId: String?) -> String {
-        guard let decimals = supportedDecimalPlaces(deploymentId: deploymentId) else { return "—" }
-        return formattedAmountValue(amount, assetDecimals: UInt32(decimals))
-    }
-    /// An amount at the places core picks for it on an asset with
-    /// `assetDecimals` of its own, trailing zeros trimmed.
-    func formattedAmountValue(_ amount: Double, assetDecimals: UInt32) -> String {
-        let display = formattingAssetAmountDisplay(amount: amount, assetDecimals: assetDecimals)
-        let places = Int(display.places)
-        if display.belowThreshold {
-            let thresholdFormatter = AmountFormatters.shared.decimalFormatter(
-                minimumFractionDigits: places, maximumFractionDigits: places, usesGroupingSeparator: false
-            )
-            return "<" + (thresholdFormatter.string(from: NSNumber(value: display.threshold)) ?? "")
-        }
-        let formatter = AmountFormatters.shared.decimalFormatter(
-            minimumFractionDigits: 0, maximumFractionDigits: places, usesGroupingSeparator: false
-        )
-        return formatter.string(from: NSNumber(value: amount)) ?? ""
-    }
-    func formattedAssetAmount(_ amount: Double, symbol: String, deploymentId: String?) -> String {
-        "\(formattedAssetAmountValue(amount, deploymentId: deploymentId)) \(symbol)"
-    }
-
-    func formattedTransactionAmount(_ transaction: TransactionRecord) -> String? {
-        guard transaction.amount.isFinite, transaction.amount >= 0 else { return nil }
-        return formattedAssetAmount(transaction.amount, symbol: transaction.symbol, deploymentId: transaction.deploymentId)
-    }
-    func formattedTransactionDetailAmount(_ transaction: TransactionRecord) -> String? {
-        guard transaction.amount.isFinite, transaction.amount >= 0 else { return nil }
-        return formattedTransactionDetailAssetAmount(
-            transaction.amount, symbol: transaction.symbol, deploymentId: transaction.deploymentId
-        )
-    }
-    func currentValueIfAvailable(for coin: Coin) -> Double? {
-        guard isPricedAsset(coin) else { return nil }
-        guard let price = currentPriceIfAvailable(for: coin) else { return nil }
-        return coin.amount * price
+        return formatter.string(from: NSNumber(value: value))
     }
     func formattedQuotedTotal(_ total: QuotedTotal?) -> String {
         guard let total, let fiat = total.fiatTotal else { return "—" }
-        let amount = formatFiatAmount(amount: fiat, currency: portfolioValuation?.currency ?? selectedFiatCurrency)
+        let amount = formattedFiat(fiat)
         guard total.unpricedCount > 0 else { return amount }
         return amount + " · " + AppLocalization.format("%lld without a price", total.unpricedCount)
     }
     func formattedWalletTotal(walletId: String) -> String {
-        formattedQuotedTotal(portfolioValuation?.wallets[walletId])
+        formattedQuotedTotal(valuation?.wallets[walletId])
     }
-    func currentPriceIfAvailable(for coin: Coin) -> Double? {
-        guard isPricedAsset(coin), let price = livePrices[coin.holdingKey], price.isFinite, price > 0 else { return nil }
-        return price
+    /// What a wallet's holding is worth, as core valued it.
+    func holdingValue(walletId: String, coin: Coin) -> Double? {
+        valuation?.holdingValues[walletId]?[coin.id]
     }
-    func fiatRateIfAvailable(for currency: FiatCurrency) -> Double? {
-        if currency == .usd { return 1 }
-        guard let rate = fiatRatesFromUSD[currency.code], rate.isFinite, rate > 0 else { return nil }
-        return rate
+    /// One unit of a held asset, as core priced it.
+    func price(of coin: Coin) -> Double? { valuation?.prices[coin.id] }
+    /// A price alert's target, as core converted it.
+    func alertTarget(_ alert: PriceAlertRule) -> Double? { valuation?.alertTargets[alert.id] }
+
+    // MARK: - Asset amounts
+
+    /// An exact decimal with this locale's decimal separator. No grouping, and
+    /// no digit is added or dropped.
+    static func localizedDecimal(_ text: String) -> String {
+        let separator = Locale.current.decimalSeparator ?? "."
+        return separator == "." ? text : text.replacingOccurrences(of: ".", with: separator)
     }
-    /// Hot path — called per coin during portfolio totals and per row in the
-    /// dashboard. Core hands over the whole unpriced set when the selection
-    /// changes, so this is a set lookup rather than a memoized FFI call whose
-    /// key had to carry every network mode that could affect the answer.
-    func isPricedChain(_ chainName: String) -> Bool {
-        !unpricedChainNames.contains(chainName)
+    /// The amount alone, as a compact row shows it: core picks the places
+    /// and cuts, never rounds up.
+    func formattedAssetAmountValue(_ amount: String, deploymentId: String?) -> String {
+        guard let decimals = supportedDecimalPlaces(deploymentId: deploymentId),
+              let text = formatAssetAmount(amount: amount, assetDecimals: UInt32(decimals))
+        else { return "—" }
+        let value = Self.localizedDecimal(text.value)
+        return text.belowThreshold ? "<" + value : value
     }
-    func isPricedAsset(_ coin: Coin) -> Bool { isPricedChain(coin.chainName) }
+    func formattedAssetAmount(_ amount: String, symbol: String, deploymentId: String?) -> String {
+        "\(formattedAssetAmountValue(amount, deploymentId: deploymentId)) \(symbol)"
+    }
+    func formattedTransactionAmount(_ transaction: TransactionRecord) -> String {
+        formattedAssetAmount(transaction.amount, symbol: transaction.symbol, deploymentId: transaction.deploymentId)
+    }
+    /// Every digit the record holds.
+    func formattedTransactionDetailAmount(_ transaction: TransactionRecord) -> String {
+        "\(Self.localizedDecimal(transaction.amount)) \(transaction.symbol)"
+    }
+
     // MARK: - Network fees
 
-    /// Format a network fee in the chain's gas token using core's display precision.
-    func formattedNetworkFee(_ fee: Double, chain: Chain) -> String {
-        "\(formattedAmountValue(fee, assetDecimals: chain.nativeDecimals)) \(chain.gasTokenSymbol)"
+    /// A fee in the chain's gas token, exactly as core stated it.
+    func formattedNetworkFee(_ fee: String, chain: Chain) -> String {
+        "\(Self.localizedDecimal(fee)) \(chain.gasTokenSymbol)"
     }
-    /// The fee with its fiat value beside it when the network's own gas asset
-    /// has a quote.
-    ///
-    /// Priced by the network's native deployment, which is what quotes are
-    /// keyed by. It priced "the first holding whose symbol is the gas token's",
-    /// so an Arbitrum fee took whichever `ETH` came first in the portfolio,
-    /// and a testnet fee could take a mainnet price.
-    func formattedNetworkFeeWithFiat(_ fee: Double, chain: Chain) -> String {
+    /// The fee with its display-currency value beside it, when core had one.
+    func formattedNetworkFee(_ fee: String, value: Double?, chain: Chain) -> String {
         let native = formattedNetworkFee(fee, chain: chain)
-        guard isPricedChain(chain.displayName),
-            let deploymentId = chain.entry?.nativeDeploymentId,
-            let price = livePrices[deploymentId],
-            let fiat = formattedFiatAmountIfAvailable(fromUSD: fee * price)
-        else { return native }
+        guard let fiat = formattedFiatIfAvailable(value) else { return native }
         return "\(native) (~\(fiat))"
     }
-    /// A gas price in gwei. Capped by the chain's native decimals like any
-    /// amount of it: the unit changes the number, not how many places it needs.
+    /// A gas price in gwei: a rate, not an amount of anything held.
     func formattedGasPrice(gwei: Double, chain: Chain) -> String {
-        "\(formattedAmountValue(gwei, assetDecimals: chain.nativeDecimals)) gwei"
+        let formatter = AmountFormatters.shared.decimalFormatter(maximumFractionDigits: Int(chain.nativeDecimals))
+        return "\(formatter.string(from: NSNumber(value: gwei)) ?? "") gwei"
     }
 
     // MARK: - Transaction detail rows
 
     func receiptEffectiveGasPriceText(for transaction: TransactionRecord) -> String? {
-        guard let gwei = transaction.receiptEffectiveGasPriceGwei, let chain = Chain(displayName: transaction.chainName) else { return nil }
+        guard let gwei = transaction.receiptEffectiveGasPriceGwei, let chain = transaction.chain else { return nil }
         return formattedGasPrice(gwei: gwei, chain: chain)
     }
     func receiptNetworkFeeText(for transaction: TransactionRecord) -> String? {
-        guard let fee = transaction.receiptNetworkFee, let chain = Chain(displayName: transaction.chainName) else { return nil }
+        guard let fee = transaction.receiptNetworkFee, let chain = transaction.chain else { return nil }
         return formattedNetworkFee(fee, chain: chain)
     }
     func confirmedNetworkFeeText(for transaction: TransactionRecord) -> String? {
-        guard let fee = transaction.confirmedNetworkFee, let chain = Chain(displayName: transaction.chainName) else { return nil }
+        guard let fee = transaction.confirmedNetworkFee, let chain = transaction.chain else { return nil }
         return formattedNetworkFee(fee, chain: chain)
     }
     func storedFeeRateText(for transaction: TransactionRecord) -> String? {
         if let description = transaction.feeRateDescription?.trimmingCharacters(in: .whitespacesAndNewlines), !description.isEmpty {
             return description
         }
-        guard let rate = transaction.estimatedFeeRatePerKb, let chain = Chain(displayName: transaction.chainName) else { return nil }
-        return "\(formattedNetworkFee(rate, chain: chain))/KB"
+        guard let rate = transaction.estimatedFeeRatePerKb, let chain = transaction.chain else { return nil }
+        let formatter = AmountFormatters.shared.decimalFormatter(maximumFractionDigits: Int(chain.nativeDecimals))
+        return "\(formatter.string(from: NSNumber(value: rate)) ?? "") \(chain.gasTokenSymbol)/KB"
     }
     func historyMetadataText(for transaction: TransactionRecord) -> String? {
         var parts: [String] = []
-        if let priority = transaction.storedFeePriorityText { parts.append("Fee \(priority)") }
         if let rate = storedFeeRateText(for: transaction) { parts.append(rate) }
         if let usedChangeOutput = transaction.usedChangeOutput, transaction.kind == .send {
             parts.append(AppLocalization.string(usedChangeOutput ? "change output" : "no change output"))
@@ -179,24 +129,15 @@ struct AmountPresentation {
     func historySourceText(for transaction: TransactionRecord) -> String? {
         switch transaction.transactionHistorySource.flatMap({ historySource(source: $0) }) {
         case .provider(let name): return name
-        case .chainProviders(let chainName): return AppLocalization.format("%@ providers", chainName)
+        case .chainProviders(let chainId): return AppLocalization.format("%@ providers", Chain.displayName(forId: chainId))
         case .internal, nil: return nil
         }
     }
 
-    private func formattedTransactionDetailAssetAmount(_ amount: Double, symbol: String, deploymentId: String?) -> String {
-        guard let supportedDecimals = supportedDecimalPlaces(deploymentId: deploymentId) else { return "—" }
-        let formatter = AmountFormatters.shared.decimalFormatter(
-            minimumFractionDigits: 0, maximumFractionDigits: supportedDecimals, usesGroupingSeparator: false
-        )
-        let formattedValue = formatter.string(from: NSNumber(value: amount)) ?? ""
-        return "\(formattedValue) \(symbol)"
-    }
     private func supportedDecimalPlaces(deploymentId: String?) -> Int? {
         guard let assetPrecision else { return nil }
         return Int(deploymentId.flatMap { assetPrecision.byDeploymentId[$0] } ?? assetPrecision.unknownDecimals)
     }
-
 }
 
 /// Native formatter reuse does not require constructing AppState or opening core.
@@ -204,7 +145,7 @@ struct AmountPresentation {
 private final class AmountFormatters {
     static let shared = AmountFormatters()
     private var cachedCurrencyFormatters: [FiatCurrency: NumberFormatter] = [:]
-    private var cachedDecimalFormatters: [String: NumberFormatter] = [:]
+    private var cachedDecimalFormatters: [Int: NumberFormatter] = [:]
     func fiatFormatter(for currency: FiatCurrency) -> NumberFormatter {
         if let formatter = cachedCurrencyFormatters[currency] { return formatter }
         let rules = currency.displayRules
@@ -217,15 +158,14 @@ private final class AmountFormatters {
         cachedCurrencyFormatters[currency] = formatter
         return formatter
     }
-    func decimalFormatter(minimumFractionDigits: Int, maximumFractionDigits: Int, usesGroupingSeparator: Bool) -> NumberFormatter {
-        let key = "\(minimumFractionDigits):\(maximumFractionDigits):\(usesGroupingSeparator)"
-        if let formatter = cachedDecimalFormatters[key] { return formatter }
+    func decimalFormatter(maximumFractionDigits: Int) -> NumberFormatter {
+        if let formatter = cachedDecimalFormatters[maximumFractionDigits] { return formatter }
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
-        formatter.usesGroupingSeparator = usesGroupingSeparator
-        formatter.minimumFractionDigits = minimumFractionDigits
+        formatter.usesGroupingSeparator = false
+        formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = maximumFractionDigits
-        cachedDecimalFormatters[key] = formatter
+        cachedDecimalFormatters[maximumFractionDigits] = formatter
         return formatter
     }
 }

@@ -12,12 +12,12 @@ final class SendLiveActivityContentTests: XCTestCase {
     private func record(
         status: TransactionStatus = .pending,
         transactionHash: String? = nil,
-        failureReason: String? = nil
+        failureReason: TransactionFailure? = nil
     ) -> TransactionRecord {
         TransactionRecord(
             id: UUID().uuidString,
             kind: .send, status: status, walletName: "Main", assetDisplayName: "Ether",
-            symbol: "ETH", chainName: "Ethereum", amount: 1.5,
+            symbol: "ETH", chainId: "ethereum", amount: "1.5",
             address: "0x1234567890abcdef1234567890abcdef12345678",
             transactionHash: transactionHash, failureReason: failureReason)
     }
@@ -41,7 +41,7 @@ final class SendLiveActivityContentTests: XCTestCase {
 
     /// A failure the chain explained is more use than the generic sentence.
     func testAFailureReasonBeatsTheGenericLine() {
-        let explained = record(status: .failed, failureReason: "stuckAfterRetries")
+        let explained = record(status: .failed, failureReason: .stuckAfterRetries)
         let generic = record(status: .failed)
         let withReason = sendLiveActivityContentState(
             for: explained, phase: .failed, amountText: "1.5")

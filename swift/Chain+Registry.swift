@@ -9,6 +9,9 @@ extension Chain: Identifiable {
     /// Only the chains that are not testnets. Ordered as the catalog is.
     static let mainnets: [Chain] = identities.filter { !$0.isTestnet }.map(\.chain)
 
+    /// Chains that can hold tracked tokens, in catalog order.
+    static let tokenHostingChains: [Chain] = all.filter(\.hostsTokens)
+
     /// Chains with staking support, as declared by the registry.
     static let stakingChains: [Chain] = identities.filter(\.supportsStaking).map(\.chain)
 
@@ -17,8 +20,6 @@ extension Chain: Identifiable {
         uniqueKeysWithValues: identities.map { ($0.chain, $0) })
     private static let chainById: [String: Chain] = Dictionary(
         uniqueKeysWithValues: identities.map { ($0.id, $0.chain) })
-    private static let chainByName: [String: Chain] = Dictionary(
-        uniqueKeysWithValues: identities.map { ($0.name, $0.chain) })
     private static let entryByChain: [Chain: ChainEntry] = {
         let byId = Dictionary(uniqueKeysWithValues: listAllChains().map { ($0.id, $0) })
         return identities.reduce(into: [:]) { out, identity in
@@ -56,22 +57,10 @@ extension Chain: Identifiable {
     var supportsStaking: Bool { identity?.supportsStaking ?? false }
     /// The send screen has a network card to show for this chain.
     var hasSendPreview: Bool { identity?.hasSendPreview ?? false }
-    /// Which `TokenHostingChain` this chain is, if it can host known tokens.
-    var tokenHostingChain: TokenHostingChain? { identity?.tokenHostingChain }
-    var sendExecutionShape: SendExecutionShape? { identity?.sendExecutionShape }
+    /// The chain can hold tracked tokens.
+    var hostsTokens: Bool { identity?.hostsTokens ?? false }
     /// How core moves a send here, which is what the send card says it does.
     var sendBroadcastMode: SendBroadcastMode? { identity?.sendBroadcastMode }
-    /// Core's sends here go through the configured backend, which is what the
-    /// backend URL and key settings are for.
-    var sendsThroughBackend: Bool { sendBroadcastMode == .preparesWithBackend }
-    /// The JSON-RPC method that answers "is this node alive", or nil when this
-    /// chain's endpoints are checked over plain HTTP.
-    var rpcHealthMethod: String? { identity?.rpcHealthMethod }
-    var pendingStatusPoll: PendingStatusPoll? { identity?.pendingStatusPoll }
-    /// Which chain's derivation path this chain reuses, as a display name.
-    var seedDerivationChain: String? { identity?.seedDerivationChain }
-    /// The EVM chain whose derivation this chain reuses.
-    var evmSeedDerivationChain: String? { identity?.evmSeedDerivationChain }
     /// The mainnet this chain belongs to, or itself.
     var mainnetCounterpart: Chain { identity?.mainnetCounterpart ?? self }
     /// Paths are stored under the concrete network ID.
@@ -100,7 +89,7 @@ extension Chain: Identifiable {
     /// Monero derives from the seed directly.
     ///
     var defaultDerivationPath: String {
-        (try? resolveDerivationPath(chain: displayName, derivationPath: "")) ?? ""
+        (try? resolveDerivationPath(chainId: id, derivationPath: "")) ?? ""
     }
 
     init?(id: String) {
@@ -108,8 +97,9 @@ extension Chain: Identifiable {
         self = chain
     }
 
-    init?(displayName: String) {
-        guard let chain = Self.chainByName[displayName] else { return nil }
-        self = chain
+    /// The display name for a chain id. Identity crosses the boundary as the
+    /// id; this is only for text a person reads. An unknown id shows as itself.
+    static func displayName(forId id: String) -> String {
+        Chain(id: id)?.displayName ?? id
     }
 }

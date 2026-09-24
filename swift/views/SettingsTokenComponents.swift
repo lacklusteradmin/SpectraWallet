@@ -1,8 +1,8 @@
 import Foundation
 import SwiftUI
 
-extension TokenHostingChain {
-    var settingsIconTint: Color { chain?.entry?.color.color ?? .accentColor }
+extension Chain {
+    var settingsIconTint: Color { entry?.color.color ?? .accentColor }
 }
 extension TokenPreferenceEntry {
     var settingsArtworkName: String { AssetPresentationCatalog.artwork(deploymentId: token.deploymentId) }

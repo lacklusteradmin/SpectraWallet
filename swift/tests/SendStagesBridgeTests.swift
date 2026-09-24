@@ -5,10 +5,10 @@ import SwiftUI
 @MainActor
 final class SendStagesBridgeTests: IsolatedAppStateTestCase {
     func testMoneroSyncStatusAndAuthorizationCrossTheBridge() async throws {
-        let wallet = WalletView(name: "Local XMR", addresses: ["Monero":
+        let wallet = WalletView(name: "Local XMR", chainId: "monero", addresses: ["monero":
             "48ZFsbBKZAnN9Tyw7XsCakJ4dBxBpaD3wa9Az6V5ZwAK99kYQzcgckSNVv5iZhMp8o37fhNzY7eM2ERGoTWr4B282s4mcDi"],
-            familyName: "Monero")
-        _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState(isWatchOnly: false)))
+            signing: .seedPhrase(passwordProtected: false))
+        _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState()))
         let status = try await bridge.moneroSyncStatus(walletId: wallet.id)
         XCTAssertEqual(status?.scannedHeight, 0)
         XCTAssertEqual(status?.complete, false)

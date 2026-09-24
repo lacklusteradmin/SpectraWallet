@@ -30,15 +30,12 @@ extension AppState {
         let walletById = Dictionary(uniqueKeysWithValues: snapshot.wallets.map { ($0.id, $0) })
         if wallets != snapshot.wallets { setWalletProjection(snapshot.wallets) }
         walletDerivedCache = WalletDerivedCache(
-            resolvedAddressesByWalletId: derived.resolvedAddressesByWalletId,
             walletById: walletById,
-            includedPortfolioWallets: snapshot.wallets.filter(\.includeInPortfolioTotal),
             portfolio: derived.portfolio,
             availableSendCoinsByWalletId: derived.sendCoinsByWalletId,
             availableReceiveCoinsByWalletId: derived.receiveCoinsByWalletId,
             sendEnabledWallets: derived.sendEnabledWalletIds.compactMap { walletById[$0] },
-            receiveEnabledWallets: derived.receiveEnabledWalletIds.compactMap { walletById[$0] },
-            refreshableChainNames: Set(derived.refreshableChainNames))
+            receiveEnabledWallets: derived.receiveEnabledWalletIds.compactMap { walletById[$0] })
         cachedDashboardAssetGroups = snapshot.groups
         cachedAvailableDashboardPinOptions = snapshot.pinOptions
     }

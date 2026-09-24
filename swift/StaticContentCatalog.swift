@@ -197,7 +197,7 @@ struct BuyProviders: Decodable {
     static var current: BuyProviders { StaticContentCatalog.loadRequiredResource("BuyProviders", as: BuyProviders.self) }
 }
 struct DonationDestinationSeed: Decodable {
-    let chainName: String
+    let chainId: String
     let title: String
     let address: String
 }

@@ -2,6 +2,7 @@ import Foundation
 import SwiftUI
 @MainActor
 extension AppState {
+    /// Refresh every wallet's balances now: the engine sweeps its entries together.
     func refreshBalances() async { try? await self.bridge.triggerImmediateBalanceRefresh() }
 
     /// Core has committed a wallet's new balances. Re-read the projection,

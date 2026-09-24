@@ -154,8 +154,8 @@ struct SetupView: View {
             && !store.walletImport.isBusy
     }
     private var canAdvanceFromDetailsPage: Bool {
-        if usesSeedPhraseFlow { return !draft.selectedChainNames.isEmpty && !store.walletImport.isBusy }
-        if usesWatchAddressesFlow { return !draft.selectedChainNames.isEmpty && !store.walletImport.isBusy }
+        if usesSeedPhraseFlow { return !draft.selectedChainIds.isEmpty && !store.walletImport.isBusy }
+        if usesWatchAddressesFlow { return !draft.selectedChainIds.isEmpty && !store.walletImport.isBusy }
         return store.canImportWallet && !store.walletImport.isBusy
     }
     /// What the primary button says on the page that submits rather than
@@ -222,8 +222,8 @@ struct SetupView: View {
             Self.chainSelectionDescriptors.first { $0.id == id }
         }
     }
-    private var selectedChainNameSet: Set<String> { Set(draft.selectedChainNames) }
-    private var selectedChainCount: Int { draft.selectedChainNames.count }
+    private var selectedChainIdSet: Set<String> { Set(draft.selectedChainIds) }
+    private var selectedChainCount: Int { draft.selectedChainIds.count }
     private var chainSelectionSummary: String {
         switch selectedChainCount {
         case 0: return AppLocalization.string("import_flow.no_chains_selected")
@@ -255,17 +255,17 @@ struct SetupView: View {
                     Color.primary)
             if let walletPasswordValidationError = draft.walletPasswordValidationError {
                 Text(walletPasswordValidationError).font(.caption).foregroundStyle(.red.opacity(0.9))
-            } else if draft.normalizedWalletPassword != nil {
+            } else if draft.walletPasswordInput?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
                 Text(AppLocalization.string("import_flow.wallet_password_success")).font(.caption).foregroundStyle(.green.opacity(0.9))
             }
         }
     }
     @ViewBuilder
     private func chainSelectionCard(_ descriptor: SetupChainSelectionDescriptor) -> some View {
-        let isSelected = selectedChainNameSet.contains(descriptor.chainName)
+        let isSelected = selectedChainIdSet.contains(descriptor.id)
         Button {
             spectraHaptic(.light)
-            draft.toggleChainSelection(descriptor.chainName)
+            draft.toggleChainSelection(descriptor.id)
         } label: {
             // Two-column layout per cell: large badge + selection ring on the
             // left, title + symbol stacked vertically on the right. Gives
@@ -384,9 +384,7 @@ struct SetupView: View {
     @ViewBuilder
     private var chainSelectionCard: some View {
         let popularIDSet = Set(Self.popularChainSelectionIds)
-        let extraSelectionCount = draft.selectedChainNames.filter { name in
-            !Self.chainSelectionDescriptors.contains(where: { $0.chainName == name && popularIDSet.contains($0.id) })
-        }.count
+        let extraSelectionCount = draft.selectedChainIds.filter { !popularIDSet.contains($0) }.count
         VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 16) {
                 HStack(alignment: .center, spacing: 12) {
@@ -439,8 +437,8 @@ struct SetupView: View {
         .navigationDestination(isPresented: $isShowingAllChainsPage) {
             AllChainsSelectionView(
                 chainSearchText: $chainSearchText, descriptors: Self.chainSelectionDescriptors,
-                selectedChainNames: selectedChainNameSet, toggleSelection: draft.toggleChainSelection,
-                clearAllSelections: { for name in draft.selectedChainNames { draft.toggleChainSelection(name) } }
+                selectedChainIds: selectedChainIdSet, toggleSelection: draft.toggleChainSelection,
+                clearAllSelections: { for id in draft.selectedChainIds { draft.toggleChainSelection(id) } }
             )
         }
     }
@@ -449,7 +447,7 @@ struct SetupView: View {
         if isEditingWallet {
             Text(copy.watchOnlyFixedMessage).font(.caption).foregroundStyle(.secondary)
         } else if draft.isWatchOnlyMode,
-            draft.selectedChainNames.contains(where: { Chain(displayName: $0)?.supportsWatchOnlyImport == false })
+            draft.selectedChainIds.contains(where: { Chain(id: $0)?.supportsWatchOnlyImport == false })
         {
             // Show only for watch-only imports.
             // `only_monero_is_excluded_from_watch_only_import` checks that the
@@ -485,7 +483,7 @@ struct SetupView: View {
 
     /// Whether anything the user selected lands in this chain's slot.
     private func isSlotSelected(_ chain: Chain) -> Bool {
-        draft.selectedChainNames.contains { Chain(displayName: $0)?.addressSlot == chain.addressSlot }
+        draft.selectedChainIds.contains { Chain(id: $0)?.addressSlot == chain.addressSlot }
     }
 
     /// The chains sharing one slot, for the label on a field that serves more
@@ -526,7 +524,7 @@ struct SetupView: View {
         let validation = watchedAddressValidationMessage(
             entries: draft.watchOnlyEntries(from: text.wrappedValue),
             assetDisplayName: title,
-            validator: { AddressValidation.isValid($0, kind: kind) }
+            validator: { validateAddress(request: AddressValidationRequest(kind: kind, value: $0)).isValid }
         )
         watchedAddressSection(
             title: title, text: text,
@@ -545,22 +543,21 @@ struct SetupView: View {
     private func watchedAddressCaption(for chain: Chain, sharing: [Chain]) -> String? {
         if chain == .bitcoin { return copy.bitcoinWatchCaption }
         guard sharing.count > 1 else { return nil }
-        let selected = sharing.filter { draft.isSelected($0.displayName) }.map(\.displayName)
+        let selected = sharing.filter { draft.isSelected($0.id) }.map(\.displayName)
         guard !selected.isEmpty else { return nil }
         return AppLocalization.format("One address covers: %@.", selected.joined(separator: ", "))
     }
 
     private func watchOnlyInputBinding(for chain: Chain) -> Binding<String> {
-        let name = chain.displayName
-        return Binding(
-            get: { self.draft.watchOnlyInputsByChainName[name] ?? "" },
-            set: { self.draft.watchOnlyInputsByChainName[name] = $0 }
+        Binding(
+            get: { self.draft.watchOnlyInputsByChainId[chain.id] ?? "" },
+            set: { self.draft.watchOnlyInputsByChainId[chain.id] = $0 }
         )
     }
 
     @ViewBuilder
     private var watchAddressesEmptyNote: some View {
-        if draft.selectedChainNames.isEmpty {
+        if draft.selectedChainIds.isEmpty {
             Text(AppLocalization.string("Select a supported chain above to enter its address to watch.")).font(.caption)
                 .foregroundStyle(.orange.opacity(0.9))
         }

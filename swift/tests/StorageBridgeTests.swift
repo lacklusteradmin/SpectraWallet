@@ -33,8 +33,8 @@ final class StorageBridgeTests: XCTestCase {
         let service = try WalletService(endpoints: [])
         _ = try await service.openState(databasePath: path)
         var record = TransactionRecord(id: "tx", kind: .send, status: .failed,
-            walletName: "Watch", assetDisplayName: "Bitcoin", symbol: "BTC", chainName: "Bitcoin",
-            amount: 1, address: "recipient", transactionHash: String(repeating: "a", count: 64))
+            walletName: "Watch", assetDisplayName: "Bitcoin", symbol: "BTC", chainId: "bitcoin",
+            amount: "1", address: "recipient", transactionHash: String(repeating: "a", count: 64))
         record.createdAtUnix = 1_700_000_000.125
         // Caller-supplied availability must not survive storage; core derives it on read.
         record.actions = TransactionActions(recheckUnavailableReason: "wrong", rebroadcastUnavailableReason: nil)
@@ -56,8 +56,6 @@ final class StorageBridgeTests: XCTestCase {
         _ = try await service.openState(databasePath: directory.appendingPathComponent("state.db").path)
         let history = try await service.refreshHistory(scope: .all, loadMore: false, limit: 20, intervalSecs: 0)
         XCTAssertTrue(history.isEmpty)
-        let alerts = try await service.evaluatePriceAlerts()
-        XCTAssertTrue(alerts.isEmpty)
         let discovered = try await service.discoverChainAddresses(chainId: "bitcoin")
         XCTAssertTrue(discovered.isEmpty)
         do {
@@ -73,10 +71,10 @@ final class StorageBridgeTests: XCTestCase {
         let service = try WalletService(endpoints: [])
         // Inject an out-of-range in-memory record to exercise the throwing read.
         try await service.registerOwnedAddress(
-            walletId: "fault", chainName: "Bitcoin", address: "fixture",
+            walletId: "fault", chainId: "bitcoin", address: "fixture",
             derivationPath: nil, branch: "external", branchIndex: Int64.max)
         do {
-            _ = try await service.reserveReceiveIndex(walletId: "fault", chainName: "Bitcoin", minimumIndex: 1)
+            _ = try await service.reserveReceiveIndex(walletId: "fault", chainId: "bitcoin", minimumIndex: 1)
             XCTFail("Cannot reserve from an invalid baseline")
         } catch SpectraBridgeError.Failure(let message) {
             XCTAssertTrue(message.contains("index out of range"))
@@ -93,19 +91,25 @@ final class StorageBridgeTests: XCTestCase {
         try bridge.registerSecretStore(secretStore)
         let outcome = try await bridge.importWallets(WalletImportCommit(
             password: nil,
-            request: WalletImportRequest(walletName: "Imported", selectedChainNames: ["Ethereum"],
+            request: WalletImportRequest(walletName: "Imported", selectedChainIds: ["ethereum"],
                 isWatchOnlyImport: false, isPrivateKeyImport: false,
                 watchOnlyEntries: WalletImportWatchOnlyEntries(byChainId: [:], bitcoinXpub: nil)),
             seedDerivationPreset: .standard, seedDerivationPaths: .defaults,
             derivationOverrides: CoreWalletDerivationOverrides(passphrase: nil, hmacKey: nil),
             seedPhrase: "test test test test test test test test test test test junk", privateKey: nil))
         XCTAssertEqual(outcome.wallets.count, 1)
-        XCTAssertTrue(bridge.walletSecretState(walletId: outcome.wallets[0].id)?.hasSigningMaterial == true)
+        XCTAssertEqual(outcome.wallets[0].signing, .seedPhrase(passwordProtected: false))
+        XCTAssertEqual(
+            try bridge.revealSeedPhrase(walletId: outcome.wallets[0].id, password: nil),
+            .phrase(phrase: "test test test test test test test test test test test junk"))
         let reopened = WalletServiceBridge(databasePath: path, service: try WalletService(endpoints: []))
         let stored = try await reopened.portfolioSnapshot().wallets
         XCTAssertEqual(stored.count, 1)
         _ = try await bridge.applyStateCommand(.removeWallet(walletId: outcome.wallets[0].id))
-        XCTAssertFalse(bridge.walletSecretState(walletId: outcome.wallets[0].id)?.hasSigningMaterial == true)
+        // Removing the wallet removes its secrets with it.
+        XCTAssertNotEqual(
+            try? bridge.revealSeedPhrase(walletId: outcome.wallets[0].id, password: nil),
+            .phrase(phrase: "test test test test test test test test test test test junk"))
     }
 
     func testUnopenedHistoryReadsThrowAcrossBinding() async throws {
@@ -154,12 +158,12 @@ final class StorageBridgeTests: XCTestCase {
         let path = directory.appendingPathComponent("cursor.sqlite").path
         let service = try WalletService(endpoints: [])
         _ = try await service.openState(databasePath: path)
-        let wallet = WalletView(name: "Cursor", addresses: ["Ethereum": "0x1111111111111111111111111111111111111111"], familyName: "Ethereum")
-        _ = try await service.applyStateCommand(command: .upsertWallet(wallet: wallet.walletState(isWatchOnly: true)))
+        let wallet = WalletView(name: "Cursor", chainId: "ethereum", addresses: ["ethereum": "0x1111111111111111111111111111111111111111"])
+        _ = try await service.applyStateCommand(command: .upsertWallet(wallet: wallet.walletState()))
         let records = ["a", "b", "c"].map { id in
             var record = TransactionRecord(id: id, walletId: wallet.id, deploymentId: "ethereum:native",
                 kind: .receive, status: .confirmed, walletName: "Cursor", assetDisplayName: "Ether",
-                symbol: "ETH", chainName: "Ethereum", amount: 1, address: "recipient", transactionHash: id)
+                symbol: "ETH", chainId: "ethereum", amount: "1", address: "recipient", transactionHash: id)
             record.createdAtUnix = 1_700_000_000.125
             return record
         }
@@ -185,11 +189,11 @@ final class StorageBridgeTests: XCTestCase {
         defer { try? FileManager.default.removeItem(at: directory) }
         _ = try await service.openState(databasePath: directory.appendingPathComponent("state.sqlite").path)
         let added = try await service.applyStateCommand(command: .addPriceAlert(
-            holdingKey: "ethereum:native", targetPrice: 0.000001, currency: .usd, condition: .above))
+            holdingKey: "ethereum:native", targetPrice: "0.000001", currency: .usd, condition: .above))
         let alert = try XCTUnwrap(added.state.priceAlerts.first)
         XCTAssertEqual(alert.targetPrice, 0.000001)
         let duplicate = try await service.applyStateCommand(command: .addPriceAlert(
-            holdingKey: "ethereum:native", targetPrice: 0.000001, currency: .usd, condition: .above))
+            holdingKey: "ethereum:native", targetPrice: "0.000001", currency: .usd, condition: .above))
         XCTAssertEqual(duplicate.state.priceAlerts.count, 1)
         XCTAssertTrue(duplicate.events.contains(.priceAlertRejected(reason: .duplicateAlert)))
         let paused = try await service.applyStateCommand(command: .togglePriceAlert(id: alert.id))

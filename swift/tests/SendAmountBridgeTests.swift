@@ -9,21 +9,29 @@ final class SendAmountBridgeTests: IsolatedAppStateTestCase {
         let preview = SendPreview.solana(preview: SolanaSendPreview(
             estimatedNetworkFee: 0.000005, spendableBalance: 1, feeRateDescription: nil,
             estimatedTransactionBytes: nil, selectedInputCount: nil, usesChangeOutput: nil, maxSendable: 0.999995))
-        let quote = OwnedSendPreview(walletId: "w", holdingKey: "solana:native", chainId: "solana",
-            preview: preview, details: nil, shortcuts: [100: "0.999994999"])
-        store.apply(quote, forChainNamed: "Solana")
-        XCTAssertEqual(store.ownedQuote(walletId: "w", holdingKey: "solana:native")?.shortcuts[100], "0.999994999")
-        XCTAssertNil(store.ownedQuote(walletId: "other", holdingKey: "solana:native"))
-        XCTAssertNil(store.ownedQuote(walletId: "w", holdingKey: "solana:spl:other"))
-        store.apply(quote, forChainNamed: "Ethereum")
-        XCTAssertNil(store.taggedPreview(forChainNamed: "Ethereum"))
-        XCTAssertNotEqual(SendPreviewStore.slot(forChainNamed: "Ethereum"), SendPreviewStore.slot(forChainNamed: "Ethereum Sepolia"))
+        let quote = OwnedSendPreview(walletId: "w", holdingKey: "solana:native", chainId: "solana", amount: "1",
+            preview: preview, networkFee: "0.000005", networkFeeValue: nil, amountValue: nil,
+            details: nil, shortcuts: [100: "0.999994999"])
+        store.apply(quote)
+        let sol = Coin.fixture(name: "Solana", symbol: "SOL", chainId: "solana", amount: "1")
+        XCTAssertEqual(store.quote(walletId: "w", coin: sol)?.shortcuts[100], "0.999994999")
+        XCTAssertNil(store.quote(walletId: "other", coin: sol))
+        let token = Coin.fixture(name: "Other", symbol: "OTH", chainId: "solana", tokenStandard: "SPL",
+            contractAddress: "other", amount: "1")
+        XCTAssertNil(store.quote(walletId: "w", coin: token))
+        // The same asset on another network is another holding.
+        let devnet = Coin.fixture(name: "Solana", symbol: "SOL", chainId: "solana-devnet", amount: "1")
+        XCTAssertNil(store.quote(walletId: "w", coin: devnet))
+        store.reset()
+        XCTAssertNil(store.quote(walletId: "w", coin: sol))
     }
 
-    func testFeeAdjustedShortcutIsFlooredAcrossBinding() {
-        XCTAssertEqual(sendAmountShortcut(maximum: 0.99999, decimals: 8, percentage: 100), "0.99998999")
-        XCTAssertNil(sendAmountShortcut(maximum: .infinity, decimals: 8, percentage: 100))
-        XCTAssertNil(parseAmountInput(text: "340282366920938463463374607431768211456", maxDecimals: 0))
+    func testShortcutIsFlooredExactlyAcrossBinding() {
+        XCTAssertEqual(sendAmountShortcut(maximum: "0.99999", decimals: 8, percentage: 100), "0.99999")
+        XCTAssertEqual(sendAmountShortcut(maximum: "0.123456789", decimals: 8, percentage: 10), "0.01234567")
+        XCTAssertNil(sendAmountShortcut(maximum: "NaN", decimals: 8, percentage: 100))
+        XCTAssertFalse(isValidAmountInput(text: "340282366920938463463374607431768211456", maxDecimals: 0))
+        XCTAssertTrue(isValidAmountInput(text: "1.5", maxDecimals: 8))
     }
 
     func testInvalidExactAmountIsRefusedBeforeSigningMaterialAcrossAsyncBinding() async throws {
@@ -98,14 +106,14 @@ final class SendAmountBridgeTests: IsolatedAppStateTestCase {
             edit(store)
             store.sendFlow.error = "current form message"
             store.adoptSendPreviewResult(.failure(NSError(domain: "old", code: 1)),
-                requestId: request, input: input, chainName: "Ethereum")
+                requestId: request, input: input)
             XCTAssertEqual(store.sendFlow.error, "current form message")
-            store.adoptSendPreviewResult(.success(nil), requestId: request, input: input, chainName: "Ethereum")
+            store.adoptSendPreviewResult(.success(nil), requestId: request, input: input)
             XCTAssertEqual(store.sendFlow.error, "current form message")
         }
         store.adoptSendPreviewResult(.failure(NSError(domain: "current", code: 1,
             userInfo: [NSLocalizedDescriptionKey: "current failure"])),
-            requestId: store.sendFlow.previewRequestId, input: store.sendPreviewInputSnapshot, chainName: "Ethereum")
+            requestId: store.sendFlow.previewRequestId, input: store.sendPreviewInputSnapshot)
         XCTAssertEqual(store.sendFlow.error, "current failure")
         let oldRequest = store.sendFlow.previewRequestId
         store.cancelSend()

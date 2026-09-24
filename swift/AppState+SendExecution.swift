@@ -51,7 +51,8 @@ extension AppState {
 
     var stagedSendRequiresPassword: Bool {
         guard let artifact = sendFlow.artifact else { return false }
-        return self.bridge.walletSecretState(walletId: artifact.walletId)?.isSealed ?? true
+        // An unknown wallet asks for a password rather than signing without one.
+        return cachedWalletById[artifact.walletId]?.signing.requiresPassword ?? true
     }
 
     func signPreparedSend(password: String?) async {
@@ -77,7 +78,7 @@ extension AppState {
             noteSendBroadcastQueued(for: transaction)
             startSendLiveActivity(for: transaction)
             requestTransactionStatusNotificationPermission()
-            await runPostSendRefreshActions(for: transaction.chainName)
+            await runPostSendRefreshActions(for: transaction.chainId)
         }
     }
 

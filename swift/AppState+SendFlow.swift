@@ -34,7 +34,7 @@ extension AppState {
     }
     var sendAmountIsValid: Bool {
         guard let decimals = sendAmountDecimals else { return false }
-        return parseAmountInput(text: sendFlow.amount, maxDecimals: decimals) != nil
+        return isValidAmountInput(text: sendFlow.amount, maxDecimals: decimals)
     }
     // A provisional quote can load before the user types; it never changes the
     // amount field and is replaced by a quote for the entered amount.
@@ -43,22 +43,24 @@ extension AppState {
               let coin = selectedSendCoin, let decimals = sendAmountDecimals else { return sendFlow.amount }
         return sendAmountShortcut(maximum: coin.amount, decimals: decimals, percentage: 10) ?? "0"
     }
-    /// Whether a preview for this chain is being fetched. `sendFlow.preparingChains`
-    /// holds preview slots, so the question goes through the same key.
-    func isPreparingSendPreview(forChainNamed chainName: String) -> Bool {
-        SendPreviewStore.slot(forChainNamed: chainName).map(sendFlow.preparingChains.contains) ?? false
+    /// The quote core made for the selected holding, if it is current.
+    var sendQuote: OwnedSendPreview? {
+        guard let coin = selectedSendCoin else { return nil }
+        return sendFlow.previewStore.quote(walletId: sendFlow.walletId, coin: coin)
+    }
+    /// The quote for the amount on screen. A quote for another amount — the
+    /// provisional one, or one still in flight — says nothing about this one.
+    var sendQuoteForEnteredAmount: OwnedSendPreview? {
+        guard let quote = sendQuote,
+              quote.amount == sendFlow.amount.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
+        return quote
     }
     func sendShortcutAmount(percentage: UInt32) -> String? {
-        guard let coin = selectedSendCoin, sendFlow.preparingChains.isEmpty else { return nil }
-        return sendFlow.previewStore.ownedQuote(walletId: sendFlow.walletId, holdingKey: coin.holdingKey)?.shortcuts[percentage]
+        guard !sendFlow.isPreparingPreview else { return nil }
+        return sendQuote?.shortcuts[percentage]
     }
-
     func sendPreviewDetails(for coin: Coin) -> SendPreviewDetails? {
-        guard let c = sendFlow.previewStore.ownedQuote(walletId: sendFlow.walletId, holdingKey: coin.holdingKey)?.details else { return nil }
-        return SendPreviewDetails(
-            spendableBalance: c.spendableBalance, feeRateDescription: c.feeRateDescription,
-            estimatedTransactionBytes: c.estimatedTransactionBytes.map(Int.init), selectedInputCount: c.selectedInputCount.map(Int.init),
-            usesChangeOutput: c.usesChangeOutput, maxSendable: c.maxSendable)
+        sendFlow.previewStore.quote(walletId: sendFlow.walletId, coin: coin)?.details
     }
     private var parsedCustomEvmFees: Result<EvmCustomFeeConfiguration, Error>? {
         // The toggle is cleared outside the EVM family; only EVM preview and
@@ -116,7 +118,7 @@ extension AppState {
         guard let selectedSendCoin else { return nil }
         return replaceableSends.first {
             $0.walletId.caseInsensitiveCompare(sendFlow.walletId) == .orderedSame
-                && $0.chainName == selectedSendCoin.chainName
+                && $0.chainId == selectedSendCoin.chainId
         }
     }
     func replaceableSend(forTransaction transactionId: String) -> ReplaceableSend? {
@@ -177,44 +179,22 @@ extension AppState {
         if let urlError = error as? URLError, urlError.code == .cancelled { return true }
         return false
     }
-    func isEVMChain(_ chainName: String) -> Bool { (Chain(displayName: chainName)?.isEVM ?? false) }
-    /// The address is judged against the network the family is on.
-    func isValidAddress(_ address: String, for chainName: String) -> Bool {
-        isValidSendAddress(chainName: chainName, address: address)
+    func isValidAddress(_ address: String, on chain: Chain) -> Bool {
+        isValidSendAddress(chainId: chain.id, address: address)
     }
-    func normalizedAddress(_ address: String, for chainName: String) -> String {
-        normalizedSendAddress(chainName: chainName, address: address)
+    func normalizedAddress(_ address: String, on chain: Chain) -> String {
+        normalizedSendAddress(chainId: chain.id, address: address)
     }
     /// The address this send is going to, from whatever is in the field.
     ///
     /// Core owns resolution; the optional address binds the visible review.
-    func resolveSendDestination(input: String, for chainName: String, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
-        guard let chainId = Chain(displayName: chainName)?.id else {
-            throw EthereumWalletEngineError.invalidAddress
-        }
-        return try await self.bridge.resolveSendDestination(chainId: chainId, input: input, expectedAddress: expectedAddress)
+    func resolveSendDestination(input: String, on chain: Chain, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
+        try await self.bridge.resolveSendDestination(chainId: chain.id, input: input, expectedAddress: expectedAddress)
     }
     func clearHighRiskSendConfirmation() { sendFlow.isShowingHighRiskConfirmation = false }
     func confirmSigning(password: String?) async {
         sendFlow.isShowingHighRiskConfirmation = false
         await signPreparedSend(password: password)
-    }
-
-    /// `nil` when the lookup failed, which is a different answer from an
-    /// empty list. Collapsing the two let a transient failure read as "this
-    /// wallet owns no addresses" — and the self-send guard, which asks exactly
-    /// that question, then waved the send through.
-    func knownUTXOAddresses(for wallet: WalletView, chainName: String) async -> [String]? {
-        guard let chain = Chain(displayName: chainName) else { return [] }
-        do {
-            return try await self.bridge.knownUTXOAddresses(walletId: wallet.id, chainId: chain.id)
-        } catch {
-            appendOperationalLog(
-                .error, category: "Owned Addresses",
-                message: "Known \(chainName) addresses could not be read: \(String(describing: error))",
-                chainName: chainName, walletId: wallet.id)
-            return nil
-        }
     }
 
     func refreshSendDestinationRiskWarning(for coin: Coin) async {

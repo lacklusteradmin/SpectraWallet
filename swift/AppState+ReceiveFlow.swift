@@ -26,7 +26,7 @@ extension AppState {
         receiveFlow.isResolving = false
         guard let wallet = wallet(for: receiveFlow.walletId),
             let coin = selectedReceiveCoin(for: receiveFlow.walletId),
-            let chain = Chain(displayName: coin.chainName) else { return }
+            let chain = coin.chain else { return }
         receiveFlow.isResolving = true
         defer {
             if receiveFlow.requestId == requestId { receiveFlow.isResolving = false }

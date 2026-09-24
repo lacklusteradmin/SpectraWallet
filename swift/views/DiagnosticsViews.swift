@@ -21,7 +21,7 @@ struct DiagnosticsHubView: View {
         Chain.mainnets.map { chain in
             DiagnosticsDestination(
                 id: chain.id,
-                title: AppLocalization.format("%@ Diagnostics", store.selectedNetworkTitle(forFamilyName: chain.displayName)),
+                title: AppLocalization.format("%@ Diagnostics", store.selectedNetworkTitle(forFamily: chain)),
                 keywords: chain.searchKeywords, chain: chain)
         }
     }
@@ -109,27 +109,26 @@ struct DiagnosticsHubView: View {
 /// How one chain's diagnostics screen reads store state.
 struct StandardChainDiagnosticsDispatch {
     let chain: Chain
-    private var name: String { chain.displayName }
 
     @MainActor func isRunningHistory(_ store: AppState) -> Bool {
-        store[historyRunFor: name].isRunning
+        store[historyRunFor: chain].isRunning
     }
     @MainActor func isCheckingEndpoints(_ store: AppState) -> Bool {
-        store[endpointHealthFor: name].isChecking
+        store[endpointHealthFor: chain].isChecking
     }
     @MainActor func diagnosticsJSON(_ store: AppState) -> String? {
-        store.diagnosticsJSON(for: name)
+        store.diagnosticsJSON(for: chain)
     }
     @MainActor func historyLastUpdatedAt(_ store: AppState) -> Date? {
-        store[historyRunFor: name].lastUpdatedAt
+        store[historyRunFor: chain].lastUpdatedAt
     }
     @MainActor func endpointLastUpdatedAt(_ store: AppState) -> Date? {
-        store[endpointHealthFor: name].lastUpdatedAt
+        store[endpointHealthFor: chain].lastUpdatedAt
     }
     @MainActor func endpointResults(_ store: AppState)
         -> [(endpoint: String, reachable: Bool?, detail: String)]
     {
-        store[endpointHealthFor: name].results.map { ($0.endpoint, $0.reachable, $0.detail) }
+        store[endpointHealthFor: chain].results.map { ($0.endpoint, $0.reachable, $0.detail) }
     }
     /// How many wallets reported, and which source each used.
     ///
@@ -141,7 +140,7 @@ struct StandardChainDiagnosticsDispatch {
     /// still refreshes when one finishes.
     @MainActor func historySummary(_ store: AppState) -> DiagnosticsRunSummary {
         _ = store.chainDiagnosticsState.diagnosticsRevision
-        return diagnosticsRunSummary(chainName: name)
+        return diagnosticsRunSummary(chainId: chain.id)
     }
     func runHistoryDiagnostics(_ store: AppState) async {
         await store.runHistoryDiagnostics(for: chain)
@@ -182,7 +181,7 @@ struct StandardChainDiagnosticsView: View {
     /// synchronously — same `.task` as the keypool rows.
     @State private var cachedOperationalEvents: [DiagnosticLog] = []
     private var chainDiagnosticsState: WalletChainDiagnosticsState { store.chainDiagnosticsState }
-    private var displayChainTitle: String { store.selectedNetworkTitle(forFamilyName: chain.displayName) }
+    private var displayChainTitle: String { store.selectedNetworkTitle(forFamily: chain) }
     private var diagnosticsLabel: String { displayChainTitle }
     /// Esplora bases are a Bitcoin-family catalog column; a chain with any has
     /// the custom-Esplora setting.
@@ -195,7 +194,7 @@ struct StandardChainDiagnosticsView: View {
                     isRefreshing = true
                     refreshNotice = nil
                     Task {
-                        let succeeded = await store.performUserInitiatedRefresh(forChain: chain.displayName)
+                        let succeeded = await store.performUserInitiatedRefresh(forChain: chain.id)
                         isRefreshing = false
                         refreshNotice = refreshOutcomeMessage(succeeded: succeeded)
                     }
@@ -308,13 +307,13 @@ struct StandardChainDiagnosticsView: View {
             } catch { keypoolError = error.localizedDescription }
 
             do {
-                cachedKeypoolDiagnostics = try await store.chainKeypoolDiagnostics(for: chain.displayName)
+                cachedKeypoolDiagnostics = try await store.chainKeypoolDiagnostics(for: store.selectedChainId(forFamily: chain.id))
                 keypoolError = nil
             } catch {
                 cachedKeypoolDiagnostics = []
                 keypoolError = error.localizedDescription
             }
-            cachedOperationalEvents = await store.operationalEvents(for: chain.displayName)
+            cachedOperationalEvents = await store.operationalEvents(for: chain)
         }.spectraTransientNotice($copiedDiagnosticsNotice).onChange(of: historyLastUpdatedAt) { _, _ in
             rebuildHistorySourceRows()
         }.onChange(of: historyWalletCount) { _, _ in
@@ -383,8 +382,8 @@ struct StandardChainDiagnosticsView: View {
             Picker(
                 AppLocalization.string("Send Fee Priority"),
                 selection: Binding(
-                    get: { store.feePriority(forChain: chain.displayName) },
-                    set: { store.setFeePriority($0, forChain: chain.displayName) })
+                    get: { store.feePriority(forChainId: chain.id) },
+                    set: { store.setFeePriority($0, forChainId: chain.id) })
             ) {
                 ForEach(FeePriority.allCases, id: \.self) { priority in
                     Text(priority.displayName).tag(priority)
@@ -446,10 +445,10 @@ struct StandardChainDiagnosticsView: View {
             }
         }
     }
-    private var isRunningChainSelfTests: Bool { store.selfTests(for: chain.displayName).isRunning }
-    private var isRunningChainRescan: Bool { store[rescanFor: chain.displayName].isRunning }
-    private func runChainSelfTests() async { await store.runSelfTests(for: chain.displayName) }
-    private func runChainRescan() async { await store.runUTXORescan(chainName: chain.displayName) }
+    private var isRunningChainSelfTests: Bool { store[selfTestsFor: chain].isRunning }
+    private var isRunningChainRescan: Bool { store[rescanFor: chain].isRunning }
+    private func runChainSelfTests() async { await store.runSelfTests(for: chain) }
+    private func runChainRescan() async { await store.runUTXORescan(chain: chain) }
 }
 private func formatCopy(_ format: String, _ arguments: CVarArg...) -> String {
     String(format: format, locale: AppLocalization.locale, arguments: arguments)

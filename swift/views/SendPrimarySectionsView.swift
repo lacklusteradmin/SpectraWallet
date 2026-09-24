@@ -18,12 +18,7 @@ fileprivate struct SendComposerPresentation {
         availableSendCoins = store.availableSendCoins(for: store.sendFlow.walletId)
         selectedCoin = availableSendCoins.first(where: { $0.holdingKey == store.sendFlow.holdingKey })
         selectedCoinAmountText = selectedCoin.map { store.amounts.formattedAssetAmount($0.amount, symbol: $0.symbol, deploymentId: $0.holdingKey) }
-        let sendAmount = Double(store.sendFlow.amount) ?? 0
-        if let selectedCoin, !sendAmount.isZero {
-            selectedCoinApproximateFiatText = store.amounts.formattedFiatAmount(sendAmount, of: selectedCoin)
-        } else {
-            selectedCoinApproximateFiatText = nil
-        }
+        selectedCoinApproximateFiatText = store.amounts.formattedFiatIfAvailable(store.sendQuoteForEnteredAmount?.amountValue)
         addressBookEntries = store.sendAddressBookEntries
     }
 }
@@ -63,7 +58,7 @@ struct SendFromPage: View {
             }
 
             if let selectedWallet = presentation.selectedWallet {
-                let badge = Coin.nativeChainBadge(chainName: selectedWallet.familyName) ?? (nil, Color.mint)
+                let badge = Coin.nativeChainBadge(for: selectedWallet.family) ?? (nil, Color.mint)
                 HStack(spacing: 12) {
                     CoinBadge(
                         artworkName: badge.artworkName,
@@ -238,7 +233,7 @@ struct SendRecipientPage: View {
         }
 
         if let coin = presentation.selectedCoin,
-           isExtensionBlockSendDestination(chainName: coin.chainName, destination: store.sendFlow.address) {
+           isExtensionBlockSendDestination(chainId: coin.chainId, destination: store.sendFlow.address) {
             HStack(spacing: 6) {
                 Image(systemName: "lock.shield.fill").font(.caption2.weight(.semibold))
                 Text(AppLocalization.string("MWEB · Privacy Send")).font(.caption.weight(.semibold))
@@ -340,7 +335,7 @@ struct SendAmountPage: View {
                     Text(AppLocalization.string("Enter a positive decimal amount within this asset's precision."))
                         .font(.subheadline).foregroundStyle(.red)
                 }
-                if let selectedCoin = presentation.selectedCoin, selectedCoin.amount > 0 {
+                if let selectedCoin = presentation.selectedCoin, selectedCoin.hasBalance {
                     HStack(spacing: 6) {
                         ForEach([UInt32(10), 50, 100], id: \.self) { percentage in
                             percentButton(percentage: percentage)

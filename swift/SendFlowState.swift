@@ -19,7 +19,7 @@ final class SendFlowState {
     var verificationNotice: String? = nil
     var verificationNoticeIsWarning: Bool = false
     var isPreparingReplacement: Bool = false
-    var preparingChains: Set<String> = []
+    var isPreparingPreview: Bool = false
     @ObservationIgnored var destinationProbeRequestId = UUID() // Reject stale recipient probes.
     let session = SendSession()
     var artifact: SendArtifact? { session.artifact }
@@ -50,7 +50,7 @@ final class SendFlowState {
         session.reset()
         previewRequestId = UUID()
         destinationProbeRequestId = UUID()
-        preparingChains = []
+        isPreparingPreview = false
         isCheckingDestination = false
         isPreparingReplacement = false
         isShowingHighRiskConfirmation = false
@@ -59,8 +59,8 @@ final class SendFlowState {
 
     func clearPreview() {
         previewRequestId = UUID()
-        previewStore.resetAll()
-        preparingChains = []
+        previewStore.reset()
+        isPreparingPreview = false
         isShowingHighRiskConfirmation = false
     }
 

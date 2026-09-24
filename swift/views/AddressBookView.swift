@@ -107,7 +107,7 @@ private struct AddressBookContactCard: View {
     @State private var didCopy = false
 
     var body: some View {
-        let badge = Coin.nativeChainBadge(chainName: entry.chainName) ?? (nil, Color.mint)
+        let badge = Coin.nativeChainBadge(for: Chain(id: entry.chainId)) ?? (nil, Color.mint)
 
         HStack(spacing: 12) {
             Button(action: onOpen) {

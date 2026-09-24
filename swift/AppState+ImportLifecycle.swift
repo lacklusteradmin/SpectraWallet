@@ -61,9 +61,9 @@ extension AppState {
         var paths = draft.seedDerivationPaths
         paths.isCustomEnabled = true
         let commit = WalletImportCommit(
-            password: draft.normalizedWalletPassword,
+            password: draft.walletPasswordInput,
             request: WalletImportRequest(
-                walletName: name, selectedChainNames: draft.selectedChainNames,
+                walletName: name, selectedChainIds: draft.selectedChainIds,
                 isWatchOnlyImport: draft.isWatchOnlyMode, isPrivateKeyImport: draft.isPrivateKeyImportMode,
                 watchOnlyEntries: draft.watchOnlyImportEntries),
             seedDerivationPreset: draft.seedDerivationPreset, seedDerivationPaths: paths,

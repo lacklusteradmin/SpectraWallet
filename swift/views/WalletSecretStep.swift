@@ -442,7 +442,7 @@ struct WalletSecretStep: View {
     }
     @ViewBuilder
     private var derivationAdvancedButton: some View {
-        if !isEditingWallet && !draft.selectedChainNames.isEmpty {
+        if !isEditingWallet && !draft.selectedChainIds.isEmpty {
             Button {
                 onOpenAdvanced()
             } label: {

@@ -34,11 +34,8 @@ import Foundation
     }
     // Wallet secrets. Synchronous Keychain reads using core-owned key names.
 
-    func walletSecretState(walletId: String) -> WalletSecretState? {
-        try? service().walletSecretState(walletId: walletId)
-    }
-    func walletSeedPhrase(walletId: String, password: String?) throws -> String {
-        try service().walletSeedPhrase(walletId: walletId, password: password)
+    func revealSeedPhrase(walletId: String, password: String?) throws -> SeedPhraseReveal {
+        try service().revealSeedPhrase(walletId: walletId, password: password)
     }
     func resetData(scopes: [ResetScope]) async throws -> ResetOutcome {
         try await readyService().resetData(scopes: scopes)
@@ -48,9 +45,6 @@ import Foundation
         try await readyService().reconnectTor()
     }
 
-    func evaluatePortfolioMovement(appIsActive: Bool) async throws -> LargeMovementEvaluation? {
-        try await readyService().evaluatePortfolioMovement(appIsActive: appIsActive)
-    }
     func runConfiguredSelfTests(chainId: String) async throws -> ConfiguredSelfTestReport {
         try await readyService().runConfiguredSelfTests(chainId: chainId)
     }
@@ -59,10 +53,6 @@ import Foundation
     }
     func receiveAddress(walletId: String, chainId: String, reserve: Bool) async throws -> String? {
         try await readyService().receiveAddress(walletId: walletId, chainId: chainId, reserve: reserve)
-    }
-
-    func knownUTXOAddresses(walletId: String, chainId: String) async throws -> [String] {
-        try await readyService().knownUtxoAddresses(walletId: walletId, chainId: chainId)
     }
 
     func refreshApp(intent: AppRefreshIntent, conditions: DeviceConditions) async throws -> AppRefreshResult {
@@ -114,9 +104,6 @@ import Foundation
         MainActor.assumeIsolated { try? generateMnemonic(wordCount: UInt32(wordCount)) }
     }
 
-    func refreshOwnedPrices(force: Bool) async throws -> CoreAppState {
-        try await readyService().refreshOwnedPrices(force: force)
-    }
     func refreshOwnedFiatRates(force: Bool) async throws -> CoreAppState {
         try await readyService().refreshOwnedFiatRates(force: force)
     }
@@ -148,12 +135,6 @@ extension WalletServiceBridge {
 
     /// Current snapshot of the owned state.
     func appState() async throws -> CoreAppState { try await readyService().appState() }
-    /// Core evaluates its own alerts and returns only what to notify about.
-    func evaluatePriceAlerts() async throws
-        -> [PriceAlertNotification]
-    {
-        try await readyService().evaluatePriceAlerts()
-    }
     func portfolioSnapshot() async throws -> PortfolioSnapshot { try await readyService().portfolioSnapshot() }
     func transactionSnapshot() async throws -> TransactionSnapshot { try await readyService().transactionSnapshot() }
     func historyPage(_ query: HistoryQuery) async throws -> HistoryPage { try await readyService().historyPage(query: query) }
@@ -171,13 +152,9 @@ extension WalletServiceBridge {
         return await service.maintenancePlan(conditions: conditions)
     }
 
-    func operationalEvents(chainName: String) async -> [DiagnosticLog] {
+    func operationalEvents(chainId: String) async -> [DiagnosticLog] {
         guard let service = try? await readyService() else { return [] }
-        return await service.operationalEvents(chainName: chainName)
-    }
-    /// Fold this build's built-in token catalog into the stored preferences.
-    func mergeBuiltInTokenPreferences() async throws -> CoreAppState {
-        try await readyService().mergeBuiltInTokenPreferences()
+        return await service.operationalEvents(chainId: chainId)
     }
 
     /// Push a rebuilt endpoint list into the service.
@@ -191,9 +168,9 @@ extension WalletServiceBridge {
         try await readyService().sendVerificationNotice(transactionId: transactionId)
     }
 
-    /// Every address a wallet is known to hold, on any chain.
-    func knownWalletAddresses(walletId: String) async throws -> [String] {
-        try await readyService().knownWalletAddresses(walletId: walletId)
+    /// The ends of a stored transfer and which of them are the wallet's own.
+    func transactionEndpoints(id: String) async throws -> TransactionEndpoints? {
+        try await readyService().transactionEndpoints(transactionId: id)
     }
 
     // ── Confirmation-poll backoff ─────────────────────────────────────────
@@ -225,8 +202,8 @@ extension WalletServiceBridge {
     // lock, over a baseline it computes from its own tables.
 
     /// Every wallet's keypool on a chain, with the reserved address as recorded.
-    func keypoolDiagnostics(chainName: String) async throws -> [KeypoolDiagnostic] {
-        try await readyService().keypoolDiagnostics(chainName: chainName)
+    func keypoolDiagnostics(chainId: String) async throws -> [KeypoolDiagnostic] {
+        try await readyService().keypoolDiagnostics(chainId: chainId)
     }
 
     /// Import wallets into core. Returns what was created, plus the Keychain

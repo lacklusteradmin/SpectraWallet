@@ -112,16 +112,16 @@ final class SendSessionTests: XCTestCase {
         let bridge = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.sqlite").path, service: service)
         _ = try await bridge.openState()
         let store = AppState(bridge: bridge, startServices: false)
-        let wallet = WalletView(name: "Sender", addresses: ["Ethereum": "0x1111111111111111111111111111111111111111"], familyName: "Ethereum")
-        _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState(isWatchOnly: true)))
+        let wallet = WalletView(name: "Sender", chainId: "ethereum", addresses: ["ethereum": "0x1111111111111111111111111111111111111111"])
+        _ = try await bridge.applyStateCommand(.upsertWallet(wallet: wallet.walletState()))
         store.sendFlow.session.artifact = artifact("old", stage: .signed)
         let gate = SendSessionGate<Bool>()
         let work = Task {
             guard let result = await store.sendFlow.session.broadcast(submit: { _, _ in
                 _ = await gate.wait()
                 let record = TransactionRecord(id: "old", walletId: wallet.id, kind: .send, status: .pending,
-                    walletName: wallet.name, assetDisplayName: "Ether", symbol: "ETH", chainName: "Ethereum",
-                    amount: 1, address: "0x2222222222222222222222222222222222222222")
+                    walletName: wallet.name, assetDisplayName: "Ether", symbol: "ETH", chainId: "ethereum",
+                    amount: "1", address: "0x2222222222222222222222222222222222222222")
                 _ = try await service.applyTransactionCommand(command: .upsert(records: [record]))
                 return self.artifact("old", stage: .signed)
             }) else { return }

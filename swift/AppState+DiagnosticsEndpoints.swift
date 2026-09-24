@@ -5,15 +5,11 @@ import SwiftUI
 @MainActor
 extension AppState {
     func runHistoryDiagnostics(for chain: Chain) async {
-        let name = chain.displayName
-        guard !self[historyRunFor: name].isRunning else { return }
-        self[historyRunFor: name].isRunning = true
-        defer { self[historyRunFor: name].isRunning = false }
-        try? await withTimeout(seconds: 20) { await self.refreshHistory(chainName: name) }
-        self[historyRunFor: name].lastUpdatedAt = Date()
-    }
-    func runEndpointDiagnostics(for chain: Chain) async {
-        await runCatalogEndpointReachabilityDiagnostics(for: chain.displayName)
+        guard !self[historyRunFor: chain].isRunning else { return }
+        self[historyRunFor: chain].isRunning = true
+        defer { self[historyRunFor: chain].isRunning = false }
+        try? await withTimeout(seconds: 20) { await self.refreshHistory(chain: chain) }
+        self[historyRunFor: chain].lastUpdatedAt = Date()
     }
 
     // MARK: Custom reachability probes that need inline JSON-RPC parsing
@@ -21,24 +17,23 @@ extension AppState {
     /// Run one chain's endpoint probe, holding its "checking" flag and owning
     /// the write-back.
     private func withEndpointCheck(
-        for chainName: String, operation: (_ publish: @MainActor ([EndpointHealthRow]) -> Void) async -> Void
+        for chain: Chain, operation: (_ publish: @MainActor ([EndpointHealthRow]) -> Void) async -> Void
     ) async {
-        guard !self[endpointHealthFor: chainName].isChecking else { return }
-        self[endpointHealthFor: chainName].isChecking = true
-        defer { self[endpointHealthFor: chainName].isChecking = false }
+        guard !self[endpointHealthFor: chain].isChecking else { return }
+        self[endpointHealthFor: chain].isChecking = true
+        defer { self[endpointHealthFor: chain].isChecking = false }
         await operation { rows in
-            self[endpointHealthFor: chainName].results = rows
-            self[endpointHealthFor: chainName].lastUpdatedAt = Date()
+            self[endpointHealthFor: chain].results = rows
+            self[endpointHealthFor: chain].lastUpdatedAt = Date()
         }
     }
-    func runCatalogEndpointReachabilityDiagnostics(for chainName: String) async {
-        guard let chain = Chain(displayName: chainName) else { return }
-        await withEndpointCheck(for: chainName) { publish in
+    func runEndpointDiagnostics(for chain: Chain) async {
+        await withEndpointCheck(for: chain) { publish in
             do {
                 let rows = try await self.bridge.probeChainEndpoints(chainId: chain.id)
                 publish(rows.map { EndpointHealthRow(label: $0.checked ? "" : "Not checked", endpoint: $0.endpoint, reachable: $0.reachable, statusCode: nil, detail: $0.detail) })
             } catch {
-                publish([EndpointHealthRow(label: "", endpoint: chainName, reachable: false, statusCode: nil, detail: error.localizedDescription)])
+                publish([EndpointHealthRow(label: "", endpoint: chain.displayName, reachable: false, statusCode: nil, detail: error.localizedDescription)])
             }
         }
     }

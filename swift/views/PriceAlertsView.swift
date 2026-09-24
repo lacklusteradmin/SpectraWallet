@@ -30,7 +30,7 @@ struct PriceAlertsView: View {
                 } else {
                     Picker(AppLocalization.string("Asset"), selection: $selectedHoldingKey) {
                         ForEach(store.alertableCoins, id: \.holdingKey) { coin in
-                            Text(AppLocalization.format("%@ on %@", coin.symbol, store.selectedNetworkTitle(forFamilyName: coin.chainName))).tag(
+                            Text(AppLocalization.format("%@ on %@", coin.symbol, coin.chainName)).tag(
                                 coin.holdingKey)
                         }
                     }
@@ -43,7 +43,7 @@ struct PriceAlertsView: View {
                         Text(
                             AppLocalization.format(
                                 "Current price: %@",
-                                store.amounts.formattedFiatAmountOrUnavailable(fromUSD: store.amounts.currentPriceIfAvailable(for: selectedCoin)))
+                                store.amounts.formattedFiat(store.amounts.price(of: selectedCoin)))
                         ).spectraHintText().spectraNumericTextLayout()
                     }
                     if let formMessage { Text(formMessage).font(.caption).foregroundStyle(.secondary) }
@@ -66,9 +66,7 @@ struct PriceAlertsView: View {
                             HStack {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text(alert.titleText).font(.headline)
-                                    Text("\(alert.condition.displayName) \(store.amounts.formattedFiatAmount(fromUSD: alert.targetPrice))").font(
-                                        .caption
-                                    ).foregroundStyle(.secondary).spectraNumericTextLayout()
+                                    Text(alertTargetText(alert)).font(.caption).foregroundStyle(.secondary).spectraNumericTextLayout()
                                 }
                                 Spacer()
                                 Text(alert.statusText).font(.caption.bold()).frame(minWidth: 78).padding(.horizontal, 8).padding(
@@ -120,10 +118,12 @@ struct PriceAlertsView: View {
         catch { formMessage = error.localizedDescription }
     }
     private func addAlert() async {
-        guard let selectedCoin, let target = Double(targetPriceText.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            formMessage = AppLocalization.string("Enter a valid amount")
-            return
-        }
+        guard let selectedCoin else { return }
+        // Core parses the number; the locale's decimal separator is this
+        // field's to undo.
+        let separator = Locale.current.decimalSeparator ?? "."
+        let target = targetPriceText.trimmingCharacters(in: .whitespacesAndNewlines)
+            .replacingOccurrences(of: separator, with: ".")
         isSubmitting = true
         defer { isSubmitting = false }
         do {
@@ -138,6 +138,9 @@ struct PriceAlertsView: View {
     }
     private func syncSelection() {
         if !alertableHoldingKeys.contains(selectedHoldingKey) { selectedHoldingKey = store.alertableCoins.first?.holdingKey ?? "" }
+    }
+    private func alertTargetText(_ alert: PriceAlertRule) -> String {
+        "\(alert.condition.displayName) \(store.amounts.formattedFiat(store.amounts.alertTarget(alert)))"
     }
     private func statusColor(for alert: PriceAlertRule) -> Color {
         Color.spectraPriceAlertStatusColor(isEnabled: alert.isEnabled, hasTriggered: alert.hasTriggered)

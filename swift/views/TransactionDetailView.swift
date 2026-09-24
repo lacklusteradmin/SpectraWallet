@@ -6,40 +6,14 @@ struct TransactionDetailView: View {
     let transaction: TransactionRecord
     @State private var replacementMessage: String?
     @State private var liveTransaction: TransactionRecord?
-    /// Core answers the owned-address question asynchronously, so the view
-    /// caches the set its body needs. View state: losing it on restart costs a
-    /// redraw and nothing else.
-    @State private var liveOwnedAddresses: Set<String> = []
+    /// Which ends to show and whether each is the wallet's own: core's
+    /// answer, cached for the body. View state: losing it costs a redraw.
+    @State private var endpoints: TransactionEndpoints?
     init(store: AppState, transaction: TransactionRecord) {
         self.store = store
         self.transaction = transaction
     }
     private var displayedTransaction: TransactionRecord { liveTransaction ?? transaction }
-    private var ownedAddresses: Set<String> { liveOwnedAddresses }
-    // Omit transfer endpoints the record does not name.
-    private var fromAddressText: String? {
-        if displayedTransaction.kind == .send {
-            return nonEmptyAddress(displayedTransaction.sourceAddress)
-        }
-        let counterparty = nonEmptyAddress(displayedTransaction.address)
-        if normalizedAddress(counterparty) != normalizedAddress(walletSideAddress) { return counterparty }
-        return nil
-    }
-    private var toAddressText: String? {
-        if displayedTransaction.kind == .send {
-            let counterparty = nonEmptyAddress(displayedTransaction.address)
-            if normalizedAddress(counterparty) != normalizedAddress(fromAddressText) { return counterparty }
-            return nil
-        }
-        return walletSideAddress
-    }
-    private var walletSideAddress: String? {
-        if let sourceAddress = nonEmptyAddress(displayedTransaction.sourceAddress), isOwnedAddress(sourceAddress) { return sourceAddress }
-        if let previewAddress = nonEmptyAddress(displayedTransaction.address), isOwnedAddress(previewAddress) {
-            return previewAddress
-        }
-        return nil
-    }
     var body: some View {
         ZStack {
             SpectraBackdrop().ignoresSafeArea()
@@ -57,10 +31,9 @@ struct TransactionDetailView: View {
                             Spacer()
                             statusChip
                         }
-                        if let amountText = store.amounts.formattedTransactionDetailAmount(displayedTransaction) {
-                            Text(amountText).font(.title.weight(.bold)).foregroundStyle(Color.primary)
-                                .spectraNumericTextLayout(minimumScaleFactor: 0.5)
-                        }
+                        Text(store.amounts.formattedTransactionDetailAmount(displayedTransaction))
+                            .font(.title.weight(.bold)).foregroundStyle(Color.primary)
+                            .spectraNumericTextLayout(minimumScaleFactor: 0.5)
                     }.padding(20).spectraBubbleFill().spectraCardFill(cornerRadius: SpectraLayout.Radius.hero)
                     transactionTimelineCard
                     spectraDetailCard(title: "Overview") {
@@ -70,9 +43,7 @@ struct TransactionDetailView: View {
                         detailRow(label: "Asset", value: displayedTransaction.assetDisplayName)
                         detailRow(label: "Network", value: displayedTransaction.chainName)
                         detailRow(label: "Timestamp", value: displayedTransaction.fullTimestampText)
-                        if let amountText = store.amounts.formattedTransactionDetailAmount(displayedTransaction) {
-                            detailRow(label: "Amount", value: amountText)
-                        }
+                        detailRow(label: "Amount", value: store.amounts.formattedTransactionDetailAmount(displayedTransaction))
                         if let historySourceText = store.amounts.historySourceText(for: displayedTransaction) {
                             detailRow(label: "History Source", value: historySourceText)
                         }
@@ -88,9 +59,6 @@ struct TransactionDetailView: View {
                         }
                         if let receiptNetworkFeeText = store.amounts.receiptNetworkFeeText(for: displayedTransaction) {
                             detailRow(label: "Network Fee", value: receiptNetworkFeeText)
-                        }
-                        if let storedFeePriorityText = displayedTransaction.storedFeePriorityText {
-                            detailRow(label: "Fee Priority", value: storedFeePriorityText)
                         }
                         if let confirmedNetworkFeeText = store.amounts.confirmedNetworkFeeText(for: displayedTransaction) {
                             detailRow(label: "Confirmed Fee", value: confirmedNetworkFeeText)
@@ -126,7 +94,7 @@ struct TransactionDetailView: View {
                     // without the actions and offered Speed Up on token
                     // transfers it could not rebuild.
                     if let pending = store.replaceableSend(forTransaction: displayedTransaction.id) {
-                        spectraDetailCard(title: AppLocalization.format("%@ Mempool Actions", pending.chainName)) {
+                        spectraDetailCard(title: AppLocalization.format("%@ Mempool Actions", Chain.displayName(forId: pending.chainId))) {
                             if store.sendFlow.isPreparingReplacement {
                                 SpectraLoadingRow(title: "Preparing replacement/cancel context...")
                             } else {
@@ -166,13 +134,11 @@ struct TransactionDetailView: View {
                         }
                     }
                     spectraDetailCard(title: "Addresses") {
-                        if let fromAddressText {
-                            TransactionAddressBlock(
-                                label: "From", value: fromAddressText, isMine: isOwnedAddress(fromAddressText))
+                        if let from = endpoints?.from {
+                            TransactionAddressBlock(label: "From", value: from.address, isMine: from.isMine)
                         }
-                        if let toAddressText {
-                            TransactionAddressBlock(
-                                label: "To", value: toAddressText, isMine: isOwnedAddress(toAddressText))
+                        if let to = endpoints?.to {
+                            TransactionAddressBlock(label: "To", value: to.address, isMine: to.isMine)
                         }
                     }
                     if let transactionHash = displayedTransaction.transactionHash {
@@ -193,9 +159,9 @@ struct TransactionDetailView: View {
                             }
                         }
                     }
-                    if let rawTransactionHexText = displayedTransaction.rawTransactionHexText {
-                        spectraDetailCard(title: "Raw Transaction Hex") {
-                            Text(rawTransactionHexText).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(
+                    if let rawTransactionText = displayedTransaction.rawTransactionText {
+                        spectraDetailCard(title: "Raw Transaction") {
+                            Text(rawTransactionText).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(
                                 .enabled
                             ).padding(14).frame(maxWidth: .infinity, alignment: .leading)
                                 .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.input)
@@ -380,26 +346,9 @@ struct TransactionDetailView: View {
         guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return nil }
         return trimmed
     }
-    /// The chain's own normal form, which is core's rule. This held a second
-    /// copy — lowercase on EVM, verbatim everywhere else — that disagreed with
-    /// core on every chain whose rule is neither, such as Sui's added `0x`.
-    private func normalizedAddress(_ value: String?) -> String? {
-        guard let trimmed = nonEmptyAddress(value) else { return nil }
-        return store.normalizedAddress(trimmed, for: displayedTransaction.chainName)
-    }
-    private func isOwnedAddress(_ value: String?) -> Bool {
-        guard let normalized = normalizedAddress(value) else { return false }
-        return ownedAddresses.contains(normalized)
-    }
     private func rebuildDisplayedTransactionState() async {
-        let resolvedTransaction = (try? await WalletServiceBridge.shared.transaction(id: transaction.id)) ?? transaction
-        liveTransaction = resolvedTransaction
-        guard let walletId = resolvedTransaction.walletId else {
-            liveOwnedAddresses = []
-            return
-        }
-        let owned = await store.knownOwnedAddresses(for: walletId)
-        liveOwnedAddresses = Set(owned.compactMap { normalizedAddress($0) })
+        liveTransaction = (try? await store.bridge.transaction(id: transaction.id)) ?? transaction
+        endpoints = try? await store.bridge.transactionEndpoints(id: transaction.id)
     }
     private struct TransactionTimelineItem: Identifiable {
         let id: String
