@@ -49,10 +49,10 @@ export IPHONEOS_DEPLOYMENT_TARGET
 
 _spectra_stamp="${CARGO_TARGET_DIR}/.ios-deployment-target"
 if [[ "$(cat "${_spectra_stamp}" 2>/dev/null || true)" != "${IPHONEOS_DEPLOYMENT_TARGET}" ]]; then
-  # Only the iOS triples. `scripts/build-ios.sh` shares the workspace's
-  # `target/`, whose host build is not stamped with a deployment target and
-  # would be a long rebuild for nothing.
-  for _spectra_triple in aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios; do
+  # Only the iOS triples. The host-built binding generator shares this target
+  # dir, is not stamped with a deployment target, and would be a rebuild for
+  # nothing.
+  for _spectra_triple in aarch64-apple-ios aarch64-apple-ios-sim; do
     rm -rf "${CARGO_TARGET_DIR:?}/${_spectra_triple}"
   done
   mkdir -p "${CARGO_TARGET_DIR}"

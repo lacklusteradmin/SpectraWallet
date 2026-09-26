@@ -19,6 +19,7 @@
 		90F00200000000000000000A /* AppState+SendExecution.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000A /* AppState+SendExecution.swift */; };
 		90F00200000000000000000B /* AppState+SendFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000B /* AppState+SendFlow.swift */; };
 		90F00200000000000000000C /* AppState+SendPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000C /* AppState+SendPreview.swift */; };
+		90AA00222F60000200BBB001 /* spectra_core.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90AA00212F60000200BBB001 /* spectra_core.swift */; };
 		90F00200000000000000000E /* AppState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000E /* AppState.swift */; };
 		90F00200000000000000000F /* AppStateTypes.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000000F /* AppStateTypes.swift */; };
 		90F002000000000000000010 /* AppUserPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000010 /* AppUserPreferences.swift */; };
@@ -111,6 +112,7 @@
 		90F00100000000000000000A /* AppState+SendExecution.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendExecution.swift"; sourceTree = "<group>"; };
 		90F00100000000000000000B /* AppState+SendFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendFlow.swift"; sourceTree = "<group>"; };
 		90F00100000000000000000C /* AppState+SendPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendPreview.swift"; sourceTree = "<group>"; };
+		90AA00212F60000200BBB001 /* spectra_core.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = generated/spectra_core.swift; sourceTree = "<group>"; };
 		90F00100000000000000000E /* AppState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppState.swift; sourceTree = "<group>"; };
 		90F00100000000000000000F /* AppStateTypes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppStateTypes.swift; sourceTree = "<group>"; };
 		90F001000000000000000010 /* AppUserPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUserPreferences.swift; sourceTree = "<group>"; };
@@ -199,11 +201,6 @@
 			path = ../resources;
 			sourceTree = "<group>";
 		};
-		90AA00202F60000200BBB001 /* generated */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = generated;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -237,7 +234,7 @@
 			children = (
 				90A5CA750000000000000001 /* Assets.xcassets */,
 				90AEE1792F5AFB43008CFE5E /* Spectra.xctestplan */,
-				90AA00202F60000200BBB001 /* generated */,
+				90AA00212F60000200BBB001 /* spectra_core.swift */,
 				9074916C2F56D1E500D098D2 /* views */,
 				9074916D2F56D1E500D098D2 /* extensions/SharedLiveActivities */,
 				907491712F56D1E600D098D2 /* extensions/SpectraLiveActivityExtension */,
@@ -318,7 +315,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 9074916E2F56D1E600D098D2 /* Build configuration list for PBXNativeTarget "Spectra" */;
 			buildPhases = (
-				92A5D0013B01000100A1B2C3 /* Build Rust Derivation Core */,
+				92A5D0013B01000100A1B2C3 /* Build Rust Core */,
 				9074915F2F56D1E500D098D2 /* Sources */,
 				907491602F56D1E500D098D2 /* Frameworks */,
 				907491612F56D1E500D098D2 /* Resources */,
@@ -333,7 +330,6 @@
 				9074916C2F56D1E500D098D2 /* views */,
 				9074916D2F56D1E500D098D2 /* extensions/SharedLiveActivities */,
 				90AA000A2F60000100BBB001 /* SharedResources */,
-				90AA00202F60000200BBB001 /* generated */,
 			);
 			name = Spectra;
 			packageProductDependencies = (
@@ -460,7 +456,7 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
-		92A5D0013B01000100A1B2C3 /* Build Rust Derivation Core */ = {
+		92A5D0013B01000100A1B2C3 /* Build Rust Core */ = {
 			isa = PBXShellScriptBuildPhase;
 			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
@@ -469,11 +465,8 @@
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/../ffi/Cargo.toml",
-				"$(SRCROOT)/../ffi/src/lib.rs",
-				"$(SRCROOT)/../scripts/bindgen-ios.sh",
 			);
-			name = "Build Rust Derivation Core";
+			name = "Build Rust Core";
 			outputFileListPaths = (
 			);
 			outputPaths = (
@@ -483,7 +476,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/bash;
-			shellScript = "set -euo pipefail\n\n# Purge cloud-sync placeholder files (OneDrive / Synology Drive leave .!NNNN!foo partial copies that Xcode tries to compile).\nfind \"${SRCROOT}\" -name '.!*' -type f -delete 2>/dev/null || true\n\nRUST_DIR=\"${SRCROOT}/../ffi\"\nRUST_BUILD_ROOT=\"${PROJECT_TEMP_DIR}/spectra-rust\"\nexport CARGO_TARGET_DIR=\"${RUST_BUILD_ROOT}/cargo-target\"\nTARGET_ROOT=\"${RUST_BUILD_ROOT}/apple\"\nSIM_OUT=\"${TARGET_ROOT}/ios-simulator\"\nDEVICE_OUT=\"${TARGET_ROOT}/ios-device\"\nPROFILE=\"debug\"\nif [[ \"${CONFIGURATION}\" == Release ]]; then PROFILE=\"release\"; fi\nexport PROFILE\nexport OUT_DIR=\"${SRCROOT}/generated\"\nRELEASE_FLAG=\"\"\nif [[ \"${CONFIGURATION}\" == Release ]]; then RELEASE_FLAG=\"--release\"; fi\n\n# Xcode build phases run in a minimal shell, so cargo may not be on PATH.\nexport PATH=\"${HOME}/.cargo/bin:/opt/homebrew/bin:/usr/local/bin:${PATH}\"\nif [[ -f \"${HOME}/.cargo/env\" ]]; then\n  # shellcheck disable=SC1090\n  source \"${HOME}/.cargo/env\"\nfi\n\n# Pin the deployment target the C sources compile against, and drop objects\n# stamped with a stale one.\nsource \"${SRCROOT}/../scripts/ios-rust-build-env.sh\"\n\n# Generating and patching the bindings is one script, called from here.\n# It used to be duplicated in this phase with a *different* patch, so which\n# version of swift/generated/ was on disk depended on whether Xcode or the\n# script had run last.\n\"${SRCROOT}/../scripts/bindgen-ios.sh\"\n\nif [[ \"${PLATFORM_NAME}\" == *simulator* ]]; then\n  mkdir -p \"${SIM_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios-sim x86_64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  cargo build ${RELEASE_FLAG} --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios-sim\n  cargo build ${RELEASE_FLAG} --manifest-path \"${RUST_DIR}/Cargo.toml\" --target x86_64-apple-ios\n\n  lipo -create \\\n    \"${CARGO_TARGET_DIR}/aarch64-apple-ios-sim/${PROFILE}/libspectra_core.a\" \\\n    \"${CARGO_TARGET_DIR}/x86_64-apple-ios/${PROFILE}/libspectra_core.a\" \\\n    -output \"${SIM_OUT}/libspectra_core.a\"\nelse\n  mkdir -p \"${DEVICE_OUT}\"\n  if command -v rustup >/dev/null 2>&1; then\n    rustup target add aarch64-apple-ios >/dev/null 2>&1 || true\n  fi\n\n  cargo build ${RELEASE_FLAG} --manifest-path \"${RUST_DIR}/Cargo.toml\" --target aarch64-apple-ios\n  cp \"${CARGO_TARGET_DIR}/aarch64-apple-ios/${PROFILE}/libspectra_core.a\" \"${DEVICE_OUT}/libspectra_core.a\"\nfi\n";
+			shellScript = "\"${SRCROOT}/../scripts/build-ios.sh\"\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -492,6 +485,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				90AA00222F60000200BBB001 /* spectra_core.swift in Sources */,
 				90F00200000000000000000E /* AppState.swift in Sources */,
 				90F00200000000000000000F /* AppStateTypes.swift in Sources */,
 				90F002000000000000000010 /* AppUserPreferences.swift in Sources */,
@@ -619,6 +613,7 @@
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_NO_COMMON_BLOCKS = YES;
@@ -685,6 +680,7 @@
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				"EXCLUDED_ARCHS[sdk=iphonesimulator*]" = x86_64;
 				GCC_C_LANGUAGE_STANDARD = gnu17;
 				GCC_NO_COMMON_BLOCKS = YES;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;

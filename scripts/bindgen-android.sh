@@ -19,8 +19,8 @@ CARGO_TARGET_DIR="${CARGO_TARGET_DIR}" cargo build --manifest-path "${FFI_DIR}/C
 
 mkdir -p "${OUT_DIR}"
 echo "Generating Kotlin bindings..."
-# Optimized generator against the debug dylib, for the reason bindgen-ios.sh
-# gives: the profile of neither one reaches the generated bindings.
+# Optimized generator against the debug dylib: the profile of neither one
+# reaches the generated bindings, so this only makes generation faster.
 CARGO_TARGET_DIR="${CARGO_TARGET_DIR}" cargo run --release --manifest-path "${BINDGEN_MANIFEST}" \
   -- generate --language kotlin --library "${HOST_DYLIB}" --out-dir "${OUT_DIR}"
 
