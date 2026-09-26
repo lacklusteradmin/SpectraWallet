@@ -1,14 +1,12 @@
 import Foundation
 
 /// Ordered wallet-setup pages. Navigation and the step indicator derive
-/// from this list. `.advanced` is a side route from the seed page and is
-/// excluded from the linear flow and step count.
+/// from this list.
 struct SetupFlow {
-    /// The ordered linear pages. Excludes side-routes like `.advanced`.
     let pages: [WalletSetupPage]
 
-    /// Linear index of `page` within this flow, or `nil` for side routes
-    /// that aren't part of the count.
+    /// Linear index of `page` within this flow, or `nil` for a page this
+    /// flow does not visit.
     func index(of page: WalletSetupPage) -> Int? {
         pages.firstIndex(of: page)
     }
@@ -38,8 +36,6 @@ enum WalletSetupPage: Equatable {
     case password
     case backupVerification
     case walletName
-    /// Side route from the seed-phrase page — not part of the linear flow.
-    case advanced
 }
 
 extension SetupFlow {
@@ -90,8 +86,6 @@ extension WalletSetupPage {
         case .backupVerification:
             return WalletSetupPageCopy(
                 title: content.backupVerificationTitle, subtitle: content.backupVerificationSubtitle)
-        case .advanced:
-            return WalletSetupPageCopy(title: content.advancedTitle, subtitle: content.advancedSubtitle)
         case .password:
             return WalletSetupPageCopy(
                 title: AppLocalization.string("import_flow.wallet_password_title"),

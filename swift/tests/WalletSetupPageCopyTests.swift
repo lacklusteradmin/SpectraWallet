@@ -28,7 +28,7 @@ final class WalletSetupPageCopyTests: XCTestCase {
     /// wallet-import title when no arm matched. Nothing may come back blank.
     func testEveryPageNamesItselfInEveryMode() {
         let pages: [WalletSetupPage] = [
-            .details, .watchAddresses, .seedPhrase, .password, .backupVerification, .walletName, .advanced,
+            .details, .watchAddresses, .seedPhrase, .password, .backupVerification, .walletName,
         ]
         let modes = [
             mode(), mode(editing: true), mode(creating: true), mode(privateKey: true),

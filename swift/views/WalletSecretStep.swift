@@ -7,29 +7,22 @@ struct WalletSecretStep: View {
     @Bindable var draft: WalletImportDraft
     /// `true` renders the backup-verification page instead of the secret page.
     let showsBackupVerification: Bool
-    /// Opens the advanced derivation page, which the flow — not this step —
-    /// owns the routing for.
-    let onOpenAdvanced: () -> Void
 
     private let copy = ImportFlowContent.current
     @FocusState private var focusedSeedPhraseIndex: Int?
     @State private var customSeedPhraseWordCountInput: String
+    @State private var isShowingDerivationOptions = false
 
     @MainActor
-    init(
-        store: AppState, draft: WalletImportDraft, showsBackupVerification: Bool,
-        onOpenAdvanced: @escaping () -> Void
-    ) {
+    init(store: AppState, draft: WalletImportDraft, showsBackupVerification: Bool) {
         self.store = store
         self.draft = draft
         self.showsBackupVerification = showsBackupVerification
-        self.onOpenAdvanced = onOpenAdvanced
         _customSeedPhraseWordCountInput = State(initialValue: String(draft.selectedSeedPhraseWordCount))
     }
 
     private var isCreateMode: Bool { draft.isCreateMode }
     private var isEditingWallet: Bool { draft.isEditingWallet }
-    private var isSimpleSetupSelected: Bool { draft.setupModeChoice == .simple }
     private let seedPhraseGridColumns = [
         GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6),
     ]
@@ -48,6 +41,9 @@ struct WalletSecretStep: View {
         }
         .onChange(of: draft.selectedSeedPhraseWordCount) { _, newValue in
             customSeedPhraseWordCountInput = String(newValue)
+        }
+        .sheet(isPresented: $isShowingDerivationOptions) {
+            WalletDerivationOptionsView(store: store, draft: draft)
         }
     }
 
@@ -394,7 +390,7 @@ struct WalletSecretStep: View {
     private var walletSecretStepSection: some View {
         if isCreateMode {
             createWalletSeedPhraseSection
-            if !isSimpleSetupSelected { derivationAdvancedButton }
+            derivationOptionsLink
         } else {
             importSecretModePicker
             Group {
@@ -403,7 +399,7 @@ struct WalletSecretStep: View {
                 } else {
                     VStack(alignment: .leading, spacing: 16) {
                         newWalletSeedPhraseSection
-                        if !isSimpleSetupSelected { derivationAdvancedButton }
+                        derivationOptionsLink
                     }
                 }
             }.id(draft.secretImportMode).transition(.opacity).animation(.easeInOut(duration: 0.2), value: draft.secretImportMode)
@@ -440,27 +436,45 @@ struct WalletSecretStep: View {
             }
         }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: SpectraLayout.Radius.card)
     }
-    @ViewBuilder
-    private var derivationAdvancedButton: some View {
-        if !isEditingWallet && !draft.selectedChainIds.isEmpty {
-            Button {
-                onOpenAdvanced()
-            } label: {
-                HStack(spacing: 12) {
-                    Image(systemName: "slider.horizontal.3").font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(
-                        width: 26, height: 26
-                    ).background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous))
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(AppLocalization.string("Advanced")).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-                        Text(advancedButtonSubtitle).font(.caption2).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                    Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.secondary)
-                }.padding(.horizontal, 12).padding(.vertical, 10).spectraInputFieldStyle()
-            }.buttonStyle(.plain)
+    /// The derivation options the sheet has moved off their defaults, by
+    /// name. The entry to the sheet is deliberately quiet, so it says when
+    /// something behind it changes which addresses the seed derives.
+    private var customizedDerivationOptionNames: [String] {
+        var names: [String] = []
+        let presetPaths = SeedDerivationPaths.forPreset(draft.seedDerivationPreset)
+        if draft.selectableDerivationChains.contains(where: {
+            draft.seedDerivationPaths.path(for: $0) != presetPaths.path(for: $0)
+        }) {
+            names.append(AppLocalization.string("Derivation Paths"))
         }
+        if !draft.overridePassphrase.isEmpty { names.append(AppLocalization.string("Passphrase")) }
+        if !draft.overrideHmacKey.isEmpty { names.append(AppLocalization.string("HMAC Master Key")) }
+        return names
     }
-    private var advancedButtonSubtitle: String {
-        AppLocalization.string("Adjust derivation paths.")
+    private var derivationOptionsSummary: String? {
+        let names = customizedDerivationOptionNames
+        guard !names.isEmpty else { return nil }
+        let list = ListFormatter()
+        list.locale = AppLocalization.locale
+        return AppLocalization.format(
+            "import_flow.advanced_customized_format", list.string(from: names) ?? names.joined(separator: ", "))
+    }
+    private var derivationOptionsLink: some View {
+        let summary = derivationOptionsSummary
+        return Button {
+            isShowingDerivationOptions = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "slider.horizontal.3").font(.footnote.weight(.semibold))
+                    .foregroundStyle(summary == nil ? Color.secondary : .orange)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(copy.advancedTitle).font(.footnote.weight(.semibold)).foregroundStyle(Color.primary)
+                    Text(summary ?? copy.advancedSubtitle).font(.caption2)
+                        .foregroundStyle(summary == nil ? Color.secondary : .orange)
+                }
+                Spacer()
+                Image(systemName: "chevron.right").font(.caption2.weight(.bold)).foregroundStyle(.tertiary)
+            }.padding(.vertical, 4).contentShape(Rectangle())
+        }.buttonStyle(.plain)
     }
 }

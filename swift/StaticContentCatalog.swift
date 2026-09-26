@@ -201,7 +201,6 @@ enum AppLocalization {
     }
     private struct Tables {
         let signature: String
-        let identifiers: [String]
         let locale: Locale
         let strings: [[String: String]]
     }
@@ -209,7 +208,6 @@ enum AppLocalization {
     private static let cachedTables = LockedValue<Tables?>(nil)
 
     static var locale: Locale { tables().locale }
-    static func preferredLocalizationIdentifiers() -> [String] { tables().identifiers }
     static func string(_ key: String) -> String {
         for table in tables().strings {
             if let value = table[key] { return value }
@@ -234,7 +232,7 @@ enum AppLocalization {
         }
         if !identifiers.contains(source) { identifiers.append(source) }
         let tables = Tables(
-            signature: signature, identifiers: identifiers, locale: Locale(identifier: identifiers[0]),
+            signature: signature, locale: Locale(identifier: identifiers[0]),
             strings: identifiers.compactMap {
                 StaticContentCatalog.loadResource("RuntimeStrings.\($0)", as: [String: String].self)
             })

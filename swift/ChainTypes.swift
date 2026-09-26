@@ -6,7 +6,6 @@ nonisolated extension NetworkChoice: Identifiable {
 
 // MARK: - Transactions & price alerts (Rust-owned enums)
 
-typealias TransactionKind = CoreTransactionKind
 typealias TransactionStatus = CoreTransactionStatus
 typealias PriceAlertCondition = CorePriceAlertCondition
 extension CorePriceAlertCondition {

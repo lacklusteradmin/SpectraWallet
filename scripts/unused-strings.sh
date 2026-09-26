@@ -21,7 +21,20 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 python3 - <<'PY'
-import json, pathlib, re, sys
+import json, pathlib, re, subprocess, sys
+
+def hand_written(root, suffix):
+    """Files under `root` a person wrote: tracked or new, never ignored.
+
+    Walking the directory reads the bindings too — `swift/generated/` and the
+    Kotlin `uniffi/` package, both ignored and both present once bindgen has
+    run. Generated code calls every export and quotes every doc comment, so
+    it made each check pass on a machine that had built for that platform.
+    """
+    listed = subprocess.run(
+        ['git', 'ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', root],
+        check=True, capture_output=True, text=True).stdout.split('\0')
+    return [pathlib.Path(p) for p in sorted(listed) if p.endswith(suffix) and pathlib.Path(p).exists()]
 
 STRINGS = pathlib.Path('resources/strings')
 FORMAT = re.compile(r'%(?:@|%|lld|llu|ld|lu|d|u|f|s|\d*\.\d+f|\.\d+f)')
@@ -36,12 +49,12 @@ def corpus():
     string. Squeezing both means a wrapped literal still matches the one-line
     key it produces.
     """
-    paths = [p for pattern, roots in (
-                 ('*.swift', ('swift',)), ('*.rs', ('core', 'cli', 'ffi')),
-                 ('*.json', ('resources',)), ('*.toml', ('core/data',)),
-                 ('*.kt', ('kotlin',)), ('*.xml', ('kotlin',)))
-             for root in roots for p in pathlib.Path(root).rglob(pattern)
-             if 'target' not in p.parts and not p.name.startswith('RuntimeStrings.')]
+    paths = [p for suffix, roots in (
+                 ('.swift', ('swift',)), ('.rs', ('core', 'cli', 'ffi')),
+                 ('.json', ('resources',)), ('.toml', ('core/data',)),
+                 ('.kt', ('kotlin',)), ('.xml', ('kotlin',)))
+             for root in roots for p in hand_written(root, suffix)
+             if not p.name.startswith('RuntimeStrings.')]
     text = '\n'.join(p.read_text(errors='replace') for p in paths)
     return re.sub(r'\s+', ' ', re.sub(r'\\\s*\n\s*', '', text))
 
@@ -89,8 +102,7 @@ for base in bases:
 # The reverse: a dotted key spelled out in Swift must be in the source table,
 # or the screen shows the key itself.
 source_keys = set(json.loads((STRINGS / 'RuntimeStrings.en.json').read_text()))
-swift = '\n'.join(p.read_text() for p in pathlib.Path('swift').rglob('*.swift')
-                  if 'generated' not in p.parts)
+swift = '\n'.join(p.read_text() for p in hand_written('swift', '.swift'))
 for key in sorted(set(re.findall(r'AppLocalization\.(?:string|format)\("([A-Za-z_]+\.[A-Za-z0-9_.-]+)"', swift))):
     if key not in source_keys:
         failures.append(f"  {'RuntimeStrings.en.json':<36} Swift names a missing key {key!r}")

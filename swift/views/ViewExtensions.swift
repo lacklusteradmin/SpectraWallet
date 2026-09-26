@@ -182,28 +182,6 @@ struct SpectraLoadingRow: View {
     }
 }
 
-struct SpectraLoadingCard: View {
-    let title: String
-    var subtitle: String? = nil
-    var lineCount: Int = 3
-    var tint: Color = .orange
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            SpectraLoadingRow(title: title, subtitle: subtitle, tint: tint)
-            VStack(alignment: .leading, spacing: 8) {
-                ForEach(0..<max(1, lineCount), id: \.self) { index in
-                    SpectraShimmer(height: index == lineCount - 1 ? 12 : 14)
-                        .frame(maxWidth: index == lineCount - 1 ? 190 : .infinity, alignment: .leading)
-                }
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill()
-    }
-}
-
 struct SpectraEmptyStateCard: View {
     let title: String
     let message: String

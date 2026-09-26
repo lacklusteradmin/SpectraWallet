@@ -2,20 +2,14 @@ import Foundation
 import SwiftUI
 @MainActor
 extension AppState {
-    func beginWalletImport(setupMode: SetupModeChoice = .simple) {
-        walletImport.begin {
-            $0.configureForNewWallet()
-            $0.setupModeChoice = setupMode
-        }
+    func beginWalletImport() {
+        walletImport.begin { $0.configureForNewWallet() }
     }
     func beginWatchAddressesImport() {
         walletImport.begin { $0.configureForWatchAddressesImport() }
     }
-    func beginWalletCreation(setupMode: SetupModeChoice = .simple) {
-        walletImport.begin {
-            $0.configureForCreatedWallet()
-            $0.setupModeChoice = setupMode
-        }
+    func beginWalletCreation() {
+        walletImport.begin { $0.configureForCreatedWallet() }
     }
     func cancelWalletImport() { walletImport.close() }
     func beginEditingWallet(_ wallet: WalletView) {

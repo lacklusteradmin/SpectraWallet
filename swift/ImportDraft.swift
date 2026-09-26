@@ -10,21 +10,6 @@ enum WalletSecretImportMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
     var localizedTitle: String { AppLocalization.string(rawValue) }
 }
-/// Simple vs. Advanced setup path. Chosen up-front on the Add-Wallet page
-/// (alongside the create/import/watch choice) and persisted on the draft
-/// so `SetupView` can skip its old "Choose Setup Type" page and start
-/// directly on the details step.
-enum SetupModeChoice: String, CaseIterable, Identifiable {
-    case simple
-    case advanced
-    var id: String { rawValue }
-    var localizedTitle: String {
-        switch self {
-        case .simple: return AppLocalization.string("Simple")
-        case .advanced: return AppLocalization.string("Advanced")
-        }
-    }
-}
 /// Mutation contract for `WalletImportDraft`:
 ///
 ///   * **Side-effecting state** (chain selection, watch-only mode, secret-
@@ -63,10 +48,7 @@ final class WalletImportDraft {
     var privateKeyInput: String = ""
     var seedDerivationPreset: CoreSeedDerivationPreset = .standard
     var seedDerivationPaths: SeedDerivationPaths = .defaults
-    /// User's simple/advanced selection from the Add-Wallet page. Drives
-    /// whether the Advanced derivation page is reachable from SetupView.
-    var setupModeChoice: SetupModeChoice = .simple
-    // Power-user derivation overrides (Advanced page, Option A). Each field is
+    // Power-user derivation overrides (Advanced Options sheet). Each field is
     // a user-entered string; blank/empty-picker means "use chain preset default".
     // These are converted to CoreWalletDerivationOverrides at import time via
     // `resolvedDerivationOverrides`.
@@ -228,7 +210,6 @@ final class WalletImportDraft {
         privateKeyInput = ""
         seedDerivationPreset = .standard
         seedDerivationPaths = .defaults
-        setupModeChoice = .simple
         overridePassphrase = ""
         overrideHmacKey = ""
         seedPhraseEntries = Array(repeating: "", count: 12)

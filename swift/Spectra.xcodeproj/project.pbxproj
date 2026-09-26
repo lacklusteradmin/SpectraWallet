@@ -10,7 +10,6 @@
 		9059229D2F5D2C49003ACDA5 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = 9059229C2F5D2C49003ACDA5 /* KeychainAccess */; };
 		90A5CA760000000000000001 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 90A5CA750000000000000001 /* Assets.xcassets */; };
 		90F002000000000000000002 /* AppState+BalanceRefresh.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000002 /* AppState+BalanceRefresh.swift */; };
-		90F002000000000000000080 /* WalletRefreshObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000080 /* WalletRefreshObserver.swift */; };
 		90F002000000000000000003 /* AppState+CoreStateStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000003 /* AppState+CoreStateStore.swift */; };
 		90F002000000000000000004 /* AppState+DiagnosticsEndpoints.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000004 /* AppState+DiagnosticsEndpoints.swift */; };
 		90F002000000000000000005 /* AppState+ImportLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000005 /* AppState+ImportLifecycle.swift */; };
@@ -47,6 +46,7 @@
 		90F002000000000000000039 /* AppState+TorLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000039 /* AppState+TorLifecycle.swift */; };
 		90F00200000000000000003B /* SetupFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003B /* SetupFlow.swift */; };
 		90F00200000000000000003C /* ImportDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003C /* ImportDraft.swift */; };
+		90F002000000000000000080 /* WalletRefreshObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000080 /* WalletRefreshObserver.swift */; };
 		90F002000000000000000100 /* Chain+Registry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000100 /* Chain+Registry.swift */; };
 		90F002000000000000000102 /* AppState+SendLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000102 /* AppState+SendLiveActivity.swift */; };
 		90F002000000000000000200 /* AppState+AddressBook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000200 /* AppState+AddressBook.swift */; };
@@ -56,7 +56,6 @@
 		90F002000000000000000204 /* AppState+TransactionActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000204 /* AppState+TransactionActions.swift */; };
 		90F002000000000000000205 /* AppState+Networks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000205 /* AppState+Networks.swift */; };
 		90F002000000000000000206 /* AppState+Wallets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000206 /* AppState+Wallets.swift */; };
-		91DC000000000000000000A2 /* AppState+TokenPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DC000000000000000000A1 /* AppState+TokenPreferences.swift */; };
 		91C100012F70000100AAA001 /* SpectraLiveActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 91C100032F70000100AAA001 /* SpectraLiveActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		91D900000000000000000002 /* SendSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91D900000000000000000001 /* SendSession.swift */; };
 		91DB00000000000000000001 /* SendFlowState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DA00000000000000000001 /* SendFlowState.swift */; };
@@ -64,6 +63,7 @@
 		91DB00000000000000000003 /* WalletImportSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DA00000000000000000003 /* WalletImportSession.swift */; };
 		91DC00000000000000000003 /* AmountPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DC00000000000000000001 /* AmountPresentation.swift */; };
 		91DC00000000000000000004 /* AssetPresentationCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DC00000000000000000002 /* AssetPresentationCatalog.swift */; };
+		91DC000000000000000000A2 /* AppState+TokenPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DC000000000000000000A1 /* AppState+TokenPreferences.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -102,7 +102,6 @@
 		90A5CA750000000000000001 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		90AEE1792F5AFB43008CFE5E /* Spectra.xctestplan */ = {isa = PBXFileReference; lastKnownFileType = text; path = Spectra.xctestplan; sourceTree = "<group>"; };
 		90F001000000000000000002 /* AppState+BalanceRefresh.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+BalanceRefresh.swift"; sourceTree = "<group>"; };
-		90F001000000000000000080 /* WalletRefreshObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRefreshObserver.swift; sourceTree = "<group>"; };
 		90F001000000000000000003 /* AppState+CoreStateStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+CoreStateStore.swift"; sourceTree = "<group>"; };
 		90F001000000000000000004 /* AppState+DiagnosticsEndpoints.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+DiagnosticsEndpoints.swift"; sourceTree = "<group>"; };
 		90F001000000000000000005 /* AppState+ImportLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+ImportLifecycle.swift"; sourceTree = "<group>"; };
@@ -139,6 +138,7 @@
 		90F001000000000000000039 /* AppState+TorLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TorLifecycle.swift"; sourceTree = "<group>"; };
 		90F00100000000000000003B /* SetupFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlow.swift; sourceTree = "<group>"; };
 		90F00100000000000000003C /* ImportDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportDraft.swift; sourceTree = "<group>"; };
+		90F001000000000000000080 /* WalletRefreshObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRefreshObserver.swift; sourceTree = "<group>"; };
 		90F001000000000000000100 /* Chain+Registry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Chain+Registry.swift"; sourceTree = "<group>"; };
 		90F001000000000000000102 /* AppState+SendLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendLiveActivity.swift"; sourceTree = "<group>"; };
 		90F001000000000000000200 /* AppState+AddressBook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+AddressBook.swift"; sourceTree = "<group>"; };
@@ -148,7 +148,6 @@
 		90F001000000000000000204 /* AppState+TransactionActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TransactionActions.swift"; sourceTree = "<group>"; };
 		90F001000000000000000205 /* AppState+Networks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+Networks.swift"; sourceTree = "<group>"; };
 		90F001000000000000000206 /* AppState+Wallets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+Wallets.swift"; sourceTree = "<group>"; };
-		91DC000000000000000000A1 /* AppState+TokenPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TokenPreferences.swift"; sourceTree = "<group>"; };
 		91B000012F5B000100AAA001 /* SpectraTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpectraTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		91C100032F70000100AAA001 /* SpectraLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpectraLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		91D900000000000000000001 /* SendSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendSession.swift; sourceTree = "<group>"; };
@@ -157,6 +156,7 @@
 		91DA00000000000000000003 /* WalletImportSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletImportSession.swift; sourceTree = "<group>"; };
 		91DC00000000000000000001 /* AmountPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountPresentation.swift; sourceTree = "<group>"; };
 		91DC00000000000000000002 /* AssetPresentationCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetPresentationCatalog.swift; sourceTree = "<group>"; };
+		91DC000000000000000000A1 /* AppState+TokenPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TokenPreferences.swift"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */

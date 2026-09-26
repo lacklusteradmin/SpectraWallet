@@ -82,7 +82,7 @@ extension TransactionRecord {
     /// A record with every field a test does not name left empty. The app never
     /// builds one — core records what was sent and fetched.
     init(
-        id: String, walletId: String? = nil, deploymentId: String? = nil, kind: TransactionKind,
+        id: String, walletId: String? = nil, deploymentId: String? = nil, kind: CoreTransactionKind,
         status: TransactionStatus, walletName: String, assetDisplayName: String, symbol: String,
         chainId: String, amount: String, address: String, transactionHash: String? = nil,
         nonce: Int64? = nil, failureReason: TransactionFailure? = nil

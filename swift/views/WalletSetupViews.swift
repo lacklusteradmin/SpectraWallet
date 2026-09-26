@@ -128,7 +128,6 @@ struct SetupView: View {
     private var usesSeedPhraseFlow: Bool { !isEditingWallet && !draft.isWatchOnlyMode }
     private var isPrivateKeyImportMode: Bool { draft.isPrivateKeyImportMode }
     private var usesWatchAddressesFlow: Bool { !isEditingWallet && draft.isWatchOnlyMode }
-    private var isSimpleSetupSelected: Bool { draft.setupModeChoice == .simple }
     private var pageCopy: WalletSetupPageCopy {
         setupPage.copy(
             copy,
@@ -168,8 +167,6 @@ struct SetupView: View {
     private var primaryActionTitle: String {
         let next = AppLocalization.string("import_flow.next")
         switch setupPage {
-        case .advanced:
-            return ""
         case .seedPhrase:
             return next
         case .details:
@@ -187,8 +184,6 @@ struct SetupView: View {
     }
     private var isPrimaryActionEnabled: Bool {
         switch setupPage {
-        case .advanced:
-            return false
         case .seedPhrase:
             return canContinueFromSecretStep
         case .details:
@@ -209,7 +204,7 @@ struct SetupView: View {
         case .password: return isCreateMode ? false : canSubmitFromPasswordStep
         case .backupVerification: return true
         case .watchAddresses: return canAdvanceFromWatchAddressesPage
-        case .details, .seedPhrase, .walletName, .advanced: return false
+        case .details, .seedPhrase, .walletName: return false
         }
     }
     private var canAdvanceFromWatchAddressesPage: Bool {
@@ -356,22 +351,14 @@ struct SetupView: View {
             if !isEditingWallet, draft.isWatchOnlyMode { watchAddressesPageContent }
         case .seedPhrase:
             if !draft.isWatchOnlyMode {
-                setupCard {
-                    WalletSecretStep(
-                        store: store, draft: draft, showsBackupVerification: false,
-                        onOpenAdvanced: { withAnimation { setupPage = .advanced } })
-                }
+                setupCard { WalletSecretStep(store: store, draft: draft, showsBackupVerification: false) }
             }
         case .password:
             passwordPageContent
         case .backupVerification:
-            WalletSecretStep(
-                store: store, draft: draft, showsBackupVerification: true,
-                onOpenAdvanced: { withAnimation { setupPage = .advanced } })
+            WalletSecretStep(store: store, draft: draft, showsBackupVerification: true)
         case .walletName:
             walletNamePageContent
-        case .advanced:
-            advancedPageContent
         }
     }
     /// Page-dominant chain selection. The chains step now owns the details
@@ -591,10 +578,6 @@ struct SetupView: View {
         setupCard { walletPasswordStepSection }
     }
     @ViewBuilder
-    private var advancedPageContent: some View {
-        setupCard { derivationAdvancedContent }
-    }
-    @ViewBuilder
     private var importStatusSection: some View {
         if let importError = store.walletImport.error {
             Text(importError).font(.footnote).foregroundStyle(.red.opacity(0.9))
@@ -626,30 +609,6 @@ struct SetupView: View {
             await store.importWallet()
         }
     }
-    @ViewBuilder
-    private var derivationAdvancedContent: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text(advancedDescriptionText).font(.subheadline).foregroundStyle(.secondary)
-            VStack(alignment: .leading, spacing: 16) {
-                ForEach(draft.selectableDerivationChains) { family in
-                    let chain = Chain(id: store.selectedChainId(forFamily: family.mainnetCounterpart.id)) ?? family
-                    SeedPathSlotEditor(
-                        title: chain.displayName,
-                        path: Binding(
-                            get: { draft.seedDerivationPaths.path(for: chain) }, set: { draft.seedDerivationPaths.setPath($0, for: chain) }
-                        ), defaultPath: chain.defaultDerivationPath
-                    )
-                }
-                powerUserOverridesSection
-            }
-        }
-    }
-    private var powerUserOverridesSection: some View {
-        PowerUserOverridesSection(draft: draft)
-    }
-    private var advancedDescriptionText: String {
-        AppLocalization.string("Control the derivation path used for each selected chain. Pick a testnet from the chain list to use a testnet wallet.")
-    }
     var body: some View {
         ZStack {
             SpectraBackdrop().ignoresSafeArea()
@@ -674,10 +633,6 @@ struct SetupView: View {
             }
     }
     private func performBackNavigation() {
-        if setupPage == .advanced {
-            withAnimation { setupPage = .seedPhrase }
-            return
-        }
         if let prev = setupFlow.previous(before: setupPage) {
             withAnimation { setupPage = prev }
             return
@@ -689,100 +644,23 @@ struct SetupView: View {
             dismiss()
         }
     }
-    private var canGoBack: Bool {
-        setupPage == .advanced || setupFlow.previous(before: setupPage) != nil
-    }
-    @ViewBuilder
+    private var canGoBack: Bool { setupFlow.previous(before: setupPage) != nil }
     private var setupBottomActionBar: some View {
-        if setupPage != .advanced {
-            SpectraBottomActionBar {
-                if canGoBack {
-                    Button(action: performBackNavigation) {
-                        Text(AppLocalization.string("Back"))
-                            .font(.body.weight(.semibold))
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 10)
-                    }.buttonStyle(.glass).controlSize(.large)
-                }
-                Button(action: performPrimaryAction) {
-                    Text(primaryActionTitle)
+        SpectraBottomActionBar {
+            if canGoBack {
+                Button(action: performBackNavigation) {
+                    Text(AppLocalization.string("Back"))
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 10)
-                }.buttonStyle(.glassProminent).controlSize(.large).disabled(!isPrimaryActionEnabled)
+                }.buttonStyle(.glass).controlSize(.large)
             }
-        }
-    }
-}
-/// Standalone `View` struct for the Advanced-mode power-user overrides section.
-/// Kept out of `SetupView` so its internal `TupleView` type doesn't cascade
-/// into `SetupView.body`'s opaque return type — that cascade is what was
-/// blowing the SwiftUI render stack.
-private struct PowerUserOverridesSection: View {
-    @Bindable var draft: WalletImportDraft
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            header
-            stage1Overrides
-        }.padding(14).background(
-            RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous).fill(Color.orange.opacity(0.08))
-        ).overlay(
-            RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous).stroke(Color.orange.opacity(0.35), lineWidth: 1)
-        )
-    }
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.caption.weight(.bold)).foregroundStyle(.orange)
-                Text(AppLocalization.string("Power-User Overrides"))
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-            }
-            Text(
-                AppLocalization.string(
-                    "Secret text is used exactly as entered, including spaces. Unsupported chain overrides are refused. Leave blank to use the chain default."
-                )
-            ).font(.caption).foregroundStyle(.orange.opacity(0.9))
-        }
-    }
-    private var stage1Overrides: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            AdvancedOverrideTextField(
-                title: AppLocalization.string("Passphrase"),
-                detail: AppLocalization.string("BIP-39 passphrase (“25th word”). Blank = none."),
-                text: $draft.overridePassphrase, isSecure: true)
-            AdvancedOverrideTextField(
-                title: AppLocalization.string("HMAC Master Key"),
-                detail: AppLocalization.string(
-                    "Custom master HMAC key for supported chains. Blank uses the chain default."),
-                text: $draft.overrideHmacKey)
-        }
-    }
-}
-
-private struct AdvancedOverrideTextField: View {
-    let title: String
-    let detail: String
-    @Binding var text: String
-    var isSecure: Bool = false
-    var keyboard: UIKeyboardType = .default
-    var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            inputField.font(.subheadline.monospaced()).padding(.horizontal, 10).padding(.vertical, 8)
-                .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.control)
-                .overlay(
-                    RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
-            Text(detail).font(.caption2).foregroundStyle(.secondary)
-        }
-    }
-    @ViewBuilder
-    private var inputField: some View {
-        if isSecure {
-            SecureField(AppLocalization.string("(default)"), text: $text)
-        } else {
-            TextField(AppLocalization.string("(default)"), text: $text)
-                .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(keyboard)
+            Button(action: performPrimaryAction) {
+                Text(primaryActionTitle)
+                    .font(.body.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+            }.buttonStyle(.glassProminent).controlSize(.large).disabled(!isPrimaryActionEnabled)
         }
     }
 }

@@ -1,36 +1,31 @@
 import SwiftUI
 struct AddWalletEntryView: View {
     let store: AppState
-    @State private var setupMode: SetupModeChoice = .simple
     @State private var isShowingFundsFinder = false
     var body: some View {
         ZStack {
             SpectraBackdrop().ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 LazyVStack(spacing: 14) {
-                    setupModePicker
                     actionCard(
                         title: AppLocalization.string("Create New Wallet"),
                         subtitle: AppLocalization.string("Generate a new seed phrase and set up your wallet."),
                         icon: "plus.circle.fill", tint: Color.green
                     ) {
-                        store.beginWalletCreation(setupMode: setupMode)
+                        store.beginWalletCreation()
                     }
                     actionCard(
                         title: AppLocalization.string("Import Wallet"),
                         subtitle: AppLocalization.string("Use an existing seed phrase or private key."),
                         icon: "arrow.down.circle.fill", tint: Color.blue
                     ) {
-                        store.beginWalletImport(setupMode: setupMode)
+                        store.beginWalletImport()
                     }
                     actionCard(
                         title: AppLocalization.string("Watch Addresses"),
                         subtitle: AppLocalization.string("Track public addresses without adding private keys."),
                         icon: "eye.circle.fill", tint: Color.orange
                     ) {
-                        // Watch-only doesn't use derivation paths, so the
-                        // simple/advanced toggle doesn't apply — `begin…`
-                        // forces it back to .simple internally.
                         store.beginWatchAddressesImport()
                     }
                     actionCard(
@@ -59,21 +54,6 @@ struct AddWalletEntryView: View {
         ) {
             FundsFinderView(bridge: store.bridge)
         }
-    }
-    private var setupModePicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(AppLocalization.string("Setup Mode")).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-            Picker(AppLocalization.string("Setup Mode"), selection: $setupMode) {
-                ForEach(SetupModeChoice.allCases) { mode in
-                    Text(mode.localizedTitle).tag(mode)
-                }
-            }.pickerStyle(.segmented)
-            Text(
-                setupMode == .simple
-                    ? AppLocalization.string("Recommended defaults and fewer required choices.")
-                    : AppLocalization.string("Configure derivation paths, networks, and power-user overrides.")
-            ).font(.caption).foregroundStyle(.secondary)
-        }.padding(16).frame(maxWidth: .infinity, alignment: .leading).spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
     }
     private func actionCard(
         title: String, subtitle: String, icon: String, tint: Color, action: @escaping () -> Void
