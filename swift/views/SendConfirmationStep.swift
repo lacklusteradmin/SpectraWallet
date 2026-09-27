@@ -53,12 +53,12 @@ struct SendConfirmationStep: View {
 
             Divider().opacity(0.35)
 
-            VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
-                Text(AppLocalization.string("To")).font(.caption).foregroundStyle(.secondary)
-                Text(recipientPreviewText)
-                    .font(.subheadline.monospaced())
-                    .fixedSize(horizontal: false, vertical: true)
-                    .textSelection(.enabled)
+            if recipientAddress.isEmpty {
+                confirmationRow(label: "To", value: AppLocalization.string("No recipient"))
+            } else {
+                ReviewAddressBlock(
+                    store: store, label: "To", walletId: store.sendFlow.walletId,
+                    chainId: selectedCoin?.chainId ?? "", address: recipientAddress)
             }
 
             Divider().opacity(0.35)
@@ -102,15 +102,14 @@ struct SendConfirmationStep: View {
         let symbol = selectedCoin?.symbol ?? ""
         let amount = store.sendFlow.amount.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !amount.isEmpty else { return AppLocalization.string("No amount") }
-        return symbol.isEmpty ? amount : "\(amount) \(symbol)"
+        let localized = AmountPresentation.localizedDecimal(amount)
+        return symbol.isEmpty ? localized : "\(localized) \(symbol)"
     }
 
     private var confirmedQuote: OwnedSendPreview? { store.sendQuoteForEnteredAmount }
 
-    private var recipientPreviewText: String {
-        let trimmed = store.sendFlow.address.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return AppLocalization.string("No recipient") }
-        return trimmed
+    private var recipientAddress: String {
+        store.sendFlow.address.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var networkFeeText: String? {

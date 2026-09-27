@@ -130,7 +130,6 @@
   "Condition": "條件",
   "Confirm Signing": "確認簽署",
   "Confirmation Preference: %@": "確認偏好：%@",
-  "Confirmations": "確認數",
   "Confirmed": "已確認",
   "Confirmed Fee": "已確認手續費",
   "Connection Mode": "連線模式",
@@ -584,8 +583,6 @@
   "Tor": "Tor",
   "Tor Network": "Tor 網路",
   "Tor client": "Tor 客戶端",
-  "Total Amount": "總數量",
-  "Total Value": "總價值",
   "Track public addresses without adding private keys.": "追蹤公開地址，無需新增私鑰。",
   "Transaction": "交易",
   "Transaction Hash": "交易哈希",
@@ -1041,5 +1038,6 @@
   "Action Failed": "操作失敗",
   "dashboard.portfolio.walletCount.one": "來自 %lld 個錢包",
   "dashboard.portfolio.walletCount.other": "來自 %lld 個錢包",
-  "Pinned assets stay in the Assets list even when their balance is zero.": "即使餘額為零，固定資產也會保留在“資產”列表中。"
+  "Pinned assets stay in the Assets list even when their balance is zero.": "即使餘額為零，固定資產也會保留在“資產”列表中。",
+  "Technical Details": "技術詳情"
 }

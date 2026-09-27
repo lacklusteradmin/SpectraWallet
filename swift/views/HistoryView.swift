@@ -4,7 +4,6 @@ private struct HistoryRowPresentation: Identifiable, Equatable {
     let amountText: String?
     let amountColor: Color?
     let subtitleText: String
-    let statusText: String
     let fullTimestampText: String
     let metadataText: String?
     var id: String { transaction.id }
@@ -28,8 +27,7 @@ private struct HistoryTransactionRowView: View, Equatable {
                 }
                 Spacer()
                 VStack(alignment: .trailing, spacing: SpectraLayout.Space.xs) {
-                    Text(row.statusText).font(.caption2.bold()).foregroundStyle(Color.primary).padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs)
-                        .background(row.transaction.statusColor.opacity(0.85), in: Capsule())
+                    TransactionStatusBadge(status: row.transaction.status)
                     Text(row.fullTimestampText).font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(
                         .trailing)
                 }
@@ -59,6 +57,8 @@ struct HistoryView: View {
     @State private var isLoadingPage = false
     @State private var pageRequestId = UUID()
     @State private var loadedFilterKey: String?
+    /// Rows the next reload adds beyond those on screen; cleared once a reload lands.
+    @State private var pendingGrowth = 0
     @State private var isRetrying = false
     var body: some View {
         NavigationStack {
@@ -197,6 +197,9 @@ struct HistoryView: View {
         "\(selectedWalletId ?? "")|\(selectedFilter)|\(selectedSortOrder)|\(searchText)"
     }
     private var queryKey: String { "\(filterKey)|\(store.transactionRevision)|\(store.walletsRevision)" }
+    private static let pageSize = 20
+    /// Core refuses a history query for more rows than this.
+    private static let maxQueryLimit = 200
     private func loadPage(reset: Bool) async {
         let key = queryKey
         if loadedFilterKey != filterKey {
@@ -209,17 +212,32 @@ struct HistoryView: View {
         isLoadingPage = true
         defer { if pageRequestId == requestId { isLoadingPage = false } }
         do {
-            let page = try await store.bridge.ready().historyPage(query: HistoryQuery(
-                walletId: selectedWalletId, filter: selectedFilter, search: searchText,
-                oldestFirst: selectedSortOrder == .oldest, cursor: reset ? nil : nextCursor, limit: 20))
-            guard !Task.isCancelled, pageRequestId == requestId, queryKey == key else { return }
-            if reset { pageRecords = page.records }
-            else {
+            let bridge = try await store.bridge.ready()
+            // A reload keeps every row already on screen, so a refresh or an
+            // on-chain fetch does not snap the list back to its first page.
+            let target = reset ? max(Self.pageSize, pageRecords.count + pendingGrowth) : Self.pageSize
+            var records: [TransactionRecord] = []
+            var cursor = reset ? nil : nextCursor
+            var hasMore = false
+            repeat {
+                let page = try await bridge.historyPage(query: HistoryQuery(
+                    walletId: selectedWalletId, filter: selectedFilter, search: searchText,
+                    oldestFirst: selectedSortOrder == .oldest, cursor: cursor,
+                    limit: UInt32(min(target - records.count, Self.maxQueryLimit))))
+                guard !Task.isCancelled, pageRequestId == requestId, queryKey == key else { return }
+                records += page.records
+                cursor = page.nextCursor
+                hasMore = page.hasMore
+            } while hasMore && records.count < target
+            if reset {
+                pageRecords = records
+                pendingGrowth = 0
+            } else {
                 let present = Set(pageRecords.map(\.id))
-                pageRecords += page.records.filter { !present.contains($0.id) }
+                pageRecords += records.filter { !present.contains($0.id) }
             }
-            nextCursor = page.nextCursor
-            hasMoreStoredHistory = page.hasMore
+            nextCursor = cursor
+            hasMoreStoredHistory = hasMore
             pageError = nil
         } catch {
             guard !Task.isCancelled, pageRequestId == requestId, queryKey == key else { return }
@@ -231,6 +249,10 @@ struct HistoryView: View {
             Task {
                 if !hasMoreStoredHistory {
                     await store.loadMoreOnChainHistory(for: historyWalletIds)
+                    // The fetch bumps the transaction revision, so `.task` reloads
+                    // too, in either order. Both read `pendingGrowth`, so whichever
+                    // lands last shows the extra page.
+                    pendingGrowth = Self.pageSize
                     await loadPage(reset: true)
                 } else {
                     await loadPage(reset: false)
@@ -267,7 +289,7 @@ struct HistoryView: View {
     private func historyRowPresentation(for transaction: TransactionRecord) -> HistoryRowPresentation {
         HistoryRowPresentation(
             transaction: transaction, amountText: signedAmountText(for: transaction), amountColor: amountColor(for: transaction),
-            subtitleText: transaction.walletName, statusText: transaction.statusText, fullTimestampText: transaction.fullTimestampText,
+            subtitleText: transaction.walletName, fullTimestampText: transaction.fullTimestampText,
             metadataText: store.amounts.historyMetadataText(for: transaction)
         )
     }

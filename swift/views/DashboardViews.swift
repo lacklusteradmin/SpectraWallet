@@ -340,7 +340,6 @@ struct AssetGroupDetailView: View {
         ScrollView(showsIndicators: false) {
             LazyVStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                 AssetDetailHeroCard(assetGroup: assetGroup, store: store)
-                AssetSummaryStatsCard(assetGroup: assetGroup, store: store)
                 AssetChainBreakdownCard(assetGroup: assetGroup, store: store)
             }.spectraScreenPadding()
         }.background(SpectraBackdrop().ignoresSafeArea())
@@ -393,41 +392,17 @@ private struct AssetDetailHeroCard: View {
                     Text(store.amounts.formattedFiat(assetGroup.totalValue))
                         .font(.title3.weight(.semibold)).foregroundStyle(Color.primary)
                         .spectraNumericTextLayout(minimumScaleFactor: 0.7)
+                    Text(
+                        store.amounts.formattedAssetAmount(
+                            assetGroup.totalAmount, symbol: assetGroup.symbol,
+                            deploymentId: assetGroup.identity.holdingKey)
+                    ).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                        .spectraNumericTextLayout(minimumScaleFactor: 0.7)
                 }
             }
             Spacer(minLength: 0)
         }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
             .spectraElevatedFill()
-    }
-}
-private struct AssetSummaryStatsCard: View {
-    let assetGroup: DashboardAssetGroup
-    let store: AppState
-    var body: some View {
-        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-            statRow(
-                label: AppLocalization.string("Total Amount"),
-                value: store.amounts.formattedAssetAmount(
-                    assetGroup.totalAmount, symbol: assetGroup.symbol, deploymentId: assetGroup.identity.holdingKey),
-                icon: "scalemass.fill")
-            Divider().opacity(0.4)
-            statRow(
-                label: AppLocalization.string("Total Value"),
-                value: store.amounts.formattedFiat(assetGroup.totalValue),
-                icon: "dollarsign.circle.fill")
-        }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
-            .spectraCardFill()
-    }
-    @ViewBuilder
-    private func statRow(label: String, value: String, icon: String) -> some View {
-        HStack(spacing: SpectraLayout.Space.s) {
-            Image(systemName: icon).font(.subheadline.weight(.semibold)).foregroundStyle(.tint).frame(width: 22)
-            Text(label).font(.subheadline).foregroundStyle(.secondary)
-            Spacer(minLength: SpectraLayout.Space.m)
-            Text(value).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).spectraNumericTextLayout(
-                minimumScaleFactor: 0.7
-            ).multilineTextAlignment(.trailing)
-        }
     }
 }
 /// Every place the row's asset is held, largest first.

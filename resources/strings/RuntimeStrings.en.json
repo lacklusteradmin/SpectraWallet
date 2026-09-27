@@ -130,7 +130,6 @@
   "Condition": "Condition",
   "Confirm Signing": "Confirm Signing",
   "Confirmation Preference: %@": "Confirmation Preference: %@",
-  "Confirmations": "Confirmations",
   "Confirmed": "Confirmed",
   "Confirmed Fee": "Confirmed Fee",
   "Connection Mode": "Connection Mode",
@@ -584,8 +583,6 @@
   "Tor": "Tor",
   "Tor Network": "Tor Network",
   "Tor client": "Tor client",
-  "Total Amount": "Total Amount",
-  "Total Value": "Total Value",
   "Track public addresses without adding private keys.": "Track public addresses without adding private keys.",
   "Transaction": "Transaction",
   "Transaction Hash": "Transaction Hash",
@@ -1041,5 +1038,6 @@
   "Action Failed": "Action Failed",
   "dashboard.portfolio.walletCount.one": "Across %lld wallet",
   "dashboard.portfolio.walletCount.other": "Across %lld wallets",
-  "Pinned assets stay in the Assets list even when their balance is zero.": "Pinned assets stay in the Assets list even when their balance is zero."
+  "Pinned assets stay in the Assets list even when their balance is zero.": "Pinned assets stay in the Assets list even when their balance is zero.",
+  "Technical Details": "Technical Details"
 }

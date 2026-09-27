@@ -18,12 +18,17 @@ struct SendStagesView: View {
             }
             .font(.subheadline.weight(.semibold))
             VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-                Text(verbatim: "\(artifact.amount) \(artifact.asset)").font(.title2.weight(.bold))
+                Text(verbatim: amountText).font(.title2.weight(.bold)).spectraNumericTextLayout()
                 LabeledContent(AppLocalization.string("Network"), value: Chain.displayName(forId: artifact.chainId))
-                Text(AppLocalization.string("From")).font(.caption).foregroundStyle(.secondary)
-                Text(verbatim: artifact.sender).font(.body.monospaced()).textSelection(.enabled)
-                Text(AppLocalization.string("To")).font(.caption).foregroundStyle(.secondary)
-                Text(verbatim: artifact.recipient).font(.body.monospaced()).textSelection(.enabled)
+                Divider().opacity(0.4)
+                ReviewAddressBlock(
+                    store: store, label: "From", walletId: artifact.walletId, chainId: artifact.chainId,
+                    address: artifact.sender)
+                Divider().opacity(0.4)
+                ReviewAddressBlock(
+                    store: store, label: "To", walletId: artifact.walletId, chainId: artifact.chainId,
+                    address: artifact.recipient)
+                Divider().opacity(0.4)
                 Text(AppLocalization.string(artifact.stage == .prepared ? "Built. Review the transaction before signing." : artifact.attempts.isEmpty ? "Signed and saved. Not broadcast." : "Submission results are shown below. Node acceptance is not on-chain confirmation."))
                     .foregroundStyle(.secondary)
                 DisclosureGroup(AppLocalization.string("Transaction details")) {
@@ -97,6 +102,16 @@ struct SendStagesView: View {
                 transactionError = error.localizedDescription
             }
         }
+    }
+    /// The amount in the unit a person reads it in. Core stores a token send's
+    /// asset as its exact contract, which is the identity, not a name: the
+    /// wallet's holding of that contract gives the symbol. A coin's asset is
+    /// already its symbol.
+    private var amountText: String {
+        let symbol = store.availableSendCoins(for: artifact.walletId)
+            .first { $0.chainId == artifact.chainId && $0.contractAddress == artifact.asset }?
+            .symbol ?? artifact.asset
+        return "\(AmountPresentation.localizedDecimal(artifact.amount)) \(symbol)"
     }
     private func outcomeText(_ outcome: SubmissionOutcome) -> String {
         switch outcome {

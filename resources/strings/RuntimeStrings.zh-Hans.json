@@ -130,7 +130,6 @@
   "Condition": "条件",
   "Confirm Signing": "确认签名",
   "Confirmation Preference: %@": "确认偏好：%@",
-  "Confirmations": "确认数",
   "Confirmed": "已确认",
   "Confirmed Fee": "已确认手续费",
   "Connection Mode": "连接模式",
@@ -584,8 +583,6 @@
   "Tor": "Tor",
   "Tor Network": "Tor 网络",
   "Tor client": "Tor 客户端",
-  "Total Amount": "总数量",
-  "Total Value": "总价值",
   "Track public addresses without adding private keys.": "跟踪公开地址，无需添加私钥。",
   "Transaction": "交易",
   "Transaction Hash": "交易哈希",
@@ -1041,5 +1038,6 @@
   "Action Failed": "操作失败",
   "dashboard.portfolio.walletCount.one": "来自 %lld 个钱包",
   "dashboard.portfolio.walletCount.other": "来自 %lld 个钱包",
-  "Pinned assets stay in the Assets list even when their balance is zero.": "即使余额为零，固定资产也会保留在“资产”列表中。"
+  "Pinned assets stay in the Assets list even when their balance is zero.": "即使余额为零，固定资产也会保留在“资产”列表中。",
+  "Technical Details": "技术详情"
 }

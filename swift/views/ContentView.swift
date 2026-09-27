@@ -38,6 +38,17 @@ struct ContentView: View {
                     }.buttonStyle(.glassProminent).controlSize(.large)
                 }.padding(SpectraLayout.Space.xl).spectraElevatedFill().padding(SpectraLayout.Space.xl)
             }
+            // Covers the app whenever it is not active, whatever the lock
+            // settings, so the app switcher snapshot never shows balances or
+            // addresses. Separate from the app lock: the lock guards use,
+            // this guards the snapshot, and it lifts on return without
+            // asking anything of the user.
+            if scenePhase != .active {
+                ZStack {
+                    SpectraBackdrop()
+                    SpectraLogo()
+                }.ignoresSafeArea()
+            }
         }.preferredColorScheme(store.preferences.appearanceMode == .dark ? .dark : store.preferences.appearanceMode == .light ? .light : nil)
         .onAppear {
             store.setAppIsActive(scenePhase == .active)
