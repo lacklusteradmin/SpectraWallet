@@ -12,7 +12,7 @@ struct MoneroSyncView: View {
     var body: some View {
         Group {
             if let status {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                     Text(AppLocalization.string("Local Monero Wallet")).font(.headline)
                     Text(AppLocalization.string("Scanning and signing happen on this device. Keys stay on this device."))
                         .font(.caption).foregroundStyle(.secondary)
@@ -34,7 +34,7 @@ struct MoneroSyncView: View {
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                         Button(AppLocalization.string("Sync Local Wallet")) { running = true }
-                            .buttonStyle(.glassProminent).tint(.orange)
+                            .buttonStyle(.glassProminent)
                     }
                     if let error { Text(error).font(.caption).foregroundStyle(.red) }
                 }

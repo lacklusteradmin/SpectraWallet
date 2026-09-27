@@ -8,14 +8,14 @@ struct AssetPlacesCard: View {
     let symbol: String
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Text(AppLocalization.string("Lives On")).font(.headline).foregroundStyle(Color.primary)
                 Spacer()
                 if places.count > 1 {
-                    Text("\(places.count)").font(.caption.weight(.bold)).foregroundStyle(.orange)
-                        .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(Capsule(style: .continuous).fill(Color.orange.opacity(0.14)))
+                    Text("\(places.count)").font(.caption.weight(.bold)).foregroundStyle(.tint)
+                        .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs)
+                        .background(Capsule(style: .continuous).fill(Color.accentColor.opacity(0.14)))
                 }
             }
             if places.isEmpty {
@@ -36,19 +36,19 @@ struct AssetPlacesCard: View {
                 }
             }
         }
-        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        .padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
         .spectraCardFill()
     }
 
     @ViewBuilder
     private func row(_ place: AssetWikiPlace) -> some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Text(place.chainName).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
                 Spacer()
-                Text(place.tokenStandard).font(.caption.weight(.semibold)).foregroundStyle(.orange)
-                    .padding(.horizontal, 8).padding(.vertical, 3)
-                    .background(Capsule(style: .continuous).fill(Color.orange.opacity(0.12)))
+                Text(place.tokenStandard).font(.caption.weight(.semibold)).foregroundStyle(.tint)
+                    .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs)
+                    .background(Capsule(style: .continuous).fill(Color.accentColor.opacity(0.12)))
                 Image(systemName: "chevron.right").font(.caption2.weight(.semibold)).foregroundStyle(.tertiary)
             }
             if place.contract.isEmpty {
@@ -62,7 +62,7 @@ struct AssetPlacesCard: View {
                     .textSelection(.enabled).lineLimit(2).truncationMode(.middle)
             }
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, SpectraLayout.Space.xs)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(AppLocalization.format("%@ on %@", symbol, place.chainName))
     }

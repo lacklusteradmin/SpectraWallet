@@ -15,17 +15,17 @@ struct TokenRegistryDetailView: View {
             if let entry = groupEntries.first {
                 Form {
                     Section {
-                        HStack(spacing: 12) {
+                        HStack(spacing: SpectraLayout.Space.m) {
                             CoinBadge(artworkName: entry.settingsArtworkName,
                                 fallbackText: entry.settingsFallbackMark,
                                 color: entry.hostingChain?.settingsIconTint ?? .accentColor, size: 48)
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                                 Text(entry.token.name).font(.headline)
                                 Text(entry.token.symbol).foregroundStyle(.secondary)
                                 Text(AppLocalization.string(entry.isBuiltIn ? "Built-In" : "Custom"))
                                     .font(.caption).foregroundStyle(.secondary)
                             }
-                        }.padding(.vertical, 4)
+                        }.padding(.vertical, SpectraLayout.Space.xs)
                     }
                     if let error = store.tokenPreferenceError {
                         Section { Text(error).foregroundStyle(.red) }

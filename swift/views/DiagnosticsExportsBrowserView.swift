@@ -30,13 +30,13 @@ struct DiagnosticsExportsBrowserView: View {
                     Text(AppLocalization.string("No diagnostics exports yet.")).foregroundStyle(.secondary)
                 } else {
                     ForEach(exportURLs, id: \.self) { url in
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
                             Text(url.lastPathComponent).font(.subheadline.weight(.semibold))
                             Text(exportTimestamp(for: url)).font(.caption).foregroundStyle(.secondary)
                             ShareLink(item: url) {
                                 Label(AppLocalization.string("Share"), systemImage: "square.and.arrow.up")
                             }.font(.caption)
-                        }.padding(.vertical, 4)
+                        }.padding(.vertical, SpectraLayout.Space.xs)
                     }.onDelete(perform: deleteExports)
                 }
             }.navigationTitle(AppLocalization.string("Past Exports")).navigationBarTitleDisplayMode(.inline).toolbar {

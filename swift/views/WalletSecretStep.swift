@@ -24,7 +24,7 @@ struct WalletSecretStep: View {
     private var isCreateMode: Bool { draft.isCreateMode }
     private var isEditingWallet: Bool { draft.isEditingWallet }
     private let seedPhraseGridColumns = [
-        GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6),
+        GridItem(.flexible(), spacing: SpectraLayout.Space.xs), GridItem(.flexible(), spacing: SpectraLayout.Space.xs), GridItem(.flexible(), spacing: SpectraLayout.Space.xs),
     ]
     private var isPrivateKeyImportMode: Bool { draft.isPrivateKeyImportMode }
     private var canContinueFromSecretStep: Bool {
@@ -36,7 +36,7 @@ struct WalletSecretStep: View {
             if showsBackupVerification {
                 backupVerificationStepSection
             } else {
-                VStack(alignment: .leading, spacing: 14) { walletSecretStepSection }
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.m) { walletSecretStepSection }
             }
         }
         .onChange(of: draft.selectedSeedPhraseWordCount) { _, newValue in
@@ -93,9 +93,9 @@ struct WalletSecretStep: View {
     }
     @ViewBuilder
     private func seedPhraseLengthPicker(title: String, subtitle: String, showsRegenerateButton: Bool = false) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(alignment: .firstTextBaseline, spacing: 8) {
-                VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+            HStack(alignment: .firstTextBaseline, spacing: SpectraLayout.Space.s) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                     Text(localizedWalletFlowString(title)).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
                     Text(localizedWalletFlowString(subtitle)).font(.caption).foregroundStyle(.secondary)
                 }
@@ -105,10 +105,10 @@ struct WalletSecretStep: View {
                         draft.regenerateSeedPhrase()
                     } label: {
                         Label(AppLocalization.string("Regenerate"), systemImage: "arrow.clockwise").font(.caption.weight(.semibold))
-                    }.buttonStyle(.glass).tint(.orange).disabled(!CoreReferenceTables.isStandardSeedPhraseLength(draft.selectedSeedPhraseWordCount))
+                    }.buttonStyle(.glass).tint(.accentColor).disabled(!CoreReferenceTables.isStandardSeedPhraseLength(draft.selectedSeedPhraseWordCount))
                 }
             }
-            HStack(spacing: 6) {
+            HStack(spacing: SpectraLayout.Space.xs) {
                 ForEach(CoreReferenceTables.standardSeedPhraseLengths(), id: \.wordCount) { length in
                     seedPhraseLengthChip(length)
                 }
@@ -116,7 +116,7 @@ struct WalletSecretStep: View {
             seedPhraseCustomLengthField
             if let seedPhraseLengthWarning = draft.seedPhraseVerdict.lengthWarning {
                 Label(seedPhraseLengthWarning, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(
-                    .orange.opacity(0.92))
+                    .spectraWarning.opacity(0.92))
             }
         }
     }
@@ -129,36 +129,35 @@ struct WalletSecretStep: View {
             draft.selectedSeedPhraseWordCount = wordCount
             customSeedPhraseWordCountInput = String(wordCount)
         } label: {
-            VStack(spacing: 2) {
+            VStack(spacing: SpectraLayout.Space.xxs) {
                 Text("\(wordCount)").font(.title3.weight(.bold).monospacedDigit()).foregroundStyle(
                     isSelected ? Color.white : Color.primary)
                 Text("\(length.entropyBits)b").font(.caption2.weight(.semibold)).foregroundStyle(
                     isSelected ? Color.white.opacity(0.8) : .secondary)
-            }.frame(maxWidth: .infinity, minHeight: 56).spectraSelectableFill(isSelected: isSelected, accent: .orange, cornerRadius: SpectraLayout.Radius.pill)
+            }.frame(maxWidth: .infinity, minHeight: 56).spectraSelectableFill(isSelected: isSelected, accent: .accentColor, cornerRadius: SpectraLayout.Radius.inner)
         }.buttonStyle(.plain)
     }
     @ViewBuilder
     private var seedPhraseCustomLengthField: some View {
         let isCustomSelected = !CoreReferenceTables.isStandardSeedPhraseLength(draft.selectedSeedPhraseWordCount)
         DisclosureGroup {
-            HStack(spacing: 8) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 TextField(localizedWalletFlowString("Custom word count"), text: $customSeedPhraseWordCountInput).keyboardType(.numberPad)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled().padding(.horizontal, 12).padding(.vertical, 10).frame(
+                    .textInputAutocapitalization(.never).autocorrectionDisabled().padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s).frame(
                         maxWidth: .infinity, alignment: .leading
                     ).spectraInputFieldStyle()
                 Button(AppLocalization.string("Apply")) {
                     draft.applyCustomSeedPhraseWordCount(customSeedPhraseWordCountInput)
                     customSeedPhraseWordCountInput = String(draft.selectedSeedPhraseWordCount)
-                }.buttonStyle(.glass).tint(.orange)
-            }.padding(.top, 4)
+                }.buttonStyle(.glass).tint(.accentColor)
+            }.padding(.top, SpectraLayout.Space.xs)
         } label: {
-            HStack(spacing: 6) {
+            HStack(spacing: SpectraLayout.Space.xs) {
                 Image(systemName: "slider.horizontal.3").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 Text(AppLocalization.string("Custom length")).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                 if isCustomSelected {
-                    Text("\(draft.selectedSeedPhraseWordCount)").font(.caption.weight(.bold)).foregroundStyle(.orange).padding(
-                        .horizontal, 8
-                    ).padding(.vertical, 2).background(Capsule(style: .continuous).fill(Color.orange.opacity(0.14)))
+                    Text("\(draft.selectedSeedPhraseWordCount)").font(.caption.weight(.bold)).foregroundStyle(.tint).padding(
+                        .horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs).background(Capsule(style: .continuous).fill(Color.accentColor.opacity(0.14)))
                 }
             }
         }.tint(.secondary)
@@ -171,7 +170,7 @@ struct WalletSecretStep: View {
     @ViewBuilder
     private var seedPhraseLanguagePicker: some View {
         let isNonEnglish = draft.seedPhraseLanguage != "en"
-        HStack(spacing: 6) {
+        HStack(spacing: SpectraLayout.Space.xs) {
             Image(systemName: "globe").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             Picker(AppLocalization.string("Wordlist"), selection: $draft.seedPhraseLanguage) {
                 ForEach(Self.seedPhraseLanguageOptions, id: \.code) { option in
@@ -183,17 +182,16 @@ struct WalletSecretStep: View {
             .tint(.secondary)
             Spacer()
             if isNonEnglish {
-                Text(draft.seedPhraseLanguage).font(.caption.weight(.bold)).foregroundStyle(.orange).padding(
-                    .horizontal, 8
-                ).padding(.vertical, 2).background(Capsule(style: .continuous).fill(Color.orange.opacity(0.14)))
+                Text(draft.seedPhraseLanguage).font(.caption.weight(.bold)).foregroundStyle(.tint).padding(
+                    .horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs).background(Capsule(style: .continuous).fill(Color.accentColor.opacity(0.14)))
             }
         }
     }
     @ViewBuilder
     private func numberedSeedPhraseRow(index: Int, text: String? = nil, isInvalidWord: Bool = false) -> some View {
         let isFocused = focusedSeedPhraseIndex == index
-        let accentColor: Color = isInvalidWord ? Color.red.opacity(0.85) : Color.orange.opacity(0.7)
-        HStack(spacing: 4) {
+        let accentColor: Color = isInvalidWord ? Color.red.opacity(0.85) : Color.accentColor.opacity(0.7)
+        HStack(spacing: SpectraLayout.Space.xs) {
             Text("\(index + 1)").font(.system(size: 10, weight: .bold)).foregroundStyle(.tertiary)
                 .frame(width: 14, alignment: .trailing).monospacedDigit()
             if let text {
@@ -210,7 +208,7 @@ struct WalletSecretStep: View {
             }
         }
         .frame(maxWidth: .infinity, minHeight: 30)
-        .padding(.horizontal, 8).padding(.vertical, 5)
+        .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs)
         .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.control)
         .overlay(RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous)
             .stroke((isFocused || isInvalidWord) ? accentColor : Color.clear, lineWidth: 1))
@@ -219,7 +217,7 @@ struct WalletSecretStep: View {
     @ViewBuilder
     private var importSecretModePicker: some View {
         if !isEditingWallet && !isCreateMode && !draft.isWatchOnlyMode {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
                 Text(localizedWalletFlowString("Import Method")).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                 Picker(localizedWalletFlowString("Import Method"), selection: importSecretModeBinding) {
                     ForEach(WalletSecretImportMode.allCases) { mode in Text(mode.localizedTitle).tag(mode) }
@@ -244,7 +242,7 @@ struct WalletSecretStep: View {
         Text(copy.seedPhraseEntryHelp).font(.footnote).foregroundStyle(.secondary)
         seedPhraseEntryHeader
         let invalidWords = Set(draft.seedPhraseVerdict.invalidWords)
-        LazyVGrid(columns: seedPhraseGridColumns, spacing: 6) {
+        LazyVGrid(columns: seedPhraseGridColumns, spacing: SpectraLayout.Space.xs) {
             ForEach(0..<draft.selectedSeedPhraseWordCount, id: \.self) { index in
                 seedPhraseField(at: index, invalidWords: invalidWords)
             }
@@ -258,7 +256,7 @@ struct WalletSecretStep: View {
         )
         Text(copy.createSeedPhraseWarning).font(.footnote).foregroundStyle(.secondary)
         seedPhraseDisplayHeader
-        LazyVGrid(columns: seedPhraseGridColumns, spacing: 6) {
+        LazyVGrid(columns: seedPhraseGridColumns, spacing: SpectraLayout.Space.xs) {
             ForEach(draft.seedPhraseWords.indices, id: \.self) { index in
                 numberedSeedPhraseRow(index: index, text: draft.seedPhraseWords[index])
             }
@@ -270,14 +268,14 @@ struct WalletSecretStep: View {
         let total = draft.selectedSeedPhraseWordCount
         let verdict = draft.seedPhraseVerdict
         let isComplete = filled >= total && verdict.invalidWords.isEmpty && verdict.error == nil
-        HStack(spacing: 10) {
-            HStack(spacing: 6) {
+        HStack(spacing: SpectraLayout.Space.s) {
+            HStack(spacing: SpectraLayout.Space.xs) {
                 Image(systemName: isComplete ? "checkmark.circle.fill" : "circle.dashed").font(.caption.weight(.semibold))
-                    .foregroundStyle(isComplete ? .green : .orange)
+                    .foregroundStyle(isComplete ? .green : .spectraWarning)
                 Text("\(filled) / \(total)").font(.caption.weight(.semibold).monospacedDigit()).foregroundStyle(
-                    isComplete ? .green : .orange)
-            }.padding(.horizontal, 10).padding(.vertical, 6).background(
-                Capsule(style: .continuous).fill((isComplete ? Color.green : Color.orange).opacity(0.12))
+                    isComplete ? .green : .spectraWarning)
+            }.padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs).background(
+                Capsule(style: .continuous).fill((isComplete ? Color.green : Color.spectraWarning).opacity(0.12))
             )
             Spacer()
             Button {
@@ -287,7 +285,7 @@ struct WalletSecretStep: View {
                 }
             } label: {
                 Label(AppLocalization.string("Paste"), systemImage: "doc.on.clipboard").font(.caption.weight(.semibold))
-            }.buttonStyle(.glass).tint(.orange)
+            }.buttonStyle(.glass).tint(.accentColor)
             if filled > 0 {
                 Button(role: .destructive) {
                     for index in 0..<total { draft.updateSeedPhraseEntry(at: index, with: "") }
@@ -300,23 +298,23 @@ struct WalletSecretStep: View {
     }
     @ViewBuilder
     private var seedPhraseDisplayHeader: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: SpectraLayout.Space.s) {
             Label(AppLocalization.string("Recovery Phrase"), systemImage: "key.fill").font(.caption.weight(.semibold)).foregroundStyle(
-                .orange
-            ).padding(.horizontal, 10).padding(.vertical, 6).background(
-                Capsule(style: .continuous).fill(Color.orange.opacity(0.12)))
+                .tint
+            ).padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs).background(
+                Capsule(style: .continuous).fill(Color.accentColor.opacity(0.12)))
             Spacer()
             Button {
                 UIPasteboard.general.string = draft.seedPhraseWords.joined(separator: " ")
             } label: {
                 Label(AppLocalization.string("Copy"), systemImage: "doc.on.doc").font(.caption.weight(.semibold))
-            }.buttonStyle(.glass).tint(.orange).disabled(draft.seedPhraseWords.isEmpty)
+            }.buttonStyle(.glass).tint(.accentColor).disabled(draft.seedPhraseWords.isEmpty)
         }
     }
     @ViewBuilder
     private var privateKeyImportFields: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Text(copy.privateKeyTitle).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
                 Spacer()
                 Button {
@@ -325,7 +323,7 @@ struct WalletSecretStep: View {
                     }
                 } label: {
                     Label(AppLocalization.string("Paste"), systemImage: "doc.on.clipboard").font(.caption.weight(.semibold))
-                }.buttonStyle(.glass).tint(.orange)
+                }.buttonStyle(.glass).tint(.accentColor)
             }
             Text(copy.privateKeyPrompt).font(.footnote).foregroundStyle(.secondary)
             privateKeyEditor
@@ -334,7 +332,7 @@ struct WalletSecretStep: View {
                 Text(
                     AppLocalization.format(
                         "Private key import is not available for: %@.", draft.unsupportedPrivateKeyChainNames.joined(separator: ", "))
-                ).font(.footnote).foregroundStyle(.orange.opacity(0.9))
+                ).font(.footnote).foregroundStyle(.spectraWarning.opacity(0.9))
             } else if let validation = privateKeyValidationFeedback {
                 Label(validation.message, systemImage: validation.icon).font(.footnote.weight(.medium)).foregroundStyle(validation.color)
             }
@@ -351,23 +349,22 @@ struct WalletSecretStep: View {
         ZStack(alignment: .topLeading) {
             TextEditor(text: $draft.privateKeyInput).textInputAutocapitalization(.never).autocorrectionDisabled().scrollContentBackground(
                 .hidden
-            ).font(.system(.footnote, design: .monospaced)).foregroundStyle(Color.primary).frame(minHeight: 96).padding(.horizontal, 10)
-                .padding(.vertical, 10).spectraInputFieldStyle(borderColor: borderColor)
+            ).font(.system(.footnote, design: .monospaced)).foregroundStyle(Color.primary).frame(minHeight: 96).padding(.horizontal, SpectraLayout.Space.s)
+                .padding(.vertical, SpectraLayout.Space.s).spectraInputFieldStyle(borderColor: borderColor)
             if trimmed.isEmpty {
                 Text(copy.privateKeyPlaceholder).font(.system(.footnote, design: .monospaced)).foregroundStyle(.secondary).padding(
-                    .horizontal, 16
-                ).padding(.vertical, 18).allowsHitTesting(false)
+                    .horizontal, SpectraLayout.Space.l).padding(.vertical, SpectraLayout.Space.l).allowsHitTesting(false)
             }
         }
     }
     @ViewBuilder
     private var privateKeyMetadataRow: some View {
         let hexCount = draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).count
-        HStack(spacing: 10) {
+        HStack(spacing: SpectraLayout.Space.s) {
             Text(AppLocalization.string("32-byte hex (64 chars)")).font(.caption2).foregroundStyle(.secondary)
             Spacer()
             Text("\(hexCount) / 64").font(.caption2.monospacedDigit()).foregroundStyle(
-                hexCount == 0 ? Color.secondary : (hexCount == 64 ? Color.green : Color.orange))
+                hexCount == 0 ? Color.secondary : (hexCount == 64 ? Color.green : Color.spectraWarning))
             if hexCount > 0 {
                 Button(role: .destructive) { draft.privateKeyInput = "" } label: {
                     Image(systemName: "xmark.circle.fill").font(.caption.weight(.semibold))
@@ -397,7 +394,7 @@ struct WalletSecretStep: View {
                 if isPrivateKeyImportMode {
                     privateKeyImportFields
                 } else {
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                         newWalletSeedPhraseSection
                         derivationOptionsLink
                     }
@@ -407,7 +404,7 @@ struct WalletSecretStep: View {
     }
     @ViewBuilder
     private var backupVerificationStepSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             Text(copy.backupVerificationTitle).font(.headline).foregroundStyle(Color.primary)
             if !draft.backupVerificationPromptLabel.isEmpty {
                 Text(draft.backupVerificationPromptLabel).font(.subheadline).foregroundStyle(.secondary)
@@ -419,14 +416,14 @@ struct WalletSecretStep: View {
             } else {
                 ForEach(draft.backupVerificationWordIndices.indices, id: \.self) { offset in
                     let wordIndex = draft.backupVerificationWordIndices[offset]
-                    HStack(spacing: 8) {
+                    HStack(spacing: SpectraLayout.Space.s) {
                         Text(AppLocalization.format("Word #%lld", wordIndex + 1)).font(.caption.weight(.bold)).foregroundStyle(.secondary).frame(width: 72, alignment: .leading)
                         TextField("", text: backupVerificationBinding(for: offset)).textInputAutocapitalization(
                             .never
                         ).autocorrectionDisabled()
                         .font(.system(.footnote, design: .monospaced).weight(.medium))
                         .foregroundStyle(Color.primary)
-                    }.padding(.horizontal, 10).padding(.vertical, 7).spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.pill)
+                    }.padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.s).spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.inner)
                 }
                 if draft.isBackupVerificationComplete {
                     Text(copy.backupVerifiedMessage).font(.footnote).foregroundStyle(.green.opacity(0.9))
@@ -434,7 +431,7 @@ struct WalletSecretStep: View {
                     Text(copy.backupVerificationHint).font(.footnote).foregroundStyle(.secondary)
                 }
             }
-        }.padding(16).spectraBubbleFill().spectraCardFill(cornerRadius: SpectraLayout.Radius.card)
+        }.padding(SpectraLayout.Space.l).spectraBubbleFill().spectraCardFill()
     }
     /// The derivation options the sheet has moved off their defaults, by
     /// name. The entry to the sheet is deliberately quiet, so it says when
@@ -464,17 +461,17 @@ struct WalletSecretStep: View {
         return Button {
             isShowingDerivationOptions = true
         } label: {
-            HStack(spacing: 10) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Image(systemName: "slider.horizontal.3").font(.footnote.weight(.semibold))
-                    .foregroundStyle(summary == nil ? Color.secondary : .orange)
-                VStack(alignment: .leading, spacing: 2) {
+                    .foregroundStyle(summary == nil ? Color.secondary : .spectraWarning)
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                     Text(copy.advancedTitle).font(.footnote.weight(.semibold)).foregroundStyle(Color.primary)
                     Text(summary ?? copy.advancedSubtitle).font(.caption2)
-                        .foregroundStyle(summary == nil ? Color.secondary : .orange)
+                        .foregroundStyle(summary == nil ? Color.secondary : .spectraWarning)
                 }
                 Spacer()
                 Image(systemName: "chevron.right").font(.caption2.weight(.bold)).foregroundStyle(.tertiary)
-            }.padding(.vertical, 4).contentShape(Rectangle())
+            }.padding(.vertical, SpectraLayout.Space.xs).contentShape(Rectangle())
         }.buttonStyle(.plain)
     }
 }

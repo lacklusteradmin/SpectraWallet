@@ -51,7 +51,7 @@ struct CryptoWikiLibraryView: View {
         ZStack {
             SpectraBackdrop().ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-                LazyVStack(spacing: 10) {
+                LazyVStack(spacing: SpectraLayout.Space.s) {
                     ForEach(filteredEntries) { asset in
                         NavigationLink {
                             AssetWikiDetailView(asset: asset)
@@ -61,7 +61,7 @@ struct CryptoWikiLibraryView: View {
                         .buttonStyle(.plain)
                         .simultaneousGesture(TapGesture().onEnded { spectraHaptic(.light) })
                     }
-                }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
+                }.spectraScreenPadding()
             }.overlay {
                 if filteredEntries.isEmpty { ContentUnavailableView.search }
             }
@@ -96,19 +96,19 @@ private struct CryptoWikiRowCard: View, Equatable {
     let asset: AssetWikiEntry
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.asset == rhs.asset }
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: SpectraLayout.Space.m) {
             WikiCoinBadge(face: asset.face, size: 40)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                 Text(asset.name).font(.headline).foregroundStyle(Color.primary)
                 Text(subtitle).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
         }
-        .padding(.horizontal, 18).padding(.vertical, 14)
+        .padding(.horizontal, SpectraLayout.Space.l).padding(.vertical, SpectraLayout.Space.m)
         .frame(maxWidth: .infinity, alignment: .leading)
         .glassEffect(
-            .regular.tint(SpectraLayout.GlassTint.content).interactive(), in: .rect(cornerRadius: SpectraLayout.Radius.compact))
+            .regular.tint(SpectraLayout.GlassTint.content).interactive(), in: .rect(cornerRadius: SpectraLayout.Radius.card))
     }
     private var subtitle: String {
         let places = asset.livesOn.count
@@ -126,14 +126,14 @@ struct AssetWikiDetailView: View {
     let asset: AssetWikiEntry
     var body: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 16) {
+            LazyVStack(spacing: SpectraLayout.Space.m) {
                 heroCard
                 AssetPlacesCard(places: asset.livesOn, symbol: asset.symbol)
                 if !asset.totalCirculationModel.isEmpty {
                     circulationCard
                 }
             }
-            .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
+            .spectraScreenPadding()
         }
         .background(SpectraBackdrop().ignoresSafeArea())
         .navigationTitle(asset.name).navigationBarTitleDisplayMode(.inline)
@@ -141,10 +141,10 @@ struct AssetWikiDetailView: View {
     }
 
     private var heroCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+            HStack(spacing: SpectraLayout.Space.m) {
                 WikiCoinBadge(face: asset.face, size: 52)
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                     Text(asset.name).font(.title3.weight(.semibold))
                     Text(asset.symbol).font(.subheadline.monospaced()).foregroundStyle(.secondary)
                 }
@@ -154,33 +154,33 @@ struct AssetWikiDetailView: View {
                 .fixedSize(horizontal: false, vertical: true)
             if !asset.tags.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: SpectraLayout.Space.xs) {
                         ForEach(asset.tags, id: \.self) { tag in
                             Text(tag).font(.caption.weight(.semibold)).foregroundStyle(asset.accentColor)
-                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs)
                                 .background(asset.accentColor.opacity(0.14), in: Capsule())
                         }
                     }
                 }
             }
         }
-        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        .padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
         .spectraElevatedFill()
     }
 
     /// Supply caps belong to coins.
     private var circulationCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Image(systemName: "chart.bar.fill")
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(width: 22)
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(.tint).frame(width: 22)
                 Text(AppLocalization.string("Circulation Model"))
                     .font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
             }
             Text(asset.totalCirculationModel).font(.subheadline).foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true).padding(.leading, 32)
+                .fixedSize(horizontal: false, vertical: true).padding(.leading, SpectraLayout.Space.xl)
         }
-        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        .padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
         .spectraCardFill()
     }
 }

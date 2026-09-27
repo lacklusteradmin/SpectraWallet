@@ -30,8 +30,7 @@ struct DashboardView: View {
                         }
                         .pickerStyle(.segmented)
                         assetsOrWalletsCard
-                    }.padding(.horizontal, SpectraLayout.screenHorizontal).padding(.top, SpectraLayout.screenTop).padding(
-                        .bottom, SpectraLayout.screenBottom)
+                    }.spectraScreenPadding()
                 }.refreshable {
                     await store.performUserInitiatedRefresh()
                 }.scrollBounceBehavior(.always)
@@ -109,7 +108,7 @@ struct DashboardView: View {
             Image(systemName: isEmpty ? "tray" : "exclamationmark.bubble").font(.system(size: 18, weight: .semibold)).frame(
                 width: 24, height: 24)
             if !isEmpty {
-                Text("\(min(count, 9))").font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, 5).padding(.vertical, 2)
+                Text("\(min(count, 9))").font(.caption2.weight(.bold)).foregroundStyle(.white).padding(.horizontal, SpectraLayout.Space.xs).padding(.vertical, SpectraLayout.Space.xxs)
                     .background(Capsule().fill(Color.red)).offset(x: 6, y: -5)
             }
         }.frame(width: 32, height: 28, alignment: .center).foregroundStyle(Color.primary).accessibilityLabel(
@@ -126,7 +125,7 @@ struct DashboardView: View {
         case .ready:
             color = .green; icon = "network.badge.shield.half.filled"
         case .bootstrapping:
-            color = .orange; icon = "network.badge.shield.half.filled"
+            color = .spectraWarning; icon = "network.badge.shield.half.filled"
         case .error:
             color = .red; icon = "network.slash"
         case .stopped:
@@ -141,9 +140,9 @@ struct DashboardView: View {
                 Text("\(pct)%")
                     .font(.system(size: 7, weight: .bold))
                     .foregroundStyle(.white)
-                    .padding(.horizontal, 3)
-                    .padding(.vertical, 1)
-                    .background(Capsule().fill(Color.orange))
+                    .padding(.horizontal, SpectraLayout.Space.xxs)
+                    .padding(.vertical, SpectraLayout.Space.xxs)
+                    .background(Capsule().fill(Color.spectraWarning))
                     .offset(x: 6, y: 4)
             } else if case .error = status {
                 Circle().fill(color).frame(width: 7, height: 7).offset(x: 3, y: 3)
@@ -165,7 +164,7 @@ struct DashboardView: View {
     }
     private var assetsOrWalletsCard: some View {
         VStack(spacing: 0) {
-            HStack(spacing: 8) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Text(dashboardCardTitle).font(.headline)
                 Spacer()
                 Text(dashboardCardCountText).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
@@ -176,9 +175,9 @@ struct DashboardView: View {
                 case .wallets: walletsCardRows(wallets: store.wallets)
                 case .assets: assetsCardRows(portfolio: visiblePortfolio)
                 }
-            }.padding(.vertical, 4)
+            }.padding(.vertical, SpectraLayout.Space.xs)
         }.frame(maxWidth: .infinity).glassEffect(
-            .regular.tint(SpectraLayout.GlassTint.content).interactive(), in: .rect(cornerRadius: SpectraLayout.Radius.hero))
+            .regular.tint(SpectraLayout.GlassTint.content).interactive(), in: .rect(cornerRadius: SpectraLayout.Radius.card))
     }
     private var dashboardCardCountText: String {
         let count = dashboardPage == .assets ? visiblePortfolio.count : store.wallets.count
@@ -205,7 +204,7 @@ struct DashboardView: View {
                         )
                     ).equatable().padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
                 }.buttonStyle(.plain)
-                if index < wallets.count - 1 { Divider().padding(.leading, 64).opacity(0.25) }
+                if index < wallets.count - 1 { Divider().padding(.leading, SpectraLayout.rowDividerInset).opacity(0.25) }
             }
         }
     }
@@ -224,22 +223,21 @@ struct DashboardView: View {
                     DashboardAssetRowView(presentation: presentation).equatable().padding(.horizontal, SpectraLayout.rowHorizontal).padding(
                         .vertical, SpectraLayout.rowVertical)
                 }.buttonStyle(.plain)
-                if index < presentations.count - 1 { Divider().padding(.leading, 64).opacity(0.25) }
+                if index < presentations.count - 1 { Divider().padding(.leading, SpectraLayout.rowDividerInset).opacity(0.25) }
             }
         }
     }
     private func emptyCardState(title: String, message: String, systemImage: String) -> some View {
         SpectraEmptyStateContent(title: title, message: message, systemImage: systemImage)
             .padding(.horizontal, SpectraLayout.rowHorizontal)
-            .padding(.vertical, 12)
+            .padding(.vertical, SpectraLayout.Space.m)
     }
     private var addWalletEmptyState: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: SpectraLayout.Space.m) {
             emptyCardState(title: "No wallets yet", message: "Add a wallet to start receiving and sending assets.", systemImage: "wallet.pass")
             Button(AppLocalization.string("Add Wallet")) { store.isShowingAddWalletEntry = true }
                 .buttonStyle(.glassProminent)
-                .tint(.orange)
-        }.padding(20)
+        }.padding(SpectraLayout.Space.l)
     }
     private var visiblePortfolio: [DashboardAssetGroup] { store.cachedDashboardAssetGroups }
     private func visibleAssetPresentations(portfolio: [DashboardAssetGroup]) -> [DashboardAssetRowPresentation] {
@@ -283,7 +281,7 @@ enum AppNoticeSeverity {
     case error
     var tint: Color {
         switch self {
-        case .warning: return .orange
+        case .warning: return .spectraWarning
         case .error: return .red
         }
     }
@@ -328,11 +326,11 @@ struct AssetGroupDetailView: View {
     }
     var body: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                 AssetDetailHeroCard(assetGroup: assetGroup, store: store)
                 AssetSummaryStatsCard(assetGroup: assetGroup, store: store)
                 AssetChainBreakdownCard(assetGroup: assetGroup, store: store)
-            }.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
+            }.spectraScreenPadding()
         }.background(SpectraBackdrop().ignoresSafeArea())
             .navigationTitle(assetGroup.symbol).navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -355,10 +353,10 @@ struct AssetContractsDetailView: View {
     }
     var body: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                 AssetDetailHeroCard(assetGroup: assetGroup, store: store, compact: true)
                 AssetPlacesCard(places: places, symbol: assetGroup.symbol)
-            }.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
+            }.spectraScreenPadding()
         }.background(SpectraBackdrop().ignoresSafeArea())
             .navigationTitle(AppLocalization.format("%@ Details", assetGroup.symbol)).navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -369,12 +367,12 @@ private struct AssetDetailHeroCard: View {
     let store: AppState
     var compact: Bool = false
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: SpectraLayout.Space.m) {
             CoinBadge(
                 artworkName: assetGroup.artworkName, fallbackText: assetGroup.symbol,
                 color: assetGroup.color, size: compact ? 48 : 60
             )
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                 Text(assetGroup.name).font(compact ? .title3.weight(.bold) : .title2.weight(.bold))
                     .foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.8)
                 Text(assetGroup.symbol).font(.subheadline.weight(.semibold).monospaced())
@@ -386,7 +384,7 @@ private struct AssetDetailHeroCard: View {
                 }
             }
             Spacer(minLength: 0)
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
             .spectraElevatedFill()
     }
 }
@@ -394,7 +392,7 @@ private struct AssetSummaryStatsCard: View {
     let assetGroup: DashboardAssetGroup
     let store: AppState
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             statRow(
                 label: AppLocalization.string("Total Amount"),
                 value: store.amounts.formattedAssetAmount(
@@ -405,15 +403,15 @@ private struct AssetSummaryStatsCard: View {
                 label: AppLocalization.string("Total Value"),
                 value: store.amounts.formattedFiat(assetGroup.totalValue),
                 icon: "dollarsign.circle.fill")
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
             .spectraCardFill()
     }
     @ViewBuilder
     private func statRow(label: String, value: String, icon: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon).font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(width: 22)
+        HStack(spacing: SpectraLayout.Space.s) {
+            Image(systemName: icon).font(.subheadline.weight(.semibold)).foregroundStyle(.tint).frame(width: 22)
             Text(label).font(.subheadline).foregroundStyle(.secondary)
-            Spacer(minLength: 12)
+            Spacer(minLength: SpectraLayout.Space.m)
             Text(value).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).spectraNumericTextLayout(
                 minimumScaleFactor: 0.7
             ).multilineTextAlignment(.trailing)
@@ -434,14 +432,13 @@ private struct AssetChainBreakdownCard: View {
     private var holdsNothing: Bool { assetGroup.holdings.isEmpty || assetGroup.totalAmount == "0" }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Text(AppLocalization.string("Chain Breakdown")).font(.headline).foregroundStyle(Color.primary)
                 Spacer()
                 if !holdsNothing, assetGroup.holdings.count > 1 {
-                    Text("\(assetGroup.holdings.count)").font(.caption.weight(.bold)).foregroundStyle(.orange).padding(
-                        .horizontal, 8
-                    ).padding(.vertical, 3).background(Capsule(style: .continuous).fill(Color.orange.opacity(0.14)))
+                    Text("\(assetGroup.holdings.count)").font(.caption.weight(.bold)).foregroundStyle(.tint).padding(
+                        .horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs).background(Capsule(style: .continuous).fill(Color.accentColor.opacity(0.14)))
                 }
             }
             if holdsNothing {
@@ -462,7 +459,7 @@ private struct AssetChainBreakdownCard: View {
                     if index < assetGroup.holdings.count - 1 { Divider().opacity(0.3) }
                 }
             }
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
             .spectraCardFill()
     }
 }
@@ -483,16 +480,16 @@ private struct AssetChainBreakdownRow: View {
     let fallbackColor: Color
     var body: some View {
         let badge = Coin.nativeChainBadge(for: chain) ?? (nil, fallbackColor)
-        return HStack(alignment: .center, spacing: 12) {
+        return HStack(alignment: .center, spacing: SpectraLayout.Space.m) {
             CoinBadge(
                 artworkName: badge.artworkName,
                 fallbackText: chainTitle, color: badge.color, size: 30)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                 Text(chainTitle).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
                 Text(tokenStandard).font(.caption2).foregroundStyle(.secondary)
             }
-            Spacer(minLength: 12)
-            VStack(alignment: .trailing, spacing: 2) {
+            Spacer(minLength: SpectraLayout.Space.m)
+            VStack(alignment: .trailing, spacing: SpectraLayout.Space.xxs) {
                 Text(amountText).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).spectraNumericTextLayout()
                 Text(valueText).font(.caption).foregroundStyle(.secondary).spectraNumericTextLayout()
             }
@@ -578,12 +575,12 @@ struct AppNoticesView: View {
         return List {
             if notices.isEmpty {
                 Section {
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
                         Text(AppLocalization.string("No active notices")).font(.headline)
                         Text(AppLocalization.string("Current wallet, pricing, and chain-state warnings will appear here.")).font(
                             .subheadline
                         ).foregroundStyle(.secondary)
-                    }.padding(.vertical, 6)
+                    }.padding(.vertical, SpectraLayout.Space.xs)
                 }
             } else {
                 Section(AppLocalization.string("Active Notices")) {
@@ -604,13 +601,13 @@ struct DashboardAssetRowView: View, Equatable {
     let presentation: DashboardAssetRowPresentation
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.presentation == rhs.presentation }
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: SpectraLayout.Space.m) {
             CoinBadge(
                 artworkName: presentation.assetGroup.artworkName, fallbackText: presentation.assetGroup.symbol,
                 color: presentation.assetGroup.color, size: 36
             )
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
+                HStack(spacing: SpectraLayout.Space.s) {
                     if presentation.assetGroup.isPinned {
                         Image(systemName: "pin.fill").font(.caption.weight(.semibold)).foregroundStyle(Color.red.opacity(0.82)).frame(
                             width: 24, height: 18
@@ -621,7 +618,7 @@ struct DashboardAssetRowView: View, Equatable {
                 Text(presentation.amountText).font(.caption).foregroundStyle(.secondary).spectraNumericTextLayout()
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 3) {
+            VStack(alignment: .trailing, spacing: SpectraLayout.Space.xxs) {
                 Text(presentation.totalValueText).font(.headline).foregroundStyle(Color.primary).spectraNumericTextLayout()
                 Text(presentation.priceText).font(.caption).foregroundStyle(.secondary).spectraNumericTextLayout()
             }
@@ -634,9 +631,9 @@ struct DashboardPinnedAssetRowView: View, Equatable {
     let subtitleText: String
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.option == rhs.option && lhs.subtitleText == rhs.subtitleText }
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: SpectraLayout.Space.m) {
             CoinBadge(artworkName: option.artworkName, fallbackText: option.symbol, color: option.color, size: 34)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                 Text(option.name)
                 Text(subtitleText).font(.caption).foregroundStyle(.secondary)
             }
@@ -648,7 +645,7 @@ struct PortfolioWalletToggleRowView: View, Equatable {
     let chainTitleText: String
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.walletName == rhs.walletName && lhs.chainTitleText == rhs.chainTitleText }
     var body: some View {
-        VStack(alignment: .leading, spacing: 3) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
             Text(walletName)
             Text(chainTitleText).font(.caption).foregroundStyle(.secondary)
         }
@@ -657,8 +654,8 @@ struct PortfolioWalletToggleRowView: View, Equatable {
 struct DashboardNoticeCardView: View {
     let notice: AppNoticeItem
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Image(systemName: notice.systemImage).foregroundStyle(notice.severity.tint)
                 Text(notice.title).font(.headline)
                 Spacer()
@@ -671,7 +668,7 @@ struct DashboardNoticeCardView: View {
                         "Last known healthy sync: %@", timestamp.formatted(date: .abbreviated, time: .shortened))
                 ).font(.caption).foregroundStyle(.secondary)
             }
-        }.padding(.vertical, 4)
+        }.padding(.vertical, SpectraLayout.Space.xs)
     }
 }
 
@@ -688,7 +685,7 @@ private struct DashboardPortfolioHeader: View {
             PortfolioWalletSelectionView(store: store)
         } label: {
             HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 5) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                     Text(AppLocalization.string("Portfolio")).font(.subheadline).foregroundStyle(.secondary)
                     let quoted = store.portfolioQuotedTotal
                     Text(store.preferences.hideBalances ? "••••••" : store.amounts.formattedQuotedTotal(quoted))
@@ -709,16 +706,16 @@ private struct DashboardActionButtons: View {
     var body: some View {
         let canSend = store.canBeginSend
         let canReceive = store.canBeginReceive
-        return GlassEffectContainer(spacing: 10) {
-            HStack(spacing: 10) {
+        return GlassEffectContainer(spacing: SpectraLayout.Space.s) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Button { spectraHaptic(.medium); store.beginSend() } label: {
                     Label(AppLocalization.string("Send"), systemImage: "arrow.up.right")
-                        .font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 11)
+                        .font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, SpectraLayout.Space.m)
                 }.buttonStyle(.glass)
                     .disabled(!canSend)
                 Button { spectraHaptic(.medium); store.beginReceive() } label: {
                     Label(AppLocalization.string("Receive"), systemImage: "arrow.down.left")
-                        .font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, 11)
+                        .font(.body.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, SpectraLayout.Space.m)
                 }.buttonStyle(.glassProminent)
                     .disabled(!canReceive)
             }

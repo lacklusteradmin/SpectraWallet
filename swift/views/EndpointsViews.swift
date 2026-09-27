@@ -22,7 +22,7 @@ struct EndpointCatalogSettingsView: View {
         }
     }
     private func endpointRow(_ entry: EndpointDirectoryEntry) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
             Text(entry.record.endpoint).font(.caption.monospaced()).textSelection(.enabled).lineLimit(3)
             let tags = ([entry.apiName].filter { !$0.isEmpty }
                 + entry.record.capabilities.map { AppLocalization.string("endpointCapability.\($0)") })
@@ -44,10 +44,10 @@ struct EndpointCatalogSettingsView: View {
                         ForEach(groups, id: \.chainId) { group in
                             let groupRows = rows.filter { $0.record.chainId == group.chainId }
                             if !groupRows.isEmpty {
-                                VStack(alignment: .leading, spacing: 8) {
+                                VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
                                     Text(group.title).font(.subheadline.weight(.semibold))
                                     ForEach(groupRows, id: \.record.id) { endpointRow($0) }
-                                }.padding(.vertical, 2)
+                                }.padding(.vertical, SpectraLayout.Space.xxs)
                             }
                         }
                     } else {

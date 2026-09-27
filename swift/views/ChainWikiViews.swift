@@ -9,12 +9,12 @@ struct ChainWikiDetailView: View {
     let chain: ChainWikiEntry
     var body: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(spacing: 16) {
+            LazyVStack(spacing: SpectraLayout.Space.m) {
                 wikiHeroCard
                 wikiIdentityCard
                 wikiDerivationCard
             }
-            .padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
+            .spectraScreenPadding()
         }
         .background(SpectraBackdrop().ignoresSafeArea())
         .navigationTitle(chain.name).navigationBarTitleDisplayMode(.inline)
@@ -22,11 +22,11 @@ struct ChainWikiDetailView: View {
     }
 
     private var wikiHeroCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
 
-            HStack(spacing: 12) {
+            HStack(spacing: SpectraLayout.Space.m) {
                 WikiCoinBadge(face: chain.face, size: 52)
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                     Text(chain.name).font(.title3.weight(.semibold))
                 }
                 Spacer(minLength: 0)
@@ -35,74 +35,74 @@ struct ChainWikiDetailView: View {
                 .fixedSize(horizontal: false, vertical: true)
             if !chain.tags.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 6) {
+                    HStack(spacing: SpectraLayout.Space.xs) {
                         ForEach(chain.tags, id: \.self) { tag in
                             Text(tag).font(.caption.weight(.semibold)).foregroundStyle(chain.face.color)
-                                .padding(.horizontal, 10).padding(.vertical, 5)
+                                .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs)
                                 .background(chain.face.color.opacity(0.14), in: Capsule())
                         }
                     }
                 }
             }
         }
-        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        .padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
         .spectraElevatedFill()
     }
 
     private var wikiIdentityCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             wikiStatRow(label: AppLocalization.string("Family"), value: chain.family, icon: "link.circle.fill")
             Divider().opacity(0.4)
             wikiStatRow(label: AppLocalization.string("Consensus"), value: chain.consensus, icon: "checkmark.shield.fill")
             Divider().opacity(0.4)
             wikiStatRow(label: AppLocalization.string("State Model"), value: chain.stateModel, icon: "cylinder.split.1x2.fill")
         }
-        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        .padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
         .spectraCardFill()
     }
 
     private var wikiDerivationCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Image(systemName: "key.fill")
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(width: 22)
+                    .font(.subheadline.weight(.semibold)).foregroundStyle(.tint).frame(width: 22)
                 Text(AppLocalization.string("Derivation Paths")).font(.subheadline).foregroundStyle(.secondary)
             }
             if chain.derivationPath.isEmpty {
                 Text(AppLocalization.string("Not user-configurable in Spectra's current UI."))
                     .font(.subheadline).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, 32)
+                    .padding(.leading, SpectraLayout.Space.xl)
             } else {
                 ForEach(chain.derivationPath) { path in
-                    VStack(alignment: .leading, spacing: 6) {
-                        HStack(spacing: 6) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
+                        HStack(spacing: SpectraLayout.Space.xs) {
                             Text(path.tag).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
                             if path.isDefault {
                                 Text(AppLocalization.string("Default"))
                                     .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(.orange)
-                                    .padding(.horizontal, 7).padding(.vertical, 3)
-                                    .background(.orange.opacity(0.14), in: Capsule())
+                                    .foregroundStyle(.tint)
+                                    .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs)
+                                    .background(Color.accentColor.opacity(0.14), in: Capsule())
                             }
                         }
                         Text(path.displayPath).font(.body.monospaced()).foregroundStyle(Color.primary)
                             .textSelection(.enabled)
                     }
-                    .padding(.leading, 32)
+                    .padding(.leading, SpectraLayout.Space.xl)
                 }
             }
         }
-        .padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        .padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
         .spectraCardFill()
     }
 
     private func wikiStatRow(label: String, value: String, icon: String) -> some View {
-        HStack(alignment: .firstTextBaseline, spacing: 10) {
+        HStack(alignment: .firstTextBaseline, spacing: SpectraLayout.Space.s) {
             Image(systemName: icon)
-                .font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(width: 22)
+                .font(.subheadline.weight(.semibold)).foregroundStyle(.tint).frame(width: 22)
             Text(label).font(.subheadline).foregroundStyle(.secondary)
-            Spacer(minLength: 12)
+            Spacer(minLength: SpectraLayout.Space.m)
             Text(value).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
                 .multilineTextAlignment(.trailing)
         }

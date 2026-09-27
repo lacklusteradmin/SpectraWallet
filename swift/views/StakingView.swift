@@ -7,11 +7,11 @@ struct StakingView: View {
             ZStack {
                 SpectraBackdrop().ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
-                    VStack(alignment: .leading, spacing: 18) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                         introCard
                         chainPickerCard
                         philosophyCard
-                    }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
+                    }.spectraScreenPadding()
                 }
             }.navigationTitle(AppLocalization.string("Staking")).navigationBarTitleDisplayMode(.inline)
                 .toolbarBackground(.hidden, for: .navigationBar)
@@ -19,33 +19,32 @@ struct StakingView: View {
     }
     @ViewBuilder
     private var introCard: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
-                Image(systemName: "link.circle.fill").font(.title3).foregroundStyle(.orange)
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
+            HStack(spacing: SpectraLayout.Space.s) {
+                Image(systemName: "link.circle.fill").font(.title3).foregroundStyle(.tint)
                 Text(AppLocalization.string("Earn While Securing Networks")).font(.title3.weight(.bold))
             }
             Text(AppLocalization.string("Explore staking networks and their validators. Transaction actions are not available in this app yet."))
                 .font(.subheadline).foregroundStyle(.secondary)
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
             .spectraElevatedFill()
     }
     @ViewBuilder
     private var chainPickerCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Text(AppLocalization.string("Supported Chains")).font(.headline)
                 Spacer()
-                Text("\(Chain.stakingChains.count)").font(.caption.weight(.bold)).foregroundStyle(.orange).padding(
-                    .horizontal, 8
-                ).padding(.vertical, 3).background(Capsule(style: .continuous).fill(Color.orange.opacity(0.14)))
+                Text("\(Chain.stakingChains.count)").font(.caption.weight(.bold)).foregroundStyle(.tint).padding(
+                    .horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs).background(Capsule(style: .continuous).fill(Color.accentColor.opacity(0.14)))
             }
-            VStack(spacing: 8) {
+            VStack(spacing: SpectraLayout.Space.s) {
                 ForEach(Chain.stakingChains, id: \.self) { chain in
                     NavigationLink(value: chain) { chainTile(chain) }.buttonStyle(.plain)
                 }
             }
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .spectraCardFill(cornerRadius: SpectraLayout.Radius.hero)
+        }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
+            .spectraCardFill()
             .navigationDestination(for: Chain.self) { chain in
                 ChainStakingDetailView(chain: chain, bridge: bridge)
             }
@@ -58,12 +57,12 @@ struct StakingView: View {
     }
     @ViewBuilder
     private func chainTile(_ chain: Chain, _ descriptor: StakingChainDescriptor) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 CoinBadge(
                     artworkName: AssetPresentationCatalog.artwork(deploymentId: chain.entry?.nativeDeploymentId),
                     fallbackText: chain.gasTokenSymbol, color: descriptor.tint, size: 36)
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                     Text(chain.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
                     Text(descriptor.apyEstimate).font(.caption.weight(.semibold)).foregroundStyle(.green)
                 }
@@ -72,11 +71,11 @@ struct StakingView: View {
             }
             Text(descriptor.shortMechanic).font(.caption2).foregroundStyle(.secondary).lineLimit(2).fixedSize(
                 horizontal: false, vertical: true)
-        }.padding(14).frame(maxWidth: .infinity, alignment: .leading).spectraElevatedFill(cornerRadius: SpectraLayout.Radius.input)
+        }.padding(SpectraLayout.Space.m).frame(maxWidth: .infinity, alignment: .leading).spectraElevatedFill(cornerRadius: SpectraLayout.Radius.inner)
     }
     @ViewBuilder
     private var philosophyCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             Text(AppLocalization.string("Why non-custodial staking")).font(.headline)
             Text(
                 AppLocalization.string(
@@ -88,8 +87,8 @@ struct StakingView: View {
                     "This page provides staking information and validator queries. It does not sign or submit staking transactions."
                 )
             ).font(.subheadline).foregroundStyle(.secondary)
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
-            .spectraCardFill(cornerRadius: SpectraLayout.Radius.hero)
+        }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
+            .spectraCardFill()
     }
 }
 
@@ -209,14 +208,14 @@ struct ChainStakingDetailView: View {
 
     private func content(descriptor: StakingChainDescriptor) -> some View {
         ScrollView(showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 18) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                 heroCard(descriptor: descriptor)
                 detailSectionPicker
                 selectedDetailSection(descriptor: descriptor)
                     .id(selectedSection)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
                     .animation(.snappy(duration: 0.24), value: selectedSection)
-            }.padding(.horizontal, 16).padding(.top, 8).padding(.bottom, 24)
+            }.spectraScreenPadding()
         }
         .background(SpectraBackdrop().ignoresSafeArea())
         .navigationTitle(chain.displayName)
@@ -262,26 +261,26 @@ struct ChainStakingDetailView: View {
 
     @ViewBuilder
     private func heroCard(descriptor: StakingChainDescriptor) -> some View {
-        HStack(spacing: 14) {
+        HStack(spacing: SpectraLayout.Space.m) {
             CoinBadge(
                 artworkName: AssetPresentationCatalog.artwork(deploymentId: chain.entry?.nativeDeploymentId),
                 fallbackText: chain.gasTokenSymbol, color: descriptor.tint, size: 56)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                 Text(chain.displayName).font(.title3.weight(.bold)).foregroundStyle(Color.primary)
                 Text(descriptor.apyEstimate).font(.subheadline.weight(.semibold)).foregroundStyle(.green)
                 Text(descriptor.shortMechanic).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
             Spacer()
             if vm.isLoading {
-                SpectraLoadingGlyph(size: 30, tint: .orange)
+                SpectraLoadingGlyph(size: 30, tint: .accentColor)
             }
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
             .spectraElevatedFill()
     }
 
     @ViewBuilder
     private func statsCard(descriptor: StakingChainDescriptor) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             statRow(label: AppLocalization.string("Estimated APY"), value: descriptor.apyEstimate, icon: "percent")
             Divider().opacity(0.5)
             statRow(label: AppLocalization.string("Minimum Stake"), value: descriptor.minimumStake, icon: "scalemass.fill")
@@ -295,14 +294,14 @@ struct ChainStakingDetailView: View {
                     icon: "server.rack"
                 )
             }
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
             .spectraCardFill()
     }
 
     @ViewBuilder
     private func statRow(label: String, value: String, icon: String) -> some View {
-        HStack(spacing: 10) {
-            Image(systemName: icon).font(.subheadline.weight(.semibold)).foregroundStyle(.orange).frame(width: 20)
+        HStack(spacing: SpectraLayout.Space.s) {
+            Image(systemName: icon).font(.subheadline.weight(.semibold)).foregroundStyle(.tint).frame(width: 20)
             Text(label).font(.subheadline).foregroundStyle(.secondary)
             Spacer()
             Text(value).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).multilineTextAlignment(.trailing)
@@ -311,11 +310,11 @@ struct ChainStakingDetailView: View {
 
     @ViewBuilder
     private var validatorsCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
             Text(AppLocalization.string("Validators")).font(.headline)
             ForEach(vm.validators.prefix(5), id: \.identifier) { v in
-                HStack(spacing: 10) {
-                    VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: SpectraLayout.Space.s) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                         Text(v.displayName).font(.subheadline.weight(.semibold)).lineLimit(1)
                         if let commission = v.commission {
                             Text(AppLocalization.format("%.0f%% commission", commission * 100))
@@ -326,19 +325,19 @@ struct ChainStakingDetailView: View {
                     Text(AppLocalization.format("%.1f%% APY", v.apy * 100))
                         .font(.caption.weight(.bold)).foregroundStyle(.green)
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, SpectraLayout.Space.xs)
             }
             if vm.validators.count > 5 {
                 Text(AppLocalization.format("+%d more", vm.validators.count - 5))
                     .font(.caption).foregroundStyle(.secondary)
             }
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
             .spectraCardFill()
     }
 
     @ViewBuilder
     private var loadingValidatorsCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             Text(AppLocalization.string("Validators")).font(.headline)
             if vm.isLoading {
                 SpectraLoadingRow(title: "Loading validators...")
@@ -348,17 +347,17 @@ struct ChainStakingDetailView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(20)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .spectraCardFill()
     }
 
     @ViewBuilder
     private func explanationCard(descriptor: StakingChainDescriptor) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
             Text(AppLocalization.string("How it works")).font(.headline)
             Text(descriptor.detailedExplanation).font(.subheadline).foregroundStyle(.secondary)
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
             .spectraCardFill()
     }
 }

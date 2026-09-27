@@ -36,24 +36,53 @@ Official references:
   35% dark dimming layer beneath it to stay legible. Spectra has no media
   background — `SpectraBackdrop` is the app's own gradient — so `.clear` appears
   nowhere, and a surface that looks like it wants one wants a tint step instead.
-- **Buttons:** Use `.buttonStyle(.glass)` and `.buttonStyle(.glassProminent)` for stand-alone actions outside toolbars. Tint primary actions orange and destructive actions red.
+- **Buttons:** Use `.buttonStyle(.glass)` and `.buttonStyle(.glassProminent)` for stand-alone actions outside toolbars. Prominent buttons take the accent on their own; a plain `.glass` button that should read as primary adds `.tint(.accentColor)`. Tint destructive actions red.
 - **Typography:** Use system text styles such as `.largeTitle.weight(.bold)`, `.title`, `.headline`, and `.body`.
 - **Text colors:** Use semantic styles such as `.primary`, `.secondary`, `.tertiary`, and `.quaternary`. Do not use `Color.primary.opacity(...)` for text.
+- **Theme colour:** one accent, the asset catalog's `AccentColor` (system
+  orange), set as the target's global accent. Tab bar, links, prominent
+  buttons, list icons and selection read it on their own; switches get it from
+  `UISwitch.appearance()` in `SpectraApp`. Views write `.tint` or
+  `Color.accentColor`, never a literal orange, so the theme colour can change
+  in one place. Toolbar glyphs stay monochrome. Decorative icons are the
+  accent, not a per-row colour. The other colours are semantic and do not
+  follow the theme: green for success, confirmed and received;
+  `.spectraWarning` (orange) for pending, incomplete and warnings; red for
+  failures, sends and destructive actions. `make check-ui` rejects a literal
+  orange in a view; artwork with a fixed palette of its own ends the line with
+  `design-tokens: artwork`.
 - **Artwork exception:** Decorative icon artwork, including `SpectraLogo`, may use custom fonts, color opacity, and glass effects.
+
+## Spacing
+
+Every padding, stack spacing and spacer minimum is a step on one scale,
+`SpectraLayout.Space`:
+
+| Token | Value | Usage |
+| --- | --- | --- |
+| `xxs` | 2pt | Between the two lines of one text pair |
+| `xs` | 4pt | Tight label/value gaps, pill vertical padding |
+| `s` | 8pt | Icon-to-label gaps, row vertical padding, pill horizontal padding |
+| `m` | 12pt | Between cards, between groups inside a card, row badge gap |
+| `l` | 16pt | Card padding, screen horizontal inset |
+| `xl` | 24pt | Large artwork insets |
+| `xxl` | 32pt | Rare full-page gaps |
+
+The named values are steps too: `screenHorizontal` 16, `screenTop` 8,
+`screenBottom` 16, `sectionSpacing` 12, `cardPadding` 16, `rowVertical` 8.
+Every scrolling page — top-level tab, detail or flow — insets its content with
+`spectraScreenPadding()`. `spacing: 0` is the absence of spacing and stays
+literal; a frame, offset or icon size is a component's geometry, not spacing.
 
 ## Corner radii
 
-The radius communicates hierarchy:
+The radius communicates hierarchy, in three steps:
 
 | Token | Radius | Usage |
 | --- | --- | --- |
-| `Radius.hero` | 28pt | Top-level tab cards and hero/header cards |
-| `Radius.card` | 24pt | Ordinary detail cards, nested content cards, grouped list containers, `spectraCardFill`, `spectraDetailCard` |
-| `Radius.compact` | 22pt | Compact row cards and inline notice banners |
-| `Radius.input` | 18pt | Full-size inputs and inset address blocks |
-| `Radius.chip` | 16pt | Compact inputs, chips, and small nested surfaces |
-| `Radius.pill` | 14pt | Inline pills, dense inputs, and small tinted surfaces |
-| `Radius.control` | 10pt | Dense controls, icon backplates, and single-character slots |
+| `Radius.card` | 20pt | Every card: tab, hero, detail, row cards and notice banners; `spectraCardFill`, `spectraElevatedFill`, `spectraDetailCard` |
+| `Radius.inner` | 14pt | Surfaces inside a card: inputs, address blocks, chips and pills |
+| `Radius.control` | 10pt | Dense controls, icon backplates and single-character slots |
 | size-relative | — | Icon artwork such as the `SpectraLogo` backing |
 
 Write the token, never the number. A component's own internal geometry is not a
@@ -69,7 +98,7 @@ card reads the same wherever it is nested. A concentric shape is an exception a
 view argues for in a comment, never a substitute for a step.
 
 `scripts/check-design-tokens.sh` (also `make check-ui`) fails when a view
-restates a radius or a white glass tint that `SpectraLayout` owns.
+restates a spacing, a radius or a white glass tint that `SpectraLayout` owns.
 
 Shared values and helpers live in:
 
@@ -83,13 +112,12 @@ Shared values and helpers live in:
 - [ReceiveFlowViews.swift](../swift/views/ReceiveFlowViews.swift): business detail layout.
 - [ChainWikiViews.swift](../swift/views/ChainWikiViews.swift): compact interactive cards.
 
-Use `SpectraLayout` for top-level spacing and padding. Main business details use
-20pt horizontal, 16pt top and 24pt bottom padding, with 16pt between cards;
-card content has 20pt padding. Detail navigation titles are inline.
+Pages use `spectraScreenPadding()` with `sectionSpacing` between cards, and
+card content has `cardPadding`. Detail navigation titles are inline.
 
-Detail key/value rows use an orange SF Symbol, a secondary label and a primary
-value, 12pt row spacing and dividers at 0.4 opacity. Group adjacent glass actions
-with `GlassEffectContainer(spacing: 12)`.
+Detail key/value rows use an accent SF Symbol, a secondary label and a primary
+value, `Space.m` row spacing and dividers at 0.4 opacity. Group adjacent glass
+actions with `GlassEffectContainer(spacing: SpectraLayout.Space.s)`.
 
 ## Additional constraints
 

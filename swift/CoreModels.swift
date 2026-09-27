@@ -15,13 +15,14 @@ extension FeePriority: CaseIterable {
     }
 }
 extension SendPreviewDetails {
-    var hasVisibleContent: Bool {
-        spendableBalance != nil
-            || feeRateDescription != nil
+    /// Whether the preview says anything the fee rows and the amount page
+    /// have not: an EVM fee rate is already rows of its own, and the balance
+    /// and maximum are the amount page's.
+    func hasDetailRows(isEVM: Bool) -> Bool {
+        (!isEVM && feeRateDescription != nil)
             || estimatedTransactionBytes != nil
             || selectedInputCount != nil
             || usesChangeOutput != nil
-            || maxSendable != nil
     }
 }
 /// `Coin` is the Rust-defined `AssetHolding`. Its `id` is the deployment id
@@ -199,11 +200,7 @@ extension TransactionRecord {
         }
     }
     var statusColor: Color {
-        switch status {
-        case .pending: return .orange
-        case .confirmed: return .mint
-        case .failed: return .red
-        }
+        Color.spectraTransactionStatusColor(status)
     }
     var receiptBlockNumberText: String? {
         guard let receiptBlockNumber else { return nil }

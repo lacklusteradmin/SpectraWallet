@@ -33,7 +33,7 @@ struct NewAddressBookContactView: View {
             SpectraBackdrop().ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                     spectraPageHeader(
                         title: "New Contact",
                         subtitle: "Name a recipient and save an address you send to often.",
@@ -42,7 +42,7 @@ struct NewAddressBookContactView: View {
                     contactCard
                     destinationCard
                 }
-                .padding(20)
+                .padding(SpectraLayout.Space.l)
             }
             .scrollDismissesKeyboard(.interactively)
         }
@@ -83,13 +83,13 @@ struct NewAddressBookContactView: View {
             TextField(AppLocalization.string("Name"), text: $name)
                 .textInputAutocapitalization(.words)
                 .autocorrectionDisabled()
-                .padding(14)
+                .padding(SpectraLayout.Space.m)
                 .spectraInputFieldStyle()
                 .foregroundStyle(Color.primary)
 
             TextField(AppLocalization.string("Note (Optional)"), text: $note)
                 .textInputAutocapitalization(.sentences)
-                .padding(14)
+                .padding(SpectraLayout.Space.m)
                 .spectraInputFieldStyle()
                 .foregroundStyle(Color.primary)
         }
@@ -107,7 +107,7 @@ struct NewAddressBookContactView: View {
                 .autocorrectionDisabled()
                 .font(.callout.monospaced())
                 .lineLimit(1...4)
-                .padding(14)
+                .padding(SpectraLayout.Space.m)
                 .spectraInputFieldStyle()
                 .foregroundStyle(Color.primary)
 
@@ -127,14 +127,14 @@ struct NewAddressBookContactView: View {
             spectraHaptic(.light)
             isChoosingChain = true
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: SpectraLayout.Space.m) {
                 CoinBadge(
                     artworkName: badge.artworkName,
                     fallbackText: chain.displayName,
                     color: badge.color,
                     size: 34
                 )
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                     Text(AppLocalization.string("Chain"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
@@ -148,9 +148,9 @@ struct NewAddressBookContactView: View {
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(.secondary)
             }
-            .padding(12)
+            .padding(SpectraLayout.Space.m)
             .contentShape(Rectangle())
-            .spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.chip)
+            .spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.inner)
         }
         .buttonStyle(.plain)
     }
@@ -193,12 +193,12 @@ struct AddressBookContactView: View {
             SpectraBackdrop().ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 18) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                     contactHero
                     labelCard
                     deleteButton
                 }
-                .padding(20)
+                .padding(SpectraLayout.Space.l)
             }
             .scrollDismissesKeyboard(.interactively)
         }
@@ -226,7 +226,7 @@ struct AddressBookContactView: View {
     private var contactHero: some View {
         let badge = Coin.nativeChainBadge(for: Chain(id: contact.chainId)) ?? (nil, Color.mint)
 
-        return VStack(spacing: 16) {
+        return VStack(spacing: SpectraLayout.Space.m) {
             CoinBadge(
                 artworkName: badge.artworkName,
                 fallbackText: contact.chainName,
@@ -234,7 +234,7 @@ struct AddressBookContactView: View {
                 size: 56
             )
 
-            VStack(spacing: 4) {
+            VStack(spacing: SpectraLayout.Space.xs) {
                 Text(contact.name)
                     .font(.title3.weight(.semibold))
                     .multilineTextAlignment(.center)
@@ -264,12 +264,12 @@ struct AddressBookContactView: View {
                 )
                 .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .padding(.vertical, SpectraLayout.Space.s)
             }
             .buttonStyle(.glass)
         }
         .frame(maxWidth: .infinity)
-        .padding(24)
+        .padding(SpectraLayout.Space.l)
         .spectraElevatedFill()
     }
 
@@ -284,7 +284,7 @@ struct AddressBookContactView: View {
             TextField(AppLocalization.string("Name"), text: $editedName)
                 .textInputAutocapitalization(.words)
                 .autocorrectionDisabled()
-                .padding(14)
+                .padding(SpectraLayout.Space.m)
                 .spectraInputFieldStyle()
                 .foregroundStyle(Color.primary)
         }
@@ -300,7 +300,7 @@ struct AddressBookContactView: View {
             Label(AppLocalization.string("Delete Contact"), systemImage: "trash")
                 .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 12)
+                .padding(.vertical, SpectraLayout.Space.m)
         }
         .buttonStyle(.glass)
         .tint(.red)

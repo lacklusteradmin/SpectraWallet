@@ -61,13 +61,13 @@ struct ReceiveView: View {
             SpectraBackdrop().ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 18) {
+                LazyVStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                     receiveProgress
                     stepContent
                         .id(currentStep)
                         .transition(stepTransition)
                 }
-                .padding(20)
+                .spectraScreenPadding()
 
             }
 
@@ -114,9 +114,9 @@ struct ReceiveView: View {
     }
 
     private var receiveProgress: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: SpectraLayout.Space.s) {
             ForEach(ReceiveFlowStep.allCases) { step in
-                HStack(spacing: 6) {
+                HStack(spacing: SpectraLayout.Space.xs) {
                     Image(systemName: step.systemImage)
                         .font(.caption.weight(.semibold))
                     Text(AppLocalization.string(step.title))
@@ -124,15 +124,15 @@ struct ReceiveView: View {
                 }
                 .foregroundStyle(step.rawValue <= currentStep.rawValue ? .primary : .tertiary)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 8)
+                .padding(.vertical, SpectraLayout.Space.s)
                 .background(
-                    step == currentStep ? Color.orange.opacity(0.18) : Color.primary.opacity(0.05),
-                    in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.pill, style: .continuous)
+                    step == currentStep ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.05),
+                    in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.inner, style: .continuous)
                 )
             }
         }
-        .padding(6)
-        .spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
+        .padding(SpectraLayout.Space.xs)
+        .spectraCardFill()
     }
 
     private var stepTransition: AnyTransition {
@@ -145,7 +145,7 @@ struct ReceiveView: View {
     }
 
     private var walletStep: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             spectraPageHeader(
                 title: "Choose Wallet",
                 subtitle: "Pick where the incoming transfer should land.",
@@ -159,7 +159,7 @@ struct ReceiveView: View {
                     systemImage: "wallet.pass"
                 )
             } else {
-                LazyVStack(spacing: 12) {
+                LazyVStack(spacing: SpectraLayout.Space.m) {
                     ForEach(store.receiveEnabledWallets) { wallet in
                         WalletReceiveCard(
                             wallet: wallet,
@@ -174,7 +174,7 @@ struct ReceiveView: View {
     }
 
     private var addressStep: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             spectraPageHeader(
                 title: "Receive Address",
                 subtitle: "Scan the code, or copy the address to share it.",
@@ -189,11 +189,11 @@ struct ReceiveView: View {
     private var receiveAddressHero: some View {
         let wallet = selectedWallet
         let coin = selectedCoin
-        return VStack(spacing: 16) {
+        return VStack(spacing: SpectraLayout.Space.m) {
             if let coin {
                 Label(coin.chainName, systemImage: "network")
                     .font(.headline)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(.tint)
                 Text(AppLocalization.format("Receive only %@ assets on this network. Check the sender's network before transferring.", coin.chainName))
                     .font(.subheadline)
                     .multilineTextAlignment(.center)
@@ -201,13 +201,13 @@ struct ReceiveView: View {
             if canUseResolvedAddress {
                 QRCodeImage(address: resolvedAddress)
                     .frame(width: 184, height: 184)
-                    .padding(16)
+                    .padding(SpectraLayout.Space.l)
                     .background(Color.white, in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.card, style: .continuous))
             } else {
                 receiveQRCodePlaceholder(size: 216)
             }
 
-            HStack(spacing: 12) {
+            HStack(spacing: SpectraLayout.Space.m) {
                 if let coin {
                     CoinBadge(
                         artworkName: coin.artworkName,
@@ -216,7 +216,7 @@ struct ReceiveView: View {
                         size: 36
                     )
                 }
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                     Text(wallet?.name ?? AppLocalization.string("Wallet"))
                         .font(.headline)
                     Text(coin.map { "\($0.symbol) · \($0.chainName)" } ?? AppLocalization.string("Select a chain"))
@@ -233,13 +233,13 @@ struct ReceiveView: View {
                 .textSelection(.enabled)
         }
         .frame(maxWidth: .infinity)
-        .padding(24)
+        .padding(SpectraLayout.Space.l)
         .spectraElevatedFill()
     }
 
     /// Share and save actions. Copy is the bottom bar's primary action.
     private var receiveActionCard: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: SpectraLayout.Space.s) {
             Button {
                 guard qrImage != nil else { return }
                 isShowingShareSheet = true
@@ -247,7 +247,7 @@ struct ReceiveView: View {
                 Label(AppLocalization.string("Share QR Code"), systemImage: "square.and.arrow.up")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, SpectraLayout.Space.s)
             }
             .buttonStyle(.glass)
             .disabled(qrImage == nil)
@@ -267,12 +267,12 @@ struct ReceiveView: View {
                 Label(AppLocalization.string("Save QR Code"), systemImage: "square.and.arrow.down")
                     .font(.subheadline.weight(.semibold))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, SpectraLayout.Space.s)
             }
             .buttonStyle(.glass)
             .disabled(qrImage == nil)
         }
-        .padding(20)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity)
         .spectraCardFill()
     }
@@ -363,7 +363,7 @@ private struct WalletReceiveCard: View {
         let badge = Coin.nativeChainBadge(for: wallet.family) ?? (nil, Color.mint)
 
         Button(action: onSelect) {
-            HStack(spacing: 14) {
+            HStack(spacing: SpectraLayout.Space.m) {
                 ZStack(alignment: .topTrailing) {
                     CoinBadge(
                         artworkName: badge.artworkName,
@@ -380,27 +380,29 @@ private struct WalletReceiveCard: View {
                     }
                 }
 
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                     Text(wallet.name)
                         .font(.headline)
                         .foregroundStyle(Color.primary)
                         .lineLimit(1)
-                    Text(wallet.familyName)
+                    // The network, not the family: a Sepolia wallet read
+                    // "Ethereum" and looked like a mainnet one.
+                    Text(wallet.networkTitle)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
 
                 Spacer(minLength: 0)
             }
-            .padding(16)
+            .padding(SpectraLayout.Space.l)
             .frame(maxWidth: .infinity, alignment: .leading)
             .glassEffect(
                 .regular.tint(isSelected ? badge.color.opacity(0.14) : SpectraLayout.GlassTint.elevated),
-                in: .rect(cornerRadius: SpectraLayout.Radius.compact)
+                in: .rect(cornerRadius: SpectraLayout.Radius.card)
             )
             .overlay {
                 if isSelected {
-                    RoundedRectangle(cornerRadius: SpectraLayout.Radius.compact, style: .continuous)
+                    RoundedRectangle(cornerRadius: SpectraLayout.Radius.card, style: .continuous)
                         .stroke(badge.color.opacity(0.9), lineWidth: 1.8)
                 }
             }
@@ -416,11 +418,11 @@ private struct WalletReceiveCard: View {
 /// function cannot call them.
 @MainActor private func receiveQRCodePlaceholder(size: CGFloat) -> some View {
     ZStack {
-        RoundedRectangle(cornerRadius: SpectraLayout.Radius.hero, style: .continuous)
+        RoundedRectangle(cornerRadius: SpectraLayout.Radius.card, style: .continuous)
             .fill(Color.white.opacity(0.82))
-        VStack(spacing: 14) {
-            SpectraLoadingGlyph(size: 42, tint: .orange)
-            VStack(spacing: 8) {
+        VStack(spacing: SpectraLayout.Space.m) {
+            SpectraLoadingGlyph(size: 42, tint: .accentColor)
+            VStack(spacing: SpectraLayout.Space.s) {
                 SpectraShimmer(height: 14)
                     .frame(width: size * 0.58)
                 SpectraShimmer(height: 14)

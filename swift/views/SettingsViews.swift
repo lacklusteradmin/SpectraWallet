@@ -48,9 +48,9 @@ struct SettingsView: View {
                 }
                 Section(AppLocalization.string("Tor")) {
                     NavigationLink(value: Route.tor) {
-                        HStack(spacing: 12) {
+                        HStack(spacing: SpectraLayout.Space.m) {
                             Label(AppLocalization.string("Tor Network"), systemImage: "network.badge.shield.half.filled")
-                            Spacer(minLength: 8)
+                            Spacer(minLength: SpectraLayout.Space.s)
                             TorStatusBadge(status: store.torStatus)
                         }
                     }
@@ -127,7 +127,7 @@ struct SettingsView: View {
     private func settingsToggle(_ title: String, systemImage: String, isOn: Binding<Bool>) -> some View {
         Toggle(isOn: isOn) {
             Label(AppLocalization.string(title), systemImage: systemImage)
-        }.tint(.orange)
+        }
     }
 
 }

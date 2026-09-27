@@ -8,7 +8,7 @@ struct SendStagesView: View {
     @State private var transactionError: String?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             HStack {
                 Label(AppLocalization.string("Build"), systemImage: "checkmark.circle.fill")
                 Spacer()
@@ -17,12 +17,9 @@ struct SendStagesView: View {
                 Label(AppLocalization.string("Broadcast"), systemImage: artifact.attempts.isEmpty ? "circle" : "antenna.radiowaves.left.and.right")
             }
             .font(.subheadline.weight(.semibold))
-            VStack(alignment: .leading, spacing: 12) {
-                Text(verbatim: artifact.amount).font(.title2.weight(.bold))
-                LabeledContent(AppLocalization.string("Asset")) {
-                    Text(verbatim: artifact.asset).textSelection(.enabled)
-                }
-                LabeledContent(AppLocalization.string("Network"), value: artifact.chainId)
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+                Text(verbatim: "\(artifact.amount) \(artifact.asset)").font(.title2.weight(.bold))
+                LabeledContent(AppLocalization.string("Network"), value: Chain.displayName(forId: artifact.chainId))
                 Text(AppLocalization.string("From")).font(.caption).foregroundStyle(.secondary)
                 Text(verbatim: artifact.sender).font(.body.monospaced()).textSelection(.enabled)
                 Text(AppLocalization.string("To")).font(.caption).foregroundStyle(.secondary)
@@ -42,14 +39,14 @@ struct SendStagesView: View {
                     }
                 }
             }
-            .padding(18)
-            .spectraCardFill(cornerRadius: SpectraLayout.Radius.card)
+            .padding(SpectraLayout.Space.l)
+            .spectraCardFill()
             ForEach(Array(store.pendingHighRiskSendReasons.dropFirst().enumerated()), id: \.offset) { _, reason in
                 Label(reason, systemImage: "exclamationmark.triangle")
-                    .font(.subheadline).foregroundStyle(.orange)
+                    .font(.subheadline).foregroundStyle(.spectraWarning)
             }
             if artifact.stage == .signed {
-                VStack(alignment: .leading, spacing: 12) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                     Text(AppLocalization.string("Broadcast destinations")).font(.headline)
                     ForEach(store.sendFlow.endpointChoices, id: \.self) { endpoint in
                         Toggle(isOn: Binding(
@@ -63,8 +60,8 @@ struct SendStagesView: View {
                     Text(AppLocalization.string("Only selected nodes receive this submission from Spectra. Those nodes may propagate the transaction to other nodes."))
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                .padding(18)
-                .spectraCardFill(cornerRadius: SpectraLayout.Radius.card)
+                .padding(SpectraLayout.Space.l)
+                .spectraCardFill()
             }
             if let transaction, transaction.id == artifact.id {
                 SendTransactionCard(store: store, tx: transaction)
@@ -72,14 +69,14 @@ struct SendStagesView: View {
                     transaction.status == .confirmed ? "Confirmed" : transaction.status == .failed ? "Failed" : "Awaiting confirmation"))
             }
             ForEach(Array(artifact.attempts.enumerated()), id: \.offset) { _, attempt in
-                VStack(alignment: .leading, spacing: 8) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
                     Text(verbatim: attempt.endpoint).font(.caption.monospaced())
                     Text(AppLocalization.string(outcomeText(attempt.outcome))).font(.headline)
                     Text(verbatim: attempt.detail).font(.subheadline).foregroundStyle(.secondary)
                     if let hash = attempt.transactionHash { Text(verbatim: hash).font(.caption.monospaced()).textSelection(.enabled) }
                 }
-                .padding(18)
-                .spectraCardFill(cornerRadius: SpectraLayout.Radius.card)
+                .padding(SpectraLayout.Space.l)
+                .spectraCardFill()
             }
             if let transactionError {
                 Text(transactionError).font(.caption).foregroundStyle(.secondary)

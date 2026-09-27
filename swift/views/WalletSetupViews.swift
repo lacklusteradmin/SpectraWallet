@@ -111,10 +111,10 @@ struct SetupView: View {
     // Two-column grid with generous spacing — the details page is now
     // dominated by chain selection, so each cell gets more room to breathe.
     private let chainSelectionColumns = [
-        GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12),
+        GridItem(.flexible(), spacing: SpectraLayout.Space.m), GridItem(.flexible(), spacing: SpectraLayout.Space.m),
     ]
     private let seedPhraseGridColumns = [
-        GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6), GridItem(.flexible(), spacing: 6),
+        GridItem(.flexible(), spacing: SpectraLayout.Space.xs), GridItem(.flexible(), spacing: SpectraLayout.Space.xs), GridItem(.flexible(), spacing: SpectraLayout.Space.xs),
     ]
     init(store: AppState, draft: WalletImportDraft) {
         self.store = store
@@ -228,23 +228,23 @@ struct SetupView: View {
     private func watchedAddressEditor(text: Binding<String>) -> some View {
         TextEditor(text: text).textInputAutocapitalization(.never).autocorrectionDisabled().scrollContentBackground(.hidden).frame(
             minHeight: 88
-        ).padding(10).spectraInputFieldStyle().foregroundStyle(Color.primary)
+        ).padding(SpectraLayout.Space.s).spectraInputFieldStyle().foregroundStyle(Color.primary)
     }
     /// A flat card, not Liquid Glass: the setup screen stacks about ten of them.
     @ViewBuilder
     private func setupCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
-        content().padding(16).spectraBubbleFill().spectraCardFill()
+        content().padding(SpectraLayout.Space.l).spectraBubbleFill().spectraCardFill()
     }
     @ViewBuilder
     private var walletPasswordStepSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             Text(AppLocalization.string("import_flow.wallet_password_optional")).font(.headline).foregroundStyle(Color.primary)
             Text(AppLocalization.string("import_flow.wallet_password_explanation")).font(.subheadline).foregroundStyle(.secondary)
             SecureField(AppLocalization.string("import_flow.wallet_password_field"), text: $draft.walletPassword).textInputAutocapitalization(
                 .never
-            ).autocorrectionDisabled().padding(14).spectraInputFieldStyle().foregroundStyle(Color.primary)
+            ).autocorrectionDisabled().padding(SpectraLayout.Space.m).spectraInputFieldStyle().foregroundStyle(Color.primary)
             SecureField(AppLocalization.string("import_flow.wallet_password_confirmation_field"), text: $draft.walletPasswordConfirmation)
-                .textInputAutocapitalization(.never).autocorrectionDisabled().padding(14).spectraInputFieldStyle().foregroundStyle(
+                .textInputAutocapitalization(.never).autocorrectionDisabled().padding(SpectraLayout.Space.m).spectraInputFieldStyle().foregroundStyle(
                     Color.primary)
             if let walletPasswordValidationError = draft.walletPasswordValidationError {
                 Text(walletPasswordValidationError).font(.caption).foregroundStyle(.red.opacity(0.9))
@@ -264,7 +264,7 @@ struct SetupView: View {
             // left, title + symbol stacked vertically on the right. Gives
             // chain identity room to breathe now that chain selection owns
             // the details page.
-            HStack(spacing: 10) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 ZStack(alignment: .topTrailing) {
                     CoinBadge(
                         artworkName: descriptor.artworkName, fallbackText: descriptor.symbol,
@@ -278,7 +278,7 @@ struct SetupView: View {
                             .offset(x: 4, y: -4)
                     }
                 }
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                     Text(descriptor.title)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(Color.primary)
@@ -289,13 +289,13 @@ struct SetupView: View {
                 }
                 Spacer(minLength: 0)
             }.frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, 10).padding(.horizontal, 12)
+                .padding(.vertical, SpectraLayout.Space.s).padding(.horizontal, SpectraLayout.Space.m)
                 .glassEffect(
                     .regular.tint(isSelected ? descriptor.color.opacity(0.14) : SpectraLayout.GlassTint.elevated),
-                    in: .rect(cornerRadius: SpectraLayout.Radius.compact)
+                    in: .rect(cornerRadius: SpectraLayout.Radius.card)
                 ).overlay {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.compact, style: .continuous)
+                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.card, style: .continuous)
                             .stroke(descriptor.color.opacity(0.9), lineWidth: 1.8)
                     }
                 }
@@ -329,7 +329,7 @@ struct SetupView: View {
     }
     @ViewBuilder
     private var setupHeader: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
             Text(setupTitle).font(.largeTitle.weight(.bold)).foregroundStyle(Color.primary)
                 .lineLimit(3).minimumScaleFactor(0.7).allowsTightening(true).fixedSize(horizontal: false, vertical: true)
             Text(setupSubtitle).font(.subheadline).foregroundStyle(.secondary)
@@ -370,21 +370,21 @@ struct SetupView: View {
     private var chainSelectionCard: some View {
         let popularIDSet = Set(Self.popularChainSelectionIds)
         let extraSelectionCount = draft.selectedChainIds.filter { !popularIDSet.contains($0) }.count
-        VStack(alignment: .leading, spacing: 18) {
-            VStack(alignment: .leading, spacing: 16) {
-                HStack(alignment: .center, spacing: 12) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+                HStack(alignment: .center, spacing: SpectraLayout.Space.m) {
                     Text(AppLocalization.string("Popular chains"))
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.secondary)
                     Spacer()
                     Text(chainSelectionSummary).font(.caption.weight(.semibold)).foregroundStyle(
-                        selectedChainCount == 0 ? Color.secondary : .orange
-                    ).padding(.horizontal, 12).padding(.vertical, 7).glassEffect(
+                        selectedChainCount == 0 ? Color.secondary : .accentColor
+                    ).padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s).glassEffect(
                         .regular.tint(
-                            selectedChainCount == 0 ? SpectraLayout.GlassTint.elevated : Color.orange.opacity(0.12)),
+                            selectedChainCount == 0 ? SpectraLayout.GlassTint.elevated : Color.accentColor.opacity(0.12)),
                         in: .capsule)
                 }
-                LazyVGrid(columns: chainSelectionColumns, spacing: 8) {
+                LazyVGrid(columns: chainSelectionColumns, spacing: SpectraLayout.Space.s) {
                     ForEach(popularChainSelectionDescriptors) { descriptor in chainSelectionCard(descriptor) }
                 }
                 if !Self.nonPopularChainSelectionDescriptors.isEmpty {
@@ -392,13 +392,13 @@ struct SetupView: View {
                         chainSearchText = ""
                         isShowingAllChainsPage = true
                     } label: {
-                        HStack(spacing: 14) {
+                        HStack(spacing: SpectraLayout.Space.m) {
                             Image(systemName: "square.grid.2x2")
                                 .font(.title3.weight(.semibold))
-                                .foregroundStyle(.orange)
+                                .foregroundStyle(.tint)
                                 .frame(width: 36, height: 36)
-                                .background(Color.orange.opacity(0.14), in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous))
-                            VStack(alignment: .leading, spacing: 3) {
+                                .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous))
+                            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                                 Text(AppLocalization.format("Browse all %lld chains", Self.chainSelectionDescriptors.count))
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(Color.primary)
@@ -407,18 +407,17 @@ struct SetupView: View {
                             Spacer()
                             if extraSelectionCount > 0 {
                                 Text("+\(extraSelectionCount)").font(.caption.weight(.bold)).foregroundStyle(.white).padding(
-                                    .horizontal, 10
-                                ).padding(.vertical, 4).background(Capsule(style: .continuous).fill(.orange))
+                                    .horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs).background(Capsule(style: .continuous).fill(Color.accentColor))
                             }
                             Image(systemName: "chevron.right").font(.subheadline.weight(.bold)).foregroundStyle(.secondary)
-                        }.padding(.horizontal, 14).padding(.vertical, 12).spectraInputFieldStyle()
+                        }.padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.m).spectraInputFieldStyle()
                     }.buttonStyle(.plain)
                 }
             }
-            .padding(20)
+            .padding(SpectraLayout.Space.l)
             .spectraCardFill()
             chainSelectionFooterNote
-        }.tint(.orange)
+        }
         .navigationDestination(isPresented: $isShowingAllChainsPage) {
             AllChainsSelectionView(
                 chainSearchText: $chainSearchText, descriptors: Self.chainSelectionDescriptors,
@@ -437,7 +436,7 @@ struct SetupView: View {
             // Show only for watch-only imports.
             // `only_monero_is_excluded_from_watch_only_import` checks that the
             // chain named in this copy matches the registry restriction.
-            Text(copy.moneroWatchUnsupportedMessage).font(.caption).foregroundStyle(.orange.opacity(0.9))
+            Text(copy.moneroWatchUnsupportedMessage).font(.caption).foregroundStyle(.spectraWarning.opacity(0.9))
         }
     }
     /// Page-level rendering contract: callers (the `pageContent` switch)
@@ -446,7 +445,7 @@ struct SetupView: View {
     @ViewBuilder
     private var watchAddressesPageContent: some View {
         setupCard {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                 Text(copy.addressesToWatchTitle).font(.headline).foregroundStyle(Color.primary)
                 Text(copy.addressesToWatchSubtitle).font(.subheadline).foregroundStyle(.secondary)
                 watchAddressesInputsGroup
@@ -521,7 +520,7 @@ struct SetupView: View {
         // not in the table.
         if chain.acceptsAccountXpub {
             TextField("xpub... / zpub...", text: $draft.bitcoinXpubInput).textInputAutocapitalization(.never)
-                .autocorrectionDisabled().padding(14).spectraInputFieldStyle().foregroundStyle(Color.primary)
+                .autocorrectionDisabled().padding(SpectraLayout.Space.m).spectraInputFieldStyle().foregroundStyle(Color.primary)
         }
     }
 
@@ -545,13 +544,13 @@ struct SetupView: View {
     private var watchAddressesEmptyNote: some View {
         if draft.selectedChainIds.isEmpty {
             Text(AppLocalization.string("Select a supported chain above to enter its address to watch.")).font(.caption)
-                .foregroundStyle(.orange.opacity(0.9))
+                .foregroundStyle(.spectraWarning.opacity(0.9))
         }
     }
     @ViewBuilder
     private var walletNamePageContent: some View {
         setupCard {
-            VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                 Text(
                     isEditingWallet
                         ? AppLocalization.string("import_flow.wallet_name")
@@ -560,7 +559,7 @@ struct SetupView: View {
                 if !isEditingWallet {
                     Text(AppLocalization.string("import_flow.wallet_name_hint")).font(.subheadline).foregroundStyle(.secondary)
                 }
-                HStack(spacing: 10) {
+                HStack(spacing: SpectraLayout.Space.s) {
                     TextField(AppLocalization.string("import_flow.wallet_name_placeholder"), text: $draft.walletName)
                         .textInputAutocapitalization(.words).autocorrectionDisabled().foregroundStyle(Color.primary)
                     if !draft.walletName.isEmpty {
@@ -569,7 +568,7 @@ struct SetupView: View {
                                 .foregroundStyle(.secondary)
                         }.buttonStyle(.plain).accessibilityLabel(AppLocalization.string("Clear wallet name"))
                     }
-                }.padding(14).spectraInputFieldStyle()
+                }.padding(SpectraLayout.Space.m).spectraInputFieldStyle()
             }
         }
     }
@@ -583,8 +582,8 @@ struct SetupView: View {
             Text(importError).font(.footnote).foregroundStyle(.red.opacity(0.9))
         }
         if store.walletImport.isBusy {
-            HStack(spacing: 10) {
-                SpectraLoadingGlyph(size: 22, tint: .orange)
+            HStack(spacing: SpectraLayout.Space.s) {
+                SpectraLoadingGlyph(size: 22, tint: .accentColor)
                 Text(AppLocalization.string("import_flow.initializing_wallet_connections")).font(.footnote).foregroundStyle(.secondary)
             }.frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -613,13 +612,13 @@ struct SetupView: View {
         ZStack {
             SpectraBackdrop().ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.l) {
                     setupHeader
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                         pageContent
                         importStatusSection
                     }
-                }.padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 24)
+                }.spectraScreenPadding()
             }.scrollBounceBehavior(.basedOnSize)
         }
         .navigationBarTitleDisplayMode(.inline)
@@ -652,14 +651,14 @@ struct SetupView: View {
                     Text(AppLocalization.string("Back"))
                         .font(.body.weight(.semibold))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, SpectraLayout.Space.s)
                 }.buttonStyle(.glass).controlSize(.large)
             }
             Button(action: performPrimaryAction) {
                 Text(primaryActionTitle)
                     .font(.body.weight(.semibold))
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
+                    .padding(.vertical, SpectraLayout.Space.s)
             }.buttonStyle(.glassProminent).controlSize(.large).disabled(!isPrimaryActionEnabled)
         }
     }

@@ -4,38 +4,46 @@ import SwiftUI
 /// is the authority for every value here; this file is where the document is
 /// spelled in Swift, so a screen never restates a number the document owns.
 enum SpectraLayout {
-    static let screenHorizontal: CGFloat = 14
-    static let screenTop: CGFloat = 6
-    static let screenBottom: CGFloat = 20
-    static let sectionSpacing: CGFloat = 14
-    static let cardPadding: CGFloat = 16
-    static let cardHeaderVertical: CGFloat = 12
-    static let rowHorizontal: CGFloat = 16
-    static let rowVertical: CGFloat = 9
+    /// The spacing scale. Every padding, stack spacing and spacer minimum in a
+    /// view is one of these steps; the named layout values below are steps too.
+    enum Space {
+        /// Between two lines of one text pair (title over subtitle).
+        static let xxs: CGFloat = 2
+        static let xs: CGFloat = 4
+        static let s: CGFloat = 8
+        static let m: CGFloat = 12
+        static let l: CGFloat = 16
+        static let xl: CGFloat = 24
+        static let xxl: CGFloat = 32
+    }
 
-    /// Corner radii. The radius communicates hierarchy: a surface nested inside
-    /// another takes the next step down, so the steps are named for the surface
-    /// rather than the number.
+    static let screenHorizontal: CGFloat = Space.l
+    static let screenTop: CGFloat = Space.s
+    static let screenBottom: CGFloat = Space.l
+    static let sectionSpacing: CGFloat = Space.m
+    static let cardPadding: CGFloat = Space.l
+    static let cardHeaderVertical: CGFloat = Space.m
+    static let rowHorizontal: CGFloat = Space.l
+    static let rowVertical: CGFloat = Space.s
+    /// Where a row divider starts: the row inset, a 36pt badge and the gap
+    /// after it, so the line runs under the text rather than the badge.
+    static let rowDividerInset: CGFloat = rowHorizontal + 36 + Space.m
+
+    /// Corner radii. Three steps, named for the surface: a surface nested
+    /// inside another takes the next step down.
     enum Radius {
-        /// Top-level tab cards, hero and header cards.
-        static let hero: CGFloat = 28
-        /// Ordinary detail cards, nested content cards, grouped list containers.
-        static let card: CGFloat = 24
-        /// Compact row cards and inline notice banners.
-        static let compact: CGFloat = 22
-        /// Full-size inputs and inset address blocks.
-        static let input: CGFloat = 18
-        /// Compact inputs, chips and small nested surfaces.
-        static let chip: CGFloat = 16
-        /// Inline pills, dense inputs and small tinted surfaces.
-        static let pill: CGFloat = 14
+        /// Cards of every kind: tab and hero cards, detail cards, row cards
+        /// and inline notice banners.
+        static let card: CGFloat = 20
+        /// Surfaces inside a card: inputs, address blocks, chips and pills.
+        static let inner: CGFloat = 14
         /// Dense controls, icon backplates and single-character slots.
         static let control: CGFloat = 10
     }
 
     /// Liquid Glass tints. Two neutral steps and no third: a surface is either
-    /// elevated or it is content. Accent-tinted glass (an orange or red notice)
-    /// carries its own colour and is not one of these.
+    /// elevated or it is content. Coloured glass (an accent, warning or red
+    /// notice) carries its own colour and is not one of these.
     enum GlassTint {
         /// Hero and header cards, inputs, chips and icon backplates.
         static let elevated: Color = .white.opacity(0.04)
@@ -44,7 +52,24 @@ enum SpectraLayout {
     }
 }
 
+/// Semantic colours that must not follow the theme. The theme colour is the
+/// asset catalog's AccentColor, written `.tint` or `Color.accentColor`; a
+/// warning has to read as a warning whatever that colour is, so it is fixed
+/// here. Declared on `ShapeStyle` so `.spectraWarning` works both where a
+/// `Color` and where any shape style is expected.
+extension ShapeStyle where Self == Color {
+    /// Pending, in-progress and incomplete states, and warnings.
+    static var spectraWarning: Color { .orange }
+}
+
 extension View {
+    /// The screen inset every scrolling page uses, top-level tab or detail.
+    func spectraScreenPadding() -> some View {
+        padding(.horizontal, SpectraLayout.screenHorizontal)
+            .padding(.top, SpectraLayout.screenTop)
+            .padding(.bottom, SpectraLayout.screenBottom)
+    }
+
     func spectraNumericTextLayout(minimumScaleFactor: CGFloat = 0.62) -> some View {
         lineLimit(1).minimumScaleFactor(minimumScaleFactor).allowsTightening(true)
     }
@@ -57,7 +82,7 @@ extension View {
     /// Elevated glass surface: hero and header cards, and the smaller
     /// interactive surfaces — inputs, chips, icon backplates — that sit above
     /// content rather than being content.
-    func spectraElevatedFill(cornerRadius: CGFloat = SpectraLayout.Radius.hero) -> some View {
+    func spectraElevatedFill(cornerRadius: CGFloat = SpectraLayout.Radius.card) -> some View {
         glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: .rect(cornerRadius: cornerRadius))
     }
 

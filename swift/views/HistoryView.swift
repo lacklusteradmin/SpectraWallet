@@ -14,12 +14,12 @@ private struct HistoryTransactionRowView: View, Equatable {
     let row: HistoryRowPresentation
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.row == rhs.row }
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 CoinBadge(
                     artworkName: row.transaction.artworkName, fallbackText: row.transaction.symbol,
                     color: row.transaction.badgeColor, size: 36)
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                     if let amountText = row.amountText {
                         Text(amountText).font(.headline.weight(.semibold)).foregroundStyle(row.amountColor ?? Color.primary)
                             .spectraNumericTextLayout()
@@ -27,8 +27,8 @@ private struct HistoryTransactionRowView: View, Equatable {
                     Text(row.subtitleText).spectraHintText().lineLimit(1)
                 }
                 Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(row.statusText).font(.caption2.bold()).foregroundStyle(Color.primary).padding(.horizontal, 8).padding(.vertical, 4)
+                VStack(alignment: .trailing, spacing: SpectraLayout.Space.xs) {
+                    Text(row.statusText).font(.caption2.bold()).foregroundStyle(Color.primary).padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs)
                         .background(row.transaction.statusColor.opacity(0.85), in: Capsule())
                     Text(row.fullTimestampText).font(.caption2).foregroundStyle(.secondary).multilineTextAlignment(
                         .trailing)
@@ -67,7 +67,7 @@ struct HistoryView: View {
                 ScrollView(showsIndicators: false) {
                     LazyVStack(alignment: .leading, spacing: SpectraLayout.sectionSpacing) {
                         if let error = historyError {
-                            VStack(alignment: .leading, spacing: 12) {
+                            VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                                 Label(AppLocalization.string("Unable to load history"), systemImage: "exclamationmark.triangle")
                                     .font(.headline)
                                 Text(error).font(.subheadline).foregroundStyle(.secondary)
@@ -80,7 +80,7 @@ struct HistoryView: View {
                                         isRetrying = false
                                     }
                                 }.buttonStyle(.glass).disabled(isRetrying)
-                            }.padding(20).spectraCardFill()
+                            }.padding(SpectraLayout.Space.l).spectraCardFill()
                         }
                         if visibleTransactions.isEmpty && historyError == nil {
                             historyEmptyStateCard
@@ -118,16 +118,15 @@ struct HistoryView: View {
                                                     }
                                                 }
                                             }
-                                            if index < section.rows.count - 1 { Divider().padding(.leading, 64).opacity(0.25) }
+                                            if index < section.rows.count - 1 { Divider().padding(.leading, SpectraLayout.rowDividerInset).opacity(0.25) }
                                         }
-                                    }.padding(.vertical, 4)
+                                    }.padding(.vertical, SpectraLayout.Space.xs)
                                 }.frame(maxWidth: .infinity).glassEffect(
                                     .regular.tint(SpectraLayout.GlassTint.content).interactive(),
-                                    in: .rect(cornerRadius: SpectraLayout.Radius.hero))
+                                    in: .rect(cornerRadius: SpectraLayout.Radius.card))
                             }
                         if shouldShowPagingControls { historyPagingControls }
-                    }.padding(.horizontal, SpectraLayout.screenHorizontal).padding(.top, SpectraLayout.screenTop).padding(
-                        .bottom, SpectraLayout.screenBottom)
+                    }.spectraScreenPadding()
                 }.refreshable {
                     await store.performUserInitiatedRefresh()
                 }.scrollBounceBehavior(.always)

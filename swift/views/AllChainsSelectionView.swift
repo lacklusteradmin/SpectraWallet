@@ -40,7 +40,7 @@ struct AllChainsSelectionView: View {
             spectraHaptic(.light)
             toggleSelection(descriptor.id)
         } label: {
-            HStack(spacing: 12) {
+            HStack(spacing: SpectraLayout.Space.m) {
                 ZStack(alignment: .bottomTrailing) {
                     CoinBadge(
                         artworkName: descriptor.artworkName, fallbackText: descriptor.symbol,
@@ -59,19 +59,19 @@ struct AllChainsSelectionView: View {
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Color.primary)
                     .lineLimit(1)
-                Spacer(minLength: 8)
+                Spacer(minLength: SpectraLayout.Space.s)
                 Text(descriptor.symbol)
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(isSelected ? descriptor.color : Color.secondary)
-                    .padding(.horizontal, 9)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, SpectraLayout.Space.s)
+                    .padding(.vertical, SpectraLayout.Space.xs)
                     .background(
                         Capsule(style: .continuous).fill(
                             isSelected ? descriptor.color.opacity(0.14) : Color.primary.opacity(0.07))
                     )
             }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 10)
+            .padding(.horizontal, SpectraLayout.Space.m)
+            .padding(.vertical, SpectraLayout.Space.s)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
@@ -82,7 +82,7 @@ struct AllChainsSelectionView: View {
             ForEach(Array(items.enumerated()), id: \.element.id) { index, descriptor in
                 row(descriptor)
                 if index < items.count - 1 {
-                    Divider().padding(.leading, 66)
+                    Divider().padding(.leading, SpectraLayout.rowDividerInset)
                 }
             }
         }
@@ -91,8 +91,8 @@ struct AllChainsSelectionView: View {
     }
     @ViewBuilder
     private var searchAndCounter: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
                 TextField(AppLocalization.string("import_flow.search_chains"), text: $chainSearchText)
                     .textInputAutocapitalization(.never).autocorrectionDisabled()
@@ -101,48 +101,48 @@ struct AllChainsSelectionView: View {
                         Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
                     }.buttonStyle(.plain)
                 }
-            }.padding(.horizontal, 14).padding(.vertical, 12).spectraInputFieldStyle()
+            }.padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.m).spectraInputFieldStyle()
             if let clearAllSelections, !selectedChainIds.isEmpty {
-                HStack(spacing: 8) {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.orange).font(.caption)
+                HStack(spacing: SpectraLayout.Space.s) {
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).font(.caption)
                     Text(AppLocalization.format("%lld selected", selectedChainIds.count))
-                        .font(.caption.weight(.semibold)).foregroundStyle(.orange)
+                        .font(.caption.weight(.semibold)).foregroundStyle(.tint)
                     Spacer()
                     Button(AppLocalization.string("Clear all"), role: .destructive) { clearAllSelections() }
                         .font(.caption.weight(.semibold)).buttonStyle(.plain).foregroundStyle(.red.opacity(0.85))
                 }
-                .padding(.horizontal, 12).padding(.vertical, 8)
-                .background(Capsule(style: .continuous).fill(Color.orange.opacity(0.10)))
+                .padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s)
+                .background(Capsule(style: .continuous).fill(Color.accentColor.opacity(0.10)))
             }
         }
     }
     @ViewBuilder
     private func sectionHeader(_ title: String, count: Int) -> some View {
-        HStack(spacing: 8) {
+        HStack(spacing: SpectraLayout.Space.s) {
             Text(title).font(.subheadline.weight(.bold)).foregroundStyle(Color.primary)
             Text("\(count)").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-                .padding(.horizontal, 7).padding(.vertical, 2)
+                .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs)
                 .background(Capsule(style: .continuous).fill(Color.primary.opacity(0.08)))
             Spacer()
         }
-        .padding(.top, 4).padding(.bottom, 2)
+        .padding(.top, SpectraLayout.Space.xs).padding(.bottom, SpectraLayout.Space.xxs)
     }
     @ViewBuilder
     private var bodyContent: some View {
         if isSearching {
             if filteredDescriptors.isEmpty {
-                VStack(spacing: 8) {
+                VStack(spacing: SpectraLayout.Space.s) {
                     Image(systemName: "magnifyingglass").font(.title3).foregroundStyle(.secondary)
                     Text(AppLocalization.string("import_flow.no_chains_match"))
                         .font(.subheadline).foregroundStyle(.secondary)
-                }.frame(maxWidth: .infinity).padding(.vertical, 32)
+                }.frame(maxWidth: .infinity).padding(.vertical, SpectraLayout.Space.xl)
             } else {
                 rowList(filteredDescriptors)
             }
         } else {
-            VStack(alignment: .leading, spacing: 20) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.l) {
                 ForEach(groupedDescriptors, id: \.0) { category, items in
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
                         sectionHeader(category.sectionTitle, count: items.count)
                         rowList(items)
                     }
@@ -154,11 +154,11 @@ struct AllChainsSelectionView: View {
     private var gasTokenInfoSheet: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 20) {
-                    VStack(alignment: .leading, spacing: 10) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.l) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
                         Label(AppLocalization.string("Gas Token"), systemImage: "fuelpump.fill")
                             .font(.headline)
-                            .foregroundStyle(.orange)
+                            .foregroundStyle(.tint)
                         Text(
                             AppLocalization.string(
                                 "The symbol shown on the right of each chain is its gas token — the asset you need to pay transaction fees."
@@ -166,15 +166,15 @@ struct AllChainsSelectionView: View {
                         )
                         .font(.subheadline).foregroundStyle(.secondary)
                     }
-                    .padding(16)
+                    .padding(SpectraLayout.Space.l)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
-                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous).fill(Color.orange.opacity(0.08))
+                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.inner, style: .continuous).fill(Color.accentColor.opacity(0.08))
                     )
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
                         Label(AppLocalization.string("L2s and Native Tokens"), systemImage: "square.stack.3d.up.fill")
                             .font(.headline)
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(.tint)
                         Text(
                             AppLocalization.string(
                                 "Some L2 chains have a separate native token (e.g. ARB, OP) but use a different asset for gas fees (e.g. ETH). Spectra shows the gas token since that's what you'll need to keep funded for transactions."
@@ -182,15 +182,15 @@ struct AllChainsSelectionView: View {
                         )
                         .font(.subheadline).foregroundStyle(.secondary)
                     }
-                    .padding(16)
+                    .padding(SpectraLayout.Space.l)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
-                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous).fill(Color.blue.opacity(0.08))
+                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.inner, style: .continuous).fill(Color.accentColor.opacity(0.08))
                     )
-                    VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
                         Label(AppLocalization.string("Missing a Chain?"), systemImage: "plus.circle.fill")
                             .font(.headline)
-                            .foregroundStyle(.purple)
+                            .foregroundStyle(.tint)
                         Text(
                             AppLocalization.string(
                                 "If you'd like a chain added, go to Settings → Report a Problem and let the developer know. New chains are added regularly."
@@ -198,20 +198,20 @@ struct AllChainsSelectionView: View {
                         )
                         .font(.subheadline).foregroundStyle(.secondary)
                     }
-                    .padding(16)
+                    .padding(SpectraLayout.Space.l)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(
-                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous).fill(Color.purple.opacity(0.08))
+                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.inner, style: .continuous).fill(Color.accentColor.opacity(0.08))
                     )
                 }
-                .padding(20)
+                .padding(SpectraLayout.Space.l)
             }
             .navigationTitle(AppLocalization.string("Chain Info"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button(AppLocalization.string("Done")) { isShowingInfo = false }
-                        .buttonStyle(.borderedProminent).tint(.orange)
+                        .buttonStyle(.borderedProminent)
                 }
             }
         }
@@ -220,10 +220,10 @@ struct AllChainsSelectionView: View {
         ZStack {
             SpectraBackdrop().ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                     searchAndCounter
                     bodyContent
-                }.padding(20)
+                }.padding(SpectraLayout.Space.l)
             }
         }
         .navigationTitle(AppLocalization.string("import_flow.all_chains_title"))
@@ -233,7 +233,6 @@ struct AllChainsSelectionView: View {
                 Button { isShowingInfo = true } label: {
                     Image(systemName: "info.circle")
                 }
-                .tint(.orange)
             }
         }
         .sheet(isPresented: $isShowingInfo) { gasTokenInfoSheet }

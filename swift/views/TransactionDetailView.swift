@@ -18,13 +18,13 @@ struct TransactionDetailView: View {
         ZStack {
             SpectraBackdrop().ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 18) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 12) {
+                LazyVStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+                        HStack(spacing: SpectraLayout.Space.m) {
                             CoinBadge(
                                 artworkName: displayedTransaction.artworkName, fallbackText: displayedTransaction.symbol,
                                 color: displayedTransaction.badgeColor, size: 42)
-                            VStack(alignment: .leading, spacing: 3) {
+                            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                                 Text(displayedTransaction.titleText).font(.title3.bold()).foregroundStyle(Color.primary)
                                 Text(displayedTransaction.subtitleText).font(.subheadline).foregroundStyle(.secondary)
                             }
@@ -34,7 +34,7 @@ struct TransactionDetailView: View {
                         Text(store.amounts.formattedTransactionDetailAmount(displayedTransaction))
                             .font(.title.weight(.bold)).foregroundStyle(Color.primary)
                             .spectraNumericTextLayout(minimumScaleFactor: 0.5)
-                    }.padding(20).spectraBubbleFill().spectraCardFill(cornerRadius: SpectraLayout.Radius.hero)
+                    }.padding(SpectraLayout.Space.l).spectraBubbleFill().spectraCardFill()
                     transactionTimelineCard
                     spectraDetailCard(title: "Overview") {
                         detailRow(label: "Type", value: displayedTransaction.kind == .send ? AppLocalization.string("Send") : AppLocalization.string("Receive"))
@@ -107,7 +107,7 @@ struct TransactionDetailView: View {
                                         }
                                     } label: {
                                         Text(AppLocalization.string("Speed Up This Transaction")).font(.headline).frame(maxWidth: .infinity)
-                                            .padding(.vertical, 12)
+                                            .padding(.vertical, SpectraLayout.Space.m)
                                     }.buttonStyle(.glassProminent)
                                 }
                                 Button {
@@ -118,7 +118,7 @@ struct TransactionDetailView: View {
                                     }
                                 } label: {
                                     Text(AppLocalization.string("Cancel This Transaction")).font(.headline).frame(maxWidth: .infinity).padding(
-                                        .vertical, 12)
+                                        .vertical, SpectraLayout.Space.m)
                                 }.buttonStyle(.glass)
                                 Text(
                                     AppLocalization.string(
@@ -145,15 +145,14 @@ struct TransactionDetailView: View {
                         spectraDetailCard(title: "Transaction Hash") {
                             Text(transactionHash).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(
                                 .enabled
-                            ).padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                                .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.input)
+                            ).padding(SpectraLayout.Space.m).frame(maxWidth: .infinity, alignment: .leading)
+                                .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.inner)
                             if let transactionExplorerURL = displayedTransaction.transactionExplorerURL,
                                 let transactionExplorerLabel = displayedTransaction.transactionExplorerLabel
                             {
                                 Link(destination: transactionExplorerURL) {
                                     Label(transactionExplorerLabel, systemImage: "safari").font(.subheadline.weight(.semibold)).padding(
-                                        .horizontal, 12
-                                    ).padding(.vertical, 8)
+                                        .horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s)
                                 }.buttonStyle(.glassProminent)
                                     .frame(maxWidth: .infinity, alignment: .leading)
                             }
@@ -163,11 +162,11 @@ struct TransactionDetailView: View {
                         spectraDetailCard(title: "Raw Transaction") {
                             Text(rawTransactionText).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(
                                 .enabled
-                            ).padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                                .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.input)
+                            ).padding(SpectraLayout.Space.m).frame(maxWidth: .infinity, alignment: .leading)
+                                .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.inner)
                         }
                     }
-                }.padding(20)
+                }.padding(SpectraLayout.Space.l)
             }
         }.navigationTitle(AppLocalization.string("Transaction")).navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
@@ -186,19 +185,18 @@ struct TransactionDetailView: View {
         let wallets: UInt64
     }
     private var statusChip: some View {
-        Text(displayedTransaction.statusText).font(.caption.bold()).foregroundStyle(Color.primary).padding(.horizontal, 10).padding(
-            .vertical, 6
-        ).background(displayedTransaction.statusColor.opacity(0.32), in: Capsule()).overlay(
+        Text(displayedTransaction.statusText).font(.caption.bold()).foregroundStyle(Color.primary).padding(.horizontal, SpectraLayout.Space.s).padding(
+            .vertical, SpectraLayout.Space.xs).background(displayedTransaction.statusColor.opacity(0.32), in: Capsule()).overlay(
             Capsule().stroke(displayedTransaction.statusColor.opacity(0.45), lineWidth: 1)
         )
     }
     @ViewBuilder
     private func detailRow(label: String, value: String) -> some View {
-        HStack(alignment: .top, spacing: 16) {
+        HStack(alignment: .top, spacing: SpectraLayout.Space.m) {
             Text(AppLocalization.string(label)).font(.caption.weight(.semibold)).foregroundStyle(.secondary).frame(
                 width: 122, alignment: .leading)
             Text(value).font(.body).foregroundStyle(.secondary).frame(maxWidth: .infinity, alignment: .leading)
-        }.padding(.vertical, 2)
+        }.padding(.vertical, SpectraLayout.Space.xxs)
     }
     private var transactionTimelineCard: some View {
         spectraDetailCard(title: "Timeline") {
@@ -216,7 +214,7 @@ struct TransactionDetailView: View {
                 title: displayedTransaction.kind == .send ? "Created" : "Recorded",
                 detail: displayedTransaction.fullTimestampText,
                 systemImage: displayedTransaction.kind == .send ? "paperplane.fill" : "arrow.down.circle.fill",
-                tint: .orange,
+                tint: .accentColor,
                 isComplete: true,
                 isCurrent: false
             )
@@ -229,7 +227,7 @@ struct TransactionDetailView: View {
                     title: displayedTransaction.kind == .send ? "Broadcast" : "Detected",
                     detail: AppLocalization.format("Hash %@", shortTransactionHash(transactionHash)),
                     systemImage: "link",
-                    tint: .blue,
+                    tint: .accentColor,
                     isComplete: true,
                     isCurrent: displayedTransaction.status == .pending
                 )
@@ -241,7 +239,7 @@ struct TransactionDetailView: View {
                     title: "Awaiting Network Hash",
                     detail: "Spectra has not attached a network transaction hash yet.",
                     systemImage: "hourglass",
-                    tint: .orange,
+                    tint: .spectraWarning,
                     isComplete: false,
                     isCurrent: displayedTransaction.status == .pending
                 )
@@ -256,7 +254,7 @@ struct TransactionDetailView: View {
                     title: "Pending Confirmation",
                     detail: "Spectra will keep refreshing this transaction.",
                     systemImage: "clock.arrow.circlepath",
-                    tint: .orange,
+                    tint: .spectraWarning,
                     isComplete: false,
                     isCurrent: true
                 )
@@ -268,7 +266,7 @@ struct TransactionDetailView: View {
                     title: "Confirmed",
                     detail: confirmedTimelineDetail,
                     systemImage: "checkmark.seal.fill",
-                    tint: .mint,
+                    tint: .green,
                     isComplete: true,
                     isCurrent: true
                 )
@@ -304,8 +302,8 @@ struct TransactionDetailView: View {
         return "\(hash.prefix(10))...\(hash.suffix(6))"
     }
     private func timelineRow(_ item: TransactionTimelineItem, isLast: Bool) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(spacing: 5) {
+        HStack(alignment: .top, spacing: SpectraLayout.Space.m) {
+            VStack(spacing: SpectraLayout.Space.xs) {
                 Image(systemName: item.systemImage)
                     .font(.caption.weight(.bold))
                     .foregroundStyle(item.isComplete || item.isCurrent ? item.tint : Color.secondary)
@@ -320,16 +318,16 @@ struct TransactionDetailView: View {
                         .frame(width: 2, height: 28)
                 }
             }
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 8) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
+                HStack(spacing: SpectraLayout.Space.s) {
                     Text(AppLocalization.string(item.title))
                         .font(.subheadline.weight(.semibold))
                     if item.isCurrent {
                         Text(AppLocalization.string("Current"))
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(item.tint)
-                            .padding(.horizontal, 7)
-                            .padding(.vertical, 3)
+                            .padding(.horizontal, SpectraLayout.Space.s)
+                            .padding(.vertical, SpectraLayout.Space.xxs)
                             .background(item.tint.opacity(0.14), in: Capsule())
                     }
                 }
@@ -340,7 +338,7 @@ struct TransactionDetailView: View {
             }
             Spacer(minLength: 0)
         }
-        .padding(.vertical, 3)
+        .padding(.vertical, SpectraLayout.Space.xxs)
     }
     private func nonEmptyAddress(_ value: String?) -> String? {
         guard let trimmed = value?.trimmingCharacters(in: .whitespacesAndNewlines), !trimmed.isEmpty else { return nil }
@@ -370,20 +368,19 @@ private struct TransactionAddressBlock: View {
     @State private var didCopy = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Text(AppLocalization.string(label)).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
                 if isMine {
-                    Text(AppLocalization.string("Mine")).font(.caption.bold()).foregroundStyle(Color.primary).padding(.horizontal, 8).padding(
-                        .vertical, 4
-                    ).background(Color.mint.opacity(0.22), in: Capsule()).overlay(
-                        Capsule().stroke(Color.mint.opacity(0.35), lineWidth: 1)
+                    Text(AppLocalization.string("Mine")).font(.caption.bold()).foregroundStyle(Color.primary).padding(.horizontal, SpectraLayout.Space.s).padding(
+                        .vertical, SpectraLayout.Space.xs).background(Color.green.opacity(0.22), in: Capsule()).overlay(
+                        Capsule().stroke(Color.green.opacity(0.35), lineWidth: 1)
                     )
                 }
             }
-            Text(value).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(.enabled).padding(14).frame(
+            Text(value).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(.enabled).padding(SpectraLayout.Space.m).frame(
                 maxWidth: .infinity, alignment: .leading
-            ).spectraElevatedFill(cornerRadius: SpectraLayout.Radius.input)
+            ).spectraElevatedFill(cornerRadius: SpectraLayout.Radius.inner)
             Button {
                 UIPasteboard.general.string = value
                 didCopy = true
@@ -393,7 +390,7 @@ private struct TransactionAddressBlock: View {
                     didCopy
                         ? AppLocalization.string("Copied")
                         : AppLocalization.string("Copy Address"), systemImage: didCopy ? "checkmark" : "doc.on.doc"
-                ).font(.subheadline.weight(.semibold)).padding(.horizontal, 12).padding(.vertical, 8)
+                ).font(.subheadline.weight(.semibold)).padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s)
             }.buttonStyle(.glass)
                 .frame(maxWidth: .infinity, alignment: .leading)
         }

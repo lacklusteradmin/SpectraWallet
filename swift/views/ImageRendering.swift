@@ -66,7 +66,7 @@ struct SpectraBackdrop: View {
     private var chroma1: Color { colorScheme == .light ? Color.blue.opacity(0.18) : Color.indigo.opacity(0.38) }
     private var chroma2: Color { colorScheme == .light ? Color.pink.opacity(0.14) : Color.purple.opacity(0.32) }
     private var chroma3: Color { colorScheme == .light ? Color.mint.opacity(0.14) : Color.teal.opacity(0.28) }
-    private var chroma4: Color { colorScheme == .light ? Color.orange.opacity(0.12) : Color.pink.opacity(0.22) }
+    private var chroma4: Color { colorScheme == .light ? Color.orange.opacity(0.12) : Color.pink.opacity(0.22) }  // design-tokens: artwork
     private var backdropGradientColors: [Color] {
         if colorScheme == .light {
             return [

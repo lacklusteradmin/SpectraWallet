@@ -62,16 +62,15 @@ struct PriceAlertsView: View {
                     )
                 } else {
                     ForEach(store.priceAlerts) { alert in
-                        VStack(alignment: .leading, spacing: 8) {
+                        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
                             HStack {
-                                VStack(alignment: .leading, spacing: 2) {
+                                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                                     Text(alert.titleText).font(.headline)
                                     Text(alertTargetText(alert)).font(.caption).foregroundStyle(.secondary).spectraNumericTextLayout()
                                 }
                                 Spacer()
-                                Text(alert.statusText).font(.caption.bold()).frame(minWidth: 78).padding(.horizontal, 8).padding(
-                                    .vertical, 4
-                                ).background(statusColor(for: alert).opacity(0.18), in: Capsule()).foregroundStyle(statusColor(for: alert))
+                                Text(alert.statusText).font(.caption.bold()).frame(minWidth: 78).padding(.horizontal, SpectraLayout.Space.s).padding(
+                                    .vertical, SpectraLayout.Space.xs).background(statusColor(for: alert).opacity(0.18), in: Capsule()).foregroundStyle(statusColor(for: alert))
                             }
                             HStack {
                                 Button(alert.isEnabled ? AppLocalization.string("Pause") : AppLocalization.string("Resume")) {
@@ -83,7 +82,7 @@ struct PriceAlertsView: View {
                                     removingAlertId = alert.id
                                 }.buttonStyle(.borderless)
                             }.font(.caption)
-                        }.padding(.vertical, 4)
+                        }.padding(.vertical, SpectraLayout.Space.xs)
                     }
                 }
             }

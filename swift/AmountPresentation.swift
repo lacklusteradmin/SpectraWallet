@@ -87,6 +87,25 @@ struct AmountPresentation {
         guard let fiat = formattedFiatIfAvailable(value) else { return native }
         return "\(native) (~\(fiat))"
     }
+    /// A fee as a compact row shows it: core's significant-digit policy at
+    /// the gas token's precision, with its display-currency value when core
+    /// had one. The exact figure is the transaction detail's to show.
+    func compactNetworkFee(_ fee: String, value: Double?, chain: Chain) -> String {
+        let native: String
+        if let text = formatAssetAmount(amount: fee, assetDecimals: UInt32(chain.nativeDecimals)) {
+            let amount = Self.localizedDecimal(text.value)
+            native = "\(text.belowThreshold ? "<" : "")\(amount) \(chain.gasTokenSymbol)"
+        } else {
+            native = formattedNetworkFee(fee, chain: chain)
+        }
+        guard let fiat = formattedFiatIfAvailable(value) else { return native }
+        return "\(native) (~\(fiat))"
+    }
+    /// A gas price as a fee row shows it: four significant digits, enough to
+    /// compare quotes by. A receipt states the rate exactly.
+    func compactGasPrice(gwei: Double) -> String {
+        "\(AmountFormatters.shared.gasPriceFormatter.string(from: NSNumber(value: gwei)) ?? "") gwei"
+    }
     /// A gas price in gwei: a rate, not an amount of anything held.
     func formattedGasPrice(gwei: Double, chain: Chain) -> String {
         let formatter = AmountFormatters.shared.decimalFormatter(maximumFractionDigits: Int(chain.nativeDecimals))
@@ -146,6 +165,13 @@ private final class AmountFormatters {
     static let shared = AmountFormatters()
     private var cachedCurrencyFormatters: [FiatCurrency: NumberFormatter] = [:]
     private var cachedDecimalFormatters: [Int: NumberFormatter] = [:]
+    let gasPriceFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.usesSignificantDigits = true
+        formatter.maximumSignificantDigits = 4
+        return formatter
+    }()
     func fiatFormatter(for currency: FiatCurrency) -> NumberFormatter {
         if let formatter = cachedCurrencyFormatters[currency] { return formatter }
         let rules = currency.displayRules

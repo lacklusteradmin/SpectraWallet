@@ -24,7 +24,7 @@ struct ResetWalletWarningView: View {
                 Section(AppLocalization.string("Choose What To Reset")) {
                     ForEach(ResetScope.allCases, id: \.self) { scope in
                         Toggle(isOn: binding(for: scope)) {
-                            VStack(alignment: .leading, spacing: 3) {
+                            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                                 Text(scope.title)
                                 Text(scope.detail).font(.caption).foregroundStyle(.secondary)
                             }

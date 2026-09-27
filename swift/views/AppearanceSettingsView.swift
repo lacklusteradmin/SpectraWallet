@@ -15,7 +15,7 @@ struct AppearanceSettingsView: View {
                             Label(AppLocalization.string(mode.label), systemImage: iconName(for: mode))
                             Spacer()
                             if preferences.appearanceMode == mode {
-                                Image(systemName: "checkmark").font(.body.weight(.semibold)).foregroundStyle(.orange)
+                                Image(systemName: "checkmark").font(.body.weight(.semibold)).foregroundStyle(.tint)
                             }
                         }.contentShape(Rectangle())
                     }.foregroundStyle(Color.primary)

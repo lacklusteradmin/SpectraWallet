@@ -41,7 +41,7 @@ struct FundsFinderView: View {
         ZStack {
             SpectraBackdrop().ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-                VStack(spacing: 16) {
+                VStack(spacing: SpectraLayout.Space.m) {
                     if !hasStarted {
                         inputSection
                     } else {
@@ -57,9 +57,9 @@ struct FundsFinderView: View {
                         }
                     }
                 }
-                .padding(.horizontal, 20)
-                .padding(.top, 16)
-                .padding(.bottom, 40)
+                .padding(.horizontal, SpectraLayout.Space.l)
+                .padding(.top, SpectraLayout.Space.l)
+                .padding(.bottom, SpectraLayout.Space.xxl)
             }
         }
         .navigationTitle(AppLocalization.string("Funds Finder"))
@@ -130,7 +130,7 @@ struct FundsFinderView: View {
     // MARK: - Input section
 
     private var inputSection: some View {
-        VStack(spacing: 16) {
+        VStack(spacing: SpectraLayout.Space.m) {
             headerCard
             seedPhraseCard
             passphraseCard
@@ -140,12 +140,12 @@ struct FundsFinderView: View {
     }
 
     private var headerCard: some View {
-        HStack(alignment: .top, spacing: 14) {
+        HStack(alignment: .top, spacing: SpectraLayout.Space.m) {
             Image(systemName: "magnifyingglass.circle.fill")
                 .font(.system(size: 32, weight: .semibold))
-                .foregroundStyle(.yellow)
+                .foregroundStyle(.tint)
                 .frame(width: 36, height: 36)
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                 Text(AppLocalization.string("Scan All Derivation Paths"))
                     .font(.headline)
                 Text(AppLocalization.string("Enter your seed phrase to scan 150+ derivation paths across Bitcoin, Ethereum, Solana, and 10+ more chains — instantly revealing which paths hold funds."))
@@ -154,27 +154,27 @@ struct FundsFinderView: View {
                     .multilineTextAlignment(.leading)
             }
         }
-        .padding(16)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
+        .spectraCardFill()
     }
 
     private var seedPhraseCard: some View {
         let slotCount = showAll24 ? 24 : 12
         let count = filledWordCount
-        return VStack(alignment: .leading, spacing: 12) {
+        return VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             HStack {
                 Text(AppLocalization.string("Seed Phrase")).font(.subheadline.weight(.semibold))
                 Spacer()
                 if count > 0 {
                     Text(AppLocalization.format("%lld words", count))
                         .font(.caption.weight(.semibold))
-                        .foregroundStyle(count >= 12 ? Color.green : Color.orange)
-                        .padding(.horizontal, 8).padding(.vertical, 3)
-                        .background(Capsule().fill(count >= 12 ? Color.green.opacity(0.14) : Color.orange.opacity(0.14)))
+                        .foregroundStyle(count >= 12 ? Color.green : Color.spectraWarning)
+                        .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs)
+                        .background(Capsule().fill(count >= 12 ? Color.green.opacity(0.14) : Color.spectraWarning.opacity(0.14)))
                 }
             }
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: 6) {
+            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: SpectraLayout.Space.xs) {
                 ForEach(0..<slotCount, id: \.self) { i in
                     wordSlotView(index: i, slotCount: slotCount)
                 }
@@ -187,13 +187,13 @@ struct FundsFinderView: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(16)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
+        .spectraCardFill()
     }
 
     private func wordSlotView(index: Int, slotCount: Int) -> some View {
-        HStack(spacing: 4) {
+        HStack(spacing: SpectraLayout.Space.xs) {
             Text("\(index + 1)")
                 .font(.system(size: 10, weight: .bold))
                 .foregroundStyle(.tertiary)
@@ -220,10 +220,10 @@ struct FundsFinderView: View {
             .focused($focusedSlot, equals: index)
             .onSubmit { if index < slotCount - 1 { focusedSlot = index + 1 } }
         }
-        .padding(.horizontal, 8).padding(.vertical, 7)
+        .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.s)
         .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.control)
         .overlay(RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous)
-            .stroke(focusedSlot == index ? Color.yellow.opacity(0.5) : Color.clear, lineWidth: 1))
+            .stroke(focusedSlot == index ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 1))
         .animation(.easeInOut(duration: 0.15), value: focusedSlot == index)
     }
 
@@ -231,7 +231,7 @@ struct FundsFinderView: View {
     private func syncSeedPhrase() { seedPhrase = wordSlots.filter { !$0.isEmpty }.joined(separator: " ") }
 
     private var passphraseCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
             HStack {
                 Text(AppLocalization.string("BIP-39 Passphrase")).font(.subheadline.weight(.semibold))
                 Spacer()
@@ -256,18 +256,18 @@ struct FundsFinderView: View {
                         .font(.subheadline)
                 }
             }
-            .padding(12)
-            .spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.pill)
+            .padding(SpectraLayout.Space.m)
+            .spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.inner)
             Text(AppLocalization.string("A passphrase creates a different wallet. Leave blank unless you set one up."))
                 .font(.caption).foregroundStyle(.secondary)
         }
-        .padding(16)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
+        .spectraCardFill()
     }
 
     private var disclaimerCard: some View {
-        HStack(alignment: .top, spacing: 10) {
+        HStack(alignment: .top, spacing: SpectraLayout.Space.s) {
             Image(systemName: "lock.shield.fill")
                 .foregroundStyle(.green)
                 .font(.subheadline)
@@ -276,9 +276,9 @@ struct FundsFinderView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.leading)
         }
-        .padding(14)
+        .padding(SpectraLayout.Space.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: SpectraLayout.Radius.input)
+        .spectraCardFill(cornerRadius: SpectraLayout.Radius.inner)
     }
 
     private var startButton: some View {
@@ -293,20 +293,20 @@ struct FundsFinderView: View {
             Label(AppLocalization.string("Start Scan"), systemImage: "magnifyingglass")
                 .font(.headline)
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 16)
+                .padding(.vertical, SpectraLayout.Space.l)
         }
         .buttonStyle(.borderedProminent)
         .disabled(!canStart)
-        .clipShape(RoundedRectangle(cornerRadius: SpectraLayout.Radius.input, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: SpectraLayout.Radius.inner, style: .continuous))
     }
 
     // MARK: - Progress section
 
     private var scanProgressSection: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             HStack {
                 if isScanning {
-                    SpectraLoadingGlyph(size: 26, tint: .orange)
+                    SpectraLoadingGlyph(size: 26, tint: .accentColor)
                     Text(AppLocalization.string("Scanning…"))
                         .font(.headline)
                 } else {
@@ -326,7 +326,6 @@ struct FundsFinderView: View {
             if totalCount > 0 {
                 ProgressView(value: progress)
                     .progressViewStyle(.linear)
-                    .tint(.yellow)
             }
             if isScanning {
                 Text(AppLocalization.string("Checking addresses across all derivation paths…"))
@@ -343,34 +342,34 @@ struct FundsFinderView: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(16)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
+        .spectraCardFill()
     }
 
     // MARK: - Hits section
 
     private var hitsSection: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
             HStack {
-                Image(systemName: "bitcoinsign.circle.fill").foregroundStyle(.yellow)
+                Image(systemName: "bitcoinsign.circle.fill").foregroundStyle(.tint)
                 Text(AppLocalization.format("%lld path(s) with funds found", hits.count))
                     .font(.headline)
             }
-            .padding(.bottom, 2)
+            .padding(.bottom, SpectraLayout.Space.xxs)
             ForEach(hits) { hit in
                 FundsFinderHitRow(hit: hit)
             }
         }
-        .padding(16)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
+        .spectraCardFill()
     }
 
     // MARK: - Empty & error
 
     private var emptyResultsSection: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: SpectraLayout.Space.s) {
             Image(systemName: "tray").font(.system(size: 32)).foregroundStyle(.secondary)
             Text(AppLocalization.string("No funds found")).font(.headline)
             Text(AppLocalization.string("No balance was detected at any of the scanned derivation paths. Double-check your seed phrase and try with a BIP-39 passphrase if you set one."))
@@ -378,20 +377,20 @@ struct FundsFinderView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
         }
-        .padding(20)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity)
-        .spectraCardFill(cornerRadius: SpectraLayout.Radius.compact)
+        .spectraCardFill()
     }
 
     @ViewBuilder
     private func errorBanner(_ message: String) -> some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+        HStack(alignment: .top, spacing: SpectraLayout.Space.s) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.spectraWarning)
             Text(message).font(.caption).foregroundStyle(.secondary)
         }
-        .padding(14)
+        .padding(SpectraLayout.Space.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: SpectraLayout.Radius.input)
+        .spectraCardFill(cornerRadius: SpectraLayout.Radius.inner)
     }
 }
 
@@ -402,9 +401,9 @@ private struct FundsFinderHitRow: View {
     @State private var isCopied = false
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                     Text(hit.candidate.chainName)
                         .font(.subheadline.weight(.semibold))
                     Text(hit.candidate.pathLabel)
@@ -414,14 +413,14 @@ private struct FundsFinderHitRow: View {
                 Spacer()
                 Text(hit.balanceDisplay)
                     .font(.subheadline.weight(.bold))
-                    .foregroundStyle(.yellow)
+                    .foregroundStyle(.tint)
             }
-            HStack(spacing: 6) {
+            HStack(spacing: SpectraLayout.Space.xs) {
                 Text(hit.candidate.derivationPath)
                     .font(.caption.monospaced())
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
-                Spacer(minLength: 4)
+                Spacer(minLength: SpectraLayout.Space.xs)
                 Button {
                     UIPasteboard.general.string = hit.candidate.address
                     isCopied = true
@@ -446,7 +445,7 @@ private struct FundsFinderHitRow: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
-        .padding(12)
-        .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.pill)
+        .padding(SpectraLayout.Space.m)
+        .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.inner)
     }
 }

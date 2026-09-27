@@ -24,7 +24,7 @@ struct ContentView: View {
                 MainTabView(store: store)
             }
             if store.isAppLocked {
-                VStack(spacing: 16) {
+                VStack(spacing: SpectraLayout.Space.m) {
                     Image(systemName: "lock.fill").font(.system(size: 40, weight: .semibold)).foregroundStyle(.secondary)
                     Text(AppLocalization.string("content.locked.title")).font(.title3.weight(.semibold))
                     Text(AppLocalization.string("content.locked.subtitle")).font(.subheadline).foregroundStyle(.secondary)
@@ -34,9 +34,9 @@ struct ContentView: View {
                         Task { await store.unlockApp() }
                     } label: {
                         Label(AppLocalization.string("content.locked.unlock"), systemImage: "faceid")
-                            .font(.body.weight(.semibold)).frame(maxWidth: 220).padding(.vertical, 6)
+                            .font(.body.weight(.semibold)).frame(maxWidth: 220).padding(.vertical, SpectraLayout.Space.xs)
                     }.buttonStyle(.glassProminent).controlSize(.large)
-                }.padding(28).spectraElevatedFill().padding(28)
+                }.padding(SpectraLayout.Space.xl).spectraElevatedFill().padding(SpectraLayout.Space.xl)
             }
         }.preferredColorScheme(store.preferences.appearanceMode == .dark ? .dark : store.preferences.appearanceMode == .light ? .light : nil)
         .onAppear {

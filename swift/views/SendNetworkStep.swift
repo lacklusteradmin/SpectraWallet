@@ -22,7 +22,7 @@ struct SendNetworkStep: View {
     private func networkFeeText(_ quote: OwnedSendPreview, chain: Chain) -> String? {
         guard let fee = quote.networkFee else { return nil }
         return AppLocalization.format(
-            "Estimated Network Fee: %@", store.amounts.formattedNetworkFee(fee, value: quote.networkFeeValue, chain: chain))
+            "Estimated Network Fee: %@", store.amounts.compactNetworkFee(fee, value: quote.networkFeeValue, chain: chain))
     }
 
     var body: some View {
@@ -33,24 +33,19 @@ struct SendNetworkStep: View {
         store.availableSendCoins(for: store.sendFlow.walletId).first(where: { $0.holdingKey == store.sendFlow.holdingKey })
     }
 
+    @ViewBuilder
     private func networkStep(selectedCoin: Coin?) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            spectraPageHeader(
-                title: "Network",
-                subtitle: "Review fee estimates and advanced chain options.",
-                systemImage: "antenna.radiowaves.left.and.right"
-            )
-
-            if hasNetworkSendSections(for: selectedCoin) {
-                networkCard(selectedCoin: selectedCoin)
-            } else {
-                noNetworkPreviewCard(selectedCoin: selectedCoin)
-            }
+        // Shown inside the review's disclosure, which already names it: no
+        // page header of its own.
+        if hasNetworkSendSections(for: selectedCoin) {
+            networkCard(selectedCoin: selectedCoin)
+        } else {
+            noNetworkPreviewCard(selectedCoin: selectedCoin)
         }
     }
 
     private func noNetworkPreviewCard(selectedCoin: Coin?) -> some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             networkSectionHeader("Network")
             if let selectedCoin {
                 Text(AppLocalization.format("Spectra will prepare the %@ transfer with the default %@ network policy.", selectedCoin.symbol, selectedCoin.chainName))
@@ -62,7 +57,7 @@ struct SendNetworkStep: View {
                     .foregroundStyle(.secondary)
             }
         }
-        .padding(20)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .spectraCardFill()
     }
@@ -74,9 +69,9 @@ struct SendNetworkStep: View {
         VStack(alignment: .leading, spacing: 0) {
             networkCardContent(selectedCoin: selectedCoin)
         }
-        .padding(18)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.card)
+        .spectraElevatedFill()
     }
 
     /// One branch per preview shape. The chain decides which, through the
@@ -100,7 +95,7 @@ struct SendNetworkStep: View {
 
     @ViewBuilder
     private func feePriorityContent(selectedCoin: Coin) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
             networkSectionHeader("Fee Priority")
             Picker(AppLocalization.string("Fee Priority"), selection: chainFeePriorityBinding(for: selectedCoin.chainId)) {
                 ForEach(FeePriority.allCases, id: \.self) { priority in Text(priority.displayName).tag(priority) }
@@ -108,12 +103,12 @@ struct SendNetworkStep: View {
             Text(AppLocalization.string("Spectra stores this preference per chain. Some networks still use provider-managed fee estimation in this build."))
                 .font(.caption).foregroundStyle(.secondary)
         }
-        Divider().opacity(0.3).padding(.vertical, 8)
+        Divider().opacity(0.3).padding(.vertical, SpectraLayout.Space.s)
     }
 
     @ViewBuilder
     private func utxoFeePreviewContent(selectedCoin: Coin, chain: Chain) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
             networkSectionHeader(AppLocalization.format("%@ Network", selectedCoin.chainName))
             Picker(AppLocalization.string("Fee Priority"), selection: chainFeePriorityBinding(for: selectedCoin.chainId)) {
                 ForEach(FeePriority.allCases, id: \.self) { priority in Text(priority.displayName).tag(priority) }
@@ -141,16 +136,16 @@ struct SendNetworkStep: View {
 
     @ViewBuilder
     private func evmNetworkContent(selectedCoin: Coin, chain: Chain) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
             networkSectionHeader(AppLocalization.format("%@ Network", selectedCoin.chainName))
             Toggle(AppLocalization.string("Use Custom Fees"), isOn: Bindable(store.sendFlow).useCustomEvmFees)
             if store.sendFlow.useCustomEvmFees {
                 TextField(AppLocalization.string("Max Fee (gwei)"), text: Bindable(store.sendFlow).customEvmMaxFeeGwei)
-                    .keyboardType(.decimalPad).padding(.horizontal, 12).padding(.vertical, 10)
-                    .spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.pill)
+                    .keyboardType(.decimalPad).padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s)
+                    .spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.inner)
                 TextField(AppLocalization.string("Priority Fee (gwei)"), text: Bindable(store.sendFlow).customEvmPriorityFeeGwei)
-                    .keyboardType(.decimalPad).padding(.horizontal, 12).padding(.vertical, 10)
-                    .spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.pill)
+                    .keyboardType(.decimalPad).padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s)
+                    .spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.inner)
                 if let customEvmFeeValidationError = store.customEvmFeeValidationError {
                     Text(customEvmFeeValidationError).font(.caption).foregroundStyle(.red)
                 } else {
@@ -161,8 +156,8 @@ struct SendNetworkStep: View {
             Toggle(AppLocalization.string("Manual Nonce"), isOn: Bindable(store.sendFlow).evmManualNonceEnabled)
             if store.sendFlow.evmManualNonceEnabled {
                 TextField(AppLocalization.string("Nonce"), text: Bindable(store.sendFlow).evmManualNonce)
-                    .keyboardType(.numberPad).padding(.horizontal, 12).padding(.vertical, 10)
-                    .spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.pill)
+                    .keyboardType(.numberPad).padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s)
+                    .spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.inner)
                 if let evmNonceValidationError = store.evmNonceValidationError {
                     Text(evmNonceValidationError).font(.caption).foregroundStyle(.red)
                 }
@@ -183,30 +178,24 @@ struct SendNetworkStep: View {
                     Task { await store.prepareCancelContext() }
                 }
             }
-            if let replacementNonceStateMessage = store.replacementNonceStateMessage {
+            // Only about a send that can be replaced: with none pending, the
+            // sentence said so at length on every send.
+            if store.replaceableSendForSelectedWallet != nil,
+               let replacementNonceStateMessage = store.replacementNonceStateMessage {
                 Text(replacementNonceStateMessage).font(.caption).foregroundStyle(.secondary)
             }
             if store.sendFlow.isPreparingPreview {
                 SpectraLoadingRow(title: "Loading nonce and fee estimate...")
             } else if let quote, case .ethereum(let evmSendPreview) = quote.preview {
-                Text(AppLocalization.format("Nonce: %lld", evmSendPreview.nonce))
-                Text(AppLocalization.format("Gas Limit: %lld", evmSendPreview.gasLimit))
-                Text(AppLocalization.format("Max Fee: %@", store.amounts.formattedGasPrice(gwei: evmSendPreview.maxFeePerGasGwei, chain: chain)))
-                Text(AppLocalization.format("Priority Fee: %@", store.amounts.formattedGasPrice(gwei: evmSendPreview.maxPriorityFeePerGasGwei, chain: chain)))
-                if let fee = networkFeeText(quote, chain: chain) {
-                    Text(fee).font(.subheadline.weight(.semibold))
-                }
+                Divider().opacity(0.3)
+                valueRow("Nonce", "\(evmSendPreview.nonce)")
+                valueRow("Gas Limit", evmSendPreview.gasLimit.formatted())
+                valueRow("Max Fee", store.amounts.compactGasPrice(gwei: evmSendPreview.maxFeePerGasGwei))
+                valueRow("Priority Fee", store.amounts.compactGasPrice(gwei: evmSendPreview.maxPriorityFeePerGasGwei))
             } else {
                 Text(AppLocalization.string("Enter an amount to load a live nonce and fee preview. Add a valid destination address before sending."))
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Text(
-                AppLocalization.format(
-                    "Spectra signs and broadcasts supported %@ transfers. This preview is the live nonce and fee estimate for the transaction you are about to send.",
-                    selectedCoin.chainName
-                )
-            )
-                .font(.caption).foregroundStyle(.secondary)
         }
     }
 
@@ -223,7 +212,7 @@ struct SendNetworkStep: View {
     @ViewBuilder
     private func simpleFeeContent(selectedCoin: Coin, chain: Chain) -> some View {
         let chainName = selectedCoin.chainName
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
             networkSectionHeader(AppLocalization.format("%@ Network", chainName))
             if store.sendFlow.isPreparingPreview {
                 SpectraLoadingRow(title: AppLocalization.format("Loading %@ fee estimate...", chainName))
@@ -293,35 +282,40 @@ struct SendNetworkStep: View {
         }
     }
 
+    /// What the fee section above has not already said. The EVM rows state
+    /// the fee rate, and the amount page states the balance and the maximum,
+    /// so those are not repeated here — the repeat of the rate rounded the
+    /// priority fee the rows gave as 0.001 gwei to "0.00".
     @ViewBuilder
     private func sendPreviewDetailsContent(for selectedCoin: Coin) -> some View {
-        if let details = store.sendPreviewDetails(for: selectedCoin), details.hasVisibleContent {
-            VStack(alignment: .leading, spacing: 8) {
-                networkSectionHeader(AppLocalization.string("Preview Details"))
-                if let spendableBalance = details.spendableBalance {
-                    Text(AppLocalization.format("Spendable Balance: %@", formattedPreviewAssetAmount(spendableBalance, for: selectedCoin)))
+        let isEVM = selectedCoin.chain?.isEVM ?? false
+        if let details = store.sendPreviewDetails(for: selectedCoin), details.hasDetailRows(isEVM: isEVM) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
+                Divider().opacity(0.3).padding(.vertical, SpectraLayout.Space.xs)
+                if let feeRateDescription = details.feeRateDescription, !isEVM {
+                    valueRow("Fee Rate", feeRateDescription)
                 }
-                if let feeRateDescription = details.feeRateDescription { Text(AppLocalization.format("Fee Rate: %@", feeRateDescription)) }
                 if let estimatedTransactionBytes = details.estimatedTransactionBytes {
-                    Text(AppLocalization.format("Estimated Size: %lld bytes", estimatedTransactionBytes))
+                    valueRow("Estimated Size", AppLocalization.format("%lld bytes", estimatedTransactionBytes))
                 }
-                if let selectedInputCount = details.selectedInputCount { Text(AppLocalization.format("Selected Inputs: %lld", selectedInputCount)) }
+                if let selectedInputCount = details.selectedInputCount { valueRow("Selected Inputs", "\(selectedInputCount)") }
                 if let usesChangeOutput = details.usesChangeOutput {
-                    Text(AppLocalization.format("Change Output: %@", usesChangeOutput ? AppLocalization.string("Yes") : AppLocalization.string("No")))
-                }
-                if let maxSendable = details.maxSendable {
-                    Text(AppLocalization.format("Max Sendable: %@", formattedPreviewAssetAmount(maxSendable, for: selectedCoin)))
+                    valueRow("Change Output", AppLocalization.string(usesChangeOutput ? "Yes" : "No"))
                 }
             }
         }
     }
 
-    private func chainFeePriorityBinding(for chainId: String) -> Binding<FeePriority> {
-        Binding(get: { store.feePriority(forChainId: chainId) }, set: { store.setFeePriority($0, forChainId: chainId) })
+    private func valueRow(_ label: String, _ value: String) -> some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(AppLocalization.string(label)).font(.subheadline).foregroundStyle(.secondary)
+            Spacer(minLength: SpectraLayout.Space.s)
+            Text(value).font(.subheadline.weight(.semibold)).multilineTextAlignment(.trailing)
+        }
     }
 
-    private func formattedPreviewAssetAmount(_ amount: String, for coin: Coin) -> String {
-        store.amounts.formattedAssetAmount(amount, symbol: coin.symbol, deploymentId: coin.holdingKey)
+    private func chainFeePriorityBinding(for chainId: String) -> Binding<FeePriority> {
+        Binding(get: { store.feePriority(forChainId: chainId) }, set: { store.setFeePriority($0, forChainId: chainId) })
     }
 
     /// Core reads the stored spelling; the parenthetical is this view's.
@@ -341,5 +335,5 @@ private func networkSectionHeader(_ title: String) -> some View {
         .font(.caption.weight(.semibold))
         .foregroundStyle(.secondary)
         .textCase(.uppercase)
-        .padding(.bottom, 8)
+        .padding(.bottom, SpectraLayout.Space.s)
 }

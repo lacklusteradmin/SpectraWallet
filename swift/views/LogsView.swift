@@ -75,13 +75,13 @@ struct LogsView: View {
                 Section(AppLocalization.string("Events")) {
                     ForEach(filteredLogs) { log in
                         let event = log.input
-                        VStack(alignment: .leading, spacing: 6) {
-                            HStack(spacing: 8) {
+                        VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
+                            HStack(spacing: SpectraLayout.Space.s) {
                                 Image(systemName: iconName(for: event.level)).foregroundStyle(color(for: event.level))
                                 Text(log.timestamp.formatted(date: .abbreviated, time: .standard)).font(.caption.bold()).foregroundStyle(
                                     .secondary)
-                                Text(event.category).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, 6)
-                                    .padding(.vertical, 2).background(Color.secondary.opacity(0.12), in: Capsule())
+                                Text(event.category).font(.caption2.weight(.semibold)).foregroundStyle(.secondary).padding(.horizontal, SpectraLayout.Space.xs)
+                                    .padding(.vertical, SpectraLayout.Space.xxs).background(Color.secondary.opacity(0.12), in: Capsule())
                             }
                             Text(event.message).font(.subheadline)
                             if let source = event.source, !source.isEmpty {
@@ -102,7 +102,7 @@ struct LogsView: View {
                             if let metadata = event.metadata, !metadata.isEmpty {
                                 Text(metadata).font(.caption.monospaced()).foregroundStyle(.secondary).textSelection(.enabled)
                             }
-                        }.padding(.vertical, 2)
+                        }.padding(.vertical, SpectraLayout.Space.xxs)
                     }
                 }
             }
@@ -144,7 +144,7 @@ struct LogsView: View {
         switch level {
         case .debug: return .gray
         case .info: return .blue
-        case .warning: return .orange
+        case .warning: return .spectraWarning
         case .error: return .red
         }
     }

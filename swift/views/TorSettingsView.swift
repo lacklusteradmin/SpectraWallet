@@ -6,13 +6,13 @@ import SwiftUI
 struct TorStatusBadge: View {
     let status: TorStatus
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: SpectraLayout.Space.xs) {
             statusDot
             Text(statusLabel).font(.caption.weight(.semibold))
         }
         .foregroundStyle(statusColor)
-        .padding(.horizontal, 7)
-        .padding(.vertical, 3)
+        .padding(.horizontal, SpectraLayout.Space.s)
+        .padding(.vertical, SpectraLayout.Space.xxs)
         .background(statusColor.opacity(0.12), in: Capsule())
     }
     @ViewBuilder private var statusDot: some View {
@@ -34,7 +34,7 @@ struct TorStatusBadge: View {
     private var statusColor: Color {
         switch status {
         case .stopped:          return .secondary
-        case .bootstrapping:    return .orange
+        case .bootstrapping:    return .spectraWarning
         case .ready:            return .green
         case .error:            return .red
         }
@@ -85,7 +85,6 @@ struct TorSettingsView: View {
         }
         if case .bootstrapping(let pct) = store.torStatus {
             ProgressView(value: Double(pct), total: 100)
-                .tint(.orange)
                 .animation(.easeInOut, value: pct)
         }
         if case .error(let msg) = store.torStatus {
@@ -107,7 +106,7 @@ struct TorSettingsView: View {
                 Label(AppLocalization.string("Use Custom SOCKS5 Proxy"), systemImage: "person.2.wave.2")
             }
             if store.appSettings.torUseCustomProxy {
-                VStack(alignment: .leading, spacing: 6) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                     Text(AppLocalization.string("SOCKS5 Address")).font(.footnote).foregroundStyle(.secondary)
                     TextField("socks5://127.0.0.1:9150", text: $editingProxyAddress)
                         .keyboardType(.URL)

@@ -42,7 +42,7 @@ struct TokenRegistrySettingsView: View {
                     ).font(.caption).foregroundStyle(.secondary)
                 } else {
                     ForEach(filteredGroups) { group in
-                        HStack(spacing: 12) {
+                        HStack(spacing: SpectraLayout.Space.m) {
                             NavigationLink {
                                 TokenRegistryDetailView(store: store, groupKey: group.key)
                             } label: {

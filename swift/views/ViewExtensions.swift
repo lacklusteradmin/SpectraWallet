@@ -13,7 +13,7 @@ private struct SpectraInputFieldChrome: ViewModifier {
 }
 extension View {
     func spectraBubbleFill(alignment: Alignment = .leading) -> some View { frame(maxWidth: .infinity, alignment: alignment) }
-    func spectraInputFieldStyle(cornerRadius: CGFloat = 18, borderColor: Color? = nil) -> some View {
+    func spectraInputFieldStyle(cornerRadius: CGFloat = SpectraLayout.Radius.inner, borderColor: Color? = nil) -> some View {
         modifier(SpectraInputFieldChrome(cornerRadius: cornerRadius, borderColor: borderColor))
     }
 }
@@ -27,10 +27,10 @@ extension Binding {
 }
 @MainActor @ViewBuilder
 func spectraDetailCard(title: String? = nil, @ViewBuilder content: () -> some View) -> some View {
-    VStack(alignment: .leading, spacing: 12) {
+    VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
         if let title { Text(AppLocalization.string(title)).font(.headline) }
-        VStack(alignment: .leading, spacing: 12) { content() }
-    }.padding(20).spectraBubbleFill().spectraCardFill()
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) { content() }
+    }.padding(SpectraLayout.Space.l).spectraBubbleFill().spectraCardFill()
 }
 // MARK: — Typography helpers
 extension View {
@@ -41,15 +41,15 @@ extension View {
 extension Color {
     static func spectraTransactionStatusColor(_ status: TransactionStatus) -> Color {
         switch status {
-        case .pending: return .orange
-        case .confirmed: return .mint
+        case .pending: return .spectraWarning
+        case .confirmed: return .green
         case .failed: return .red
         }
     }
-    static func spectraTransactionAmountColor(isReceive: Bool) -> Color { isReceive ? .mint : .red }
+    static func spectraTransactionAmountColor(isReceive: Bool) -> Color { isReceive ? .green : .red }
     static func spectraPriceAlertStatusColor(isEnabled: Bool, hasTriggered: Bool) -> Color {
         if !isEnabled { return .gray }
-        return hasTriggered ? .green : .orange
+        return hasTriggered ? .green : .spectraWarning
     }
 }
 
@@ -129,7 +129,7 @@ struct SpectraShimmer: View {
 
 struct SpectraLoadingGlyph: View {
     var size: CGFloat = 28
-    var tint: Color = .orange
+    var tint: Color = .accentColor
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isPulsing = false
     @State private var isSpinning = false
@@ -163,12 +163,12 @@ struct SpectraLoadingGlyph: View {
 struct SpectraLoadingRow: View {
     let title: String
     var subtitle: String? = nil
-    var tint: Color = .orange
+    var tint: Color = .accentColor
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: SpectraLayout.Space.m) {
             SpectraLoadingGlyph(size: 30, tint: tint)
-            VStack(alignment: .leading, spacing: 3) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                 Text(AppLocalization.string(title))
                     .font(.subheadline.weight(.semibold))
                 if let subtitle {
@@ -191,19 +191,19 @@ struct SpectraEmptyStateCard: View {
     var action: (() -> Void)? = nil
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             SpectraEmptyStateContent(title: title, message: message, systemImage: systemImage)
             if let actionTitle, let action {
                 Button(action: action) {
                     Label(AppLocalization.string(actionTitle), systemImage: actionSystemImage)
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, SpectraLayout.Space.s)
                 }
                 .buttonStyle(.glassProminent)
             }
         }
-        .padding(20)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .spectraCardFill()
     }
@@ -215,13 +215,13 @@ struct SpectraEmptyStateContent: View {
     var systemImage: String = "tray"
 
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
+        HStack(alignment: .top, spacing: SpectraLayout.Space.m) {
             Image(systemName: systemImage)
                 .font(.title3.weight(.semibold))
-                .foregroundStyle(.orange)
+                .foregroundStyle(.tint)
                 .frame(width: 40, height: 40)
                 .glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: .circle)
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                 Text(AppLocalization.string(title))
                     .font(.headline)
                 Text(AppLocalization.string(message))
@@ -237,14 +237,14 @@ struct SpectraEmptyStateContent: View {
 /// pages all open with.
 @ViewBuilder
 func spectraPageHeader(title: String, subtitle: String, systemImage: String) -> some View {
-    HStack(alignment: .top, spacing: 14) {
+    HStack(alignment: .top, spacing: SpectraLayout.Space.m) {
         Image(systemName: systemImage)
             .font(.title2.weight(.semibold))
-            .foregroundStyle(.orange)
+            .foregroundStyle(.tint)
             .frame(width: 42, height: 42)
             .glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: .circle)
 
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
             Text(AppLocalization.string(title)).font(.title2.weight(.bold))
             Text(AppLocalization.string(subtitle)).font(.subheadline).foregroundStyle(.secondary)
         }

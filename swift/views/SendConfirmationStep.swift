@@ -18,25 +18,20 @@ struct SendConfirmationStep: View {
     }
 
     private func confirmStep(selectedCoin: Coin?) -> some View {
-        VStack(alignment: .leading, spacing: 18) {
-            spectraPageHeader(
-                title: "Review",
-                subtitle: "Confirm the transaction details before broadcasting.",
-                systemImage: "checkmark.shield.fill"
-            )
-
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             confirmationCard(selectedCoin: selectedCoin)
             DisclosureGroup(AppLocalization.string("Fee and advanced settings")) {
                 SendNetworkStep(store: store)
-                    .padding(.top, 12)
+                    .padding(.top, SpectraLayout.Space.s)
             }
             .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, SpectraLayout.Space.xs)
         }
     }
 
     private func confirmationCard(selectedCoin: Coin?) -> some View {
-        VStack(alignment: .leading, spacing: 16) {
-            HStack(spacing: 14) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+            HStack(spacing: SpectraLayout.Space.m) {
                 if let selectedCoin {
                     CoinBadge(
                         artworkName: selectedCoin.artworkName,
@@ -45,27 +40,33 @@ struct SendConfirmationStep: View {
                         size: 44
                     )
                 }
-                VStack(alignment: .leading, spacing: 3) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                     Text(confirmAmountText(selectedCoin: selectedCoin))
                         .font(.title2.weight(.bold))
                         .spectraNumericTextLayout()
-                    Text(recipientPreviewText)
-                        .font(.subheadline.monospaced())
+                    Text("≈ \(store.amounts.formattedFiat(confirmedQuote?.amountValue))")
+                        .font(.subheadline)
                         .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .textSelection(.enabled)
+                        .spectraNumericTextLayout()
                 }
             }
 
             Divider().opacity(0.35)
 
-            VStack(spacing: 12) {
-                confirmationRow(label: "Wallet", value: store.selectedWalletForSend()?.name ?? AppLocalization.string("Not selected"), icon: "wallet.pass.fill")
-                confirmationRow(label: "Asset", value: selectedCoin.map { "\($0.symbol) · \($0.chainName)" } ?? AppLocalization.string("Not selected"), icon: "circle.hexagongrid.fill")
-                confirmationRow(label: "Network Fee", value: networkFeeText ?? AppLocalization.string("Refreshing preview"), icon: "speedometer")
-                if let fiatText = confirmFiatAmountText {
-                    confirmationRow(label: "Approx. Value", value: fiatText, icon: "dollarsign.circle.fill")
-                }
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
+                Text(AppLocalization.string("To")).font(.caption).foregroundStyle(.secondary)
+                Text(recipientPreviewText)
+                    .font(.subheadline.monospaced())
+                    .fixedSize(horizontal: false, vertical: true)
+                    .textSelection(.enabled)
+            }
+
+            Divider().opacity(0.35)
+
+            VStack(spacing: SpectraLayout.Space.s) {
+                confirmationRow(label: "From", value: store.selectedWalletForSend()?.name ?? AppLocalization.string("Not selected"))
+                confirmationRow(label: "Network", value: selectedCoin?.chainName ?? AppLocalization.string("Not selected"))
+                confirmationRow(label: "Network Fee", value: networkFeeText ?? AppLocalization.string("Estimating…"))
             }
 
             if store.sendFlow.isCheckingDestination || isSendBusy {
@@ -78,28 +79,22 @@ struct SendConfirmationStep: View {
             if let warning = store.sendFlow.destinationRiskWarning {
                 Label(warning, systemImage: "exclamationmark.triangle.fill")
                     .font(.caption)
-                    .foregroundStyle(.orange)
+                    .foregroundStyle(.spectraWarning)
             }
         }
-        .padding(20)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .spectraElevatedFill()
     }
 
-    private func confirmationRow(label: String, value: String, icon: String) -> some View {
-        HStack(alignment: .top, spacing: 12) {
-            Image(systemName: icon)
+    private func confirmationRow(label: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: SpectraLayout.Space.m) {
+            Text(AppLocalization.string(label)).font(.subheadline).foregroundStyle(.secondary)
+            Spacer(minLength: SpectraLayout.Space.s)
+            Text(value)
                 .font(.subheadline.weight(.semibold))
-                .foregroundStyle(.orange)
-                .frame(width: 24)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(AppLocalization.string(label)).font(.caption).foregroundStyle(.secondary)
-                Text(value)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.leading)
-            }
-            Spacer(minLength: 0)
+                .multilineTextAlignment(.trailing)
+                .spectraNumericTextLayout(minimumScaleFactor: 0.8)
         }
     }
 
@@ -112,10 +107,6 @@ struct SendConfirmationStep: View {
 
     private var confirmedQuote: OwnedSendPreview? { store.sendQuoteForEnteredAmount }
 
-    private var confirmFiatAmountText: String? {
-        store.amounts.formattedFiatIfAvailable(confirmedQuote?.amountValue)
-    }
-
     private var recipientPreviewText: String {
         let trimmed = store.sendFlow.address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return AppLocalization.string("No recipient") }
@@ -124,7 +115,7 @@ struct SendConfirmationStep: View {
 
     private var networkFeeText: String? {
         guard let quote = confirmedQuote, let fee = quote.networkFee, let chain = Chain(id: quote.chainId) else { return nil }
-        return store.amounts.formattedNetworkFee(fee, value: quote.networkFeeValue, chain: chain)
+        return store.amounts.compactNetworkFee(fee, value: quote.networkFeeValue, chain: chain)
     }
 }
 
@@ -139,25 +130,25 @@ struct SendStatusCards: View {
     @ViewBuilder
     private var sendStatusCards: some View {
         if let sendError = store.sendFlow.error {
-            HStack(spacing: 10) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
                 Text(sendError).font(.subheadline).foregroundStyle(.red)
             }
-            .padding(16)
+            .padding(SpectraLayout.Space.l)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.red.opacity(0.06)), in: .rect(cornerRadius: SpectraLayout.Radius.compact))
+            .glassEffect(.regular.tint(.red.opacity(0.06)), in: .rect(cornerRadius: SpectraLayout.Radius.card))
         }
 
         if let sendVerificationNotice = store.sendFlow.verificationNotice {
-            HStack(spacing: 10) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Image(systemName: "exclamationmark.circle.fill")
-                    .foregroundStyle(store.sendFlow.verificationNoticeIsWarning ? .red : .orange)
+                    .foregroundStyle(store.sendFlow.verificationNoticeIsWarning ? .red : .spectraWarning)
                 Text(sendVerificationNotice).font(.subheadline)
-                    .foregroundStyle(store.sendFlow.verificationNoticeIsWarning ? .red : .orange)
+                    .foregroundStyle(store.sendFlow.verificationNoticeIsWarning ? .red : .spectraWarning)
             }
-            .padding(16)
+            .padding(SpectraLayout.Space.l)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(.regular.tint(.orange.opacity(0.06)), in: .rect(cornerRadius: SpectraLayout.Radius.compact))
+            .glassEffect(.regular.tint(.spectraWarning.opacity(0.06)), in: .rect(cornerRadius: SpectraLayout.Radius.card))
         }
 
 
@@ -171,7 +162,7 @@ struct SendTransactionCard: View {
     let tx: TransactionRecord
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             HStack {
                 Text(AppLocalization.string("Transaction")).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
                 Spacer()
@@ -189,7 +180,7 @@ struct SendTransactionCard: View {
                     Label(explorerLabel, systemImage: "safari")
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 10)
+                        .padding(.vertical, SpectraLayout.Space.s)
                 }.buttonStyle(.glassProminent)
             }
             Button {
@@ -204,13 +195,13 @@ struct SendTransactionCard: View {
                 )
                 .font(.subheadline.weight(.semibold))
                 .frame(maxWidth: .infinity)
-                .padding(.vertical, 10)
+                .padding(.vertical, SpectraLayout.Space.s)
             }
             .buttonStyle(.glass)
             .disabled(!store.canSaveRecipientToAddressBook(tx))
         }
-        .padding(18)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.card)
+        .spectraElevatedFill()
     }
 }

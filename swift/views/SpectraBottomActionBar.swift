@@ -22,9 +22,9 @@ struct SpectraBottomActionBar<Content: View>: View {
     var body: some View {
         VStack(spacing: 0) {
             Divider().opacity(0.4)
-            HStack(spacing: 12) { content }
-                .padding(.horizontal, 20)
-                .padding(.vertical, 12)
+            HStack(spacing: SpectraLayout.Space.m) { content }
+                .padding(.horizontal, SpectraLayout.Space.l)
+                .padding(.vertical, SpectraLayout.Space.m)
         }
         .background {
             Color.clear

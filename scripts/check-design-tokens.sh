@@ -3,8 +3,8 @@
 #
 #   scripts/check-design-tokens.sh
 #
-# docs/IOS-UI.md defines the corner-radius scale and the two Liquid Glass tints;
-# swift/views/SpectraLayout.swift spells them in Swift. A screen that writes the
+# docs/IOS-UI.md defines the spacing scale, the corner-radius scale and the two
+# Liquid Glass tints; swift/views/SpectraLayout.swift spells them in Swift. A screen that writes the
 # number instead of the token drifts silently — before this check the app had
 # grown a 0.033 and a 0.044 tint, three radii for one chip, and four radii for
 # one input helper, none of which any review would catch by eye.
@@ -32,8 +32,24 @@ report() {
 # (`var cornerRadius: CGFloat = 6`) are a component's own geometry and do not
 # match this pattern.
 report "Numeric corner radius outside SpectraLayout:" \
-  "use SpectraLayout.Radius (hero/card/compact/input/chip/pill/control)" \
+  "use SpectraLayout.Radius (card/inner/control)" \
   "$(grep -rn 'cornerRadius: [0-9]' --include='*.swift' "$VIEWS" | grep -v "^$TOKENS:" || true)"
+
+# A numeric padding, stack spacing or spacer minimum. `spacing: 0` is the
+# absence of spacing, not a step, and stays literal. A component's own
+# geometry — a frame, an offset, an icon size — is not spacing and is not
+# matched.
+report "Numeric spacing outside SpectraLayout:" \
+  "use SpectraLayout.Space (xxs/xs/s/m/l/xl/xxl) or a named SpectraLayout value" \
+  "$(grep -rnE 'padding\((\.[a-zA-Z]+, )?[0-9]|(^|[^A-Za-z])spacing: [1-9]|minLength: [1-9]' --include='*.swift' "$VIEWS" | grep -v "^$TOKENS:" || true)"
+
+# A literal orange. The theme colour is the asset catalog's AccentColor
+# (`.tint`, `Color.accentColor`) so that it can change in one place; a warning
+# is `.spectraWarning`, which does not follow the theme. Decorative artwork
+# with a fixed palette of its own ends the line with `design-tokens: artwork`.
+report "Literal orange outside SpectraLayout:" \
+  "use .tint / Color.accentColor for the theme colour, .spectraWarning for warnings and pending states" \
+  "$(grep -rnw 'orange' --include='*.swift' "$VIEWS" | grep -v "^$TOKENS:" | grep -v 'design-tokens: artwork' | grep -vE '^[^:]+:[0-9]+: *//' || true)"
 
 # A raw neutral glass tint. Accent-tinted glass (.orange/.red notices) carries
 # its own colour and is deliberately not a token.

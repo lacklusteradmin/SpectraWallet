@@ -13,7 +13,7 @@ struct AddressBookView: View {
             SpectraBackdrop().ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 18) {
+                LazyVStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                     spectraPageHeader(
                         title: "Saved Addresses",
                         subtitle: "Pick a saved recipient during a send instead of pasting an address.",
@@ -35,14 +35,14 @@ struct AddressBookView: View {
                             }
                         )
                     } else {
-                        LazyVStack(spacing: 12) {
+                        LazyVStack(spacing: SpectraLayout.Space.m) {
                             ForEach(store.addressBook) { entry in
                                 AddressBookContactCard(entry: entry) { openContact = entry }
                             }
                         }
                     }
                 }
-                .padding(20)
+                .padding(SpectraLayout.Space.l)
             }
         }
         .navigationTitle(AppLocalization.string("Address Book"))
@@ -73,7 +73,7 @@ struct AddressBookView: View {
     @ViewBuilder
     private var rejectionNotice: some View {
         if let addressBookError = store.addressBookError {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: SpectraLayout.Space.m) {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.red)
@@ -90,11 +90,11 @@ struct AddressBookView: View {
                 .buttonStyle(.plain)
                 .accessibilityLabel(AppLocalization.string("Close"))
             }
-            .padding(16)
+            .padding(SpectraLayout.Space.l)
             .frame(maxWidth: .infinity, alignment: .leading)
             .glassEffect(
                 .regular.tint(Color.red.opacity(0.12)),
-                in: .rect(cornerRadius: SpectraLayout.Radius.compact)
+                in: .rect(cornerRadius: SpectraLayout.Radius.card)
             )
         }
     }
@@ -109,9 +109,9 @@ private struct AddressBookContactCard: View {
     var body: some View {
         let badge = Coin.nativeChainBadge(for: Chain(id: entry.chainId)) ?? (nil, Color.mint)
 
-        HStack(spacing: 12) {
+        HStack(spacing: SpectraLayout.Space.m) {
             Button(action: onOpen) {
-                HStack(spacing: 14) {
+                HStack(spacing: SpectraLayout.Space.m) {
                     CoinBadge(
                         artworkName: badge.artworkName,
                         fallbackText: entry.chainName,
@@ -119,7 +119,7 @@ private struct AddressBookContactCard: View {
                         size: 42
                     )
 
-                    VStack(alignment: .leading, spacing: 3) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                         Text(entry.name)
                             .font(.headline)
                             .foregroundStyle(Color.primary)
@@ -157,9 +157,9 @@ private struct AddressBookContactCard: View {
             .buttonStyle(.glass)
             .accessibilityLabel(AppLocalization.string(didCopy ? "Copied" : "Copy"))
         }
-        .padding(16)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.compact)
+        .spectraElevatedFill()
         // The row said "Copied" for the rest of the screen's life: the state
         // was one `copiedEntryId` on the page and nothing ever cleared it.
         // `.task(id:)` cancels with the row, so a card scrolled away mid-timer

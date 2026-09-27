@@ -43,14 +43,19 @@ extension AppState {
     }
 
     /// Core checks the destination beside the quote; this only words it.
+    /// An own address says so and nothing else: whether it is funded or
+    /// fresh is no reason to double-check a transfer between the user's
+    /// own wallets.
     private func adoptRecipientCheck(_ check: RecipientCheck?) {
         guard let check, let coin = selectedSendCoin else { return }
-        switch check {
-        case .checked(let activity):
+        if check.isOwnAddress {
+            sendFlow.destinationRiskWarning = nil
+            sendFlow.destinationInfoMessage = localizedStoreString("This address belongs to one of your wallets.")
+        } else if let activity = check.activity {
             let messages = chainRiskProbeMessages(chainName: coin.chainName, symbol: coin.symbol, activity: activity)
             sendFlow.destinationRiskWarning = messages.warning
             sendFlow.destinationInfoMessage = messages.info
-        case .unavailable:
+        } else {
             sendFlow.destinationInfoMessage = localizedStoreString("Unable to verify this address's activity. Try again later.")
         }
     }

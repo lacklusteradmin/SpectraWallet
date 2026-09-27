@@ -15,13 +15,13 @@ struct BuyCryptoHelpView: View {
                 if let url = URL(string: provider.url) {
                     Link(destination: url) {
                         HStack(alignment: .firstTextBaseline) {
-                            VStack(alignment: .leading, spacing: 2) {
+                            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                                 Text(provider.name).font(.body)
                                 Text(provider.label)
                                     .font(.caption.monospaced())
                                     .foregroundStyle(.secondary)
                             }
-                            Spacer(minLength: 12)
+                            Spacer(minLength: SpectraLayout.Space.m)
                             Image(systemName: "arrow.up.right")
                                 .font(.footnote.weight(.semibold))
                                 .foregroundStyle(.secondary)

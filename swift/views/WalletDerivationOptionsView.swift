@@ -12,13 +12,13 @@ struct WalletDerivationOptionsView: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                     Text(
                         AppLocalization.string(
                             "Control the derivation path used for each selected chain. Pick a testnet from the chain list to use a testnet wallet."
                         )
                     ).font(.subheadline).foregroundStyle(.secondary)
-                    VStack(alignment: .leading, spacing: 16) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                         ForEach(draft.selectableDerivationChains) { family in
                             let chain = Chain(id: store.selectedChainId(forFamily: family.mainnetCounterpart.id)) ?? family
                             SeedPathSlotEditor(
@@ -31,7 +31,7 @@ struct WalletDerivationOptionsView: View {
                         }
                         PowerUserOverridesSection(draft: draft)
                     }
-                }.padding(16).spectraBubbleFill().spectraCardFill().padding(20)
+                }.padding(SpectraLayout.Space.l).spectraBubbleFill().spectraCardFill().padding(SpectraLayout.Space.l)
             }
             .navigationTitle(copy.advancedTitle).navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -47,20 +47,20 @@ struct WalletDerivationOptionsView: View {
 private struct PowerUserOverridesSection: View {
     @Bindable var draft: WalletImportDraft
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
             header
             stage1Overrides
-        }.padding(14).background(
-            RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous).fill(Color.orange.opacity(0.08))
+        }.padding(SpectraLayout.Space.m).background(
+            RoundedRectangle(cornerRadius: SpectraLayout.Radius.inner, style: .continuous).fill(Color.spectraWarning.opacity(0.08))
         ).overlay(
-            RoundedRectangle(cornerRadius: SpectraLayout.Radius.chip, style: .continuous).stroke(Color.orange.opacity(0.35), lineWidth: 1)
+            RoundedRectangle(cornerRadius: SpectraLayout.Radius.inner, style: .continuous).stroke(Color.spectraWarning.opacity(0.35), lineWidth: 1)
         )
     }
     private var header: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 8) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
+            HStack(spacing: SpectraLayout.Space.s) {
                 Image(systemName: "exclamationmark.triangle.fill")
-                    .font(.caption.weight(.bold)).foregroundStyle(.orange)
+                    .font(.caption.weight(.bold)).foregroundStyle(.spectraWarning)
                 Text(AppLocalization.string("Power-User Overrides"))
                     .font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
             }
@@ -68,11 +68,11 @@ private struct PowerUserOverridesSection: View {
                 AppLocalization.string(
                     "Secret text is used exactly as entered, including spaces. Unsupported chain overrides are refused. Leave blank to use the chain default."
                 )
-            ).font(.caption).foregroundStyle(.orange.opacity(0.9))
+            ).font(.caption).foregroundStyle(.spectraWarning.opacity(0.9))
         }
     }
     private var stage1Overrides: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
             AdvancedOverrideTextField(
                 title: AppLocalization.string("Passphrase"),
                 detail: AppLocalization.string("BIP-39 passphrase (“25th word”). Blank = none."),
@@ -93,9 +93,9 @@ private struct AdvancedOverrideTextField: View {
     var isSecure: Bool = false
     var keyboard: UIKeyboardType = .default
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
             Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-            inputField.font(.subheadline.monospaced()).padding(.horizontal, 10).padding(.vertical, 8)
+            inputField.font(.subheadline.monospaced()).padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.s)
                 .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.control)
                 .overlay(
                     RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))

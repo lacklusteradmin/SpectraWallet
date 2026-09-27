@@ -26,110 +26,93 @@ fileprivate struct SendComposerPresentation {
 @MainActor
 struct SendFromPage: View {
     @Bindable var store: AppState
-    @ScaledMetric(relativeTo: .body) private var chipWidth = 142.0
+    private static let assetBadgeSize: CGFloat = 28
 
     private var presentation: SendComposerPresentation { SendComposerPresentation(store: store) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            spectraPageHeader(
-                title: "Choose Asset",
-                subtitle: "Pick the wallet and asset to send from.",
-                systemImage: "creditcard.fill"
-            )
-
-            fromCard
-        }
-    }
-
-    private var fromCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text(AppLocalization.string("From")).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
-                Spacer()
-                if presentation.sendWallets.count > 1 {
-                    Picker("", selection: Bindable(store.sendFlow).walletId) {
-                        ForEach(presentation.sendWallets) { wallet in Text(wallet.name).tag(wallet.id) }
-                    }
-                    .pickerStyle(.menu)
-                    .onChange(of: store.sendFlow.walletId) { _, _ in store.syncSendAssetSelection() }
-                    .font(.subheadline.weight(.semibold))
-                }
-            }
-
-            if let selectedWallet = presentation.selectedWallet {
-                let badge = Coin.nativeChainBadge(for: selectedWallet.family) ?? (nil, Color.mint)
-                HStack(spacing: 12) {
-                    CoinBadge(
-                        artworkName: badge.artworkName,
-                        fallbackText: selectedWallet.familyName,
-                        color: badge.color,
-                        size: 38
-                    )
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(selectedWallet.name).font(.headline)
-                        Text(selectedWallet.familyName).font(.subheadline).foregroundStyle(.secondary)
-                    }
-                    Spacer()
-                }
-            }
-
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+            walletRow
             if !presentation.availableSendCoins.isEmpty {
                 Divider().opacity(0.3)
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(AppLocalization.string("Assets")).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) {
-                            ForEach(presentation.availableSendCoins, id: \.holdingKey) { coin in
-                                coinChip(coin: coin, isSelected: coin.holdingKey == store.sendFlow.holdingKey)
-                            }
-                        }
-                        .padding(.vertical, 2)
+                sendComposerSectionLabel("Asset")
+                VStack(spacing: 0) {
+                    ForEach(Array(presentation.availableSendCoins.enumerated()), id: \.element.holdingKey) { index, coin in
+                        if index > 0 { Divider().padding(.leading, Self.assetBadgeSize + SpectraLayout.Space.m).opacity(0.3) }
+                        assetRow(coin: coin, isSelected: coin.holdingKey == store.sendFlow.holdingKey)
                     }
                 }
             }
         }
-        .padding(20)
+        .padding(SpectraLayout.cardPadding)
         .frame(maxWidth: .infinity, alignment: .leading)
         .spectraElevatedFill()
     }
 
-    private func coinChip(coin: Coin, isSelected: Bool) -> some View {
+    private var walletRow: some View {
+        HStack(spacing: SpectraLayout.Space.m) {
+            if let selectedWallet = presentation.selectedWallet {
+                let badge = Coin.nativeChainBadge(for: selectedWallet.family) ?? (nil, Color.mint)
+                CoinBadge(
+                    artworkName: badge.artworkName,
+                    fallbackText: selectedWallet.familyName,
+                    color: badge.color,
+                    size: 36
+                )
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
+                    Text(selectedWallet.name).font(.headline).lineLimit(1)
+                    // The network, not the family: a Sepolia wallet read
+                    // "Ethereum" and looked like a mainnet one.
+                    Text(selectedWallet.networkTitle).font(.caption).foregroundStyle(.secondary)
+                }
+            }
+            Spacer(minLength: 0)
+            if presentation.sendWallets.count > 1 {
+                Picker(AppLocalization.string("Wallet"), selection: Bindable(store.sendFlow).walletId) {
+                    ForEach(presentation.sendWallets) { wallet in Text(wallet.name).tag(wallet.id) }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+                .onChange(of: store.sendFlow.walletId) { _, _ in store.syncSendAssetSelection() }
+            }
+        }
+    }
+
+    /// One row per asset, full width: a lone asset used to sit in a half-width
+    /// chip with the rest of the card empty beside it.
+    private func assetRow(coin: Coin, isSelected: Bool) -> some View {
         Button {
             guard !isSelected else { return }
             store.sendFlow.holdingKey = coin.holdingKey
             spectraHaptic(.light)
         } label: {
-            VStack(alignment: .leading, spacing: 10) {
-                HStack(spacing: 8) {
-                    CoinBadge(
-                        artworkName: coin.artworkName,
-                        fallbackText: coin.symbol,
-                        color: coin.color,
-                        size: 28
-                    )
-                    Text(coin.symbol).font(.headline)
-                }
+            HStack(spacing: SpectraLayout.Space.m) {
+                CoinBadge(artworkName: coin.artworkName, fallbackText: coin.symbol, color: coin.color, size: Self.assetBadgeSize)
+                Text(coin.symbol).font(.subheadline.weight(.semibold))
+                Spacer(minLength: SpectraLayout.Space.s)
                 Text(store.amounts.formattedAssetAmount(coin.amount, symbol: coin.symbol, deploymentId: coin.holdingKey))
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .spectraNumericTextLayout()
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.body)
+                    .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
             }
-            .frame(width: chipWidth, alignment: .leading)
-            .padding(14)
-            .background(
-                isSelected
-                    ? coin.color.opacity(0.18)
-                    : Color.primary.opacity(0.06),
-                in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.input, style: .continuous)
-            )
-            .overlay(
-                RoundedRectangle(cornerRadius: SpectraLayout.Radius.input, style: .continuous)
-                    .strokeBorder(isSelected ? coin.color.opacity(0.5) : Color.clear, lineWidth: 1)
-            )
+            .padding(.vertical, SpectraLayout.Space.s)
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
+}
+
+/// The small uppercase label over a group inside a send card.
+@MainActor
+func sendComposerSectionLabel(_ title: String) -> some View {
+    Text(AppLocalization.string(title))
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.secondary)
+        .textCase(.uppercase)
 }
 
 @MainActor
@@ -147,31 +130,34 @@ struct SendRecipientPage: View {
     private var presentation: SendComposerPresentation { SendComposerPresentation(store: store) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            spectraPageHeader(
-                title: "Recipient",
-                subtitle: "Enter a destination address or scan a QR code.",
-                systemImage: "person.crop.circle.fill"
-            )
-
-            toCard
-        }
+        toCard
     }
 
     private var toCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text(AppLocalization.string("To")).font(.caption.weight(.semibold)).foregroundStyle(.secondary).textCase(.uppercase)
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+            sendComposerSectionLabel("To")
 
-            HStack(spacing: 10) {
-                TextField(AppLocalization.string("Recipient address"), text: Bindable(store.sendFlow).address)
+            HStack(alignment: .top, spacing: SpectraLayout.Space.s) {
+                // Wraps rather than scrolls, so the whole address is on screen
+                // to compare against the one it was copied from.
+                TextField(AppLocalization.string("Recipient address"), text: Bindable(store.sendFlow).address, axis: .vertical)
+                    .lineLimit(1...3)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
                     .font(.subheadline.monospaced())
                     .focused($addressFocused)
                     .submitLabel(.done)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 12)
-                    .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.chip)
+                    .onChange(of: store.sendFlow.address) { _, address in
+                        // A multi-line field takes Return as a newline; here it
+                        // means done, and no address holds one.
+                        guard address.contains(where: \.isNewline) else { return }
+                        store.sendFlow.address = address.filter { !$0.isNewline }
+                        addressFocused = false
+                    }
+                    .padding(.horizontal, SpectraLayout.Space.m)
+                    .padding(.vertical, SpectraLayout.Space.m)
+                    .frame(minHeight: 44)
+                    .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.inner)
 
                 Button {
                     guard DataScannerViewController.isSupported else {
@@ -187,7 +173,7 @@ struct SendRecipientPage: View {
                 } label: {
                     Image(systemName: "qrcode.viewfinder")
                         .font(.title3.weight(.semibold))
-                        .frame(width: 44, height: 44)
+                        .frame(width: 36, height: 36)
                 }
                 .buttonStyle(.glass)
                 .accessibilityLabel(AppLocalization.string("Scan QR Code"))
@@ -209,18 +195,22 @@ struct SendRecipientPage: View {
             }
 
             if isValidating {
-                ProgressView(AppLocalization.string("Checking recipient..."))
+                SpectraLoadingRow(title: "Checking recipient...")
             } else if let validationError {
-                Label(validationError, systemImage: "exclamationmark.triangle.fill")
-                    .font(.subheadline).foregroundStyle(.red)
-                Button(AppLocalization.string("Retry"), action: retryValidation).buttonStyle(.glass)
+                HStack(spacing: SpectraLayout.Space.s) {
+                    Label(validationError, systemImage: "exclamationmark.triangle.fill")
+                        .font(.caption).foregroundStyle(.red)
+                    Spacer(minLength: 0)
+                    Button(AppLocalization.string("Retry"), action: retryValidation)
+                        .font(.caption.weight(.semibold))
+                }
             } else if isValidated {
-                Label(AppLocalization.string("Address format verified for this network"), systemImage: "checkmark.circle")
-                    .font(.subheadline).foregroundStyle(.secondary)
+                Label(AppLocalization.string("Valid address for this network"), systemImage: "checkmark.circle.fill")
+                    .font(.caption).foregroundStyle(.green)
             }
             recipientMessages
         }
-        .padding(20)
+        .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .spectraElevatedFill()
     }
@@ -229,17 +219,17 @@ struct SendRecipientPage: View {
     private var recipientMessages: some View {
         if let qrScannerErrorMessage {
             Label(qrScannerErrorMessage, systemImage: "exclamationmark.triangle.fill")
-                .font(.caption).foregroundStyle(.orange)
+                .font(.caption).foregroundStyle(.spectraWarning)
         }
 
         if let coin = presentation.selectedCoin,
            isExtensionBlockSendDestination(chainId: coin.chainId, destination: store.sendFlow.address) {
-            HStack(spacing: 6) {
+            HStack(spacing: SpectraLayout.Space.xs) {
                 Image(systemName: "lock.shield.fill").font(.caption2.weight(.semibold))
                 Text(AppLocalization.string("MWEB · Privacy Send")).font(.caption.weight(.semibold))
             }
             .foregroundStyle(.white)
-            .padding(.horizontal, 10).padding(.vertical, 5)
+            .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs)
             .background(
                 LinearGradient(colors: [Color.indigo, Color.purple], startPoint: .leading, endPoint: .trailing).opacity(0.9)
             )
@@ -252,11 +242,11 @@ struct SendRecipientPage: View {
 
         if let warning = store.sendFlow.destinationRiskWarning {
             Label(warning, systemImage: "exclamationmark.triangle.fill")
-                .font(.caption).foregroundStyle(.orange)
+                .font(.caption).foregroundStyle(.spectraWarning)
         }
 
         if let info = store.sendFlow.destinationInfoMessage {
-            Text(info).font(.caption).foregroundStyle(.secondary)
+            Label(info, systemImage: "info.circle").font(.caption).foregroundStyle(.secondary)
         }
     }
 }
@@ -267,25 +257,49 @@ struct SendAmountPage: View {
     let quoteIsCurrent: Bool
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    /// Core's shortcuts, in order. A quote prices each; until then they show
+    /// disabled rather than appearing once it arrives.
+    private static let shortcutPercentages = sendAmountShortcutPercentages()
+
     private var presentation: SendComposerPresentation { SendComposerPresentation(store: store) }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            spectraPageHeader(
-                title: "Amount",
-                subtitle: "Set the amount and compare it against your available balance.",
-                systemImage: "number.circle.fill"
-            )
+        VStack(spacing: SpectraLayout.Space.m) {
+            amountField
 
-            amountCard
+            Divider().opacity(0.3)
+
+            VStack(spacing: SpectraLayout.Space.s) {
+                if let amountText = presentation.selectedCoinAmountText {
+                    amountRow("Balance", value: amountText)
+                }
+                amountRow("Available to send", value: maximumText)
+            }
+
+            if presentation.selectedCoin?.hasBalance == true {
+                HStack(spacing: SpectraLayout.Space.s) {
+                    ForEach(Self.shortcutPercentages, id: \.self) { percentage in
+                        percentButton(percentage: percentage)
+                    }
+                }
+            }
+
+            if !store.sendFlow.amount.isEmpty && !store.sendAmountIsValid {
+                Text(AppLocalization.string("Enter a positive decimal amount within this asset's precision."))
+                    .font(.caption).foregroundStyle(.red)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
+        .padding(SpectraLayout.cardPadding)
+        .frame(maxWidth: .infinity)
+        .spectraElevatedFill()
     }
 
-    private var amountCard: some View {
-        VStack(spacing: 16) {
+    private var amountField: some View {
+        VStack(alignment: .trailing, spacing: SpectraLayout.Space.xs) {
             (dynamicTypeSize.isAccessibilitySize
-                ? AnyLayout(VStackLayout(alignment: .trailing, spacing: 12))
-                : AnyLayout(HStackLayout(spacing: 12))) {
+                ? AnyLayout(VStackLayout(alignment: .trailing, spacing: SpectraLayout.Space.s))
+                : AnyLayout(HStackLayout(spacing: SpectraLayout.Space.s))) {
                 TextField("0", text: Bindable(store.sendFlow).amount)
                     .keyboardType(.decimalPad)
                     .font(.largeTitle.weight(.semibold))
@@ -296,57 +310,36 @@ struct SendAmountPage: View {
 
                 if let selectedCoin = presentation.selectedCoin {
                     Text(selectedCoin.symbol)
-                        .font(.caption.weight(.bold))
-                        .padding(.horizontal, 10).padding(.vertical, 6)
-                        .background(selectedCoin.color.opacity(0.18), in: Capsule())
-                        .foregroundStyle(selectedCoin.color)
+                        .font(.headline)
+                        .foregroundStyle(.secondary)
                 }
             }
-
-            if let fiatText = presentation.selectedCoinApproximateFiatText {
-                Text("≈ \(fiatText)")
+            // Always present once there is an amount: "—" says the asset has
+            // no price, where a missing line said nothing at all.
+            if !store.sendFlow.amount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                Text("≈ \(presentation.selectedCoinApproximateFiatText ?? "—")")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .spectraNumericTextLayout()
-                    .frame(maxWidth: .infinity, alignment: .trailing)
-            }
-
-            Divider().opacity(0.3)
-
-            VStack(alignment: .leading, spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(AppLocalization.string("Balance")).font(.caption).foregroundStyle(.secondary)
-                    if let amountText = presentation.selectedCoinAmountText {
-                        Text(amountText)
-                            .font(.subheadline.weight(.semibold))
-                            .spectraNumericTextLayout()
-                    }
-                }
-                Spacer()
-                if quoteIsCurrent, let maximum = store.sendShortcutAmount(percentage: 100), let coin = presentation.selectedCoin {
-                    Text(AppLocalization.format("Estimated maximum: %@ %@", maximum, coin.symbol))
-                        .font(.subheadline).foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Text(AppLocalization.string("A fee estimate is required for amount shortcuts. Enter an amount to continue."))
-                        .font(.subheadline).foregroundStyle(.secondary)
-                }
-                if !store.sendFlow.amount.isEmpty && !store.sendAmountIsValid {
-                    Text(AppLocalization.string("Enter a positive decimal amount within this asset's precision."))
-                        .font(.subheadline).foregroundStyle(.red)
-                }
-                if let selectedCoin = presentation.selectedCoin, selectedCoin.hasBalance {
-                    HStack(spacing: 6) {
-                        ForEach([UInt32(10), 50, 100], id: \.self) { percentage in
-                            percentButton(percentage: percentage)
-                        }
-                    }
-                }
             }
         }
-        .padding(20)
-        .frame(maxWidth: .infinity)
-        .spectraElevatedFill()
+    }
+
+    /// The fee-adjusted maximum at the asset's display precision; the exact
+    /// figure is what MAX fills in.
+    private var maximumText: String {
+        if store.sendFlow.isPreparingPreview { return AppLocalization.string("Estimating…") }
+        guard quoteIsCurrent, let maximum = store.sendShortcutAmount(percentage: 100),
+              let coin = presentation.selectedCoin else { return "—" }
+        return store.amounts.formattedAssetAmount(maximum, symbol: coin.symbol, deploymentId: coin.holdingKey)
+    }
+
+    private func amountRow(_ label: String, value: String) -> some View {
+        HStack {
+            Text(AppLocalization.string(label)).font(.subheadline).foregroundStyle(.secondary)
+            Spacer(minLength: SpectraLayout.Space.s)
+            Text(value).font(.subheadline.weight(.semibold)).spectraNumericTextLayout()
+        }
     }
 
     private func percentButton(percentage: UInt32) -> some View {
@@ -356,9 +349,9 @@ struct SendAmountPage: View {
             store.sendFlow.amount = amount
             spectraHaptic(.light)
         } label: {
-            Text(percentage == 100 ? "MAX" : "\(percentage)%")
+            Text(percentage == 100 ? AppLocalization.string("Max") : "\(percentage)%")
                 .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .frame(maxWidth: .infinity, minHeight: 36)
         }
         .buttonStyle(.glass)
         .disabled(amount == nil)

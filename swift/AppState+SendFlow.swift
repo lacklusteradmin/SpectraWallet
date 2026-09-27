@@ -185,9 +185,14 @@ extension AppState {
         return try await service.resolveSendDestination(chainId: chain.id, input: input)
     }
     func clearHighRiskSendConfirmation() { sendFlow.isShowingHighRiskConfirmation = false }
+    /// The one confirmation a send asks for signs it and, when core chose
+    /// where to submit it, broadcasts it. A send left signed — no default
+    /// destination, or signing stopped — keeps its Broadcast step.
     func confirmSigning(password: String?) async {
         sendFlow.isShowingHighRiskConfirmation = false
         await signPreparedSend(password: password)
+        guard sendFlow.artifact?.stage == .signed, !sendFlow.selectedEndpoints.isEmpty else { return }
+        await broadcastPreparedSend()
     }
 
     func availableSendCoins(for walletId: String) -> [Coin] { cachedAvailableSendCoinsByWalletId[walletId] ?? [] }

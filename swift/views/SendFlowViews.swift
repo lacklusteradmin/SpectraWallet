@@ -58,7 +58,7 @@ struct SendView: View {
             SpectraBackdrop().ignoresSafeArea()
 
             ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: 18) {
+                LazyVStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                     stepProgress
 
                     stepContent
@@ -67,7 +67,7 @@ struct SendView: View {
 
                     SendStatusCards(store: store)
                 }
-                .padding(20)
+                .spectraScreenPadding()
 
             }
             .scrollDismissesKeyboard(.interactively)
@@ -76,13 +76,9 @@ struct SendView: View {
         .navigationTitle(AppLocalization.string(currentStep.title))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
+        // No keyboard toolbar: its floating Done sat on top of the primary
+        // button, which already rides above the keyboard and dismisses it.
         .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
-                Button(AppLocalization.string("Done")) {
-                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-                }
-            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
                     store.cancelSend()
@@ -145,7 +141,7 @@ struct SendView: View {
                 quotedInputKey = key
             } catch { return }
         }
-        .alert(AppLocalization.string("Confirm Signing"), isPresented: Bindable(store.sendFlow).isShowingHighRiskConfirmation) {
+        .alert(AppLocalization.string("Confirm Send"), isPresented: Bindable(store.sendFlow).isShowingHighRiskConfirmation) {
             if store.stagedSendRequiresPassword {
                 SecureField(AppLocalization.string("Wallet Password"), text: $sendWalletPassword)
             }
@@ -153,7 +149,7 @@ struct SendView: View {
                 sendWalletPassword = ""
                 store.clearHighRiskSendConfirmation()
             }
-            Button(AppLocalization.string("Sign Transaction"), role: .destructive) {
+            Button(AppLocalization.string("Send"), role: .destructive) {
                 let password = store.stagedSendRequiresPassword ? sendWalletPassword : nil
                 sendWalletPassword = ""
                 let session = store.sendFlow.session.id
@@ -227,15 +223,10 @@ struct SendView: View {
         )
     }
 
+    /// The bar alone: the navigation title already names the step.
     private var stepProgress: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(AppLocalization.format("Step %lld of %lld · %@", currentStep.rawValue + 1,
-                                        SendFlowStep.composerSteps.count, AppLocalization.string(currentStep.title)))
-                .font(.subheadline.weight(.semibold))
-            ProgressView(value: Double(currentStep.rawValue + 1), total: Double(SendFlowStep.composerSteps.count))
-                .tint(.orange)
-                .accessibilityHidden(true)
-        }
+        ProgressView(value: Double(currentStep.rawValue + 1), total: Double(SendFlowStep.composerSteps.count))
+            .accessibilityLabel(AppLocalization.format("Step %lld of %lld", currentStep.rawValue + 1, SendFlowStep.composerSteps.count))
     }
 
     @ViewBuilder
@@ -257,7 +248,7 @@ struct SendView: View {
             Button {
                 handlePrimaryAction(selectedCoin: selectedCoin)
             } label: {
-                HStack(spacing: 8) {
+                HStack(spacing: SpectraLayout.Space.s) {
                     if primaryShowsProgress {
                         SpectraLoadingGlyph(size: 20, tint: .white)
                     } else {
@@ -280,15 +271,17 @@ struct SendView: View {
         case .from, .recipient: return "Next"
         case .amount: return "Review"
         case .confirm:
-            guard let artifact = store.sendFlow.artifact else { return "Build Transaction" }
-            if artifact.stage == .prepared { return "Sign Transaction" }
-            return artifact.attempts.isEmpty ? "Broadcast Transaction" : "Retry Same Transaction"
+            // Build, sign and broadcast are one action with one confirmation.
+            // Only a signed send that was not broadcast, or whose broadcast
+            // failed, is left with a step of its own.
+            guard let artifact = store.sendFlow.artifact, artifact.stage == .signed else { return "Send" }
+            return artifact.attempts.isEmpty ? "Broadcast" : "Retry Same Transaction"
         }
     }
 
     private var primaryActionSystemImage: String {
         switch currentStep {
-        case .confirm: return "arrow.up.circle.fill"
+        case .confirm: return "paperplane.fill"
         default: return "chevron.right"
         }
     }
@@ -322,7 +315,14 @@ struct SendView: View {
             if let artifact = store.sendFlow.artifact {
                 if artifact.stage == .prepared { store.sendFlow.isShowingHighRiskConfirmation = true }
                 else { Task { await store.broadcastPreparedSend() } }
-            } else { Task { await store.submitSend() } }
+            } else {
+                Task {
+                    await store.submitSend()
+                    if store.sendFlow.artifact?.stage == .prepared {
+                        store.sendFlow.isShowingHighRiskConfirmation = true
+                    }
+                }
+            }
         }
     }
 

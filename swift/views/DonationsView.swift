@@ -6,25 +6,25 @@ struct DonationsView: View {
     private var copy: DonationsContentCopy { DonationsContentCopy.current }
     var body: some View {
         ScrollView(showsIndicators: false) {
-            LazyVStack(alignment: .leading, spacing: 16) {
+            LazyVStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                 heroCard
                 addressesCard
-            }.padding(.horizontal, 20).padding(.top, 16).padding(.bottom, 24)
+            }.spectraScreenPadding()
         }.background(SpectraBackdrop().ignoresSafeArea())
             .navigationTitle(copy.navigationTitle).navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .onDisappear { copiedAddress = nil }
     }
     private var heroCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Image(systemName: "heart.fill").font(.largeTitle.weight(.bold)).foregroundStyle(.orange)
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
+            Image(systemName: "heart.fill").font(.largeTitle.weight(.bold)).foregroundStyle(.tint)
             Text(copy.navigationTitle).font(.title.weight(.bold)).foregroundStyle(Color.primary)
             Text(copy.heroSubtitle).font(.subheadline).foregroundStyle(.secondary)
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
             .spectraElevatedFill()
     }
     private var addressesCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             Text(AppLocalization.string("Addresses")).font(.headline).foregroundStyle(Color.primary)
             ForEach(copy.destinations, id: \.address) { destination in
                 donationRow(chainId: destination.chainId, title: destination.title, address: destination.address)
@@ -33,21 +33,21 @@ struct DonationsView: View {
                 }
             }
             Text(AppLocalization.string("Tap an address to copy it.")).font(.caption).foregroundStyle(.secondary)
-        }.padding(20).frame(maxWidth: .infinity, alignment: .leading)
+        }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
             .spectraCardFill()
     }
     @ViewBuilder
     private func donationRow(chainId: String, title: String, address: String) -> some View {
         let badge = Coin.nativeChainBadge(for: Chain(id: chainId)) ?? (artworkName: nil, color: Color.mint)
         let isCopied = copiedAddress == address
-        HStack(spacing: 12) {
+        HStack(spacing: SpectraLayout.Space.m) {
             CoinBadge(artworkName: badge.artworkName, fallbackText: title, color: badge.color, size: 32)
-            VStack(alignment: .leading, spacing: 2) {
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                 Text(title).font(.body.weight(.semibold)).foregroundStyle(Color.primary)
                 Text(address).font(.footnote.monospaced()).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
                     .textSelection(.enabled)
             }
-            Spacer(minLength: 8)
+            Spacer(minLength: SpectraLayout.Space.s)
             Button {
                 UIPasteboard.general.string = address
                 copiedAddress = address
@@ -55,7 +55,7 @@ struct DonationsView: View {
             } label: {
                 Image(systemName: isCopied ? "checkmark" : "doc.on.doc").font(.body.weight(.semibold))
                     .accessibilityLabel(AppLocalization.string(isCopied ? "Copied" : "Copy"))
-            }.buttonStyle(.glass).tint(isCopied ? .green : .orange)
-        }.padding(.vertical, 4)
+            }.buttonStyle(.glass).tint(isCopied ? .green : .accentColor)
+        }.padding(.vertical, SpectraLayout.Space.xs)
     }
 }

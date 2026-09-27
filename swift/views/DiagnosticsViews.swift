@@ -285,13 +285,13 @@ struct StandardChainDiagnosticsView: View {
                     Text(copy.noEndpointChecksYet).font(.caption).foregroundStyle(.secondary)
                 } else {
                     ForEach(endpointRows) { result in
-                        VStack(alignment: .leading, spacing: 4) {
+                        VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                             HStack {
                                 Image(systemName: endpointStatusIconName(for: result)).foregroundStyle(endpointStatusColor(for: result))
                                 Text(result.endpoint).font(.subheadline.weight(.semibold))
                             }
                             Text(result.detail).font(.caption).foregroundStyle(.secondary)
-                        }.padding(.vertical, 2)
+                        }.padding(.vertical, SpectraLayout.Space.xxs)
                     }
                 }
             }
@@ -408,14 +408,14 @@ struct StandardChainDiagnosticsView: View {
             } else {
                 ForEach(events.prefix(20)) { log in
                     let event = log.input
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                         Text(event.message).font(.subheadline)
                         Text(event.level.displayName).font(.caption.weight(.semibold)).foregroundStyle(
-                            event.level == .error ? .red : (event.level == .warning ? .orange : .secondary))
+                            event.level == .error ? .red : (event.level == .warning ? .spectraWarning : .secondary))
                         if let transactionHash = event.transactionHash, !transactionHash.isEmpty {
                             Text(transactionHash).font(.caption.monospaced()).foregroundStyle(.secondary)
                         }
-                    }.padding(.vertical, 2)
+                    }.padding(.vertical, SpectraLayout.Space.xxs)
                 }
             }
         }
@@ -427,7 +427,7 @@ struct StandardChainDiagnosticsView: View {
                 Text(AppLocalization.string("No owned-address management state recorded yet.")).font(.caption).foregroundStyle(.secondary)
             } else {
                 ForEach(diagnostics) { item in
-                    VStack(alignment: .leading, spacing: 4) {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                         Text(item.walletName).font(.subheadline.weight(.semibold))
                         Text(AppLocalization.format("Next receive index: %lld", Int(item.keypool.nextExternalIndex))).font(.caption).foregroundStyle(.secondary)
                         Text(AppLocalization.format("Next change index: %lld", Int(item.keypool.nextChangeIndex))).font(.caption).foregroundStyle(.secondary)
@@ -440,7 +440,7 @@ struct StandardChainDiagnosticsView: View {
                         if let reservedReceiveAddress = item.reservedReceive?.address, !reservedReceiveAddress.isEmpty {
                             Text(reservedReceiveAddress).font(.caption.monospaced()).foregroundStyle(.secondary)
                         }
-                    }.padding(.vertical, 2)
+                    }.padding(.vertical, SpectraLayout.Space.xxs)
                 }
             }
         }
