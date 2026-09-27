@@ -146,7 +146,7 @@ struct TransactionDetailView: View {
                             Text(transactionHash).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(
                                 .enabled
                             ).padding(SpectraLayout.Space.m).frame(maxWidth: .infinity, alignment: .leading)
-                                .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.inner)
+                                .spectraInsetFill(cornerRadius: SpectraLayout.Radius.inner)
                             if let transactionExplorerURL = displayedTransaction.transactionExplorerURL,
                                 let transactionExplorerLabel = displayedTransaction.transactionExplorerLabel
                             {
@@ -163,7 +163,7 @@ struct TransactionDetailView: View {
                             Text(rawTransactionText).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(
                                 .enabled
                             ).padding(SpectraLayout.Space.m).frame(maxWidth: .infinity, alignment: .leading)
-                                .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.inner)
+                                .spectraInsetFill(cornerRadius: SpectraLayout.Radius.inner)
                         }
                     }
                 }.padding(SpectraLayout.Space.l)
@@ -380,7 +380,7 @@ private struct TransactionAddressBlock: View {
             }
             Text(value).font(.body.monospaced()).foregroundStyle(.secondary).textSelection(.enabled).padding(SpectraLayout.Space.m).frame(
                 maxWidth: .infinity, alignment: .leading
-            ).spectraElevatedFill(cornerRadius: SpectraLayout.Radius.inner)
+            ).spectraInsetFill(cornerRadius: SpectraLayout.Radius.inner)
             Button {
                 UIPasteboard.general.string = value
                 didCopy = true

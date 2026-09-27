@@ -67,27 +67,15 @@ struct AllChainsSelectionView: View {
                     .padding(.vertical, SpectraLayout.Space.xs)
                     .background(
                         Capsule(style: .continuous).fill(
-                            isSelected ? descriptor.color.opacity(0.14) : Color.primary.opacity(0.07))
+                            isSelected ? descriptor.color.opacity(0.14) : SpectraLayout.insetFill)
                     )
             }
-            .padding(.horizontal, SpectraLayout.Space.m)
-            .padding(.vertical, SpectraLayout.Space.s)
-            .contentShape(Rectangle())
+            .spectraRowPadding()
         }
         .buttonStyle(.plain)
     }
-    @ViewBuilder
     private func rowList(_ items: [SetupChainSelectionDescriptor]) -> some View {
-        VStack(spacing: 0) {
-            ForEach(Array(items.enumerated()), id: \.element.id) { index, descriptor in
-                row(descriptor)
-                if index < items.count - 1 {
-                    Divider().padding(.leading, SpectraLayout.rowDividerInset)
-                }
-            }
-        }
-        .spectraCardFill()
-        .clipShape(RoundedRectangle(cornerRadius: SpectraLayout.Radius.card, style: .continuous))
+        SpectraRowGroup(data: items) { descriptor in row(descriptor) }
     }
     @ViewBuilder
     private var searchAndCounter: some View {
@@ -122,7 +110,7 @@ struct AllChainsSelectionView: View {
             Text(title).font(.subheadline.weight(.bold)).foregroundStyle(Color.primary)
             Text("\(count)").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
                 .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs)
-                .background(Capsule(style: .continuous).fill(Color.primary.opacity(0.08)))
+                .background(SpectraLayout.insetFill, in: Capsule(style: .continuous))
             Spacer()
         }
         .padding(.top, SpectraLayout.Space.xs).padding(.bottom, SpectraLayout.Space.xxs)

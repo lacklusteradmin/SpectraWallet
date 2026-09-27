@@ -4,7 +4,7 @@ private struct SpectraInputFieldChrome: ViewModifier {
     let cornerRadius: CGFloat
     let borderColor: Color?
     func body(content: Content) -> some View {
-        content.spectraElevatedFill(cornerRadius: cornerRadius).overlay {
+        content.spectraInsetFill(cornerRadius: cornerRadius).overlay {
             if let borderColor {
                 RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).stroke(borderColor, lineWidth: 1)
             }
@@ -220,7 +220,7 @@ struct SpectraEmptyStateContent: View {
                 .font(.title3.weight(.semibold))
                 .foregroundStyle(.tint)
                 .frame(width: 40, height: 40)
-                .glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: .circle)
+                .background(Color.accentColor.opacity(0.14), in: Circle())
             VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                 Text(AppLocalization.string(title))
                     .font(.headline)
@@ -242,7 +242,7 @@ func spectraPageHeader(title: String, subtitle: String, systemImage: String) -> 
             .font(.title2.weight(.semibold))
             .foregroundStyle(.tint)
             .frame(width: 42, height: 42)
-            .glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: .circle)
+            .background(Color.accentColor.opacity(0.14), in: Circle())
 
         VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
             Text(AppLocalization.string(title)).font(.title2.weight(.bold))

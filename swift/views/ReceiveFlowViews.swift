@@ -126,7 +126,7 @@ struct ReceiveView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, SpectraLayout.Space.s)
                 .background(
-                    step == currentStep ? Color.accentColor.opacity(0.18) : Color.primary.opacity(0.05),
+                    step == currentStep ? Color.accentColor.opacity(0.18) : SpectraLayout.insetFill,
                     in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.inner, style: .continuous)
                 )
             }
@@ -159,14 +159,12 @@ struct ReceiveView: View {
                     systemImage: "wallet.pass"
                 )
             } else {
-                LazyVStack(spacing: SpectraLayout.Space.m) {
-                    ForEach(store.receiveEnabledWallets) { wallet in
-                        WalletReceiveCard(
-                            wallet: wallet,
-                            isSelected: wallet.id == store.receiveFlow.walletId
-                        ) {
-                            select(wallet)
-                        }
+                SpectraRowGroup(data: store.receiveEnabledWallets) { wallet in
+                    WalletReceiveRow(
+                        wallet: wallet,
+                        isSelected: wallet.id == store.receiveFlow.walletId
+                    ) {
+                        select(wallet)
                     }
                 }
             }
@@ -353,32 +351,22 @@ struct ReceiveView: View {
 
 /// Select a wallet. Receive addresses come from core on the next step,
 /// where UTXO addresses are reserved and registered as owned.
-private struct WalletReceiveCard: View {
+private struct WalletReceiveRow: View {
     let wallet: WalletView
     let isSelected: Bool
     let onSelect: () -> Void
-    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
         let badge = Coin.nativeChainBadge(for: wallet.family) ?? (nil, Color.mint)
 
         Button(action: onSelect) {
             HStack(spacing: SpectraLayout.Space.m) {
-                ZStack(alignment: .topTrailing) {
-                    CoinBadge(
-                        artworkName: badge.artworkName,
-                        fallbackText: wallet.familyName,
-                        color: badge.color,
-                        size: 42
-                    )
-                    if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(badge.color)
-                            .background(Circle().fill(Color.white.opacity(colorScheme == .light ? 1 : 0.88)))
-                            .offset(x: 4, y: -4)
-                    }
-                }
+                CoinBadge(
+                    artworkName: badge.artworkName,
+                    fallbackText: wallet.familyName,
+                    color: badge.color,
+                    size: 36
+                )
 
                 VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                     Text(wallet.name)
@@ -393,22 +381,14 @@ private struct WalletReceiveCard: View {
                 }
 
                 Spacer(minLength: 0)
+
+                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
             }
-            .padding(SpectraLayout.Space.l)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .glassEffect(
-                .regular.tint(isSelected ? badge.color.opacity(0.14) : SpectraLayout.GlassTint.elevated),
-                in: .rect(cornerRadius: SpectraLayout.Radius.card)
-            )
-            .overlay {
-                if isSelected {
-                    RoundedRectangle(cornerRadius: SpectraLayout.Radius.card, style: .continuous)
-                        .stroke(badge.color.opacity(0.9), lineWidth: 1.8)
-                }
-            }
+            .spectraRowPadding()
         }
         .buttonStyle(.plain)
-        .contentShape(Rectangle())
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
 }

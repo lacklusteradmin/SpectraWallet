@@ -98,7 +98,7 @@ struct SpectraLogo: View {
                     }
                 ).overlay(
                     RoundedRectangle(cornerRadius: size * 0.28, style: .continuous).strokeBorder(Color.white.opacity(0.28), lineWidth: 1)
-                ).spectraElevatedFill(cornerRadius: size * 0.28)
+                ).glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: .rect(cornerRadius: size * 0.28)) // design-tokens: artwork
             Text("S").font(.system(size: size * 0.62, weight: .black, design: .rounded)).foregroundStyle(Color.primary).shadow(
                 color: .black.opacity(0.18), radius: 8, y: 2
             ).rotationEffect(.degrees(-8))

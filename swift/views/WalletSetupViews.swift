@@ -290,13 +290,13 @@ struct SetupView: View {
                 Spacer(minLength: 0)
             }.frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.vertical, SpectraLayout.Space.s).padding(.horizontal, SpectraLayout.Space.m)
-                .glassEffect(
-                    .regular.tint(isSelected ? descriptor.color.opacity(0.14) : SpectraLayout.GlassTint.elevated),
-                    in: .rect(cornerRadius: SpectraLayout.Radius.card)
+                .background(
+                    isSelected ? descriptor.color.opacity(0.14) : SpectraLayout.insetFill,
+                    in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.inner, style: .continuous)
                 ).overlay {
                     if isSelected {
-                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.card, style: .continuous)
-                            .stroke(descriptor.color.opacity(0.9), lineWidth: 1.8)
+                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.inner, style: .continuous)
+                            .stroke(descriptor.color.opacity(0.9), lineWidth: 1.5)
                     }
                 }
         }.buttonStyle(.plain).contentShape(Rectangle())
@@ -379,10 +379,9 @@ struct SetupView: View {
                     Spacer()
                     Text(chainSelectionSummary).font(.caption.weight(.semibold)).foregroundStyle(
                         selectedChainCount == 0 ? Color.secondary : .accentColor
-                    ).padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s).glassEffect(
-                        .regular.tint(
-                            selectedChainCount == 0 ? SpectraLayout.GlassTint.elevated : Color.accentColor.opacity(0.12)),
-                        in: .capsule)
+                    ).padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs).background(
+                        selectedChainCount == 0 ? SpectraLayout.insetFill : Color.accentColor.opacity(0.14),
+                        in: Capsule(style: .continuous))
                 }
                 LazyVGrid(columns: chainSelectionColumns, spacing: SpectraLayout.Space.s) {
                     ForEach(popularChainSelectionDescriptors) { descriptor in chainSelectionCard(descriptor) }

@@ -41,15 +41,22 @@ enum SpectraLayout {
         static let control: CGFloat = 10
     }
 
-    /// Liquid Glass tints. Two neutral steps and no third: a surface is either
+    /// Liquid Glass tints. Two neutral steps and no third: a card is either
     /// elevated or it is content. Coloured glass (an accent, warning or red
-    /// notice) carries its own colour and is not one of these.
+    /// notice) carries its own colour and is not one of these. Glass stops at
+    /// the card: nothing inside a card is glass.
     enum GlassTint {
-        /// Hero and header cards, inputs, chips and icon backplates.
+        /// Hero and header cards, and the bottom action bar.
         static let elevated: Color = .white.opacity(0.04)
         /// Ordinary content cards.
         static let content: Color = .white.opacity(0.03)
     }
+
+    /// The flat fill of a surface inside a card — an input, an address
+    /// block, a chip, a tile, an icon backplate. It recesses into the card
+    /// rather than floating over it, which is what a second layer of glass
+    /// did.
+    static let insetFill: Color = .primary.opacity(0.06)
 }
 
 /// Semantic colours that must not follow the theme. The theme colour is the
@@ -75,27 +82,42 @@ extension View {
     }
 
     /// Ordinary content card: the content tint on the card radius.
-    func spectraCardFill(cornerRadius: CGFloat = SpectraLayout.Radius.card) -> some View {
-        glassEffect(.regular.tint(SpectraLayout.GlassTint.content), in: .rect(cornerRadius: cornerRadius))
+    ///
+    /// Neither glass fill takes a radius. A card is the only glass surface,
+    /// and it always has the card radius; a smaller radius would mean a
+    /// surface nested inside a card, which takes `spectraInsetFill`.
+    func spectraCardFill() -> some View {
+        glassEffect(.regular.tint(SpectraLayout.GlassTint.content), in: .rect(cornerRadius: SpectraLayout.Radius.card))
     }
 
-    /// Elevated glass surface: hero and header cards, and the smaller
-    /// interactive surfaces — inputs, chips, icon backplates — that sit above
-    /// content rather than being content.
-    func spectraElevatedFill(cornerRadius: CGFloat = SpectraLayout.Radius.card) -> some View {
-        glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: .rect(cornerRadius: cornerRadius))
+    /// Elevated card: hero and header cards.
+    func spectraElevatedFill() -> some View {
+        glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: .rect(cornerRadius: SpectraLayout.Radius.card))
     }
 
-    /// A selectable surface whose selected state is an opaque accent fill.
-    /// Glass is the unselected state only: where the selected label is white
-    /// text, the fill behind it has to stay opaque to keep the label legible,
-    /// so that state is a solid accent rather than an accent-tinted glass.
+    /// A surface inside a card: flat, not glass. See `SpectraLayout.insetFill`.
+    func spectraInsetFill(cornerRadius: CGFloat = SpectraLayout.Radius.inner) -> some View {
+        background(SpectraLayout.insetFill, in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+    }
+
+    /// A selectable surface inside a card: the inset fill, or an opaque
+    /// accent fill when selected. The selected label is white text, so the
+    /// fill behind it has to stay opaque to keep the label legible.
     @ViewBuilder
     func spectraSelectableFill(isSelected: Bool, accent: Color, cornerRadius: CGFloat) -> some View {
         if isSelected {
             background(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous).fill(accent))
         } else {
-            spectraElevatedFill(cornerRadius: cornerRadius)
+            spectraInsetFill(cornerRadius: cornerRadius)
         }
+    }
+
+    /// The inset and minimum height of a row in a `SpectraRowGroup`. Applied
+    /// inside a row's button label, so the whole row is the tap target.
+    func spectraRowPadding() -> some View {
+        padding(.horizontal, SpectraLayout.rowHorizontal)
+            .padding(.vertical, SpectraLayout.rowVertical)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
     }
 }

@@ -34,7 +34,7 @@ struct AboutView: View {
                     )
                 ).frame(width: 220, height: 220).blur(radius: 26).rotationEffect(.degrees(isAnimatingHero ? 360 : 0)).animation(
                     .linear(duration: 18).repeatForever(autoreverses: false), value: isAnimatingHero)
-                Circle().fill(Color.white.opacity(0.08)).frame(width: 178, height: 178).glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: .circle)
+                Circle().fill(Color.white.opacity(0.08)).frame(width: 178, height: 178).glassEffect(.regular.tint(SpectraLayout.GlassTint.elevated), in: .circle)  // design-tokens: artwork
                 SpectraLogo(size: 96)
             }
             VStack(spacing: SpectraLayout.Space.s) {

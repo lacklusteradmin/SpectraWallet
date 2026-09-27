@@ -221,7 +221,7 @@ struct FundsFinderView: View {
             .onSubmit { if index < slotCount - 1 { focusedSlot = index + 1 } }
         }
         .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.s)
-        .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.control)
+        .spectraInsetFill(cornerRadius: SpectraLayout.Radius.control)
         .overlay(RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous)
             .stroke(focusedSlot == index ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 1))
         .animation(.easeInOut(duration: 0.15), value: focusedSlot == index)
@@ -278,7 +278,7 @@ struct FundsFinderView: View {
         }
         .padding(SpectraLayout.Space.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: SpectraLayout.Radius.inner)
+        .spectraCardFill()
     }
 
     private var startButton: some View {
@@ -350,23 +350,13 @@ struct FundsFinderView: View {
     // MARK: - Hits section
 
     private var hitsSection: some View {
-        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
-            HStack {
-                Image(systemName: "bitcoinsign.circle.fill").foregroundStyle(.tint)
-                Text(AppLocalization.format("%lld path(s) with funds found", hits.count))
-                    .font(.headline)
-            }
-            .padding(.bottom, SpectraLayout.Space.xxs)
-            ForEach(hits) { hit in
-                FundsFinderHitRow(hit: hit)
-            }
+        SpectraRowGroup(
+            title: AppLocalization.format("%lld path(s) with funds found", hits.count),
+            data: hits, dividerInset: SpectraLayout.rowHorizontal
+        ) { hit in
+            FundsFinderHitRow(hit: hit)
         }
-        .padding(SpectraLayout.Space.l)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill()
     }
-
-    // MARK: - Empty & error
 
     private var emptyResultsSection: some View {
         VStack(spacing: SpectraLayout.Space.s) {
@@ -390,7 +380,7 @@ struct FundsFinderView: View {
         }
         .padding(SpectraLayout.Space.m)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill(cornerRadius: SpectraLayout.Radius.inner)
+        .spectraCardFill()
     }
 }
 
@@ -445,7 +435,6 @@ private struct FundsFinderHitRow: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
         }
-        .padding(SpectraLayout.Space.m)
-        .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.inner)
+        .spectraRowPadding()
     }
 }

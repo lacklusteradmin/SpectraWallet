@@ -157,7 +157,7 @@ struct SendRecipientPage: View {
                     .padding(.horizontal, SpectraLayout.Space.m)
                     .padding(.vertical, SpectraLayout.Space.m)
                     .frame(minHeight: 44)
-                    .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.inner)
+                    .spectraInsetFill(cornerRadius: SpectraLayout.Radius.inner)
 
                 Button {
                     guard DataScannerViewController.isSupported else {

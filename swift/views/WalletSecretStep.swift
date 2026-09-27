@@ -209,7 +209,7 @@ struct WalletSecretStep: View {
         }
         .frame(maxWidth: .infinity, minHeight: 30)
         .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs)
-        .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.control)
+        .spectraInsetFill(cornerRadius: SpectraLayout.Radius.control)
         .overlay(RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous)
             .stroke((isFocused || isInvalidWord) ? accentColor : Color.clear, lineWidth: 1))
         .animation(.easeInOut(duration: 0.15), value: isFocused)

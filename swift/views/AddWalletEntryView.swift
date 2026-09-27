@@ -6,35 +6,8 @@ struct AddWalletEntryView: View {
         ZStack {
             SpectraBackdrop().ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-                LazyVStack(spacing: SpectraLayout.Space.m) {
-                    actionCard(
-                        title: AppLocalization.string("Create New Wallet"),
-                        subtitle: AppLocalization.string("Generate a new seed phrase and set up your wallet."),
-                        icon: "plus.circle.fill"
-                    ) {
-                        store.beginWalletCreation()
-                    }
-                    actionCard(
-                        title: AppLocalization.string("Import Wallet"),
-                        subtitle: AppLocalization.string("Use an existing seed phrase or private key."),
-                        icon: "arrow.down.circle.fill"
-                    ) {
-                        store.beginWalletImport()
-                    }
-                    actionCard(
-                        title: AppLocalization.string("Watch Addresses"),
-                        subtitle: AppLocalization.string("Track public addresses without adding private keys."),
-                        icon: "eye.circle.fill"
-                    ) {
-                        store.beginWatchAddressesImport()
-                    }
-                    actionCard(
-                        title: AppLocalization.string("Find Lost Funds"),
-                        subtitle: AppLocalization.string("Scan 150+ derivation paths to locate hidden balances from any wallet app."),
-                        icon: "magnifyingglass.circle.fill"
-                    ) {
-                        isShowingFundsFinder = true
-                    }
+                SpectraRowGroup(data: entries) { entry in
+                    Button(action: entry.action) { entryRow(entry) }.buttonStyle(.plain)
                 }.spectraScreenPadding()
             }
         }
@@ -55,20 +28,46 @@ struct AddWalletEntryView: View {
             FundsFinderView(bridge: store.bridge)
         }
     }
-    private func actionCard(
-        title: String, subtitle: String, icon: String, action: @escaping () -> Void
-    ) -> some View {
-        Button(action: action) {
-            HStack(alignment: .top, spacing: SpectraLayout.Space.m) {
-                Image(systemName: icon).font(.system(size: 24, weight: .semibold)).foregroundStyle(.tint).frame(width: 30, height: 30)
-                VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
-                    Text(title).font(.headline).foregroundStyle(Color.primary).multilineTextAlignment(.leading)
-                    Text(subtitle).font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.leading)
-                }
-                Spacer(minLength: SpectraLayout.Space.s)
-                Image(systemName: "chevron.right").font(.footnote.weight(.bold)).foregroundStyle(.tertiary).padding(
-                    .top, SpectraLayout.Space.xs)
-            }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
-        }.buttonStyle(.plain).spectraBubbleFill().spectraCardFill()
+    private struct Entry: Identifiable {
+        let title: String
+        let subtitle: String
+        let icon: String
+        let action: @MainActor () -> Void
+        var id: String { title }
+    }
+    private var entries: [Entry] {
+        [
+            Entry(
+                title: AppLocalization.string("Create New Wallet"),
+                subtitle: AppLocalization.string("Generate a new seed phrase and set up your wallet."),
+                icon: "plus.circle.fill"
+            ) { store.beginWalletCreation() },
+            Entry(
+                title: AppLocalization.string("Import Wallet"),
+                subtitle: AppLocalization.string("Use an existing seed phrase or private key."),
+                icon: "arrow.down.circle.fill"
+            ) { store.beginWalletImport() },
+            Entry(
+                title: AppLocalization.string("Watch Addresses"),
+                subtitle: AppLocalization.string("Track public addresses without adding private keys."),
+                icon: "eye.circle.fill"
+            ) { store.beginWatchAddressesImport() },
+            Entry(
+                title: AppLocalization.string("Find Lost Funds"),
+                subtitle: AppLocalization.string("Scan 150+ derivation paths to locate hidden balances from any wallet app."),
+                icon: "magnifyingglass.circle.fill"
+            ) { isShowingFundsFinder = true },
+        ]
+    }
+    private func entryRow(_ entry: Entry) -> some View {
+        HStack(spacing: SpectraLayout.Space.m) {
+            Image(systemName: entry.icon).font(.system(size: 28, weight: .semibold)).foregroundStyle(.tint).frame(width: 36, height: 36)
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
+                Text(entry.title).font(.headline).foregroundStyle(Color.primary)
+                Text(entry.subtitle).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.leading)
+            }
+            Spacer(minLength: SpectraLayout.Space.s)
+            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+        }.spectraRowPadding()
     }
 }

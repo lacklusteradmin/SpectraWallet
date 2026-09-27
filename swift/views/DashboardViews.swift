@@ -24,11 +24,6 @@ struct DashboardView: View {
                     VStack(spacing: SpectraLayout.sectionSpacing) {
                         portfolioHeader
                         actionButtons
-                        Picker(AppLocalization.string("Dashboard Section"), selection: $dashboardPage) {
-                            Text(AppLocalization.string("Assets")).tag(DashboardPage.assets)
-                            Text(AppLocalization.string("Wallets")).tag(DashboardPage.wallets)
-                        }
-                        .pickerStyle(.segmented)
                         assetsOrWalletsCard
                     }.spectraScreenPadding()
                 }.refreshable {
@@ -50,11 +45,6 @@ struct DashboardView: View {
                         TorSettingsView(store: store)
                     } label: {
                         torToolbarIndicator
-                    }
-                }
-                if dashboardPage == .assets {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        pinAssetsToolbarButton
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -162,13 +152,21 @@ struct DashboardView: View {
     private var actionButtons: some View {
         DashboardActionButtons(store: store)
     }
+    /// The card's header is its page switch: a title per page, each with its
+    /// count, and the selected page's own action at the end. A segmented
+    /// control above the card said the same thing a second time, a row away
+    /// from the list it switched, and its action lived in the toolbar, which
+    /// changed shape whenever the page did.
     private var assetsOrWalletsCard: some View {
         VStack(spacing: 0) {
-            HStack(spacing: SpectraLayout.Space.s) {
-                Text(dashboardCardTitle).font(.headline)
-                Spacer()
-                Text(dashboardCardCountText).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
-            }.padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.cardHeaderVertical)
+            HStack(spacing: SpectraLayout.Space.l) {
+                dashboardPageTab(.assets, title: "Assets", count: visiblePortfolio.count)
+                dashboardPageTab(.wallets, title: "Wallets", count: store.wallets.count)
+                Spacer(minLength: 0)
+                if dashboardPage == .assets { pinAssetsButton }
+            }
+            .padding(.horizontal, SpectraLayout.rowHorizontal)
+            .sensoryFeedback(.selection, trigger: dashboardPage)
             Divider().opacity(0.25)
             VStack(spacing: 0) {
                 switch dashboardPage {
@@ -179,9 +177,22 @@ struct DashboardView: View {
         }.frame(maxWidth: .infinity).glassEffect(
             .regular.tint(SpectraLayout.GlassTint.content).interactive(), in: .rect(cornerRadius: SpectraLayout.Radius.card))
     }
-    private var dashboardCardCountText: String {
-        let count = dashboardPage == .assets ? visiblePortfolio.count : store.wallets.count
-        return "\(count)"
+    private func dashboardPageTab(_ page: DashboardPage, title: String, count: Int) -> some View {
+        let isSelected = dashboardPage == page
+        return Button {
+            dashboardPage = page
+        } label: {
+            HStack(alignment: .firstTextBaseline, spacing: SpectraLayout.Space.xs) {
+                Text(AppLocalization.string(title)).font(.headline)
+                    .foregroundStyle(isSelected ? AnyShapeStyle(.primary) : AnyShapeStyle(.secondary))
+                Text("\(count)").font(.subheadline.weight(.semibold)).monospacedDigit()
+                    .foregroundStyle(isSelected ? AnyShapeStyle(.secondary) : AnyShapeStyle(.tertiary))
+            }
+            .frame(minHeight: 44)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
     @ViewBuilder
     private func walletsCardRows(wallets: [WalletView]) -> some View {
@@ -256,17 +267,18 @@ struct DashboardView: View {
         }
     }
     private var activeNotices: [AppNoticeItem] { store.appNoticeItems }
-    private var dashboardCardTitle: String {
-        dashboardPage == .assets ? AppLocalization.string("My Assets") : AppLocalization.string("My Wallets")
-    }
     // Pinning is available only on the assets page.
-    private var pinAssetsToolbarButton: some View {
+    private var pinAssetsButton: some View {
         Button {
             spectraHaptic(.light)
             isNavigatingToPinnedAssets = true
         } label: {
-            Image(systemName: "pin")
-        }.accessibilityLabel(AppLocalization.string("Pin Assets"))
+            Image(systemName: "pin").font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                .frame(width: 44, height: 44).contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .padding(.trailing, -SpectraLayout.Space.m)
+        .accessibilityLabel(AppLocalization.string("Pin Assets"))
     }
     private func dashboardAssetPriceText(for assetGroup: DashboardAssetGroup, hideBalances: Bool) -> String {
         hideBalances ? "••••••" : store.amounts.formattedFiat(assetGroup.price)
@@ -522,7 +534,7 @@ struct PinnedAssetsView: View {
             } header: {
                 Text(AppLocalization.string("Pinned Assets"))
             } footer: {
-                Text(AppLocalization.string("Pinned assets stay visible in My Assets even when the total balance is zero."))
+                Text(AppLocalization.string("Pinned assets stay in the Assets list even when their balance is zero."))
             }
         }.navigationTitle(AppLocalization.string("Pinned Assets")).searchable(
             text: $searchText, prompt: AppLocalization.string("Search assets")
@@ -680,6 +692,12 @@ struct DashboardNoticeCardView: View {
 
 private struct DashboardPortfolioHeader: View {
     @Bindable var store: AppState
+    /// The wallets the total adds up, which is what the card opens to choose.
+    private var portfolioWalletCountText: String {
+        let count = store.wallets.filter(\.includeInPortfolioTotal).count
+        return AppLocalization.format(
+            count == 1 ? "dashboard.portfolio.walletCount.one" : "dashboard.portfolio.walletCount.other", count)
+    }
     var body: some View {
         NavigationLink {
             PortfolioWalletSelectionView(store: store)
@@ -690,7 +708,7 @@ private struct DashboardPortfolioHeader: View {
                     let quoted = store.portfolioQuotedTotal
                     Text(store.preferences.hideBalances ? "••••••" : store.amounts.formattedQuotedTotal(quoted))
                         .font(.title.weight(.bold)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.5).allowsTightening(true)
-                    Text(AppLocalization.format("%lld in total", store.wallets.filter(\.includeInPortfolioTotal).count)).font(.footnote).foregroundStyle(.secondary)
+                    Text(portfolioWalletCountText).font(.footnote).foregroundStyle(.secondary)
 
                 }
                 Spacer()

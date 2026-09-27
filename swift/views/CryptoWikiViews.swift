@@ -51,17 +51,17 @@ struct CryptoWikiLibraryView: View {
         ZStack {
             SpectraBackdrop().ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-                LazyVStack(spacing: SpectraLayout.Space.s) {
-                    ForEach(filteredEntries) { asset in
+                if !filteredEntries.isEmpty {
+                    SpectraRowGroup(data: filteredEntries) { asset in
                         NavigationLink {
                             AssetWikiDetailView(asset: asset)
                         } label: {
-                            CryptoWikiRowCard(asset: asset).equatable()
+                            CryptoWikiRow(asset: asset).equatable()
                         }
                         .buttonStyle(.plain)
                         .simultaneousGesture(TapGesture().onEnded { spectraHaptic(.light) })
-                    }
-                }.spectraScreenPadding()
+                    }.spectraScreenPadding()
+                }
             }.overlay {
                 if filteredEntries.isEmpty { ContentUnavailableView.search }
             }
@@ -92,12 +92,12 @@ struct CryptoWikiLibraryView: View {
     }
 }
 
-private struct CryptoWikiRowCard: View, Equatable {
+private struct CryptoWikiRow: View, Equatable {
     let asset: AssetWikiEntry
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.asset == rhs.asset }
     var body: some View {
         HStack(spacing: SpectraLayout.Space.m) {
-            WikiCoinBadge(face: asset.face, size: 40)
+            WikiCoinBadge(face: asset.face, size: 36)
             VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                 Text(asset.name).font(.headline).foregroundStyle(Color.primary)
                 Text(subtitle).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
@@ -105,10 +105,7 @@ private struct CryptoWikiRowCard: View, Equatable {
             Spacer(minLength: 0)
             Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
         }
-        .padding(.horizontal, SpectraLayout.Space.l).padding(.vertical, SpectraLayout.Space.m)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .glassEffect(
-            .regular.tint(SpectraLayout.GlassTint.content).interactive(), in: .rect(cornerRadius: SpectraLayout.Radius.card))
+        .spectraRowPadding()
     }
     private var subtitle: String {
         let places = asset.livesOn.count

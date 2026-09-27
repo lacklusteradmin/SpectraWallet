@@ -141,7 +141,7 @@ struct SendView: View {
                 quotedInputKey = key
             } catch { return }
         }
-        .alert(AppLocalization.string("Confirm Send"), isPresented: Bindable(store.sendFlow).isShowingHighRiskConfirmation) {
+        .alert(AppLocalization.string("Confirm Signing"), isPresented: Bindable(store.sendFlow).isShowingHighRiskConfirmation) {
             if store.stagedSendRequiresPassword {
                 SecureField(AppLocalization.string("Wallet Password"), text: $sendWalletPassword)
             }
@@ -149,7 +149,7 @@ struct SendView: View {
                 sendWalletPassword = ""
                 store.clearHighRiskSendConfirmation()
             }
-            Button(AppLocalization.string("Send"), role: .destructive) {
+            Button(AppLocalization.string("Sign Transaction"), role: .destructive) {
                 let password = store.stagedSendRequiresPassword ? sendWalletPassword : nil
                 sendWalletPassword = ""
                 let session = store.sendFlow.session.id
@@ -178,19 +178,25 @@ struct SendView: View {
             MoneroSyncView(store: store).id(store.sendFlow.walletId)
             if !store.sendFlow.savedArtifacts.isEmpty {
                 DisclosureGroup(AppLocalization.string("Resume a transaction")) {
-                    ForEach(store.sendFlow.savedArtifacts, id: \.id) { artifact in
-                        Button {
-                            Task {
-                                if await store.resumeSend(id: artifact.id) { go(to: .confirm) }
+                    VStack(spacing: 0) {
+                        ForEach(Array(store.sendFlow.savedArtifacts.enumerated()), id: \.element.id) { index, artifact in
+                            if index > 0 { Divider().opacity(0.3) }
+                            Button {
+                                Task {
+                                    if await store.resumeSend(id: artifact.id) { go(to: .confirm) }
+                                }
+                            } label: {
+                                SavedSendRow(artifact: artifact, walletName: store.wallet(for: artifact.walletId)?.name)
                             }
-                        } label: {
-                            VStack(alignment: .leading) {
-                                Text(verbatim: "\(artifact.amount) · \(artifact.chainId)")
-                                Text(verbatim: artifact.recipient).font(.caption).lineLimit(1)
-                            }
+                            .buttonStyle(.plain)
                         }
                     }
+                    .padding(.horizontal, SpectraLayout.cardPadding)
+                    .spectraCardFill()
+                    .padding(.top, SpectraLayout.Space.s)
                 }
+                .font(.subheadline.weight(.semibold))
+                .padding(.horizontal, SpectraLayout.Space.xs)
             }
         case .recipient:
             SendRecipientPage(
@@ -271,18 +277,21 @@ struct SendView: View {
         case .from, .recipient: return "Next"
         case .amount: return "Review"
         case .confirm:
-            // Build, sign and broadcast are one action with one confirmation.
-            // Only a signed send that was not broadcast, or whose broadcast
-            // failed, is left with a step of its own.
-            guard let artifact = store.sendFlow.artifact, artifact.stage == .signed else { return "Send" }
-            return artifact.attempts.isEmpty ? "Broadcast" : "Retry Same Transaction"
+            // Three stages, each its own action (docs/PLAN.md): what was built
+            // is inspectable before signing, and a signed send waits for the
+            // user to choose which nodes receive it.
+            guard let artifact = store.sendFlow.artifact else { return "Build Transaction" }
+            if artifact.stage == .prepared { return "Sign Transaction" }
+            return artifact.attempts.isEmpty ? "Broadcast Transaction" : "Retry Same Transaction"
         }
     }
 
     private var primaryActionSystemImage: String {
-        switch currentStep {
-        case .confirm: return "paperplane.fill"
-        default: return "chevron.right"
+        guard currentStep == .confirm else { return "chevron.right" }
+        switch store.sendFlow.artifact?.stage {
+        case nil: return "hammer.fill"
+        case .prepared: return "signature"
+        default: return "antenna.radiowaves.left.and.right"
         }
     }
 
@@ -315,14 +324,7 @@ struct SendView: View {
             if let artifact = store.sendFlow.artifact {
                 if artifact.stage == .prepared { store.sendFlow.isShowingHighRiskConfirmation = true }
                 else { Task { await store.broadcastPreparedSend() } }
-            } else {
-                Task {
-                    await store.submitSend()
-                    if store.sendFlow.artifact?.stage == .prepared {
-                        store.sendFlow.isShowingHighRiskConfirmation = true
-                    }
-                }
-            }
+            } else { Task { await store.submitSend() } }
         }
     }
 
@@ -408,5 +410,59 @@ struct SendView: View {
         guard let family = store.selectedSendCoin?.chain?.mainnetCounterpart.id else { return nil }
         let chainId = store.selectedWalletForSend()?.chainId ?? store.selectedChainId(forFamily: family)
         return Chain(id: chainId)
+    }
+}
+
+/// A built or signed send that survived, as the From page offers it back:
+/// what it moves, on which network, to whom, and which stage it is waiting in.
+private struct SavedSendRow: View {
+    let artifact: SendArtifact
+    let walletName: String?
+
+    private var stageText: String {
+        switch artifact.stage {
+        case .prepared: return AppLocalization.string("Ready to sign")
+        default: return AppLocalization.string(artifact.attempts.isEmpty ? "Ready to broadcast" : "Submitted")
+        }
+    }
+
+    var body: some View {
+        let chain = Chain(id: artifact.chainId)
+        let badge = Coin.nativeChainBadge(for: chain) ?? (nil, Color.secondary)
+        HStack(spacing: SpectraLayout.Space.m) {
+            CoinBadge(artworkName: badge.artworkName, fallbackText: artifact.asset, color: badge.color, size: 28)
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
+                Text(verbatim: "\(AmountPresentation.localizedDecimal(artifact.amount)) \(artifact.asset)")
+                    .font(.subheadline.weight(.semibold))
+                    .spectraNumericTextLayout()
+                Text(verbatim: Chain.displayName(forId: artifact.chainId))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                if let walletName {
+                    Label(walletName, systemImage: "wallet.pass")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+                Text(verbatim: "→ \(artifact.recipient)")
+                    .font(.caption.monospaced())
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+            }
+            Spacer(minLength: SpectraLayout.Space.s)
+            VStack(alignment: .trailing, spacing: SpectraLayout.Space.xxs) {
+                Text(stageText)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.tint)
+                Text(Date(timeIntervalSince1970: artifact.createdAt), format: .relative(presentation: .named))
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            }
+            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, SpectraLayout.Space.m)
+        .contentShape(Rectangle())
     }
 }

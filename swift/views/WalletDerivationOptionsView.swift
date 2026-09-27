@@ -96,7 +96,7 @@ private struct AdvancedOverrideTextField: View {
         VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
             Text(title).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             inputField.font(.subheadline.monospaced()).padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.s)
-                .spectraElevatedFill(cornerRadius: SpectraLayout.Radius.control)
+                .spectraInsetFill(cornerRadius: SpectraLayout.Radius.control)
                 .overlay(
                     RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous).stroke(Color.primary.opacity(0.1), lineWidth: 1))
             Text(detail).font(.caption2).foregroundStyle(.secondary)

@@ -26,11 +26,19 @@ Official references:
 - **Chrome:** Hide the navigation bar background with `.toolbarBackground(.hidden, for: .navigationBar)` when content should scroll beneath it.
 - **Toolbar actions:** Use standard `ToolbarItem` buttons and menus. The system places toolbar items on Liquid Glass automatically, so do not add `.buttonStyle(.glass)` inside a toolbar.
 - **Cards:** Use a subtle white glass tint, and only these two steps.
-  `SpectraLayout.GlassTint.elevated` (`0.04`) covers hero and header cards and
-  the smaller interactive surfaces that sit above content — inputs, chips,
-  icon backplates. `SpectraLayout.GlassTint.content` (`0.03`) covers ordinary
-  content cards. Accent-tinted glass — an orange or red notice — carries its
-  own colour and is not one of these steps.
+  `SpectraLayout.GlassTint.elevated` (`0.04`) covers hero and header cards.
+  `SpectraLayout.GlassTint.content` (`0.03`) covers ordinary content cards.
+  Accent-tinted glass — an orange or red notice — carries its own colour and
+  is not one of these steps.
+- **Glass stops at the card:** nothing inside a card is glass. An input, an
+  address block, a chip, a selectable tile or an icon backplate inside a card
+  takes the flat `SpectraLayout.insetFill` (`spectraInsetFill`), which recesses
+  into the card instead of stacking a second layer of glass on it. Buttons are
+  controls, not surfaces, and keep their glass styles.
+- **Lists:** A list is rows in one card — `SpectraRowGroup`, with each row's
+  label padded by `spectraRowPadding()` — never a card per row. A card of cards
+  is glass on glass, and a column of cards spends a card's padding and gap on
+  every row. A selectable list marks the choice with a trailing checkmark.
 - **Glass variant:** Always `.regular`. Apple's other variant, `.clear`, is for
   components floating over photos or video, and over bright content it needs a
   35% dark dimming layer beneath it to stay legible. Spectra has no media
@@ -80,9 +88,9 @@ The radius communicates hierarchy, in three steps:
 
 | Token | Radius | Usage |
 | --- | --- | --- |
-| `Radius.card` | 20pt | Every card: tab, hero, detail, row cards and notice banners; `spectraCardFill`, `spectraElevatedFill`, `spectraDetailCard` |
-| `Radius.inner` | 14pt | Surfaces inside a card: inputs, address blocks, chips and pills |
-| `Radius.control` | 10pt | Dense controls, icon backplates and single-character slots |
+| `Radius.card` | 20pt | Every card — tab, hero, detail, list and notice banner — and the only glass radius: `spectraCardFill`, `spectraElevatedFill`, `spectraDetailCard` |
+| `Radius.inner` | 14pt | Surfaces inside a card: inputs, address blocks, tiles, chips and pills; `spectraInsetFill` |
+| `Radius.control` | 10pt | Dense controls and single-character slots inside a card |
 | size-relative | — | Icon artwork such as the `SpectraLogo` backing |
 
 Write the token, never the number. A component's own internal geometry is not a
@@ -98,11 +106,15 @@ card reads the same wherever it is nested. A concentric shape is an exception a
 view argues for in a comment, never a substitute for a step.
 
 `scripts/check-design-tokens.sh` (also `make check-ui`) fails when a view
-restates a spacing, a radius or a white glass tint that `SpectraLayout` owns.
+restates a spacing, a radius or a white glass tint that `SpectraLayout` owns,
+or draws glass in a shape only a surface inside a card has — `Radius.inner`,
+`Radius.control`, a circle or a capsule. `spectraCardFill` and
+`spectraElevatedFill` take no radius for the same reason.
 
 Shared values and helpers live in:
 
-- [`SpectraLayout`, `spectraCardFill` and `spectraElevatedFill`](../swift/views/SpectraLayout.swift)
+- [`SpectraLayout`, `spectraCardFill`, `spectraElevatedFill`, `spectraInsetFill` and `spectraRowPadding`](../swift/views/SpectraLayout.swift)
+- [`SpectraRowGroup`](../swift/views/SpectraRowGroup.swift)
 - [`spectraInputFieldStyle` and `spectraDetailCard`](../swift/views/ViewExtensions.swift)
 
 ## Examples in the app
@@ -111,6 +123,9 @@ Shared values and helpers live in:
   hero cards and asset detail rows.
 - [ReceiveFlowViews.swift](../swift/views/ReceiveFlowViews.swift): business detail layout.
 - [ChainWikiViews.swift](../swift/views/ChainWikiViews.swift): compact interactive cards.
+- [StakingView.swift](../swift/views/StakingView.swift) and
+  [AddWalletEntryView.swift](../swift/views/AddWalletEntryView.swift): lists as
+  `SpectraRowGroup` rows.
 
 Pages use `spectraScreenPadding()` with `sectionSpacing` between cards, and
 card content has `cardPadding`. Detail navigation titles are inline.

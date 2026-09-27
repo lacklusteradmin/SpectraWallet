@@ -57,6 +57,25 @@ report "Raw white glass tint outside SpectraLayout:" \
   "use SpectraLayout.GlassTint.elevated / .content, or spectraElevatedFill / spectraCardFill" \
   "$(grep -rn 'tint(\.white\.opacity(' --include='*.swift' "$VIEWS" | grep -v "^$TOKENS:" || true)"
 
+# Glass inside a card. Glass stops at the card, and every card has the card
+# radius; a glass shape on a smaller step, a circle or a capsule is a surface
+# nested inside one — an input, a chip, a tile, an icon backplate — which is
+# glass on glass. The call is read whole, since its shape often sits on a later
+# line than `glassEffect(`. Decorative artwork ends the call's first line with
+# `design-tokens: artwork`.
+report "Glass surface inside a card:" \
+  "use spectraInsetFill / SpectraLayout.insetFill for a surface inside a card" \
+  "$(find "$VIEWS" -name '*.swift' ! -path "$TOKENS" -print0 | xargs -0 perl -0777 -ne '
+      while (/glassEffect(\((?:[^()]++|(?1))*\))/g) {
+        my ($call, $pos) = ($&, $-[0]);
+        my ($first) = substr($_, $pos) =~ /^([^\n]*)/;
+        next if $first =~ /design-tokens: artwork/;
+        next unless $call =~ /Radius\.(inner|control)|in: \.(circle|capsule)|\b(Circle|Capsule)\(/;
+        my $line = 1 + (substr($_, 0, $pos) =~ tr/\n//);
+        (my $flat = $call) =~ s/\s+/ /g;
+        print "$ARGV:$line: $flat\n";
+      }' || true)"
+
 if (( fail )); then
   printf '\ndesign tokens: FAILED\n' >&2
   exit 1

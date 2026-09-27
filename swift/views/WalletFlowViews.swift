@@ -172,15 +172,7 @@ struct WalletDetailView: View {
     let store: AppState
     let wallet: WalletView
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.scenePhase) private var scenePhase
-    @State private var isShowingSeedPhrasePasswordPrompt: Bool = false
-    @State private var isShowingSeedPhraseSheet: Bool = false
-    @State private var seedPhrasePasswordInput: String = ""
-    @State private var revealedSeedPhrase: String = ""
-    @State private var seedPhraseErrorMessage: String?
-    @State private var isRevealingSeedPhrase: Bool = false
     @State private var didCopyWalletAddress: Bool = false
-    @State private var isShowingDeleteWalletAlert: Bool = false
     @State private var isShowingAdvancedPage: Bool = false
     init(store: AppState, wallet: WalletView) {
         self.store = store
@@ -208,7 +200,6 @@ struct WalletDetailView: View {
     }()
     private var isWatchOnly: Bool { displayedWallet.signing.isWatchOnly }
     private var isPrivateKeyWallet: Bool { displayedWallet.signing.isPrivateKey }
-    private var requiresSeedPhrasePassword: Bool { displayedWallet.signing.requiresPassword }
     private var displayedWallet: WalletView {
         store.wallets.first(where: { $0.id == wallet.id }) ?? wallet
     }
@@ -262,31 +253,11 @@ struct WalletDetailView: View {
         Label(localizedWalletFlowString("Watching"), systemImage: "eye").font(.caption.weight(.semibold)).foregroundStyle(.tint).padding(
             .horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs).background(Color.accentColor.opacity(0.15), in: Capsule())
     }
-    private var deleteWalletMessage: String {
-        if isWatchOnly {
-            return localizedWalletFlowString("You can't recover this wallet after deletion until you still have this address.")
-        }
-        if isPrivateKeyWallet {
-            return localizedWalletFlowString("Please keep this private key because you can't recover this wallet after deletion.")
-        }
-        return localizedWalletFlowString("Please take note of your seed phrase because you can't recover this wallet after deletion.")
-    }
-    private func clearSeedRevealState() {
-        isShowingSeedPhrasePasswordPrompt = false
-        isShowingSeedPhraseSheet = false
-        seedPhrasePasswordInput = ""
-        revealedSeedPhrase = ""
-        seedPhraseErrorMessage = nil
-    }
+    /// Deleting the wallet from the advanced page removes it under both
+    /// pages; leaving this one pops that one too.
     private func handleWalletPresenceChange(walletStillExists: Bool) {
         guard !walletStillExists else { return }
-        isShowingDeleteWalletAlert = false
-        clearSeedRevealState()
         dismiss()
-    }
-    private func handleScenePhaseChange(_ newPhase: ScenePhase) {
-        guard newPhase != .active else { return }
-        clearSeedRevealState()
     }
     var body: some View {
         ScrollView(showsIndicators: false) {
@@ -296,7 +267,6 @@ struct WalletDetailView: View {
                 if let walletAddress = detailPresentation.walletAddress {
                     walletAddressCard(walletAddress: walletAddress)
                 }
-                walletActionsStack
             }.spectraScreenPadding()
         }.background(SpectraBackdrop().ignoresSafeArea())
             .refreshable {
@@ -311,106 +281,14 @@ struct WalletDetailView: View {
             }
         }.navigationDestination(isPresented: $isShowingAdvancedPage) {
             WalletAdvancedDetailsView(
-                walletId: detailPresentation.wallet.id, derivationPathsText: detailPresentation.derivationPathsText,
+                store: store, wallet: detailPresentation.wallet,
+                derivationPathsText: detailPresentation.derivationPathsText,
                 firstActivityDateText: firstActivityDateText
             )
-        }.navigationDestination(
-            isPresented: Binding(
-                get: { store.walletImport.isPresented && store.walletImport.editingWalletId == wallet.id },
-                set: { isPresented in
-                    if !isPresented { store.walletImport.isPresented = false }
-                }
-            )
-        ) {
-            SetupView(store: store, draft: store.walletImport.draft)
-        }.alert(localizedWalletFlowString("Delete Wallet?"), isPresented: $isShowingDeleteWalletAlert) {
-            Button(localizedWalletFlowString("Delete"), role: .destructive) {
-                Task {
-                    store.confirmDeleteWallet(wallet)
-                    await store.deletePendingWallet()
-                }
-            }
-            Button(localizedWalletFlowString("Cancel"), role: .cancel) {
-                isShowingDeleteWalletAlert = false
-            }
-        } message: {
-            Text(deleteWalletMessage)
-        }.alert(
-            localizedWalletFlowString("Cannot Reveal Seed Phrase"),
-            isPresented: .isPresent($seedPhraseErrorMessage)
-        ) {
-            Button(localizedWalletFlowString("OK"), role: .cancel) {}
-        } message: {
-            Text(seedPhraseErrorMessage ?? "Unknown error")
         }.onChange(of: wallet.id) { _, _ in
             didCopyWalletAddress = false
         }.onChange(of: store.wallets.contains(where: { $0.id == wallet.id })) { _, walletStillExists in
             handleWalletPresenceChange(walletStillExists: walletStillExists)
-        }.onChange(of: scenePhase) { _, newPhase in
-            handleScenePhaseChange(newPhase)
-        }.sheet(
-            isPresented: $isShowingSeedPhrasePasswordPrompt,
-            onDismiss: {
-                seedPhrasePasswordInput = ""
-            }
-        ) {
-            NavigationStack {
-                ZStack {
-                    VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-                        Text(
-                            localizedWalletFlowString(
-                                "This wallet has an optional seed phrase password. Enter it after Face ID to reveal the recovery phrase.")
-                        ).font(.subheadline).foregroundStyle(.secondary)
-                        SecureField(localizedWalletFlowString("Wallet Password"), text: $seedPhrasePasswordInput)
-                            .textInputAutocapitalization(.never).autocorrectionDisabled().privacySensitive().padding(SpectraLayout.Space.m)
-                            .spectraInputFieldStyle().foregroundStyle(Color.primary)
-                        Button {
-                            spectraHaptic(.medium)
-                            isShowingSeedPhrasePasswordPrompt = false
-                            Task {
-                                await revealSeedPhrase(password: seedPhrasePasswordInput)
-                            }
-                        } label: {
-                            Text(localizedWalletFlowString("Reveal Seed Phrase")).font(.headline).frame(maxWidth: .infinity)
-                        }.buttonStyle(.glassProminent).disabled(
-                            seedPhrasePasswordInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                        Spacer()
-                    }.padding(SpectraLayout.Space.l)
-                }.navigationTitle(localizedWalletFlowString("Wallet Password")).navigationBarTitleDisplayMode(.inline).toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button(localizedWalletFlowString("Cancel")) {
-                            isShowingSeedPhrasePasswordPrompt = false
-                        }
-                    }
-                }
-            }
-        }.sheet(
-            isPresented: $isShowingSeedPhraseSheet,
-            onDismiss: {
-                revealedSeedPhrase = ""
-            }
-        ) {
-            NavigationStack {
-                ZStack {
-                    ScrollView(showsIndicators: false) {
-                        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-                            Text(
-                                localizedWalletFlowString(
-                                    "Write this down and keep it offline. Anyone with this phrase can control your funds.")
-                            ).font(.subheadline).foregroundStyle(.secondary)
-                            Text(revealedSeedPhrase).font(.body.monospaced()).foregroundStyle(Color.primary).privacySensitive().padding(SpectraLayout.Space.m)
-                                .frame(maxWidth: .infinity, alignment: .leading).spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.inner)
-                        }.padding(SpectraLayout.Space.l).spectraBubbleFill().spectraCardFill()
-                            .padding(SpectraLayout.Space.l)
-                    }
-                }.navigationTitle(localizedWalletFlowString("Seed Phrase")).navigationBarTitleDisplayMode(.inline).toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button(localizedWalletFlowString("Done")) {
-                            isShowingSeedPhraseSheet = false
-                        }
-                    }
-                }
-            }
         }
     }
     @ViewBuilder
@@ -486,56 +364,9 @@ struct WalletDetailView: View {
             }
             Text(walletAddress).font(.footnote.monospaced()).foregroundStyle(.secondary).textSelection(
                 .enabled
-            ).padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s).frame(maxWidth: .infinity, alignment: .leading).background(
-                RoundedRectangle(cornerRadius: SpectraLayout.Radius.inner, style: .continuous).fill(Color.primary.opacity(0.04))
-            )
+            ).padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s).frame(maxWidth: .infinity, alignment: .leading).spectraInsetFill()
         }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
             .spectraCardFill()
-    }
-    @ViewBuilder
-    private var walletActionsStack: some View {
-        VStack(spacing: SpectraLayout.Space.s) {
-            Button {
-                spectraHaptic(.light)
-                withAnimation(.easeInOut(duration: 0.25)) {
-                    store.beginEditingWallet(wallet)
-                }
-            } label: {
-                Label(localizedWalletFlowString("Edit Name"), systemImage: "pencil").font(.subheadline.weight(.semibold)).frame(
-                    maxWidth: .infinity
-                ).padding(.vertical, SpectraLayout.Space.m)
-            }.buttonStyle(.glass).tint(.accentColor)
-            if !isWatchOnly && !isPrivateKeyWallet {
-                Button {
-                    spectraHaptic(.medium)
-                    if requiresSeedPhrasePassword {
-                        seedPhrasePasswordInput = ""
-                        isShowingSeedPhrasePasswordPrompt = true
-                    } else {
-                        Task {
-                            await revealSeedPhrase()
-                        }
-                    }
-                } label: {
-                    Label(
-                        isRevealingSeedPhrase
-                            ? localizedWalletFlowString("Checking Face ID...")
-                            : (requiresSeedPhrasePassword
-                                ? localizedWalletFlowString("Show Seed Phrase (Password)")
-                                : localizedWalletFlowString("Show Seed Phrase")),
-                        systemImage: requiresSeedPhrasePassword ? "lock.shield" : "faceid"
-                    ).font(.subheadline.weight(.semibold)).frame(maxWidth: .infinity).padding(.vertical, SpectraLayout.Space.m)
-                }.buttonStyle(.glass).tint(.accentColor).disabled(isRevealingSeedPhrase || !wallet.signing.hasSeedPhrase)
-            }
-            Button(role: .destructive) {
-                spectraHaptic(.medium)
-                isShowingDeleteWalletAlert = true
-            } label: {
-                Label(localizedWalletFlowString("Delete Wallet"), systemImage: "trash").font(.subheadline.weight(.semibold)).frame(
-                    maxWidth: .infinity
-                ).padding(.vertical, SpectraLayout.Space.m)
-            }.buttonStyle(.glass).tint(.red)
-        }
     }
     @ViewBuilder
     private func holdingRow(_ holding: HoldingPresentation) -> some View {
@@ -561,6 +392,205 @@ struct WalletDetailView: View {
             Text(value).font(.subheadline).foregroundStyle(Color.primary).textSelection(.enabled)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
+}
+/// The wallet's name, recovery phrase, identifiers and deletion.
+///
+/// Revealing the phrase and deleting the wallet are rare, and one is sensitive
+/// and the other irreversible; beside the balances they were two of three
+/// large buttons under every visit. A level down, each is a row where a reader
+/// who wants it expects it, and the details page is only what the wallet holds.
+private struct WalletAdvancedDetailsView: View {
+    let store: AppState
+    let wallet: WalletView
+    let derivationPathsText: String?
+    let firstActivityDateText: String
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var isShowingSeedPhrasePasswordPrompt: Bool = false
+    @State private var isShowingSeedPhraseSheet: Bool = false
+    @State private var seedPhrasePasswordInput: String = ""
+    @State private var revealedSeedPhrase: String = ""
+    @State private var seedPhraseErrorMessage: String?
+    @State private var isRevealingSeedPhrase: Bool = false
+    @State private var isShowingDeleteWalletAlert: Bool = false
+    private var displayedWallet: WalletView {
+        store.wallets.first(where: { $0.id == wallet.id }) ?? wallet
+    }
+    private var isWatchOnly: Bool { displayedWallet.signing.isWatchOnly }
+    private var isPrivateKeyWallet: Bool { displayedWallet.signing.isPrivateKey }
+    private var requiresSeedPhrasePassword: Bool { displayedWallet.signing.requiresPassword }
+    private var deleteWalletMessage: String {
+        if isWatchOnly {
+            return localizedWalletFlowString("You can't recover this wallet after deletion until you still have this address.")
+        }
+        if isPrivateKeyWallet {
+            return localizedWalletFlowString("Please keep this private key because you can't recover this wallet after deletion.")
+        }
+        return localizedWalletFlowString("Please take note of your seed phrase because you can't recover this wallet after deletion.")
+    }
+    private func clearSeedRevealState() {
+        isShowingSeedPhrasePasswordPrompt = false
+        isShowingSeedPhraseSheet = false
+        seedPhrasePasswordInput = ""
+        revealedSeedPhrase = ""
+        seedPhraseErrorMessage = nil
+    }
+    var body: some View {
+        Form {
+            Section {
+                Button {
+                    spectraHaptic(.light)
+                    store.beginEditingWallet(displayedWallet)
+                } label: {
+                    HStack(spacing: SpectraLayout.Space.s) {
+                        Text(localizedWalletFlowString("Name")).foregroundStyle(Color.primary)
+                        Spacer(minLength: SpectraLayout.Space.s)
+                        // Concrete label colours: a button's hierarchical
+                        // styles derive from its tint, which drew the name orange.
+                        Text(displayedWallet.name).foregroundStyle(Color(.secondaryLabel)).lineLimit(1)
+                        Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(Color(.tertiaryLabel))
+                    }
+                }
+            }
+            if !isWatchOnly && !isPrivateKeyWallet {
+                Section(localizedWalletFlowString("Security")) {
+                    Button {
+                        spectraHaptic(.medium)
+                        if requiresSeedPhrasePassword {
+                            seedPhrasePasswordInput = ""
+                            isShowingSeedPhrasePasswordPrompt = true
+                        } else {
+                            Task {
+                                await revealSeedPhrase()
+                            }
+                        }
+                    } label: {
+                        Label(
+                            isRevealingSeedPhrase
+                                ? localizedWalletFlowString("Checking Face ID...")
+                                : (requiresSeedPhrasePassword
+                                    ? localizedWalletFlowString("Show Seed Phrase (Password)")
+                                    : localizedWalletFlowString("Show Seed Phrase")),
+                            systemImage: requiresSeedPhrasePassword ? "lock.shield" : "faceid"
+                        )
+                    }.disabled(isRevealingSeedPhrase || !displayedWallet.signing.hasSeedPhrase)
+                }
+            }
+            Section(localizedWalletFlowString("Details")) {
+                WalletDetailRow(label: "Wallet ID", value: wallet.id)
+                if let derivationPathsText { WalletDetailRow(label: "Derivation Paths", value: derivationPathsText) }
+                WalletDetailRow(label: "First Activity", value: firstActivityDateText)
+            }
+            Section {
+                Button(role: .destructive) {
+                    spectraHaptic(.medium)
+                    isShowingDeleteWalletAlert = true
+                } label: {
+                    Label(localizedWalletFlowString("Delete Wallet"), systemImage: "trash").foregroundStyle(.red)
+                }
+            }
+        }.navigationTitle(localizedWalletFlowString("Advanced")).navigationBarTitleDisplayMode(.inline)
+        .navigationDestination(
+            isPresented: Binding(
+                get: { store.walletImport.isPresented && store.walletImport.editingWalletId == wallet.id },
+                set: { isPresented in
+                    if !isPresented { store.walletImport.isPresented = false }
+                }
+            )
+        ) {
+            SetupView(store: store, draft: store.walletImport.draft)
+        }.alert(localizedWalletFlowString("Delete Wallet?"), isPresented: $isShowingDeleteWalletAlert) {
+            Button(localizedWalletFlowString("Delete"), role: .destructive) {
+                Task {
+                    store.confirmDeleteWallet(wallet)
+                    await store.deletePendingWallet()
+                }
+            }
+            Button(localizedWalletFlowString("Cancel"), role: .cancel) {
+                isShowingDeleteWalletAlert = false
+            }
+        } message: {
+            Text(deleteWalletMessage)
+        }.alert(
+            localizedWalletFlowString("Cannot Reveal Seed Phrase"),
+            isPresented: .isPresent($seedPhraseErrorMessage)
+        ) {
+            Button(localizedWalletFlowString("OK"), role: .cancel) {}
+        } message: {
+            Text(seedPhraseErrorMessage ?? "Unknown error")
+        }.onChange(of: store.wallets.contains(where: { $0.id == wallet.id })) { _, walletStillExists in
+            if !walletStillExists {
+                isShowingDeleteWalletAlert = false
+                clearSeedRevealState()
+            }
+        }.onChange(of: scenePhase) { _, newPhase in
+            guard newPhase != .active else { return }
+            clearSeedRevealState()
+        }
+        .sheet(
+            isPresented: $isShowingSeedPhrasePasswordPrompt,
+            onDismiss: {
+                seedPhrasePasswordInput = ""
+            }
+        ) {
+            NavigationStack {
+                ZStack {
+                    VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+                        Text(
+                            localizedWalletFlowString(
+                                "This wallet has an optional seed phrase password. Enter it after Face ID to reveal the recovery phrase.")
+                        ).font(.subheadline).foregroundStyle(.secondary)
+                        SecureField(localizedWalletFlowString("Wallet Password"), text: $seedPhrasePasswordInput)
+                            .textInputAutocapitalization(.never).autocorrectionDisabled().privacySensitive().padding(SpectraLayout.Space.m)
+                            .spectraInputFieldStyle().foregroundStyle(Color.primary)
+                        Button {
+                            spectraHaptic(.medium)
+                            isShowingSeedPhrasePasswordPrompt = false
+                            Task {
+                                await revealSeedPhrase(password: seedPhrasePasswordInput)
+                            }
+                        } label: {
+                            Text(localizedWalletFlowString("Reveal Seed Phrase")).font(.headline).frame(maxWidth: .infinity)
+                        }.buttonStyle(.glassProminent).disabled(
+                            seedPhrasePasswordInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        Spacer()
+                    }.padding(SpectraLayout.Space.l)
+                }.navigationTitle(localizedWalletFlowString("Wallet Password")).navigationBarTitleDisplayMode(.inline).toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(localizedWalletFlowString("Cancel")) {
+                            isShowingSeedPhrasePasswordPrompt = false
+                        }
+                    }
+                }
+            }
+        }.sheet(
+            isPresented: $isShowingSeedPhraseSheet,
+            onDismiss: {
+                revealedSeedPhrase = ""
+            }
+        ) {
+            NavigationStack {
+                ZStack {
+                    ScrollView(showsIndicators: false) {
+                        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+                            Text(
+                                localizedWalletFlowString(
+                                    "Write this down and keep it offline. Anyone with this phrase can control your funds.")
+                            ).font(.subheadline).foregroundStyle(.secondary)
+                            Text(revealedSeedPhrase).font(.body.monospaced()).foregroundStyle(Color.primary).privacySensitive().padding(SpectraLayout.Space.m)
+                                .frame(maxWidth: .infinity, alignment: .leading).spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.inner)
+                        }.padding(SpectraLayout.Space.l).spectraBubbleFill().spectraCardFill()
+                            .padding(SpectraLayout.Space.l)
+                    }
+                }.navigationTitle(localizedWalletFlowString("Seed Phrase")).navigationBarTitleDisplayMode(.inline).toolbar {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button(localizedWalletFlowString("Done")) {
+                            isShowingSeedPhraseSheet = false
+                        }
+                    }
+                }
+            }
+        }
+    }
     private func revealSeedPhrase(password: String? = nil) async {
         guard !isRevealingSeedPhrase else { return }
         isRevealingSeedPhrase = true
@@ -575,20 +605,6 @@ struct WalletDetailView: View {
             spectraNotificationHaptic(.error)
             seedPhraseErrorMessage = error.localizedDescription
         }
-    }
-}
-private struct WalletAdvancedDetailsView: View {
-    let walletId: String
-    let derivationPathsText: String?
-    let firstActivityDateText: String
-    var body: some View {
-        Form {
-            Section {
-                WalletDetailRow(label: "Wallet ID", value: walletId)
-                if let derivationPathsText { WalletDetailRow(label: "Derivation Paths", value: derivationPathsText) }
-                WalletDetailRow(label: "First Activity", value: firstActivityDateText)
-            }
-        }.navigationTitle(localizedWalletFlowString("Advanced")).navigationBarTitleDisplayMode(.inline)
     }
 }
 private struct WalletDetailRow: View {

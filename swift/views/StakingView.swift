@@ -29,49 +29,33 @@ struct StakingView: View {
         }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
             .spectraElevatedFill()
     }
-    @ViewBuilder
     private var chainPickerCard: some View {
-        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-            HStack(spacing: SpectraLayout.Space.s) {
-                Text(AppLocalization.string("Supported Chains")).font(.headline)
-                Spacer()
-                Text("\(Chain.stakingChains.count)").font(.caption.weight(.bold)).foregroundStyle(.tint).padding(
-                    .horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs).background(Capsule(style: .continuous).fill(Color.accentColor.opacity(0.14)))
+        let chains = Chain.stakingChains.filter { $0.stakingDescriptor != nil }
+        return SpectraRowGroup(
+            title: AppLocalization.string("Supported Chains"), trailing: "\(chains.count)", data: chains
+        ) { chain in
+            if let descriptor = chain.stakingDescriptor {
+                NavigationLink(value: chain) { chainRow(chain, descriptor) }.buttonStyle(.plain)
             }
-            VStack(spacing: SpectraLayout.Space.s) {
-                ForEach(Chain.stakingChains, id: \.self) { chain in
-                    NavigationLink(value: chain) { chainTile(chain) }.buttonStyle(.plain)
-                }
-            }
-        }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
-            .spectraCardFill()
-            .navigationDestination(for: Chain.self) { chain in
-                ChainStakingDetailView(chain: chain, bridge: bridge)
-            }
-    }
-    @ViewBuilder
-    private func chainTile(_ chain: Chain) -> some View {
-        if let descriptor = chain.stakingDescriptor {
-            chainTile(chain, descriptor)
+        }
+        .navigationDestination(for: Chain.self) { chain in
+            ChainStakingDetailView(chain: chain, bridge: bridge)
         }
     }
-    @ViewBuilder
-    private func chainTile(_ chain: Chain, _ descriptor: StakingChainDescriptor) -> some View {
-        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
-            HStack(spacing: SpectraLayout.Space.s) {
-                CoinBadge(
-                    artworkName: AssetPresentationCatalog.artwork(deploymentId: chain.entry?.nativeDeploymentId),
-                    fallbackText: chain.gasTokenSymbol, color: descriptor.tint, size: 36)
-                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
-                    Text(chain.displayName).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary).lineLimit(1)
-                    Text(descriptor.apyEstimate).font(.caption.weight(.semibold)).foregroundStyle(.green)
-                }
-                Spacer()
-                Image(systemName: "chevron.right").font(.caption.weight(.bold)).foregroundStyle(.secondary)
+    /// The mechanic is left to the chain's page, whose header shows it: here
+    /// it wrapped every row to three lines.
+    private func chainRow(_ chain: Chain, _ descriptor: StakingChainDescriptor) -> some View {
+        HStack(spacing: SpectraLayout.Space.m) {
+            CoinBadge(
+                artworkName: AssetPresentationCatalog.artwork(deploymentId: chain.entry?.nativeDeploymentId),
+                fallbackText: chain.gasTokenSymbol, color: descriptor.tint, size: 36)
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
+                Text(chain.displayName).font(.headline).foregroundStyle(Color.primary).lineLimit(1)
+                Text(descriptor.apyEstimate).font(.caption.weight(.semibold)).foregroundStyle(.green)
             }
-            Text(descriptor.shortMechanic).font(.caption2).foregroundStyle(.secondary).lineLimit(2).fixedSize(
-                horizontal: false, vertical: true)
-        }.padding(SpectraLayout.Space.m).frame(maxWidth: .infinity, alignment: .leading).spectraElevatedFill(cornerRadius: SpectraLayout.Radius.inner)
+            Spacer(minLength: SpectraLayout.Space.s)
+            Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+        }.spectraRowPadding()
     }
     @ViewBuilder
     private var philosophyCard: some View {
