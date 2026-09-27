@@ -52,7 +52,9 @@ source "${REPO_ROOT}/scripts/ios-rust-build-env.sh"
 if command -v rustup >/dev/null 2>&1; then
   rustup target add "${TARGET}" >/dev/null 2>&1 || true
 fi
-cargo build ${RELEASE_FLAG} --manifest-path "${REPO_ROOT}/ffi/Cargo.toml" --target "${TARGET}"
+# Only the static library: ffi's cdylib is for Android, and iOS never loads it.
+cargo rustc ${RELEASE_FLAG} --manifest-path "${REPO_ROOT}/ffi/Cargo.toml" --target "${TARGET}" \
+  --lib --crate-type staticlib
 
 mkdir -p "${OUT}"
 cp "${CARGO_TARGET_DIR}/${TARGET}/${PROFILE}/libspectra_core.a" "${OUT}/libspectra_core.a"
