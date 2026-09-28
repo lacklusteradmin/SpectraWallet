@@ -100,4 +100,13 @@ final class SecureSeedStoreTests: XCTestCase {
         ]
         XCTAssertEqual(SecItemCopyMatching(keyQuery as CFDictionary, nil), errSecSuccess, "the wrapping key is a Keychain key, not data")
     }
+
+    /// Core's generic secrets live under the wallet service, not a leftover name.
+    func testGenericSecretsUseTheWalletService() throws {
+        let account = "test.generic.service.\(UUID().uuidString)"
+        try SpectraSecretStoreAdapter().saveSecret(kind: .generic, key: account, value: "v")
+        defer { try? SpectraSecretStoreAdapter().deleteSecret(kind: .generic, key: account) }
+        XCTAssertEqual(try storedBytes(service: "com.spectra.wallet", account: account), Data("v".utf8))
+        XCTAssertNil(try storedBytes(service: "com.spectra.pricing", account: account))
+    }
 }

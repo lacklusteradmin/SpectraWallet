@@ -60,12 +60,14 @@ struct DiagnosticsHubView: View {
             destinationSection(copy.chainsSectionTitle, destinations: chainDestinations)
             Section(AppLocalization.string("Diagnostics Bundle")) {
                 Button(AppLocalization.string("Export Diagnostics Bundle")) {
-                    do {
-                        let url = try store.exportDiagnosticsBundle()
-                        lastExportedDiagnosticsURL = url
-                        diagnosticsNotice = AppLocalization.format("Diagnostics exported to %@", url.lastPathComponent)
-                    } catch {
-                        diagnosticsNotice = AppLocalization.format("Export failed: %@", error.localizedDescription)
+                    Task {
+                        do {
+                            let url = try await store.exportDiagnosticsBundle()
+                            lastExportedDiagnosticsURL = url
+                            diagnosticsNotice = AppLocalization.format("Diagnostics exported to %@", url.lastPathComponent)
+                        } catch {
+                            diagnosticsNotice = AppLocalization.format("Export failed: %@", error.localizedDescription)
+                        }
                     }
                 }
                 Button(AppLocalization.string("Past Exports")) {
@@ -106,63 +108,6 @@ struct DiagnosticsHubView: View {
         }
     }
 }
-/// How one chain's diagnostics screen reads store state.
-struct StandardChainDiagnosticsDispatch {
-    let chain: Chain
-
-    @MainActor func isRunningHistory(_ store: AppState) -> Bool {
-        store[historyRunFor: chain].isRunning
-    }
-    @MainActor func isCheckingEndpoints(_ store: AppState) -> Bool {
-        store[endpointHealthFor: chain].isChecking
-    }
-    @MainActor func diagnosticsJSON(_ store: AppState) -> String? {
-        store.diagnosticsJSON(for: chain)
-    }
-    @MainActor func historyLastUpdatedAt(_ store: AppState) -> Date? {
-        store[historyRunFor: chain].lastUpdatedAt
-    }
-    @MainActor func endpointLastUpdatedAt(_ store: AppState) -> Date? {
-        store[endpointHealthFor: chain].lastUpdatedAt
-    }
-    @MainActor func endpointResults(_ store: AppState)
-        -> [(endpoint: String, reachable: Bool?, detail: String)]
-    {
-        store[endpointHealthFor: chain].results.map { ($0.endpoint, $0.reachable, $0.detail) }
-    }
-    /// How many wallets reported, and which source each used.
-    ///
-    /// Core knows the shape and owns the records, so it answers with the two
-    /// numbers and no diagnostics record crosses the boundary to be counted.
-    ///
-    /// `revision` is unused, and is the point: reading it makes the summary
-    /// depend on the observable that changes when a run writes, so the screen
-    /// still refreshes when one finishes.
-    @MainActor func historySummary(_ store: AppState) -> DiagnosticsRunSummary {
-        _ = store.chainDiagnosticsState.diagnosticsRevision
-        return diagnosticsRunSummary(chainId: chain.id)
-    }
-    func runHistoryDiagnostics(_ store: AppState) async {
-        await store.runHistoryDiagnostics(for: chain)
-    }
-    func runEndpointDiagnostics(_ store: AppState) async {
-        await store.runEndpointDiagnostics(for: chain)
-    }
-}
-extension Chain {
-    var dispatch: StandardChainDiagnosticsDispatch { StandardChainDiagnosticsDispatch(chain: self) }
-}
-private struct StandardEndpointRow: Identifiable {
-    let id = UUID()
-    let endpoint: String
-    let reachable: Bool?
-    let detail: String
-}
-private struct StandardHistorySourceRow: Identifiable {
-    let source: String
-    let count: Int
-    var id: String { source }
-}
 struct StandardChainDiagnosticsView: View {
     @Bindable var store: AppState
     let chain: Chain
@@ -170,22 +115,16 @@ struct StandardChainDiagnosticsView: View {
     @State private var isRefreshing = false
     @State private var refreshNotice: String?
     @State private var copiedDiagnosticsNotice: SpectraTransientNotice?
-    @State private var configuredEndpoints: [String] = []
-    @State private var cachedEndpointRows: [StandardEndpointRow] = []
-    @State private var cachedHistorySourceRows: [StandardHistorySourceRow] = []
-    /// Keypool state lives in core, so it is loaded rather than read
-    /// synchronously — see `.task` below.
+    /// What core recorded for this family: history runs, endpoint checks and
+    /// the document built from them. Re-read whenever a run finishes.
+    @State private var recorded: ChainDiagnostics?
+    @State private var recordedError: String?
     @State private var keypoolError: String?
     @State private var cachedKeypoolDiagnostics: [KeypoolDiagnostic] = []
-    /// Operational events live in core now, so they load rather than read
-    /// synchronously — same `.task` as the keypool rows.
     @State private var cachedOperationalEvents: [DiagnosticLog] = []
-    private var chainDiagnosticsState: WalletChainDiagnosticsState { store.chainDiagnosticsState }
+    private var runs: WalletChainDiagnosticsState { store.chainDiagnosticsState }
     private var displayChainTitle: String { store.selectedNetworkTitle(forFamily: chain) }
     private var diagnosticsLabel: String { displayChainTitle }
-    /// Esplora bases are a Bitcoin-family catalog column; a chain with any has
-    /// the custom-Esplora setting.
-    private var hasEsploraBases: Bool { !AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainId: chain.id).isEmpty }
 
     var body: some View {
         Form {
@@ -207,13 +146,11 @@ struct StandardChainDiagnosticsView: View {
                         ? AppLocalization.string("Running History Diagnostics...")
                         : AppLocalization.string("Run History Diagnostics")
                 ) {
-                    Task {
-                        await runHistoryDiagnostics()
-                    }
+                    Task { await store.runHistoryDiagnostics(for: chain) }
                 }.disabled(isRunningHistory)
                 Button(AppLocalization.string("Copy Diagnostics JSON")) {
-                    if let payload = diagnosticsJSON {
-                        UIPasteboard.general.string = payload
+                    if let document = recorded?.document {
+                        UIPasteboard.general.string = document
                         copiedDiagnosticsNotice = SpectraTransientNotice(
                             AppLocalization.format("%@ diagnostics JSON copied.", diagnosticsLabel))
                     } else {
@@ -226,18 +163,14 @@ struct StandardChainDiagnosticsView: View {
                         ? AppLocalization.string("Checking Endpoints...")
                         : AppLocalization.string("Check Endpoints")
                 ) {
-                    Task {
-                        await runEndpointDiagnostics()
-                    }
+                    Task { await store.runEndpointDiagnostics(for: chain) }
                 }.disabled(isCheckingEndpoints)
                 Button(isRunningChainSelfTests ? AppLocalization.string("Running Self-Tests...") : AppLocalization.string("Run Self-Tests")) {
-                    Task { await runChainSelfTests() }
+                    Task { await store.runSelfTests(for: chain) }
                 }.disabled(isRunningChainSelfTests)
                 if chain.supportsDeepUTXODiscovery {
                     Button(AppLocalization.string(isRunningChainRescan ? "Rescanning..." : "Run Rescan")) {
-                        Task {
-                            await runChainRescan()
-                        }
+                        Task { await store.runUTXORescan(chain: chain) }
                     }.disabled(isRunningChainRescan)
                 }
                 if let copiedDiagnosticsNotice {
@@ -245,46 +178,49 @@ struct StandardChainDiagnosticsView: View {
                 }
             }
             Section(copy.statusSectionTitle) {
-                if let updatedAt = historyLastUpdatedAt {
-                    Text(formatCopy(copy.lastHistoryRunFormat, updatedAt.formatted(date: .abbreviated, time: .shortened))).font(.caption)
+                if let recordedError {
+                    Text(recordedError).font(.caption).foregroundStyle(.red)
+                }
+                if let ranAt = recorded?.historyRunAtUnix {
+                    Text(formatCopy(copy.lastHistoryRunFormat, formattedTime(ranAt))).font(.caption)
                         .foregroundStyle(.secondary)
                 } else {
                     Text(copy.historyNotRunYet).font(.caption).foregroundStyle(.secondary)
                 }
-                Text(formatCopy(copy.walletDiagnosticsCoveredFormat, String(historyWalletCount))).font(.caption).foregroundStyle(.secondary)
-                if let primarySource = historySourceRows.first {
-                    Text(formatCopy(copy.mostUsedHistorySourceFormat, primarySource.source, String(primarySource.count))).font(.caption)
-                        .foregroundStyle(.secondary)
+                Text(formatCopy(copy.walletDiagnosticsCoveredFormat, String(recorded?.walletCount ?? 0))).font(.caption)
+                    .foregroundStyle(.secondary)
+                if let primarySource = historySources.first {
+                    Text(formatCopy(copy.mostUsedHistorySourceFormat, primarySource.source, String(primarySource.walletCount)))
+                        .font(.caption).foregroundStyle(.secondary)
                 }
-                if let updatedAt = endpointLastUpdatedAt {
-                    let formattedUpdatedAt = updatedAt.formatted(date: .abbreviated, time: .shortened)
-                    Text(formatCopy(copy.lastEndpointCheckFormat, formattedUpdatedAt)).font(.caption).foregroundStyle(.secondary)
+                if let checkedAt = recorded?.endpointsCheckedAtUnix {
+                    Text(formatCopy(copy.lastEndpointCheckFormat, formattedTime(checkedAt))).font(.caption).foregroundStyle(.secondary)
                 }
-                if !endpointRows.isEmpty {
-                    let reachableCount = endpointRows.filter { $0.reachable == true }.count
-                    Text(formatCopy(copy.endpointHealthFormat, String(reachableCount), String(endpointRows.count))).font(.caption)
+                if !endpoints.isEmpty {
+                    let reachableCount = endpoints.filter { $0.checked && $0.reachable }.count
+                    Text(formatCopy(copy.endpointHealthFormat, String(reachableCount), String(endpoints.count))).font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
             Section(formatCopy(copy.historySourcesSectionTitleFormat, diagnosticsLabel)) {
-                if historySourceRows.isEmpty {
+                if historySources.isEmpty {
                     Text(copy.noHistoryTelemetryYet).font(.caption).foregroundStyle(.secondary)
                 } else {
-                    ForEach(historySourceRows) { item in
+                    ForEach(historySources, id: \.source) { item in
                         HStack {
                             Text(item.source).font(.subheadline.weight(.semibold))
                             Spacer()
-                            Text(AppLocalization.format("diagnostics.countOnly", item.count)).font(.caption.monospacedDigit()).foregroundStyle(
-                                .secondary)
+                            Text(AppLocalization.format("diagnostics.countOnly", Int(item.walletCount))).font(.caption.monospacedDigit())
+                                .foregroundStyle(.secondary)
                         }
                     }
                 }
             }
             Section(formatCopy(copy.endpointReachabilitySectionTitleFormat, diagnosticsLabel)) {
-                if endpointRows.isEmpty {
+                if endpoints.isEmpty {
                     Text(copy.noEndpointChecksYet).font(.caption).foregroundStyle(.secondary)
                 } else {
-                    ForEach(endpointRows) { result in
+                    ForEach(Array(endpoints.enumerated()), id: \.offset) { _, result in
                         VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                             HStack {
                                 Image(systemName: endpointStatusIconName(for: result)).foregroundStyle(endpointStatusColor(for: result))
@@ -296,16 +232,8 @@ struct StandardChainDiagnosticsView: View {
                 }
             }
             chainSpecificSections
-        }.navigationTitle(AppLocalization.format("%@ Diagnostics", displayChainTitle)).onAppear {
-            rebuildCachedRows()
-        }.task(id: chain.id) {
-            do {
-                let network = store.selectedChainId(forFamily: chain.id)
-                configuredEndpoints = try await store.bridge.ready().endpointDirectory()
-                    .filter { $0.record.chainId == network && !$0.apiName.isEmpty }.map(\.record.endpoint)
-                rebuildEndpointRows()
-            } catch { keypoolError = error.localizedDescription }
-
+        }.navigationTitle(AppLocalization.format("%@ Diagnostics", displayChainTitle))
+        .task(id: chain.id) {
             do {
                 cachedKeypoolDiagnostics = try await store.chainKeypoolDiagnostics(for: store.selectedChainId(forFamily: chain.id))
                 keypoolError = nil
@@ -313,89 +241,34 @@ struct StandardChainDiagnosticsView: View {
                 cachedKeypoolDiagnostics = []
                 keypoolError = error.localizedDescription
             }
+        }.task(id: runs.diagnosticsRevision) {
+            do {
+                recorded = try await store.chainDiagnostics(for: chain)
+                recordedError = nil
+            } catch { recordedError = error.localizedDescription }
             cachedOperationalEvents = await store.operationalEvents(for: chain)
-        }.spectraTransientNotice($copiedDiagnosticsNotice).onChange(of: historyLastUpdatedAt) { _, _ in
-            rebuildHistorySourceRows()
-        }.onChange(of: historyWalletCount) { _, _ in
-            rebuildHistorySourceRows()
-        }.onChange(of: endpointLastUpdatedAt) { _, _ in
-            rebuildEndpointRows()
-        }
+        }.spectraTransientNotice($copiedDiagnosticsNotice)
     }
-    private var isRunningHistory: Bool { chain.dispatch.isRunningHistory(store) }
-    private var isCheckingEndpoints: Bool { chain.dispatch.isCheckingEndpoints(store) }
-    private var diagnosticsJSON: String? { chain.dispatch.diagnosticsJSON(store) }
-    private var historyLastUpdatedAt: Date? { chain.dispatch.historyLastUpdatedAt(store) }
-    private var historyWalletCount: Int { Int(chain.dispatch.historySummary(store).walletCount) }
-    private var endpointLastUpdatedAt: Date? { chain.dispatch.endpointLastUpdatedAt(store) }
-    private var endpointRows: [StandardEndpointRow] { cachedEndpointRows }
-    private var historySourceRows: [StandardHistorySourceRow] { cachedHistorySourceRows }
-    private func rebuildCachedRows() {
-        rebuildEndpointRows()
-        rebuildHistorySourceRows()
+    private var isRunningHistory: Bool { runs.runningHistory.contains(chain.id) }
+    private var isCheckingEndpoints: Bool { runs.checkingEndpoints.contains(chain.id) }
+    private var isRunningChainSelfTests: Bool { runs.runningSelfTests.contains(chain.id) }
+    private var isRunningChainRescan: Bool { runs.runningRescans.contains(chain.id) }
+    private var historySources: [DiagnosticsSourceCount] { recorded?.historySources ?? [] }
+    private var endpoints: [EndpointProbe] { recorded?.endpoints ?? [] }
+    private func formattedTime(_ unix: Double) -> String {
+        Date(timeIntervalSince1970: unix).formatted(date: .abbreviated, time: .shortened)
     }
-    private func rebuildEndpointRows() {
-        let fallbackRows = configuredEndpointsForCurrentChain().map {
-            StandardEndpointRow(endpoint: $0, reachable: nil, detail: AppLocalization.string("Not checked yet"))
-        }
-        let raw = chain.dispatch.endpointResults(store)
-        cachedEndpointRows =
-            raw.isEmpty ? fallbackRows : raw.map { StandardEndpointRow(endpoint: $0.endpoint, reachable: $0.reachable, detail: $0.detail) }
+    /// An endpoint nothing knows how to probe is unchecked, not a pass.
+    private func endpointStatusIconName(for row: EndpointProbe) -> String {
+        guard row.checked else { return "clock.badge.questionmark" }
+        return row.reachable ? "checkmark.circle.fill" : "xmark.circle.fill"
     }
-    private func endpointStatusIconName(for row: StandardEndpointRow) -> String {
-        switch row.reachable {
-        case true: return "checkmark.circle.fill"
-        case false: return "xmark.circle.fill"
-        case nil: return "clock.badge.questionmark"
-        }
-    }
-    private func endpointStatusColor(for row: StandardEndpointRow) -> Color {
-        switch row.reachable {
-        case true: return .green
-        case false: return .red
-        case nil: return .secondary
-        }
-    }
-    /// The endpoints this chain would actually use, as the screen lists them.
-    private func configuredEndpointsForCurrentChain() -> [String] { configuredEndpoints }
-    private func rebuildHistorySourceRows() {
-        let sources = chain.dispatch.historySummary(store).sources
-        var counts: [String: Int] = [:]
-        for source in sources {
-            let normalized = source.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !normalized.isEmpty else { continue }
-            counts[normalized, default: 0] += 1
-        }
-        cachedHistorySourceRows = counts.map { StandardHistorySourceRow(source: $0.key, count: $0.value) }
-            .sorted { lhs, rhs in
-                if lhs.count != rhs.count { return lhs.count > rhs.count }
-                return lhs.source < rhs.source
-            }
-    }
-    private func runHistoryDiagnostics() async { await chain.dispatch.runHistoryDiagnostics(store) }
-    private func runEndpointDiagnostics() async { await chain.dispatch.runEndpointDiagnostics(store) }
-    /// Fee priority and custom Esplora bases, for a chain the catalog gives
-    /// Esplora bases to.
-    @ViewBuilder
-    private var esploraSettingsSection: some View {
-        Section(AppLocalization.format("%@ Settings", chain.displayName)) {
-            Picker(
-                AppLocalization.string("Send Fee Priority"),
-                selection: Binding(
-                    get: { store.feePriority(forChainId: chain.id) },
-                    set: { store.setFeePriority($0, forChainId: chain.id) })
-            ) {
-                ForEach(FeePriority.allCases, id: \.self) { priority in
-                    Text(priority.displayName).tag(priority)
-                }
-            }.pickerStyle(.segmented)
-        }
+    private func endpointStatusColor(for row: EndpointProbe) -> Color {
+        guard row.checked else { return .secondary }
+        return row.reachable ? .green : .red
     }
     @ViewBuilder
     private var chainSpecificSections: some View {
-        // Which settings a chain has is what the registry and the catalog say
-        // about it, not which chain it is.
-        if hasEsploraBases { esploraSettingsSection }
         Section {
             NavigationLink { EndpointCatalogSettingsView(store: store) } label: {
                 Text(EndpointsContentCopy.current.navigationTitle)
@@ -445,10 +318,6 @@ struct StandardChainDiagnosticsView: View {
             }
         }
     }
-    private var isRunningChainSelfTests: Bool { store[selfTestsFor: chain].isRunning }
-    private var isRunningChainRescan: Bool { store[rescanFor: chain].isRunning }
-    private func runChainSelfTests() async { await store.runSelfTests(for: chain) }
-    private func runChainRescan() async { await store.runUTXORescan(chain: chain) }
 }
 private func formatCopy(_ format: String, _ arguments: CVarArg...) -> String {
     String(format: format, locale: AppLocalization.locale, arguments: arguments)

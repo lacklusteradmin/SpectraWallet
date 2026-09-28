@@ -1,64 +1,28 @@
 import Foundation
 
-// Swift owns only file I/O and data collection. All struct definitions,
-// serialization, and deserialization live in Rust (`core/src/diagnostics/export.rs`).
-//
-// `DiagnosticsBundlePayload` and `DiagnosticsEnvironmentMetadata` are UniFFI
-// records — Swift sees them as plain structs via the generated bindings.
+// Core assembles the bundle from what it recorded; Swift supplies what only
+// the platform knows about itself and owns the files.
 
 extension AppState {
-    /// Every mainnet — the same set the diagnostics hub offers a screen for.
-    static let diagnosticsBundleChains = Chain.mainnets
-
-    func diagnosticsJSON(for chain: Chain) -> String? {
-        diagnosticsJson(
-            chainId: chain.id,
-            endpoints: self[endpointHealthFor: chain].results,
-            historyLastUpdatedAtUnix: self[historyRunFor: chain].lastUpdatedAt?
-                .timeIntervalSince1970,
-            endpointsLastUpdatedAtUnix: self[endpointHealthFor: chain].lastUpdatedAt?
-                .timeIntervalSince1970,
-            // Any family with a network to choose.
-            extraNetworkMode: chain.networkChoices.count > 1 ? selectedChainId(forFamily: chain.id) : nil)
-    }
-
-    private func buildDiagnosticsBundle() -> DiagnosticsBundlePayload {
+    private var diagnosticsPlatformInfo: DiagnosticsPlatformInfo {
         let info = Bundle.main.infoDictionary ?? [:]
-        let environment = DiagnosticsEnvironmentMetadata(
+        return DiagnosticsPlatformInfo(
             appVersion: (info["CFBundleShortVersionString"] as? String) ?? "unknown",
             buildNumber: (info["CFBundleVersion"] as? String) ?? "unknown",
             osVersion: ProcessInfo.processInfo.operatingSystemVersionString,
             localeIdentifier: Locale.current.identifier,
-            timeZoneIdentifier: TimeZone.current.identifier,
-            selectedFiatCurrency: selectedFiatCurrency.code,
-            walletCount: Int64(wallets.count),
-            transactionCount: Int64(transactionCount))
-        return DiagnosticsBundlePayload(
-            schemaVersion: 1,
-            generatedAt: Date().timeIntervalSince1970,
-            environment: environment,
-            chainDegraded: diagnostics.chainDegraded,
-            chainDiagnosticsJson: Dictionary(
-                uniqueKeysWithValues: Self.diagnosticsBundleChains.map {
-                    ($0.id, diagnosticsJSON(for: $0) ?? "{}")
-                }))
+            timeZoneIdentifier: TimeZone.current.identifier)
     }
 
     // MARK: File I/O
 
-    func exportDiagnosticsBundle() throws -> URL {
-        let payload = buildDiagnosticsBundle()
-        guard let json = diagnosticsBundleToJson(payload: payload) else {
-            throw DiagnosticsBundleError.serializationFailed
-        }
-        guard let data = json.data(using: .utf8) else {
-            throw DiagnosticsBundleError.serializationFailed
-        }
+    func exportDiagnosticsBundle() async throws -> URL {
+        let json = try await bridge.ready().diagnosticsBundle(platform: diagnosticsPlatformInfo)
         let stamp = Self.exportFilenameTimestampFormatter.string(from: Date()).replacingOccurrences(of: ":", with: "-")
         let fileURL = try diagnosticsBundleExportsDirectoryURL()
             .appendingPathComponent("spectra-diagnostics-\(stamp)")
             .appendingPathExtension("json")
-        try data.write(to: fileURL, options: .atomic)
+        try Data(json.utf8).write(to: fileURL, options: .atomic)
         return fileURL
     }
     func diagnosticsBundleExportsDirectoryURL() throws -> URL {
@@ -85,18 +49,15 @@ extension AppState {
         guard let json = String(data: data, encoding: .utf8),
             let payload = diagnosticsBundleFromJson(json: json)
         else { throw DiagnosticsBundleError.invalidBundle }
-        lastImportedDiagnosticsBundle = payload
         return payload
     }
 }
 
 enum DiagnosticsBundleError: Error {
-    case serializationFailed
     case invalidBundle
 }
 
 extension DiagnosticsBundlePayload {
     var generatedAtDate: Date { Date(timeIntervalSince1970: generatedAt) }
 
-    func diagnosticsJSON(for chain: Chain) -> String? { chainDiagnosticsJson[chain.id] }
 }

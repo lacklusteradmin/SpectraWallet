@@ -108,22 +108,3 @@ extension WalletSetupPage {
         }
     }
 }
-
-/// Whether the secret step — a seed phrase or a private key — is complete
-/// enough to move on.
-///
-/// A free function because both the step that renders the fields and the
-/// button bar that decides whether to enable itself need the answer, and it
-/// derives entirely from the draft: nothing about it is view state.
-@MainActor
-func walletSetupCanContinueFromSecretStep(draft: WalletImportDraft, isImporting: Bool) -> Bool {
-    let hasChains = !draft.selectedChainIds.isEmpty
-    if draft.isPrivateKeyImportMode {
-        return hasChains
-            && isPrivateKeyHex(rawValue: draft.privateKeyInput)
-            && draft.unsupportedPrivateKeyChainNames.isEmpty
-            && draft.selectedChainIds.count == 1
-            && !isImporting
-    }
-    return hasChains && draft.seedPhraseVerdict.checksumValid && !isImporting
-}

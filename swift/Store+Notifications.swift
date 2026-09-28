@@ -41,21 +41,10 @@ extension AppState {
     }
     func sendTransactionStatusNotification(for transaction: TransactionRecord, newStatus: TransactionStatus) {
         guard committedAppSettings.useTransactionStatusNotifications else { return }
-        let title: String
-        let body: String
-        switch newStatus {
-        case .confirmed:
-            title = AppLocalization.format("%@ transaction confirmed", transaction.symbol)
-            body = AppLocalization.format(
-                "Your %@ send from %@ is now confirmed on %@.", transaction.symbol, transaction.walletName, transaction.chainName)
-        case .failed:
-            title = AppLocalization.format("%@ transaction failed", transaction.symbol)
-            body =
-                transaction.localizedFailureReason
-                ?? AppLocalization.format(
-                    "Your %@ send from %@ failed on %@.", transaction.symbol, transaction.walletName, transaction.chainName)
-        case .pending: return
-        }
+        guard let body = transaction.sendOutcomeDetail(for: newStatus) else { return }
+        let title = newStatus == .confirmed
+            ? AppLocalization.format("%@ transaction confirmed", transaction.symbol)
+            : AppLocalization.format("%@ transaction failed", transaction.symbol)
         postNotification(
             identifier: "transaction-status-\(transaction.id)-\(newStatus)", title: title, body: body
         )

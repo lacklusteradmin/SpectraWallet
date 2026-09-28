@@ -3,46 +3,29 @@ import XCTest
 @testable import Spectra
 @MainActor
 final class DiagnosticsBundleTests: IsolatedAppStateTestCase {
+    /// Core writes the bundle; the file the app shares reads back whole.
     func testExportsAndImportsDiagnosticsBundleJSON() async throws {
         let store = makeState()
-        let fileURL = try store.exportDiagnosticsBundle()
+        let fileURL = try await store.exportDiagnosticsBundle()
         defer { try? FileManager.default.removeItem(at: fileURL) }
         let imported = try store.importDiagnosticsBundle(from: fileURL)
-        XCTAssertEqual(imported.schemaVersion, 1)
+        XCTAssertEqual(imported.schemaVersion, 2)
         XCTAssertFalse(imported.environment.osVersion.isEmpty)
-        for chain in [Chain.bitcoin, .litecoin, .ethereum] {
-            let json = imported.diagnosticsJSON(for: chain)
-            XCTAssertNotNil(json, "\(chain.id) missing from the bundle")
-            XCTAssertFalse(json?.isEmpty ?? true, "\(chain.id) diagnostics empty")
-        }
-        // Keys are canonical chain ids, not display names.
+        XCTAssertEqual(imported.environment.walletCount, 0)
+        // Keys are canonical chain ids, one per mainnet.
         XCTAssertNotNil(imported.chainDiagnosticsJson["bitcoin-cash"])
         XCTAssertNotNil(imported.chainDiagnosticsJson["internet-computer"])
-        // One entry per mainnet: the catalog decides which chains have
-        // diagnostics.
-        XCTAssertEqual(imported.chainDiagnosticsJson.count, Chain.mainnets.count)
+        XCTAssertEqual(Set(imported.chainDiagnosticsJson.keys), Set(Chain.mainnets.map(\.id)))
     }
 
-}
-
-@MainActor
-final class DiagnosticsBundleCoverageTests: IsolatedAppStateTestCase {
-    /// Every chain the bundle reports on must be a chain the registry knows.
-    ///
-    /// The bundle list and the `diagnosticsJSON(for:)` switch are two lists
-    /// that have to agree, and a missing case just returns nil, so nothing
-    /// else would fail.
-    func testEveryBundledChainProducesADistinctEntry() {
-        let ids = AppState.diagnosticsBundleChains.map(\.id)
-        XCTAssertEqual(Set(ids).count, ids.count, "duplicate chain in the bundle list")
-    }
-
-    func testEveryBundledChainHasACaseInTheSwitch() {
+    /// The screen's document is the one the bundle carries for that chain.
+    func testChainDiagnosticsMatchTheBundle() async throws {
         let store = makeState()
-        // With no wallets every chain yields an empty-but-present document, so
-        // a `nil` here means the switch has no case for that chain at all.
-        for chain in AppState.diagnosticsBundleChains {
-            XCTAssertNotNil(store.diagnosticsJSON(for: chain), "no diagnosticsJSON case for \(chain.id)")
-        }
+        let diagnostics = try await store.chainDiagnostics(for: .bitcoin)
+        XCTAssertEqual(diagnostics.networkId, "bitcoin")
+        let fileURL = try await store.exportDiagnosticsBundle()
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+        let imported = try store.importDiagnosticsBundle(from: fileURL)
+        XCTAssertEqual(imported.chainDiagnosticsJson["bitcoin"], diagnostics.document)
     }
 }

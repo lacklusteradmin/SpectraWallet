@@ -40,16 +40,10 @@ func sendLiveActivityContentState(
         detailText = AppLocalization.format("Waiting for %@ to confirm this send.", transaction.chainName)
     case .complete:
         statusText = AppLocalization.string("Sent")
-        detailText = AppLocalization.format(
-            "Your %@ send from %@ is now confirmed on %@.",
-            transaction.symbol, transaction.walletName, transaction.chainName)
+        detailText = transaction.sendOutcomeDetail(for: .confirmed) ?? ""
     case .failed:
         statusText = AppLocalization.string("Send failed")
-        detailText =
-            transaction.localizedFailureReason
-            ?? AppLocalization.format(
-                "Your %@ send from %@ failed on %@.",
-                transaction.symbol, transaction.walletName, transaction.chainName)
+        detailText = transaction.sendOutcomeDetail(for: .failed) ?? ""
     }
     return SendTransactionLiveActivityAttributes.ContentState(
         phase: phase,

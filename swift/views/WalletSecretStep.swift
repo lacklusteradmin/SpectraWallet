@@ -29,7 +29,7 @@ struct WalletSecretStep: View {
     ]
     private var isPrivateKeyImportMode: Bool { draft.isPrivateKeyImportMode }
     private var canContinueFromSecretStep: Bool {
-        walletSetupCanContinueFromSecretStep(draft: draft, isImporting: store.walletImport.isBusy)
+        draft.isSecretComplete && !store.walletImport.isBusy
     }
 
     var body: some View {

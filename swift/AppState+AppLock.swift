@@ -2,6 +2,8 @@ import Foundation
 import LocalAuthentication
 
 enum DeviceAuthenticationAction {
+    /// `send` covers every use of a wallet's signing material that shows
+    /// nothing: signing, rebroadcasting and scanning a Monero wallet locally.
     case unlock, send, deleteWallet, resetData, revealSeedPhrase
 
     func requiresAuthentication(useFaceId: Bool, authenticateSends: Bool) -> Bool {

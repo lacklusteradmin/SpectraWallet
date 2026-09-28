@@ -8,10 +8,14 @@ import Foundation
 
 final class WalletRefreshObserver: RefreshObserver, @unchecked Sendable {
     weak var store: AppState?
-    // Per-wallet progress is for one-shot callers such as the CLI; the app
-    // reads the portfolio once, when the sweep's refresh completes. No
-    // logging: a summary carries every holding's amount.
-    func onBalanceUpdated(chainId: String, walletId: String, summary: WalletState?) {}
+    // Core reports each wallet as it lands; the app reads the portfolio at a
+    // bounded rate rather than once per wallet or only after the slowest
+    // chain. No logging: a summary carries every holding's amount.
+    func onBalanceUpdated(chainId: String, walletId: String, summary: WalletState?) {
+        Task { @MainActor [weak self] in
+            self?.store?.adoptBalanceProgress()
+        }
+    }
     func onRefreshCycleComplete(refreshed: UInt32, errors: UInt32) {}
     func onRefreshComplete(result: AppRefreshResult) {
         Task { @MainActor [weak self] in

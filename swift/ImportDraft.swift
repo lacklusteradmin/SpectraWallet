@@ -152,10 +152,17 @@ final class WalletImportDraft {
         if isWatchOnlyMode {
             return !watchOnlyEntriesByChainId.values.flatMap { $0 }.isEmpty || watchOnlyImportEntries.bitcoinXpub != nil
         }
+        return isSecretComplete && (!requiresBackupVerification || isBackupVerificationComplete)
+    }
+    /// Whether the secret step — a seed phrase or a private key — is complete
+    /// enough to move on. The one definition both the step and the submit use;
+    /// a private key's single-chain rule is the selection's own.
+    var isSecretComplete: Bool {
+        guard !selectedChainIds.isEmpty else { return false }
         if isPrivateKeyImportMode {
             return unsupportedPrivateKeyChainNames.isEmpty && isPrivateKeyHex(rawValue: privateKeyInput)
         }
-        return seedPhraseVerdict.checksumValid && (!requiresBackupVerification || isBackupVerificationComplete)
+        return seedPhraseVerdict.checksumValid
     }
     var requiresBackupVerification: Bool { isCreateMode }
     var isBackupVerificationComplete: Bool {

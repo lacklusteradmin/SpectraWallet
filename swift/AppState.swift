@@ -147,6 +147,7 @@ final class AppState {
     @ObservationIgnored var isNetworkReachable: Bool = true
     @ObservationIgnored var isConstrainedNetwork: Bool = false
     @ObservationIgnored var isExpensiveNetwork: Bool = false
+    /// When core last checked pending sends without a failure, from its clock.
     var lastPendingTransactionRefreshAt: Date? = nil
     let chainDiagnosticsState = WalletChainDiagnosticsState()
 
@@ -239,13 +240,6 @@ final class AppState {
         if state.priceAlerts != priceAlerts { priceAlerts = state.priceAlerts }
         return true
     }
-    /// A chain with no stored pick confirms at the default rate.
-    func feePriority(forChainId chainId: String) -> FeePriority {
-        appSettings.feePriorityByChain[chainId] ?? .normal
-    }
-    func setFeePriority(_ priority: FeePriority, forChainId chainId: String) {
-        updateSetting(.feePriority(chain: chainId, value: priority))
-    }
     /// A family with no selection reports itself, so the mainnet id is the
     /// default without being stored as one.
     func selectedChainId(forFamily family: String) -> String {
@@ -286,16 +280,10 @@ final class AppState {
     let preferences = AppUserPreferences()
     var isLoadingMoreOnChainHistory: Bool = false
     let diagnostics: WalletDiagnosticsState
-    /// Whether a chain's deep rescan is running, and when it last finished.
-    struct UTXORescanState { var isRunning: Bool = false; var lastRunAt: Date? = nil }
-    var utxoRescanStateByChain: [String: UTXORescanState] = [:]
-    subscript(rescanFor chain: Chain) -> UTXORescanState {
-        get { utxoRescanStateByChain[chain.id] ?? .init() }
-        set { utxoRescanStateByChain[chain.id] = newValue }
-    }
     @ObservationIgnored var userInitiatedRefreshTask: Task<Bool, Never>?
     @ObservationIgnored var importRefreshTask: Task<Void, Never>?
     @ObservationIgnored var walletSideEffectsTask: Task<Void, Never>?
+    @ObservationIgnored var balanceProgressTask: Task<Void, Never>? // Coalesces mid-sweep portfolio reads.
     @ObservationIgnored var appIsActive = true
     @ObservationIgnored var deviceConditionsTask: Task<Void, Never>? // Orders reports to core's engine.
 
@@ -379,6 +367,7 @@ final class AppState {
         userInitiatedRefreshTask?.cancel()
         importRefreshTask?.cancel()
         walletSideEffectsTask?.cancel()
+        balanceProgressTask?.cancel()
         #if canImport(Network)
             networkPathMonitor.cancel()
         #endif

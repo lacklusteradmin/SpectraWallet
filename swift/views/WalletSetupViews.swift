@@ -135,7 +135,7 @@ struct SetupView: View {
     private var setupTitle: String { pageCopy.title }
     private var setupSubtitle: String { pageCopy.subtitle }
     private var canContinueFromSecretStep: Bool {
-        walletSetupCanContinueFromSecretStep(draft: draft, isImporting: store.walletImport.isBusy)
+        draft.isSecretComplete && !store.walletImport.isBusy
     }
     private var canContinueToBackupVerification: Bool {
         canContinueFromSecretStep

@@ -3,6 +3,7 @@ import SwiftUI
 /// A cancellable projection of core's durable scan. No keys or scan state live in Swift.
 struct MoneroSyncView: View {
     let store: AppState
+    let walletId: String
     @State private var status: MoneroSyncStatus?
     @State private var password = ""
     @State private var restoreHeight = ""
@@ -23,7 +24,7 @@ struct MoneroSyncView: View {
                         Button(AppLocalization.string("Cancel")) { running = false }
                             .buttonStyle(.glass)
                     } else {
-                        if store.wallet(for: store.sendFlow.walletId)?.signing.requiresPassword ?? true {
+                        if store.wallet(for: walletId)?.signing.requiresPassword ?? true {
                             SecureField(AppLocalization.string("Wallet Password"), text: $password)
                                 .spectraInputFieldStyle()
                         }
@@ -42,38 +43,24 @@ struct MoneroSyncView: View {
                 .spectraCardFill()
             }
         }
-        .task(id: store.sendFlow.walletId) {
-            do { status = try await store.bridge.ready().moneroSyncStatus(walletId: store.sendFlow.walletId) }
+        .task(id: walletId) {
+            do { status = try await store.moneroSyncStatus(walletId: walletId) }
             catch { self.error = error.localizedDescription }
         }
         .task(id: running) {
             guard running else { return }
             defer { password = ""; running = false }
-            if let failure = await store.authenticate(.send, reason: AppLocalization.string("Authorize local wallet sync")) {
-                error = failure
-                return
-            }
-            do {
-                var height: UInt64?
-                if status?.targetHeight == 0 && !restoreHeight.isEmpty {
-                    guard let parsed = UInt64(restoreHeight) else {
-                        error = AppLocalization.string("Invalid restore height")
-                        return
-                    }
-                    height = parsed
+            var height: UInt64?
+            if status?.targetHeight == 0 && !restoreHeight.isEmpty {
+                guard let parsed = UInt64(restoreHeight) else {
+                    error = AppLocalization.string("Invalid restore height")
+                    return
                 }
-                let walletId = store.sendFlow.walletId
-                let secret = password.isEmpty ? nil : password
-                repeat {
-                    try Task.checkCancellation()
-                    status = try await store.bridge.ready().syncMoneroWallet(walletId: walletId, password: secret, restoreHeight: height)
-                    height = nil
-                } while status?.complete != true
-                error = nil
-                await store.refreshBalances()
-            } catch is CancellationError {
-                // Completed batches are already persisted by core.
-            } catch { self.error = error.localizedDescription }
+                height = parsed
+            }
+            error = await store.syncMoneroWallet(
+                walletId: walletId, password: password.isEmpty ? nil : password, restoreHeight: height
+            ) { status = $0 }
         }
         .onDisappear { password = ""; running = false }
     }

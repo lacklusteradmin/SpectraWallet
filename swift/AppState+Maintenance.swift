@@ -40,10 +40,8 @@ extension AppState {
     func adoptRefreshResult(_ result: AppRefreshResult) async -> Bool {
         let portfolioReadSucceeded = await rebuildWalletDerivedStateFromCore()
         let historyReadSucceeded = result.transactionsChanged ? await refreshTransactionProjection() : true
-        if let pending = result.pending {
-            await deliverPendingStatusChanges(pending.changes)
-            lastPendingTransactionRefreshAt = Date()
-        }
+        if let pending = result.pending { await deliverPendingStatusChanges(pending.changes) }
+        lastPendingTransactionRefreshAt = result.pendingCheckedAtUnix.map(Date.init(timeIntervalSince1970:))
         if result.transactionsChanged { await updateStagedSendVerificationNotice() }
         if result.diagnosticsChanged { await diagnostics.loadFromSQLite() }
         deliverPriceAlertNotifications(result.priceAlerts)

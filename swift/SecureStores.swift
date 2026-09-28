@@ -47,14 +47,15 @@ private struct KeychainBackedSecureStore: @unchecked Sendable {
     func loadData(for account: String) throws -> Data? { try keychain.getData(account) }
     func deleteValue(for account: String) throws { try keychain.remove(account) }
 }
-/// The bucket core keeps a sealed wallet's salt and password verifier in.
+/// Core's `generic` secrets: a sealed wallet's salt and password verifier, and
+/// a Monero wallet's view key.
 ///
-/// Neither is secret alone, so they sit beside rather than inside the sealed
-/// material. Reads and writes throw: `is_sealed` is answered by the verifier's
-/// presence, so a read failure reported as "nothing stored" would tell core a
-/// sealed wallet is not sealed. The service name predates this use.
+/// The salt and verifier are not secret alone, so they sit beside rather than
+/// inside the sealed material. Reads and writes throw: `is_sealed` is answered
+/// by the verifier's presence, so a read failure reported as "nothing stored"
+/// would tell core a sealed wallet is not sealed.
 enum SecureStore {
-    private static let storage = KeychainBackedSecureStore(service: "com.spectra.pricing")
+    private static let storage = KeychainBackedSecureStore(service: "com.spectra.wallet")
     static func save(_ value: String, for account: String) throws { try storage.save(value, for: account) }
     static func loadValue(for account: String) throws -> String { try storage.loadValue(for: account) }
     static func deleteValue(for account: String) throws { try storage.deleteValue(for: account) }

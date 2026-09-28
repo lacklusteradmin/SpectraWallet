@@ -92,7 +92,7 @@ struct AmountPresentation {
     /// had one. The exact figure is the transaction detail's to show.
     func compactNetworkFee(_ fee: String, value: Double?, chain: Chain) -> String {
         let native: String
-        if let text = formatAssetAmount(amount: fee, assetDecimals: UInt32(chain.nativeDecimals)) {
+        if let decimals = chain.nativeDecimals, let text = formatAssetAmount(amount: fee, assetDecimals: decimals) {
             let amount = Self.localizedDecimal(text.value)
             native = "\(text.belowThreshold ? "<" : "")\(amount) \(chain.gasTokenSymbol)"
         } else {
@@ -108,8 +108,14 @@ struct AmountPresentation {
     }
     /// A gas price in gwei: a rate, not an amount of anything held.
     func formattedGasPrice(gwei: Double, chain: Chain) -> String {
-        let formatter = AmountFormatters.shared.decimalFormatter(maximumFractionDigits: Int(chain.nativeDecimals))
-        return "\(formatter.string(from: NSNumber(value: gwei)) ?? "") gwei"
+        "\(Self.rateText(gwei, chain: chain)) gwei"
+    }
+    /// A rate to the chain's native precision, or every digit the value has
+    /// when the catalog does not say.
+    private static func rateText(_ value: Double, chain: Chain) -> String {
+        guard let decimals = chain.nativeDecimals else { return String(value) }
+        return AmountFormatters.shared.decimalFormatter(maximumFractionDigits: Int(decimals))
+            .string(from: NSNumber(value: value)) ?? String(value)
     }
 
     // MARK: - Transaction detail rows
@@ -131,8 +137,7 @@ struct AmountPresentation {
             return description
         }
         guard let rate = transaction.estimatedFeeRatePerKb, let chain = transaction.chain else { return nil }
-        let formatter = AmountFormatters.shared.decimalFormatter(maximumFractionDigits: Int(chain.nativeDecimals))
-        return "\(formatter.string(from: NSNumber(value: rate)) ?? "") \(chain.gasTokenSymbol)/KB"
+        return "\(Self.rateText(rate, chain: chain)) \(chain.gasTokenSymbol)/KB"
     }
     func historyMetadataText(for transaction: TransactionRecord) -> String? {
         var parts: [String] = []

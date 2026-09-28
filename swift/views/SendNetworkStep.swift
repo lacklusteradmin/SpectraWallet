@@ -82,7 +82,6 @@ struct SendNetworkStep: View {
             } else if selectedCoin.isUTXOChain, selectedCoin.isNativeCoin {
                 utxoFeePreviewContent(selectedCoin: selectedCoin, chain: chain)
             } else {
-                feePriorityContent(selectedCoin: selectedCoin)
                 simpleFeeContent(selectedCoin: selectedCoin, chain: chain)
             }
             sendPreviewDetailsContent(for: selectedCoin)
@@ -92,27 +91,9 @@ struct SendNetworkStep: View {
     // MARK: — Network sub-sections
 
     @ViewBuilder
-    private func feePriorityContent(selectedCoin: Coin) -> some View {
-        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
-            networkSectionHeader("Fee Priority")
-            Picker(AppLocalization.string("Fee Priority"), selection: chainFeePriorityBinding(for: selectedCoin.chainId)) {
-                ForEach(FeePriority.allCases, id: \.self) { priority in Text(priority.displayName).tag(priority) }
-            }.pickerStyle(.segmented)
-            Text(AppLocalization.string("Spectra stores this preference per chain. Some networks still use provider-managed fee estimation in this build."))
-                .font(.caption).foregroundStyle(.secondary)
-        }
-        Divider().opacity(0.3).padding(.vertical, SpectraLayout.Space.s)
-    }
-
-    @ViewBuilder
     private func utxoFeePreviewContent(selectedCoin: Coin, chain: Chain) -> some View {
         VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
             networkSectionHeader(AppLocalization.format("%@ Network", selectedCoin.chainName))
-            Picker(AppLocalization.string("Fee Priority"), selection: chainFeePriorityBinding(for: selectedCoin.chainId)) {
-                ForEach(FeePriority.allCases, id: \.self) { priority in Text(priority.displayName).tag(priority) }
-            }.pickerStyle(.segmented)
-            Text(AppLocalization.string("Spectra stores fee priority separately for each UTXO chain and applies it to live send previews for supported chains."))
-                .font(.caption).foregroundStyle(.secondary)
             // Loading was shown for the chain named Dogecoin only; every other
             // UTXO chain showed its stale preview, or the prompt, mid-fetch.
             if store.sendFlow.isPreparingPreview {
@@ -122,9 +103,6 @@ struct SendNetworkStep: View {
                     Text(AppLocalization.format("Estimated Fee Rate: %@ sat/vB", "\(preview.estimatedFeeRateSatVb)"))
                 }
                 if let fee = networkFeeText(quote, chain: chain) { Text(fee) }
-                if case .dogecoin(let preview) = quote.preview {
-                    Text(AppLocalization.format("Confirmation Preference: %@", confirmationPreferenceText(for: preview.feePriority)))
-                }
             } else {
                 Text(AppLocalization.format("Enter amount to preview estimated %@ network fee.", selectedCoin.chainName))
                     .font(.caption).foregroundStyle(.secondary)
@@ -308,19 +286,6 @@ struct SendNetworkStep: View {
             Text(AppLocalization.string(label)).font(.subheadline).foregroundStyle(.secondary)
             Spacer(minLength: SpectraLayout.Space.s)
             Text(value).font(.subheadline.weight(.semibold)).multilineTextAlignment(.trailing)
-        }
-    }
-
-    private func chainFeePriorityBinding(for chainId: String) -> Binding<FeePriority> {
-        Binding(get: { store.feePriority(forChainId: chainId) }, set: { store.setFeePriority($0, forChainId: chainId) })
-    }
-
-    /// Core reads the stored spelling; the parenthetical is this view's.
-    private func confirmationPreferenceText(for priority: String) -> String {
-        switch parseFeePriority(raw: priority) {
-        case .economy: return AppLocalization.string("Economy (cost-optimized)")
-        case .normal: return AppLocalization.string("Normal (balanced)")
-        case .priority: return AppLocalization.string("Priority (faster confirmation bias)")
         }
     }
 }

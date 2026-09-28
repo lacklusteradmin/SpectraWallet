@@ -1,43 +1,24 @@
 import Foundation
-import SwiftUI
 
-// Swift holds progress and rendered diagnostics; core owns probes and status updates.
+// Swift holds which runs are in flight; core runs them and records what they found.
 @MainActor
 extension AppState {
     func runHistoryDiagnostics(for chain: Chain) async {
-        guard !self[historyRunFor: chain].isRunning else { return }
-        self[historyRunFor: chain].isRunning = true
-        defer { self[historyRunFor: chain].isRunning = false }
-        try? await withTimeout(seconds: 20) { await self.refreshHistory(chain: chain) }
-        self[historyRunFor: chain].lastUpdatedAt = Date()
-    }
-
-    // MARK: Custom reachability probes that need inline JSON-RPC parsing
-
-    /// Run one chain's endpoint probe, holding its "checking" flag and owning
-    /// the write-back.
-    private func withEndpointCheck(
-        for chain: Chain, operation: (_ publish: @MainActor ([EndpointHealthRow]) -> Void) async -> Void
-    ) async {
-        guard !self[endpointHealthFor: chain].isChecking else { return }
-        self[endpointHealthFor: chain].isChecking = true
-        defer { self[endpointHealthFor: chain].isChecking = false }
-        await operation { rows in
-            self[endpointHealthFor: chain].results = rows
-            self[endpointHealthFor: chain].lastUpdatedAt = Date()
+        await chainDiagnosticsState.run(\.runningHistory, chainId: chain.id) {
+            try? await withTimeout(seconds: 20) { await self.refreshHistory(chain: chain) }
         }
     }
+
+    /// Core probes the network the family is on and keeps the result.
     func runEndpointDiagnostics(for chain: Chain) async {
-        await withEndpointCheck(for: chain) { publish in
+        await chainDiagnosticsState.run(\.checkingEndpoints, chainId: chain.id) {
             do {
-                let rows = try await self.bridge.ready().probeChainEndpoints(chainId: chain.id)
-                publish(rows.map { EndpointHealthRow(label: $0.checked ? "" : "Not checked", endpoint: $0.endpoint, reachable: $0.reachable, statusCode: nil, detail: $0.detail) })
+                _ = try await self.bridge.ready().probeChainEndpoints(chainId: self.selectedChainId(forFamily: chain.id))
             } catch {
-                publish([EndpointHealthRow(label: "", endpoint: chain.displayName, reachable: false, statusCode: nil, detail: error.localizedDescription)])
+                self.appendOperationalLog(.error, category: "Endpoints", message: error.localizedDescription, chainId: chain.id)
             }
         }
     }
-
 }
 
 /// UI deadline for the history diagnostic action; transport timeouts remain core's.

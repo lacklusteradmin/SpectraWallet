@@ -32,13 +32,10 @@ extension AppState {
         commandError = nil
         isShowingAddWalletEntry = false
     }
+    /// Core cleared what it recorded; screens re-read rather than keep a copy.
     private func resetDiagnosticsViewState() {
-        chainDiagnosticsState.historyRunByChain = [:]
-        chainDiagnosticsState.endpointHealthByChain = [:]
-        chainDiagnosticsState.selfTestsByChain = [:]
-        chainDiagnosticsState.lastImportedDiagnosticsBundle = nil
+        chainDiagnosticsState.diagnosticsRevision &+= 1
         isLoadingMoreOnChainHistory = false
         lastPendingTransactionRefreshAt = nil
-        utxoRescanStateByChain = [:]
     }
 }

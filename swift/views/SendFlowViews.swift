@@ -175,7 +175,7 @@ struct SendView: View {
         switch currentStep {
         case .from:
             SendFromPage(store: store)
-            MoneroSyncView(store: store).id(store.sendFlow.walletId)
+            MoneroSyncView(store: store, walletId: store.sendFlow.walletId).id(store.sendFlow.walletId)
             if !store.sendFlow.savedArtifacts.isEmpty {
                 DisclosureGroup(AppLocalization.string("Resume a transaction")) {
                     VStack(spacing: 0) {
@@ -381,7 +381,6 @@ struct SendView: View {
             store.sendFlow.customEvmPriorityFeeGwei,
             store.sendFlow.evmManualNonceEnabled.description,
             store.sendFlow.evmManualNonce,
-            String(describing: store.selectedSendCoin.map { store.feePriority(forChainId: $0.chainId) }),
         ].joined(separator: "|")
     }
 

@@ -22,9 +22,6 @@ enum AppEndpointDirectory {
     static func transactionExplorerLabel(for chainId: String) -> String? {
         entry(chainId)?.transactionExplorer?.label
     }
-    static func bitcoinEsploraBaseURLs(forChainId chainId: String) -> [String] {
-        byChainId[chainId]?.bitcoinEsplora ?? []
-    }
     /// Build the transaction URL from the explorer record's URL format.
     static func transactionExplorerURL(for chainId: String, transactionHash: String) -> URL? {
         guard let explorer = entry(chainId)?.transactionExplorer else { return nil }

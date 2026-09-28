@@ -77,8 +77,10 @@ extension Chain: Identifiable {
     /// The network’s native token symbol, derived by core.
     var gasTokenSymbol: String { entry?.gasTokenSymbol ?? "" }
 
-    /// The chain's native asset decimals, from the catalog.
-    var nativeDecimals: UInt32 { entry?.nativeDecimals ?? 8 }
+    /// The chain's native asset decimals, from the catalog. `nil` only if the
+    /// enum and the catalog have drifted; a guessed precision would misstate
+    /// every fee on the chain.
+    var nativeDecimals: UInt32? { entry?.nativeDecimals }
 
     /// A terse example of what an address on this chain looks like, or "" for
     /// a chain the catalog has no example for.

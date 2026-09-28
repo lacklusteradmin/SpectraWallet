@@ -108,36 +108,26 @@ final class WalletDiagnosticsState {
     }
 }
 
-/// View state for the diagnostics screens: results of runs the user started
-/// in this session and whether one is in flight. Persisted diagnostics rows
-/// live in core; `diagnosticsRevision` tells views to re-read them.
+/// Which diagnostics runs are in flight, keyed by chain id, and a revision
+/// that tells screens to re-read what core recorded. Results live in core.
 @MainActor
 @Observable
 final class WalletChainDiagnosticsState {
     var diagnosticsRevision: Int = 0
+    var runningHistory: Set<String> = []
+    var checkingEndpoints: Set<String> = []
+    var runningSelfTests: Set<String> = []
+    var runningRescans: Set<String> = []
 
-    /// One chain's self-test state, keyed by chain id.
-    struct SelfTests {
-        var results: [ChainSelfTestResult] = []
-        var isRunning: Bool = false
-        var lastRunAt: Date?
+    /// Hold `chainId`'s slot in `runs` for `operation`, then tell screens to
+    /// re-read. A run already in flight is not started twice.
+    func run(
+        _ runs: ReferenceWritableKeyPath<WalletChainDiagnosticsState, Set<String>>, chainId: String,
+        _ operation: () async -> Void
+    ) async {
+        guard self[keyPath: runs].insert(chainId).inserted else { return }
+        await operation()
+        self[keyPath: runs].remove(chainId)
+        diagnosticsRevision &+= 1
     }
-    var selfTestsByChain: [String: SelfTests] = [:]
-
-    /// One chain's endpoint-health state, keyed by chain id.
-    struct EndpointHealth {
-        var results: [EndpointHealthRow] = []
-        var lastUpdatedAt: Date?
-        var isChecking: Bool = false
-    }
-    var endpointHealthByChain: [String: EndpointHealth] = [:]
-
-    /// Last-run time and in-flight state for each chain's history diagnostics.
-    struct HistoryRun {
-        var lastUpdatedAt: Date?
-        var isRunning: Bool = false
-    }
-    var historyRunByChain: [String: HistoryRun] = [:]
-
-    var lastImportedDiagnosticsBundle: DiagnosticsBundlePayload?
 }

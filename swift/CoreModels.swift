@@ -3,17 +3,6 @@ import SwiftUI
 #if canImport(UIKit)
     import UIKit
 #endif
-/// Picker wording and iteration order for core's `FeePriority` enum.
-extension FeePriority: CaseIterable {
-    public static var allCases: [FeePriority] { [.economy, .normal, .priority] }
-    var displayName: String {
-        switch self {
-        case .economy: return AppLocalization.string("Economy")
-        case .normal: return AppLocalization.string("Normal")
-        case .priority: return AppLocalization.string("Priority")
-        }
-    }
-}
 extension SendPreviewDetails {
     /// Whether the preview says anything the fee rows and the amount page
     /// have not: an EVM fee rate is already rows of its own, and the balance
@@ -238,6 +227,18 @@ extension TransactionRecord {
     var transactionExplorerLabel: String? {
         guard transactionHash != nil else { return nil }
         return AppEndpointDirectory.transactionExplorerLabel(for: chainId)
+    }
+    /// The sentence a finished send reports, on the lock screen and in a
+    /// notification alike; `nil` while it is still pending.
+    func sendOutcomeDetail(for status: TransactionStatus) -> String? {
+        switch status {
+        case .pending: return nil
+        case .confirmed:
+            return AppLocalization.format("Your %@ send from %@ is now confirmed on %@.", symbol, walletName, chainName)
+        case .failed:
+            return localizedFailureReason
+                ?? AppLocalization.format("Your %@ send from %@ failed on %@.", symbol, walletName, chainName)
+        }
     }
     /// The failure reason to show, localized. Core stores the reason; the
     /// words are made here so they follow the reader's language.

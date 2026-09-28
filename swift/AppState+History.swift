@@ -24,10 +24,6 @@ extension AppState {
         do {
             let results = try await self.bridge.ready().refreshHistory(
                 scope: scope, loadMore: loadMore, limit: nil, intervalSecs: interval)
-            for result in results {
-                guard let chain = Chain(id: result.chainId), result.outcome?.diagnostics.isEmpty == false else { continue }
-                self[historyRunFor: chain].lastUpdatedAt = Date()
-            }
             chainDiagnosticsState.diagnosticsRevision &+= 1
             await diagnostics.loadFromSQLite()
             // Loading more always moves a cursor, even when every page was already stored.

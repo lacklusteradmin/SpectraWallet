@@ -36,6 +36,18 @@ extension AppState {
         cachedDashboardAssetGroups = snapshot.groups
         cachedAvailableDashboardPinOptions = snapshot.pinOptions
     }
+    /// A sweep reports each wallet as core commits it. Read the portfolio at
+    /// most once per interval while wallets keep landing, so balances appear
+    /// as they arrive rather than when the slowest chain finishes.
+    func adoptBalanceProgress() {
+        guard balanceProgressTask == nil else { return }
+        balanceProgressTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(300))
+            guard let self, !Task.isCancelled else { return }
+            self.balanceProgressTask = nil
+            await self.rebuildWalletDerivedStateFromCore()
+        }
+    }
     /// Reconcile background services after a changed wallet projection. Reading
     /// a projection never starts another projection read.
     func applyWalletCollectionSideEffects() {
