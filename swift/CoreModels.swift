@@ -225,7 +225,12 @@ extension TransactionRecord {
         let trimmed = signedTransactionPayloadFormat.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.isEmpty ? nil : trimmed
     }
-    var fullTimestampText: String { createdDate.formatted(date: .abbreviated, time: .standard) }
+    /// Core stores a time it does not know as a date before any chain existed.
+    var hasKnownDate: Bool { createdAtUnix > 0 }
+    var fullTimestampText: String {
+        hasKnownDate
+            ? createdDate.formatted(date: .abbreviated, time: .standard) : AppLocalization.string("Unknown date")
+    }
     var transactionExplorerURL: URL? {
         guard let transactionHash, !transactionHash.isEmpty else { return nil }
         return AppEndpointDirectory.transactionExplorerURL(for: chainId, transactionHash: transactionHash)

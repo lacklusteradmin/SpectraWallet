@@ -176,6 +176,10 @@ struct HistoryView: View {
     private var groupedSections: [HistoryPresentationSection] {
         let calendar = Calendar.current
         let grouped = Dictionary(grouping: pagedRows) { row in
+            // Core sorts these as the newest; they have no date to group by.
+            if !row.transaction.hasKnownDate, row.transaction.status == .pending {
+                return AppLocalization.string("Unconfirmed")
+            }
             if calendar.isDateInToday(row.transaction.createdDate) { return AppLocalization.string("Today") }
             if calendar.isDateInYesterday(row.transaction.createdDate) { return AppLocalization.string("Yesterday") }
             return AppLocalization.string("Older")
@@ -184,11 +188,13 @@ struct HistoryView: View {
         switch selectedSortOrder {
         case .newest:
             order = [
-                AppLocalization.string("Today"), AppLocalization.string("Yesterday"), AppLocalization.string("Older"),
+                AppLocalization.string("Unconfirmed"), AppLocalization.string("Today"),
+                AppLocalization.string("Yesterday"), AppLocalization.string("Older"),
             ]
         case .oldest:
             order = [
-                AppLocalization.string("Older"), AppLocalization.string("Yesterday"), AppLocalization.string("Today"),
+                AppLocalization.string("Older"), AppLocalization.string("Yesterday"),
+                AppLocalization.string("Today"), AppLocalization.string("Unconfirmed"),
             ]
         }
         return order.compactMap { title in
