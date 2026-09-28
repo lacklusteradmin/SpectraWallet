@@ -29,7 +29,6 @@ extension AppState {
         receiveFlow.reset()
         sendFlow.reset()
         walletImport.close()
-        walletPendingDeletion = nil
         commandError = nil
         isShowingAddWalletEntry = false
     }

@@ -319,14 +319,7 @@ struct WalletDetailView: View {
     private var walletHoldingsCard: some View {
         let holdings = detailPresentation.visibleHoldingPresentations
         VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-            HStack(spacing: SpectraLayout.Space.s) {
-                Text(localizedWalletFlowString("Holdings")).font(.headline).foregroundStyle(Color.primary)
-                Spacer()
-                if !holdings.isEmpty {
-                    Text("\(holdings.count)").font(.caption.weight(.bold)).foregroundStyle(.tint).padding(
-                        .horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs).background(Capsule(style: .continuous).fill(Color.accentColor.opacity(0.14)))
-                }
-            }
+            Text(localizedWalletFlowString("Holdings")).font(.headline).foregroundStyle(Color.primary)
             if holdings.isEmpty {
                 SpectraEmptyStateContent(
                     title: "No assets loaded",
@@ -420,7 +413,7 @@ private struct WalletAdvancedDetailsView: View {
     private var requiresSeedPhrasePassword: Bool { displayedWallet.signing.requiresPassword }
     private var deleteWalletMessage: String {
         if isWatchOnly {
-            return localizedWalletFlowString("You can't recover this wallet after deletion until you still have this address.")
+            return localizedWalletFlowString("You can't recover this wallet after deletion unless you still have this address.")
         }
         if isPrivateKeyWallet {
             return localizedWalletFlowString("Please keep this private key because you can't recover this wallet after deletion.")
@@ -500,10 +493,7 @@ private struct WalletAdvancedDetailsView: View {
             SetupView(store: store, draft: store.walletImport.draft)
         }.alert(localizedWalletFlowString("Delete Wallet?"), isPresented: $isShowingDeleteWalletAlert) {
             Button(localizedWalletFlowString("Delete"), role: .destructive) {
-                Task {
-                    store.confirmDeleteWallet(wallet)
-                    await store.deletePendingWallet()
-                }
+                Task { await store.deleteWallet(wallet) }
             }
             Button(localizedWalletFlowString("Cancel"), role: .cancel) {
                 isShowingDeleteWalletAlert = false

@@ -646,7 +646,7 @@
   "Yes": "Yes",
   "Yesterday": "Yesterday",
   "You can update the label for this saved address. The chain, address, and note stay fixed.": "You can update the label for this saved address. The chain, address, and note stay fixed.",
-  "You can't recover this wallet after deletion until you still have this address.": "You can't recover this wallet after deletion until you still have this address.",
+  "You can't recover this wallet after deletion unless you still have this address.": "You can't recover this wallet after deletion unless you still have this address.",
   "You must have your seed phrase backed up. Without it, you cannot recover your funds after reset.": "You must have your seed phrase backed up. Without it, you cannot recover your funds after reset.",
   "Your %@ send from %@ failed on %@.": "Your %@ send from %@ failed on %@.",
   "Your %@ send from %@ is now confirmed on %@.": "Your %@ send from %@ is now confirmed on %@.",

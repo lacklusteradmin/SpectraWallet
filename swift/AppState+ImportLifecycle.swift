@@ -15,14 +15,15 @@ extension AppState {
     func beginEditingWallet(_ wallet: WalletView) {
         walletImport.begin(editing: wallet) { $0.configureForEditing(wallet: wallet) }
     }
-    func confirmDeleteWallet(_ wallet: WalletView) { walletPendingDeletion = wallet }
-    func deletePendingWallet() async {
-        guard let walletPendingDeletion else { return }
+    /// Deletes a wallet the user has already confirmed. Nothing is held
+    /// between the confirmation and the authentication, so a refused Face ID
+    /// leaves no half-started deletion behind.
+    func deleteWallet(_ wallet: WalletView) async {
         if let failure = await authenticate(.deleteWallet, reason: AppLocalization.string("Authenticate to delete wallet")) {
             commandError = failure
             return
         }
-        let deletedWalletId = walletPendingDeletion.id
+        let deletedWalletId = wallet.id
         // Core forgets the wallet's secrets, owned addresses, history
         // pagination and diagnostics rows in the same removal.
         guard await removeWallet(id: deletedWalletId) else { return }
@@ -36,7 +37,6 @@ extension AppState {
             walletImport.close()
         }
         selectedMainTab = .home
-        self.walletPendingDeletion = nil
         if wallets.isEmpty { cancelWalletImport() }
     }
     func importWallet() async {

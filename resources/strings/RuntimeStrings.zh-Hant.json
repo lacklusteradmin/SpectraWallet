@@ -646,7 +646,7 @@
   "Yes": "是",
   "Yesterday": "昨天",
   "You can update the label for this saved address. The chain, address, and note stay fixed.": "你可以更新這個已保存地址的標籤。鏈、地址和備注會保持不變。",
-  "You can't recover this wallet after deletion until you still have this address.": "刪除後將無法恢復此錢包，除非你仍保留該地址。",
+  "You can't recover this wallet after deletion unless you still have this address.": "刪除後將無法恢復此錢包，除非你仍保留該地址。",
   "You must have your seed phrase backed up. Without it, you cannot recover your funds after reset.": "你必須已經備份助記詞。沒有它，重置後將無法恢復資金。",
   "Your %@ send from %@ failed on %@.": "您從 %@ 發出的 %@ 轉賬已在 %@ 上失敗。",
   "Your %@ send from %@ is now confirmed on %@.": "您從 %@ 發出的 %@ 轉賬現已在 %@ 上確認。",

@@ -135,7 +135,6 @@ final class AppState {
     /// Why the last state command, or a wallet deletion, did not go through.
     /// Flows with their own refusal field — contacts, tokens, alerts — use that.
     var commandError: String?
-    var walletPendingDeletion: WalletView?
     var selectedMainTab: MainAppTab = .home {
         didSet { if selectedMainTab != oldValue { reportDeviceConditions() } }
     }

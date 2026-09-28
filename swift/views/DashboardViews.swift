@@ -6,13 +6,6 @@ struct DashboardView: View {
     @State private var selectedWalletId: String?
     @State private var selectedAssetGroup: DashboardAssetGroup?
     @ScaledMetric(relativeTo: .caption2) private var torBadgeFontSize: CGFloat = 8
-    private var deleteWalletMessage: String {
-        guard let pendingWallet = store.walletPendingDeletion else { return "" }
-        if pendingWallet.signing.isWatchOnly {
-            return AppLocalization.string("You can't recover this wallet after deletion until you still have this address.")
-        }
-        return AppLocalization.string("Please take note of your seed phrase because you can't recover this wallet after deletion.")
-    }
     private var selectedWallet: WalletView? {
         guard let selectedWalletId else { return nil }
         return store.wallet(for: selectedWalletId)
@@ -69,20 +62,6 @@ struct DashboardView: View {
                     isPresented: Bindable(store.receiveFlow).isPresented
                 ) {
                     ReceiveView(store: store)
-                }.alert(
-                    AppLocalization.string("Delete Wallet?"),
-                    isPresented: .isPresent($store.walletPendingDeletion)
-                ) {
-                    Button(AppLocalization.string("Delete"), role: .destructive) {
-                        Task {
-                            await store.deletePendingWallet()
-                        }
-                    }
-                    Button(AppLocalization.string("Cancel"), role: .cancel) {
-                        store.walletPendingDeletion = nil
-                    }
-                } message: {
-                    Text(deleteWalletMessage)
                 }.navigationDestination(isPresented: $isNavigatingToPinnedAssets) {
                     PinnedAssetsView(store: store)
                 }
@@ -422,14 +401,7 @@ private struct AssetChainBreakdownCard: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-            HStack(spacing: SpectraLayout.Space.s) {
-                Text(AppLocalization.string("Chain Breakdown")).font(.headline).foregroundStyle(Color.primary)
-                Spacer()
-                if !holdsNothing, assetGroup.holdings.count > 1 {
-                    Text("\(assetGroup.holdings.count)").font(.caption.weight(.bold)).foregroundStyle(.tint).padding(
-                        .horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs).background(Capsule(style: .continuous).fill(Color.accentColor.opacity(0.14)))
-                }
-            }
+            Text(AppLocalization.string("Chain Breakdown")).font(.headline).foregroundStyle(Color.primary)
             if holdsNothing {
                 Text(AppLocalization.string("No balance on any chain."))
                     .font(.subheadline).foregroundStyle(.secondary)
