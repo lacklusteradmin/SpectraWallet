@@ -158,7 +158,7 @@ import Foundation
             } catch { }
         }
 
-        func testUnvaluedFiguresAreUnavailableAndPartialTotalsAreLabelled() async {
+        func testUnvaluedFiguresAreUnavailableAndPartialTotalsShowTheFigureAlone() async {
             let store = makeState()
             await store.awaitPendingCoreStateWrites()
             let before = store.selectedFiatCurrency
@@ -167,7 +167,7 @@ import Foundation
             XCTAssertEqual(store.amounts.formattedFiat(nil), "—")
             XCTAssertEqual(store.amounts.formattedQuotedTotal(nil), "—")
             let incomplete = QuotedTotal(total: 6000, unpricedCount: 1, fiatTotal: 5400)
-            XCTAssertTrue(store.amounts.formattedQuotedTotal(incomplete).contains(AppLocalization.format("%lld without a price", 1)))
+            XCTAssertEqual(store.amounts.formattedQuotedTotal(incomplete), store.amounts.formattedFiat(5400))
             await store.setFiatCurrency(before)
         }
 

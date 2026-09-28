@@ -5,6 +5,7 @@ struct DashboardView: View {
     @State private var isNavigatingToPinnedAssets = false
     @State private var selectedWalletId: String?
     @State private var selectedAssetGroup: DashboardAssetGroup?
+    @ScaledMetric(relativeTo: .caption2) private var torBadgeFontSize: CGFloat = 8
     private var deleteWalletMessage: String {
         guard let pendingWallet = store.walletPendingDeletion else { return "" }
         if pendingWallet.signing.isWatchOnly {
@@ -128,7 +129,8 @@ struct DashboardView: View {
                 .frame(width: 24, height: 24)
             if case .bootstrapping(let pct) = status {
                 Text("\(pct)%")
-                    .font(.system(size: 7, weight: .bold))
+                    .font(.system(size: torBadgeFontSize, weight: .bold))
+                    .monospacedDigit()
                     .foregroundStyle(.white)
                     .padding(.horizontal, SpectraLayout.Space.xxs)
                     .padding(.vertical, SpectraLayout.Space.xxs)
@@ -667,12 +669,6 @@ struct DashboardNoticeCardView: View {
 
 private struct DashboardPortfolioHeader: View {
     @Bindable var store: AppState
-    /// The wallets the total adds up, which is what the card opens to choose.
-    private var portfolioWalletCountText: String {
-        let count = store.wallets.filter(\.includeInPortfolioTotal).count
-        return AppLocalization.format(
-            count == 1 ? "dashboard.portfolio.walletCount.one" : "dashboard.portfolio.walletCount.other", count)
-    }
     var body: some View {
         NavigationLink {
             PortfolioWalletSelectionView(store: store)
@@ -680,11 +676,8 @@ private struct DashboardPortfolioHeader: View {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                     Text(AppLocalization.string("Portfolio")).font(.subheadline).foregroundStyle(.secondary)
-                    let quoted = store.portfolioQuotedTotal
-                    Text(store.preferences.hideBalances ? "••••••" : store.amounts.formattedQuotedTotal(quoted))
+                    Text(store.preferences.hideBalances ? "••••••" : store.amounts.formattedQuotedTotal(store.portfolioQuotedTotal))
                         .font(.title.weight(.bold)).foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.5).allowsTightening(true)
-                    Text(portfolioWalletCountText).font(.footnote).foregroundStyle(.secondary)
-
                 }
                 Spacer()
                 Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)

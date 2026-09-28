@@ -12,6 +12,7 @@ struct WalletSecretStep: View {
     @FocusState private var focusedSeedPhraseIndex: Int?
     @State private var customSeedPhraseWordCountInput: String
     @State private var isShowingDerivationOptions = false
+    @ScaledMetric(relativeTo: .caption2) private var wordIndexWidth: CGFloat = 16
 
     @MainActor
     init(store: AppState, draft: WalletImportDraft, showsBackupVerification: Bool) {
@@ -192,8 +193,8 @@ struct WalletSecretStep: View {
         let isFocused = focusedSeedPhraseIndex == index
         let accentColor: Color = isInvalidWord ? Color.red.opacity(0.85) : Color.accentColor.opacity(0.7)
         HStack(spacing: SpectraLayout.Space.xs) {
-            Text("\(index + 1)").font(.system(size: 10, weight: .bold)).foregroundStyle(.tertiary)
-                .frame(width: 14, alignment: .trailing).monospacedDigit()
+            Text("\(index + 1)").font(.caption2.weight(.bold)).foregroundStyle(.tertiary)
+                .frame(width: wordIndexWidth, alignment: .trailing).monospacedDigit()
             if let text {
                 Text(text).font(.system(.footnote, design: .monospaced).weight(.medium))
                     .foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.7)

@@ -34,7 +34,6 @@
   "%lld results": "%lld results",
   "%lld selected": "%lld selected",
   "%lld valid %@ address%@ ready to import.": "%lld valid %@ address%@ ready to import.",
-  "%lld without a price": "%lld without a price",
   "%lld words": "%lld words",
   "(default)": "(default)",
   "+%d more": "+%d more",
@@ -83,6 +82,7 @@
   "Balanced": "Balanced",
   "Before You Continue": "Before You Continue",
   "Below": "Below",
+  "Below %@": "Below %@",
   "Biometric Confirmation For Send Actions": "Biometric Confirmation For Send Actions",
   "Bitcoin": "Bitcoin",
   "Bitcoin Cash": "Bitcoin Cash",
@@ -248,6 +248,7 @@
   "HMAC Master Key": "HMAC Master Key",
   "Help": "Help",
   "Hide balances": "Hide balances",
+  "Hide small amounts": "Hide small amounts",
   "High": "High",
   "History": "History",
   "History & Cache": "History & Cache",
@@ -1036,8 +1037,6 @@
   "settings.buyListingNote": "Listed alphabetically. Spectra is not affiliated with any of them and does not receive a fee.",
   "settings.buyWarning": "Spectra does not process purchases. Always double-check the wallet address, selected chain, and asset before paying, because crypto transfers are typically irreversible.",
   "Action Failed": "Action Failed",
-  "dashboard.portfolio.walletCount.one": "Across %lld wallet",
-  "dashboard.portfolio.walletCount.other": "Across %lld wallets",
   "Pinned assets stay in the Assets list even when their balance is zero.": "Pinned assets stay in the Assets list even when their balance is zero.",
   "Technical Details": "Technical Details"
 }

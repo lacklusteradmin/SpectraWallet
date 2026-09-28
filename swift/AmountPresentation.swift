@@ -29,11 +29,11 @@ struct AmountPresentation {
         }
         return formatter.string(from: NSNumber(value: value))
     }
+    /// The figure alone. An unpriced holding already shows "—" on its own
+    /// row, so the total does not repeat it.
     func formattedQuotedTotal(_ total: QuotedTotal?) -> String {
         guard let total, let fiat = total.fiatTotal else { return "—" }
-        let amount = formattedFiat(fiat)
-        guard total.unpricedCount > 0 else { return amount }
-        return amount + " · " + AppLocalization.format("%lld without a price", total.unpricedCount)
+        return formattedFiat(fiat)
     }
     func formattedWalletTotal(walletId: String) -> String {
         formattedQuotedTotal(valuation?.wallets[walletId])

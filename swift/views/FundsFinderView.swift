@@ -23,6 +23,7 @@ struct FundsFinderView: View {
     @State private var wordSlots: [String] = Array(repeating: "", count: 24)
     @State private var showAll24: Bool = false
     @FocusState private var focusedSlot: Int?
+    @ScaledMetric(relativeTo: .caption2) private var wordIndexWidth: CGFloat = 16
     @State private var isScanning = false
     @State private var progress: Double = 0
     @State private var hits: [FundsFinderHit] = []
@@ -195,9 +196,10 @@ struct FundsFinderView: View {
     private func wordSlotView(index: Int, slotCount: Int) -> some View {
         HStack(spacing: SpectraLayout.Space.xs) {
             Text("\(index + 1)")
-                .font(.system(size: 10, weight: .bold))
+                .font(.caption2.weight(.bold))
+                .monospacedDigit()
                 .foregroundStyle(.tertiary)
-                .frame(width: 14, alignment: .trailing)
+                .frame(width: wordIndexWidth, alignment: .trailing)
             TextField("", text: Binding(
                 get: { wordSlots[index] },
                 set: { newVal in

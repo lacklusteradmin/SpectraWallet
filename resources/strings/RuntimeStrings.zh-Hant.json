@@ -34,7 +34,6 @@
   "%lld results": "%lld 條結果",
   "%lld selected": "已選擇 %lld 项",
   "%lld valid %@ address%@ ready to import.": "%1$lld 個有效的 %2$@ 地址%3$@，可導入。",
-  "%lld without a price": "%lld 項無報價",
   "%lld words": "%lld 個單詞",
   "(default)": "（預設）",
   "+%d more": "+%d 個更多",
@@ -83,6 +82,7 @@
   "Balanced": "平衡",
   "Before You Continue": "繼續前請確認",
   "Below": "低於",
+  "Below %@": "低於 %@",
   "Biometric Confirmation For Send Actions": "發送操作生物識別確認",
   "Bitcoin": "Bitcoin",
   "Bitcoin Cash": "Bitcoin Cash",
@@ -248,6 +248,7 @@
   "HMAC Master Key": "HMAC 主金鑰",
   "Help": "幫助",
   "Hide balances": "隱藏餘額",
+  "Hide small amounts": "隱藏小額交易",
   "High": "高",
   "History": "歷史",
   "History & Cache": "歷史與緩存",
@@ -1036,8 +1037,6 @@
   "settings.buyWarning": "Spectra 不處理購買流程。付款前請務必再次確認錢包地址、所選鏈和資產，因為加密轉賬通常不可逆。",
   "settings.reportProblemActionTitle": "打開反饋表單",
   "Action Failed": "操作失敗",
-  "dashboard.portfolio.walletCount.one": "來自 %lld 個錢包",
-  "dashboard.portfolio.walletCount.other": "來自 %lld 個錢包",
   "Pinned assets stay in the Assets list even when their balance is zero.": "即使餘額為零，固定資產也會保留在“資產”列表中。",
   "Technical Details": "技術詳情"
 }

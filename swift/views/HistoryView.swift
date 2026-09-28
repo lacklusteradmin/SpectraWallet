@@ -49,6 +49,7 @@ struct HistoryView: View {
     @State private var selectedFilter: HistoryQueryFilter = .all
     @State private var selectedSortOrder: HistorySortOrder = .newest
     @State private var selectedWalletId: String?
+    @State private var hidesSmallAmounts = false
     @State private var searchText: String = ""
     @State private var pageRecords: [TransactionRecord] = []
     @State private var nextCursor: String?
@@ -152,6 +153,10 @@ struct HistoryView: View {
             Picker(AppLocalization.string("Sort"), selection: $selectedSortOrder) {
                 ForEach(HistorySortOrder.allCases) { sortOrder in Text(sortOrder.localizedTitle).tag(sortOrder) }
             }
+            Toggle(isOn: $hidesSmallAmounts) {
+                Text(AppLocalization.string("Hide small amounts"))
+                Text(AppLocalization.format("Below %@", AmountPresentation.localizedDecimal(historySmallAmountThreshold())))
+            }
         } label: {
             Image(systemName: "line.3.horizontal.decrease.circle")
         }.accessibilityLabel(AppLocalization.string("Filter history"))
@@ -194,7 +199,7 @@ struct HistoryView: View {
     private var historyError: String? { pageError ?? store.historyReadError }
     private var visibleTransactions: [TransactionRecord] { pageRecords }
     private var filterKey: String {
-        "\(selectedWalletId ?? "")|\(selectedFilter)|\(selectedSortOrder)|\(searchText)"
+        "\(selectedWalletId ?? "")|\(selectedFilter)|\(selectedSortOrder)|\(hidesSmallAmounts)|\(searchText)"
     }
     private var queryKey: String { "\(filterKey)|\(store.transactionRevision)|\(store.walletsRevision)" }
     private static let pageSize = 20
@@ -223,7 +228,8 @@ struct HistoryView: View {
                 let page = try await bridge.historyPage(query: HistoryQuery(
                     walletId: selectedWalletId, filter: selectedFilter, search: searchText,
                     oldestFirst: selectedSortOrder == .oldest, cursor: cursor,
-                    limit: UInt32(min(target - records.count, Self.maxQueryLimit))))
+                    limit: UInt32(min(target - records.count, Self.maxQueryLimit)),
+                    hideSmallAmounts: hidesSmallAmounts))
                 guard !Task.isCancelled, pageRequestId == requestId, queryKey == key else { return }
                 records += page.records
                 cursor = page.nextCursor

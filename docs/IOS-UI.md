@@ -50,7 +50,8 @@ Official references:
 - **Theme colour:** one accent, the asset catalog's `AccentColor` (system
   orange), set as the target's global accent. Tab bar, links, prominent
   buttons, list icons and selection read it on their own; switches get it from
-  `UISwitch.appearance()` in `SpectraApp`. Views write `.tint` or
+  the root toggle style in `SpectraApp`, not `UISwitch.appearance()`, which
+  SwiftUI overrides when a toggle re-renders. Views write `.tint` or
   `Color.accentColor`, never a literal orange, so the theme colour can change
   in one place. Toolbar glyphs stay monochrome. Decorative icons are the
   accent, not a per-row colour. The other colours are semantic and do not

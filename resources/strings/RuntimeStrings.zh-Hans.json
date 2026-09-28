@@ -34,7 +34,6 @@
   "%lld results": "%lld 条结果",
   "%lld selected": "已选择 %lld 项",
   "%lld valid %@ address%@ ready to import.": "%1$lld 个有效的 %2$@ 地址%3$@，可导入。",
-  "%lld without a price": "%lld 项无报价",
   "%lld words": "%lld 个单词",
   "(default)": "（默认）",
   "+%d more": "+%d 个更多",
@@ -83,6 +82,7 @@
   "Balanced": "平衡",
   "Before You Continue": "继续前请确认",
   "Below": "低于",
+  "Below %@": "低于 %@",
   "Biometric Confirmation For Send Actions": "发送操作生物识别确认",
   "Bitcoin": "Bitcoin",
   "Bitcoin Cash": "Bitcoin Cash",
@@ -248,6 +248,7 @@
   "HMAC Master Key": "HMAC 主密钥",
   "Help": "帮助",
   "Hide balances": "隐藏余额",
+  "Hide small amounts": "隐藏小额交易",
   "High": "高",
   "History": "历史",
   "History & Cache": "历史与缓存",
@@ -1036,8 +1037,6 @@
   "settings.buyListingNote": "按字母顺序排列。Spectra 与其中任何一家都无关联，也不从中收取费用。",
   "settings.buyWarning": "Spectra 不处理购买流程。付款前请务必再次确认钱包地址、所选链和资产，因为加密转账通常不可逆。",
   "Action Failed": "操作失败",
-  "dashboard.portfolio.walletCount.one": "来自 %lld 个钱包",
-  "dashboard.portfolio.walletCount.other": "来自 %lld 个钱包",
   "Pinned assets stay in the Assets list even when their balance is zero.": "即使余额为零，固定资产也会保留在“资产”列表中。",
   "Technical Details": "技术详情"
 }
