@@ -2,31 +2,57 @@ import Foundation
 import SwiftUI
 import UIKit
 
-private enum ReceiveFlowStep: Int, CaseIterable, Identifiable {
-    case wallet
-    case address
+/// Receive starts on the wallet list; choosing a wallet pushes its address,
+/// so the navigation bar's back button and swipe return to the list.
+struct ReceiveView: View {
+    @Bindable var store: AppState
+    @State private var isShowingAddress = false
 
-    var id: Int { rawValue }
-
-    var title: String {
-        switch self {
-        case .wallet: return "Wallet"
-        case .address: return "Address"
+    var body: some View {
+        // One wallet leaves nothing to choose: `beginReceive` selected it.
+        if store.receiveEnabledWallets.count == 1 {
+            ReceiveAddressView(store: store)
+        } else {
+            walletList
+                .navigationDestination(isPresented: $isShowingAddress) {
+                    ReceiveAddressView(store: store)
+                }
         }
     }
 
-    var systemImage: String {
-        switch self {
-        case .wallet: return "wallet.pass.fill"
-        case .address: return "qrcode"
+    private var walletList: some View {
+        ReceiveScreen(store: store, title: "Receive") {
+            if store.receiveEnabledWallets.isEmpty {
+                SpectraEmptyStateCard(
+                    title: "No receive wallets",
+                    message: "Import a wallet to generate receive addresses.",
+                    systemImage: "wallet.pass"
+                )
+            } else {
+                SpectraRowGroup(data: store.receiveEnabledWallets) { wallet in
+                    WalletReceiveRow(
+                        wallet: wallet,
+                        isSelected: wallet.id == store.receiveFlow.walletId
+                    ) {
+                        select(wallet)
+                    }
+                }
+            }
         }
+    }
+
+    private func select(_ wallet: WalletView) {
+        spectraHaptic(.light)
+        if store.receiveFlow.walletId != wallet.id {
+            store.receiveFlow.walletId = wallet.id
+            store.syncReceiveAssetSelection()
+        }
+        isShowingAddress = true
     }
 }
 
-struct ReceiveView: View {
+private struct ReceiveAddressView: View {
     @Bindable var store: AppState
-    @State private var currentStep: ReceiveFlowStep = .wallet
-    @State private var flowDirection: Int = 1
     @State private var didCopy: Bool = false
     @State private var isShowingShareSheet: Bool = false
     @State private var qrExportMessage: String?
@@ -57,34 +83,9 @@ struct ReceiveView: View {
     }
 
     var body: some View {
-        ZStack {
-            SpectraBackdrop().ignoresSafeArea()
-
-            ScrollView(showsIndicators: false) {
-                LazyVStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-                    receiveProgress
-                    stepContent
-                        .id(currentStep)
-                        .transition(stepTransition)
-                }
-                .spectraScreenPadding()
-
-            }
-
-        }
-        .safeAreaInset(edge: .bottom, spacing: 0) { receiveBottomBar }
-        .navigationTitle(AppLocalization.string(currentStep.title))
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    store.cancelReceive()
-                } label: {
-                    Image(systemName: "xmark")
-                }
-                .accessibilityLabel(AppLocalization.string("Close"))
-            }
+        ReceiveScreen(store: store, title: "Receive") {
+            receiveAddressHero
+            receiveActionCard
         }
         .sheet(isPresented: $isShowingShareSheet) {
             if let qrImage { ActivityItemSheet(activityItems: [qrImage]) }
@@ -97,90 +98,8 @@ struct ReceiveView: View {
         } message: {
             if let qrExportMessage { Text(verbatim: qrExportMessage) }
         }
-        .task(id: receiveRefreshKey) {
-            guard currentStep == .address else { return }
+        .task(id: "\(store.receiveFlow.walletId)|\(store.receiveFlow.holdingKey)") {
             await store.refreshReceiveAddress()
-        }
-    }
-
-    @ViewBuilder
-    private var stepContent: some View {
-        switch currentStep {
-        case .wallet:
-            walletStep
-        case .address:
-            addressStep
-        }
-    }
-
-    private var receiveProgress: some View {
-        HStack(spacing: SpectraLayout.Space.s) {
-            ForEach(ReceiveFlowStep.allCases) { step in
-                HStack(spacing: SpectraLayout.Space.xs) {
-                    Image(systemName: step.systemImage)
-                        .font(.caption.weight(.semibold))
-                    Text(AppLocalization.string(step.title))
-                        .font(.caption.weight(.semibold))
-                }
-                .foregroundStyle(step.rawValue <= currentStep.rawValue ? .primary : .tertiary)
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, SpectraLayout.Space.s)
-                .background(
-                    step == currentStep ? Color.accentColor.opacity(0.18) : SpectraLayout.insetFill,
-                    in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.inner, style: .continuous)
-                )
-            }
-        }
-        .padding(SpectraLayout.Space.xs)
-        .spectraCardFill()
-    }
-
-    private var stepTransition: AnyTransition {
-        let insertionEdge: Edge = flowDirection >= 0 ? .trailing : .leading
-        let removalEdge: Edge = flowDirection >= 0 ? .leading : .trailing
-        return .asymmetric(
-            insertion: .move(edge: insertionEdge).combined(with: .opacity),
-            removal: .move(edge: removalEdge).combined(with: .opacity)
-        )
-    }
-
-    private var walletStep: some View {
-        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-            spectraPageHeader(
-                title: "Choose Wallet",
-                subtitle: "Pick where the incoming transfer should land.",
-                systemImage: "wallet.pass.fill"
-            )
-
-            if store.receiveEnabledWallets.isEmpty {
-                SpectraEmptyStateCard(
-                    title: "No receive wallets",
-                    message: "Import a wallet to generate receive addresses.",
-                    systemImage: "wallet.pass"
-                )
-            } else {
-                SpectraRowGroup(data: store.receiveEnabledWallets) { wallet in
-                    WalletReceiveRow(
-                        wallet: wallet,
-                        isSelected: wallet.id == store.receiveFlow.walletId
-                    ) {
-                        select(wallet)
-                    }
-                }
-            }
-        }
-    }
-
-    private var addressStep: some View {
-        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-            spectraPageHeader(
-                title: "Receive Address",
-                subtitle: "Scan the code, or copy the address to share it.",
-                systemImage: "qrcode"
-            )
-
-            receiveAddressHero
-            receiveActionCard
         }
     }
 
@@ -188,10 +107,9 @@ struct ReceiveView: View {
         let wallet = selectedWallet
         let coin = selectedCoin
         return VStack(spacing: SpectraLayout.Space.m) {
+            // The network is named here and on the wallet line under the
+            // code; a third mark above this sentence said it again.
             if let coin {
-                Label(coin.chainName, systemImage: "network")
-                    .font(.headline)
-                    .foregroundStyle(.tint)
                 Text(AppLocalization.format("Receive only %@ assets on this network. Check the sender's network before transferring.", coin.chainName))
                     .font(.subheadline)
                     .multilineTextAlignment(.center)
@@ -205,19 +123,22 @@ struct ReceiveView: View {
                 receiveQRCodePlaceholder(size: 216)
             }
 
+            // The address takes any asset on the chain, so the line names the
+            // chain and draws its mark, not the gas token's.
             HStack(spacing: SpectraLayout.Space.m) {
                 if let coin {
+                    let badge = Coin.nativeChainBadge(for: coin.chain) ?? (nil, coin.color)
                     CoinBadge(
-                        artworkName: coin.artworkName,
-                        fallbackText: coin.symbol,
-                        color: coin.color,
+                        artworkName: badge.artworkName,
+                        fallbackText: coin.chainName,
+                        color: badge.color,
                         size: 36
                     )
                 }
                 VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                     Text(wallet?.name ?? AppLocalization.string("Wallet"))
                         .font(.headline)
-                    Text(coin.map { "\($0.symbol) · \($0.chainName)" } ?? AppLocalization.string("Select a chain"))
+                    Text(coin?.chainName ?? AppLocalization.string("Select a chain"))
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -235,9 +156,29 @@ struct ReceiveView: View {
         .spectraElevatedFill()
     }
 
-    /// Share and save actions. Copy is the bottom bar's primary action.
     private var receiveActionCard: some View {
         VStack(spacing: SpectraLayout.Space.s) {
+            Button {
+                guard canUseResolvedAddress else { return }
+                UIPasteboard.general.string = resolvedAddress
+                didCopy = true
+                spectraHaptic(.light)
+                Task {
+                    try? await Task.sleep(for: .seconds(1.5))
+                    didCopy = false
+                }
+            } label: {
+                Label(
+                    AppLocalization.string(didCopy ? "Copied" : "Copy Address"),
+                    systemImage: didCopy ? "checkmark" : "doc.on.doc"
+                )
+                .font(.headline)
+                .frame(maxWidth: .infinity)
+                .frame(minHeight: 46)
+            }
+            .buttonStyle(.glassProminent)
+            .disabled(!canUseResolvedAddress)
+
             Button {
                 guard qrImage != nil else { return }
                 isShowingShareSheet = true
@@ -275,82 +216,42 @@ struct ReceiveView: View {
         .spectraCardFill()
     }
 
-    private var receiveBottomBar: some View {
-        SpectraBottomActionBar {
-            if currentStep == .address {
-                Button {
-                    spectraHaptic(.light)
-                    go(to: .wallet)
-                } label: {
-                    Image(systemName: "chevron.left")
-                        .font(.headline.weight(.semibold))
-                        .frame(width: 46, height: 46)
-                }
-                .buttonStyle(.glass)
-            }
-
-            Button {
-                switch currentStep {
-                case .wallet:
-                    spectraHaptic(.light)
-                    go(to: .address)
-                case .address:
-                    UIPasteboard.general.string = resolvedAddress
-                    didCopy = true
-                    spectraHaptic(.light)
-                    Task {
-                        try? await Task.sleep(for: .seconds(1.5))
-                        didCopy = false
-                    }
-                }
-            } label: {
-                Label(
-                    AppLocalization.string(currentStep == .wallet ? "Continue" : "Copy Address"),
-                    systemImage: copyStepSystemImage
-                )
-                .font(.headline)
-                .frame(maxWidth: .infinity)
-                .frame(minHeight: 46)
-            }
-            .buttonStyle(.glassProminent)
-            .disabled(isPrimaryActionDisabled)
-        }
-    }
-
-    private var copyStepSystemImage: String {
-        if currentStep == .wallet { return "chevron.right" }
-        return didCopy ? "checkmark" : "doc.on.doc"
-    }
-
-    private var isPrimaryActionDisabled: Bool {
-        switch currentStep {
-        case .wallet: return selectedWallet == nil
-        case .address: return !canUseResolvedAddress
-        }
-    }
-
-    private func select(_ wallet: WalletView) {
-        guard store.receiveFlow.walletId != wallet.id else { return }
-        spectraHaptic(.light)
-        store.receiveFlow.walletId = wallet.id
-        store.syncReceiveAssetSelection()
-    }
-
-    private func go(to step: ReceiveFlowStep) {
-        flowDirection = step.rawValue >= currentStep.rawValue ? 1 : -1
-        withAnimation(.snappy(duration: 0.28)) {
-            currentStep = step
-        }
-    }
-
-    private var receiveRefreshKey: String {
-        "\(currentStep.rawValue)|\(store.receiveFlow.walletId)|\(store.receiveFlow.holdingKey)"
-    }
-
+    /// Choosing a wallet is the step forward; there is no separate Continue.
 }
 
-/// Select a wallet. Receive addresses come from core on the next step,
-/// where UTXO addresses are reserved and registered as owned.
+/// The backdrop, scrolling column and close button both receive pages share.
+private struct ReceiveScreen<Content: View>: View {
+    let store: AppState
+    let title: String
+    @ViewBuilder var content: Content
+
+    var body: some View {
+        ZStack {
+            SpectraBackdrop().ignoresSafeArea()
+
+            ScrollView(showsIndicators: false) {
+                VStack(alignment: .leading, spacing: SpectraLayout.Space.m) { content }
+                    .spectraScreenPadding()
+            }
+        }
+        .navigationTitle(AppLocalization.string(title))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    store.cancelReceive()
+                } label: {
+                    Image(systemName: "xmark")
+                }
+                .accessibilityLabel(AppLocalization.string("Close"))
+            }
+        }
+    }
+}
+
+/// Open a wallet's receive address. Addresses come from core on the next
+/// step, where UTXO addresses are reserved and registered as owned.
 private struct WalletReceiveRow: View {
     let wallet: WalletView
     let isSelected: Bool
@@ -382,9 +283,14 @@ private struct WalletReceiveRow: View {
 
                 Spacer(minLength: 0)
 
-                Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(isSelected ? AnyShapeStyle(.tint) : AnyShapeStyle(.tertiary))
+                if isSelected {
+                    Image(systemName: "checkmark")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.tint)
+                }
+                Image(systemName: "chevron.right")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.tertiary)
             }
             .spectraRowPadding()
         }

@@ -157,6 +157,9 @@ struct HistoryView: View {
                 Text(AppLocalization.string("Hide small amounts"))
                 Text(AppLocalization.format("Below %@", AmountPresentation.localizedDecimal(historySmallAmountThreshold())))
             }
+            // The app-wide switch style has no menu form; a menu shows a switch
+            // as a disabled item. `.automatic` is the checkmark item.
+            .toggleStyle(.automatic)
         } label: {
             Image(systemName: "line.3.horizontal.decrease.circle")
         }.accessibilityLabel(AppLocalization.string("Filter history"))
