@@ -43,7 +43,7 @@ final class ShellBoundaryTests: IsolatedAppStateTestCase {
         let adoptedPortfolio = store.portfolioSnapshotRevision
         XCTAssertEqual(adoptedPortfolio, before.revision + 1, "the portfolio is read once")
         XCTAssertEqual(store.transactionSnapshotRevision, 0, "nothing changed, so history is not re-read")
-        // Alert adoption used to enqueue an additional unstructured portfolio read.
+        // Alert adoption must not enqueue another portfolio read.
         for _ in 0..<10 { await Task.yield() }
         let after = try await bridge.ready().transactionSnapshot()
         XCTAssertEqual(after.revision, adoptedPortfolio + 1)

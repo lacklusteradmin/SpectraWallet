@@ -35,8 +35,7 @@ struct CryptoWikiLibraryView: View {
                 || entry.symbol.localizedCaseInsensitiveContains(query)
                 || entry.comment.localizedCaseInsensitiveContains(query)
                 || entry.tags.contains(where: { $0.localizedCaseInsensitiveContains(query) })
-                // Searching a chain finds every coin that lives there, which
-                // is the axis the old chain-indexed wiki was built around.
+                // Searching a chain finds every coin that lives there.
                 || entry.livesOn.contains(where: { $0.chainName.localizedCaseInsensitiveContains(query) })
         }
     }

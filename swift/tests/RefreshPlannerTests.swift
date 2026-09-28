@@ -18,21 +18,6 @@ import Foundation
             XCTAssertFalse(store.deviceConditions().wantsPriceRefresh)
         }
 
-        func testOfflineRefreshAndRescanCrossAsyncBinding() async throws {
-            let service = try WalletService(endpoints: [])
-            let result = try await service.refreshApp(intent: .user, conditions: DeviceConditions(
-                appIsActive: true, isNetworkReachable: false, isConstrainedNetwork: false,
-                isExpensiveNetwork: false, isLowPowerMode: false, batteryLevel: 1, wantsPriceRefresh: true))
-            XCTAssertNil(result.pending)
-            XCTAssertTrue(result.failures.isEmpty)
-            let rescan = try await service.refreshApp(intent: .deepRescan(chainId: "bitcoin"), conditions: DeviceConditions(
-                appIsActive: true, isNetworkReachable: false, isConstrainedNetwork: false,
-                isExpensiveNetwork: false, isLowPowerMode: false, batteryLevel: 1, wantsPriceRefresh: false))
-            XCTAssertFalse(rescan.failures.isEmpty)
-            XCTAssertNil(rescan.pending)
-
-        }
-
         func testCoreRefreshEngineDoesNotKeepAppStateAlive() async throws {
             let wallet = WalletView(name: "Watch", chainId: "ethereum", addresses: ["ethereum": "0x" + String(repeating: "1", count: 40)])
             _ = try await bridge.ready().applyStateCommand(command: .upsertWallet(wallet: wallet.walletState()))

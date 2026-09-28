@@ -4,7 +4,7 @@
 # Everything under `resources/` ships whether or not it is read. The
 # `RuntimeStrings` tables are the only localized copy, and most keys are the
 # English string itself, so a line deleted from a view leaves its
-# translations behind. 543 of 1389 once had no source left anywhere.
+# translations behind.
 #
 # A key is reachable when its text, with `%@`/`%lld`/… treated as a wildcard,
 # appears anywhere that can produce it: Swift, Rust (core writes English

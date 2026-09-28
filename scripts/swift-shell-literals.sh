@@ -3,9 +3,7 @@
 #
 # Every other gate here looks outward from Rust — exports nothing calls,
 # functions nothing calls — so none of them can see the app deciding something
-# by naming a chain. Two sweeps said the shell held no chain lists and no fee
-# precision while `swift/views/` held twelve chain names in one dispatch and
-# `"%.8f ETH"` for every EVM receipt. This reads the app, not core.
+# by naming a chain. This reads the app, not core.
 #
 #   * A string literal that is exactly a chain's catalog name or id
 #     (`"Ethereum"`, `"bitcoin"`) is a chain chosen by spelling. Ask the

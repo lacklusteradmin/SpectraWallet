@@ -160,10 +160,9 @@ private struct AddressBookContactCard: View {
         .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .spectraElevatedFill()
-        // The row said "Copied" for the rest of the screen's life: the state
-        // was one `copiedEntryId` on the page and nothing ever cleared it.
-        // `.task(id:)` cancels with the row, so a card scrolled away mid-timer
-        // does not come back still claiming it.
+        // `.task(id:)` clears "Copied" after a moment and cancels with the row,
+        // so a card scrolled away mid-timer does not come back still claiming
+        // it.
         .task(id: didCopy) {
             guard didCopy else { return }
             try? await Task.sleep(for: .seconds(1.5))

@@ -78,8 +78,7 @@ struct SendFromPage: View {
         }
     }
 
-    /// One row per asset, full width: a lone asset used to sit in a half-width
-    /// chip with the rest of the card empty beside it.
+    /// One row per asset, full width.
     private func assetRow(coin: Coin, isSelected: Bool) -> some View {
         Button {
             guard !isSelected else { return }

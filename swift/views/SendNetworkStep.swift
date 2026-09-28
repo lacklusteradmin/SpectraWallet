@@ -3,11 +3,9 @@ import SwiftUI
 /// The send flow's network page: fee estimates and the per-chain options that
 /// go with them.
 ///
-/// Split out of `SendView`, where these sections were `private func`s on the
-/// same struct as the rest of the flow. Nothing here reads the flow's own
-/// state — the step, the scanner, the address-book selection — so they gave
-/// SwiftUI no diffing boundary of their own: a step change re-evaluated every
-/// fee row along with it.
+/// Nothing here reads the flow's own state — the step, the scanner, the
+/// address-book selection — so it is its own view, a diffing boundary: a step
+/// change does not re-evaluate every fee row.
 struct SendNetworkStep: View {
     @Bindable var store: AppState
 
@@ -163,7 +161,7 @@ struct SendNetworkStep: View {
                 }
             }
             // Replacement is offered wherever core says a pending send can
-            // still be replaced — every EVM chain, not the one named Ethereum.
+            // still be replaced.
             if store.sendFlow.isPreparingReplacement {
                 SpectraLoadingRow(title: "Preparing replacement/cancel context...")
             } else if let pending = store.replaceableSendForSelectedWallet {
@@ -178,8 +176,7 @@ struct SendNetworkStep: View {
                     Task { await store.prepareCancelContext() }
                 }
             }
-            // Only about a send that can be replaced: with none pending, the
-            // sentence said so at length on every send.
+            // Only about a send that can be replaced.
             if store.replaceableSendForSelectedWallet != nil,
                let replacementNonceStateMessage = store.replacementNonceStateMessage {
                 Text(replacementNonceStateMessage).font(.caption).foregroundStyle(.secondary)

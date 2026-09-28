@@ -173,7 +173,7 @@ struct StandardChainDiagnosticsView: View {
     @State private var configuredEndpoints: [String] = []
     @State private var cachedEndpointRows: [StandardEndpointRow] = []
     @State private var cachedHistorySourceRows: [StandardHistorySourceRow] = []
-    /// Keypool state now lives in core, so it is loaded rather than read
+    /// Keypool state lives in core, so it is loaded rather than read
     /// synchronously — see `.task` below.
     @State private var keypoolError: String?
     @State private var cachedKeypoolDiagnostics: [KeypoolDiagnostic] = []

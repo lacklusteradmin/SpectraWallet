@@ -378,20 +378,12 @@ struct WalletDetailView: View {
             }
         }.padding(.vertical, SpectraLayout.Space.xs)
     }
-    @ViewBuilder
-    private func detailRow(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
-            Text(localizedWalletFlowString(label)).font(.caption).foregroundStyle(.secondary)
-            Text(value).font(.subheadline).foregroundStyle(Color.primary).textSelection(.enabled)
-        }.frame(maxWidth: .infinity, alignment: .leading)
-    }
 }
 /// The wallet's name, recovery phrase, identifiers and deletion.
 ///
 /// Revealing the phrase and deleting the wallet are rare, and one is sensitive
-/// and the other irreversible; beside the balances they were two of three
-/// large buttons under every visit. A level down, each is a row where a reader
-/// who wants it expects it, and the details page is only what the wallet holds.
+/// and the other irreversible, so each is a row a level down, and the details
+/// page is only what the wallet holds.
 private struct WalletAdvancedDetailsView: View {
     let store: AppState
     let wallet: WalletView

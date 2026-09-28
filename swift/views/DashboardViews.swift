@@ -427,11 +427,9 @@ private struct AssetChainBreakdownCard: View {
 
 /// One chain the asset is held on.
 ///
-/// The badge is the **chain's**, which is what the row is about. It drew the
-/// asset's, so USDC on Ethereum and USDC on Solana were two rows under two
-/// identical USDC marks — the one thing that told them apart was the title
-/// beside it. `fallbackColor` is the asset's, for a chain the registry has no
-/// artwork for.
+/// The badge is the **chain's**, which is what the row is about: USDC on
+/// Ethereum and USDC on Solana must not look alike. `fallbackColor` is the
+/// asset's, for a chain the registry has no artwork for.
 private struct AssetChainBreakdownRow: View {
     let chain: Chain?
     let chainTitle: String

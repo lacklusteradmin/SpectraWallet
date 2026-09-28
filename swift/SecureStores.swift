@@ -61,13 +61,11 @@ enum SecureStore {
 }
 /// Wraps the envelope's master key with a P-256 key held by the Secure Enclave.
 ///
-/// The master key used to sit in the Keychain beside the material it seals,
-/// under the same access class, so whoever could read one item could read the
-/// other and the envelope added nothing. Now the Keychain holds only the master
-/// key encrypted to an enclave key that cannot leave this device's Secure
-/// Enclave: a copied Keychain opens nothing, and using the key needs this
-/// device, unlocked with a passcode set. It asks for no user presence, so
-/// background work that derives from a seed is unaffected.
+/// The Keychain holds only the master key encrypted to an enclave key that
+/// cannot leave this device's Secure Enclave, so a copied Keychain opens
+/// nothing, and using the key needs this device, unlocked with a passcode set.
+/// It asks for no user presence, so background work that derives from a seed
+/// is unaffected.
 ///
 /// The simulator has no enclave. There the wrapping key is a software key: the
 /// logic is exercised, the hardware protection is not.

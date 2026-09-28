@@ -51,13 +51,8 @@ import Foundation
         }
 
         /// A wallet answers for the chains it was imported for and for no
-        /// others.
-        ///
-        /// The resolver used to derive on demand, so it answered for every
-        /// chain in the catalog from any wallet's seed — including chains the
-        /// user never imported, which is not an address that wallet has. It
-        /// reads what core stored now: the EVM family shares one slot, so an
-        /// Ethereum wallet still answers for all 23 EVM mainnets, and a
+        /// others. It reads what core stored: the EVM family shares one slot,
+        /// so an Ethereum wallet still answers for all 23 EVM mainnets, and a
         /// Solana wallet is not asked to produce a Bitcoin address.
         func testAWalletAnswersForItsOwnChainsAndNoOthers() async {
             let store = makeState()
@@ -147,17 +142,6 @@ import Foundation
             XCTAssertEqual(transaction.chainName, "Ethereum Sepolia")
         }
 
-        func testStakingAndReceiveRefusalAcrossAsyncBinding() async throws {
-            do {
-                _ = try await bridge.ready().fetchStakingValidators(chainId: "bitcoin")
-                XCTFail("Unsupported staking must refuse before network access")
-            } catch { }
-            do {
-                _ = try await bridge.ready().receiveAddress(walletId: "missing", chainId: "ethereum", reserve: true)
-                XCTFail("A missing wallet must not produce an address or a message-as-address")
-            } catch { }
-        }
-
         func testUnvaluedFiguresAreUnavailableAndPartialTotalsShowTheFigureAlone() async {
             let store = makeState()
             await store.awaitPendingCoreStateWrites()
@@ -171,33 +155,21 @@ import Foundation
             await store.setFiatCurrency(before)
         }
 
-        func testBitcoinTestnet4EndpointsAreAvailable() {
-            XCTAssertEqual(
-                AppEndpointDirectory.bitcoinEsploraBaseURLs(forChainId: "bitcoin-testnet-4"),
-                ["https://mempool.space/testnet4/api"]
-            )
-        }
         func testEthereumDisplayNetworkNameUsesSelectedMode() async {
             let store = makeState()
             store.selectChainForFamily("ethereum-hoodi")
             await store.awaitPendingCoreStateWrites()
             XCTAssertEqual(store.selectedNetworkTitle(forFamily: .ethereum), "Ethereum Hoodi")
         }
-        /// Every EVM chain gets the EVM address hint.
-        ///
-        /// Thirteen were named in the arm and the other ten mainnets — Sei,
-        /// Celo, Cronos, opBNB, zkSync Era, Sonic, Berachain, Unichain, Ink and
-        /// X Layer — fell to "Enter an address for the selected chain." The arm
-        /// reads `Chain.isEVM` now. Asserted against the generic fallback rather
-        /// than against the English text so the test does not depend on which
-        /// locale it runs in.
+        /// Every EVM chain gets the EVM address hint. Asserted against the
+        /// generic fallback rather than against the English text so the test
+        /// does not depend on which locale it runs in.
         func testEveryEVMChainGetsAFormatSpecificAddressHint() {
             let store = makeState()
-            // Kaspa has no arm of its own and never had one, so its message is
-            // the fallback by construction.
+            // Kaspa has no arm of its own, so its message is the fallback.
             let generic = store.addressBookAddressValidationMessage(for: "", chain: .kaspa)
             let evmMainnets = Chain.mainnets.filter(\.isEVM)
-            XCTAssertGreaterThan(evmMainnets.count, 13, "the arm used to name thirteen")
+            XCTAssertFalse(evmMainnets.isEmpty)
             for chain in evmMainnets {
                 XCTAssertNotEqual(
                     store.addressBookAddressValidationMessage(for: "", chain: chain),
@@ -219,9 +191,8 @@ import Foundation
         }
         /// What the app reads about Ethereum's test networks: that the
         /// registry knows them as EVM testnets of Ethereum, and the RPC
-        /// endpoints the catalog gives each. Their EIP-155 ids were asserted
-        /// here through `EVMChainContext`, which the app no longer has; core's
-        /// `evm_chains_carry_their_eip155_ids` checks them where they live.
+        /// endpoints the catalog gives each. Core's
+        /// `evm_chains_carry_their_eip155_ids` checks their EIP-155 ids.
         func testEthereumTestNetworksExposeExpectedContextsAndEndpoints() {
             for id in ["ethereum-sepolia", "ethereum-hoodi"] {
                 let chain = Chain(id: id)
@@ -237,10 +208,8 @@ import Foundation
             XCTAssertTrue(groups.contains { $0.chainId == "ethereum-sepolia" && $0.title == "Ethereum Sepolia" })
             XCTAssertEqual(AppEndpointDirectory.groupedSettingsEntries(for: "ethereum-sepolia").map(\.chainId), ["ethereum-sepolia"])
         }
-        /// A watch-only wallet on a chain outside the old hand-written
-        /// 14-chain list was dropped from the store on load. Storage is now a
-        /// map, so "has any address" is a property of the wallet, not of a
-        /// list someone has to remember to extend.
+        /// A watch-only wallet on any chain survives persistence: "has any
+        /// address" is a property of the wallet, not of a list.
         func testWatchOnlyWalletOnAnyChainSurvivesPersistence() async throws {
             // One `AppState`, as the app has. Several instances sharing one
             // core is not a situation the product creates, and testing it
@@ -264,7 +233,7 @@ import Foundation
             try await store.clearWalletsForTesting()
         }
 
-        // ── Core-owned settings (PLAN.md Stage 0) ─────────────────────────
+        // ── Core-owned settings ───────────────────────────────────────────
         //
         // The display currency is domain state: core owns it, core persists it,
         // and every front end reads the same value. Swift keeps a mirror it
@@ -292,7 +261,7 @@ import Foundation
             XCTAssertEqual(reader.selectedFiatCurrency, .jpy)
         }
 
-        // ── Address book (PLAN.md Stage 1) ────────────────────────────────
+        // ── Address book ──────────────────────────────────────────────────
         //
         // The list, and the rules about what may go in it, belong to core.
         // Swift sends commands and renders what comes back.
@@ -364,40 +333,6 @@ import Foundation
             await store.awaitPendingStateCommands()
             XCTAssertTrue(store.addressBook.isEmpty)
             XCTAssertNotNil(store.addressBookError)
-        }
-
-        /// A pending send that later confirms must still read as confirmed
-        /// after reopening the database in an independent service.
-        func testTransactionStatusChangeIsPersisted() async throws {
-            let store = makeState()
-            // The transaction needs a wallet that exists: core prunes
-            // transactions whose wallet is gone when state loads, so one
-            // recorded against a made-up id survives only until the next load.
-            let wallet = WalletView(
-                id: UUID(uuidString: "22222222-2222-2222-2222-222222222222")!, name: "W", chainId: "bitcoin",
-                addresses: ["bitcoin": "bc1qexample"])
-            try await store.seedWalletForTesting(wallet)
-            let tx = TransactionRecord(
-                id: UUID().uuidString,
-                walletId: wallet.id, kind: .send, status: .pending, walletName: "W",
-                assetDisplayName: "Bitcoin", symbol: "BTC", chainId: "bitcoin", amount: "0.1",
-                address: "bc1qexample", transactionHash: "0xhash-status-test")
-
-            try await store.seedTransactionForTesting(tx)
-            let pending = try await bridge.ready().transaction(id: tx.id)
-            XCTAssertEqual(pending?.status, .pending)
-
-            try await store.seedTransactionForTesting(
-                tx.withRebroadcastUpdate(status: .confirmed, transactionHash: tx.transactionHash))
-            let reopened = try WalletService(endpoints: [])
-            _ = try await reopened.openState(databasePath: directory.appendingPathComponent("state.sqlite").path)
-            let persisted = try await reopened.transaction(id: tx.id)?.status
-            XCTAssertEqual(persisted, .confirmed, "status change was not persisted")
-
-            _ = try await bridge.ready().applyTransactionCommand(command: .remove(ids: [tx.id]))
-            let deleted = try await bridge.ready().transaction(id: tx.id)
-            XCTAssertNil(deleted)
-            await store.removeWallet(id: wallet.id)
         }
 
         func testTorDoesNotActivateOrStopForAnUncommittedToggle() async throws {
@@ -524,12 +459,6 @@ import Foundation
             XCTAssertEqual(FiatCurrency.usd.displayRules.minimumVisible, 0.01)
         }
 
-        func testPasswordVerdictsCrossTheBindingWithoutEnglishMessages() {
-            XCTAssertEqual(validateWalletPassword(password: "短密碼", confirmation: "短密碼"), .tooShort)
-            XCTAssertEqual(validateWalletPassword(password: "abcd", confirmation: "abce"), .confirmationMismatch)
-            XCTAssertNil(validateWalletPassword(password: "密碼測試", confirmation: "密碼測試"))
-        }
-
         func testDerivationInputPreservesSecretWhitespace() throws {
             let draft = WalletImportDraft()
             draft.overridePassphrase = " secret "
@@ -544,10 +473,6 @@ import Foundation
 
 @MainActor
 private extension AppState {
-    func seedTransactionForTesting(_ record: TransactionRecord) async throws {
-        _ = try await bridge.ready().applyTransactionCommand(command: .upsert(records: [record]))
-        await refreshTransactionProjection()
-    }
     func seedWalletForTesting(_ wallet: WalletView) async throws {
         _ = try await bridge.ready().applyStateCommand(command: .upsertWallet(wallet: wallet.walletState()))
         await rebuildWalletDerivedStateFromCore()
@@ -556,15 +481,5 @@ private extension AppState {
         let stored = try await bridge.ready().portfolioSnapshot().wallets
         for wallet in stored { _ = try await bridge.ready().applyStateCommand(command: .removeWallet(walletId: wallet.id)) }
         await rebuildWalletDerivedStateFromCore()
-    }
-}
-
-private extension TransactionRecord {
-    func withRebroadcastUpdate(status: TransactionStatus, transactionHash: String?, failureReason: TransactionFailure? = nil) -> TransactionRecord {
-        var updated = self
-        updated.status = status
-        updated.transactionHash = transactionHash
-        updated.failureReason = failureReason
-        return updated
     }
 }

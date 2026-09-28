@@ -80,10 +80,8 @@ struct StakingView: View {
 ///
 /// Not registry facts — an APY estimate, an unbonding period and a paragraph
 /// describing the protocol are what this chain *does*, written for a reader —
-/// so they stay in the view. `chainName` and `symbol` came out with
-/// `StakingSupportedChain`: the registry already answers both, and having them
-/// here meant a display name could disagree with the one every other screen
-/// uses.
+/// so they stay in the view. The chain's name and symbol come from the
+/// registry, so they cannot disagree with every other screen.
 struct StakingChainDescriptor {
     let tint: Color
     let apyEstimate: String

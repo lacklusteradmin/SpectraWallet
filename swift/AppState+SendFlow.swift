@@ -106,13 +106,10 @@ extension AppState {
     /// The pending send the composer can replace as it stands: core's rule,
     /// scoped to the wallet and chain the composer is on.
     ///
-    /// The rule — an EVM chain, a send, still pending, carrying a hash — is
-    /// `replaceable_sends`, derived where the records are. Swift asked it of
-    /// its own projection and asked it only of the chain *named* "Ethereum",
-    /// so a pending Arbitrum or Base send offered neither speed-up nor cancel.
-    /// What is left here is the lookup. The chain has to match: a replacement
-    /// is the pending send's nonce re-signed *on its own chain*, and the
-    /// composer signs for whichever chain it is showing.
+    /// The rule is `replaceable_sends`, derived where the records are; what is
+    /// left here is the lookup. The chain has to match: a replacement is the
+    /// pending send's nonce re-signed *on its own chain*, and the composer
+    /// signs for whichever chain it is showing.
     var replaceableSendForSelectedWallet: ReplaceableSend? {
         guard let selectedSendCoin else { return nil }
         return replaceableSends.first {

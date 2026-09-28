@@ -4,10 +4,9 @@
 #   scripts/check-design-tokens.sh
 #
 # docs/IOS-UI.md defines the spacing scale, the corner-radius scale and the two
-# Liquid Glass tints; swift/views/SpectraLayout.swift spells them in Swift. A screen that writes the
-# number instead of the token drifts silently — before this check the app had
-# grown a 0.033 and a 0.044 tint, three radii for one chip, and four radii for
-# one input helper, none of which any review would catch by eye.
+# Liquid Glass tints; swift/views/SpectraLayout.swift spells them in Swift. A
+# screen that writes the number instead of the token drifts silently, and no
+# review catches it by eye.
 #
 # The scale itself is not policed here. Changing a step is a design decision:
 # edit docs/IOS-UI.md and SpectraLayout.swift together.

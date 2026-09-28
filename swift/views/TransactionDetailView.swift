@@ -64,10 +64,8 @@ struct TransactionDetailView: View {
         return displayedTransaction.kind == .receive ? "+\(amount)" : "-\(amount)"
     }
     // Core says which rows can still be replaced; this row is one of them or
-    // it is not. The old test — the chain named "Ethereum", a send, pending —
-    // left every other EVM chain without the actions and offered Speed Up on
-    // token transfers it could not rebuild. Second on the page because it is
-    // the only thing here a reader can act on, and it cannot wait.
+    // it is not. Second on the page because it is the only thing here a
+    // reader can act on, and it cannot wait.
     @ViewBuilder
     private var mempoolActionsCard: some View {
         if let pending = store.replaceableSend(forTransaction: displayedTransaction.id) {

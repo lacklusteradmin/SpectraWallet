@@ -6,9 +6,8 @@
 # camelCase name appears nowhere in hand-written Swift or in the CLI.
 #
 # A call inside a `WalletServiceBridge` method counts only while that method is
-# itself called. The bridge is one-line wrappers, so a wrapper nothing calls
-# still names its export — which is how `wallet_private_key`, an export that
-# returns a raw private key, stayed "reachable" with no caller in the app.
+# itself called: the bridge is one-line wrappers, so a wrapper nothing calls
+# still names its export.
 #
 # Exits non-zero when any are found, so it can gate.
 set -euo pipefail
@@ -42,8 +41,7 @@ def calls_only(source, language):
     return re.sub(r'\b' + keyword + r'\s+\w+', keyword + ' __declaration__', source)
 
 # The app, not its tests: an export only a test calls is a fixture, and it
-# reads as API to everyone else. `swift/tests` counted as a caller, which is
-# how `core_evm_chain_context` outlived the last app code that used it.
+# reads as API to everyone else.
 BRIDGE = pathlib.Path('swift/WalletServiceBridge.swift')
 
 def strip_comments(source):
@@ -107,18 +105,14 @@ cli = calls_only('\n'.join(f.read_text() for f in pathlib.Path('cli/src').rglob(
 # runtime and cannot catch a missing reactor on the Swift side.
 ALLOWED = {
     'new',
-    # Injects an out-of-range keypool row so the async error path of
-    # `reserve_receive_index` is exercised from Swift.
-    'register_owned_address',
     # Seeds wallets into the service the `AppState` tests drive.
     'core_wallet_state',
     # Seeds and clears the transaction store those same tests read back.
     'apply_transaction_command',
 }
 
-# A method is called on its object, so its Swift call has a receiver. Matching
-# a bare name let `AppState.appendChainOperationalEvent` — a different method
-# with the same spelling — stand in for a call to the export.
+# A method is called on its object, so its Swift call has a receiver: a bare
+# name could match a different method with the same spelling.
 def swift_calls(name, is_method):
     receiver = r'\.' if is_method else r'\b'
     return re.search(rf'{receiver}{re.escape(camel(name))}\s*\(', swift) is not None

@@ -1,7 +1,7 @@
 import Foundation
 
 /// Bundled derived state of `AppState.wallets`, as core resolved it.
-/// Assigned as one value by `applyWalletDerivedState`, so readers see one
+/// Assigned as one value by `rebuildWalletDerivedStateFromCore`, so readers see one
 /// observable update per rebuild rather than a field at a time.
 ///
 /// Every field here has a reader. State the app collects but never shows is

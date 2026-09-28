@@ -24,8 +24,7 @@ final class WalletSetupPageCopyTests: XCTestCase {
         WalletSetupMode(isEditingWallet: editing, isCreateMode: creating, isPrivateKeyImport: privateKey)
     }
 
-    /// The resolver replaced two if-chains that could fall through to a
-    /// wallet-import title when no arm matched. Nothing may come back blank.
+    /// Nothing may come back blank, in any mode.
     func testEveryPageNamesItselfInEveryMode() {
         let pages: [WalletSetupPage] = [
             .details, .watchAddresses, .seedPhrase, .password, .backupVerification, .walletName,

@@ -5,9 +5,6 @@ struct SetupChainSelectionDescriptor: Identifiable {
     let id: String
     let titleKey: String
     /// The chain's native symbol — one field, because the picker shows one.
-    /// It was two, `symbol` and `gasTokenSymbol`, filled from the same
-    /// catalog column through a `gasToken` parameter whose only call site
-    /// compared that column with itself and so always passed nil.
     let symbol: String
     let chainName: String
     let artworkName: String?
@@ -361,11 +358,9 @@ struct SetupView: View {
             walletNamePageContent
         }
     }
-    /// Page-dominant chain selection. The chains step now owns the details
-    /// page on its own (wallet name moved to the last step), so this card
-    /// stretches its grid full-width and uses larger cells. The inline
-    /// "Chains" header is replaced by a status capsule on the right; the
-    /// page-level title above already names the step.
+    /// Page-dominant chain selection: the grid stretches full-width with larger
+    /// cells, and a status capsule on the right stands in for a header, since
+    /// the page-level title above already names the step.
     @ViewBuilder
     private var chainSelectionCard: some View {
         let popularIDSet = Set(Self.popularChainSelectionIds)
@@ -476,11 +471,7 @@ struct SetupView: View {
     }
 
     /// The address format to judge entries by, on the network the family is on.
-    ///
-    /// Bitcoin and Dogecoin each had this written out by hand, one with an
-    /// inline lookup and one through `isValidDogecoinAddressForPolicy`, and the
-    /// other sixteen chains judged against mainnet regardless of the selected
-    /// network. It is the same rule for every chain.
+    /// The same rule for every chain.
     private func watchedAddressKind(for chain: Chain) -> String {
         Chain(id: store.selectedChainId(forFamily: chain.id))?.addressValidationKind
             ?? chain.addressValidationKind

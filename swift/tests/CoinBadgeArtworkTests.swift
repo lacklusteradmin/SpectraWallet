@@ -49,7 +49,7 @@ final class CoinBadgeArtworkTests: XCTestCase {
 
     /// A chain's own ticker draws the chain, not the coin it pays fees in.
     /// Base's gas is ETH, so these two live side by side and the badge must
-    /// keep them apart — the direction the fix could have overshot in.
+    /// keep them apart.
     func testAChainBadgeStillDrawsTheChain() throws {
         for chain in Chain.all {
             let native = try XCTUnwrap(Coin.nativeChainBadge(for: chain), chain.displayName)

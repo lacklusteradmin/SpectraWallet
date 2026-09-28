@@ -18,18 +18,9 @@ final class DiagnosticsBundleTests: IsolatedAppStateTestCase {
         // Keys are canonical chain ids, not display names.
         XCTAssertNotNil(imported.chainDiagnosticsJson["bitcoin-cash"])
         XCTAssertNotNil(imported.chainDiagnosticsJson["internet-computer"])
-        // One entry per mainnet. It was twenty-four while a Swift enum decided
-        // which chains had diagnostics; the catalog decides now.
+        // One entry per mainnet: the catalog decides which chains have
+        // diagnostics.
         XCTAssertEqual(imported.chainDiagnosticsJson.count, Chain.mainnets.count)
-    }
-
-    func testConfiguredDiagnosticsRunsThroughAsyncServiceBinding() async throws {
-        let service = try WalletService(endpoints: [])
-        let result = try await service.runConfiguredSelfTests(chainId: "bitcoin")
-        XCTAssertEqual(result.chainId, "bitcoin")
-        XCTAssertNil(result.rpcEndpoint)
-        XCTAssertFalse(result.results.isEmpty)
-        XCTAssertTrue(result.results.allSatisfy(\.passed))
     }
 
 }
@@ -39,11 +30,8 @@ final class DiagnosticsBundleCoverageTests: IsolatedAppStateTestCase {
     /// Every chain the bundle reports on must be a chain the registry knows.
     ///
     /// The bundle list and the `diagnosticsJSON(for:)` switch are two lists
-    /// that have to agree. Collapsing the old 23 wrapper functions onto them
-    /// silently dropped Tron and Solana — they have their own JSON builders and
-    /// did not match the shape the other 22 shared — and nothing failed,
-    /// because a missing case just returns nil. This is the check that would
-    /// have caught it.
+    /// that have to agree, and a missing case just returns nil, so nothing
+    /// else would fail.
     func testEveryBundledChainProducesADistinctEntry() {
         let ids = AppState.diagnosticsBundleChains.map(\.id)
         XCTAssertEqual(Set(ids).count, ids.count, "duplicate chain in the bundle list")

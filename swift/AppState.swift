@@ -52,8 +52,7 @@ final class AppState {
     ///
     /// Domain state: core owns the store and its persistence. This is a
     /// projection — assigning to it would only desynchronise the two, so it is
-    /// `private(set)` and replaced only with what core returns
-    /// (`adoptTransactionsFromCore`).
+    /// `private(set)` and replaced only with what core returns.
     private(set) var transactions: [TransactionRecord] = [] {
         didSet { transactionRevision &+= 1 }
     }
@@ -85,7 +84,7 @@ final class AppState {
     /// `WalletState::to_wallet_view`. `private(set)`, because assigning to it
     /// would only desynchronise it from core; change it with import and field
     /// intents, wallet deletion, or a reset. Replacing it rebuilds the derived
-    /// caches via `scheduleWalletCollectionSideEffects`.
+    /// caches via `applyWalletCollectionSideEffects`.
     ///
     /// **Observation note for view code**: SwiftUI's `@Observable` tracks
     /// access to this property as a whole — any mutation invalidates every
@@ -110,8 +109,8 @@ final class AppState {
         wallets = records
     }
     private(set) var walletsRevision: UInt64 = 0
-    // Derived caches. Recomputed by `applyWalletCollectionSideEffects`,
-    // `rebuildWalletDerivedState`.
+    // Derived caches. Recomputed by `applyWalletCollectionSideEffects` and
+    // `rebuildWalletDerivedStateFromCore`.
     //
     // No revision counter here. Under `@Observable` a view already tracks the
     // properties it reads, so a counter bumped on every cache write could only
@@ -351,23 +350,10 @@ final class AppState {
         Task { @MainActor [weak self] in await self?.warmUpAfterLaunch() }
     }
 
-    /// Boot-time lifecycle phase: runs once after `init`, in order.
-    ///
-    /// Phase 1 (sync): observable derived-state rebuild + main-loop kicks
-    /// that views need before the first frame renders.
-    /// Phase 2 (concurrent async): non-UI-blocking I/O — SQLite reload
-    /// and fiat-rate refresh run in parallel since neither depends on
-    /// the other.
-    ///
-    /// Distinct from per-interaction handlers (`refreshLivePrices`,
-    /// `applyWalletCollectionSideEffects`) so a reader can answer
-    /// "called once per launch" vs "called per user tap" by file
-    /// position. New launch-only work belongs here; new per-interaction
-    /// work belongs on the relevant `+*` extension.
     /// Registers the secret store before any launch work that might read a
     /// seed or a private key, and records the failure where both the user and
-    /// a diagnostics export can see it.
-    /// The service registers the Keychain-backed secret store as it is created.
+    /// a diagnostics export can see it. The service registers the
+    /// Keychain-backed secret store as it is created.
     private func registerSecretStoreWithBridge() async {
         do {
             _ = try bridge.service()
