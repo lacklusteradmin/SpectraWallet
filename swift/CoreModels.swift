@@ -220,13 +220,12 @@ extension TransactionRecord {
         hasKnownDate
             ? createdDate.formatted(date: .abbreviated, time: .standard) : AppLocalization.string("Unknown date")
     }
-    var transactionExplorerURL: URL? {
-        guard let transactionHash, !transactionHash.isEmpty else { return nil }
-        return AppEndpointDirectory.transactionExplorerURL(for: chainId, transactionHash: transactionHash)
-    }
-    var transactionExplorerLabel: String? {
-        guard transactionHash != nil else { return nil }
-        return AppEndpointDirectory.transactionExplorerLabel(for: chainId)
+    /// The button that opens this transaction on its network's explorer.
+    var explorerLink: (label: String, url: URL)? {
+        guard let transactionHash,
+              let link = transactionExplorerLink(chainId: chainId, transactionHash: transactionHash),
+              let url = URL(string: link.url) else { return nil }
+        return (AppLocalization.format("Open In %@", link.name), url)
     }
     /// The sentence a finished send reports, on the lock screen and in a
     /// notification alike; `nil` while it is still pending.

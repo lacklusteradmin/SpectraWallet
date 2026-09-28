@@ -56,8 +56,8 @@
 		90F002000000000000000203 /* AppState+AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000203 /* AppState+AppLock.swift */; };
 		90F002000000000000000204 /* AppState+TransactionActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000204 /* AppState+TransactionActions.swift */; };
 		90F002000000000000000205 /* AppState+Networks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000205 /* AppState+Networks.swift */; };
-		90F002000000000000000207 /* AppState+MoneroSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000207 /* AppState+MoneroSync.swift */; };
 		90F002000000000000000206 /* AppState+Wallets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000206 /* AppState+Wallets.swift */; };
+		90F002000000000000000207 /* AppState+MoneroSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000207 /* AppState+MoneroSync.swift */; };
 		91C100012F70000100AAA001 /* SpectraLiveActivityExtension.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 91C100032F70000100AAA001 /* SpectraLiveActivityExtension.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		91D900000000000000000002 /* SendSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91D900000000000000000001 /* SendSession.swift */; };
 		91DB00000000000000000001 /* SendFlowState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DA00000000000000000001 /* SendFlowState.swift */; };
@@ -150,8 +150,8 @@
 		90F001000000000000000203 /* AppState+AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+AppLock.swift"; sourceTree = "<group>"; };
 		90F001000000000000000204 /* AppState+TransactionActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TransactionActions.swift"; sourceTree = "<group>"; };
 		90F001000000000000000205 /* AppState+Networks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+Networks.swift"; sourceTree = "<group>"; };
-		90F001000000000000000207 /* AppState+MoneroSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+MoneroSync.swift"; sourceTree = "<group>"; };
 		90F001000000000000000206 /* AppState+Wallets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+Wallets.swift"; sourceTree = "<group>"; };
+		90F001000000000000000207 /* AppState+MoneroSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+MoneroSync.swift"; sourceTree = "<group>"; };
 		91B000012F5B000100AAA001 /* SpectraTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SpectraTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		91C100032F70000100AAA001 /* SpectraLiveActivityExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = SpectraLiveActivityExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		91D900000000000000000001 /* SendSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SendSession.swift; sourceTree = "<group>"; };

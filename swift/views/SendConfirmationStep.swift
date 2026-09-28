@@ -174,9 +174,9 @@ struct SendTransactionCard: View {
             if let transactionHash = tx.transactionHash {
                 Text(transactionHash).font(.caption2.monospaced()).textSelection(.enabled)
             }
-            if let explorerURL = tx.transactionExplorerURL, let explorerLabel = tx.transactionExplorerLabel {
-                Link(destination: explorerURL) {
-                    Label(explorerLabel, systemImage: "safari")
+            if let explorer = tx.explorerLink {
+                Link(destination: explorer.url) {
+                    Label(explorer.label, systemImage: "safari")
                         .font(.subheadline.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, SpectraLayout.Space.s)

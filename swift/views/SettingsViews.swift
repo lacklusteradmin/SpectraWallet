@@ -11,6 +11,7 @@ struct SettingsView: View {
         case largeMovementAlerts
         case pricing
         case endpoints
+        case explorers
         case diagnostics
         case operationalLogs
         case reportProblem
@@ -58,6 +59,7 @@ struct SettingsView: View {
                 Section(AppLocalization.string("Data & Connectivity")) {
                     settingsLink("Pricing", systemImage: "dollarsign.circle", route: .pricing)
                     settingsLink("Endpoints", systemImage: "network", route: .endpoints)
+                    settingsLink("Explorers", systemImage: "safari", route: .explorers)
                 }
                 Section(AppLocalization.string("Diagnostics & Support")) {
                     settingsLink("Diagnostics", systemImage: "waveform.path.ecg.rectangle", route: .diagnostics)
@@ -94,6 +96,7 @@ struct SettingsView: View {
                 case .largeMovementAlerts: LargeMovementAlertsSettingsView(store: store)
                 case .pricing: PricingSettingsView(store: store)
                 case .endpoints: EndpointCatalogSettingsView(store: store)
+                case .explorers: ExplorerSettingsView()
                 case .diagnostics: DiagnosticsHubView(store: store)
                 case .operationalLogs: LogsView(store: store)
                 case .reportProblem: ReportProblemView()

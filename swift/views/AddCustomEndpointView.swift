@@ -12,10 +12,7 @@ struct AddCustomEndpointView: View {
     @State private var isSaving = false
     private let copy = EndpointsContentCopy.current
     private var availableEntries: [EndpointDirectoryEntry] {
-        directory.filter { entry in
-            guard let type = entry.record.api else { return false }
-            return !endpointCapabilityOptions(chainId: entry.record.chainId, api: type).isEmpty
-        }
+        directory.filter { !endpointCapabilityOptions(chainId: $0.record.chainId, api: $0.record.api).isEmpty }
     }
     private var networks: [String] {
         Array(Set(availableEntries.map(\.record.chainId))).sorted()

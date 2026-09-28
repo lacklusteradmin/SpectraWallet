@@ -19,12 +19,4 @@ enum AppEndpointDirectory {
     static func groupedSettingsEntries(for chainId: String) -> [AppEndpointGroupedSettingsEntry] {
         entry(chainId)?.groupedSettings ?? []
     }
-    static func transactionExplorerLabel(for chainId: String) -> String? {
-        entry(chainId)?.transactionExplorer?.label
-    }
-    /// Build the transaction URL from the explorer record's URL format.
-    static func transactionExplorerURL(for chainId: String, transactionHash: String) -> URL? {
-        guard let explorer = entry(chainId)?.transactionExplorer else { return nil }
-        return URL(string: "\(explorer.endpoint)\(transactionHash)\(explorer.txSuffix)")
-    }
 }

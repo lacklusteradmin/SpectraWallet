@@ -138,12 +138,12 @@ struct TransactionDetailView: View {
                     TransactionDetailRow(systemImage: "number", label: "Transaction Hash", value: hash, isIdentifier: true)
                 }
             }
-            if let url = tx.transactionExplorerURL, let label = tx.transactionExplorerLabel {
+            if let explorer = tx.explorerLink {
                 Divider().opacity(0.4)
-                Link(destination: url) {
+                Link(destination: explorer.url) {
                     HStack(spacing: SpectraLayout.Space.s) {
                         Image(systemName: "safari").font(.subheadline.weight(.semibold)).frame(width: 22)
-                        Text(label).font(.subheadline.weight(.semibold))
+                        Text(explorer.label).font(.subheadline.weight(.semibold))
                         Spacer(minLength: SpectraLayout.Space.m)
                         Image(systemName: "arrow.up.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
                     }.contentShape(Rectangle())

@@ -10,7 +10,8 @@ final class EndpointScreensTests: IsolatedAppStateTestCase {
         let directory = try await bridge.ready().endpointDirectory()
         let views: [(String, AnyView)] = [
             ("Endpoints", AnyView(NavigationStack { EndpointCatalogSettingsView(store: state) })),
-            ("Add endpoint", AnyView(NavigationStack { AddCustomEndpointView(store: state, directory: directory) }))
+            ("Add endpoint", AnyView(NavigationStack { AddCustomEndpointView(store: state, directory: directory) })),
+            ("Explorers", AnyView(NavigationStack { ExplorerSettingsView() }))
         ]
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let previousWindow = scene.windows.first(where: \.isKeyWindow)
