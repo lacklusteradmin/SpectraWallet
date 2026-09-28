@@ -503,7 +503,6 @@
   "Source Path": "來源路徑",
   "Spectra": "Spectra",
   "Spectra Operational Logs": "Spectra 運行日誌",
-  "Spectra prepares %@ sends in-app using the configured backend fee quote.": "Spectra 會在 App 內使用目前配置的後端手續費報價來準備 %@ 發送。",
   "Spectra signs and broadcasts %@ transfers in-app.": "Spectra 會在 App 內簽名並廣播 %@ 轉帳。",
   "Speed Up Pending Transaction": "加速待處理交易",
   "Speed Up This Transaction": "加速這筆交易",

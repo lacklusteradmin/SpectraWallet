@@ -61,8 +61,6 @@ extension Chain: Identifiable {
     var hasSendPreview: Bool { identity?.hasSendPreview ?? false }
     /// The chain can hold tracked tokens.
     var hostsTokens: Bool { identity?.hostsTokens ?? false }
-    /// How core moves a send here, which is what the send card says it does.
-    var sendBroadcastMode: SendBroadcastMode? { identity?.sendBroadcastMode }
     /// The mainnet this chain belongs to, or itself.
     var mainnetCounterpart: Chain { identity?.mainnetCounterpart ?? self }
     /// Paths are stored under the concrete network ID.

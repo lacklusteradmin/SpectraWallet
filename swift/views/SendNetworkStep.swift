@@ -181,7 +181,7 @@ struct SendNetworkStep: View {
     /// eleven of which rendered nothing on any given screen. The twelve were
     /// the registry's `simple_preview_chain` list plus Tron and minus
     /// Bittensor, whose send had a preview and got no card. What each call
-    /// supplied is now read: the sentence from `sendBroadcastMode`, the gas
+    /// supplied is now read: one signing sentence for every chain, the gas
     /// caption from whether the coin is the chain's native asset, and the
     /// extra lines from a switch over core's preview enum.
     @ViewBuilder
@@ -207,19 +207,8 @@ struct SendNetworkStep: View {
                 Text(AppLocalization.format("Enter an amount to load a %@ fee preview. Add a valid destination address before sending.", chainName))
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Text(broadcastModeText(for: chain)).font(.caption).foregroundStyle(.secondary)
-        }
-    }
-
-    /// What core does with a send on this chain, as the card says it.
-    private func broadcastModeText(for chain: Chain) -> String {
-        switch chain.sendBroadcastMode {
-        case .signsAndBroadcasts:
-            return AppLocalization.format("Spectra signs and broadcasts %@ transfers in-app.", chain.displayName)
-        case .preparesWithBackend:
-            return AppLocalization.format("Spectra prepares %@ sends in-app using the configured backend fee quote.", chain.displayName)
-        case nil:
-            return ""
+            Text(AppLocalization.format("Spectra signs and broadcasts %@ transfers in-app.", chain.displayName))
+                .font(.caption).foregroundStyle(.secondary)
         }
     }
 

@@ -503,7 +503,6 @@
   "Source Path": "Source Path",
   "Spectra": "Spectra",
   "Spectra Operational Logs": "Spectra Operational Logs",
-  "Spectra prepares %@ sends in-app using the configured backend fee quote.": "Spectra prepares %@ sends in-app using the configured backend fee quote.",
   "Spectra signs and broadcasts %@ transfers in-app.": "Spectra signs and broadcasts %@ transfers in-app.",
   "Speed Up Pending Transaction": "Speed Up Pending Transaction",
   "Speed Up This Transaction": "Speed Up This Transaction",
