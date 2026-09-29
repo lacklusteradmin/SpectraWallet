@@ -7,7 +7,7 @@ struct AddCustomEndpointView: View {
     @State private var chainId = ""
     @State private var api = ""
     @State private var url = ""
-    @State private var capabilities: Set<String> = []
+    @State private var capabilities: Set<EndpointCapability> = []
     @State private var errorMessage: String?
     @State private var isSaving = false
     private let copy = EndpointsContentCopy.current
@@ -20,7 +20,7 @@ struct AddCustomEndpointView: View {
     private var types: [String] {
         Array(Set(availableEntries.filter { $0.record.chainId == chainId }.map(\.apiName))).sorted()
     }
-    private var capabilityOptions: [String] {
+    private var capabilityOptions: [EndpointCapability] {
         guard let type = directory.first(where: { $0.record.chainId == chainId && $0.apiName == api })?.record.api else { return [] }
         return endpointCapabilityOptions(chainId: chainId, api: type)
     }
@@ -40,13 +40,14 @@ struct AddCustomEndpointView: View {
             }
             Section {
                 ForEach(capabilityOptions, id: \.self) { capability in
+                    let id = endpointCapabilityId(capability: capability)
                     Toggle(isOn: Binding(
                         get: { capabilities.contains(capability) },
                         set: { if $0 { capabilities.insert(capability) } else { capabilities.remove(capability) } }
                     )) {
                         VStack(alignment: .leading) {
-                            Text(AppLocalization.string("endpointCapability.\(capability)"))
-                            Text(AppLocalization.string("endpointCapabilityDescription.\(capability)"))
+                            Text(AppLocalization.string("endpointCapability.\(id)"))
+                            Text(AppLocalization.string("endpointCapabilityDescription.\(id)"))
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -78,7 +79,7 @@ struct AddCustomEndpointView: View {
                     Task { @MainActor in
                         do {
                             let transition = try await store.applyStateCommand(.setAppSetting(
-                                update: .addCustomEndpoint(capabilities: capabilities.sorted(), chainId: chainId, api: api, endpoint: url)))
+                                update: .addCustomEndpoint(capabilities: Array(capabilities), chainId: chainId, api: api, endpoint: url)))
                             if transition.events.contains(where: { if case .appSettingRejected = $0 { return true }; return false }) {
                                 errorMessage = copy.invalidEndpointMessage
                             } else {

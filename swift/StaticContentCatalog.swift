@@ -128,7 +128,7 @@ struct DonationsContentCopy {
     static var current: Self { Self() }
     var navigationTitle: String { AppLocalization.string("donations.navigationTitle") }
     var heroSubtitle: String { AppLocalization.string("donations.heroSubtitle") }
-    var destinations: [DonationDestination] { StaticContentCatalog.loadRequiredResource("Donations", as: [DonationDestination].self) }
+    var destinations: [DonationDestination] { donationDestinations() }
 }
 
 struct EndpointsContentCopy {
@@ -182,12 +182,9 @@ struct BuyProviders: Decodable {
     static var current: BuyProviders { StaticContentCatalog.loadRequiredResource("BuyProviders", as: BuyProviders.self) }
 }
 
-/// A donation address, from `resources/Donations.json`. An address is the same
-/// in every language, so it is written once rather than once per locale file;
-/// its title is the chain's name.
-struct DonationDestination: Decodable {
-    let chainId: String
-    let address: String
+/// A donation address, validated by core when its catalog loads. Its title is
+/// the chain's name.
+extension DonationDestination {
     var title: String { Chain.displayName(forId: chainId) }
 }
 

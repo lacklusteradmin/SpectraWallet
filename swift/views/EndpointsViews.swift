@@ -24,7 +24,9 @@ struct EndpointCatalogSettingsView: View {
     private func endpointRow(_ entry: EndpointDirectoryEntry) -> some View {
         VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
             Text(entry.record.endpoint).font(.caption.monospaced()).textSelection(.enabled).lineLimit(3)
-            let tags = [entry.apiName] + entry.record.capabilities.map { AppLocalization.string("endpointCapability.\($0)") }
+            let tags = [entry.apiName] + entry.record.capabilities.map {
+                AppLocalization.string("endpointCapability.\(endpointCapabilityId(capability: $0))")
+            }
             Text(tags.joined(separator: " · ")).font(.caption2).foregroundStyle(.secondary)
             Text(AppLocalization.string(entry.isBuiltIn ? "Built-In" : "Custom"))
                 .font(.caption).foregroundStyle(.secondary)

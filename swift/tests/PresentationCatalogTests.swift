@@ -61,21 +61,10 @@ final class PresentationCatalogTests: XCTestCase {
         }
     }
 
-    /// Donation addresses are funds destinations: each must be a valid address
-    /// on the chain it names, and there is one list for every language.
-    func testDonationAddressesAreValidForTheirChains() {
-        let destinations = DonationsContentCopy.current.destinations
-        XCTAssertFalse(destinations.isEmpty)
-        for destination in destinations {
-            XCTAssertNotNil(Chain(id: destination.chainId), destination.chainId)
-            XCTAssertTrue(isValidSendAddress(chainId: destination.chainId, address: destination.address), destination.chainId)
-        }
-    }
-
     /// A localized string ships in a locale's table and nothing else; a
     /// locale-independent data file ships once, unsuffixed.
     func testLocaleIndependentDataShipsOnce() {
-        for name in ["AppLinks", "BuyProviders", "Donations"] {
+        for name in ["AppLinks", "BuyProviders"] {
             XCTAssertNotNil(Bundle.main.url(forResource: name, withExtension: "json"), name)
         }
         for name in ["CommonContent", "DiagnosticsContent", "DonationsContent",

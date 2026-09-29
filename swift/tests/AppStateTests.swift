@@ -185,8 +185,8 @@ import Foundation
             let capabilities = Set(try await service.endpointDirectory().flatMap(\.record.capabilities))
             XCTAssertFalse(capabilities.isEmpty)
             for capability in capabilities {
-                let key = "endpointCapability.\(capability)"
-                XCTAssertNotEqual(AppLocalization.string(key), key, capability)
+                let key = "endpointCapability.\(endpointCapabilityId(capability: capability))"
+                XCTAssertNotEqual(AppLocalization.string(key), key)
             }
         }
         /// What the app reads about Ethereum's test networks: that the
@@ -379,7 +379,7 @@ import Foundation
         /// on screen at once, by core's own rule, not after the round trip.
         func testSettingsGoThroughCoreAndSurviveIntoAFreshAppState() async throws {
             let store = makeState()
-            store.updateSetting(.addCustomEndpoint(capabilities: ["fee", "broadcast", "verification"], chainId: "monero", api: "monero-daemon-rpc", endpoint: "  https://wallet.example  "))
+            store.updateSetting(.addCustomEndpoint(capabilities: [.fee, .broadcast, .verification], chainId: "monero", api: "monero-daemon-rpc", endpoint: "  https://wallet.example  "))
             store.updateSetting(.bitcoinStopGap(value: 9_999))
             store.updateSetting(.useLargeMovementNotifications(value: false))
             XCTAssertEqual(store.appSettings.customEndpoints.last?.endpoint, "https://wallet.example", "core's rule trims before the command lands")
