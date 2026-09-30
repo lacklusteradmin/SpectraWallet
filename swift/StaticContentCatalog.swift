@@ -185,7 +185,7 @@ struct BuyProviders: Decodable {
 /// A donation address, validated by core when its catalog loads. Its title is
 /// the chain's name.
 extension DonationDestination {
-    var title: String { Chain.displayName(forId: chainId) }
+    var title: String { chainId.displayName }
 }
 
 /// Every string a person reads, from `RuntimeStrings.<locale>.json`: the

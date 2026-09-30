@@ -22,7 +22,7 @@ final class DiagnosticsBundleTests: IsolatedAppStateTestCase {
     func testChainDiagnosticsMatchTheBundle() async throws {
         let store = makeState()
         let diagnostics = try await store.chainDiagnostics(for: .bitcoin)
-        XCTAssertEqual(diagnostics.networkId, "bitcoin")
+        XCTAssertEqual(diagnostics.networkId, .bitcoin)
         let fileURL = try await store.exportDiagnosticsBundle()
         defer { try? FileManager.default.removeItem(at: fileURL) }
         let imported = try store.importDiagnosticsBundle(from: fileURL)

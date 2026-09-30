@@ -306,7 +306,8 @@ struct SendView: View {
         case .recipient:
             go(to: .amount)
         case .amount:
-            guard let coin = selectedCoin, let chain = coin.chain else { return }
+            guard let coin = selectedCoin else { return }
+            let chain = coin.chain
             let input = store.sendFlow.address.trimmingCharacters(in: .whitespacesAndNewlines)
             let session = store.sendFlow.session.id
             Task {
@@ -394,7 +395,7 @@ struct SendView: View {
         // network there is nothing to judge an address against, so nothing is
         // filled in.
         guard let network = scannedPayloadNetwork,
-            let address = scannedSendAddress(chainId: network.id, payload: payload)
+            let address = scannedSendAddress(chain: network, payload: payload)
         else {
             qrScannerErrorMessage = AppLocalization.string("The scanned QR code does not contain a valid address for the selected asset.")
             return
@@ -406,9 +407,8 @@ struct SendView: View {
     /// The network a scanned address must belong to: the one the sending wallet
     /// is on for the selected asset's family.
     private var scannedPayloadNetwork: Chain? {
-        guard let family = store.selectedSendCoin?.chain?.mainnetCounterpart.id else { return nil }
-        let chainId = store.selectedWalletForSend()?.chainId ?? store.selectedChainId(forFamily: family)
-        return Chain(id: chainId)
+        guard let family = store.selectedSendCoin?.chain.mainnetCounterpart else { return nil }
+        return store.selectedWalletForSend()?.chainId ?? store.selectedChain(forFamily: family)
     }
 }
 
@@ -426,7 +426,7 @@ private struct SavedSendRow: View {
     }
 
     var body: some View {
-        let chain = Chain(id: artifact.chainId)
+        let chain = artifact.chainId
         let badge = Coin.nativeChainBadge(for: chain) ?? (nil, Color.secondary)
         HStack(spacing: SpectraLayout.Space.m) {
             CoinBadge(artworkName: badge.artworkName, fallbackText: artifact.asset, color: badge.color, size: 28)
@@ -434,7 +434,7 @@ private struct SavedSendRow: View {
                 Text(verbatim: "\(AmountPresentation.localizedDecimal(artifact.amount)) \(artifact.asset)")
                     .font(.subheadline.weight(.semibold))
                     .spectraNumericTextLayout()
-                Text(verbatim: Chain.displayName(forId: artifact.chainId))
+                Text(verbatim: artifact.chainId.displayName)
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

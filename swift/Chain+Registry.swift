@@ -91,17 +91,11 @@ extension Chain: Identifiable {
     /// Monero derives from the seed directly. Resolved once per chain.
     var defaultDerivationPath: String { Self.defaultDerivationPaths[self] ?? "" }
     private static let defaultDerivationPaths: [Chain: String] = Dictionary(uniqueKeysWithValues: all.map {
-        ($0, (try? resolveDerivationPath(chainId: $0.id, derivationPath: "")) ?? "")
+        ($0, (try? resolveDerivationPath(chain: $0, derivationPath: "")) ?? "")
     })
 
     init?(id: String) {
         guard let chain = Self.chainById[id] else { return nil }
         self = chain
-    }
-
-    /// The display name for a chain id. Identity crosses the boundary as the
-    /// id; this is only for text a person reads. An unknown id shows as itself.
-    static func displayName(forId id: String) -> String {
-        Chain(id: id)?.displayName ?? id
     }
 }

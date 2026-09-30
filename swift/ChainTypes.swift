@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated extension NetworkChoice: Identifiable {
-    public var id: String { chainId }
+    public var id: Chain { chainId }
 }
 
 // MARK: - Transactions & price alerts (Rust-owned enums)

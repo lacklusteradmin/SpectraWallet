@@ -35,14 +35,16 @@ extension AppState {
     /// rejects duplicates and assigns the entry's id.
     func addAddressBookEntry(name: String, address: String, chain: Chain, note: String = "") {
         sendAddressBookCommand(.addAddressBookEntry(
-            name: name, chainId: chain.id, address: address, note: note))
+            name: name, chainId: chain, address: address, note: note))
     }
     func canSaveRecipientToAddressBook(_ tx: TransactionRecord) -> Bool {
-        guard tx.kind == .send, let chain = tx.chain else { return false }
+        guard tx.kind == .send else { return false }
+        let chain = tx.chain
         return canSaveAddressBookEntry(name: AppLocalization.format("%@ Recipient", tx.symbol), address: tx.address, chain: chain)
     }
     func saveRecipientToAddressBook(_ tx: TransactionRecord) {
-        guard tx.kind == .send, let chain = tx.chain else { return }
+        guard tx.kind == .send else { return }
+        let chain = tx.chain
         addAddressBookEntry(
             name: AppLocalization.format("%@ Recipient", tx.symbol), address: tx.address, chain: chain,
             note: AppLocalization.string("Saved from recent send"))

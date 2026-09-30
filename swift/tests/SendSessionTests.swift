@@ -4,7 +4,7 @@ import XCTest
 @MainActor
 final class SendSessionTests: XCTestCase {
     private func artifact(_ id: String, stage: SendStage = .prepared) -> SendArtifact {
-        SendArtifact(id: id, revision: 0, stage: stage, walletId: "wallet", chainId: id,
+        SendArtifact(id: id, revision: 0, stage: stage, walletId: "wallet", chainId: .ethereum,
             sender: "sender", recipient: "recipient", amount: "1.000000000000000001", asset: "ETH",
             createdAt: 0, reviewDigest: "digest-\(id)",
             review: SendArtifactReview(warnings: [.newAddress], recipientWarnings: [], requiresSelfSendConfirmation: true),
@@ -112,7 +112,7 @@ final class SendSessionTests: XCTestCase {
         let bridge = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.sqlite").path, service: service)
         _ = try await bridge.openState()
         let store = AppState(bridge: bridge, startServices: false)
-        let wallet = WalletView(name: "Sender", chainId: "ethereum", addresses: ["ethereum": "0x1111111111111111111111111111111111111111"])
+        let wallet = WalletView(name: "Sender", chainId: Chain.ethereum, addresses: [Chain.ethereum: "0x1111111111111111111111111111111111111111"])
         _ = try await bridge.ready().applyStateCommand(command: .upsertWallet(wallet: wallet.walletState()))
         store.sendFlow.session.artifact = artifact("old", stage: .signed)
         let gate = SendSessionGate<Bool>()
@@ -120,7 +120,7 @@ final class SendSessionTests: XCTestCase {
             guard let result = await store.sendFlow.session.broadcast(submit: { _, _ in
                 _ = await gate.wait()
                 let record = TransactionRecord(id: "old", walletId: wallet.id, kind: .send, status: .pending,
-                    walletName: wallet.name, assetDisplayName: "Ether", symbol: "ETH", chainId: "ethereum",
+                    walletName: wallet.name, assetDisplayName: "Ether", symbol: "ETH", chainId: Chain.ethereum,
                     amount: "1", address: "0x2222222222222222222222222222222222222222")
                 _ = try await service.applyTransactionCommand(command: .upsert(records: [record]))
                 return self.artifact("old", stage: .signed)

@@ -29,7 +29,7 @@ struct TokenRegistryGroupRowView: View {
             VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                 Text(group.name).font(.body.weight(.semibold)).foregroundStyle(.primary)
                 Text(group.symbol).font(.subheadline).foregroundStyle(.secondary)
-                Text(group.entries.map { Chain(id: $0.token.chainId)?.displayName ?? $0.token.chainId }.joined(separator: " · "))
+                Text(group.entries.map { $0.token.chainId.displayName }.joined(separator: " · "))
                     .font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
             Spacer(minLength: SpectraLayout.Space.s)
@@ -43,7 +43,7 @@ struct TokenRegistryEntryCardView: View {
     let entry: TokenPreferenceEntry
     var body: some View {
         VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-            Text(Chain(id: entry.token.chainId)?.displayName ?? entry.token.chainId)
+            Text(entry.token.chainId.displayName)
                 .font(.headline)
             LabeledContent(AppLocalization.string("Token Standard"), value: entry.token.tokenStandard)
             LabeledContent(AppLocalization.string("Supported Decimals"), value: "\(entry.token.decimals)")

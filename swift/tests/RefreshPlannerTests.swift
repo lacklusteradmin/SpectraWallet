@@ -19,7 +19,7 @@ import Foundation
         }
 
         func testCoreRefreshEngineDoesNotKeepAppStateAlive() async throws {
-            let wallet = WalletView(name: "Watch", chainId: "ethereum", addresses: ["ethereum": "0x" + String(repeating: "1", count: 40)])
+            let wallet = WalletView(name: "Watch", chainId: Chain.ethereum, addresses: [Chain.ethereum: "0x" + String(repeating: "1", count: 40)])
             _ = try await bridge.ready().applyStateCommand(command: .upsertWallet(wallet: wallet.walletState()))
             var store: AppState? = AppState(bridge: bridge, startServices: false)
             store?.isNetworkReachable = false

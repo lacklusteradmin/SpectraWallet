@@ -15,7 +15,7 @@ struct ReviewAddressBlock: View {
     let store: AppState
     let label: String
     let walletId: String
-    let chainId: String
+    let chain: Chain?
     let address: String
     @State private var holder: EndpointHolder?
 
@@ -37,11 +37,11 @@ struct ReviewAddressBlock: View {
                     }
                 }
         }
-        .task(id: "\(walletId)|\(chainId)|\(address)") {
+        .task(id: "\(walletId)|\(chain?.id ?? "")|\(address)") {
             holder = nil
             let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
-            guard !trimmed.isEmpty, !walletId.isEmpty, !chainId.isEmpty else { return }
-            let answer = try? await store.bridge.ready().addressHolder(walletId: walletId, chainId: chainId, address: trimmed)
+            guard !trimmed.isEmpty, !walletId.isEmpty, let chain else { return }
+            let answer = try? await store.bridge.ready().addressHolder(walletId: walletId, chainId: chain, address: trimmed)
             guard !Task.isCancelled else { return }
             holder = answer
         }

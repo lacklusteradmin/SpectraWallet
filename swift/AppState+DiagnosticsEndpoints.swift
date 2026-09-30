@@ -4,18 +4,18 @@ import Foundation
 @MainActor
 extension AppState {
     func runHistoryDiagnostics(for chain: Chain) async {
-        await chainDiagnosticsState.run(\.runningHistory, chainId: chain.id) {
+        await chainDiagnosticsState.run(\.runningHistory, chain: chain) {
             try? await withTimeout(seconds: 20) { await self.refreshHistory(chain: chain) }
         }
     }
 
     /// Core probes the network the family is on and keeps the result.
     func runEndpointDiagnostics(for chain: Chain) async {
-        await chainDiagnosticsState.run(\.checkingEndpoints, chainId: chain.id) {
+        await chainDiagnosticsState.run(\.checkingEndpoints, chain: chain) {
             do {
-                _ = try await self.bridge.ready().probeChainEndpoints(chainId: self.selectedChainId(forFamily: chain.id))
+                _ = try await self.bridge.ready().probeChainEndpoints(chain: self.selectedChain(forFamily: chain))
             } catch {
-                self.appendOperationalLog(.error, category: "Endpoints", message: error.localizedDescription, chainId: chain.id)
+                self.appendOperationalLog(.error, category: "Endpoints", message: error.localizedDescription, chain: chain)
             }
         }
     }

@@ -26,7 +26,7 @@ extension AppState {
                 }
                 return artifact
             }, endpoints: {
-                let choices = try await self.bridge.ready().sendEndpoints(chainId: $0)
+                let choices = try await self.bridge.ready().sendEndpoints(chain: $0)
                 guard try self.currentSendReviewInput() == input else {
                     throw NSError(domain: "Send", code: 1, userInfo: [NSLocalizedDescriptionKey:
                         AppLocalization.string("Send inputs changed. Build the transaction again.")])
@@ -44,7 +44,7 @@ extension AppState {
         if artifact.review.requiresSelfSendConfirmation {
             reasons.append(AppLocalization.string("This destination belongs to your wallet. Confirm intentional self-send."))
         }
-        let network = Chain(id: artifact.chainId)?.displayName ?? artifact.chainId
+        let network = artifact.chainId.displayName
         reasons.insert("\(artifact.amount) \(artifact.asset) → \(artifact.recipient) (\(network))", at: 0)
         return reasons
     }
@@ -95,7 +95,7 @@ extension AppState {
         sendFlow.invalidateSession()
         return await sendFlow.session.load(operation: .resume,
             prepare: { try await self.bridge.ready().inspectSend(id: id) },
-            endpoints: { try await self.bridge.ready().sendEndpoints(chainId: $0) })
+            endpoints: { try await self.bridge.ready().sendEndpoints(chain: $0) })
     }
 
 }

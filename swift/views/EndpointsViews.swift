@@ -13,11 +13,11 @@ struct EndpointCatalogSettingsView: View {
         }
     }
     private func visibleEntries(for chain: Chain) -> [EndpointDirectoryEntry] {
-        let ids = Set(AppEndpointDirectory.groupedSettingsEntries(for: chain.id).map(\.chainId) + [chain.id])
+        let chains = Set(AppEndpointDirectory.groupedSettingsEntries(for: chain).map(\.chainId) + [chain])
         var seen = Set<String>()
         return entries.filter {
-            ids.contains($0.record.chainId)
-                && seen.insert($0.record.chainId + "\n" + $0.record.endpoint + ($0.isBuiltIn ? "" : $0.apiName)).inserted
+            chains.contains($0.record.chainId)
+                && seen.insert($0.record.chainId.id + "\n" + $0.record.endpoint + ($0.isBuiltIn ? "" : $0.apiName)).inserted
                 && (sourceFilter == "All" || $0.isBuiltIn == (sourceFilter == "Built-In"))
         }
     }
@@ -38,7 +38,7 @@ struct EndpointCatalogSettingsView: View {
             ForEach(endpointSections) { chain in
                 Section(chain.displayName) {
                     let rows = visibleEntries(for: chain)
-                    let groups = AppEndpointDirectory.groupedSettingsEntries(for: chain.id)
+                    let groups = AppEndpointDirectory.groupedSettingsEntries(for: chain)
                     if groups.count > 1 {
                         ForEach(groups, id: \.chainId) { group in
                             let groupRows = rows.filter { $0.record.chainId == group.chainId }

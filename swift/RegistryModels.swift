@@ -7,7 +7,7 @@ typealias TokenPreferenceEntry = CoreTokenPreferenceEntry
 nonisolated extension CoreTokenPreferenceEntry: Identifiable {
     public var id: String { token.deploymentId }
     /// The chain hosting this token.
-    var hostingChain: Chain? { Chain(id: token.chainId).flatMap { $0.hostsTokens ? $0 : nil } }
+    var hostingChain: Chain? { token.chainId.hostsTokens ? token.chainId : nil }
 }
 
 extension Coin {

@@ -8,7 +8,7 @@ struct TokenRegistryDetailView: View {
     @Environment(\.dismiss) private var dismiss
     private var groupEntries: [TokenPreferenceEntry] {
         store.tokenPreferences.filter { $0.token.tokenId == groupKey }
-            .sorted { $0.token.chainId < $1.token.chainId }
+            .sorted { $0.token.chainId.id < $1.token.chainId.id }
     }
     var body: some View {
         Group {

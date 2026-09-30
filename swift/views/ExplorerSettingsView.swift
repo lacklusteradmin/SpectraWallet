@@ -11,7 +11,7 @@ struct ExplorerSettingsView: View {
                 ForEach(explorers, id: \.chainId) { explorer in
                     VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                         HStack(alignment: .firstTextBaseline) {
-                            Text(Chain(id: explorer.chainId)?.displayName ?? explorer.chainId)
+                            Text(explorer.chainId.displayName)
                                 .font(.subheadline.weight(.semibold))
                             Spacer(minLength: SpectraLayout.Space.s)
                             Text(explorer.name).font(.caption).foregroundStyle(.secondary)

@@ -58,10 +58,10 @@ final class CoinBadgeArtworkTests: XCTestCase {
             XCTAssertNotNil(UIImage(named: badge.artworkName), "\(chain.displayName) drew a letter")
         }
         let base = CoinBadge(
-            artworkName: Chain(id: "base")?.entry?.artworkName,
+            artworkName: Chain.base.entry?.artworkName,
             fallbackText: "BASE", color: .orange)
         let etherOnBase = CoinBadge(
-            artworkName: Coin.fixture(name: "", symbol: "ETH", chainId: "base", amount: "0").artworkName,
+            artworkName: Coin.fixture(name: "", symbol: "ETH", chainId: Chain.base, amount: "0").artworkName,
             fallbackText: "ETH", color: .orange)
         XCTAssertEqual(base.artworkName, "base")
         XCTAssertEqual(etherOnBase.artworkName, "ethereum")
@@ -70,7 +70,7 @@ final class CoinBadgeArtworkTests: XCTestCase {
     /// A custom contract cannot borrow USDC artwork by copying its symbol.
     func testAnUnknownCoinFallsBackToItsLetter() {
         let unknown = CoinBadge(
-            artworkName: Coin.fixture(name: "USD Coin", symbol: "USDC", coingeckoId: "usd-coin", chainId: "ethereum",
+            artworkName: Coin.fixture(name: "USD Coin", symbol: "USDC", coingeckoId: "usd-coin", chainId: Chain.ethereum,
                 tokenStandard: "ERC-20", contractAddress: "0xdead", amount: "0").artworkName,
             fallbackText: "USDCE", color: .orange)
         XCTAssertEqual(unknown.artworkName, "")

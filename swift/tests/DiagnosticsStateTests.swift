@@ -8,26 +8,26 @@ import Foundation
         /// found it so; this state only adopts what core recorded.
         func testADegradedChainShowsABannerAndSurvivesAReload() async throws {
             _ = try await bridge.ready().applyDiagnosticCommand(command: 
-                .degraded(chainId: "ethereum", reason: .failed(message: "Ethereum refresh timed out. Using cached balances and history.")))
+                .degraded(chainId: Chain.ethereum, reason: .failed(message: "Ethereum refresh timed out. Using cached balances and history.")))
             let state = WalletDiagnosticsState(bridge: bridge)
             await state.loadFromSQLite()
             XCTAssertEqual(state.chainDegradedBanners.count, 1)
-            XCTAssertEqual(state.chainDegradedBanners.first?.chainId, "ethereum")
+            XCTAssertEqual(state.chainDegradedBanners.first?.chain, Chain.ethereum)
             XCTAssertTrue(state.chainDegradedBanners.first?.message.contains("Ethereum refresh timed out.") == true)
             XCTAssertEqual(state.operationalLogs.count, 1)
             XCTAssertEqual(state.operationalLogs.first?.input.level, .warning)
-            XCTAssertEqual(state.operationalLogs.first?.input.chainId, "ethereum")
+            XCTAssertEqual(state.operationalLogs.first?.input.chainId, Chain.ethereum)
         }
         func testAHealthyChainClearsItsBannerAndLogsTheRecovery() async throws {
-            _ = try await bridge.ready().applyDiagnosticCommand(command: .degraded(chainId: "solana", reason: .historyRefreshFailed))
-            _ = try await bridge.ready().applyDiagnosticCommand(command: .healthy(chainId: "solana"))
+            _ = try await bridge.ready().applyDiagnosticCommand(command: .degraded(chainId: Chain.solana, reason: .historyRefreshFailed))
+            _ = try await bridge.ready().applyDiagnosticCommand(command: .healthy(chainId: Chain.solana))
             let state = WalletDiagnosticsState(bridge: bridge)
             await state.loadFromSQLite()
-            XCTAssertNil(state.chainDegraded["solana"])
+            XCTAssertNil(state.chainDegraded[Chain.solana])
             XCTAssertTrue(state.chainDegradedBanners.isEmpty)
             XCTAssertEqual(state.operationalLogs.count, 2)
             XCTAssertEqual(state.operationalLogs.first?.input.level, .info)
-            XCTAssertEqual(state.operationalLogs.first?.input.chainId, "solana")
+            XCTAssertEqual(state.operationalLogs.first?.input.chainId, Chain.solana)
             XCTAssertEqual(state.operationalLogs.first?.input.message, "Chain recovered")
         }
         /// An appended line crosses the binding with every field. Trimming and
@@ -35,13 +35,13 @@ import Foundation
         func testAppendedLogCrossesTheBindingWithEveryField() async throws {
             let state = WalletDiagnosticsState(bridge: bridge)
             state.appendOperationalLog(
-                .error, category: "Network", message: "Request failed", chainId: "bitcoin", source: "rpc",
+                .error, category: "Network", message: "Request failed", chain: Chain.bitcoin, source: "rpc",
                 metadata: "timeout"
             )
             await state.flushPendingPersistence()
             XCTAssertEqual(state.operationalLogs.first?.input.category, "Network")
             XCTAssertEqual(state.operationalLogs.first?.input.message, "Request failed")
-            XCTAssertEqual(state.operationalLogs.first?.input.chainId, "bitcoin")
+            XCTAssertEqual(state.operationalLogs.first?.input.chainId, Chain.bitcoin)
             XCTAssertEqual(state.operationalLogs.first?.input.source, "rpc")
             XCTAssertEqual(state.operationalLogs.first?.input.metadata, "timeout")
         }
@@ -49,7 +49,7 @@ import Foundation
             let state = WalletDiagnosticsState(bridge: bridge)
             let walletId = UUID()
             state.appendOperationalLog(
-                .warning, category: "Chain Sync", message: "Ethereum refresh timed out.", chainId: "ethereum",
+                .warning, category: "Chain Sync", message: "Ethereum refresh timed out.", chain: Chain.ethereum,
                 walletId: walletId.uuidString,
                 transactionHash: "0xabc", source: "network", metadata: "cached"
             )

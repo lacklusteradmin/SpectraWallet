@@ -13,7 +13,7 @@ struct SendNetworkStep: View {
     private var quote: OwnedSendPreview? { store.sendQuote }
 
     private func hasNetworkSendSections(for coin: Coin?) -> Bool {
-        coin?.chain?.hasSendPreview ?? false
+        coin?.chain.hasSendPreview ?? false
     }
 
     /// The quoted fee, with its display-currency value when core had one.
@@ -76,7 +76,8 @@ struct SendNetworkStep: View {
     /// registry; nothing here names one.
     @ViewBuilder
     private func networkCardContent(selectedCoin: Coin?) -> some View {
-        if let selectedCoin, let chain = selectedCoin.chain {
+        if let selectedCoin {
+            let chain = selectedCoin.chain
             if chain.isEVM {
                 evmNetworkContent(selectedCoin: selectedCoin, chain: chain)
             } else if selectedCoin.isUTXOChain, selectedCoin.isNativeCoin {
@@ -252,7 +253,7 @@ struct SendNetworkStep: View {
     /// priority fee the rows gave as 0.001 gwei to "0.00".
     @ViewBuilder
     private func sendPreviewDetailsContent(for selectedCoin: Coin) -> some View {
-        let isEVM = selectedCoin.chain?.isEVM ?? false
+        let isEVM = selectedCoin.chain.isEVM
         if let details = store.sendPreviewDetails(for: selectedCoin), details.hasDetailRows(isEVM: isEVM) {
             VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
                 Divider().opacity(0.3).padding(.vertical, SpectraLayout.Space.xs)

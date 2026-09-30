@@ -59,7 +59,7 @@ import Foundation
             store.walletImport.draft.walletName = "Catalog Coverage"
             store.walletImport.draft.setSeedPhraseForTesting(
                 "test test test test test test test test test test test junk")
-            store.walletImport.draft.selectedChainIdsStorage = ["ethereum"]
+            store.walletImport.draft.selectedChainsStorage = [Chain.ethereum]
             await store.importWallet()
             XCTAssertNil(store.walletImport.error)
             guard let wallet = store.wallets.first else { return XCTFail("no wallet") }
@@ -74,8 +74,8 @@ import Foundation
         func testARenameThatLandsAfterADeleteDoesNotResurrectTheWallet() async throws {
             let store = makeState()
             let wallet = WalletView(
-                id: UUID(), name: "Probe", chainId: "ethereum",
-                addresses: ["ethereum": "0xabc123"])
+                id: UUID(), name: "Probe", chainId: Chain.ethereum,
+                addresses: [Chain.ethereum: "0xabc123"])
             try await store.seedWalletForTesting(wallet)
             let removed = await store.removeWallet(id: wallet.id)
             XCTAssertTrue(removed)
@@ -88,15 +88,15 @@ import Foundation
         func testEditingWalletNamePreservesExistingHoldings() async throws {
             let store = makeState()
             let existingHolding = Coin.fixture(
-                name: "Ethereum", symbol: "ETH", coingeckoId: "ethereum", chainId: "ethereum", amount: "2")
+                name: "Ethereum", symbol: "ETH", coingeckoId: "ethereum", chainId: Chain.ethereum, amount: "2")
             let wallet = WalletView(
-                id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!, name: "Primary ETH", chainId: "ethereum",
-                addresses: ["ethereum": "0xabc123"], holdings: [existingHolding], includeInPortfolioTotal: false
+                id: UUID(uuidString: "11111111-1111-1111-1111-111111111111")!, name: "Primary ETH", chainId: Chain.ethereum,
+                addresses: [Chain.ethereum: "0xabc123"], holdings: [existingHolding], includeInPortfolioTotal: false
             )
             try await store.seedWalletForTesting(wallet)
             store.beginEditingWallet(wallet)
             store.walletImport.draft.walletName = "Renamed ETH"
-            store.walletImport.draft.selectedChainIdsStorage = []
+            store.walletImport.draft.selectedChainsStorage = []
             await store.importWallet()
             XCTAssertEqual(store.wallets.count, 1)
             XCTAssertEqual(store.wallets[0].name, "Renamed ETH")
@@ -111,24 +111,24 @@ import Foundation
             let store = makeState()
             store.walletImport.draft.walletName = "Primary BTC"
             store.walletImport.draft.setSeedPhraseForTesting("test test test test test test test test test test test junk")
-            store.walletImport.draft.selectedChainIdsStorage = ["bitcoin"]
+            store.walletImport.draft.selectedChainsStorage = [Chain.bitcoin]
             await store.importWallet()
             XCTAssertNil(store.walletImport.error)
             XCTAssertEqual(store.wallets.count, 1)
-            XCTAssertEqual(store.wallets.first?.chainId, "bitcoin")
+            XCTAssertEqual(store.wallets.first?.chainId, Chain.bitcoin)
             XCTAssertFalse(store.wallets.first?.address(on: .bitcoin)?.isEmpty ?? true)
         }
         func testBitcoinDisplayNetworkNameUsesSelectedMode() async {
             let store = makeState()
-            store.selectChainForFamily("bitcoin-testnet-4")
+            store.selectChainForFamily(Chain.bitcoinTestnet4)
             await store.awaitPendingCoreStateWrites()
             XCTAssertEqual(store.selectedNetworkTitle(forFamily: .bitcoin), "Bitcoin Testnet4")
         }
         /// A wallet carries its own network, so it can differ from the app's.
         func testBitcoinWalletDisplayTitleUsesWalletSpecificNetwork() {
             let wallet = WalletView(
-                name: "BTC Testnet4", chainId: "bitcoin-testnet-4",
-                addresses: ["bitcoin-testnet-4": "tb1qexample"]
+                name: "BTC Testnet4", chainId: Chain.bitcoinTestnet4,
+                addresses: [Chain.bitcoinTestnet4: "tb1qexample"]
             )
             XCTAssertEqual(wallet.networkTitle, "Bitcoin Testnet4")
         }
@@ -136,8 +136,8 @@ import Foundation
             let store = makeState()
             let transaction = TransactionRecord(id: UUID().uuidString, kind: .send, status: .confirmed,
                 walletName: "Historical", assetDisplayName: "Ethereum", symbol: "ETH",
-                chainId: "ethereum-sepolia", amount: "1", address: "0x1111111111111111111111111111111111111111")
-            store.selectChainForFamily("ethereum-hoodi")
+                chainId: Chain.ethereumSepolia, amount: "1", address: "0x1111111111111111111111111111111111111111")
+            store.selectChainForFamily(Chain.ethereumHoodi)
             await store.awaitPendingCoreStateWrites()
             XCTAssertEqual(transaction.chainName, "Ethereum Sepolia")
         }
@@ -157,7 +157,7 @@ import Foundation
 
         func testEthereumDisplayNetworkNameUsesSelectedMode() async {
             let store = makeState()
-            store.selectChainForFamily("ethereum-hoodi")
+            store.selectChainForFamily(Chain.ethereumHoodi)
             await store.awaitPendingCoreStateWrites()
             XCTAssertEqual(store.selectedNetworkTitle(forFamily: .ethereum), "Ethereum Hoodi")
         }
@@ -194,19 +194,18 @@ import Foundation
         /// endpoints the catalog gives each. Core's
         /// `evm_chains_carry_their_eip155_ids` checks their EIP-155 ids.
         func testEthereumTestNetworksExposeExpectedContextsAndEndpoints() {
-            for id in ["ethereum-sepolia", "ethereum-hoodi"] {
-                let chain = Chain(id: id)
-                XCTAssertEqual(chain?.isEVM, true, id)
-                XCTAssertEqual(chain?.isTestnet, true, id)
-                XCTAssertEqual(chain?.mainnetCounterpart, .ethereum, id)
+            for chain in [Chain.ethereumSepolia, .ethereumHoodi] {
+                XCTAssertTrue(chain.isEVM, chain.id)
+                XCTAssertTrue(chain.isTestnet, chain.id)
+                XCTAssertEqual(chain.mainnetCounterpart, .ethereum, chain.id)
             }
-            XCTAssertEqual(AppEndpointDirectory.groupedSettingsEntries(for: "ethereum-sepolia").flatMap(\.endpoints),
-                ["https://ethereum-sepolia-rpc.publicnode.com"])
-            XCTAssertEqual(AppEndpointDirectory.groupedSettingsEntries(for: "ethereum-hoodi").flatMap(\.endpoints),
-                ["https://ethereum-hoodi-rpc.publicnode.com"])
-            let groups = AppEndpointDirectory.groupedSettingsEntries(for: "ethereum")
-            XCTAssertTrue(groups.contains { $0.chainId == "ethereum-sepolia" && $0.title == "Ethereum Sepolia" })
-            XCTAssertEqual(AppEndpointDirectory.groupedSettingsEntries(for: "ethereum-sepolia").map(\.chainId), ["ethereum-sepolia"])
+            XCTAssertEqual(AppEndpointDirectory.groupedSettingsEntries(for: Chain.ethereumSepolia).flatMap(\.endpoints),
+                ["https://ethereum-sepolia-rpc.publicnode.com", "https://1rpc.io/sepolia", "https://eth-sepolia.blockscout.com"])
+            XCTAssertEqual(AppEndpointDirectory.groupedSettingsEntries(for: Chain.ethereumHoodi).flatMap(\.endpoints),
+                ["https://ethereum-hoodi-rpc.publicnode.com", "https://1rpc.io/hoodi", "https://eth-hoodi.blockscout.com"])
+            let groups = AppEndpointDirectory.groupedSettingsEntries(for: Chain.ethereum)
+            XCTAssertTrue(groups.contains { $0.chainId == .ethereumSepolia && $0.title == "Ethereum Sepolia" })
+            XCTAssertEqual(AppEndpointDirectory.groupedSettingsEntries(for: Chain.ethereumSepolia).map(\.chainId), [.ethereumSepolia])
         }
         /// A watch-only wallet on any chain survives persistence: "has any
         /// address" is a property of the wallet, not of a list.
@@ -218,7 +217,7 @@ import Foundation
             for chain in [Chain.kaspa, .dash, .zcash, .ton, .icp, .bitcoinGold, .bittensor] {
                 try await store.clearWalletsForTesting()
 
-                var wallet = WalletView(name: "Watch \(chain.id)", chainId: chain.id)
+                var wallet = WalletView(name: "Watch \(chain.id)", chainId: chain)
                 wallet.setAddress("address-for-\(chain.id)", on: chain)
                 try await store.seedWalletForTesting(wallet)
 
@@ -228,7 +227,7 @@ import Foundation
                 XCTAssertEqual(
                     reloaded.first?.address(on: chain), "address-for-\(chain.id)",
                     "\(chain.id) address did not round-trip")
-                XCTAssertEqual(reloaded.first?.chainId, chain.id)
+                XCTAssertEqual(reloaded.first?.chainId, chain)
             }
             try await store.clearWalletsForTesting()
         }
@@ -379,7 +378,7 @@ import Foundation
         /// on screen at once, by core's own rule, not after the round trip.
         func testSettingsGoThroughCoreAndSurviveIntoAFreshAppState() async throws {
             let store = makeState()
-            store.updateSetting(.addCustomEndpoint(capabilities: [.fee, .broadcast, .verification], chainId: "monero", api: "monero-daemon-rpc", endpoint: "  https://wallet.example  "))
+            store.updateSetting(.addCustomEndpoint(capabilities: [.fee, .broadcast, .verification], chainId: Chain.monero, api: "monero-daemon-rpc", endpoint: "  https://wallet.example  "))
             store.updateSetting(.bitcoinStopGap(value: 9_999))
             store.updateSetting(.useLargeMovementNotifications(value: false))
             XCTAssertEqual(store.appSettings.customEndpoints.last?.endpoint, "https://wallet.example", "core's rule trims before the command lands")

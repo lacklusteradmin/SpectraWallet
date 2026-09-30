@@ -15,8 +15,8 @@ extension WalletView {
     init(
         id: UUID = UUID(),
         name: String,
-        chainId: String,
-        addresses: [String: String] = [:],
+        chainId: Chain,
+        addresses: [Chain: String] = [:],
         bitcoinXpub: String? = nil,
         seedDerivationPreset: CoreSeedDerivationPreset = .standard,
         seedDerivationPaths: CoreSeedDerivationPaths? = nil,
@@ -28,9 +28,8 @@ extension WalletView {
         self.init(
             id: id.uuidString, name: name, chainId: chainId,
             addresses: Dictionary(
-                addresses.compactMap { chainId, address in
-                    Chain(id: chainId).map { ($0.addressSlot, address) }
-                }, uniquingKeysWith: { first, _ in first }),
+                addresses.map { chain, address in (chain.addressSlot, address) },
+                uniquingKeysWith: { first, _ in first }),
             bitcoinXpub: bitcoinXpub,
             seedDerivationPreset: seedDerivationPreset,
             seedDerivationPaths: seedDerivationPaths ?? .forPreset(seedDerivationPreset),
@@ -60,10 +59,11 @@ extension WalletView {
     /// mapping as core's `WalletView::to_wallet_state`, for seeding a test
     /// through the command the app issues.
     func walletState() -> WalletState {
-        let path = chain.map { seedDerivationPaths.path(for: $0) }.flatMap { $0.isEmpty ? nil : $0 }
+        let networkPath = seedDerivationPaths.path(for: chain)
+        let path = networkPath.isEmpty ? nil : networkPath
         // The wallet's own slot first: core reads the first receive address as
         // the primary one.
-        let ownSlot = family?.addressSlot
+        let ownSlot = family.addressSlot
         let slots = addresses.keys.sorted { ($0 == ownSlot ? 0 : 1, $0) < ($1 == ownSlot ? 0 : 1, $1) }
         return WalletState(
             id: id, name: name, signing: signing, chainId: chainId,
@@ -73,7 +73,7 @@ extension WalletView {
             addresses: slots.compactMap { slot in
                 guard let owner = Chain.all.first(where: { $0.addressSlot == slot }), let address = addresses[slot] else { return nil }
                 let networkPath = seedDerivationPaths.path(for: owner)
-                return WalletAddress(chainId: owner.id, address: address, kind: "receive", derivationPath: networkPath.isEmpty ? nil : networkPath)
+                return WalletAddress(chainId: owner, address: address, kind: "receive", derivationPath: networkPath.isEmpty ? nil : networkPath)
             })
     }
 }
@@ -84,7 +84,7 @@ extension TransactionRecord {
     init(
         id: String, walletId: String? = nil, deploymentId: String? = nil, kind: CoreTransactionKind,
         status: TransactionStatus, walletName: String, assetDisplayName: String, symbol: String,
-        chainId: String, amount: String, address: String, transactionHash: String? = nil,
+        chainId: Chain, amount: String, address: String, transactionHash: String? = nil,
         nonce: Int64? = nil, failureReason: TransactionFailure? = nil
     ) {
         self.init(
@@ -95,7 +95,7 @@ extension TransactionRecord {
             nonce: nonce, receiptBlockNumber: nil, receiptGasUsed: nil,
             receiptEffectiveGasPriceGwei: nil, receiptNetworkFee: nil,
             feeRateDescription: nil, confirmationCount: nil, confirmedNetworkFee: nil,
-            estimatedFeeRatePerKb: nil, usedChangeOutput: nil, sourceDerivationPath: nil,
+            usedChangeOutput: nil, sourceDerivationPath: nil,
             changeDerivationPath: nil, sourceAddress: nil, changeAddress: nil,
             signedTransactionPayload: nil, signedTransactionPayloadFormat: nil,
             failureReason: failureReason, transactionHistorySource: nil,
@@ -119,10 +119,10 @@ extension AssetHolding {
     /// A holding as core would project it. The id follows core's
     /// `deployment_id` for the EVM-style contracts these tests use.
     static func fixture(
-        name: String, symbol: String, coingeckoId: String = "", chainId: String, tokenStandard: String = "Native",
+        name: String, symbol: String, coingeckoId: String = "", chainId: Chain, tokenStandard: String = "Native",
         contractAddress: String? = nil, amount: String
     ) -> Coin {
-        let id = contractAddress.map { "\(chainId):\(tokenStandard.lowercased()):\($0.lowercased())" } ?? "\(chainId):native"
+        let id = contractAddress.map { "\(chainId.id):\(tokenStandard.lowercased()):\($0.lowercased())" } ?? "\(chainId.id):native"
         return AssetHolding(
             id: id, name: name, symbol: symbol, coingeckoId: coingeckoId, chainId: chainId,
             tokenStandard: tokenStandard, contractAddress: contractAddress, amount: amount)

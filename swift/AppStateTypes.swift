@@ -98,11 +98,11 @@ extension AppState {
     }
 
     struct ChainDegradedBanner: Identifiable {
-        let chainId: String
+        let chain: Chain
         let message: String
         let lastGoodSyncAt: Date?
-        var id: String { chainId }
-        var chainName: String { Chain.displayName(forId: chainId) }
+        var id: Chain { chain }
+        var chainName: String { chain.displayName }
     }
 
 }

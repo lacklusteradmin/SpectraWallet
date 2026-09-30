@@ -169,7 +169,7 @@ extension AppState {
     func prepareSpeedUpContext() async { await prepareReplacementContext(cancel: false) }
     func prepareCancelContext() async { await prepareReplacementContext(cancel: true) }
     func isValidAddress(_ address: String, on chain: Chain) -> Bool {
-        isValidSendAddress(chainId: chain.id, address: address)
+        isValidSendAddress(chain: chain, address: address)
     }
     /// The address this send is going to, from whatever is in the field.
     ///
@@ -177,9 +177,9 @@ extension AppState {
     func resolveSendDestination(input: String, on chain: Chain, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
         let service = try await self.bridge.ready()
         if let expectedAddress {
-            return try await service.verifySendDestination(chainId: chain.id, input: input, expectedAddress: expectedAddress)
+            return try await service.verifySendDestination(chain: chain, input: input, expectedAddress: expectedAddress)
         }
-        return try await service.resolveSendDestination(chainId: chain.id, input: input)
+        return try await service.resolveSendDestination(chainId: chain, input: input)
     }
     func clearHighRiskSendConfirmation() { sendFlow.isShowingHighRiskConfirmation = false }
     /// Signs only. Broadcasting is its own action, to the nodes the user

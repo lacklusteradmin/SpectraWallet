@@ -104,7 +104,7 @@ struct TokenRegistrySettingsView: View {
         let grouped = Dictionary(grouping: allEntries, by: TokenRegistryGrouping.key(for:))
         let groups = grouped.values.compactMap { entries -> TokenRegistryGroup? in
             let sortedEntries = entries.sorted { lhs, rhs in
-                if lhs.token.chainId != rhs.token.chainId { return lhs.token.chainId < rhs.token.chainId }
+                if lhs.token.chainId != rhs.token.chainId { return lhs.token.chainId.id < rhs.token.chainId.id }
                 if lhs.isBuiltIn != rhs.isBuiltIn { return lhs.isBuiltIn && !rhs.isBuiltIn }
                 return lhs.token.contract < rhs.token.contract
             }
@@ -116,7 +116,7 @@ struct TokenRegistrySettingsView: View {
             )
         }
         let filtered: [TokenRegistryGroup] = groups.filter { group in
-            if let selectedChain = chainFilter, !group.entries.contains(where: { $0.token.chainId == selectedChain.id }) {
+            if let selectedChain = chainFilter, !group.entries.contains(where: { $0.token.chainId == selectedChain }) {
                 return false
             }
             switch sourceFilter {
@@ -129,7 +129,7 @@ struct TokenRegistrySettingsView: View {
             let haystack =
                 ([group.symbol, group.name]
                 + group.entries.flatMap { entry in
-                    [Chain(id: entry.token.chainId)?.displayName ?? entry.token.chainId,
+                    [entry.token.chainId.displayName,
                      entry.token.tokenStandard, entry.token.contract, entry.token.coingeckoId, entry.token.coinpaprikaId]
                 })
                 .joined(separator: " ").lowercased()

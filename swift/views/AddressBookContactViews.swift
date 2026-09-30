@@ -5,11 +5,8 @@ import UIKit
 /// Every mainnet, because core validates every mainnet, as the rows the shared
 /// chain picker draws.
 @MainActor private let addressBookChainDescriptors: [SetupChainSelectionDescriptor] =
-    Chain.mainnets.compactMap(\.entry).map { chain in
-        SetupChainSelectionDescriptor(
-            id: chain.id, title: chain.name, symbol: chain.gasTokenSymbol,
-            chainName: chain.name, color: chain.color.color, category: SetupChainCategory(chain: chain)
-        )
+    Chain.mainnets.compactMap { chain in
+        chain.entry.map { SetupChainSelectionDescriptor(chain: chain, entry: $0) }
     }
 
 /// Adding a recipient, on its own page behind the address book's `+`.
@@ -68,9 +65,9 @@ struct NewAddressBookContactView: View {
             AllChainsSelectionView(
                 chainSearchText: $chainSearchText,
                 descriptors: addressBookChainDescriptors,
-                selectedChainIds: [chain.id],
+                selectedChains: [chain],
                 toggleSelection: { picked in
-                    if let picked = Chain(id: picked) { chain = picked }
+                    chain = picked
                     isChoosingChain = false
                 },
                 clearAllSelections: nil
@@ -224,7 +221,7 @@ struct AddressBookContactView: View {
     }
 
     private var contactHero: some View {
-        let badge = Coin.nativeChainBadge(for: Chain(id: contact.chainId)) ?? (nil, Color.mint)
+        let badge = Coin.nativeChainBadge(for: contact.chainId) ?? (nil, Color.mint)
 
         return VStack(spacing: SpectraLayout.Space.m) {
             CoinBadge(

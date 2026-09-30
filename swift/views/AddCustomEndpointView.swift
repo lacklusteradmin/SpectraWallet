@@ -4,7 +4,7 @@ struct AddCustomEndpointView: View {
     let store: AppState
     let directory: [EndpointDirectoryEntry]
     @Environment(\.dismiss) private var dismiss
-    @State private var chainId = ""
+    @State private var chain: Chain?
     @State private var api = ""
     @State private var url = ""
     @State private var capabilities: Set<EndpointCapability> = []
@@ -12,24 +12,28 @@ struct AddCustomEndpointView: View {
     @State private var isSaving = false
     private let copy = EndpointsContentCopy.current
     private var availableEntries: [EndpointDirectoryEntry] {
-        directory.filter { !endpointCapabilityOptions(chainId: $0.record.chainId, api: $0.record.api).isEmpty }
+        directory.filter { !endpointCapabilityOptions(chain: $0.record.chainId, api: $0.record.api).isEmpty }
     }
-    private var networks: [String] {
-        Array(Set(availableEntries.map(\.record.chainId))).sorted()
+    /// In catalog order.
+    private var networks: [Chain] {
+        let offered = Set(availableEntries.map(\.record.chainId))
+        return Chain.all.filter(offered.contains)
     }
     private var types: [String] {
-        Array(Set(availableEntries.filter { $0.record.chainId == chainId }.map(\.apiName))).sorted()
+        Array(Set(availableEntries.filter { $0.record.chainId == chain }.map(\.apiName))).sorted()
     }
     private var capabilityOptions: [EndpointCapability] {
-        guard let type = directory.first(where: { $0.record.chainId == chainId && $0.apiName == api })?.record.api else { return [] }
-        return endpointCapabilityOptions(chainId: chainId, api: type)
+        guard let chain,
+            let type = directory.first(where: { $0.record.chainId == chain && $0.apiName == api })?.record.api
+        else { return [] }
+        return endpointCapabilityOptions(chain: chain, api: type)
     }
     var body: some View {
         Form {
             Section {
-                Picker(AppLocalization.string("Network"), selection: $chainId) {
-                    ForEach(networks, id: \.self) { id in
-                        Text(Chain(id: id)?.displayName ?? id).tag(id)
+                Picker(AppLocalization.string("Network"), selection: $chain) {
+                    ForEach(networks, id: \.self) { network in
+                        Text(network.displayName).tag(Optional(network))
                     }
                 }
                 Picker(copy.typeTitle, selection: $api) {
@@ -65,9 +69,9 @@ struct AddCustomEndpointView: View {
         .navigationBarTitleDisplayMode(.inline)
         .disabled(isSaving)
         .onAppear {
-            if chainId.isEmpty { chainId = networks.first ?? ""; api = types.first ?? "" }
+            if chain == nil { chain = networks.first; api = types.first ?? "" }
         }
-        .onChange(of: chainId) { _, _ in
+        .onChange(of: chain) { _, _ in
             capabilities.removeAll()
             if !types.contains(api) { api = types.first ?? "" }
         }
@@ -75,11 +79,12 @@ struct AddCustomEndpointView: View {
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button(AppLocalization.string("Save")) {
+                    guard let chain else { return }
                     isSaving = true
                     Task { @MainActor in
                         do {
                             let transition = try await store.applyStateCommand(.setAppSetting(
-                                update: .addCustomEndpoint(capabilities: Array(capabilities), chainId: chainId, api: api, endpoint: url)))
+                                update: .addCustomEndpoint(capabilities: Array(capabilities), chainId: chain, api: api, endpoint: url)))
                             if transition.events.contains(where: { if case .appSettingRejected = $0 { return true }; return false }) {
                                 errorMessage = copy.invalidEndpointMessage
                             } else {

@@ -69,7 +69,7 @@ struct TransactionDetailView: View {
     @ViewBuilder
     private var mempoolActionsCard: some View {
         if let pending = store.replaceableSend(forTransaction: displayedTransaction.id) {
-            spectraDetailCard(title: AppLocalization.format("%@ Mempool Actions", Chain.displayName(forId: pending.chainId))) {
+            spectraDetailCard(title: AppLocalization.format("%@ Mempool Actions", pending.chainId.displayName)) {
                 if store.sendFlow.isPreparingReplacement {
                     SpectraLoadingRow(title: "Preparing replacement/cancel context...")
                 } else {

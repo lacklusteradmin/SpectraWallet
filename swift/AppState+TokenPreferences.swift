@@ -77,7 +77,7 @@ extension AppState {
                 coingeckoId: coingeckoId, coinpaprikaId: coinpaprikaId, decimals: UInt32(decimals))
         } else {
             command = .addCustomToken(
-                chainId: chain.id, symbol: symbol, name: name,
+                chainId: chain, symbol: symbol, name: name,
                 contract: contractAddress, coingeckoId: coingeckoId,
                 coinpaprikaId: coinpaprikaId, decimals: UInt32(decimals))
         }

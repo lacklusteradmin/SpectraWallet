@@ -43,14 +43,14 @@ final class WalletDiagnosticsState {
         } catch { persistenceError = error.localizedDescription }
     }
     func reset() { enqueue(.reset) }
-    var chainDegraded: [String: ChainDegradation] { snapshot.degraded }
-    private var lastGoodSyncByChainId: [String: Date] { snapshot.lastGoodUnix.mapValues { Date(timeIntervalSince1970: $0) } }
-    /// One banner per degraded chain, ordered by name. Core keys both maps by chain id.
+    var chainDegraded: [Chain: ChainDegradation] { snapshot.degraded }
+    private var lastGoodSyncByChain: [Chain: Date] { snapshot.lastGoodUnix.mapValues { Date(timeIntervalSince1970: $0) } }
+    /// One banner per degraded chain, ordered by name. Core keys both maps by chain.
     var chainDegradedBanners: [AppState.ChainDegradedBanner] {
-        snapshot.degraded.map { chainId, reason in
+        snapshot.degraded.map { chain, reason in
             AppState.ChainDegradedBanner(
-                chainId: chainId, message: localizedDegradedMessage(reason, chainId: chainId),
-                lastGoodSyncAt: lastGoodSyncByChainId[chainId])
+                chain: chain, message: localizedDegradedMessage(reason, chain: chain),
+                lastGoodSyncAt: lastGoodSyncByChain[chain])
         }.sorted { $0.chainName.localizedCaseInsensitiveCompare($1.chainName) == .orderedAscending }
     }
     func clearOperationalLogs() { enqueue(.clearLogs(chainId: nil)) }
@@ -68,7 +68,7 @@ final class WalletDiagnosticsState {
                 "[\(event.category)]", event.message,
             ]
             if let source = event.source, !source.isEmpty { parts.append("source=\(source)") }
-            if let chainId = event.chainId, !chainId.isEmpty { parts.append("chain=\(chainId)") }
+            if let chain = event.chainId { parts.append("chain=\(chain.id)") }
             if let walletId = event.walletId { parts.append("wallet=\(walletId)") }
             if let transactionHash = event.transactionHash, !transactionHash.isEmpty { parts.append("tx=\(transactionHash)") }
             if let metadata = event.metadata, !metadata.isEmpty { parts.append("meta=\(metadata)") }
@@ -77,15 +77,15 @@ final class WalletDiagnosticsState {
         return (header + lines).joined(separator: "\n")
     }
     func appendOperationalLog(
-        _ level: DiagnosticLogLevel, category: String, message: String, chainId: String? = nil, walletId: String? = nil,
+        _ level: DiagnosticLogLevel, category: String, message: String, chain: Chain? = nil, walletId: String? = nil,
         transactionHash: String? = nil, source: String? = nil, metadata: String? = nil
     ) {
         enqueue(.append(input: DiagnosticLogInput(level: level, category: category, message: message,
-            chainId: chainId, walletId: walletId, transactionHash: transactionHash, source: source, metadata: metadata)))
+            chainId: chain, walletId: walletId, transactionHash: transactionHash, source: source, metadata: metadata)))
     }
     /// Core stores why a chain is stale; the sentence is worded here.
-    private func localizedDegradedMessage(_ reason: ChainDegradation, chainId: String) -> String {
-        let chainName = Chain.displayName(forId: chainId)
+    private func localizedDegradedMessage(_ reason: ChainDegradation, chain: Chain) -> String {
+        let chainName = chain.displayName
         let detail: String
         switch reason {
         case .historyRefreshFailed:
@@ -95,11 +95,11 @@ final class WalletDiagnosticsState {
         case .failed(let message):
             detail = message
         }
-        return [detail, degradedSyncSuffix(for: chainId)].filter { !$0.isEmpty }.joined(separator: " ")
+        return [detail, degradedSyncSuffix(for: chain)].filter { !$0.isEmpty }.joined(separator: " ")
     }
-    private func degradedSyncSuffix(for chainId: String) -> String {
+    private func degradedSyncSuffix(for chain: Chain) -> String {
         let copy = DiagnosticsContentCopy.current
-        if let lastGood = lastGoodSyncByChainId[chainId] {
+        if let lastGood = lastGoodSyncByChain[chain] {
             return String(
                 format: copy.degradedLastGoodSyncFormat, lastGood.formatted(date: .abbreviated, time: .shortened)
             )
@@ -108,26 +108,26 @@ final class WalletDiagnosticsState {
     }
 }
 
-/// Which diagnostics runs are in flight, keyed by chain id, and a revision
+/// Which diagnostics runs are in flight, keyed by chain, and a revision
 /// that tells screens to re-read what core recorded. Results live in core.
 @MainActor
 @Observable
 final class WalletChainDiagnosticsState {
     var diagnosticsRevision: Int = 0
-    var runningHistory: Set<String> = []
-    var checkingEndpoints: Set<String> = []
-    var runningSelfTests: Set<String> = []
-    var runningRescans: Set<String> = []
+    var runningHistory: Set<Chain> = []
+    var checkingEndpoints: Set<Chain> = []
+    var runningSelfTests: Set<Chain> = []
+    var runningRescans: Set<Chain> = []
 
-    /// Hold `chainId`'s slot in `runs` for `operation`, then tell screens to
+    /// Hold `chain`'s slot in `runs` for `operation`, then tell screens to
     /// re-read. A run already in flight is not started twice.
     func run(
-        _ runs: ReferenceWritableKeyPath<WalletChainDiagnosticsState, Set<String>>, chainId: String,
+        _ runs: ReferenceWritableKeyPath<WalletChainDiagnosticsState, Set<Chain>>, chain: Chain,
         _ operation: () async -> Void
     ) async {
-        guard self[keyPath: runs].insert(chainId).inserted else { return }
+        guard self[keyPath: runs].insert(chain).inserted else { return }
         await operation()
-        self[keyPath: runs].remove(chainId)
+        self[keyPath: runs].remove(chain)
         diagnosticsRevision &+= 1
     }
 }

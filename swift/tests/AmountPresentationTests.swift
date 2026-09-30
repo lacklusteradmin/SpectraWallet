@@ -17,7 +17,7 @@ final class AmountPresentationTests: XCTestCase {
             valuation: nil, selectedFiatCurrency: .usd)
         let transaction = TransactionRecord(id: "detail", deploymentId: "bitcoin:native", kind: .receive,
             status: .confirmed, walletName: "Main", assetDisplayName: "Bitcoin", symbol: "BTC",
-            chainId: "bitcoin", amount: "1234.12345678", address: "address")
+            chainId: Chain.bitcoin, amount: "1234.12345678", address: "address")
         XCTAssertNotEqual(display.formattedTransactionAmount(transaction), display.formattedTransactionDetailAmount(transaction))
         XCTAssertTrue(display.formattedTransactionDetailAmount(transaction).contains("12345678"))
         XCTAssertTrue(display.formattedAssetAmountValue("0.000000000000000001", deploymentId: "ethereum:native").hasPrefix("<"))

@@ -9,14 +9,10 @@ enum AppEndpointDirectory {
         if case .failure(let error) = loaded { return error.localizedDescription }
         return nil
     }
-    private static let byChainId: [String: AppCoreChainEndpoints] = Dictionary(
+    private static let byChainId: [Chain: AppCoreChainEndpoints] = Dictionary(
         uniqueKeysWithValues: ((try? loaded.get()) ?? []).map { ($0.chainId, $0) })
 
-    private static func entry(_ chainId: String) -> AppCoreChainEndpoints? {
-        byChainId[chainId]
-    }
-
-    static func groupedSettingsEntries(for chainId: String) -> [AppEndpointGroupedSettingsEntry] {
-        entry(chainId)?.groupedSettings ?? []
+    static func groupedSettingsEntries(for chain: Chain) -> [AppEndpointGroupedSettingsEntry] {
+        byChainId[chain]?.groupedSettings ?? []
     }
 }

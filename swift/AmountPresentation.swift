@@ -102,42 +102,39 @@ struct AmountPresentation {
         return "\(native) (~\(fiat))"
     }
     /// A gas price as a fee row shows it: four significant digits, enough to
-    /// compare quotes by. A receipt states the rate exactly.
-    func compactGasPrice(gwei: Double) -> String {
-        "\(AmountFormatters.shared.gasPriceFormatter.string(from: NSNumber(value: gwei)) ?? "") gwei"
+    /// compare quotes by. Core states it exactly; the rounding is only for
+    /// the row. A receipt states the rate exactly.
+    func compactGasPrice(gwei: String) -> String {
+        guard let value = Double(gwei) else { return "\(Self.localizedDecimal(gwei)) gwei" }
+        return "\(AmountFormatters.shared.gasPriceFormatter.string(from: NSNumber(value: value)) ?? gwei) gwei"
     }
-    /// A gas price in gwei: a rate, not an amount of anything held.
-    func formattedGasPrice(gwei: Double, chain: Chain) -> String {
-        "\(Self.rateText(gwei, chain: chain)) gwei"
-    }
-    /// A rate to the chain's native precision, or every digit the value has
-    /// when the catalog does not say.
-    private static func rateText(_ value: Double, chain: Chain) -> String {
-        guard let decimals = chain.nativeDecimals else { return String(value) }
-        return AmountFormatters.shared.decimalFormatter(maximumFractionDigits: Int(decimals))
-            .string(from: NSNumber(value: value)) ?? String(value)
+    /// A gas price in gwei, exactly as core stated it: a rate, not an amount
+    /// of anything held.
+    func formattedGasPrice(gwei: String) -> String {
+        "\(Self.localizedDecimal(gwei)) gwei"
     }
 
     // MARK: - Transaction detail rows
 
     func receiptEffectiveGasPriceText(for transaction: TransactionRecord) -> String? {
-        guard let gwei = transaction.receiptEffectiveGasPriceGwei, let chain = transaction.chain else { return nil }
-        return formattedGasPrice(gwei: gwei, chain: chain)
+        guard let gwei = transaction.receiptEffectiveGasPriceGwei else { return nil }
+        return formattedGasPrice(gwei: gwei)
     }
     func receiptNetworkFeeText(for transaction: TransactionRecord) -> String? {
-        guard let fee = transaction.receiptNetworkFee, let chain = transaction.chain else { return nil }
+        guard let fee = transaction.receiptNetworkFee else { return nil }
+        let chain = transaction.chain
         return formattedNetworkFee(fee, chain: chain)
     }
     func confirmedNetworkFeeText(for transaction: TransactionRecord) -> String? {
-        guard let fee = transaction.confirmedNetworkFee, let chain = transaction.chain else { return nil }
+        guard let fee = transaction.confirmedNetworkFee else { return nil }
+        let chain = transaction.chain
         return formattedNetworkFee(fee, chain: chain)
     }
     func storedFeeRateText(for transaction: TransactionRecord) -> String? {
-        if let description = transaction.feeRateDescription?.trimmingCharacters(in: .whitespacesAndNewlines), !description.isEmpty {
-            return description
-        }
-        guard let rate = transaction.estimatedFeeRatePerKb, let chain = transaction.chain else { return nil }
-        return "\(Self.rateText(rate, chain: chain)) \(chain.gasTokenSymbol)/KB"
+        guard let description = transaction.feeRateDescription?.trimmingCharacters(in: .whitespacesAndNewlines),
+            !description.isEmpty
+        else { return nil }
+        return description
     }
     func historyMetadataText(for transaction: TransactionRecord) -> String? {
         var parts: [String] = []
@@ -153,7 +150,7 @@ struct AmountPresentation {
     func historySourceText(for transaction: TransactionRecord) -> String? {
         switch transaction.transactionHistorySource.flatMap({ historySource(source: $0) }) {
         case .provider(let name): return name
-        case .chainProviders(let chainId): return AppLocalization.format("%@ providers", Chain.displayName(forId: chainId))
+        case .chainProviders(let chainId): return AppLocalization.format("%@ providers", chainId.displayName)
         case .internal, nil: return nil
         }
     }

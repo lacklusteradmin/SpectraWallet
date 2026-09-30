@@ -7,15 +7,15 @@ final class PresentationCatalogTests: XCTestCase {
         for chain in Chain.all where chain.isTestnet {
             XCTAssertEqual(chain.gasTokenSymbol, "t" + chain.mainnetCounterpart.gasTokenSymbol)
         }
-        XCTAssertEqual(Chain(id: "bitcoin")?.gasTokenSymbol, "BTC")
-        XCTAssertEqual(Chain(id: "bitcoin-testnet-4")?.gasTokenSymbol, "tBTC")
-        XCTAssertEqual(Chain(id: "ethereum-sepolia")?.gasTokenSymbol, "tETH")
+        XCTAssertEqual(Chain.bitcoin.gasTokenSymbol, "BTC")
+        XCTAssertEqual(Chain.bitcoinTestnet4.gasTokenSymbol, "tBTC")
+        XCTAssertEqual(Chain.ethereumSepolia.gasTokenSymbol, "tETH")
     }
 
     /// Colour follows deployment identity, never the ticker: a custom token
     /// that calls itself `ETH` is grey, not Ether's colour.
     func testCoinColorsFollowDeploymentIdentity() {
-        for token in listTokenDeployments(chainId: "") {
+        for token in listTokenDeployments(chain: nil) {
             if let color = token.color {
                 XCTAssertEqual(AssetPresentationCatalog.color(deploymentId: token.deploymentId), color.color)
             }
@@ -32,7 +32,7 @@ final class PresentationCatalogTests: XCTestCase {
     /// than about English.
     func testTransactionSubtitleNamesTheChainOnlyWhenItIsNotTheAsset() {
         let copy = CommonLocalizationContent.current
-        func subtitle(asset: String, chainId: String) -> String {
+        func subtitle(asset: String, chainId: Chain) -> String {
             TransactionRecord(
                 id: "tx", kind: .receive, status: .confirmed, walletName: "Main Wallet",
                 assetDisplayName: asset, symbol: "SOL", chainId: chainId, amount: "0.1", address: "address"
@@ -41,12 +41,12 @@ final class PresentationCatalogTests: XCTestCase {
         func wallet(_ asset: String) -> String { String(format: copy.transactionSubtitleFormat, asset, "Main Wallet") }
         func onChain(_ asset: String, _ chain: String) -> String { String(format: copy.assetOnChainFormat, asset, chain) }
 
-        XCTAssertEqual(subtitle(asset: "Solana", chainId: "solana"), wallet("Solana"))
-        XCTAssertEqual(subtitle(asset: "solana", chainId: "solana"), wallet("solana"))
-        XCTAssertEqual(subtitle(asset: "USD Coin", chainId: "solana"), wallet(onChain("USD Coin", "Solana")))
+        XCTAssertEqual(subtitle(asset: "Solana", chainId: Chain.solana), wallet("Solana"))
+        XCTAssertEqual(subtitle(asset: "solana", chainId: Chain.solana), wallet("solana"))
+        XCTAssertEqual(subtitle(asset: "USD Coin", chainId: Chain.solana), wallet(onChain("USD Coin", "Solana")))
         XCTAssertEqual(
-            subtitle(asset: "Bitcoin", chainId: "bitcoin-testnet-4"),
-            wallet(onChain("Bitcoin", Chain.displayName(forId: "bitcoin-testnet-4"))))
+            subtitle(asset: "Bitcoin", chainId: Chain.bitcoinTestnet4),
+            wallet(onChain("Bitcoin", Chain.bitcoinTestnet4.displayName)))
     }
 
     /// One string table per declared locale, every table with the same keys —

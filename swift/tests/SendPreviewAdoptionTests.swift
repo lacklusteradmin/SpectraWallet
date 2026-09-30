@@ -7,20 +7,20 @@ final class SendPreviewAdoptionTests: IsolatedAppStateTestCase {
     func testQuoteCannotBeReusedForAnotherWalletHoldingOrNetwork() {
         let store = SendPreviewStore()
         let preview = SendPreview.solana(preview: SolanaSendPreview(
-            estimatedNetworkFee: 0.000005, spendableBalance: 1, feeRateDescription: nil,
-            estimatedTransactionBytes: nil, selectedInputCount: nil, usesChangeOutput: nil, maxSendable: 0.999995))
-        let quote = OwnedSendPreview(walletId: "w", holdingKey: "solana:native", chainId: "solana", amount: "1",
+            estimatedNetworkFee: "0.000005", spendableBalance: "1", feeRateDescription: nil,
+            estimatedTransactionBytes: nil, selectedInputCount: nil, usesChangeOutput: nil, maxSendable: "0.999995"))
+        let quote = OwnedSendPreview(walletId: "w", holdingKey: "solana:native", chainId: Chain.solana, amount: "1",
             preview: preview, networkFee: "0.000005", networkFeeValue: nil, amountValue: nil,
             details: nil, shortcuts: [100: "0.999994999"], recipient: nil)
         store.apply(quote)
-        let sol = Coin.fixture(name: "Solana", symbol: "SOL", chainId: "solana", amount: "1")
+        let sol = Coin.fixture(name: "Solana", symbol: "SOL", chainId: Chain.solana, amount: "1")
         XCTAssertEqual(store.quote(walletId: "w", coin: sol)?.shortcuts[100], "0.999994999")
         XCTAssertNil(store.quote(walletId: "other", coin: sol))
-        let token = Coin.fixture(name: "Other", symbol: "OTH", chainId: "solana", tokenStandard: "SPL",
+        let token = Coin.fixture(name: "Other", symbol: "OTH", chainId: Chain.solana, tokenStandard: "SPL",
             contractAddress: "other", amount: "1")
         XCTAssertNil(store.quote(walletId: "w", coin: token))
         // The same asset on another network is another holding.
-        let devnet = Coin.fixture(name: "Solana", symbol: "SOL", chainId: "solana-devnet", amount: "1")
+        let devnet = Coin.fixture(name: "Solana", symbol: "SOL", chainId: Chain.solanaDevnet, amount: "1")
         XCTAssertNil(store.quote(walletId: "w", coin: devnet))
         store.reset()
         XCTAssertNil(store.quote(walletId: "w", coin: sol))

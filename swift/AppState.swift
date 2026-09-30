@@ -153,8 +153,8 @@ final class AppState {
 
     /// Read-only keypool diagnostics. Reading does not reserve an address.
     /// The reserved address and path are those recorded when the index was handed out.
-    func chainKeypoolDiagnostics(for chainId: String) async throws -> [KeypoolDiagnostic] {
-        try await self.bridge.ready().keypoolDiagnostics(chainId: chainId)
+    func chainKeypoolDiagnostics(for chain: Chain) async throws -> [KeypoolDiagnostic] {
+        try await self.bridge.ready().keypoolDiagnostics(chain: chain)
     }
     /// Display currency for prices and totals.
     ///
@@ -242,8 +242,9 @@ final class AppState {
     }
     /// A family with no selection reports itself, so the mainnet id is the
     /// default without being stored as one.
-    func selectedChainId(forFamily family: String) -> String {
-        appSettings.selectedChainByFamily[family] ?? family
+    func selectedChain(forFamily family: Chain) -> Chain {
+        let mainnet = family.mainnetCounterpart
+        return appSettings.selectedChainByFamily[mainnet] ?? mainnet
     }
     var isUserInitiatedRefreshInProgress: Bool = false
     /// Read-only projection adopted from core; edits send individual intents.
@@ -316,8 +317,8 @@ final class AppState {
     }
     /// Refresh after broadcast and report the stored transaction status.
     /// Broadcast acceptance alone does not establish confirmation.
-    func runPostSendRefreshActions(for chainId: String) async {
-        await performCoreRefresh(.afterSend(chainId: chainId))
+    func runPostSendRefreshActions(for chain: Chain) async {
+        await performCoreRefresh(.afterSend(chainId: chain))
     }
     init(bridge: WalletServiceBridge = .shared, startServices: Bool = true) {
         self.bridge = bridge

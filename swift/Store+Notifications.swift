@@ -33,7 +33,7 @@ extension AppState {
             identifier: "price-alert-\(notification.id)-\(UUID().uuidString)",
             title: AppLocalization.format("%@ price alert", notification.symbol),
             body: AppLocalization.format(
-                template, notification.assetDisplayName, Chain.displayName(forId: notification.chainId),
+                template, notification.assetDisplayName, notification.chainId.displayName,
                 amounts.formattedFiat(notification.livePrice, currency: notification.currency),
                 amounts.formattedFiat(notification.targetPrice, currency: notification.currency)
             )

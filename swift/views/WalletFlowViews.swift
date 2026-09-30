@@ -232,7 +232,7 @@ struct WalletDetailView: View {
             // came back first, which is "prefer Bitcoin, then Bitcoin Cash, …"
             // dressed as a fallback — and eight chains were not in the list at
             // all, so a Zcash or TON wallet showed no address.
-            walletAddress: wallet.chain.flatMap(wallet.address(on:)),
+            walletAddress: wallet.address(on: wallet.chain),
             derivationPathsText: derivationPathsText(for: wallet),
             walletBadge: Coin.nativeChainBadge(for: wallet.family) ?? (nil, .mint),
             visibleHoldingPresentations: holdingPresentations,
@@ -242,9 +242,8 @@ struct WalletDetailView: View {
     }
     /// The wallet's configured derivation path, when it has one.
     private func derivationPathsText(for wallet: WalletView) -> String? {
-        guard !isWatchOnly, !isPrivateKeyWallet,
-            let chain = Chain(id: wallet.chainId)
-        else { return nil }
+        guard !isWatchOnly, !isPrivateKeyWallet else { return nil }
+        let chain = wallet.chainId
         let path = wallet.seedDerivationPaths.path(for: chain)
         guard !path.isEmpty else { return nil }
         return AppLocalization.format("wallet.detail.chainPath", chain.displayName, path)

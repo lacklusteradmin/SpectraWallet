@@ -19,14 +19,14 @@ struct SendStagesView: View {
             .font(.subheadline.weight(.semibold))
             VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                 Text(verbatim: amountText).font(.title2.weight(.bold)).spectraNumericTextLayout()
-                LabeledContent(AppLocalization.string("Network"), value: Chain.displayName(forId: artifact.chainId))
+                LabeledContent(AppLocalization.string("Network"), value: artifact.chainId.displayName)
                 Divider().opacity(0.4)
                 ReviewAddressBlock(
-                    store: store, label: "From", walletId: artifact.walletId, chainId: artifact.chainId,
+                    store: store, label: "From", walletId: artifact.walletId, chain: artifact.chainId,
                     address: artifact.sender)
                 Divider().opacity(0.4)
                 ReviewAddressBlock(
-                    store: store, label: "To", walletId: artifact.walletId, chainId: artifact.chainId,
+                    store: store, label: "To", walletId: artifact.walletId, chain: artifact.chainId,
                     address: artifact.recipient)
                 Divider().opacity(0.4)
                 Text(AppLocalization.string(artifact.stage == .prepared ? "Built. Review the transaction before signing." : artifact.attempts.isEmpty ? "Signed and saved. Not broadcast." : "Submission results are shown below. Node acceptance is not on-chain confirmation."))

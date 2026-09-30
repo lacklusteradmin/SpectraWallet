@@ -11,7 +11,7 @@ final class WalletRefreshObserver: RefreshObserver, @unchecked Sendable {
     // Core reports each wallet as it lands; the app reads the portfolio at a
     // bounded rate rather than once per wallet or only after the slowest
     // chain. No logging: a summary carries every holding's amount.
-    func onBalanceUpdated(chainId: String, walletId: String, summary: WalletState?) {
+    func onBalanceUpdated(chainId: Chain, walletId: String, summary: WalletState?) {
         Task { @MainActor [weak self] in
             self?.store?.adoptBalanceProgress()
         }

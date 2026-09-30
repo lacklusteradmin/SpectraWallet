@@ -15,7 +15,7 @@ import Foundation
         isLoading = true
         error = nil
         defer { isLoading = false }
-        do { validators = try await bridge.ready().fetchStakingValidators(chainId: chain.id) }
+        do { validators = try await bridge.ready().fetchStakingValidators(chainId: chain) }
         catch { self.error = error }
     }
     func dismissError() { error = nil }

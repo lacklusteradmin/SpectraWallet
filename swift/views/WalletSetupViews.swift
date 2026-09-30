@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 struct SetupChainSelectionDescriptor: Identifiable {
-    let id: String
+    let id: Chain
     let titleKey: String
     /// The chain's native symbol — one field, because the picker shows one.
     let symbol: String
@@ -11,14 +11,14 @@ struct SetupChainSelectionDescriptor: Identifiable {
     let color: Color
     let category: SetupChainCategory
     var title: String { localizedWalletFlowString(titleKey) }
-    init(id: String, title: String, symbol: String, chainName: String, color: Color, category: SetupChainCategory) {
-        self.id = id
-        self.titleKey = title
-        self.symbol = symbol
-        self.chainName = chainName
-        self.artworkName = Chain(id: id)?.entry?.artworkName
-        self.color = color
-        self.category = category
+    init(chain: Chain, entry: ChainEntry) {
+        self.id = chain
+        self.titleKey = entry.name
+        self.symbol = entry.gasTokenSymbol
+        self.chainName = entry.name
+        self.artworkName = entry.artworkName
+        self.color = entry.color.color
+        self.category = SetupChainCategory(chain: entry)
     }
 }
 enum SetupChainCategory: String, CaseIterable, Identifiable {
@@ -44,7 +44,7 @@ enum SetupChainCategory: String, CaseIterable, Identifiable {
     /// reason `is_evm` could not be derived from `category`. Which network a
     /// row is is the registry's `isTestnet`.
     init(chain: ChainEntry) {
-        if Chain(id: chain.id)?.isTestnet == true {
+        if chain.isTestnet {
             self = .testnets
             return
         }
@@ -68,17 +68,14 @@ enum SetupChainCategory: String, CaseIterable, Identifiable {
 /// declared in the type instead of hidden in field accesses. SetupView
 /// hasn't been migrated yet because its dependency surface is large.
 struct SetupView: View {
-    private static let chainSelectionDescriptors: [SetupChainSelectionDescriptor] = Chain.all.compactMap(\.entry).map { chain in
-        SetupChainSelectionDescriptor(
-            id: chain.id, title: chain.name, symbol: chain.gasTokenSymbol, chainName: chain.name,
-            color: chain.color.color, category: SetupChainCategory(chain: chain)
-        )
+    private static let chainSelectionDescriptors: [SetupChainSelectionDescriptor] = Chain.all.compactMap { chain in
+        chain.entry.map { SetupChainSelectionDescriptor(chain: chain, entry: $0) }
     }
     /// The picker's initial list, ordered by `popular_rank` in `chain-ui.toml`.
-    private static let popularChainSelectionIds: [String] = Chain.all.compactMap(\.entry)
-        .compactMap { chain in chain.popularRank.map { (rank: $0, id: chain.id) } }
+    private static let popularChainSelectionIds: [Chain] = Chain.all
+        .compactMap { chain in chain.entry?.popularRank.map { (rank: $0, chain: chain) } }
         .sorted { $0.rank < $1.rank }
-        .map(\.id)
+        .map(\.chain)
     private static let nonPopularChainSelectionDescriptors = chainSelectionDescriptors.filter { d in
         !popularChainSelectionIds.contains(d.id)
     }
@@ -148,8 +145,8 @@ struct SetupView: View {
             && !store.walletImport.isBusy
     }
     private var canAdvanceFromDetailsPage: Bool {
-        if usesSeedPhraseFlow { return !draft.selectedChainIds.isEmpty && !store.walletImport.isBusy }
-        if usesWatchAddressesFlow { return !draft.selectedChainIds.isEmpty && !store.walletImport.isBusy }
+        if usesSeedPhraseFlow { return !draft.selectedChains.isEmpty && !store.walletImport.isBusy }
+        if usesWatchAddressesFlow { return !draft.selectedChains.isEmpty && !store.walletImport.isBusy }
         return store.canImportWallet && !store.walletImport.isBusy
     }
     /// What the primary button says on the page that submits rather than
@@ -212,8 +209,8 @@ struct SetupView: View {
             Self.chainSelectionDescriptors.first { $0.id == id }
         }
     }
-    private var selectedChainIdSet: Set<String> { Set(draft.selectedChainIds) }
-    private var selectedChainCount: Int { draft.selectedChainIds.count }
+    private var selectedChainSet: Set<Chain> { Set(draft.selectedChains) }
+    private var selectedChainCount: Int { draft.selectedChains.count }
     private var chainSelectionSummary: String {
         switch selectedChainCount {
         case 0: return AppLocalization.string("import_flow.no_chains_selected")
@@ -252,7 +249,7 @@ struct SetupView: View {
     }
     @ViewBuilder
     private func chainSelectionCard(_ descriptor: SetupChainSelectionDescriptor) -> some View {
-        let isSelected = selectedChainIdSet.contains(descriptor.id)
+        let isSelected = selectedChainSet.contains(descriptor.id)
         Button {
             spectraHaptic(.light)
             draft.toggleChainSelection(descriptor.id)
@@ -364,7 +361,7 @@ struct SetupView: View {
     @ViewBuilder
     private var chainSelectionCard: some View {
         let popularIDSet = Set(Self.popularChainSelectionIds)
-        let extraSelectionCount = draft.selectedChainIds.filter { !popularIDSet.contains($0) }.count
+        let extraSelectionCount = draft.selectedChains.filter { !popularIDSet.contains($0) }.count
         VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                 HStack(alignment: .center, spacing: SpectraLayout.Space.m) {
@@ -415,8 +412,8 @@ struct SetupView: View {
         .navigationDestination(isPresented: $isShowingAllChainsPage) {
             AllChainsSelectionView(
                 chainSearchText: $chainSearchText, descriptors: Self.chainSelectionDescriptors,
-                selectedChainIds: selectedChainIdSet, toggleSelection: draft.toggleChainSelection,
-                clearAllSelections: { for id in draft.selectedChainIds { draft.toggleChainSelection(id) } }
+                selectedChains: selectedChainSet, toggleSelection: draft.toggleChainSelection,
+                clearAllSelections: { for chain in draft.selectedChains { draft.toggleChainSelection(chain) } }
             )
         }
     }
@@ -425,7 +422,7 @@ struct SetupView: View {
         if isEditingWallet {
             Text(copy.watchOnlyFixedMessage).font(.caption).foregroundStyle(.secondary)
         } else if draft.isWatchOnlyMode,
-            draft.selectedChainIds.contains(where: { Chain(id: $0)?.supportsWatchOnlyImport == false })
+            draft.selectedChains.contains(where: { !$0.supportsWatchOnlyImport })
         {
             // Show only for watch-only imports.
             // `only_monero_is_excluded_from_watch_only_import` checks that the
@@ -461,7 +458,7 @@ struct SetupView: View {
 
     /// Whether anything the user selected lands in this chain's slot.
     private func isSlotSelected(_ chain: Chain) -> Bool {
-        draft.selectedChainIds.contains { Chain(id: $0)?.addressSlot == chain.addressSlot }
+        draft.selectedChains.contains { $0.addressSlot == chain.addressSlot }
     }
 
     /// The chains sharing one slot, for the label on a field that serves more
@@ -473,8 +470,7 @@ struct SetupView: View {
     /// The address format to judge entries by, on the network the family is on.
     /// The same rule for every chain.
     private func watchedAddressKind(for chain: Chain) -> String {
-        Chain(id: store.selectedChainId(forFamily: chain.id))?.addressValidationKind
-            ?? chain.addressValidationKind
+        store.selectedChain(forFamily: chain).addressValidationKind
     }
 
     @ViewBuilder
@@ -518,21 +514,21 @@ struct SetupView: View {
     private func watchedAddressCaption(for chain: Chain, sharing: [Chain]) -> String? {
         if chain.acceptsAccountXpub { return copy.bitcoinWatchCaption }
         guard sharing.count > 1 else { return nil }
-        let selected = sharing.filter { draft.isSelected($0.id) }.map(\.displayName)
+        let selected = sharing.filter { draft.isSelected($0) }.map(\.displayName)
         guard !selected.isEmpty else { return nil }
         return AppLocalization.format("One address covers: %@.", selected.joined(separator: ", "))
     }
 
     private func watchOnlyInputBinding(for chain: Chain) -> Binding<String> {
         Binding(
-            get: { self.draft.watchOnlyInputsByChainId[chain.id] ?? "" },
-            set: { self.draft.watchOnlyInputsByChainId[chain.id] = $0 }
+            get: { self.draft.watchOnlyInputsByChain[chain] ?? "" },
+            set: { self.draft.watchOnlyInputsByChain[chain] = $0 }
         )
     }
 
     @ViewBuilder
     private var watchAddressesEmptyNote: some View {
-        if draft.selectedChainIds.isEmpty {
+        if draft.selectedChains.isEmpty {
             Text(AppLocalization.string("Select a supported chain above to enter its address to watch.")).font(.caption)
                 .foregroundStyle(.spectraWarning.opacity(0.9))
         }

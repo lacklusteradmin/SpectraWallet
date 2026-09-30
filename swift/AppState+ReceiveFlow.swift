@@ -25,15 +25,15 @@ extension AppState {
         receiveFlow.error = nil
         receiveFlow.isResolving = false
         guard let wallet = wallet(for: receiveFlow.walletId),
-            let coin = selectedReceiveCoin(for: receiveFlow.walletId),
-            let chain = coin.chain else { return }
+            let coin = selectedReceiveCoin(for: receiveFlow.walletId) else { return }
+        let chain = coin.chain
         receiveFlow.isResolving = true
         defer {
             if receiveFlow.requestId == requestId { receiveFlow.isResolving = false }
         }
         do {
             let address = try await self.bridge.ready().receiveAddress(
-                walletId: wallet.id, chainId: chain.id, reserve: true)
+                walletId: wallet.id, chain: chain, reserve: true)
             guard !Task.isCancelled, receiveFlow.requestId == requestId,
                 receiveFlow.walletId == wallet.id, receiveFlow.holdingKey == coin.holdingKey else { return }
             receiveFlow.resolvedAddress = address ?? ""

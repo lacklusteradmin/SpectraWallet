@@ -30,7 +30,7 @@ final class SendSession {
     /// Adopt a complete artifact/endpoint pair together, never half of either request.
     @discardableResult
     func load(operation: Operation, prepare: () async throws -> SendArtifact,
-              endpoints loadEndpoints: (String) async throws -> [String]) async -> Bool {
+              endpoints loadEndpoints: (Chain) async throws -> [String]) async -> Bool {
         guard self.operation == nil else { return false }
         let request = id
         self.operation = operation

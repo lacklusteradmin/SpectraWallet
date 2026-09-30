@@ -58,7 +58,7 @@ struct SendConfirmationStep: View {
             } else {
                 ReviewAddressBlock(
                     store: store, label: "To", walletId: store.sendFlow.walletId,
-                    chainId: selectedCoin?.chainId ?? "", address: recipientAddress)
+                    chain: selectedCoin?.chainId, address: recipientAddress)
             }
 
             Divider().opacity(0.35)
@@ -113,7 +113,8 @@ struct SendConfirmationStep: View {
     }
 
     private var networkFeeText: String? {
-        guard let quote = confirmedQuote, let fee = quote.networkFee, let chain = Chain(id: quote.chainId) else { return nil }
+        guard let quote = confirmedQuote, let fee = quote.networkFee else { return nil }
+        let chain = quote.chainId
         return store.amounts.compactNetworkFee(fee, value: quote.networkFeeValue, chain: chain)
     }
 }

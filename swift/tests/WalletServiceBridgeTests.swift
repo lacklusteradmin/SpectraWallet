@@ -35,7 +35,7 @@ final class WalletServiceBridgeTests: XCTestCase {
         try bridge.service().setSecretStore(store: secretStore)
         let outcome = try await bridge.ready().importWallets(commit: WalletImportCommit(
             password: nil,
-            request: WalletImportRequest(walletName: "Imported", selectedChainIds: ["ethereum"],
+            request: WalletImportRequest(walletName: "Imported", selectedChainIds: [Chain.ethereum],
                 isWatchOnlyImport: false, isPrivateKeyImport: false,
                 watchOnlyEntries: WalletImportWatchOnlyEntries(byChainId: [:], bitcoinXpub: nil)),
             seedDerivationPreset: .standard, seedDerivationPaths: .defaults,

@@ -35,7 +35,7 @@ extension AppState {
         }
     }
     @discardableResult
-    func performUserInitiatedRefresh(forChain chainId: String) async -> Bool {
-        await performCoreRefresh(.chain(chainId: chainId))
+    func performUserInitiatedRefresh(forChain chain: Chain) async -> Bool {
+        await performCoreRefresh(.chain(chainId: chain))
     }
 }

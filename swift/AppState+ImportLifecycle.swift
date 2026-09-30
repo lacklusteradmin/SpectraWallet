@@ -53,7 +53,7 @@ extension AppState {
         let commit = WalletImportCommit(
             password: draft.walletPasswordInput,
             request: WalletImportRequest(
-                walletName: name, selectedChainIds: draft.selectedChainIds,
+                walletName: name, selectedChainIds: draft.selectedChains,
                 isWatchOnlyImport: draft.isWatchOnlyMode, isPrivateKeyImport: draft.isPrivateKeyImportMode,
                 watchOnlyEntries: draft.watchOnlyImportEntries),
             seedDerivationPreset: draft.seedDerivationPreset, seedDerivationPaths: paths,

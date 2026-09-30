@@ -20,26 +20,26 @@ typealias Coin = AssetHolding
 extension AssetHolding: Identifiable {
     var color: Color { AssetPresentationCatalog.color(deploymentId: id) }
     var holdingKey: String { id }
-    var chain: Chain? { Chain(id: chainId) }
+    var chain: Chain { chainId }
     /// For text a person reads; identity is `chainId`.
-    var chainName: String { Chain.displayName(forId: chainId) }
-    var isUTXOChain: Bool { chain?.supportsDeepUTXODiscovery ?? false }
-    var isEVMChain: Bool { chain?.isEVM ?? false }
+    var chainName: String { chainId.displayName }
+    var isUTXOChain: Bool { chain.supportsDeepUTXODiscovery }
+    var isEVMChain: Bool { chain.isEVM }
     /// The chain's own asset — `ETH` on Arbitrum, not `ARB` — by deployment
     /// identity, which the catalog names for each chain.
-    var isNativeCoin: Bool { chain?.entry?.nativeDeploymentId == id }
+    var isNativeCoin: Bool { chain.entry?.nativeDeploymentId == id }
     /// Whether anything is held. Core stores amounts in canonical spelling,
     /// so zero is always `"0"`.
     var hasBalance: Bool { amount != "0" }
 }
 extension AssetWikiPlace {
-    var chainName: String { Chain.displayName(forId: chainId) }
+    var chainName: String { chainId.displayName }
 }
 extension FundsFinderCandidate {
-    var chainName: String { Chain.displayName(forId: chainId) }
+    var chainName: String { chainId.displayName }
 }
 extension DiagnosticLogInput {
-    var chainName: String? { chainId.map(Chain.displayName(forId:)) }
+    var chainName: String? { chainId?.displayName }
 }
 extension WalletView: Identifiable {}
 extension WalletView {
@@ -51,11 +51,11 @@ extension WalletView {
         return addresses[slot]
     }
     /// The network this wallet is on.
-    var chain: Chain? { Chain(id: chainId) }
+    var chain: Chain { chainId }
     /// The mainnet whose family this wallet belongs to.
-    var family: Chain? { chain?.mainnetCounterpart }
+    var family: Chain { chain.mainnetCounterpart }
     /// The family's name, for text a person reads.
-    var familyName: String { family?.displayName ?? chainId }
+    var familyName: String { family.displayName }
 }
 
 typealias SeedDerivationPaths = CoreSeedDerivationPaths
@@ -132,7 +132,7 @@ typealias PriceAlertRule = PriceAlertEvaluationAlert
 extension PriceAlertRule: Identifiable {}
 
 extension PriceAlertRule {
-    var chainName: String { Chain.displayName(forId: chainId) }
+    var chainName: String { chainId.displayName }
     var titleText: String { String(format: CommonLocalizationContent.current.assetOnChainFormat, assetDisplayName, chainName) }
     var statusText: String {
         if !isEnabled { return AppLocalization.string("Paused") }
@@ -142,7 +142,7 @@ extension PriceAlertRule {
 // `AddressBookEntry` is the Rust record — core owns saved recipients, including
 // the rules about which ones are acceptable. Only display helpers live here.
 extension AddressBookEntry: Identifiable {
-    var chainName: String { Chain.displayName(forId: chainId) }
+    var chainName: String { chainId.displayName }
     var subtitleText: String {
         guard !note.isEmpty else { return chainName }
         return String(format: CommonLocalizationContent.current.addressBookSubtitleFormat, chainName, note)
@@ -156,8 +156,8 @@ extension CorePersistedTransactionRecord: Identifiable {}
 extension TransactionRecord {
     /// History with no deployment identity draws its letter.
     var artworkName: String { AssetPresentationCatalog.artwork(deploymentId: deploymentId) }
-    var chain: Chain? { Chain(id: chainId) }
-    var chainName: String { Chain.displayName(forId: chainId) }
+    var chain: Chain { chainId }
+    var chainName: String { chainId.displayName }
     /// When it was recorded. Core stores Unix seconds.
     var createdDate: Date { Date(timeIntervalSince1970: createdAtUnix) }
     var titleText: String {
@@ -259,5 +259,5 @@ extension TransactionRecord {
 }
 
 extension WalletView {
-    var networkTitle: String { Chain.displayName(forId: chainId) }
+    var networkTitle: String { chainId.displayName }
 }

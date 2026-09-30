@@ -133,7 +133,7 @@ struct StandardChainDiagnosticsView: View {
                     isRefreshing = true
                     refreshNotice = nil
                     Task {
-                        let succeeded = await store.performUserInitiatedRefresh(forChain: chain.id)
+                        let succeeded = await store.performUserInitiatedRefresh(forChain: chain)
                         isRefreshing = false
                         refreshNotice = refreshOutcomeMessage(succeeded: succeeded)
                     }
@@ -233,9 +233,9 @@ struct StandardChainDiagnosticsView: View {
             }
             chainSpecificSections
         }.navigationTitle(AppLocalization.format("%@ Diagnostics", displayChainTitle))
-        .task(id: chain.id) {
+        .task(id: chain) {
             do {
-                cachedKeypoolDiagnostics = try await store.chainKeypoolDiagnostics(for: store.selectedChainId(forFamily: chain.id))
+                cachedKeypoolDiagnostics = try await store.chainKeypoolDiagnostics(for: store.selectedChain(forFamily: chain))
                 keypoolError = nil
             } catch {
                 cachedKeypoolDiagnostics = []
@@ -249,10 +249,10 @@ struct StandardChainDiagnosticsView: View {
             cachedOperationalEvents = await store.operationalEvents(for: chain)
         }.spectraTransientNotice($copiedDiagnosticsNotice)
     }
-    private var isRunningHistory: Bool { runs.runningHistory.contains(chain.id) }
-    private var isCheckingEndpoints: Bool { runs.checkingEndpoints.contains(chain.id) }
-    private var isRunningChainSelfTests: Bool { runs.runningSelfTests.contains(chain.id) }
-    private var isRunningChainRescan: Bool { runs.runningRescans.contains(chain.id) }
+    private var isRunningHistory: Bool { runs.runningHistory.contains(chain) }
+    private var isCheckingEndpoints: Bool { runs.checkingEndpoints.contains(chain) }
+    private var isRunningChainSelfTests: Bool { runs.runningSelfTests.contains(chain) }
+    private var isRunningChainRescan: Bool { runs.runningRescans.contains(chain) }
     private var historySources: [DiagnosticsSourceCount] { recorded?.historySources ?? [] }
     private var endpoints: [EndpointProbe] { recorded?.endpoints ?? [] }
     private func formattedTime(_ unix: Double) -> String {

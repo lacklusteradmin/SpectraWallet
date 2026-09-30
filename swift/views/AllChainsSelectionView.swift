@@ -10,8 +10,8 @@ struct AllChainsSelectionView: View {
     @Environment(\.colorScheme) private var colorScheme
     @Binding var chainSearchText: String
     let descriptors: [SetupChainSelectionDescriptor]
-    let selectedChainIds: Set<String>
-    let toggleSelection: (String) -> Void
+    let selectedChains: Set<Chain>
+    let toggleSelection: (Chain) -> Void
     /// Absent when the caller picks one chain rather than a set: the running
     /// count and its "Clear all" belong to a multi-select and read as noise
     /// above a list where exactly one row is always ticked.
@@ -35,7 +35,7 @@ struct AllChainsSelectionView: View {
     }
     @ViewBuilder
     private func row(_ descriptor: SetupChainSelectionDescriptor) -> some View {
-        let isSelected = selectedChainIds.contains(descriptor.id)
+        let isSelected = selectedChains.contains(descriptor.id)
         Button {
             spectraHaptic(.light)
             toggleSelection(descriptor.id)
@@ -90,10 +90,10 @@ struct AllChainsSelectionView: View {
                     }.buttonStyle(.plain)
                 }
             }.padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.m).spectraInputFieldStyle()
-            if let clearAllSelections, !selectedChainIds.isEmpty {
+            if let clearAllSelections, !selectedChains.isEmpty {
                 HStack(spacing: SpectraLayout.Space.s) {
                     Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).font(.caption)
-                    Text(AppLocalization.format("%lld selected", selectedChainIds.count))
+                    Text(AppLocalization.format("%lld selected", selectedChains.count))
                         .font(.caption.weight(.semibold)).foregroundStyle(.tint)
                     Spacer()
                     Button(AppLocalization.string("Clear all"), role: .destructive) { clearAllSelections() }

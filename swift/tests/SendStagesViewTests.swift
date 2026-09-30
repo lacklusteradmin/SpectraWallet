@@ -9,7 +9,7 @@ final class SendStagesViewTests: IsolatedAppStateTestCase {
         let state = makeState()
         state.sendFlow.session.endpoints = ["https://ethereum.example/rpc"]
         let artifact = SendArtifact(id: "render-fixture", revision: 1, stage: .signed,
-            walletId: "fixture", chainId: "ethereum-sepolia",
+            walletId: "fixture", chainId: Chain.ethereumSepolia,
             sender: "0x1111111111111111111111111111111111111111",
             recipient: "0x2222222222222222222222222222222222222222",
             amount: "1.000000000000000001", asset: "ETH", createdAt: 0, reviewDigest: "reviewed-content",

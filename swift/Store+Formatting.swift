@@ -12,18 +12,18 @@ func localizedStoreString(_ key: String) -> String {
 func evmRecipientMessages(_ warnings: [EvmRecipientPreflightWarning]) -> [String] {
     warnings.map { warning in
         switch warning {
-        case .recipientIsContract(let chainName, let symbol):
+        case .recipientIsContract(let chain, let symbol):
             return AppLocalization.format(
-                "Recipient is a smart contract on %@. Confirm it can receive %@ safely.", chainName, symbol)
-        case .recipientCodeUnknown(let chainName):
+                "Recipient is a smart contract on %@. Confirm it can receive %@ safely.", chain.displayName, symbol)
+        case .recipientCodeUnknown(let chain):
             return AppLocalization.format(
-                "Could not verify recipient contract state on %@. Review destination carefully.", chainName)
-        case .tokenContractMissing(let chainName, let tokenSymbol):
+                "Could not verify recipient contract state on %@. Review destination carefully.", chain.displayName)
+        case .tokenContractMissing(let chain, let tokenSymbol):
             return AppLocalization.format(
                 "Token contract %@ appears missing on %@. This may be a wrong-network token selection.",
-                tokenSymbol, chainName)
-        case .tokenCodeUnknown(let chainName, let tokenSymbol):
-            return AppLocalization.format("Could not verify %@ contract bytecode on %@.", tokenSymbol, chainName)
+                tokenSymbol, chain.displayName)
+        case .tokenCodeUnknown(let chain, let tokenSymbol):
+            return AppLocalization.format("Could not verify %@ contract bytecode on %@.", tokenSymbol, chain.displayName)
         }
     }
 }
@@ -33,7 +33,7 @@ func highRiskSendMessages(_ warnings: [HighRiskSendWarning]) -> [String] {
     warnings.map { warning in
         switch warning {
         case .invalidFormat(let chain):
-            return AppLocalization.format("The destination address format does not match %@.", chain)
+            return AppLocalization.format("The destination address format does not match %@.", chain.displayName)
         case .newAddress:
             return localizedStoreString("This is a new destination address with no prior history in this wallet.")
         case .ensResolved(let name, let address):
@@ -43,14 +43,14 @@ func highRiskSendMessages(_ warnings: [HighRiskSendWarning]) -> [String] {
             let formatted = (Double(percent) / 100.0).formatted(.percent.precision(.fractionLength(0)))
             return AppLocalization.format("This send is %@ of your %@ balance.", formatted, symbol)
         case .nonEvmOnEvm(let chain):
-            return AppLocalization.format("Destination appears to be a non-EVM address while sending on %@.", chain)
+            return AppLocalization.format("Destination appears to be a non-EVM address while sending on %@.", chain.displayName)
         case .ensOffEthereum(let chain):
             return AppLocalization.format(
-                "ENS names are Ethereum-specific. For %@, verify the resolved EVM address very carefully.", chain)
+                "ENS names are Ethereum-specific. For %@, verify the resolved EVM address very carefully.", chain.displayName)
         case .ethOnUtxo(let chain):
-            return AppLocalization.format("Destination appears to be an Ethereum-style address while sending on %@.", chain)
+            return AppLocalization.format("Destination appears to be an Ethereum-style address while sending on %@.", chain.displayName)
         case .foreignAddressFormat(let chain):
-            return AppLocalization.format("Destination appears to be another network's address format while sending on %@.", chain)
+            return AppLocalization.format("Destination appears to be another network's address format while sending on %@.", chain.displayName)
         case .chainMismatch:
             return localizedStoreString("Wallet-chain context mismatch detected for this send.")
         }

@@ -27,7 +27,7 @@ struct DonationsView: View {
         VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             Text(AppLocalization.string("Addresses")).font(.headline).foregroundStyle(Color.primary)
             ForEach(copy.destinations, id: \.address) { destination in
-                donationRow(chainId: destination.chainId, title: destination.title, address: destination.address)
+                donationRow(chain: destination.chainId, title: destination.title, address: destination.address)
                 if destination.address != copy.destinations.last?.address {
                     Divider().opacity(0.25)
                 }
@@ -37,8 +37,8 @@ struct DonationsView: View {
             .spectraCardFill()
     }
     @ViewBuilder
-    private func donationRow(chainId: String, title: String, address: String) -> some View {
-        let badge = Coin.nativeChainBadge(for: Chain(id: chainId)) ?? (artworkName: nil, color: Color.mint)
+    private func donationRow(chain: Chain, title: String, address: String) -> some View {
+        let badge = Coin.nativeChainBadge(for: chain) ?? (artworkName: nil, color: Color.mint)
         let isCopied = copiedAddress == address
         HStack(spacing: SpectraLayout.Space.m) {
             CoinBadge(artworkName: badge.artworkName, fallbackText: title, color: badge.color, size: 32)
