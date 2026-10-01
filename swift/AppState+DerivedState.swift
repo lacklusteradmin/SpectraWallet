@@ -16,25 +16,29 @@ extension AppState {
         }
     }
     /// Every wallet/quote/dashboard field is adopted together on the main actor.
+    /// A field is assigned only when it changed: mid-sweep snapshots arrive
+    /// every few hundred milliseconds, and most leave most fields as they were,
+    /// so an unchanged one must not invalidate the views that read it.
     func applyPortfolioSnapshot(_ snapshot: PortfolioSnapshot) {
         guard snapshot.revision > portfolioSnapshotRevision else { return }
         guard applyCoreState(snapshot.state) else { return }
         portfolioSnapshotRevision = snapshot.revision
         applyQuoteProjection(snapshot.state)
-        portfolioValuation = snapshot.valuation
-        adoptAssetPrecision(snapshot.assetPrecision)
+        if portfolioValuation != snapshot.valuation { portfolioValuation = snapshot.valuation }
+        if assetPrecision != snapshot.assetPrecision { adoptAssetPrecision(snapshot.assetPrecision) }
         let derived = snapshot.derived
         let walletById = Dictionary(uniqueKeysWithValues: snapshot.wallets.map { ($0.id, $0) })
         if wallets != snapshot.wallets { setWalletProjection(snapshot.wallets) }
-        walletDerivedCache = WalletDerivedCache(
+        let cache = WalletDerivedCache(
             walletById: walletById,
             portfolio: derived.portfolio,
             availableSendCoinsByWalletId: derived.sendCoinsByWalletId,
             availableReceiveCoinsByWalletId: derived.receiveCoinsByWalletId,
             sendEnabledWallets: derived.sendEnabledWalletIds.compactMap { walletById[$0] },
             receiveEnabledWallets: derived.receiveEnabledWalletIds.compactMap { walletById[$0] })
-        cachedDashboardAssetGroups = snapshot.groups
-        cachedAvailableDashboardPinOptions = snapshot.pinOptions
+        if walletDerivedCache != cache { walletDerivedCache = cache }
+        if cachedDashboardAssetGroups != snapshot.groups { cachedDashboardAssetGroups = snapshot.groups }
+        if cachedAvailableDashboardPinOptions != snapshot.pinOptions { cachedAvailableDashboardPinOptions = snapshot.pinOptions }
     }
     /// A sweep reports each wallet as core commits it. Read the portfolio at
     /// most once per interval while wallets keep landing, so balances appear

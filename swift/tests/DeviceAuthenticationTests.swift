@@ -1,20 +1,21 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Spectra
 
 @MainActor
-final class DeviceAuthenticationTests: XCTestCase {
-    func testDisablingSendAuthenticationDoesNotDisableOtherProtectedActions() {
+struct DeviceAuthenticationTests {
+    @Test func disablingSendAuthenticationDoesNotDisableOtherProtectedActions() {
         for action in [DeviceAuthenticationAction.unlock, .deleteWallet, .resetData] {
-            XCTAssertTrue(action.requiresAuthentication(useFaceId: true, authenticateSends: false))
+            #expect(action.requiresAuthentication(useFaceId: true, authenticateSends: false))
         }
-        XCTAssertFalse(DeviceAuthenticationAction.send.requiresAuthentication(useFaceId: true, authenticateSends: false))
-        XCTAssertTrue(DeviceAuthenticationAction.send.requiresAuthentication(useFaceId: true, authenticateSends: true))
+        #expect(!DeviceAuthenticationAction.send.requiresAuthentication(useFaceId: true, authenticateSends: false))
+        #expect(DeviceAuthenticationAction.send.requiresAuthentication(useFaceId: true, authenticateSends: true))
     }
 
-    func testRevealingASeedPhraseAlwaysRequiresAuthentication() {
+    @Test func revealingASeedPhraseAlwaysRequiresAuthentication() {
         for useFaceId in [true, false] {
             for authenticateSends in [true, false] {
-                XCTAssertTrue(DeviceAuthenticationAction.revealSeedPhrase.requiresAuthentication(
+                #expect(DeviceAuthenticationAction.revealSeedPhrase.requiresAuthentication(
                     useFaceId: useFaceId, authenticateSends: authenticateSends))
             }
         }

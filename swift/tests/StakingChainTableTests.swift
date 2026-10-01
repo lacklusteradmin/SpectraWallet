@@ -1,5 +1,5 @@
 import Foundation
-import XCTest
+import Testing
 
 @testable import Spectra
 
@@ -9,33 +9,29 @@ import XCTest
 /// should not become one — but it does have to cover the chains the registry
 /// offers, which is what these assert.
 @MainActor
-final class StakingChainTableTests: XCTestCase {
-    func testEveryStakingChainHasADescriptor() {
-        XCTAssertFalse(Chain.stakingChains.isEmpty)
+struct StakingChainTableTests {
+    @Test func everyStakingChainHasADescriptor() {
+        #expect(!Chain.stakingChains.isEmpty)
         for chain in Chain.stakingChains {
-            XCTAssertNotNil(
-                chain.stakingDescriptor,
-                "\(chain.displayName) is offered by the staking tab and has no copy to show")
+            #expect(chain.stakingDescriptor != nil, "\(chain.displayName) is offered by the staking tab and has no copy to show")
         }
     }
 
     /// The inverse: copy for a chain the registry does not offer is a page no
     /// one can reach, and the tile it would render would claim an APY for a
     /// chain Spectra cannot stake on.
-    func testNoDescriptorNamesAChainTheTabDoesNotOffer() {
+    @Test func noDescriptorNamesAChainTheTabDoesNotOffer() {
         let offered = Set(Chain.stakingChains)
         for chain in Chain.all where chain.stakingDescriptor != nil {
-            XCTAssertTrue(
-                offered.contains(chain),
-                "\(chain.displayName) has staking copy and is not in Chain.stakingChains")
+            #expect(offered.contains(chain), "\(chain.displayName) has staking copy and is not in Chain.stakingChains")
         }
     }
 
     /// The picker is mainnets only. A testnet tile would route to a client
     /// built against mainnet endpoints and list mainnet validators.
-    func testTheStakingPickerOffersMainnetsOnly() {
+    @Test func theStakingPickerOffersMainnetsOnly() {
         for chain in Chain.stakingChains {
-            XCTAssertFalse(chain.isTestnet, "\(chain.displayName) is a testnet and was offered")
+            #expect(!chain.isTestnet, "\(chain.displayName) is a testnet and was offered")
         }
     }
 }

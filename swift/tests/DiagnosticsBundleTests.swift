@@ -1,31 +1,32 @@
 import Foundation
-import XCTest
+import Testing
 @testable import Spectra
 @MainActor
-final class DiagnosticsBundleTests: IsolatedAppStateTestCase {
+@Suite(.isolatedAppState)
+struct DiagnosticsBundleTests: IsolatedAppStateSuite {
     /// Core writes the bundle; the file the app shares reads back whole.
-    func testExportsAndImportsDiagnosticsBundleJSON() async throws {
+    @Test func exportsAndImportsDiagnosticsBundleJSON() async throws {
         let store = makeState()
         let fileURL = try await store.exportDiagnosticsBundle()
         defer { try? FileManager.default.removeItem(at: fileURL) }
         let imported = try store.importDiagnosticsBundle(from: fileURL)
-        XCTAssertEqual(imported.schemaVersion, 2)
-        XCTAssertFalse(imported.environment.osVersion.isEmpty)
-        XCTAssertEqual(imported.environment.walletCount, 0)
+        #expect(imported.schemaVersion == 2)
+        #expect(!imported.environment.osVersion.isEmpty)
+        #expect(imported.environment.walletCount == 0)
         // Keys are canonical chain ids, one per mainnet.
-        XCTAssertNotNil(imported.chainDiagnosticsJson["bitcoin-cash"])
-        XCTAssertNotNil(imported.chainDiagnosticsJson["internet-computer"])
-        XCTAssertEqual(Set(imported.chainDiagnosticsJson.keys), Set(Chain.mainnets.map(\.id)))
+        #expect(imported.chainDiagnosticsJson["bitcoin-cash"] != nil)
+        #expect(imported.chainDiagnosticsJson["internet-computer"] != nil)
+        #expect(Set(imported.chainDiagnosticsJson.keys) == Set(Chain.mainnets.map(\.id)))
     }
 
     /// The screen's document is the one the bundle carries for that chain.
-    func testChainDiagnosticsMatchTheBundle() async throws {
+    @Test func chainDiagnosticsMatchTheBundle() async throws {
         let store = makeState()
         let diagnostics = try await store.chainDiagnostics(for: .bitcoin)
-        XCTAssertEqual(diagnostics.networkId, .bitcoin)
+        #expect(diagnostics.networkId == .bitcoin)
         let fileURL = try await store.exportDiagnosticsBundle()
         defer { try? FileManager.default.removeItem(at: fileURL) }
         let imported = try store.importDiagnosticsBundle(from: fileURL)
-        XCTAssertEqual(imported.chainDiagnosticsJson["bitcoin"], diagnostics.document)
+        #expect(imported.chainDiagnosticsJson["bitcoin"] == diagnostics.document)
     }
 }

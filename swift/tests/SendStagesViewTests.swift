@@ -1,11 +1,14 @@
-import XCTest
+import Foundation
+import Testing
 import SwiftUI
+import UIKit
 @testable import Spectra
 
 @MainActor
-final class SendStagesViewTests: IsolatedAppStateTestCase {
+@Suite(.isolatedAppState)
+struct SendStagesViewTests: IsolatedAppStateSuite {
 
-    func testSignedStageRendersInspectablePayloadAndExplicitDestinations() async throws {
+    @Test func signedStageRendersInspectablePayloadAndExplicitDestinations() async throws {
         let state = makeState()
         state.sendFlow.session.endpoints = ["https://ethereum.example/rpc"]
         let artifact = SendArtifact(id: "render-fixture", revision: 1, stage: .signed,
@@ -17,12 +20,12 @@ final class SendStagesViewTests: IsolatedAppStateTestCase {
             preparedDetails: "Nonce: 7\nMaximum gas: 25200", signingPayloadHex: "02",
             signedPayload: "0x02…", transactionHash: "0x1234", attempts: [], selectedEndpoints: [])
         state.sendFlow.session.artifact = artifact
-        XCTAssertTrue(state.pendingHighRiskSendReasons[0].contains("1.000000000000000001"))
-        XCTAssertEqual(state.pendingHighRiskSendReasons.count, 3)
+        #expect(state.pendingHighRiskSendReasons[0].contains("1.000000000000000001"))
+        #expect(state.pendingHighRiskSendReasons.count == 3)
         let view = ScrollView {
             SendStagesView(store: state, artifact: artifact).padding()
         }.frame(width: 393, height: 852).background(Color(.systemBackground))
-        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let previousWindow = scene.windows.first(where: \.isKeyWindow)
         let window = UIWindow(windowScene: scene)
         window.frame = CGRect(x: 0, y: 0, width: 393, height: 852)
@@ -36,14 +39,11 @@ final class SendStagesViewTests: IsolatedAppStateTestCase {
         try await Task.sleep(for: .milliseconds(300))
         window.layoutIfNeeded()
         let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
-            XCTAssertTrue(window.drawHierarchy(in: window.bounds, afterScreenUpdates: true))
+            #expect(window.drawHierarchy(in: window.bounds, afterScreenUpdates: true))
         }
-        let pixels = try XCTUnwrap(image.cgImage?.dataProvider?.data) as Data
-        XCTAssertGreaterThan(Set(pixels).count, 16, "The render must contain content, not an empty canvas")
-        let attachment = XCTAttachment(image: image)
-        attachment.name = "Signed transaction awaiting broadcast"
-        attachment.lifetime = .keepAlways
-        add(attachment)
-        XCTAssertTrue(state.sendFlow.session.selectedEndpoints.isEmpty, "Rendering must not select destinations or submit")
+        let pixels = try #require(image.cgImage?.dataProvider?.data) as Data
+        #expect(Set(pixels).count > 16, "The render must contain content, not an empty canvas")
+        Attachment.record(image, named: "Signed transaction awaiting broadcast")
+        #expect(state.sendFlow.session.selectedEndpoints.isEmpty, "Rendering must not select destinations or submit")
     }
 }

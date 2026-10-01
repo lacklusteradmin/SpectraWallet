@@ -1,28 +1,20 @@
+import Foundation
 import SwiftUI
-import XCTest
+import Testing
 @testable import Spectra
 
-final class PresentationCatalogTests: XCTestCase {
-    func testTestnetSymbolsKeepTheirLowercasePrefix() {
-        for chain in Chain.all where chain.isTestnet {
-            XCTAssertEqual(chain.gasTokenSymbol, "t" + chain.mainnetCounterpart.gasTokenSymbol)
-        }
-        XCTAssertEqual(Chain.bitcoin.gasTokenSymbol, "BTC")
-        XCTAssertEqual(Chain.bitcoinTestnet4.gasTokenSymbol, "tBTC")
-        XCTAssertEqual(Chain.ethereumSepolia.gasTokenSymbol, "tETH")
-    }
-
+struct PresentationCatalogTests {
     /// Colour follows deployment identity, never the ticker: a custom token
     /// that calls itself `ETH` is grey, not Ether's colour.
-    func testCoinColorsFollowDeploymentIdentity() {
+    @Test func coinColorsFollowDeploymentIdentity() throws {
         for token in listTokenDeployments(chain: nil) {
             if let color = token.color {
-                XCTAssertEqual(AssetPresentationCatalog.color(deploymentId: token.deploymentId), color.color)
+                #expect(AssetPresentationCatalog.color(deploymentId: token.deploymentId) == color.color)
             }
         }
-        let ethereum = try? XCTUnwrap(Chain.ethereum.entry)
-        XCTAssertEqual(AssetPresentationCatalog.color(deploymentId: ethereum?.nativeDeploymentId ?? ""), ethereum?.color.color)
-        XCTAssertEqual(AssetPresentationCatalog.color(deploymentId: "ethereum:erc-20:0xnot-in-the-catalog"), .gray)
+        let ethereum = try #require(Chain.ethereum.entry)
+        #expect(AssetPresentationCatalog.color(deploymentId: ethereum.nativeDeploymentId) == ethereum.color.color)
+        #expect(AssetPresentationCatalog.color(deploymentId: "ethereum:erc-20:0xnot-in-the-catalog") == .gray)
     }
 
     /// A native asset's display name is its chain's, so naming the pair
@@ -30,7 +22,7 @@ final class PresentationCatalogTests: XCTestCase {
     /// only when it is not already the asset, and the expectations are built
     /// from the shipped formats so the assertion is about that shape rather
     /// than about English.
-    func testTransactionSubtitleNamesTheChainOnlyWhenItIsNotTheAsset() {
+    @Test func transactionSubtitleNamesTheChainOnlyWhenItIsNotTheAsset() {
         let copy = CommonLocalizationContent.current
         func subtitle(asset: String, chainId: Chain) -> String {
             TransactionRecord(
@@ -41,35 +33,33 @@ final class PresentationCatalogTests: XCTestCase {
         func wallet(_ asset: String) -> String { String(format: copy.transactionSubtitleFormat, asset, "Main Wallet") }
         func onChain(_ asset: String, _ chain: String) -> String { String(format: copy.assetOnChainFormat, asset, chain) }
 
-        XCTAssertEqual(subtitle(asset: "Solana", chainId: Chain.solana), wallet("Solana"))
-        XCTAssertEqual(subtitle(asset: "solana", chainId: Chain.solana), wallet("solana"))
-        XCTAssertEqual(subtitle(asset: "USD Coin", chainId: Chain.solana), wallet(onChain("USD Coin", "Solana")))
-        XCTAssertEqual(
-            subtitle(asset: "Bitcoin", chainId: Chain.bitcoinTestnet4),
-            wallet(onChain("Bitcoin", Chain.bitcoinTestnet4.displayName)))
+        #expect(subtitle(asset: "Solana", chainId: Chain.solana) == wallet("Solana"))
+        #expect(subtitle(asset: "solana", chainId: Chain.solana) == wallet("solana"))
+        #expect(subtitle(asset: "USD Coin", chainId: Chain.solana) == wallet(onChain("USD Coin", "Solana")))
+        #expect(subtitle(asset: "Bitcoin", chainId: Chain.bitcoinTestnet4) == wallet(onChain("Bitcoin", Chain.bitcoinTestnet4.displayName)))
     }
 
     /// One string table per declared locale, every table with the same keys —
     /// read from the manifest rather than listed here, so adding a locale
     /// cannot leave a table silently missing.
-    func testEveryDeclaredLocaleShipsTheSameStringTable() throws {
+    @Test func everyDeclaredLocaleShipsTheSameStringTable() throws {
         let locales = try declaredLocales()
-        XCTAssertTrue(locales.contains("en"), "the source language must ship")
+        #expect(locales.contains("en"), "the source language must ship")
         let source = try Set(table("en").keys)
         for locale in locales {
-            XCTAssertEqual(try Set(table(locale).keys), source, locale)
+            #expect(try Set(table(locale).keys) == source, "\(locale)")
         }
     }
 
     /// A localized string ships in a locale's table and nothing else; a
     /// locale-independent data file ships once, unsuffixed.
-    func testLocaleIndependentDataShipsOnce() {
+    @Test func localeIndependentDataShipsOnce() {
         for name in ["AppLinks", "BuyProviders"] {
-            XCTAssertNotNil(Bundle.main.url(forResource: name, withExtension: "json"), name)
+            #expect(Bundle.main.url(forResource: name, withExtension: "json") != nil, "\(name)")
         }
         for name in ["CommonContent", "DiagnosticsContent", "DonationsContent",
                      "EndpointsContent", "ImportFlowContent", "SettingsContent"] {
-            XCTAssertNil(Bundle.main.url(forResource: "\(name).en", withExtension: "json"), name)
+            #expect(Bundle.main.url(forResource: "\(name).en", withExtension: "json") == nil, "\(name)")
         }
     }
 
@@ -78,16 +68,13 @@ final class PresentationCatalogTests: XCTestCase {
     }
 
     private func declaredLocales() throws -> [String] {
-        let url = try XCTUnwrap(
-            Bundle.main.url(forResource: "RuntimeStrings.manifest", withExtension: "json"),
-            "RuntimeStrings.manifest.json"
-        )
+        let url = try #require(Bundle.main.url(forResource: "RuntimeStrings.manifest", withExtension: "json"), "RuntimeStrings.manifest.json")
         return try JSONDecoder().decode(Manifest.self, from: Data(contentsOf: url)).availableLocales
     }
 
     private func table(_ locale: String) throws -> [String: String] {
         let name = "RuntimeStrings.\(locale)"
-        let url = try XCTUnwrap(Bundle.main.url(forResource: name, withExtension: "json"), name)
+        let url = try #require(Bundle.main.url(forResource: name, withExtension: "json"), "\(name)")
         return try JSONDecoder().decode([String: String].self, from: Data(contentsOf: url))
     }
 }

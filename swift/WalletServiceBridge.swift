@@ -45,13 +45,6 @@ import Foundation
         return svc
     }
 
-    /// Bind core to its state database and return the stored state. Uses
-    /// core's serialized open, so a launch read cannot overtake a commit.
-    @discardableResult
-    func openState() async throws -> CoreAppState {
-        try await ready().openState(databasePath: sqliteDbPath())
-    }
-
     private func sqliteDbPath() -> String {
         if let databasePath { return databasePath }
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? NSTemporaryDirectory()

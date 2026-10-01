@@ -6,7 +6,7 @@ import Foundation
 ///
 /// Every field here has a reader. State the app collects but never shows is
 /// not a cache, it is a second copy of core's answer going stale in the dark.
-struct WalletDerivedCache {
+struct WalletDerivedCache: Equatable {
     var walletById: [String: WalletView]
     var portfolio: [Coin]
     var availableSendCoinsByWalletId: [String: [Coin]]

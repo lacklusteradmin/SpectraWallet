@@ -218,7 +218,7 @@ struct HistoryView: View {
     private var filterKey: String {
         "\(selectedWalletId ?? "")|\(selectedFilter)|\(selectedSortOrder)|\(hidesSmallAmounts)|\(searchText)"
     }
-    private var queryKey: String { "\(filterKey)|\(store.transactionRevision)|\(store.walletsRevision)" }
+    private var queryKey: String { "\(filterKey)|\(store.transactionRevision)|\(store.walletIdentityRevision)" }
     private static let pageSize = 20
     /// Core refuses a history query for more rows than this.
     private static let maxQueryLimit = 200

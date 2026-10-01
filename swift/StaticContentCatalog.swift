@@ -187,12 +187,20 @@ enum AppLocalization {
         let availableLocales: [String]
     }
     private struct Tables {
-        let signature: String
         let locale: Locale
         let strings: [[String: String]]
     }
     private static let manifest = StaticContentCatalog.loadResource("RuntimeStrings.manifest", as: Manifest.self)
     private static let cachedTables = Mutex<Tables?>(nil)
+    /// Drops the tables when the reader's locale changes, so the next read
+    /// rebuilds them. Region and per-app language changes post this; a
+    /// system language change relaunches the app.
+    /// The center keeps a block observer for the life of the process.
+    private static let localeChangeObserver: Void = {
+        _ = NotificationCenter.default.addObserver(
+            forName: NSLocale.currentLocaleDidChangeNotification, object: nil, queue: nil
+        ) { _ in cachedTables.withLock { $0 = nil } }
+    }()
 
     /// The language of the table read first, with the reader's region and
     /// number preferences. Every date, number and currency the app formats
@@ -220,10 +228,10 @@ enum AppLocalization {
         return String(format: template, locale: locale, arguments: arguments)
     }
 
-    /// Rebuilt when the reader's languages or region change.
+    /// Built once, and again after the reader's locale changes.
     private static func tables() -> Tables {
-        let signature = Locale.preferredLanguages.joined(separator: "|") + "|" + Locale.current.identifier
-        if let cached = cachedTables.withLock({ $0 }), cached.signature == signature { return cached }
+        if let cached = cachedTables.withLock({ $0 }) { return cached }
+        _ = localeChangeObserver
         let source = manifest?.sourceLanguage ?? "en"
         let available = manifest?.availableLocales ?? [source]
         var identifiers: [String] = []
@@ -234,7 +242,7 @@ enum AppLocalization {
         }
         if !identifiers.contains(source) { identifiers.append(source) }
         let tables = Tables(
-            signature: signature, locale: displayLocale(language: identifiers[0]),
+            locale: displayLocale(language: identifiers[0]),
             strings: identifiers.compactMap {
                 StaticContentCatalog.loadResource("RuntimeStrings.\($0)", as: [String: String].self)
             })

@@ -1,13 +1,15 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Spectra
 
 @MainActor
-final class WalletImportSessionTests: XCTestCase {
-    func testOldSuccessCannotCloseOrClearNewFormOrBusyState() async {
+@Suite(.timeLimit(.minutes(1)))
+struct WalletImportSessionTests {
+    @Test func oldSuccessCannotCloseOrClearNewFormOrBusyState() async {
         let session = WalletImportSession()
         session.begin { $0.walletName = "old" }
-        let oldGate = ImportSessionGate()
-        let newGate = ImportSessionGate()
+        let oldGate = SuspensionGate<Void>()
+        let newGate = SuspensionGate<Void>()
         var committed = false
         let old = Task {
             await session.submit {
@@ -16,54 +18,54 @@ final class WalletImportSessionTests: XCTestCase {
                 return "old notice"
             }
         }
-        _ = await XCTWaiter.fulfillment(of: [oldGate.entered], timeout: 2)
+        await oldGate.reached()
         session.close()
         session.begin { $0.walletName = "new" }
         let current = Task {
             await session.submit { await newGate.wait(); return "new notice" }
         }
-        _ = await XCTWaiter.fulfillment(of: [newGate.entered], timeout: 2)
+        await newGate.reached()
         oldGate.resume()
         let oldCompleted = await old.value
-        XCTAssertFalse(oldCompleted)
-        XCTAssertTrue(committed, "Closing a form does not erase a core commit")
-        XCTAssertTrue(session.isPresented)
-        XCTAssertTrue(session.isBusy, "Old defer must not clear the new operation")
-        XCTAssertEqual(session.draft.walletName, "new")
-        XCTAssertNil(session.error)
+        #expect(!oldCompleted)
+        #expect(committed, "Closing a form does not erase a core commit")
+        #expect(session.isPresented)
+        #expect(session.isBusy, "Old defer must not clear the new operation")
+        #expect(session.draft.walletName == "new")
+        #expect(session.error == nil)
         newGate.resume()
         let currentCompleted = await current.value
-        XCTAssertTrue(currentCompleted)
-        XCTAssertFalse(session.isPresented)
-        XCTAssertFalse(session.isBusy)
-        XCTAssertEqual(session.error, "new notice")
-        XCTAssertEqual(session.draft.walletName, "")
+        #expect(currentCompleted)
+        #expect(!session.isPresented)
+        #expect(!session.isBusy)
+        #expect(session.error == "new notice")
+        #expect(session.draft.walletName == "")
     }
 
-    func testOldFailureCannotOverwriteNewError() async {
+    @Test func oldFailureCannotOverwriteNewError() async {
         let session = WalletImportSession()
         session.begin { _ in }
-        let gate = ImportSessionGate()
+        let gate = SuspensionGate<Void>()
         let old = Task {
             await session.submit {
                 await gate.wait()
                 throw NSError(domain: "old", code: 1)
             }
         }
-        _ = await XCTWaiter.fulfillment(of: [gate.entered], timeout: 2)
+        await gate.reached()
         // Navigation bindings dismiss by writing this property, not only close().
         session.isPresented = false
         session.begin { $0.walletName = "new" }
         session.error = "current error"
         gate.resume()
         let completed = await old.value
-        XCTAssertFalse(completed)
-        XCTAssertEqual(session.error, "current error")
-        XCTAssertEqual(session.draft.walletName, "new")
-        XCTAssertTrue(session.isPresented)
+        #expect(!completed)
+        #expect(session.error == "current error")
+        #expect(session.draft.walletName == "new")
+        #expect(session.isPresented)
     }
 
-    func testCurrentFailureKeepsFormForRetryAndDismissalClearsSecrets() async {
+    @Test func currentFailureKeepsFormForRetryAndDismissalClearsSecrets() async {
         let session = WalletImportSession()
         session.begin {
             $0.walletName = "retry"
@@ -74,27 +76,14 @@ final class WalletImportSessionTests: XCTestCase {
         let completed = await session.submit {
             throw NSError(domain: "test", code: 1, userInfo: [NSLocalizedDescriptionKey: "failure"])
         }
-        XCTAssertFalse(completed)
-        XCTAssertEqual(session.error, "failure")
-        XCTAssertTrue(session.isPresented)
-        XCTAssertFalse(session.isBusy)
-        XCTAssertEqual(session.draft.walletName, "retry")
+        #expect(!completed)
+        #expect(session.error == "failure")
+        #expect(session.isPresented)
+        #expect(!session.isBusy)
+        #expect(session.draft.walletName == "retry")
         session.close()
-        XCTAssertEqual(session.draft.overridePassphrase, "")
-        XCTAssertEqual(session.draft.privateKeyInput, "")
-        XCTAssertEqual(session.draft.walletPassword, "")
+        #expect(session.draft.overridePassphrase == "")
+        #expect(session.draft.privateKeyInput == "")
+        #expect(session.draft.walletPassword == "")
     }
-}
-
-@MainActor
-private final class ImportSessionGate {
-    let entered = XCTestExpectation(description: "Operation suspended")
-    private var continuation: CheckedContinuation<Void, Never>?
-    func wait() async {
-        await withCheckedContinuation {
-            continuation = $0
-            entered.fulfill()
-        }
-    }
-    func resume() { continuation?.resume(); continuation = nil }
 }

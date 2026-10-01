@@ -3,6 +3,7 @@ import SwiftUI
 struct ContentView: View {
     let store: AppState
     @Environment(\.scenePhase) private var scenePhase
+    @State private var hasBeenActive = false
 
     /// What covers the app, if anything. The snapshot cover wins while the
     /// app is not active, whatever the lock settings, so the app switcher
@@ -17,7 +18,15 @@ struct ContentView: View {
         switch phase {
         case .active:
             store.setAppIsActive(true)
-            Task { await store.refreshForForegroundIfNeeded() }
+            // The first activation is the launch, whose refresh is the
+            // engine's first tick; only the activities left from a previous
+            // run need settling.
+            let isLaunch = !hasBeenActive
+            hasBeenActive = true
+            Task {
+                if isLaunch { await store.reconcileSendLiveActivities() }
+                else { await store.refreshForForegroundIfNeeded() }
+            }
         case .background:
             store.setAppIsActive(false)
         // Not leaving the app: the Face ID sheet, Control Center and the app

@@ -1,21 +1,22 @@
-import XCTest
+import Foundation
+import Testing
 
 @testable import Spectra
 
 @MainActor
-final class WalletSetupPageCopyTests: XCTestCase {
-    func testBackupQuizRemainsRequiredOnlyForWalletCreation() {
+struct WalletSetupPageCopyTests {
+    @Test func backupQuizRemainsRequiredOnlyForWalletCreation() {
         let draft = WalletImportDraft()
         draft.selectedChainsStorage = [Chain.ethereum]
         draft.seedPhraseEntries = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".components(separatedBy: " ")
-        XCTAssertTrue(draft.canImportWallet)
+        #expect(draft.canImportWallet)
         draft.mode = .createNew
-        XCTAssertFalse(draft.canImportWallet)
+        #expect(!draft.canImportWallet)
         draft.backupVerificationWordIndices = [0, 5, 11]
         draft.backupVerificationEntries = ["abandon", "abandon", "about"]
-        XCTAssertTrue(draft.canImportWallet)
+        #expect(draft.canImportWallet)
         draft.backupVerificationEntries[2] = "abandon"
-        XCTAssertFalse(draft.canImportWallet)
+        #expect(!draft.canImportWallet)
     }
 
     private let content = ImportFlowContent.current
@@ -25,7 +26,7 @@ final class WalletSetupPageCopyTests: XCTestCase {
     }
 
     /// Nothing may come back blank, in any mode.
-    func testEveryPageNamesItselfInEveryMode() {
+    @Test func everyPageNamesItselfInEveryMode() {
         let pages: [WalletSetupPage] = [
             .details, .watchAddresses, .seedPhrase, .password, .backupVerification, .walletName,
         ]
@@ -35,18 +36,18 @@ final class WalletSetupPageCopyTests: XCTestCase {
         ]
         let flowPages = [SetupFlow.watchOnly, .seedPhraseImport, .createNewWallet, .editWallet].flatMap(\.pages)
         for page in flowPages {
-            XCTAssertTrue(pages.contains(page), "Flow page \(page) is missing from the copy coverage")
+            #expect(pages.contains(page), "Flow page \(page) is missing from the copy coverage")
         }
         for page in pages {
             for mode in modes {
                 let copy = page.copy(content, mode: mode)
-                XCTAssertFalse(copy.title.isEmpty, "\(page) has no title in \(mode)")
-                XCTAssertFalse(copy.subtitle.isEmpty, "\(page) has no subtitle in \(mode)")
+                #expect(!copy.title.isEmpty, "\(page) has no title in \(mode)")
+                #expect(!copy.subtitle.isEmpty, "\(page) has no subtitle in \(mode)")
             }
         }
     }
 
-    func testTheSecretPageNamesWhichSecretItIsAskingFor() {
+    @Test func theSecretPageNamesWhichSecretItIsAskingFor() {
         let cases = [
             (mode(), content.enterSeedPhraseTitle, content.enterRecoveryPhraseSubtitle),
             (mode(creating: true), content.recordSeedPhraseTitle, content.saveRecoveryPhraseSubtitle),
@@ -55,17 +56,16 @@ final class WalletSetupPageCopyTests: XCTestCase {
         ]
         for (mode, title, subtitle) in cases {
             let copy = WalletSetupPage.seedPhrase.copy(content, mode: mode)
-            XCTAssertEqual(copy.title, title, "\(mode)")
-            XCTAssertEqual(copy.subtitle, subtitle, "\(mode)")
+            #expect(copy.title == title, "\(mode)")
+            #expect(copy.subtitle == subtitle, "\(mode)")
         }
     }
 
     /// The editing flow shows its edit heading on the actual name page.
-    func testEditingNamesTheEditRatherThanTheChainPicker() {
-        XCTAssertEqual(WalletSetupPage.walletName.copy(content, mode: mode(editing: true)).title, content.editWalletTitle)
-        XCTAssertEqual(WalletSetupPage.walletName.copy(content, mode: mode(editing: true)).subtitle, content.editWalletSubtitle)
-        XCTAssertNotEqual(
-            WalletSetupPage.details.copy(content, mode: mode()).title, content.editWalletTitle)
+    @Test func editingNamesTheEditRatherThanTheChainPicker() {
+        #expect(WalletSetupPage.walletName.copy(content, mode: mode(editing: true)).title == content.editWalletTitle)
+        #expect(WalletSetupPage.walletName.copy(content, mode: mode(editing: true)).subtitle == content.editWalletSubtitle)
+        #expect(WalletSetupPage.details.copy(content, mode: mode()).title != content.editWalletTitle)
     }
 
 }

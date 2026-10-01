@@ -241,7 +241,7 @@ struct TransactionDetailView: View {
     /// a revision arriving mid-rebuild now cancels the stale pass instead of
     /// racing it to the `live*` assignments.
     private var refreshKey: RefreshKey {
-        RefreshKey(transactions: store.transactionRevision, wallets: store.walletsRevision)
+        RefreshKey(transactions: store.transactionRevision, wallets: store.walletIdentityRevision)
     }
     private struct RefreshKey: Equatable {
         let transactions: UInt64

@@ -198,7 +198,7 @@ struct WalletDetailView: View {
     private var isWatchOnly: Bool { displayedWallet.signing.isWatchOnly }
     private var isPrivateKeyWallet: Bool { displayedWallet.signing.isPrivateKey }
     private var displayedWallet: WalletView {
-        store.wallets.first(where: { $0.id == wallet.id }) ?? wallet
+        store.wallet(for: wallet.id) ?? wallet
     }
     private var firstActivityDateText: String {
         guard let firstDate = store.cachedFirstActivityDateByWalletId[wallet.id] else {
@@ -283,7 +283,7 @@ struct WalletDetailView: View {
             )
         }.onChange(of: wallet.id) { _, _ in
             didCopyWalletAddress = false
-        }.onChange(of: store.wallets.contains(where: { $0.id == wallet.id })) { _, walletStillExists in
+        }.onChange(of: (store.wallet(for: wallet.id) != nil)) { _, walletStillExists in
             handleWalletPresenceChange(walletStillExists: walletStillExists)
         }
     }
@@ -394,7 +394,7 @@ private struct WalletAdvancedDetailsView: View {
     @State private var isRevealingSeedPhrase: Bool = false
     @State private var isShowingDeleteWalletAlert: Bool = false
     private var displayedWallet: WalletView {
-        store.wallets.first(where: { $0.id == wallet.id }) ?? wallet
+        store.wallet(for: wallet.id) ?? wallet
     }
     private var isWatchOnly: Bool { displayedWallet.signing.isWatchOnly }
     private var isPrivateKeyWallet: Bool { displayedWallet.signing.isPrivateKey }
@@ -495,7 +495,7 @@ private struct WalletAdvancedDetailsView: View {
             Button(AppLocalization.string("OK"), role: .cancel) {}
         } message: {
             Text(seedPhraseErrorMessage ?? "Unknown error")
-        }.onChange(of: store.wallets.contains(where: { $0.id == wallet.id })) { _, walletStillExists in
+        }.onChange(of: (store.wallet(for: wallet.id) != nil)) { _, walletStillExists in
             if !walletStillExists {
                 isShowingDeleteWalletAlert = false
                 clearSeedRevealState()

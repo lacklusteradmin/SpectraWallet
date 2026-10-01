@@ -105,7 +105,7 @@ struct PriceAlertsView: View {
         }
         .onAppear {
             syncSelection()
-        }.onChange(of: store.walletsRevision) { _, _ in
+        }.onChange(of: alertableHoldingKeys) { _, _ in
             syncSelection()
         }
     }

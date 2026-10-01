@@ -93,7 +93,7 @@ final class AppState {
     /// assigned, even for another wallet's balance.
     private(set) var wallets: [WalletView] = [] {
         didSet {
-            walletsRevision &+= 1
+            if Self.withoutBalances(wallets) != Self.withoutBalances(oldValue) { walletIdentityRevision &+= 1 }
             applyWalletCollectionSideEffects()
         }
     }
@@ -103,15 +103,26 @@ final class AppState {
     func setWalletProjection(_ records: [WalletView]) {
         wallets = records
     }
-    private(set) var walletsRevision: UInt64 = 0
+    /// Bumped when a wallet is added, removed or changes in anything but its
+    /// balances — the name, addresses and settings that history rows and
+    /// transaction details are read against. A balance landing every few
+    /// hundred milliseconds of a sweep does not re-run those reads.
+    private(set) var walletIdentityRevision: UInt64 = 0
+    private static func withoutBalances(_ wallets: [WalletView]) -> [WalletView] {
+        wallets.map { wallet in
+            var identity = wallet
+            identity.holdings = []
+            return identity
+        }
+    }
     // Derived caches. Recomputed by `applyWalletCollectionSideEffects` and
     // `rebuildWalletDerivedStateFromCore`.
     //
     // No revision counter here. Under `@Observable` a view already tracks the
     // properties it reads, so a counter bumped on every cache write could only
     // make things worse: a view that observed it would invalidate on every
-    // unrelated write. `walletsRevision` above is different — two views watch
-    // it with `onChange`, which needs a value that changes.
+    // unrelated write. `walletIdentityRevision` above is different — views
+    // key `.task(id:)` on it, which needs a value that changes.
     /// Bundled derived state of the wallet collection, rebuilt as a single
     /// value so a rebuild is one assignment. Read it through `wallet(for:)`,
     /// `portfolio`, `availableSendCoins(for:)` and their siblings.
@@ -341,7 +352,6 @@ final class AppState {
         }
     }
     private func warmUpAfterLaunch() async {
-        await refreshTransactionProjection()
         await registerSecretStoreWithBridge()
         setupRustRefreshEngine()
         async let projectionReload: () = reloadCoreProjections()

@@ -3,8 +3,8 @@ import SwiftUI
 extension AppState {
     /// Called only while adopting a newer, coherent portfolio snapshot.
     func applyQuoteProjection(_ state: CoreAppState) {
-        quoteRefreshError = state.quotes.pricesError
-        fiatRatesRefreshError = state.quotes.fiatError
+        if quoteRefreshError != state.quotes.pricesError { quoteRefreshError = state.quotes.pricesError }
+        if fiatRatesRefreshError != state.quotes.fiatError { fiatRatesRefreshError = state.quotes.fiatError }
     }
 
     func refreshFiatExchangeRatesIfNeeded(force: Bool = false) async {
@@ -20,10 +20,11 @@ extension AppState {
     }
     // ── Fiat currency (core-owned) ────────────────────────────────────────
 
-    /// Load core's state and mirror it. Call once at launch.
+    /// Load core's state and mirror it. `ready()` has opened the database, so
+    /// this reads what core holds rather than opening it again.
     func loadCoreOwnedState() async {
         do {
-            let state = try await self.bridge.openState()
+            let state = try await self.bridge.ready().appState()
             applyCoreState(state)
         } catch {
             appendOperationalLog(.error, category: "Storage", message: error.localizedDescription)

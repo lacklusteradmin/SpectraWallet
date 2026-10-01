@@ -1,10 +1,12 @@
-import XCTest
+import Foundation
+import Testing
 @testable import Spectra
 
 @MainActor
-final class SendPreviewAdoptionTests: IsolatedAppStateTestCase {
+@Suite(.isolatedAppState)
+struct SendPreviewAdoptionTests: IsolatedAppStateSuite {
 
-    func testQuoteCannotBeReusedForAnotherWalletHoldingOrNetwork() {
+    @Test func quoteCannotBeReusedForAnotherWalletHoldingOrNetwork() {
         let store = SendPreviewStore()
         let preview = SendPreview.solana(preview: SolanaSendPreview(
             estimatedNetworkFee: "0.000005", spendableBalance: "1", feeRateDescription: nil,
@@ -14,19 +16,19 @@ final class SendPreviewAdoptionTests: IsolatedAppStateTestCase {
             details: nil, shortcuts: [100: "0.999994999"], recipient: nil)
         store.apply(quote)
         let sol = Coin.fixture(name: "Solana", symbol: "SOL", chainId: Chain.solana, amount: "1")
-        XCTAssertEqual(store.quote(walletId: "w", coin: sol)?.shortcuts[100], "0.999994999")
-        XCTAssertNil(store.quote(walletId: "other", coin: sol))
+        #expect(store.quote(walletId: "w", coin: sol)?.shortcuts[100] == "0.999994999")
+        #expect(store.quote(walletId: "other", coin: sol) == nil)
         let token = Coin.fixture(name: "Other", symbol: "OTH", chainId: Chain.solana, tokenStandard: "SPL",
             contractAddress: "other", amount: "1")
-        XCTAssertNil(store.quote(walletId: "w", coin: token))
+        #expect(store.quote(walletId: "w", coin: token) == nil)
         // The same asset on another network is another holding.
         let devnet = Coin.fixture(name: "Solana", symbol: "SOL", chainId: Chain.solanaDevnet, amount: "1")
-        XCTAssertNil(store.quote(walletId: "w", coin: devnet))
+        #expect(store.quote(walletId: "w", coin: devnet) == nil)
         store.reset()
-        XCTAssertNil(store.quote(walletId: "w", coin: sol))
+        #expect(store.quote(walletId: "w", coin: sol) == nil)
     }
 
-    func testPreviewDiscardsStaleSuccessAndFailureForEveryFormEdit() {
+    @Test func previewDiscardsStaleSuccessAndFailureForEveryFormEdit() {
         let store = makeState()
         let edits: [(AppState) -> Void] = [
             { $0.sendFlow.walletId = "other" }, { $0.sendFlow.holdingKey = "other" },
@@ -43,17 +45,17 @@ final class SendPreviewAdoptionTests: IsolatedAppStateTestCase {
             store.sendFlow.session.error = "current form message"
             store.adoptSendPreviewResult(.failure(NSError(domain: "old", code: 1)),
                 requestId: request, input: input)
-            XCTAssertEqual(store.sendFlow.session.error, "current form message")
+            #expect(store.sendFlow.session.error == "current form message")
             store.adoptSendPreviewResult(.success(nil), requestId: request, input: input)
-            XCTAssertEqual(store.sendFlow.session.error, "current form message")
+            #expect(store.sendFlow.session.error == "current form message")
         }
         store.adoptSendPreviewResult(.failure(NSError(domain: "current", code: 1,
             userInfo: [NSLocalizedDescriptionKey: "current failure"])),
             requestId: store.sendFlow.previewRequestId, input: store.sendPreviewInputSnapshot)
-        XCTAssertEqual(store.sendFlow.session.error, "current failure")
+        #expect(store.sendFlow.session.error == "current failure")
         let oldRequest = store.sendFlow.previewRequestId
         store.cancelSend()
-        XCTAssertNotEqual(store.sendFlow.previewRequestId, oldRequest)
+        #expect(store.sendFlow.previewRequestId != oldRequest)
     }
 
 }

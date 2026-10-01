@@ -52,7 +52,7 @@ struct DashboardView: View {
             }.navigationDestination(isPresented: $store.isShowingAddWalletEntry) {
                 AddWalletEntryView(store: store)
             }.navigationDestination(item: $selectedWalletId) { walletId in
-                if let wallet = store.wallets.first(where: { $0.id == walletId }) {
+                if let wallet = store.wallet(for: walletId) {
                     WalletDetailView(store: store, wallet: wallet)
                 }
             }.navigationDestination(item: $selectedAssetGroup) { assetGroup in AssetGroupDetailView(store: store, assetGroup: assetGroup) }
@@ -524,7 +524,7 @@ struct PortfolioWalletSelectionView: View {
     private func binding(for walletId: String) -> Binding<Bool> {
         Binding(
             get: {
-                store.wallets.first(where: { $0.id == walletId })?.includeInPortfolioTotal ?? true
+                store.wallet(for: walletId)?.includeInPortfolioTotal ?? true
             }, set: { isIncluded in store.setPortfolioInclusion(isIncluded, for: walletId) }
         )
     }
