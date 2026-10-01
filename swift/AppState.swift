@@ -86,16 +86,11 @@ final class AppState {
     /// intents, wallet deletion, or a reset. Replacing it rebuilds the derived
     /// caches via `applyWalletCollectionSideEffects`.
     ///
-    /// **Observation note for view code**: SwiftUI's `@Observable` tracks
-    /// access to this property as a whole — any mutation invalidates every
-    /// view that read `store.wallets` for any reason, even a single
-    /// wallet's balance update. Prefer reading from `cachedWalletById[id]`
-    /// (or another `walletDerivedCache` projection) when you only need a
-    /// specific wallet — those projections are recomputed on rebuild but
-    /// observed views see only the relevant change once SwiftUI's
-    /// dictionary-key access tracking kicks in. New views that read from
-    /// `wallets` directly should justify it (e.g. they actually iterate
-    /// the entire collection).
+    /// **Observation note for view code**: `@Observable` tracks whole
+    /// properties, never a key or an index inside one. A view that reads
+    /// `wallets`, or any field of `walletDerivedCache` (`wallet(for:)`,
+    /// `portfolio` and the rest), is invalidated whenever that property is
+    /// assigned, even for another wallet's balance.
     private(set) var wallets: [WalletView] = [] {
         didSet {
             walletsRevision &+= 1
@@ -117,16 +112,10 @@ final class AppState {
     // make things worse: a view that observed it would invalidate on every
     // unrelated write. `walletsRevision` above is different — two views watch
     // it with `onChange`, which needs a value that changes.
-    /// Bundled derived state of the wallet collection. Rebuilt as a single
-    /// value, so the rebuild is one assignment rather than 17 mutations; the
-    /// `cached*` properties below read fields out of it.
+    /// Bundled derived state of the wallet collection, rebuilt as a single
+    /// value so a rebuild is one assignment. Read it through `wallet(for:)`,
+    /// `portfolio`, `availableSendCoins(for:)` and their siblings.
     var walletDerivedCache: WalletDerivedCache = .empty
-    var cachedWalletById: [String: WalletView] { walletDerivedCache.walletById }
-    var cachedPortfolio: [Coin] { walletDerivedCache.portfolio }
-    var cachedAvailableSendCoinsByWalletId: [String: [Coin]] { walletDerivedCache.availableSendCoinsByWalletId }
-    var cachedAvailableReceiveCoinsByWalletId: [String: [Coin]] { walletDerivedCache.availableReceiveCoinsByWalletId }
-    var cachedSendEnabledWallets: [WalletView] { walletDerivedCache.sendEnabledWallets }
-    var cachedReceiveEnabledWallets: [WalletView] { walletDerivedCache.receiveEnabledWallets }
     var isShowingAddWalletEntry: Bool = false
     let sendFlow = SendFlowState()
     let receiveFlow = ReceiveFlowState()
@@ -287,6 +276,7 @@ final class AppState {
     @ObservationIgnored var balanceProgressTask: Task<Void, Never>? // Coalesces mid-sweep portfolio reads.
     @ObservationIgnored var appIsActive = true
     @ObservationIgnored var deviceConditionsTask: Task<Void, Never>? // Orders reports to core's engine.
+    @ObservationIgnored var refreshEventsTask: Task<Void, Never>? // Drains core's refresh events in order.
 
     // ── Tor routing ───────────────────────────────────────────────────────
     /// Live Tor bootstrap/connection state, reported by core's refresh engine. Drives the
@@ -300,31 +290,26 @@ final class AppState {
         sendFlow.verificationNotice = n.notice
         sendFlow.verificationNoticeIsWarning = n.isWarning
     }
-    /// What core says about the last send, from its stored record.
-    ///
-    /// This rebuilt a snapshot of the record from the projection, with the
-    /// kind and status spelled as strings, and handed it back to be judged.
+    /// What core says about the last send, judged from its stored record.
     func updateStagedSendVerificationNotice() async {
         let session = sendFlow.session.id
-        guard let transactionId = sendFlow.artifact?.id else {
+        guard let transactionId = sendFlow.session.artifact?.id else {
             sendFlow.clearVerificationNotice()
             return
         }
         guard let notice = try? await self.bridge.ready().sendVerificationNotice(transactionId: transactionId),
-            sendFlow.session.isCurrent(session), sendFlow.artifact?.id == transactionId
+            sendFlow.session.isCurrent(session), sendFlow.session.artifact?.id == transactionId
         else { return }
         applyVerificationNotice(notice)
-    }
-    /// Refresh after broadcast and report the stored transaction status.
-    /// Broadcast acceptance alone does not establish confirmation.
-    func runPostSendRefreshActions(for chain: Chain) async {
-        await performCoreRefresh(.afterSend(chainId: chain))
     }
     init(bridge: WalletServiceBridge = .shared, startServices: Bool = true) {
         self.bridge = bridge
         self.servicesEnabled = startServices
         self.diagnostics = WalletDiagnosticsState(bridge: bridge)
         guard startServices else { return }
+        // A launch is a return to the app too: without this, closing it from
+        // the app switcher and opening it again would get past auto-lock.
+        isAppLocked = preferences.useFaceId && preferences.useAutoLock
         // Wire the preferences' side effect back to AppState. A closure rather
         // than an observation loop keeps the coupling explicit.
         preferences.useFaceIDDisabledHandler = { [weak self] in
@@ -369,6 +354,9 @@ final class AppState {
         importRefreshTask?.cancel()
         walletSideEffectsTask?.cancel()
         balanceProgressTask?.cancel()
+        deviceConditionsTask?.cancel()
+        refreshEventsTask?.cancel()
+        stateCommandTask?.cancel()
         #if canImport(Network)
             networkPathMonitor.cancel()
         #endif

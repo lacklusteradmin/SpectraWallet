@@ -1,5 +1,14 @@
 import Foundation
 
+/// Why a chain's data is stale, worded for the dashboard notice.
+struct ChainDegradedBanner: Identifiable {
+    let chain: Chain
+    let message: String
+    let lastGoodSyncAt: Date?
+    var id: Chain { chain }
+    var chainName: String { chain.displayName }
+}
+
 @MainActor
 @Observable
 final class WalletDiagnosticsState {
@@ -46,9 +55,9 @@ final class WalletDiagnosticsState {
     var chainDegraded: [Chain: ChainDegradation] { snapshot.degraded }
     private var lastGoodSyncByChain: [Chain: Date] { snapshot.lastGoodUnix.mapValues { Date(timeIntervalSince1970: $0) } }
     /// One banner per degraded chain, ordered by name. Core keys both maps by chain.
-    var chainDegradedBanners: [AppState.ChainDegradedBanner] {
+    var chainDegradedBanners: [ChainDegradedBanner] {
         snapshot.degraded.map { chain, reason in
-            AppState.ChainDegradedBanner(
+            ChainDegradedBanner(
                 chain: chain, message: localizedDegradedMessage(reason, chain: chain),
                 lastGoodSyncAt: lastGoodSyncByChain[chain])
         }.sorted { $0.chainName.localizedCaseInsensitiveCompare($1.chainName) == .orderedAscending }
@@ -57,7 +66,7 @@ final class WalletDiagnosticsState {
     func exportOperationalLogsText(networkSyncStatusText: String, events: [DiagnosticLog]? = nil) -> String {
         let entries = events ?? operationalLogs
         let header = [
-            localizedStoreString("Spectra Operational Logs"),
+            AppLocalization.string("Spectra Operational Logs"),
             AppLocalization.format("Generated: %@", Self.operationalLogTimestampFormatter.string(from: Date())),
             AppLocalization.format("Entries: %d", entries.count), networkSyncStatusText, "",
         ]

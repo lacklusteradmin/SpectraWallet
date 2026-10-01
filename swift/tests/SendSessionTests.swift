@@ -134,7 +134,7 @@ final class SendSessionTests: XCTestCase {
         await work.value
         XCTAssertEqual(store.transactions.map(\.id), ["old"])
         XCTAssertEqual(store.transactionCount, 1)
-        XCTAssertEqual(store.sendFlow.artifact?.id, "new")
+        XCTAssertEqual(store.sendFlow.session.artifact?.id, "new")
     }
 
 }

@@ -219,7 +219,7 @@ struct SealedSigningStore {
     func deleteValue(for account: String) throws { try storage.deleteValue(for: account) }
 }
 
-final class SpectraSecretStoreAdapter: SecretStore, @unchecked Sendable {
+final class SpectraSecretStoreAdapter: SecretStore, Sendable {
     /// `NotFound` only for a value that is not there. Everything else — a
     /// locked device, an envelope that will not open — is the store failing,
     /// and core refuses rather than reading it as absence.

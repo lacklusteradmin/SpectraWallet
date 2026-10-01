@@ -8,7 +8,6 @@
 
 import Foundation
 
-@MainActor
 extension AppState {
     /// Send a command after every command issued before it, then adopt what core
     /// committed. `then` runs after adoption, inside the queue, with the result.
@@ -72,10 +71,5 @@ extension AppState {
             commandError = error.localizedDescription
             return false
         }
-    }
-
-    /// A bounded recent/pending projection, adopted with its core-derived summary.
-    func adoptTransactionsFromCore(_ records: [TransactionRecord]) {
-        setTransactionProjection(records)
     }
 }

@@ -53,12 +53,12 @@ struct SendStagesView: View {
             if artifact.stage == .signed {
                 VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                     Text(AppLocalization.string("Broadcast destinations")).font(.headline)
-                    ForEach(store.sendFlow.endpointChoices, id: \.self) { endpoint in
+                    ForEach(store.sendFlow.session.endpoints, id: \.self) { endpoint in
                         Toggle(isOn: Binding(
-                            get: { store.sendFlow.selectedEndpoints.contains(endpoint) },
+                            get: { store.sendFlow.session.selectedEndpoints.contains(endpoint) },
                             set: { selected in
-                                if selected { store.sendFlow.selectedEndpoints.insert(endpoint) }
-                                else { store.sendFlow.selectedEndpoints.remove(endpoint) }
+                                if selected { store.sendFlow.session.selectedEndpoints.insert(endpoint) }
+                                else { store.sendFlow.session.selectedEndpoints.remove(endpoint) }
                             }
                         )) { Text(verbatim: endpoint).font(.caption.monospaced()).textSelection(.enabled) }
                     }

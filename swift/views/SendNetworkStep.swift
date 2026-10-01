@@ -261,7 +261,7 @@ struct SendNetworkStep: View {
                     valueRow("Fee Rate", feeRateDescription)
                 }
                 if let estimatedTransactionBytes = details.estimatedTransactionBytes {
-                    valueRow("Estimated Size", AppLocalization.format("%lld bytes", estimatedTransactionBytes))
+                    valueRow("Estimated Size", AppLocalization.format("%lld bytes", count: Int(estimatedTransactionBytes), estimatedTransactionBytes))
                 }
                 if let selectedInputCount = details.selectedInputCount { valueRow("Selected Inputs", "\(selectedInputCount)") }
                 if let usesChangeOutput = details.usesChangeOutput {

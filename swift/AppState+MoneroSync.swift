@@ -1,6 +1,5 @@
 import Foundation
 
-@MainActor
 extension AppState {
     func moneroSyncStatus(walletId: String) async throws -> MoneroSyncStatus? {
         try await bridge.ready().moneroSyncStatus(walletId: walletId)

@@ -40,17 +40,17 @@ final class SendPreviewAdoptionTests: IsolatedAppStateTestCase {
             let input = store.sendPreviewInputSnapshot
             let request = store.sendFlow.previewRequestId
             edit(store)
-            store.sendFlow.error = "current form message"
+            store.sendFlow.session.error = "current form message"
             store.adoptSendPreviewResult(.failure(NSError(domain: "old", code: 1)),
                 requestId: request, input: input)
-            XCTAssertEqual(store.sendFlow.error, "current form message")
+            XCTAssertEqual(store.sendFlow.session.error, "current form message")
             store.adoptSendPreviewResult(.success(nil), requestId: request, input: input)
-            XCTAssertEqual(store.sendFlow.error, "current form message")
+            XCTAssertEqual(store.sendFlow.session.error, "current form message")
         }
         store.adoptSendPreviewResult(.failure(NSError(domain: "current", code: 1,
             userInfo: [NSLocalizedDescriptionKey: "current failure"])),
             requestId: store.sendFlow.previewRequestId, input: store.sendPreviewInputSnapshot)
-        XCTAssertEqual(store.sendFlow.error, "current failure")
+        XCTAssertEqual(store.sendFlow.session.error, "current failure")
         let oldRequest = store.sendFlow.previewRequestId
         store.cancelSend()
         XCTAssertNotEqual(store.sendFlow.previewRequestId, oldRequest)

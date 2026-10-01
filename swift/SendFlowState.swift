@@ -8,10 +8,6 @@ final class SendFlowState {
     var holdingKey: String = ""
     var amount: String = ""
     var address: String = ""
-    var error: String? {
-        get { session.error }
-        set { session.error = newValue }
-    }
     var destinationRiskWarning: String? = nil
     var destinationInfoMessage: String? = nil
     /// The recipient is checked inside the preview request.
@@ -24,15 +20,8 @@ final class SendFlowState {
     var isPreparingReplacement: Bool = false
     var isPreparingPreview: Bool = false
     let session = SendSession()
-    var artifact: SendArtifact? { session.artifact }
     var savedArtifacts: [SendArtifact] = []
-    var endpointChoices: [String] { session.endpoints }
-    var selectedEndpoints: Set<String> {
-        get { session.selectedEndpoints }
-        set { session.selectedEndpoints = newValue }
-    }
     let previewStore = SendPreviewStore()
-    var isBusy: Bool { session.operation != nil }
     var useCustomEvmFees: Bool = false
     var customEvmMaxFeeGwei: String = ""
     var customEvmPriorityFeeGwei: String = ""
@@ -64,13 +53,12 @@ final class SendFlowState {
         isShowingHighRiskConfirmation = false
     }
 
-    func resetComposer() {
-        invalidateSession()
-        clearPreview()
-        amount = ""
-        address = ""
+    func clearDestinationCheck() {
         destinationRiskWarning = nil
         destinationInfoMessage = nil
+    }
+
+    func clearEvmOverrides() {
         useCustomEvmFees = false
         customEvmMaxFeeGwei = ""
         customEvmPriorityFeeGwei = ""
@@ -78,11 +66,24 @@ final class SendFlowState {
         evmManualNonce = ""
     }
 
+    func resetComposer() {
+        invalidateSession()
+        clearPreview()
+        amount = ""
+        address = ""
+        clearDestinationCheck()
+        clearEvmOverrides()
+    }
+
+    /// Dismissing resets the composer; one that is not on screen is reset here.
+    func close() {
+        if isPresented { isPresented = false } else { resetComposer() }
+    }
+
     func reset() {
-        resetComposer()
+        close()
         walletId = ""
         holdingKey = ""
         savedArtifacts = []
-        isPresented = false
     }
 }

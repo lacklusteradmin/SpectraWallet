@@ -32,13 +32,13 @@ extension AppState {
         switch result {
         case .success(let preview):
             sendFlow.previewStore.apply(preview)
-            sendFlow.error = nil
+            sendFlow.session.error = nil
             sendFlow.clearVerificationNotice()
             adoptRecipientCheck(preview?.recipient)
         case .failure(let error):
             guard !(error is CancellationError) else { return }
             sendFlow.previewStore.reset()
-            sendFlow.error = error.localizedDescription
+            sendFlow.session.error = error.localizedDescription
         }
     }
 
@@ -50,13 +50,13 @@ extension AppState {
         guard let check, let coin = selectedSendCoin else { return }
         if check.isOwnAddress {
             sendFlow.destinationRiskWarning = nil
-            sendFlow.destinationInfoMessage = localizedStoreString("This address belongs to one of your wallets.")
+            sendFlow.destinationInfoMessage = AppLocalization.string("This address belongs to one of your wallets.")
         } else if let activity = check.activity {
             let messages = chainRiskProbeMessages(chainName: coin.chainName, symbol: coin.symbol, activity: activity)
             sendFlow.destinationRiskWarning = messages.warning
             sendFlow.destinationInfoMessage = messages.info
         } else {
-            sendFlow.destinationInfoMessage = localizedStoreString("Unable to verify this address's activity. Try again later.")
+            sendFlow.destinationInfoMessage = AppLocalization.string("Unable to verify this address's activity. Try again later.")
         }
     }
 
@@ -80,7 +80,7 @@ extension AppState {
             let nonce = try explicitEvmNonce().map(Int64.init)
             let fees = customEvmFeeConfiguration()
             if let error = customEvmFeeValidationError {
-                throw NSError(domain: "Send", code: 1, userInfo: [NSLocalizedDescriptionKey: error])
+                throw DisplayedError(error)
             }
             let preview = try await self.bridge.ready().previewOwnedSend(
                 walletId: input.walletId, holdingKey: input.holdingKey, amount: input.amount,

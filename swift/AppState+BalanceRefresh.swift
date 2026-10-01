@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-@MainActor
 extension AppState {
     /// Refresh every wallet's balances now: the engine sweeps its entries together.
     func refreshBalances() async { try? await self.bridge.refreshEngine().triggerImmediate() }
@@ -9,7 +8,7 @@ extension AppState {
     /// loops and their cadence from here on.
     func setupRustRefreshEngine() {
         let observer = WalletRefreshObserver()
-        observer.store = self
+        observeRefreshEvents(from: observer)
         let bridge = self.bridge
         // The observer is in place before the first report starts the loops.
         let previous = deviceConditionsTask
@@ -18,6 +17,24 @@ extension AppState {
             try? await bridge.setRefreshObserver(observer)
         }
         reportDeviceConditions()
+    }
+
+    /// Adopt the observer's events one at a time, in the order core sent them.
+    /// The task holds only the stream, so neither it nor core's engine keeps
+    /// this state alive.
+    func observeRefreshEvents(from observer: WalletRefreshObserver) {
+        let events = observer.events
+        refreshEventsTask?.cancel()
+        refreshEventsTask = Task { [weak self] in
+            for await event in events {
+                guard let self else { return }
+                switch event {
+                case .balanceUpdated: self.adoptBalanceProgress()
+                case .refreshComplete(let result): await self.adoptRefreshResult(result)
+                case .torStatusChanged(let status): self.torStatus = status
+                }
+            }
+        }
     }
 
     /// Device-local inputs to core's refresh policy. Core owns the profile,

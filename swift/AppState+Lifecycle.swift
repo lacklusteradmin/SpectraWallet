@@ -4,15 +4,18 @@ import UIKit
     import Network
 #endif
 
-@MainActor
 extension AppState {
     func startNetworkPathMonitorIfNeeded() {
         #if canImport(Network)
             networkPathMonitor.pathUpdateHandler = { [weak self] path in
-                let reachable = path.status == .satisfied; let constrained = path.isConstrained; let expensive = path.isExpensive
+                let reachable = path.status == .satisfied
+                let constrained = path.isConstrained
+                let expensive = path.isExpensive
                 Task { @MainActor [weak self] in
                     guard let self else { return }
-                    self.isNetworkReachable = reachable; self.isConstrainedNetwork = constrained; self.isExpensiveNetwork = expensive
+                    self.isNetworkReachable = reachable
+                    self.isConstrainedNetwork = constrained
+                    self.isExpensiveNetwork = expensive
                     self.reportDeviceConditions()
                 }
             }
@@ -20,10 +23,14 @@ extension AppState {
         #endif
     }
     /// Core's engine starts both refresh loops in the foreground and stops
-    /// them in the background.
+    /// them in the background. Called on entering the foreground and the
+    /// background only; `.inactive` is not leaving the app.
     func setAppIsActive(_ isActive: Bool) {
         appIsActive = isActive
-        if !isActive, preferences.useFaceId, preferences.useAutoLock { isAppLocked = true; appLockError = nil }
+        if !isActive, preferences.useFaceId, preferences.useAutoLock {
+            isAppLocked = true
+            appLockError = nil
+        }
         reportDeviceConditions()
     }
     /// Launch-time wiring. Nothing domain is seeded here: settings, tokens,

@@ -49,10 +49,10 @@ struct AmountPresentation {
 
     // MARK: - Asset amounts
 
-    /// An exact decimal with this locale's decimal separator. No grouping, and
-    /// no digit is added or dropped.
+    /// An exact decimal with the display locale's decimal separator. No
+    /// grouping, and no digit is added or dropped.
     static func localizedDecimal(_ text: String) -> String {
-        let separator = Locale.current.decimalSeparator ?? "."
+        let separator = AppLocalization.locale.decimalSeparator ?? "."
         return separator == "." ? text : text.replacingOccurrences(of: ".", with: separator)
     }
     /// The amount alone, as a compact row shows it: core picks the places
@@ -161,39 +161,45 @@ struct AmountPresentation {
     }
 }
 
-/// Native formatter reuse does not require constructing AppState or opening core.
+/// Native formatter reuse does not require constructing AppState or opening
+/// core. Formatters are rebuilt when the display locale changes.
 @MainActor
 private final class AmountFormatters {
     static let shared = AmountFormatters()
+    private var locale = AppLocalization.locale
     private var cachedCurrencyFormatters: [FiatCurrency: NumberFormatter] = [:]
-    private var cachedDecimalFormatters: [Int: NumberFormatter] = [:]
-    let gasPriceFormatter: NumberFormatter = {
+    private var cachedGasPriceFormatter: NumberFormatter?
+
+    private func matchDisplayLocale() {
+        let current = AppLocalization.locale
+        guard current != locale else { return }
+        locale = current
+        cachedCurrencyFormatters = [:]
+        cachedGasPriceFormatter = nil
+    }
+    var gasPriceFormatter: NumberFormatter {
+        matchDisplayLocale()
+        if let formatter = cachedGasPriceFormatter { return formatter }
         let formatter = NumberFormatter()
+        formatter.locale = locale
         formatter.numberStyle = .decimal
         formatter.usesSignificantDigits = true
         formatter.maximumSignificantDigits = 4
+        cachedGasPriceFormatter = formatter
         return formatter
-    }()
+    }
     func fiatFormatter(for currency: FiatCurrency) -> NumberFormatter {
+        matchDisplayLocale()
         if let formatter = cachedCurrencyFormatters[currency] { return formatter }
         let rules = currency.displayRules
         let decimals = Int(rules.decimals)
         let formatter = NumberFormatter()
+        formatter.locale = locale
         formatter.numberStyle = .currency
         formatter.currencyCode = rules.code
         formatter.minimumFractionDigits = decimals
         formatter.maximumFractionDigits = decimals
         cachedCurrencyFormatters[currency] = formatter
-        return formatter
-    }
-    func decimalFormatter(maximumFractionDigits: Int) -> NumberFormatter {
-        if let formatter = cachedDecimalFormatters[maximumFractionDigits] { return formatter }
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.usesGroupingSeparator = false
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = maximumFractionDigits
-        cachedDecimalFormatters[maximumFractionDigits] = formatter
         return formatter
     }
 }

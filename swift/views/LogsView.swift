@@ -122,7 +122,7 @@ struct LogsView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button(AppLocalization.string("Copy")) {
                     UIPasteboard.general.string = store.exportOperationalLogsText(events: filteredLogs)
-                    copiedNotice = SpectraTransientNotice(AppLocalization.format("Copied %lld log entries", filteredLogs.count))
+                    copiedNotice = SpectraTransientNotice(AppLocalization.format("Copied %lld log entries", count: filteredLogs.count, filteredLogs.count))
                 }.disabled(filteredLogs.isEmpty)
             }
             ToolbarItem(placement: .topBarTrailing) {

@@ -1,6 +1,5 @@
 import Foundation
 
-@MainActor
 extension AppState {
     /// A token is addressed by what it is — its contract on its chain.
     private func tokenKey(_ entry: TokenPreferenceEntry) -> CoreTokenPreferenceKey {
@@ -31,7 +30,7 @@ extension AppState {
         case .success(let transition):
             return tokenPreferenceRejection(in: transition.events).map(tokenPreferenceRejectionMessage)
         case .failure:
-            return localizedStoreString("This token could not be saved.")
+            return AppLocalization.string("This token could not be saved.")
         }
     }
     private func tokenPreferenceRejection(in events: [StateEvent]) -> TokenPreferenceRejection? {
@@ -42,17 +41,17 @@ extension AppState {
     }
     func tokenPreferenceRejectionMessage(_ reason: TokenPreferenceRejection) -> String {
         switch reason {
-        case .unknownChain: return localizedStoreString("That network cannot hold tokens.")
-        case .emptySymbol: return localizedStoreString("Symbol is required.")
-        case .symbolTooLong: return localizedStoreString("Symbol is too long.")
-        case .invalidPriceId: return localizedStoreString("Enter a price provider ID, not a URL or name.")
-        case .emptyName: return localizedStoreString("Token name is required.")
-        case .emptyContract: return localizedStoreString("Token identifier is required.")
-        case .invalidContract: return localizedStoreString("That token identifier is not valid for this network.")
-        case .duplicateToken: return localizedStoreString("This network already knows this token.")
-        case .tooManyDecimals: return localizedStoreString("That is more decimal places than a token has.")
-        case .builtInToken: return localizedStoreString("Built-in tokens cannot be edited or removed.")
-        case .unknownToken: return localizedStoreString("That token is no longer in the list.")
+        case .unknownChain: return AppLocalization.string("That network cannot hold tokens.")
+        case .emptySymbol: return AppLocalization.string("Symbol is required.")
+        case .symbolTooLong: return AppLocalization.string("Symbol is too long.")
+        case .invalidPriceId: return AppLocalization.string("Enter a price provider ID, not a URL or name.")
+        case .emptyName: return AppLocalization.string("Token name is required.")
+        case .emptyContract: return AppLocalization.string("Token identifier is required.")
+        case .invalidContract: return AppLocalization.string("That token identifier is not valid for this network.")
+        case .duplicateToken: return AppLocalization.string("This network already knows this token.")
+        case .tooManyDecimals: return AppLocalization.string("That is more decimal places than a token has.")
+        case .builtInToken: return AppLocalization.string("Built-in tokens cannot be edited or removed.")
+        case .unknownToken: return AppLocalization.string("That token is no longer in the list.")
         }
     }
     /// Teach the wallet a token the catalog does not ship.
@@ -60,14 +59,12 @@ extension AppState {
     /// Returns the refusal to show beside the form, or `nil` once core has
     /// accepted it. Every rule behind that answer — the symbol, the contract's
     /// format for the chain that would host it, the duplicate, the precision,
-    /// and where the row sorts — is the reducer's. This method held all of
-    /// them, including a seven-arm switch over the hosting chains whose
-    /// `default` assumed EVM.
+    /// and where the row sorts — is the reducer's.
     func addCustomTokenPreference(
         chain: Chain, symbol: String, name: String, contractAddress: String,
         coingeckoId: String = "", coinpaprikaId: String = "", decimals: Int, editing: TokenPreferenceEntry? = nil
     ) async -> String? {
-        guard decimals >= 0 else { return localizedStoreString("That is not a number of decimal places.") }
+        guard decimals >= 0 else { return AppLocalization.string("That is not a number of decimal places.") }
 
         let command: StateCommand
         if let editing {

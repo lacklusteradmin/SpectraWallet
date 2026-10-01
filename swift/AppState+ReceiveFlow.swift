@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-@MainActor
 extension AppState {
     /// Open with no wallet selected unless there is only one to choose.
     func beginReceive() {
@@ -43,13 +42,13 @@ extension AppState {
             receiveFlow.error = error.localizedDescription
         }
     }
-    func availableReceiveCoins(for walletId: String) -> [Coin] { cachedAvailableReceiveCoinsByWalletId[walletId] ?? [] }
+    func availableReceiveCoins(for walletId: String) -> [Coin] { walletDerivedCache.availableReceiveCoinsByWalletId[walletId] ?? [] }
     /// Choose the native holding, or the first token if none is native,
     /// for the receive screen's symbol and icon. This does not select an address.
     func selectedReceiveCoin(for walletId: String) -> Coin? {
         let receiveCoins = availableReceiveCoins(for: walletId)
         return receiveCoins.first { $0.contractAddress == nil } ?? receiveCoins.first
     }
-    var receiveEnabledWallets: [WalletView] { cachedReceiveEnabledWallets }
+    var receiveEnabledWallets: [WalletView] { walletDerivedCache.receiveEnabledWallets }
     var canBeginReceive: Bool { !receiveEnabledWallets.isEmpty }
 }

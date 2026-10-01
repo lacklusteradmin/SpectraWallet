@@ -1,6 +1,6 @@
 import Foundation
 
-nonisolated extension NetworkChoice: Identifiable {
+extension NetworkChoice: Identifiable {
     public var id: Chain { chainId }
 }
 
@@ -8,6 +8,6 @@ nonisolated extension NetworkChoice: Identifiable {
 
 typealias TransactionStatus = CoreTransactionStatus
 typealias PriceAlertCondition = CorePriceAlertCondition
-extension CorePriceAlertCondition {
-    static let allCases: [CorePriceAlertCondition] = [.above, .below]
+extension PriceAlertCondition {
+    static let allCases: [PriceAlertCondition] = [.above, .below]
 }

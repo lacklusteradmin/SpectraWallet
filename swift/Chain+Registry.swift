@@ -63,8 +63,6 @@ extension Chain: Identifiable {
     var hostsTokens: Bool { identity?.hostsTokens ?? false }
     /// The mainnet this chain belongs to, or itself.
     var mainnetCounterpart: Chain { identity?.mainnetCounterpart ?? self }
-    /// Paths are stored under the concrete network ID.
-    var seedDerivationPathKey: String { id }
     /// The networks this chain's family offers, mainnet first.
     var networkChoices: [NetworkChoice] { identity?.networkChoices ?? [] }
 

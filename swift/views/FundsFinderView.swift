@@ -34,7 +34,7 @@ struct FundsFinderView: View {
 
     private var canStart: Bool {
         let words = seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+            .components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
         return words.count >= 12 && !isScanning
     }
 
@@ -92,8 +92,14 @@ struct FundsFinderView: View {
         isScanning = true
         scanTask = Task { @MainActor in
             do {
-                let scan = try bridge.service().beginFundsScan(
-                    request: FundsFinderRequest(seedPhrase: seedPhrase, passphrase: passphrase), chainId: nil)
+                let service = try bridge.service()
+                let request = FundsFinderRequest(seedPhrase: seedPhrase, passphrase: passphrase)
+                // Deriving every candidate address from the seed is synchronous
+                // work; keep it off the main actor.
+                let scan = try await Task.detached {
+                    try service.beginFundsScan(request: request, chainId: nil)
+                }.value
+                guard !Task.isCancelled else { return }
                 repeat {
                     let batch = await scan.nextBatch()
                     guard !Task.isCancelled else { return }
@@ -168,7 +174,7 @@ struct FundsFinderView: View {
                 Text(AppLocalization.string("Seed Phrase")).font(.subheadline.weight(.semibold))
                 Spacer()
                 if count > 0 {
-                    Text(AppLocalization.format("%lld words", count))
+                    Text(AppLocalization.format("%lld words", count: count, count))
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(count >= 12 ? Color.green : Color.spectraWarning)
                         .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs)
@@ -203,7 +209,7 @@ struct FundsFinderView: View {
             TextField("", text: Binding(
                 get: { wordSlots[index] },
                 set: { newVal in
-                    let parts = newVal.components(separatedBy: .whitespaces).filter { !$0.isEmpty }
+                    let parts = newVal.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
                     if parts.count > 1 {
                         for (offset, word) in parts.prefix(slotCount - index).enumerated() {
                             wordSlots[index + offset] = word.lowercased()
@@ -334,12 +340,12 @@ struct FundsFinderView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else if hits.isEmpty {
-                Text(AppLocalization.format("Checked %lld paths — no funds found", checkedCount))
+                Text(AppLocalization.format("Checked %lld paths — no funds found", count: checkedCount, checkedCount))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                Text(AppLocalization.format("Found %lld path(s) with funds across %lld checked",
-                    hits.count, checkedCount))
+                Text(AppLocalization.format("Found %lld paths with funds across %lld checked",
+                    count: hits.count, hits.count, checkedCount))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -353,7 +359,7 @@ struct FundsFinderView: View {
 
     private var hitsSection: some View {
         SpectraRowGroup(
-            title: AppLocalization.format("%lld path(s) with funds found", hits.count),
+            title: AppLocalization.format("%lld paths with funds found", count: hits.count, hits.count),
             data: hits, dividerInset: SpectraLayout.rowHorizontal
         ) { hit in
             FundsFinderHitRow(hit: hit)

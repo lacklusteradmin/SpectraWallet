@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-@MainActor
 extension AppState {
     /// Called only while adopting a newer, coherent portfolio snapshot.
     func applyQuoteProjection(_ state: CoreAppState) {
@@ -56,10 +55,7 @@ extension AppState {
         sendStateCommand(.setWalletPortfolioInclusion(walletId: walletId, included: isIncluded))
     }
     func scheduleImportedWalletRefresh(_ createdWallets: [WalletView]) {
-        guard servicesEnabled else { return }
-        guard !createdWallets.isEmpty else {
-            return
-        }
+        guard servicesEnabled, !createdWallets.isEmpty else { return }
         importRefreshTask?.cancel()
         importRefreshTask = Task { @MainActor [weak self] in
             guard let self else { return }
@@ -67,16 +63,16 @@ extension AppState {
             self.importRefreshTask = nil
         }
     }
-    var alertableCoins: [Coin] { portfolio }
-    var portfolio: [Coin] { cachedPortfolio }
-
+    var portfolio: [Coin] { walletDerivedCache.portfolio }
 }
+
 /// Core's currencies, with what a picker needs: an order, a name and an icon.
 /// The code comes from core's formatting rules, which carry it.
 extension FiatCurrency: CaseIterable, Identifiable {
     private static let catalog = fiatCurrencyCatalog()
+    private static let rulesByCurrency = Dictionary(uniqueKeysWithValues: catalog.map { ($0.currency, $0) })
     public static var allCases: [FiatCurrency] { catalog.map(\.currency) }
-    var displayRules: FiatAmountRules { Self.catalog.first { $0.currency == self }! }
+    var displayRules: FiatAmountRules { Self.rulesByCurrency[self]! }
     public var id: String { code }
     /// The ISO 4217 code.
     var code: String { displayRules.code }
@@ -89,20 +85,10 @@ extension FiatCurrency: CaseIterable, Identifiable {
         case .jpy, .inr, .cad, .aud, .chf, .brl, .sgd, .aed: return nil
         }
     }
+    /// The currency's name and code, in the display language. The system
+    /// names every ISO 4217 currency, so no table here has to.
     var displayName: String {
-        switch self {
-        case .usd: return AppLocalization.string("US Dollar (USD)")
-        case .eur: return AppLocalization.string("Euro (EUR)")
-        case .gbp: return AppLocalization.string("British Pound (GBP)")
-        case .jpy: return AppLocalization.string("Japanese Yen (JPY)")
-        case .cny: return AppLocalization.string("Chinese Yuan (CNY)")
-        case .inr: return AppLocalization.string("Indian Rupee (INR)")
-        case .cad: return AppLocalization.string("Canadian Dollar (CAD)")
-        case .aud: return AppLocalization.string("Australian Dollar (AUD)")
-        case .chf: return AppLocalization.string("Swiss Franc (CHF)")
-        case .brl: return AppLocalization.string("Brazilian Real (BRL)")
-        case .sgd: return AppLocalization.string("Singapore Dollar (SGD)")
-        case .aed: return AppLocalization.string("UAE Dirham (AED)")
-        }
+        let name = AppLocalization.locale.localizedString(forCurrencyCode: code) ?? code
+        return "\(name) (\(code))"
     }
 }

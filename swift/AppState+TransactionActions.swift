@@ -1,6 +1,5 @@
 import Foundation
 
-@MainActor
 extension AppState {
     func retryUTXOTransactionStatus(for transactionId: String) async -> String {
         do {

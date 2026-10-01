@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-@MainActor
 extension AppState {
     func beginSend() {
         guard let firstWallet = sendEnabledWallets.first else { return }
@@ -16,14 +15,13 @@ extension AppState {
         // Keep EIP-1559 fees and manual nonce when switching within the EVM
         // family; clear them when leaving it.
         if selectedSendCoin?.isEVMChain != true {
-            sendFlow.useCustomEvmFees = false; sendFlow.customEvmMaxFeeGwei = ""; sendFlow.customEvmPriorityFeeGwei = "";
-            sendFlow.evmManualNonceEnabled = false; sendFlow.evmManualNonce = ""
+            sendFlow.clearEvmOverrides()
         }
         sendFlow.invalidateSession()
         sendFlow.clearPreview()
-        sendFlow.destinationRiskWarning = nil; sendFlow.destinationInfoMessage = nil
+        sendFlow.clearDestinationCheck()
     }
-    func cancelSend() { sendFlow.isPresented = false; sendFlow.resetComposer() }
+    func cancelSend() { sendFlow.close() }
     var selectedSendCoin: Coin? {
         availableSendCoins(for: sendFlow.walletId).first(where: { $0.holdingKey == sendFlow.holdingKey })
     }
@@ -74,9 +72,9 @@ extension AppState {
     var customEvmFeeValidationError: String? {
         guard case .failure(let error)? = parsedCustomEvmFees else { return nil }
         switch error {
-        case EvmCustomFeeError.InvalidMaxFee: return localizedStoreString("Enter a valid Max Fee in gwei.")
-        case EvmCustomFeeError.InvalidPriorityFee: return localizedStoreString("Enter a valid Priority Fee in gwei.")
-        case EvmCustomFeeError.MaxBelowPriority: return localizedStoreString("Max Fee must be greater than or equal to Priority Fee.")
+        case EvmCustomFeeError.InvalidMaxFee: return AppLocalization.string("Enter a valid Max Fee in gwei.")
+        case EvmCustomFeeError.InvalidPriorityFee: return AppLocalization.string("Enter a valid Priority Fee in gwei.")
+        case EvmCustomFeeError.MaxBelowPriority: return AppLocalization.string("Max Fee must be greater than or equal to Priority Fee.")
         default: return error.localizedDescription
         }
     }
@@ -89,11 +87,11 @@ extension AppState {
             _ = try explicitEvmNonce()
             return nil
         } catch EvmNonceError.Empty {
-            return localizedStoreString("Enter a nonce value for manual nonce mode.")
+            return AppLocalization.string("Enter a nonce value for manual nonce mode.")
         } catch EvmNonceError.InvalidInteger {
-            return localizedStoreString("Nonce must be a non-negative integer.")
+            return AppLocalization.string("Nonce must be a non-negative integer.")
         } catch EvmNonceError.TooLarge {
-            return localizedStoreString("Nonce value is too large.")
+            return AppLocalization.string("Nonce value is too large.")
         } catch {
             return error.localizedDescription
         }
@@ -124,23 +122,23 @@ extension AppState {
     }
     func prepareReplacementContext(cancel: Bool) async {
         guard let pending = replaceableSendForSelectedWallet else {
-            sendFlow.error = localizedStoreString("No pending transaction found for this wallet.")
+            sendFlow.session.error = AppLocalization.string("No pending transaction found for this wallet.")
             return
         }
         await prepareReplacementContext(pending: pending, cancel: cancel)
     }
     func openReplacementComposer(for transactionId: String, cancel: Bool) async -> String? {
         guard let pending = replaceableSend(forTransaction: transactionId) else {
-            let message = localizedStoreString(
+            let message = AppLocalization.string(
                 "This transaction is no longer pending, so replacement and cancel are unavailable.")
-            sendFlow.error = message
+            sendFlow.session.error = message
             return message
         }
         selectedMainTab = .home
         await Task.yield()
         sendFlow.isPresented = true
         await prepareReplacementContext(pending: pending, cancel: cancel)
-        return sendFlow.error
+        return sendFlow.session.error
     }
     func prepareReplacementContext(pending: ReplaceableSend, cancel: Bool) async {
         sendFlow.invalidateSession()
@@ -163,7 +161,7 @@ extension AppState {
             await refreshSendPreview()
         } catch {
             guard sendFlow.session.isCurrent(session) else { return }
-            sendFlow.error = AppLocalization.format("Unable to prepare replacement context: %@", error.localizedDescription)
+            sendFlow.session.error = AppLocalization.format("Unable to prepare replacement context: %@", error.localizedDescription)
         }
     }
     func prepareSpeedUpContext() async { await prepareReplacementContext(cancel: false) }
@@ -189,8 +187,8 @@ extension AppState {
         await signPreparedSend(password: password)
     }
 
-    func availableSendCoins(for walletId: String) -> [Coin] { cachedAvailableSendCoinsByWalletId[walletId] ?? [] }
-    var sendEnabledWallets: [WalletView] { cachedSendEnabledWallets }
+    func availableSendCoins(for walletId: String) -> [Coin] { walletDerivedCache.availableSendCoinsByWalletId[walletId] ?? [] }
+    var sendEnabledWallets: [WalletView] { walletDerivedCache.sendEnabledWallets }
     var canBeginSend: Bool { !sendEnabledWallets.isEmpty }
     var replacementNonceStateMessage: String? {
         guard let selectedSendCoin, selectedSendCoin.isEVMChain else { return nil }
@@ -208,7 +206,7 @@ extension AppState {
         let hash = pending.transactionHash
         let shortHash = hash.count > 14 ? "\(hash.prefix(10))...\(hash.suffix(4))" : hash
         message += AppLocalization.format("send.replacement.transactionSuffix", shortHash)
-        message += localizedStoreString(
+        message += AppLocalization.string(
             pending.canSpeedUp
                 ? " Use Speed Up to resend with higher fees or Cancel to submit a 0-value self-transfer using the same nonce."
                 : " Use Cancel to submit a 0-value self-transfer using the same nonce. A token transfer cannot be rebuilt from its record, so it cannot be sped up.")

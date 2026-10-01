@@ -46,7 +46,7 @@ struct SendView: View {
     @State private var recipientValidationAttempt = 0
     @State private var sendWalletPassword = ""
 
-    private var isSendBusy: Bool { store.sendFlow.isBusy || store.sendFlow.isPreparingPreview }
+    private var isSendBusy: Bool { store.sendFlow.session.isBusy || store.sendFlow.isPreparingPreview }
 
     private var selectedNetworkSendCoin: Coin? {
         store.availableSendCoins(for: store.sendFlow.walletId).first(where: { $0.holdingKey == store.sendFlow.holdingKey })
@@ -129,7 +129,7 @@ struct SendView: View {
         .task(id: previewRefreshKey) {
             let key = previewRefreshKey
             quotedInputKey = nil
-            guard store.sendFlow.artifact == nil else { return }
+            guard store.sendFlow.session.artifact == nil else { return }
             do {
                 try await Task.sleep(for: .milliseconds(350))
                 while store.sendFlow.isPreparingPreview {
@@ -212,7 +212,7 @@ struct SendView: View {
         case .amount:
             SendAmountPage(store: store, quoteIsCurrent: quotedInputKey == previewRefreshKey)
         case .confirm:
-            if let artifact = store.sendFlow.artifact {
+            if let artifact = store.sendFlow.session.artifact {
                 SendStagesView(store: store, artifact: artifact)
             } else {
                 SendConfirmationStep(store: store)
@@ -280,7 +280,7 @@ struct SendView: View {
             // Three stages, each its own action (docs/PLAN.md): what was built
             // is inspectable before signing, and a signed send waits for the
             // user to choose which nodes receive it.
-            guard let artifact = store.sendFlow.artifact else { return "Build Transaction" }
+            guard let artifact = store.sendFlow.session.artifact else { return "Build Transaction" }
             if artifact.stage == .prepared { return "Sign Transaction" }
             return artifact.attempts.isEmpty ? "Broadcast Transaction" : "Retry Same Transaction"
         }
@@ -288,7 +288,7 @@ struct SendView: View {
 
     private var primaryActionSystemImage: String {
         guard currentStep == .confirm else { return "chevron.right" }
-        switch store.sendFlow.artifact?.stage {
+        switch store.sendFlow.session.artifact?.stage {
         case nil: return "hammer.fill"
         case .prepared: return "signature"
         default: return "antenna.radiowaves.left.and.right"
@@ -318,11 +318,11 @@ struct SendView: View {
                           selectedNetworkSendCoin?.holdingKey == coin.holdingKey else { return }
                     if resolved.usedEns { store.sendFlow.destinationInfoMessage = AppLocalization.format("Resolved ENS %@ to %@.", input, resolved.address) }
                     go(to: .confirm)
-                } catch { if store.sendFlow.session.isCurrent(session) { store.sendFlow.error = error.localizedDescription } }
+                } catch { if store.sendFlow.session.isCurrent(session) { store.sendFlow.session.error = error.localizedDescription } }
             }
         case .confirm:
             spectraHaptic(.heavy)
-            if let artifact = store.sendFlow.artifact {
+            if let artifact = store.sendFlow.session.artifact {
                 if artifact.stage == .prepared { store.sendFlow.isShowingHighRiskConfirmation = true }
                 else { Task { await store.broadcastPreparedSend() } }
             } else { Task { await store.submitSend() } }
@@ -338,8 +338,8 @@ struct SendView: View {
         case .amount:
             return store.sendAmountIsValid
         case .confirm:
-            if let artifact = store.sendFlow.artifact {
-                return !isSendBusy && (artifact.stage == .prepared || !store.sendFlow.selectedEndpoints.isEmpty)
+            if let artifact = store.sendFlow.session.artifact {
+                return !isSendBusy && (artifact.stage == .prepared || !store.sendFlow.session.selectedEndpoints.isEmpty)
             }
             return !isSendBusy
                 && store.selectedWalletForSend() != nil
@@ -372,7 +372,7 @@ struct SendView: View {
 
     private var previewRefreshKey: String {
         [
-            store.sendFlow.artifact?.id ?? "",
+            store.sendFlow.session.artifact?.id ?? "",
             store.sendFlow.walletId,
             store.sendFlow.holdingKey,
             store.sendFlow.address,

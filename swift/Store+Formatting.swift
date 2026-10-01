@@ -2,13 +2,8 @@ import Foundation
 
 // Localized display messages. AmountPresentation owns native number rendering.
 
-func localizedStoreString(_ key: String) -> String {
-    AppLocalization.string(key)
-}
-
-/// Every recipient warning, worded. Exhaustive: a reason core adds does not
-/// compile until it has words, where a `default` returning nothing dropped it
-/// from the confirmation sheet.
+/// Every recipient warning, worded. Exhaustive, with no `default`: a reason
+/// core adds does not compile until it has words.
 func evmRecipientMessages(_ warnings: [EvmRecipientPreflightWarning]) -> [String] {
     warnings.map { warning in
         switch warning {
@@ -35,7 +30,7 @@ func highRiskSendMessages(_ warnings: [HighRiskSendWarning]) -> [String] {
         case .invalidFormat(let chain):
             return AppLocalization.format("The destination address format does not match %@.", chain.displayName)
         case .newAddress:
-            return localizedStoreString("This is a new destination address with no prior history in this wallet.")
+            return AppLocalization.string("This is a new destination address with no prior history in this wallet.")
         case .ensResolved(let name, let address):
             return AppLocalization.format(
                 "ENS name '%@' resolved to %@. Confirm this resolved address before sending.", name, address)
@@ -52,7 +47,7 @@ func highRiskSendMessages(_ warnings: [HighRiskSendWarning]) -> [String] {
         case .foreignAddressFormat(let chain):
             return AppLocalization.format("Destination appears to be another network's address format while sending on %@.", chain.displayName)
         case .chainMismatch:
-            return localizedStoreString("Wallet-chain context mismatch detected for this send.")
+            return AppLocalization.string("Wallet-chain context mismatch detected for this send.")
         }
     }
 }

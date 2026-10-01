@@ -3,7 +3,7 @@ import Foundation
 extension AppState {
     private func currentSendReviewInput() throws -> SendReviewInput {
         if let error = customEvmFeeValidationError ?? evmNonceValidationError {
-            throw NSError(domain: "Send", code: 1, userInfo: [NSLocalizedDescriptionKey: error])
+            throw DisplayedError(error)
         }
         let nonce = try explicitEvmNonce().map(Int64.init)
         let fees = customEvmFeeConfiguration()
@@ -15,30 +15,28 @@ extension AppState {
     }
 
     func submitSend() async {
-        guard sendFlow.artifact == nil, !sendFlow.isBusy else { return }
+        guard sendFlow.session.artifact == nil, !sendFlow.session.isBusy else { return }
         do {
             let input = try currentSendReviewInput()
             await sendFlow.session.load(operation: .build, prepare: {
                 let artifact = try await self.bridge.ready().buildOwnedSend(input: input)
                 guard try self.currentSendReviewInput() == input else {
-                    throw NSError(domain: "Send", code: 1, userInfo: [NSLocalizedDescriptionKey:
-                        AppLocalization.string("Send inputs changed. Build the transaction again.")])
+                    throw DisplayedError(AppLocalization.string("Send inputs changed. Build the transaction again."))
                 }
                 return artifact
             }, endpoints: {
                 let choices = try await self.bridge.ready().sendEndpoints(chain: $0)
                 guard try self.currentSendReviewInput() == input else {
-                    throw NSError(domain: "Send", code: 1, userInfo: [NSLocalizedDescriptionKey:
-                        AppLocalization.string("Send inputs changed. Build the transaction again.")])
+                    throw DisplayedError(AppLocalization.string("Send inputs changed. Build the transaction again."))
                 }
                 return choices
             })
-        } catch { sendFlow.error = error.localizedDescription }
+        } catch { sendFlow.session.error = error.localizedDescription }
     }
 
     /// Localize the immutable build-time advisories for both new and resumed sends.
     var pendingHighRiskSendReasons: [String] {
-        guard let artifact = sendFlow.artifact else { return [] }
+        guard let artifact = sendFlow.session.artifact else { return [] }
         var reasons = highRiskSendMessages(artifact.review.warnings)
             + evmRecipientMessages(artifact.review.recipientWarnings)
         if artifact.review.requiresSelfSendConfirmation {
@@ -50,9 +48,9 @@ extension AppState {
     }
 
     var stagedSendRequiresPassword: Bool {
-        guard let artifact = sendFlow.artifact else { return false }
+        guard let artifact = sendFlow.session.artifact else { return false }
         // An unknown wallet asks for a password rather than signing without one.
-        return cachedWalletById[artifact.walletId]?.signing.requiresPassword ?? true
+        return wallet(for: artifact.walletId)?.signing.requiresPassword ?? true
     }
 
     func signPreparedSend(password: String?) async {
@@ -77,7 +75,8 @@ extension AppState {
            submitted.attempts.contains(where: { $0.outcome == .accepted }) {
             startSendLiveActivity(for: transaction)
             requestTransactionStatusNotificationPermission()
-            await runPostSendRefreshActions(for: transaction.chainId)
+            // Broadcast acceptance alone does not establish confirmation.
+            await performCoreRefresh(.afterSend(chainId: transaction.chainId))
         }
     }
 
@@ -87,7 +86,7 @@ extension AppState {
             let artifacts = try await self.bridge.ready().listSends()
             guard sendFlow.session.isCurrent(session) else { return }
             sendFlow.savedArtifacts = artifacts
-        } catch { if sendFlow.session.isCurrent(session) { sendFlow.error = error.localizedDescription } }
+        } catch { if sendFlow.session.isCurrent(session) { sendFlow.session.error = error.localizedDescription } }
     }
 
     @discardableResult

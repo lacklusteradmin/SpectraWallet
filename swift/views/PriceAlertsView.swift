@@ -8,9 +8,9 @@ struct PriceAlertsView: View {
     @State private var isSubmitting = false
     @State private var formMessage: String?
     @State private var removingAlertId: String?
-    private var alertableHoldingKeys: Set<String> { Set(store.alertableCoins.map(\.holdingKey)) }
+    private var alertableHoldingKeys: Set<String> { Set(store.portfolio.map(\.holdingKey)) }
     private var selectedCoin: Coin? {
-        store.alertableCoins.first(where: { $0.holdingKey == selectedHoldingKey })
+        store.portfolio.first(where: { $0.holdingKey == selectedHoldingKey })
     }
     var body: some View {
         Form {
@@ -21,7 +21,7 @@ struct PriceAlertsView: View {
                 )
             }
             Section(AppLocalization.string("New Alert")) {
-                if store.alertableCoins.isEmpty {
+                if store.portfolio.isEmpty {
                     SpectraEmptyStateCard(
                         title: "No alertable assets",
                         message: "Import a wallet with assets first. Alerts are created from assets currently in your portfolio.",
@@ -29,7 +29,7 @@ struct PriceAlertsView: View {
                     )
                 } else {
                     Picker(AppLocalization.string("Asset"), selection: $selectedHoldingKey) {
-                        ForEach(store.alertableCoins, id: \.holdingKey) { coin in
+                        ForEach(store.portfolio, id: \.holdingKey) { coin in
                             Text(AppLocalization.format("%@ on %@", coin.symbol, coin.chainName)).tag(
                                 coin.holdingKey)
                         }
@@ -89,7 +89,7 @@ struct PriceAlertsView: View {
         }.navigationTitle(AppLocalization.string("Price Alerts"))
         .confirmationDialog(
             AppLocalization.string("Remove Alert"),
-            isPresented: Binding(get: { removingAlertId != nil }, set: { if !$0 { removingAlertId = nil } }),
+            isPresented: .isPresent($removingAlertId),
             titleVisibility: .visible
         ) {
             Button(AppLocalization.string("Remove"), role: .destructive) {
@@ -136,7 +136,7 @@ struct PriceAlertsView: View {
         } catch { formMessage = error.localizedDescription }
     }
     private func syncSelection() {
-        if !alertableHoldingKeys.contains(selectedHoldingKey) { selectedHoldingKey = store.alertableCoins.first?.holdingKey ?? "" }
+        if !alertableHoldingKeys.contains(selectedHoldingKey) { selectedHoldingKey = store.portfolio.first?.holdingKey ?? "" }
     }
     private func alertTargetText(_ alert: PriceAlertRule) -> String {
         "\(alert.condition.displayName) \(store.amounts.formattedFiat(store.amounts.alertTarget(alert)))"

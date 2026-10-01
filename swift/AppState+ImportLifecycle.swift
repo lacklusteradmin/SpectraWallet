@@ -1,6 +1,5 @@
 import Foundation
 import SwiftUI
-@MainActor
 extension AppState {
     func beginWalletImport() {
         walletImport.begin { $0.configureForNewWallet() }

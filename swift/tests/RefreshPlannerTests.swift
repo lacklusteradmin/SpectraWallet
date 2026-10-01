@@ -24,7 +24,7 @@ import Foundation
             var store: AppState? = AppState(bridge: bridge, startServices: false)
             store?.isNetworkReachable = false
             let observer = WalletRefreshObserver()
-            observer.store = store
+            store?.observeRefreshEvents(from: observer)
             try await bridge.setRefreshObserver(observer)
             // Active and offline: core's first maintenance tick runs at once and
             // reaches the observer without touching a network.

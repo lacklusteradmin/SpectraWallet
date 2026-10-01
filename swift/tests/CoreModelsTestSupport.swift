@@ -129,7 +129,6 @@ extension AssetHolding {
     }
 }
 
-@MainActor
 extension AppState {
     /// Wait until every command sent so far has come back and been applied.
     ///

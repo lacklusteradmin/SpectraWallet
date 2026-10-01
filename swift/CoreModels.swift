@@ -17,7 +17,7 @@ extension SendPreviewDetails {
 /// `Coin` is the Rust-defined `AssetHolding`. Its `id` is the deployment id
 /// core derives; every projection this app reads carries it.
 typealias Coin = AssetHolding
-extension AssetHolding: Identifiable {
+extension Coin: Identifiable {
     var color: Color { AssetPresentationCatalog.color(deploymentId: id) }
     var holdingKey: String { id }
     var chain: Chain { chainId }
@@ -59,33 +59,27 @@ extension WalletView {
 }
 
 typealias SeedDerivationPaths = CoreSeedDerivationPaths
-extension CoreSeedDerivationPaths {
-    /// Storage key for a chain. Testnets share their mainnet counterpart's
-    /// slot — the derivation recipe is identical and only the address encoding
-    /// differs — and the registry decides which is which.
-    private static func storageKey(for chain: Chain) -> String {
-        chain.seedDerivationPathKey
-    }
-
-    /// Configured derivation path for a chain, or `""` when the chain has no
-    /// BIP-32 path (Monero) or is not in the catalog.
+extension SeedDerivationPaths {
+    /// Configured derivation path for this exact network, or `""` when the
+    /// chain has no BIP-32 path (Monero) or is not in the catalog. Core keys
+    /// the map by concrete network id: a testnet's path is its own entry,
+    /// even where it matches its mainnet's.
     func path(for chain: Chain) -> String {
-        byChain[Self.storageKey(for: chain)] ?? ""
+        byChain[chain.id] ?? ""
     }
 
     mutating func setPath(_ path: String, for chain: Chain) {
-        let key = Self.storageKey(for: chain)
-        guard !key.isEmpty else { return }
-        byChain[key] = path
+        guard !chain.id.isEmpty else { return }
+        byChain[chain.id] = path
     }
 
-    static var defaults: CoreSeedDerivationPaths { forPreset(.standard) }
+    static var defaults: SeedDerivationPaths { forPreset(.standard) }
 
     /// Preset paths from the Rust catalog. No fallback table: an empty map
     /// surfaces a missing catalog path rather than substituting a guessed one.
-    static func forPreset(_ preset: CoreSeedDerivationPreset) -> CoreSeedDerivationPaths {
+    static func forPreset(_ preset: CoreSeedDerivationPreset) -> SeedDerivationPaths {
         (try? derivationPathsForPreset(preset: preset))
-            ?? CoreSeedDerivationPaths(byChain: [:])
+            ?? SeedDerivationPaths(byChain: [:])
     }
 }
 extension TransactionStatus {
@@ -151,9 +145,7 @@ extension AddressBookEntry: Identifiable {
 /// A stored transaction, as core keeps it.
 typealias TransactionRecord = CorePersistedTransactionRecord
 
-extension CorePersistedTransactionRecord: Identifiable {}
-
-extension TransactionRecord {
+extension TransactionRecord: Identifiable {
     /// History with no deployment identity draws its letter.
     var artworkName: String { AssetPresentationCatalog.artwork(deploymentId: deploymentId) }
     var chain: Chain { chainId }
@@ -176,12 +168,6 @@ extension TransactionRecord {
         return String(format: copy.transactionSubtitleFormat, asset, walletName)
     }
     var statusText: String { status.localizedTitle }
-    var badgeMark: String {
-        switch kind {
-        case .send: return "OUT"
-        case .receive: return "IN"
-        }
-    }
     var badgeColor: Color {
         switch kind {
         case .send: return .red
@@ -197,7 +183,7 @@ extension TransactionRecord {
     }
     var storedConfirmationCountText: String? {
         guard let confirmationCount else { return nil }
-        return AppLocalization.format("%lld confirmations", confirmationCount)
+        return AppLocalization.format("%lld confirmations", count: Int(confirmationCount), confirmationCount)
     }
     var storedUsedChangeOutputText: String? {
         guard let usedChangeOutput else { return nil }

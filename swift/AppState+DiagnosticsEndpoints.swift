@@ -1,11 +1,12 @@
 import Foundation
 
 // Swift holds which runs are in flight; core runs them and records what they found.
-@MainActor
 extension AppState {
     func runHistoryDiagnostics(for chain: Chain) async {
         await chainDiagnosticsState.run(\.runningHistory, chain: chain) {
-            try? await withTimeout(seconds: 20) { await self.refreshHistory(chain: chain) }
+            // No deadline of its own: a UniFFI call does not stop when its Swift
+            // task is cancelled, and core's transport timeouts bound the run.
+            await self.refreshHistory(chain: chain)
         }
     }
 
@@ -18,16 +19,5 @@ extension AppState {
                 self.appendOperationalLog(.error, category: "Endpoints", message: error.localizedDescription, chain: chain)
             }
         }
-    }
-}
-
-/// UI deadline for the history diagnostic action; transport timeouts remain core's.
-private func withTimeout<T: Sendable>(seconds: Double, operation: @escaping @Sendable () async throws -> T) async throws -> T {
-    try await withThrowingTaskGroup(of: T.self) { group in
-        group.addTask { try await operation() }
-        group.addTask { try await Task.sleep(for: .seconds(seconds)); throw AppState.TimeoutError.timedOut(seconds: seconds) }
-        defer { group.cancelAll() }
-        guard let first = try await group.next() else { throw AppState.TimeoutError.timedOut(seconds: seconds) }
-        return first
     }
 }

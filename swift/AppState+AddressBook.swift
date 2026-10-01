@@ -1,6 +1,5 @@
 import Foundation
 
-@MainActor
 extension AppState {
     func addressBookAddressValidationMessage(for address: String, chain: Chain) -> String {
         let trimmed = address.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -18,7 +17,7 @@ extension AppState {
         let hint = chain.addressPrefixHint
         guard !hint.isEmpty else {
             return isEmpty
-                ? localizedStoreString("Enter an address for the selected chain.")
+                ? AppLocalization.string("Enter an address for the selected chain.")
                 : AppLocalization.format("Enter a valid %@ address.", chain.displayName)
         }
         return isEmpty
@@ -72,9 +71,9 @@ extension AppState {
     }
     private func addressBookRejectionMessage(_ reason: AddressBookRejection) -> String {
         switch reason {
-        case .emptyName: return localizedStoreString("Enter a name for this contact.")
-        case .invalidAddress: return localizedStoreString("That address is not valid for this chain.")
-        case .duplicateAddress: return localizedStoreString("That address is already saved.")
+        case .emptyName: return AppLocalization.string("Enter a name for this contact.")
+        case .invalidAddress: return AppLocalization.string("That address is not valid for this chain.")
+        case .duplicateAddress: return AppLocalization.string("That address is already saved.")
         }
     }
     var sendAddressBookEntries: [AddressBookEntry] {

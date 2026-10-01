@@ -76,7 +76,7 @@ extension AppState {
             let snapshot = try await self.bridge.ready().transactionSnapshot()
             guard snapshot.revision > transactionSnapshotRevision else { return true }
             transactionSnapshotRevision = snapshot.revision
-            adoptTransactionsFromCore(snapshot.recentAndPending)
+            setTransactionProjection(snapshot.recentAndPending)
             replaceableSends = snapshot.replaceable
             transactionCount = snapshot.totalCount
             walletsWithMoreHistory = Set(snapshot.walletsWithMoreHistory)
@@ -86,7 +86,7 @@ extension AppState {
             historyReadError = nil
             return true
         } catch {
-            historyReadError = localizedStoreString("Unable to read transaction history. Existing records have been kept.")
+            historyReadError = AppLocalization.string("Unable to read transaction history. Existing records have been kept.")
             return false
         }
     }

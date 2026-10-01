@@ -16,7 +16,6 @@ enum DeviceAuthenticationAction {
     }
 }
 
-@MainActor
 extension AppState {
     func unlockApp() async {
         let failure = await authenticate(.unlock, reason: AppLocalization.string("Authenticate to unlock Spectra"))

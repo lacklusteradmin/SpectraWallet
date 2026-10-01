@@ -12,37 +12,24 @@ enum WalletSecretImportMode: String, CaseIterable, Identifiable {
 }
 /// Mutation contract for `WalletImportDraft`:
 ///
-///   * **Side-effecting state** (chain selection, watch-only mode, secret-
-///     import mode, mnemonic length) is mutated through a named method on
-///     the draft. The method runs validation, regenerates derived state,
-///     and emits the necessary observation bumps. Direct binding to
-///     `$draft.<sideEffectField>` is a bug — bypassing the method leaves
-///     the draft internally inconsistent. (Properties below that have a
-///     `didSet { refresh… }` block belong to this category.)
-///   * **Plain text-input fields** (wallet name, password, watch
-///     addresses, individual seed-phrase words) MAY be bound directly via
-///     `$draft.…`. These have no derivation invariants — the draft
-///     revalidates lazily on read.
-///
-/// When you add a new field that needs validation/derivation refresh,
-/// give it a `didSet` that calls the relevant `refresh…` method *and* a
-/// public mutator method. Don't expose it for direct binding without
-/// either guard, even if it's tempting.
+///   * **Derived state is computed, not stored.** `selectedChains` and the
+///     verdicts are read from the fields they depend on, so no field needs a
+///     hook to keep them current and any field may be bound directly.
+///   * **Fields with a `didSet` reshape other fields** — the mnemonic length
+///     resizes the word grid and, in create mode, regenerates the phrase.
+///     Chain selection goes through `toggleChainSelection`, which applies the
+///     mode's one-chain rule.
 @MainActor
 @Observable
 final class WalletImportDraft {
 
-    var mode: WalletDraftMode = .importExisting {
-        didSet { refreshSelectionState() }
-    }
+    var mode: WalletDraftMode = .importExisting
     var isEditingWallet: Bool { mode == .editExisting }
     var walletName: String = ""
     var seedPhrase: String = ""
     var walletPassword: String = ""
     var walletPasswordConfirmation: String = ""
-    var secretImportMode: WalletSecretImportMode = .seedPhrase {
-        didSet { refreshSelectionState() }
-    }
+    var secretImportMode: WalletSecretImportMode = .seedPhrase
     var privateKeyInput: String = ""
     var seedDerivationPreset: CoreSeedDerivationPreset = .standard
     var seedDerivationPaths: SeedDerivationPaths = .defaults
@@ -59,20 +46,21 @@ final class WalletImportDraft {
             resizeSeedPhraseEntries(to: selectedSeedPhraseWordCount)
         }
     }
-    var isWatchOnlyMode: Bool = false {
-        didSet { refreshSelectionState() }
-    }
+    var isWatchOnlyMode: Bool = false
     /// The watch-only address text, keyed by chain.
     var watchOnlyInputsByChain: [Chain: String] = [:]
     /// Not an address, so not in the table above: Bitcoin's account xpub stands
     /// in for the whole account and plans one wallet rather than one per line.
     var bitcoinXpubInput: String = ""
-    var selectedChainsStorage: [Chain] = [] {
-        didSet { refreshSelectionState() }
-    }
+    /// Every chain ticked, in the order ticked.
+    var selectedChainsStorage: [Chain] = []
     var backupVerificationWordIndices: [Int] = []
     var backupVerificationEntries: [String] = []
-    private(set) var selectedChains: [Chain] = []
+    /// The chains the import uses: all of them, or only the first where the
+    /// mode allows one — editing, watch-only and private-key imports.
+    var selectedChains: [Chain] {
+        allowsMultipleChainSelection ? selectedChainsStorage : Array(selectedChainsStorage.prefix(1))
+    }
     var isCreateMode: Bool { mode == .createNew }
     var isPrivateKeyImportMode: Bool { mode == .importExisting && !isWatchOnlyMode && secretImportMode == .privateKey }
     /// Selected chains a private key cannot derive an address on, by name.
@@ -99,9 +87,10 @@ final class WalletImportDraft {
     /// The entry grid as words. `seedPhrase` is kept in sync with the grid,
     /// so this reads the same phrase either way.
     var seedPhraseWords: [String] { seedPhraseVerdict.words }
-    /// The password as typed. Core owns what counts as a password — it
-    /// ignores surrounding whitespace everywhere a password is used, and
-    /// treats a blank one as none — so this side does not reshape it.
+    /// The password as typed, or `nil` for an empty field: the one way to
+    /// say "no password". Core owns what counts as a password — it ignores
+    /// surrounding whitespace and refuses a blank one rather than storing the
+    /// wallet unsealed — so this side does not reshape it.
     var walletPasswordInput: String? { walletPassword.isEmpty ? nil : walletPassword }
     var walletPasswordValidationError: String? {
         guard let reason = validateWalletPassword(password: walletPassword, confirmation: walletPasswordConfirmation) else { return nil }
@@ -109,9 +98,6 @@ final class WalletImportDraft {
         case .tooShort: return AppLocalization.string("Wallet password must be at least 4 characters, or leave it blank.")
         case .confirmationMismatch: return AppLocalization.string("Wallet password confirmation does not match.")
         }
-    }
-    init() {
-        refreshSelectionState()
     }
     /// Core interprets exact secret input and refuses unsupported overrides.
     var resolvedDerivationOverrides: CoreWalletDerivationOverrides {
@@ -237,9 +223,6 @@ final class WalletImportDraft {
             selectedChainsStorage.removeAll { $0 == chain }
         }
     }
-    private func refreshSelectionState() {
-        selectedChains = allowsMultipleChainSelection ? selectedChainsStorage : Array(selectedChainsStorage.prefix(1))
-    }
     func regenerateSeedPhrase() {
         guard isCreateMode else { return }
         // Core rejects lengths BIP-39 does not define rather than substituting one.
@@ -251,7 +234,7 @@ final class WalletImportDraft {
             return
         }
         seedPhrase = generatedPhrase
-        let generatedWords = generatedPhrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
+        let generatedWords = generatedPhrase.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
         var entries = Array(repeating: "", count: selectedSeedPhraseWordCount)
         for (index, word) in generatedWords.enumerated() where index < entries.count { entries[index] = word }
         seedPhraseEntries = entries
@@ -264,7 +247,7 @@ final class WalletImportDraft {
     }
     func updateSeedPhraseEntry(at index: Int, with newValue: String) {
         guard seedPhraseEntries.indices.contains(index) else { return }
-        let pastedWords = newValue.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
+        let pastedWords = newValue.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
         if pastedWords.count > 1 {
             var updatedEntries = seedPhraseEntries
             for offset in 0..<pastedWords.count {

@@ -10,9 +10,7 @@ struct AdvancedSettingsView: View {
             Section(AppLocalization.string("Security")) {
                 Toggle(
                     AppLocalization.string("Biometric Confirmation For Send Actions"),
-                    isOn: Binding(
-                        get: { preferences.requireBiometricForSendActions }, set: { preferences.requireBiometricForSendActions = $0 }
-                    )
+                    isOn: $preferences.requireBiometricForSendActions
                 )
                 Button(AppLocalization.string("Lock App Now")) {
                     store.isAppLocked = true

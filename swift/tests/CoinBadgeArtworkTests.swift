@@ -17,7 +17,7 @@ final class CoinBadgeArtworkTests: XCTestCase {
     }
 
     func testCatalogTokenIdentityLoadsItsArtwork() {
-        for entry in CoreReferenceTables.assetWiki() {
+        for entry in CoreReferenceTables.assetWiki {
             let badge = CoinBadge(artworkName: entry.face.artworkName, fallbackText: entry.symbol, color: .orange)
             assertDrawsItsMark(badge, entry.symbol)
         }
@@ -39,7 +39,7 @@ final class CoinBadgeArtworkTests: XCTestCase {
 
     /// Network wiki artwork must also reach real bundled images.
     func testEveryNetworkWikiFaceLoadsItsMark() {
-        for chain in CoreReferenceTables.chainWiki() {
+        for chain in CoreReferenceTables.chainWiki {
             let badge = CoinBadge(
                 artworkName: chain.face.artworkName, fallbackText: chain.name, color: .orange)
             XCTAssertNotNil(

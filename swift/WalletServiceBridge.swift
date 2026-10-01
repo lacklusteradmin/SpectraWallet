@@ -35,6 +35,8 @@ import Foundation
 
     /// The service without waiting for the database: for synchronous calls
     /// that read the Keychain (seed reveal, funds scan) or register the store.
+    /// Those calls block on the Keychain and on key derivation, so callers run
+    /// them off the main actor.
     func service() throws -> WalletService {
         if let existing = _service { return existing }
         let svc = try suppliedService ?? WalletService.newCatalog()

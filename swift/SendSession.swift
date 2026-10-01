@@ -11,6 +11,7 @@ final class SendSession {
     var endpoints: [String] = []
     var selectedEndpoints: Set<String> = []
     var error: String?
+    var isBusy: Bool { operation != nil }
 
     func reset() {
         id = UUID()

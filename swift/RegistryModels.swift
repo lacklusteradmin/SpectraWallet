@@ -4,7 +4,7 @@ import SwiftUI
     import UIKit
 #endif
 typealias TokenPreferenceEntry = CoreTokenPreferenceEntry
-nonisolated extension CoreTokenPreferenceEntry: Identifiable {
+extension TokenPreferenceEntry: Identifiable {
     public var id: String { token.deploymentId }
     /// The chain hosting this token.
     var hostingChain: Chain? { token.chainId.hostsTokens ? token.chainId : nil }

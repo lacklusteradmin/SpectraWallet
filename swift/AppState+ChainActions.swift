@@ -1,6 +1,5 @@
 import Foundation
 
-@MainActor
 extension AppState {
     /// Core resolves the selected network and effective RPC, runs the tests
     /// and logs their outcome, which the chain's operational events show.

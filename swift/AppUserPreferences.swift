@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 enum AppearanceMode: String, CaseIterable, Identifiable {
     case dark, light, system
@@ -8,6 +9,14 @@ enum AppearanceMode: String, CaseIterable, Identifiable {
         case .dark: return "Dark"
         case .light: return "Light"
         case .system: return "System"
+        }
+    }
+    /// `nil` follows the system.
+    var colorScheme: ColorScheme? {
+        switch self {
+        case .dark: return .dark
+        case .light: return .light
+        case .system: return nil
         }
     }
 }
@@ -29,10 +38,8 @@ private enum PlatformDefaults {
 
 /// The five preferences this platform keeps for itself, split out of
 /// `AppState` so that views which only read them are not invalidated whenever
-/// wallets, balances or transactions change.
-///
-/// The settings core owns lived here too, mirrored, with a handler to commit
-/// them; they are `AppState.appSettings` now.
+/// wallets, balances or transactions change. Settings core owns are
+/// `AppState.appSettings`.
 @MainActor
 @Observable
 final class AppUserPreferences {
@@ -74,8 +81,6 @@ final class AppUserPreferences {
     /// Wired by `AppState` in its init. Kept out of `@Observable` tracking so
     /// assigning the closure does not invalidate views.
     @ObservationIgnored var useFaceIDDisabledHandler: (() -> Void)?
-
-    nonisolated init() {}
 
     /// Reset to factory defaults. Each value writes itself back to
     /// `UserDefaults` as it changes.

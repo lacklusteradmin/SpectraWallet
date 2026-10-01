@@ -8,7 +8,7 @@ import SwiftUI
 struct SendConfirmationStep: View {
     @Bindable var store: AppState
 
-    private var isSendBusy: Bool { store.sendFlow.isBusy || store.sendFlow.isPreparingPreview }
+    private var isSendBusy: Bool { store.sendFlow.session.isBusy || store.sendFlow.isPreparingPreview }
     private var selectedCoin: Coin? {
         store.availableSendCoins(for: store.sendFlow.walletId).first(where: { $0.holdingKey == store.sendFlow.holdingKey })
     }
@@ -129,7 +129,7 @@ struct SendStatusCards: View {
 
     @ViewBuilder
     private var sendStatusCards: some View {
-        if let sendError = store.sendFlow.error {
+        if let sendError = store.sendFlow.session.error {
             HStack(spacing: SpectraLayout.Space.s) {
                 Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.red)
                 Text(sendError).font(.subheadline).foregroundStyle(.red)

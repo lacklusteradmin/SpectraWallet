@@ -5,9 +5,6 @@ import CoreImage.CIFilterBuiltins
 import UIKit
 import Vision
 import VisionKit
-func localizedWalletFlowString(_ key: String) -> String {
-    AppLocalization.string(key)
-}
 struct TransactionStatusBadge: View {
     let status: TransactionStatus
     private var statusText: String { status.localizedTitle }
@@ -33,11 +30,11 @@ struct SendQRScannerSheet: View {
             QRCodeScannerView { payload in
                 onScan(payload)
                 dismiss()
-            }.ignoresSafeArea(edges: .bottom).navigationTitle(localizedWalletFlowString("Scan QR Code")).navigationBarTitleDisplayMode(
+            }.ignoresSafeArea(edges: .bottom).navigationTitle(AppLocalization.string("Scan QR Code")).navigationBarTitleDisplayMode(
                 .inline
             ).toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button(localizedWalletFlowString("Cancel")) {
+                    Button(AppLocalization.string("Cancel")) {
                         dismiss()
                     }
                 }
@@ -205,7 +202,7 @@ struct WalletDetailView: View {
     }
     private var firstActivityDateText: String {
         guard let firstDate = store.cachedFirstActivityDateByWalletId[wallet.id] else {
-            return localizedWalletFlowString("No activity yet")
+            return AppLocalization.string("No activity yet")
         }
         return Self.firstActivityFormatter.string(from: firstDate)
     }
@@ -249,7 +246,7 @@ struct WalletDetailView: View {
         return AppLocalization.format("wallet.detail.chainPath", chain.displayName, path)
     }
     private var watchOnlyBadge: some View {
-        Label(localizedWalletFlowString("Watching"), systemImage: "eye").font(.caption.weight(.semibold)).foregroundStyle(.tint).padding(
+        Label(AppLocalization.string("Watching"), systemImage: "eye").font(.caption.weight(.semibold)).foregroundStyle(.tint).padding(
             .horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs).background(Color.accentColor.opacity(0.15), in: Capsule())
     }
     /// Deleting the wallet from the advanced page removes it under both
@@ -270,11 +267,11 @@ struct WalletDetailView: View {
         }.background(SpectraBackdrop().ignoresSafeArea())
             .refreshable {
                 await store.refreshBalances()
-            }.navigationTitle(localizedWalletFlowString("Wallet Details")).navigationBarTitleDisplayMode(.inline)
+            }.navigationTitle(AppLocalization.string("Wallet Details")).navigationBarTitleDisplayMode(.inline)
             .toolbarBackground(.hidden, for: .navigationBar)
             .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button(localizedWalletFlowString("Advanced")) {
+                Button(AppLocalization.string("Advanced")) {
                     isShowingAdvancedPage = true
                 }
             }
@@ -318,7 +315,7 @@ struct WalletDetailView: View {
     private var walletHoldingsCard: some View {
         let holdings = detailPresentation.visibleHoldingPresentations
         VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-            Text(localizedWalletFlowString("Holdings")).font(.headline).foregroundStyle(Color.primary)
+            Text(AppLocalization.string("Holdings")).font(.headline).foregroundStyle(Color.primary)
             if holdings.isEmpty {
                 SpectraEmptyStateContent(
                     title: "No assets loaded",
@@ -341,7 +338,7 @@ struct WalletDetailView: View {
         VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             HStack(spacing: SpectraLayout.Space.s) {
                 Image(systemName: "qrcode").font(.subheadline.weight(.semibold)).foregroundStyle(.tint)
-                Text(localizedWalletFlowString("Wallet Address")).font(.headline).foregroundStyle(Color.primary)
+                Text(AppLocalization.string("Wallet Address")).font(.headline).foregroundStyle(Color.primary)
                 Spacer()
                 Button {
                     UIPasteboard.general.string = walletAddress
@@ -349,7 +346,7 @@ struct WalletDetailView: View {
                     spectraHaptic(.light)
                 } label: {
                     Label(
-                        didCopyWalletAddress ? localizedWalletFlowString("Copied") : localizedWalletFlowString("Copy"),
+                        didCopyWalletAddress ? AppLocalization.string("Copied") : AppLocalization.string("Copy"),
                         systemImage: didCopyWalletAddress ? "checkmark" : "doc.on.doc"
                     ).font(.caption.weight(.semibold))
                 }.buttonStyle(.glass).tint(.accentColor)
@@ -404,12 +401,12 @@ private struct WalletAdvancedDetailsView: View {
     private var requiresSeedPhrasePassword: Bool { displayedWallet.signing.requiresPassword }
     private var deleteWalletMessage: String {
         if isWatchOnly {
-            return localizedWalletFlowString("You can't recover this wallet after deletion unless you still have this address.")
+            return AppLocalization.string("You can't recover this wallet after deletion unless you still have this address.")
         }
         if isPrivateKeyWallet {
-            return localizedWalletFlowString("Please keep this private key because you can't recover this wallet after deletion.")
+            return AppLocalization.string("Please keep this private key because you can't recover this wallet after deletion.")
         }
-        return localizedWalletFlowString("Please take note of your seed phrase because you can't recover this wallet after deletion.")
+        return AppLocalization.string("Please take note of your seed phrase because you can't recover this wallet after deletion.")
     }
     private func clearSeedRevealState() {
         isShowingSeedPhrasePasswordPrompt = false
@@ -426,7 +423,7 @@ private struct WalletAdvancedDetailsView: View {
                     store.beginEditingWallet(displayedWallet)
                 } label: {
                     HStack(spacing: SpectraLayout.Space.s) {
-                        Text(localizedWalletFlowString("Name")).foregroundStyle(Color.primary)
+                        Text(AppLocalization.string("Name")).foregroundStyle(Color.primary)
                         Spacer(minLength: SpectraLayout.Space.s)
                         // Concrete label colours: a button's hierarchical
                         // styles derive from its tint, which drew the name orange.
@@ -436,7 +433,7 @@ private struct WalletAdvancedDetailsView: View {
                 }
             }
             if !isWatchOnly && !isPrivateKeyWallet {
-                Section(localizedWalletFlowString("Security")) {
+                Section(AppLocalization.string("Security")) {
                     Button {
                         spectraHaptic(.medium)
                         if requiresSeedPhrasePassword {
@@ -450,16 +447,16 @@ private struct WalletAdvancedDetailsView: View {
                     } label: {
                         Label(
                             isRevealingSeedPhrase
-                                ? localizedWalletFlowString("Checking Face ID...")
+                                ? AppLocalization.string("Checking Face ID...")
                                 : (requiresSeedPhrasePassword
-                                    ? localizedWalletFlowString("Show Seed Phrase (Password)")
-                                    : localizedWalletFlowString("Show Seed Phrase")),
+                                    ? AppLocalization.string("Show Seed Phrase (Password)")
+                                    : AppLocalization.string("Show Seed Phrase")),
                             systemImage: requiresSeedPhrasePassword ? "lock.shield" : "faceid"
                         )
                     }.disabled(isRevealingSeedPhrase || !displayedWallet.signing.hasSeedPhrase)
                 }
             }
-            Section(localizedWalletFlowString("Details")) {
+            Section(AppLocalization.string("Details")) {
                 WalletDetailRow(label: "Wallet ID", value: wallet.id)
                 if let derivationPathsText { WalletDetailRow(label: "Derivation Paths", value: derivationPathsText) }
                 WalletDetailRow(label: "First Activity", value: firstActivityDateText)
@@ -469,10 +466,10 @@ private struct WalletAdvancedDetailsView: View {
                     spectraHaptic(.medium)
                     isShowingDeleteWalletAlert = true
                 } label: {
-                    Label(localizedWalletFlowString("Delete Wallet"), systemImage: "trash").foregroundStyle(.red)
+                    Label(AppLocalization.string("Delete Wallet"), systemImage: "trash").foregroundStyle(.red)
                 }
             }
-        }.navigationTitle(localizedWalletFlowString("Advanced")).navigationBarTitleDisplayMode(.inline)
+        }.navigationTitle(AppLocalization.string("Advanced")).navigationBarTitleDisplayMode(.inline)
         .navigationDestination(
             isPresented: Binding(
                 get: { store.walletImport.isPresented && store.walletImport.editingWalletId == wallet.id },
@@ -482,20 +479,20 @@ private struct WalletAdvancedDetailsView: View {
             )
         ) {
             SetupView(store: store, draft: store.walletImport.draft)
-        }.alert(localizedWalletFlowString("Delete Wallet?"), isPresented: $isShowingDeleteWalletAlert) {
-            Button(localizedWalletFlowString("Delete"), role: .destructive) {
+        }.alert(AppLocalization.string("Delete Wallet?"), isPresented: $isShowingDeleteWalletAlert) {
+            Button(AppLocalization.string("Delete"), role: .destructive) {
                 Task { await store.deleteWallet(wallet) }
             }
-            Button(localizedWalletFlowString("Cancel"), role: .cancel) {
+            Button(AppLocalization.string("Cancel"), role: .cancel) {
                 isShowingDeleteWalletAlert = false
             }
         } message: {
             Text(deleteWalletMessage)
         }.alert(
-            localizedWalletFlowString("Cannot Reveal Seed Phrase"),
+            AppLocalization.string("Cannot Reveal Seed Phrase"),
             isPresented: .isPresent($seedPhraseErrorMessage)
         ) {
-            Button(localizedWalletFlowString("OK"), role: .cancel) {}
+            Button(AppLocalization.string("OK"), role: .cancel) {}
         } message: {
             Text(seedPhraseErrorMessage ?? "Unknown error")
         }.onChange(of: store.wallets.contains(where: { $0.id == wallet.id })) { _, walletStillExists in
@@ -517,10 +514,10 @@ private struct WalletAdvancedDetailsView: View {
                 ZStack {
                     VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                         Text(
-                            localizedWalletFlowString(
+                            AppLocalization.string(
                                 "This wallet has an optional seed phrase password. Enter it after Face ID to reveal the recovery phrase.")
                         ).font(.subheadline).foregroundStyle(.secondary)
-                        SecureField(localizedWalletFlowString("Wallet Password"), text: $seedPhrasePasswordInput)
+                        SecureField(AppLocalization.string("Wallet Password"), text: $seedPhrasePasswordInput)
                             .textInputAutocapitalization(.never).autocorrectionDisabled().privacySensitive().padding(SpectraLayout.Space.m)
                             .spectraInputFieldStyle().foregroundStyle(Color.primary)
                         Button {
@@ -530,14 +527,14 @@ private struct WalletAdvancedDetailsView: View {
                                 await revealSeedPhrase(password: seedPhrasePasswordInput)
                             }
                         } label: {
-                            Text(localizedWalletFlowString("Reveal Seed Phrase")).font(.headline).frame(maxWidth: .infinity)
+                            Text(AppLocalization.string("Reveal Seed Phrase")).font(.headline).frame(maxWidth: .infinity)
                         }.buttonStyle(.glassProminent).disabled(
                             seedPhrasePasswordInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         Spacer()
                     }.padding(SpectraLayout.Space.l)
-                }.navigationTitle(localizedWalletFlowString("Wallet Password")).navigationBarTitleDisplayMode(.inline).toolbar {
+                }.navigationTitle(AppLocalization.string("Wallet Password")).navigationBarTitleDisplayMode(.inline).toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button(localizedWalletFlowString("Cancel")) {
+                        Button(AppLocalization.string("Cancel")) {
                             isShowingSeedPhrasePasswordPrompt = false
                         }
                     }
@@ -554,7 +551,7 @@ private struct WalletAdvancedDetailsView: View {
                     ScrollView(showsIndicators: false) {
                         VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                             Text(
-                                localizedWalletFlowString(
+                                AppLocalization.string(
                                     "Write this down and keep it offline. Anyone with this phrase can control your funds.")
                             ).font(.subheadline).foregroundStyle(.secondary)
                             Text(revealedSeedPhrase).font(.body.monospaced()).foregroundStyle(Color.primary).privacySensitive().padding(SpectraLayout.Space.m)
@@ -562,9 +559,9 @@ private struct WalletAdvancedDetailsView: View {
                         }.padding(SpectraLayout.Space.l).spectraBubbleFill().spectraCardFill()
                             .padding(SpectraLayout.Space.l)
                     }
-                }.navigationTitle(localizedWalletFlowString("Seed Phrase")).navigationBarTitleDisplayMode(.inline).toolbar {
+                }.navigationTitle(AppLocalization.string("Seed Phrase")).navigationBarTitleDisplayMode(.inline).toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
-                        Button(localizedWalletFlowString("Done")) {
+                        Button(AppLocalization.string("Done")) {
                             isShowingSeedPhraseSheet = false
                         }
                     }
@@ -593,7 +590,7 @@ private struct WalletDetailRow: View {
     let value: String
     var body: some View {
         VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
-            Text(localizedWalletFlowString(label)).font(.caption).foregroundStyle(.secondary)
+            Text(AppLocalization.string(label)).font(.caption).foregroundStyle(.secondary)
             Text(value).font(.subheadline).foregroundStyle(Color.primary).textSelection(.enabled)
         }.frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -608,9 +605,9 @@ struct SeedPathSlotEditor: View {
     var body: some View {
         VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
             HStack {
-                Text(localizedWalletFlowString(title)).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
+                Text(AppLocalization.string(title)).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
                 Spacer()
-                Button(localizedWalletFlowString("Reset")) {
+                Button(AppLocalization.string("Reset")) {
                     path = defaultPath
                 }.font(.caption.weight(.semibold)).foregroundStyle(.secondary)
             }

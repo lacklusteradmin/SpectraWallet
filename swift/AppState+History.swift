@@ -16,10 +16,8 @@ extension AppState {
     }
     /// Run a history refresh and adopt what it changed.
     ///
-    /// Core records the run's diagnostics rows and the chain's health itself.
-    /// This copied each row back through an export and decided degraded or
-    /// healthy from the outcome, on the two paths it drove and not on the
-    /// scheduled refresh.
+    /// Core records the run's diagnostics rows and the chain's health itself;
+    /// this re-reads them.
     private func adoptHistoryRefresh(scope: HistoryRefreshScope, loadMore: Bool = false, interval: TimeInterval = 0) async {
         do {
             let results = try await self.bridge.ready().refreshHistory(

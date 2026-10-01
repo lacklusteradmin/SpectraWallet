@@ -2,11 +2,9 @@ import ActivityKit
 import Foundation
 
 // The send Live Activity: started when a broadcast is accepted, ended when core
-// says the transaction reached a terminal status.
-//
-// The extension target renders `SendTransactionLiveActivityAttributes`; nothing
-// ever asked the system to run one, so the widget shipped and could never
-// appear. The three moments below are the whole lifecycle.
+// says the transaction reached a terminal status. The extension target renders
+// `SendTransactionLiveActivityAttributes`; the three moments below are the
+// whole lifecycle.
 //
 // No status is decided here. Core owns whether a transaction is pending,
 // confirmed or failed; this turns the status it already reports into the

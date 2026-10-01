@@ -17,6 +17,9 @@
 # Locales are checked against each other as well: a key set that drifts means
 # one language silently falls back to another.
 #
+# `<key>#one` is the singular form `AppLocalization.format(_:count:)` reads
+# beside `<key>`: it is reachable through its key, and must not outlive it.
+#
 # Exits non-zero when any are found, so it can gate.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -94,6 +97,10 @@ for base in bases:
 
     source = json.loads(files[0].read_text())
     for key in sorted(source):
+        if key.endswith('#one'):
+            if key.removesuffix('#one') not in source:
+                failures.append(f"  {base:<36} singular form without its key {key!r}")
+            continue
         found = (dotted_reachable(key) if DOTTED.match(key) and ' ' not in key
                  else reachable(key, haystack))
         if not found:

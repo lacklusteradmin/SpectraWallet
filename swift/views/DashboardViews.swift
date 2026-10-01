@@ -84,7 +84,7 @@ struct DashboardView: View {
         }.frame(width: 32, height: 28, alignment: .center).foregroundStyle(Color.primary).accessibilityLabel(
             isEmpty
                 ? AppLocalization.string("No active notices")
-                : AppLocalization.format("%lld active notices", count)
+                : AppLocalization.format("%lld active notices", count: count, count)
         )
     }
     private var torToolbarIndicator: some View {
@@ -175,6 +175,9 @@ struct DashboardView: View {
         .buttonStyle(.plain)
         .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
     }
+    private func assetCountText(_ count: Int) -> String {
+        AppLocalization.format("%lld assets", count: count, count)
+    }
     @ViewBuilder
     private func walletsCardRows(wallets: [WalletView]) -> some View {
         if wallets.isEmpty {
@@ -189,8 +192,7 @@ struct DashboardView: View {
                             totalValueText: store.preferences.hideBalances
                                 ? "••••••"
                                 : store.amounts.formattedWalletTotal(walletId: wallet.id),
-                            assetCountText: AppLocalization.format(
-                                "%lld assets", wallet.holdings.filter(\.hasBalance).count),
+                            assetCountText: assetCountText(wallet.holdings.filter(\.hasBalance).count),
                             isWatchOnly: wallet.signing.isWatchOnly, badgeArtworkName: badge.0,
                             badgeMark: wallet.familyName, badgeColor: badge.1
                         )
@@ -297,7 +299,7 @@ typealias DashboardAssetGroup = CoreDashboardAssetGroup
 extension CoreDashboardAssetGroup: Identifiable {
     /// Core supplies the asset's display identity from its primary holding,
     /// or from the catalog when a pinned asset is not held.
-    var representative: AssetHolding { identity }
+    var representative: Coin { identity }
     var name: String { identity.name }
     var symbol: String { identity.symbol }
     var artworkName: String { identity.artworkName }

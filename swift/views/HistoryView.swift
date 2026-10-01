@@ -39,10 +39,38 @@ private struct HistoryTransactionRowView: View, Equatable {
         }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
     }
 }
+/// Where a row sits in time, newest first. A pending row with no date sorts
+/// as the newest: core puts it there.
+private enum HistoryDateGroup: CaseIterable {
+    case unconfirmed, today, yesterday, older
+
+    init(_ transaction: TransactionRecord, calendar: Calendar) {
+        if !transaction.hasKnownDate, transaction.status == .pending {
+            self = .unconfirmed
+        } else if calendar.isDateInToday(transaction.createdDate) {
+            self = .today
+        } else if calendar.isDateInYesterday(transaction.createdDate) {
+            self = .yesterday
+        } else {
+            self = .older
+        }
+    }
+
+    var title: String {
+        switch self {
+        case .unconfirmed: return AppLocalization.string("Unconfirmed")
+        case .today: return AppLocalization.string("Today")
+        case .yesterday: return AppLocalization.string("Yesterday")
+        case .older: return AppLocalization.string("Older")
+        }
+    }
+}
+
 private struct HistoryPresentationSection: Identifiable {
-    let title: String
+    let group: HistoryDateGroup
     let rows: [HistoryRowPresentation]
-    var id: String { title }
+    var id: HistoryDateGroup { group }
+    var title: String { group.title }
 }
 struct HistoryView: View {
     let store: AppState
@@ -178,31 +206,11 @@ struct HistoryView: View {
     }
     private var groupedSections: [HistoryPresentationSection] {
         let calendar = Calendar.current
-        let grouped = Dictionary(grouping: pagedRows) { row in
-            // Core sorts these as the newest; they have no date to group by.
-            if !row.transaction.hasKnownDate, row.transaction.status == .pending {
-                return AppLocalization.string("Unconfirmed")
-            }
-            if calendar.isDateInToday(row.transaction.createdDate) { return AppLocalization.string("Today") }
-            if calendar.isDateInYesterday(row.transaction.createdDate) { return AppLocalization.string("Yesterday") }
-            return AppLocalization.string("Older")
-        }
-        let order: [String]
-        switch selectedSortOrder {
-        case .newest:
-            order = [
-                AppLocalization.string("Unconfirmed"), AppLocalization.string("Today"),
-                AppLocalization.string("Yesterday"), AppLocalization.string("Older"),
-            ]
-        case .oldest:
-            order = [
-                AppLocalization.string("Older"), AppLocalization.string("Yesterday"),
-                AppLocalization.string("Today"), AppLocalization.string("Unconfirmed"),
-            ]
-        }
-        return order.compactMap { title in
-            guard let rows = grouped[title], !rows.isEmpty else { return nil }
-            return HistoryPresentationSection(title: title, rows: rows)
+        let grouped = Dictionary(grouping: pagedRows) { HistoryDateGroup($0.transaction, calendar: calendar) }
+        let order = selectedSortOrder == .newest ? HistoryDateGroup.allCases : HistoryDateGroup.allCases.reversed()
+        return order.compactMap { group in
+            guard let rows = grouped[group], !rows.isEmpty else { return nil }
+            return HistoryPresentationSection(group: group, rows: rows)
         }
     }
     private var historyError: String? { pageError ?? store.historyReadError }

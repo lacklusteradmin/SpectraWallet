@@ -1,6 +1,5 @@
 import Foundation
 
-@MainActor
 extension AppState {
     /// The title of the network a chain family is on — "Bitcoin",
     /// "Bitcoin Testnet4".

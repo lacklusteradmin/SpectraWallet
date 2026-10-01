@@ -1,26 +1,6 @@
 import Foundation
-import UIKit
-import UserNotifications
 
 extension AppState {
-    func deliverPortfolioMovement(_ evaluation: LargeMovementEvaluation) async {
-        // Localize the notification for the transfer direction.
-        let percent = evaluation.ratio.formatted(.percent.precision(.fractionLength(0)))
-        let content = UNMutableNotificationContent()
-        content.title = localizedStoreString("Large portfolio movement detected")
-        content.body = AppLocalization.format(
-            evaluation.directionUp
-                ? "Your portfolio rose by %@ (%@) since the last sync."
-                : "Your portfolio fell by %@ (%@) since the last sync.",
-            amounts.formattedFiat(evaluation.absoluteDelta, currency: evaluation.currency), percent)
-        content.sound = .default
-        let request = UNNotificationRequest(
-            identifier: "portfolio-movement-\(UUID().uuidString)", content: content, trigger: nil
-        )
-        do { try await UNUserNotificationCenter.current().add(request) }
-        catch { appendOperationalLog(.error, category: "Portfolio Movement", message: error.localizedDescription) }
-    }
-
     /// Ask core to refresh for `intent` and adopt the result. Scheduled ticks
     /// are core's own; they arrive through the refresh observer.
     @discardableResult
@@ -44,7 +24,7 @@ extension AppState {
         lastPendingTransactionRefreshAt = result.pendingCheckedAtUnix.map(Date.init(timeIntervalSince1970:))
         if result.transactionsChanged { await updateStagedSendVerificationNotice() }
         if result.diagnosticsChanged { await diagnostics.loadFromSQLite() }
-        deliverPriceAlertNotifications(result.priceAlerts)
+        await deliverPriceAlertNotifications(result.priceAlerts)
         if let movement = result.movement { await deliverPortfolioMovement(movement) }
         return portfolioReadSucceeded && historyReadSucceeded
             && result.failures.isEmpty && (result.pending?.failures.isEmpty ?? true)
@@ -66,7 +46,8 @@ extension AppState {
     }
     var pendingTransactionRefreshStatusText: String? {
         guard let at = lastPendingTransactionRefreshAt else { return nil }
-        let f = RelativeDateTimeFormatter(); f.unitsStyle = .short
-        return AppLocalization.format("Last checked %@", f.localizedString(for: at, relativeTo: Date()))
+        let relative = at.formatted(
+            .relative(presentation: .numeric, unitsStyle: .abbreviated).locale(AppLocalization.locale))
+        return AppLocalization.format("Last checked %@", relative)
     }
 }

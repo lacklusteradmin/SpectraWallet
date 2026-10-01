@@ -97,8 +97,8 @@ struct WalletSecretStep: View {
         VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
             HStack(alignment: .firstTextBaseline, spacing: SpectraLayout.Space.s) {
                 VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
-                    Text(localizedWalletFlowString(title)).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
-                    Text(localizedWalletFlowString(subtitle)).font(.caption).foregroundStyle(.secondary)
+                    Text(AppLocalization.string(title)).font(.subheadline.weight(.semibold)).foregroundStyle(Color.primary)
+                    Text(AppLocalization.string(subtitle)).font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 if showsRegenerateButton {
@@ -110,7 +110,7 @@ struct WalletSecretStep: View {
                 }
             }
             HStack(spacing: SpectraLayout.Space.xs) {
-                ForEach(CoreReferenceTables.standardSeedPhraseLengths(), id: \.wordCount) { length in
+                ForEach(CoreReferenceTables.standardSeedPhraseLengths, id: \.wordCount) { length in
                     seedPhraseLengthChip(length)
                 }
             }
@@ -143,7 +143,7 @@ struct WalletSecretStep: View {
         let isCustomSelected = !CoreReferenceTables.isStandardSeedPhraseLength(draft.selectedSeedPhraseWordCount)
         DisclosureGroup {
             HStack(spacing: SpectraLayout.Space.s) {
-                TextField(localizedWalletFlowString("Custom word count"), text: $customSeedPhraseWordCountInput).keyboardType(.numberPad)
+                TextField(AppLocalization.string("Custom word count"), text: $customSeedPhraseWordCountInput).keyboardType(.numberPad)
                     .textInputAutocapitalization(.never).autocorrectionDisabled().padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s).frame(
                         maxWidth: .infinity, alignment: .leading
                     ).spectraInputFieldStyle()
@@ -219,8 +219,8 @@ struct WalletSecretStep: View {
     private var importSecretModePicker: some View {
         if !isEditingWallet && !isCreateMode && !draft.isWatchOnlyMode {
             VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
-                Text(localizedWalletFlowString("Import Method")).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
-                Picker(localizedWalletFlowString("Import Method"), selection: importSecretModeBinding) {
+                Text(AppLocalization.string("Import Method")).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+                Picker(AppLocalization.string("Import Method"), selection: importSecretModeBinding) {
                     ForEach(WalletSecretImportMode.allCases) { mode in Text(mode.localizedTitle).tag(mode) }
                 }.pickerStyle(.segmented)
             }

@@ -34,7 +34,7 @@ struct AddCustomTokenView: View {
                 TextField(AppLocalization.string("Name"), text: $nameInput)
                 TextField(AppLocalization.string("Symbol"), text: $symbolInput)
                     .textInputAutocapitalization(.characters).autocorrectionDisabled()
-                Stepper(AppLocalization.format("Token Supports: %lld decimals", decimalsInput), value: $decimalsInput, in: 0...30)
+                Stepper(AppLocalization.format("Token Supports: %lld decimals", count: decimalsInput, decimalsInput), value: $decimalsInput, in: 0...30)
             }
             Section {
                 TextField(AppLocalization.string("CoinGecko ID (Optional)"), text: $coingeckoIdInput)

@@ -44,6 +44,6 @@ final class SendStagesViewTests: IsolatedAppStateTestCase {
         attachment.name = "Signed transaction awaiting broadcast"
         attachment.lifetime = .keepAlways
         add(attachment)
-        XCTAssertTrue(state.sendFlow.selectedEndpoints.isEmpty, "Rendering must not select destinations or submit")
+        XCTAssertTrue(state.sendFlow.session.selectedEndpoints.isEmpty, "Rendering must not select destinations or submit")
     }
 }

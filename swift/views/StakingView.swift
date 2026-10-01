@@ -204,10 +204,7 @@ struct ChainStakingDetailView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
         .task { await vm.loadValidators() }
-        .alert(AppLocalization.string("Error"), isPresented: Binding(
-            get: { vm.error != nil },
-            set: { if !$0 { vm.dismissError() } }
-        )) {
+        .alert(AppLocalization.string("Error"), isPresented: .isPresent($vm.error)) {
             Button(AppLocalization.string("OK")) { vm.dismissError() }
         } message: {
             Text(vm.error?.localizedDescription ?? "")

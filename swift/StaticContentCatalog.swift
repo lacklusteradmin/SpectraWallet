@@ -1,27 +1,17 @@
 import Foundation
 import SwiftUI
-
-private final class LockedValue<Value>: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value: Value
-    init(_ value: Value) { self.value = value }
-    func withLock<Result>(_ body: (inout Value) -> Result) -> Result {
-        lock.lock()
-        defer { lock.unlock() }
-        return body(&value)
-    }
-}
+import Synchronization
 
 /// Locale-independent data files at the bundle root: `resources/` ships flat,
 /// so the name is the whole address. Localized text lives in one place only,
 /// the `RuntimeStrings.<locale>.json` tables `AppLocalization` reads.
 enum StaticContentCatalog {
-    private static let cache = LockedValue<[String: Any]>([:])
-    static func loadRequiredResource<T: Decodable>(_ name: String, as type: T.Type) -> T {
+    private static let cache = Mutex<[String: any Sendable]>([:])
+    static func loadRequiredResource<T: Decodable & Sendable>(_ name: String, as type: T.Type) -> T {
         guard let value = loadResource(name, as: type) else { fatalError("Missing required resource: \(name).json") }
         return value
     }
-    static func loadResource<T: Decodable>(_ name: String, as type: T.Type) -> T? {
+    static func loadResource<T: Decodable & Sendable>(_ name: String, as type: T.Type) -> T? {
         if let cached = cache.withLock({ $0[name] as? T }) { return cached }
         guard let url = Bundle.main.url(forResource: name, withExtension: "json"),
               let data = try? Data(contentsOf: url),
@@ -202,8 +192,11 @@ enum AppLocalization {
         let strings: [[String: String]]
     }
     private static let manifest = StaticContentCatalog.loadResource("RuntimeStrings.manifest", as: Manifest.self)
-    private static let cachedTables = LockedValue<Tables?>(nil)
+    private static let cachedTables = Mutex<Tables?>(nil)
 
+    /// The language of the table read first, with the reader's region and
+    /// number preferences. Every date, number and currency the app formats
+    /// uses it, so figures follow the same settings as the words around them.
     static var locale: Locale { tables().locale }
     static func string(_ key: String) -> String {
         for table in tables().strings {
@@ -214,10 +207,22 @@ enum AppLocalization {
     static func format(_ key: String, _ arguments: CVarArg...) -> String {
         String(format: string(key), locale: locale, arguments: arguments)
     }
+    /// A sentence about `count` things. A table may give the singular beside
+    /// the key as `<key>#one`, read only from the table that has `key`, so a
+    /// language without number agreement never borrows another's singular.
+    static func format(_ key: String, count: Int, _ arguments: CVarArg...) -> String {
+        var template = key
+        for table in tables().strings {
+            guard let value = table[key] else { continue }
+            template = count == 1 ? table[key + "#one"] ?? value : value
+            break
+        }
+        return String(format: template, locale: locale, arguments: arguments)
+    }
 
-    /// Rebuilt when the reader's languages change.
+    /// Rebuilt when the reader's languages or region change.
     private static func tables() -> Tables {
-        let signature = Locale.preferredLanguages.joined(separator: "|")
+        let signature = Locale.preferredLanguages.joined(separator: "|") + "|" + Locale.current.identifier
         if let cached = cachedTables.withLock({ $0 }), cached.signature == signature { return cached }
         let source = manifest?.sourceLanguage ?? "en"
         let available = manifest?.availableLocales ?? [source]
@@ -229,12 +234,20 @@ enum AppLocalization {
         }
         if !identifiers.contains(source) { identifiers.append(source) }
         let tables = Tables(
-            signature: signature, locale: Locale(identifier: identifiers[0]),
+            signature: signature, locale: displayLocale(language: identifiers[0]),
             strings: identifiers.compactMap {
                 StaticContentCatalog.loadResource("RuntimeStrings.\($0)", as: [String: String].self)
             })
         cachedTables.withLock { $0 = tables }
         return tables
+    }
+
+    /// `language` with everything else — region, calendar, numbering — from
+    /// the reader's current locale.
+    private static func displayLocale(language: String) -> Locale {
+        var components = Locale.Components(locale: .current)
+        components.languageComponents = Locale.Language.Components(identifier: language)
+        return Locale(components: components)
     }
 
     /// The shipped table for a preferred language: an exact match, the Chinese

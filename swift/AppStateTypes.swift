@@ -8,11 +8,11 @@ import Foundation
 
 /// An operational log entry recorded, bounded, and persisted by core.
 /// Both the logs screen and chain diagnostics read this record.
-nonisolated extension DiagnosticLog: Identifiable {
+extension DiagnosticLog: Identifiable {
     var timestamp: Date { Date(timeIntervalSince1970: timestampUnix) }
 }
 
-nonisolated extension DiagnosticLogLevel {
+extension DiagnosticLogLevel {
     static let allCases: [DiagnosticLogLevel] = [.debug, .info, .warning, .error]
     var displayName: String {
         switch self {
@@ -32,6 +32,12 @@ nonisolated extension DiagnosticLogLevel {
         }
     }
 }
+/// A failure already worded for the reader.
+struct DisplayedError: LocalizedError {
+    let errorDescription: String?
+    init(_ message: String) { errorDescription = message }
+}
+
 enum MainAppTab: Hashable {
     case home
     case history
@@ -47,39 +53,30 @@ extension ResetScope {
     @MainActor
     var title: String {
         switch self {
-        case .walletsAndSecrets: return localizedStoreString("Wallets & Secrets")
-        case .historyAndCache: return localizedStoreString("History & Cache")
-        case .alertsAndContacts: return localizedStoreString("Alerts & Contacts")
-        case .settingsAndEndpoints: return localizedStoreString("Settings & Endpoints")
-        case .dashboardCustomization: return localizedStoreString("Dashboard Customization")
+        case .walletsAndSecrets: return AppLocalization.string("Wallets & Secrets")
+        case .historyAndCache: return AppLocalization.string("History & Cache")
+        case .alertsAndContacts: return AppLocalization.string("Alerts & Contacts")
+        case .settingsAndEndpoints: return AppLocalization.string("Settings & Endpoints")
+        case .dashboardCustomization: return AppLocalization.string("Dashboard Customization")
         }
     }
     @MainActor
     var detail: String {
         switch self {
         case .walletsAndSecrets:
-            return localizedStoreString("Imported wallets, seed phrases, watched addresses, and local wallet access data.")
+            return AppLocalization.string("Imported wallets, seed phrases, watched addresses, and local wallet access data.")
         case .historyAndCache:
-            return localizedStoreString("Transactions, history database, diagnostics snapshots, and cached chain state.")
-        case .alertsAndContacts: return localizedStoreString("Price alerts, notification rules, and saved address book recipients.")
+            return AppLocalization.string("Transactions, history database, diagnostics snapshots, and cached chain state.")
+        case .alertsAndContacts: return AppLocalization.string("Price alerts, notification rules, and saved address book recipients.")
         case .settingsAndEndpoints:
-            return localizedStoreString("Known tokens, pricing and RPC settings, preferences, and icon customizations.")
+            return AppLocalization.string("Known tokens, pricing and RPC settings, preferences, and icon customizations.")
         case .dashboardCustomization:
-            return localizedStoreString("Pinned assets and other home page customization choices stored on this device.")
+            return AppLocalization.string("Pinned assets and other home page customization choices stored on this device.")
         }
     }
 }
 
 extension AppState {
-    enum TimeoutError: LocalizedError {
-        case timedOut(seconds: Double)
-        var errorDescription: String? {
-            switch self {
-            case .timedOut(let seconds): return AppLocalization.format("Timed out after %llds", Int(seconds))
-            }
-        }
-    }
-
     enum SeedPhraseRevealError: LocalizedError {
         case unavailable
         case authenticationFailed(String)
@@ -96,15 +93,6 @@ extension AppState {
             }
         }
     }
-
-    struct ChainDegradedBanner: Identifiable {
-        let chain: Chain
-        let message: String
-        let lastGoodSyncAt: Date?
-        var id: Chain { chain }
-        var chainName: String { chain.displayName }
-    }
-
 }
 
 extension KeypoolDiagnostic: Identifiable {

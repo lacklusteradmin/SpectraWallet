@@ -10,7 +10,7 @@ struct SetupChainSelectionDescriptor: Identifiable {
     let artworkName: String?
     let color: Color
     let category: SetupChainCategory
-    var title: String { localizedWalletFlowString(titleKey) }
+    var title: String { AppLocalization.string(titleKey) }
     init(chain: Chain, entry: ChainEntry) {
         self.id = chain
         self.titleKey = entry.name
@@ -299,7 +299,7 @@ struct SetupView: View {
     private func watchedAddressSection(
         title: String, text: Binding<String>, caption: String? = nil, validationMessage: String? = nil, validationColor: Color? = nil
     ) -> some View {
-        Text(localizedWalletFlowString(title)).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
+        Text(AppLocalization.string(title)).font(.subheadline.weight(.semibold)).foregroundStyle(.secondary)
         watchedAddressEditor(text: text)
         if let caption { Text(caption).font(.caption).foregroundStyle(.secondary) }
         if let validationMessage { Text(validationMessage).font(.caption).foregroundStyle(validationColor ?? Color.secondary) }
@@ -315,9 +315,8 @@ struct SetupView: View {
             return (AppLocalization.format("Every line must contain a valid %@ address.", localizedAssetName), .red.opacity(0.9))
         }
         let count = entries.count
-        let pluralSuffix = AppLocalization.locale.identifier.hasPrefix("en") && count != 1 ? "es" : ""
         return (
-            AppLocalization.format("%lld valid %@ address%@ ready to import.", count, localizedAssetName, pluralSuffix),
+            AppLocalization.format("%lld valid %@ addresses ready to import.", count: count, count, localizedAssetName),
             .green.opacity(0.9)
         )
     }

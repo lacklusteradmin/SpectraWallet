@@ -13,7 +13,7 @@ extension AppState {
         if let quoteRefreshError = quoteRefreshError?.trimmingCharacters(in: .whitespacesAndNewlines), !quoteRefreshError.isEmpty {
             notices.append(
                 AppNoticeItem(
-                    title: localizedStoreString("Pricing Notice"), message: quoteRefreshError, severity: .warning,
+                    title: AppLocalization.string("Pricing Notice"), message: quoteRefreshError, severity: .warning,
                     systemImage: "dollarsign.circle"
                 )
             )
@@ -23,7 +23,7 @@ extension AppState {
         {
             notices.append(
                 AppNoticeItem(
-                    title: localizedStoreString("Fiat Rates Degraded Mode"), message: fiatRatesRefreshError, severity: .warning,
+                    title: AppLocalization.string("Fiat Rates Degraded Mode"), message: fiatRatesRefreshError, severity: .warning,
                     systemImage: "antenna.radiowaves.left.and.right.slash"
                 )
             )
@@ -46,12 +46,12 @@ extension AppState {
         if let commandNotice = commandError?.trimmingCharacters(in: .whitespacesAndNewlines), !commandNotice.isEmpty {
             notices.append(
                 AppNoticeItem(
-                    title: localizedStoreString("Action Failed"), message: commandNotice, severity: .error,
+                    title: AppLocalization.string("Action Failed"), message: commandNotice, severity: .error,
                     systemImage: "exclamationmark.circle"
                 )
             )
         }
-        if let sendNotice = sendFlow.error?.trimmingCharacters(in: .whitespacesAndNewlines), !sendNotice.isEmpty {
+        if let sendNotice = sendFlow.session.error?.trimmingCharacters(in: .whitespacesAndNewlines), !sendNotice.isEmpty {
             notices.append(
                 AppNoticeItem(
                     title: commonCopy.sendErrorTitle, message: sendNotice, severity: .error, systemImage: "paperplane.circle"
@@ -63,7 +63,7 @@ extension AppState {
         {
             notices.append(
                 AppNoticeItem(
-                    title: localizedStoreString("Secure Storage Unavailable"), message: secretStoreRegistrationError,
+                    title: AppLocalization.string("Secure Storage Unavailable"), message: secretStoreRegistrationError,
                     severity: .error, systemImage: "lock.trianglebadge.exclamationmark"
                 )
             )
