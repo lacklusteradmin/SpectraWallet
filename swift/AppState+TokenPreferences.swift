@@ -1,18 +1,6 @@
 import Foundation
 
 extension AppState {
-    /// A token is addressed by what it is — its contract on its chain.
-    private func tokenKey(_ entry: TokenPreferenceEntry) -> CoreTokenPreferenceKey {
-        CoreTokenPreferenceKey(chainId: entry.token.chainId, contract: entry.token.contract)
-    }
-    func setTokenPreferenceEnabled(_ entry: TokenPreferenceEntry, isEnabled: Bool) {
-        setTokenPreferencesEnabled([entry], isEnabled: isEnabled)
-    }
-    func setTokenPreferencesEnabled(_ entries: [TokenPreferenceEntry], isEnabled: Bool) {
-        let keys = entries.map(tokenKey)
-        guard !keys.isEmpty else { return }
-        sendTokenPreferenceCommand(.setTokenPreferencesEnabled(tokens: keys, isEnabled: isEnabled))
-    }
     func removeCustomTokenPreference(_ entry: TokenPreferenceEntry) {
         sendTokenPreferenceCommand(.removeCustomToken(chainId: entry.token.chainId, contract: entry.token.contract))
     }

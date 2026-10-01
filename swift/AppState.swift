@@ -258,8 +258,8 @@ final class AppState {
     private(set) var addressBook: [AddressBookEntry] = []
     /// Why core refused the last address-book change, if it did.
     var addressBookError: String?
-    /// The tracked-token projection. Change it through `addCustomTokenPreference`,
-    /// `removeCustomTokenPreference`, or `setTokenPreferencesEnabled`.
+    /// The known-token projection: the catalog and the user's custom tokens.
+    /// Change it through `addCustomTokenPreference` or `removeCustomTokenPreference`.
     private(set) var tokenPreferences: [TokenPreferenceEntry] = []
     /// Why core refused the last token-preference change, if it did.
     var tokenPreferenceError: String?

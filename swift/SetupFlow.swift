@@ -18,18 +18,11 @@ struct SetupFlow {
         return pages[i + 1]
     }
 
-    /// Page to walk back to from `current`, or `nil` if already at the
-    /// start (indicating the back button should dismiss the flow).
-    func previous(before current: WalletSetupPage) -> WalletSetupPage? {
-        guard let i = index(of: current), i > 0 else { return nil }
-        return pages[i - 1]
-    }
-
 }
 
 /// Linear pages for the wallet-setup flow. Lifted out of `SetupView`'s
 /// private enum so `SetupFlow` can reference it.
-enum WalletSetupPage: Equatable {
+enum WalletSetupPage: Hashable {
     case details
     case watchAddresses
     case seedPhrase

@@ -42,20 +42,10 @@ struct TokenRegistrySettingsView: View {
                     ).font(.caption).foregroundStyle(.secondary)
                 } else {
                     ForEach(filteredGroups) { group in
-                        HStack(spacing: SpectraLayout.Space.m) {
-                            NavigationLink {
-                                TokenRegistryDetailView(store: store, groupKey: group.key)
-                            } label: {
-                                TokenRegistryGroupRowView(group: group)
-                            }.buttonStyle(.plain)
-                            Toggle(isOn: Binding(
-                                get: { group.representativeEntry.isEnabled },
-                                set: { store.setTokenPreferenceEnabled(group.representativeEntry, isEnabled: $0) }
-                            )) {
-                                Text(AppLocalization.string("Discover Token") + " · " + group.name)
-                            }
-                            .labelsHidden()
-                            .accessibilityHint(AppLocalization.string("Applies to every known network for this token."))
+                        NavigationLink {
+                            TokenRegistryDetailView(store: store, groupKey: group.key)
+                        } label: {
+                            TokenRegistryGroupRowView(group: group)
                         }
                     }
                 }

@@ -35,14 +35,16 @@ struct SetupView: View {
     private let store: AppState
     @Bindable var draft: WalletImportDraft
     private let copy = ImportFlowContent.current
-    @Environment(\.dismiss) private var dismiss
-    @State private var setupPage: SetupPage
+    /// The page this screen shows. Each page is its own pushed screen, so the
+    /// system back button and the swipe step back one page at a time.
+    private let setupPage: SetupPage
+    @State private var nextPage: SetupPage?
     @State private var chainSearchText: String = ""
     @State private var isShowingAllChainsPage: Bool = false
-    init(store: AppState, draft: WalletImportDraft) {
+    init(store: AppState, draft: WalletImportDraft, page: WalletSetupPage? = nil) {
         self.store = store
         self.draft = draft
-        _setupPage = State(initialValue: draft.isEditingWallet ? .walletName : .details)
+        setupPage = page ?? (draft.isEditingWallet ? .walletName : .details)
     }
     private var isEditingWallet: Bool { draft.isEditingWallet }
     private var isCreateMode: Bool { draft.isCreateMode }
@@ -430,17 +432,12 @@ struct SetupView: View {
         }
     }
     private func performPrimaryAction() {
-        // Special transition: entering backup verification needs a side
-        // effect (challenge prep). Handle it before generic flow advance.
-        if setupPage == .password && isCreateMode {
-            draft.prepareBackupVerificationChallenge()
-            withAnimation { setupPage = .backupVerification }
-            return
-        }
-        // Generic linear advance. `nil` from `next` means we're on the
-        // last page — submit instead of routing.
-        if let nextPage = setupFlow.next(after: setupPage) {
-            withAnimation { setupPage = nextPage }
+        // Linear advance. `nil` from `next` means we're on the last page —
+        // submit instead of routing.
+        if let next = setupFlow.next(after: setupPage) {
+            // Backup verification checks a challenge drawn as it is entered.
+            if next == .backupVerification { draft.prepareBackupVerificationChallenge() }
+            nextPage = next
             return
         }
         let session = store.walletImport.id
@@ -463,31 +460,11 @@ struct SetupView: View {
             }.scrollBounceBehavior(.basedOnSize)
         }
         .navigationBarTitleDisplayMode(.inline)
-        // One back: a step back through the flow, and out of it from the first
-        // page. The system button would leave the whole flow from any page.
-        .navigationBarBackButtonHidden()
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button(AppLocalization.string("Back"), systemImage: "chevron.backward", action: performBackNavigation)
-            }
-        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             setupBottomActionBar
         }
-            .onChange(of: draft.mode) { _, _ in
-                setupPage = draft.isEditingWallet ? .walletName : .details
-            }
-    }
-    private func performBackNavigation() {
-        if let prev = setupFlow.previous(before: setupPage) {
-            withAnimation { setupPage = prev }
-            return
-        }
-        if !isEditingWallet {
-            store.walletImport.isPresented = false
-        } else {
-            store.cancelWalletImport()
-            dismiss()
+        .navigationDestination(item: $nextPage) { page in
+            SetupView(store: store, draft: draft, page: page)
         }
     }
     private var setupBottomActionBar: some View {
