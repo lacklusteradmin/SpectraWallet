@@ -13,38 +13,32 @@ struct TokenRegistryDetailView: View {
     var body: some View {
         Group {
             if let entry = groupEntries.first {
-                Form {
-                    Section {
-                        HStack(spacing: SpectraLayout.Space.m) {
-                            CoinBadge(artworkName: entry.settingsArtworkName,
-                                fallbackText: entry.settingsFallbackMark,
-                                color: entry.hostingChain?.settingsIconTint ?? .accentColor, size: 48)
-                            VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
-                                Text(entry.token.name).font(.headline)
-                                Text(entry.token.symbol).foregroundStyle(.secondary)
-                                Text(AppLocalization.string(entry.isBuiltIn ? "Built-In" : "Custom"))
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                        }.padding(.vertical, SpectraLayout.Space.xs)
-                    }
-                    if let error = store.tokenPreferenceError {
-                        Section { Text(error).foregroundStyle(.red) }
-                    }
-                    Section(AppLocalization.string("Price Sources")) {
-                        providerRow("CoinGecko", id: entry.token.coingeckoId)
-                        providerRow("CoinPaprika", id: entry.token.coinpaprikaId)
-                    }
-                    Section(AppLocalization.string("Networks")) {
-                        ForEach(groupEntries) { entry in TokenRegistryEntryCardView(entry: entry) }
-                    }
-                    if !entry.isBuiltIn {
-                        Section {
-                            Button(AppLocalization.string("Remove Token"), role: .destructive) {
+                ScrollView(showsIndicators: false) {
+                    LazyVStack(spacing: SpectraLayout.sectionSpacing) {
+                        heroCard(entry)
+                        if let error = store.tokenPreferenceError {
+                            TokenPreferenceErrorNotice(message: error) { store.tokenPreferenceError = nil }
+                        }
+                        spectraDetailCard(title: "Price Sources") {
+                            providerRow("CoinGecko", id: entry.token.coingeckoId)
+                            Divider().opacity(0.4)
+                            providerRow("CoinPaprika", id: entry.token.coinpaprikaId)
+                        }
+                        networksCard
+                        if !entry.isBuiltIn {
+                            Button(role: .destructive) {
                                 isShowingRemoveConfirmation = true
+                            } label: {
+                                Label(AppLocalization.string("Remove Token"), systemImage: "trash")
+                                    .frame(maxWidth: .infinity)
                             }
+                            .buttonStyle(.glass).tint(.red).controlSize(.large)
                         }
                     }
+                    .spectraScreenPadding()
                 }
+                .background(SpectraBackdrop().ignoresSafeArea())
+                .toolbarBackground(.hidden, for: .navigationBar)
                 .navigationTitle(entry.token.symbol)
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar {
@@ -73,10 +67,36 @@ struct TokenRegistryDetailView: View {
         }
     }
 
+    private func heroCard(_ entry: TokenPreferenceEntry) -> some View {
+        HStack(spacing: SpectraLayout.Space.m) {
+            CoinBadge(artworkName: entry.settingsArtworkName, fallbackText: entry.settingsFallbackMark,
+                color: entry.settingsBadgeTint, size: 52)
+            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
+                Text(entry.token.name).font(.title3.weight(.semibold))
+                Text(entry.token.symbol).font(.subheadline.monospaced()).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            TokenSourceTag(isBuiltIn: entry.isBuiltIn)
+        }
+        .padding(SpectraLayout.cardPadding).frame(maxWidth: .infinity, alignment: .leading)
+        .spectraElevatedFill()
+    }
+
+    private var networksCard: some View {
+        spectraDetailCard(title: "Networks") {
+            ForEach(Array(groupEntries.enumerated()), id: \.element.id) { index, entry in
+                TokenRegistryNetworkRow(entry: entry)
+                if index < groupEntries.count - 1 { Divider().opacity(0.4) }
+            }
+        }
+    }
+
     private func providerRow(_ name: String, id: String) -> some View {
         LabeledContent(name) {
             Text(id.isEmpty ? AppLocalization.string("Not Configured") : id)
                 .foregroundStyle(id.isEmpty ? .secondary : .primary).textSelection(.enabled)
+                .lineLimit(1).truncationMode(.middle)
         }
+        .font(.subheadline)
     }
 }

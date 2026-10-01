@@ -27,44 +27,62 @@ struct TokenRegistrySettingsView: View {
     @State private var chainFilter: Chain? = nil
     @State private var sourceFilter: TokenRegistrySourceFilter = .all
     var body: some View {
-        Form {
-            if let error = store.tokenPreferenceError {
-                Section { Text(error).foregroundStyle(.red) }
-            }
-            Section(AppLocalization.string("Known Tokens")) {
-                if store.tokenPreferences.isEmpty {
-                    ProgressView()
-                } else if filteredGroups.isEmpty {
-                    Text(
-                        searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                            ? AppLocalization.string("No known tokens match the selected filters.")
-                            : AppLocalization.string("No matching tokens.")
-                    ).font(.caption).foregroundStyle(.secondary)
-                } else {
-                    ForEach(filteredGroups) { group in
-                        NavigationLink {
-                            TokenRegistryDetailView(store: store, groupKey: group.key)
-                        } label: {
-                            TokenRegistryGroupRowView(group: group)
+        let groups = filteredGroups
+        ZStack {
+            SpectraBackdrop().ignoresSafeArea()
+            ScrollView(showsIndicators: false) {
+                LazyVStack(spacing: SpectraLayout.sectionSpacing) {
+                    if let error = store.tokenPreferenceError {
+                        TokenPreferenceErrorNotice(message: error) { store.tokenPreferenceError = nil }
+                    }
+                    if !groups.isEmpty {
+                        SpectraRowGroup(data: groups) { group in
+                            NavigationLink {
+                                TokenRegistryDetailView(store: store, groupKey: group.key)
+                            } label: {
+                                TokenRegistryGroupRowView(group: group)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                 }
+                .spectraScreenPadding()
             }
-        }.navigationTitle(AppLocalization.string("Known Tokens"))
-            .searchable(text: $searchText, prompt: AppLocalization.string("Search name, symbol, chain, or address"))
-            .textInputAutocapitalization(.never).autocorrectionDisabled()
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    NavigationLink {
-                        AddCustomTokenView(store: store)
-                    } label: {
-                        Text(AppLocalization.string("New Token"))
-                    }
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    filterMenu
-                }
+            .overlay { emptyState(isFilteredEmpty: groups.isEmpty) }
+        }
+        .navigationTitle(AppLocalization.string("Known Tokens"))
+        .navigationBarTitleDisplayMode(.large)
+        .searchable(text: $searchText, prompt: AppLocalization.string("Search name, symbol, chain, or address"))
+        .textInputAutocapitalization(.never).autocorrectionDisabled()
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                filterMenu
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                NavigationLink {
+                    AddCustomTokenView(store: store)
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel(AppLocalization.string("New Token"))
+            }
+        }
+    }
+    @ViewBuilder
+    private func emptyState(isFilteredEmpty: Bool) -> some View {
+        if store.tokenPreferences.isEmpty {
+            ProgressView()
+        } else if isFilteredEmpty {
+            if searchText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                ContentUnavailableView(
+                    AppLocalization.string("No matching tokens."),
+                    systemImage: "line.3.horizontal.decrease.circle",
+                    description: Text(AppLocalization.string("No known tokens match the selected filters.")))
+            } else {
+                ContentUnavailableView.search(text: searchText)
+            }
+        }
     }
     private var filterMenu: some View {
         Menu {
