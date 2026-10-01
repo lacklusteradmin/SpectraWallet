@@ -1,142 +1,92 @@
 import SwiftUI
 
-// Extracted from WalletSetupViews.swift to keep that file under control.
-// Self-contained — takes its dependencies as bindings/closures and doesn't
-// reach into AppState. New chain-selection variants (e.g. for receive
-// flow) should follow this shape: descriptor list + selected set +
-// toggle/clear callbacks.
+/// Every chain in one list, ordered by popularity or name and narrowed by a
+/// tag filter and a search.
+///
+/// Self-contained — takes its dependencies as bindings/closures and doesn't
+/// reach into AppState. Callers pass the descriptors in popular order, a
+/// selected set and a toggle; `clearAllSelections` makes it a multi-select.
 struct AllChainsSelectionView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.colorScheme) private var colorScheme
     @Binding var chainSearchText: String
-    let descriptors: [SetupChainSelectionDescriptor]
+    let descriptors: [ChainSelectionDescriptor]
     let selectedChains: Set<Chain>
     let toggleSelection: (Chain) -> Void
-    /// Absent when the caller picks one chain rather than a set: the running
-    /// count and its "Clear all" belong to a multi-select and read as noise
-    /// above a list where exactly one row is always ticked.
+    /// Absent when the caller picks one chain rather than a set: the
+    /// "Selected" filter and "Clear all" belong to a multi-select and read as
+    /// noise above a list where exactly one row is always ticked.
     let clearAllSelections: (() -> Void)?
+    @State private var order: ChainPickerOrder = .popular
+    @State private var filter: ChainPickerFilter = .all
     @State private var isShowingInfo = false
+    private var allowsMultipleSelection: Bool { clearAllSelections != nil }
     private var trimmedQuery: String { chainSearchText.trimmingCharacters(in: .whitespacesAndNewlines) }
-    private var isSearching: Bool { !trimmedQuery.isEmpty }
-    private var filteredDescriptors: [SetupChainSelectionDescriptor] {
-        guard isSearching else { return descriptors }
-        return descriptors.filter { d in
-            d.title.localizedCaseInsensitiveContains(trimmedQuery)
-                || d.symbol.localizedCaseInsensitiveContains(trimmedQuery)
-                || d.chainName.localizedCaseInsensitiveContains(trimmedQuery)
-        }
+    private var rows: [ChainSelectionDescriptor] {
+        descriptors.picked(filter: filter, query: trimmedQuery, order: order, selected: selectedChains)
     }
-    private var groupedDescriptors: [(SetupChainCategory, [SetupChainSelectionDescriptor])] {
-        SetupChainCategory.allCases.compactMap { category in
-            let entries = descriptors.filter { $0.category == category }
-            return entries.isEmpty ? nil : (category, entries)
-        }
+    /// "All", "Selected" for a multi-select, then every tag some row carries.
+    private var filters: [ChainPickerFilter] {
+        let tags = ChainTag.pickerOrder.filter { tag in descriptors.contains { $0.tags.contains(tag) } }
+        return [.all] + (allowsMultipleSelection ? [.selected] : []) + tags.map { .tag($0) }
     }
-    @ViewBuilder
-    private func row(_ descriptor: SetupChainSelectionDescriptor) -> some View {
-        let isSelected = selectedChains.contains(descriptor.id)
-        Button {
-            spectraHaptic(.light)
-            toggleSelection(descriptor.id)
-        } label: {
-            HStack(spacing: SpectraLayout.Space.m) {
-                ZStack(alignment: .bottomTrailing) {
-                    CoinBadge(
-                        artworkName: descriptor.artworkName, fallbackText: descriptor.symbol,
-                        color: descriptor.color, size: 36
-                    )
-                    if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(descriptor.color)
-                            .background(Circle().fill(Color.white.opacity(colorScheme == .light ? 1 : 0.85)))
-                            .offset(x: 5, y: 5)
-                    }
-                }
-                .frame(width: 40, height: 40)
-                Text(descriptor.title)
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Color.primary)
-                    .lineLimit(1)
-                Spacer(minLength: SpectraLayout.Space.s)
-                Text(descriptor.symbol)
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(isSelected ? descriptor.color : Color.secondary)
-                    .padding(.horizontal, SpectraLayout.Space.s)
-                    .padding(.vertical, SpectraLayout.Space.xs)
-                    .background(
-                        Capsule(style: .continuous).fill(
-                            isSelected ? descriptor.color.opacity(0.14) : SpectraLayout.insetFill)
-                    )
-            }
-            .spectraRowPadding()
-        }
-        .buttonStyle(.plain)
-    }
-    private func rowList(_ items: [SetupChainSelectionDescriptor]) -> some View {
-        SpectraRowGroup(data: items) { descriptor in row(descriptor) }
-    }
-    @ViewBuilder
-    private var searchAndCounter: some View {
-        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
-            HStack(spacing: SpectraLayout.Space.s) {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField(AppLocalization.string("import_flow.search_chains"), text: $chainSearchText)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled()
-                if isSearching {
-                    Button { chainSearchText = "" } label: {
-                        Image(systemName: "xmark.circle.fill").foregroundStyle(.secondary)
-                    }.buttonStyle(.plain)
-                }
-            }.padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.m).spectraInputFieldStyle()
-            if let clearAllSelections, !selectedChains.isEmpty {
+    private var filterBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            GlassEffectContainer(spacing: SpectraLayout.Space.s) {
                 HStack(spacing: SpectraLayout.Space.s) {
-                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.tint).font(.caption)
-                    Text(AppLocalization.format("%lld selected", selectedChains.count))
-                        .font(.caption.weight(.semibold)).foregroundStyle(.tint)
-                    Spacer()
-                    Button(AppLocalization.string("Clear all"), role: .destructive) { clearAllSelections() }
-                        .font(.caption.weight(.semibold)).buttonStyle(.plain).foregroundStyle(.red.opacity(0.85))
+                    ForEach(filters, id: \.self) { item in filterChip(item) }
                 }
-                .padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s)
-                .background(Capsule(style: .continuous).fill(Color.accentColor.opacity(0.10)))
+                .padding(.horizontal, SpectraLayout.screenHorizontal)
+                .padding(.vertical, SpectraLayout.Space.xs)
             }
         }
+        .scrollClipDisabled()
     }
     @ViewBuilder
-    private func sectionHeader(_ title: String, count: Int) -> some View {
-        HStack(spacing: SpectraLayout.Space.s) {
-            Text(title).font(.subheadline.weight(.bold)).foregroundStyle(Color.primary)
-            Text("\(count)").font(.caption2.weight(.semibold)).foregroundStyle(.secondary)
-                .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs)
-                .background(SpectraLayout.insetFill, in: Capsule(style: .continuous))
-            Spacer()
-        }
-        .padding(.top, SpectraLayout.Space.xs).padding(.bottom, SpectraLayout.Space.xxs)
-    }
-    @ViewBuilder
-    private var bodyContent: some View {
-        if isSearching {
-            if filteredDescriptors.isEmpty {
-                VStack(spacing: SpectraLayout.Space.s) {
-                    Image(systemName: "magnifyingglass").font(.title3).foregroundStyle(.secondary)
-                    Text(AppLocalization.string("import_flow.no_chains_match"))
-                        .font(.subheadline).foregroundStyle(.secondary)
-                }.frame(maxWidth: .infinity).padding(.vertical, SpectraLayout.Space.xl)
-            } else {
-                rowList(filteredDescriptors)
+    private func filterChip(_ item: ChainPickerFilter) -> some View {
+        let label = HStack(spacing: SpectraLayout.Space.xs) {
+            Text(item.title)
+            if item == .selected, !selectedChains.isEmpty {
+                Text("\(selectedChains.count)").monospacedDigit()
             }
+        }
+        .font(.subheadline.weight(.semibold))
+        if filter == item {
+            Button { filter = item } label: { label }.buttonStyle(.glassProminent)
         } else {
-            VStack(alignment: .leading, spacing: SpectraLayout.Space.l) {
-                ForEach(groupedDescriptors, id: \.0) { category, items in
-                    VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
-                        sectionHeader(category.sectionTitle, count: items.count)
-                        rowList(items)
-                    }
+            Button { filter = item } label: { label }.buttonStyle(.glass)
+        }
+    }
+    @ViewBuilder
+    private var list: some View {
+        if !rows.isEmpty {
+            SpectraRowGroup(data: rows) { descriptor in
+                ChainSelectionRow(
+                    descriptor: descriptor, isSelected: selectedChains.contains(descriptor.id),
+                    allowsMultipleSelection: allowsMultipleSelection
+                ) { toggleSelection(descriptor.id) }
+            }
+        } else if !trimmedQuery.isEmpty {
+            ContentUnavailableView.search(text: trimmedQuery)
+        } else {
+            ContentUnavailableView(
+                AppLocalization.string("import_flow.no_chains_selected"), systemImage: "checkmark.circle")
+        }
+    }
+    private var toolbarMenu: some View {
+        Menu {
+            Picker(AppLocalization.string("Sort"), selection: $order) {
+                Label(AppLocalization.string("Popular"), systemImage: "flame").tag(ChainPickerOrder.popular)
+                Label(AppLocalization.string("Name"), systemImage: "textformat").tag(ChainPickerOrder.name)
+            }
+            if let clearAllSelections, !selectedChains.isEmpty {
+                Divider()
+                Button(AppLocalization.string("Clear all"), systemImage: "xmark.circle", role: .destructive) {
+                    clearAllSelections()
                 }
             }
+        } label: {
+            Image(systemName: "arrow.up.arrow.down")
         }
+        .accessibilityLabel(AppLocalization.string("Sort"))
     }
     @ViewBuilder
     private var gasTokenInfoSheet: some View {
@@ -209,18 +159,29 @@ struct AllChainsSelectionView: View {
             SpectraBackdrop().ignoresSafeArea()
             ScrollView(showsIndicators: false) {
                 VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-                    searchAndCounter
-                    bodyContent
-                }.padding(SpectraLayout.Space.l)
+                    filterBar.padding(.horizontal, -SpectraLayout.screenHorizontal)
+                    list
+                }
+                .spectraScreenPadding()
             }
         }
         .navigationTitle(AppLocalization.string("import_flow.all_chains_title"))
         .navigationBarTitleDisplayMode(.inline)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .searchable(
+            text: $chainSearchText, placement: .navigationBarDrawer(displayMode: .always),
+            prompt: AppLocalization.string("import_flow.search_chains")
+        )
+        .textInputAutocapitalization(.never).autocorrectionDisabled()
+        .sensoryFeedback(.selection, trigger: filter)
+        .sensoryFeedback(.selection, trigger: order)
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) { toolbarMenu }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { isShowingInfo = true } label: {
                     Image(systemName: "info.circle")
                 }
+                .accessibilityLabel(AppLocalization.string("Chain Info"))
             }
         }
         .sheet(isPresented: $isShowingInfo) { gasTokenInfoSheet }

@@ -21,8 +21,11 @@ struct WalletSetupPageCopyTests {
 
     private let content = ImportFlowContent.current
 
-    private func mode(editing: Bool = false, creating: Bool = false, privateKey: Bool = false) -> WalletSetupMode {
-        WalletSetupMode(isEditingWallet: editing, isCreateMode: creating, isPrivateKeyImport: privateKey)
+    private func mode(
+        editing: Bool = false, creating: Bool = false, privateKey: Bool = false, watching: Bool = false
+    ) -> WalletSetupMode {
+        WalletSetupMode(
+            isEditingWallet: editing, isCreateMode: creating, isPrivateKeyImport: privateKey, isWatchOnly: watching)
     }
 
     /// Nothing may come back blank, in any mode.
@@ -32,7 +35,7 @@ struct WalletSetupPageCopyTests {
         ]
         let modes = [
             mode(), mode(editing: true), mode(creating: true), mode(privateKey: true),
-            mode(creating: true, privateKey: true),
+            mode(creating: true, privateKey: true), mode(watching: true),
         ]
         let flowPages = [SetupFlow.watchOnly, .seedPhraseImport, .createNewWallet, .editWallet].flatMap(\.pages)
         for page in flowPages {
@@ -59,6 +62,16 @@ struct WalletSetupPageCopyTests {
             #expect(copy.title == title, "\(mode)")
             #expect(copy.subtitle == subtitle, "\(mode)")
         }
+    }
+
+    /// An import of one chain asks for one, and says why the list is short.
+    @Test func aSingleChainImportAsksForOneChain() {
+        let many = WalletSetupPage.details.copy(content, mode: mode())
+        let key = WalletSetupPage.details.copy(content, mode: mode(privateKey: true))
+        let watch = WalletSetupPage.details.copy(content, mode: mode(watching: true))
+        #expect(key.title == watch.title)
+        #expect(key.title != many.title)
+        #expect(key.subtitle != watch.subtitle)
     }
 
     /// The editing flow shows its edit heading on the actual name page.

@@ -12,6 +12,10 @@ struct WalletDerivationOptionsView: View {
     var body: some View {
         NavigationStack {
             ScrollView(showsIndicators: false) {
+                if !draft.isCreateMode {
+                    SeedPhraseReadingSection(draft: draft)
+                        .padding([.horizontal, .top], SpectraLayout.Space.l)
+                }
                 VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                     Text(
                         AppLocalization.string(
@@ -40,6 +44,107 @@ struct WalletDerivationOptionsView: View {
                 }
             }
         }
+    }
+}
+
+extension SeedPhraseLanguage: Identifiable {
+    public var id: String { code }
+}
+
+/// How an import reads its phrase: the length and the wordlist, each
+/// inferred by core unless fixed here.
+private struct SeedPhraseReadingSection: View {
+    @Bindable var draft: WalletImportDraft
+    @State private var isEnteringCustomCount = false
+    @State private var customCountInput = ""
+    private let columns = Array(repeating: GridItem(.flexible(), spacing: SpectraLayout.Space.xs), count: 4)
+
+    private var isCustomCount: Bool {
+        draft.seedPhraseWordCountOverride.map { !CoreReferenceTables.isStandardSeedPhraseLength($0) } ?? false
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.l) {
+            wordCount
+            Divider().opacity(0.4)
+            wordlist
+        }
+        .padding(SpectraLayout.Space.l).spectraBubbleFill().spectraCardFill()
+    }
+
+    private var wordCount: some View {
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
+            Text(AppLocalization.string("Word Count")).font(.subheadline.weight(.semibold))
+            LazyVGrid(columns: columns, spacing: SpectraLayout.Space.xs) {
+                chip(AppLocalization.string("Auto"), isSelected: draft.seedPhraseWordCountOverride == nil) {
+                    isEnteringCustomCount = false
+                    draft.seedPhraseWordCountOverride = nil
+                }
+                ForEach(CoreReferenceTables.standardSeedPhraseLengths, id: \.wordCount) { length in
+                    let count = Int(length.wordCount)
+                    chip("\(count)", isSelected: draft.seedPhraseWordCountOverride == count) {
+                        isEnteringCustomCount = false
+                        draft.seedPhraseWordCountOverride = count
+                    }
+                }
+                chip(
+                    isCustomCount ? "\(draft.seedPhraseWordCountOverride ?? 0)" : AppLocalization.string("Custom"),
+                    isSelected: isCustomCount || isEnteringCustomCount
+                ) {
+                    customCountInput = draft.seedPhraseWordCountOverride.map(String.init) ?? ""
+                    isEnteringCustomCount = true
+                }
+            }
+            if isEnteringCustomCount {
+                HStack(spacing: SpectraLayout.Space.s) {
+                    TextField(AppLocalization.string("Custom word count"), text: $customCountInput)
+                        .keyboardType(.numberPad)
+                        .padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s)
+                        .spectraInputFieldStyle()
+                    Button(AppLocalization.string("Apply")) {
+                        draft.applyCustomSeedPhraseWordCount(customCountInput)
+                        isEnteringCustomCount = false
+                    }.buttonStyle(.glass).tint(.accentColor)
+                }
+            }
+            if let warning = draft.seedPhraseVerdict.lengthWarning {
+                Label(warning, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(.spectraWarning)
+            }
+            Text(AppLocalization.string("import_flow.word_count_footer")).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private var wordlist: some View {
+        let detected = draft.seedPhraseVerdict.language.map { AppLocalization.string($0.name) }
+        let autoTitle =
+            detected.map { AppLocalization.format("import_flow.wordlist_auto_detected_format", $0) }
+            ?? AppLocalization.string("Auto-detect")
+        return VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
+            HStack {
+                Text(AppLocalization.string("Wordlist")).font(.subheadline.weight(.semibold))
+                Spacer()
+                Picker(AppLocalization.string("Wordlist"), selection: $draft.seedPhraseLanguage) {
+                    Text(autoTitle).tag(String?.none)
+                    ForEach(CoreReferenceTables.seedPhraseWordlists) { language in
+                        Text(AppLocalization.string(language.name)).tag(String?.some(language.code))
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(.secondary)
+            }
+            Text(AppLocalization.string("import_flow.wordlist_footer")).font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private func chip(_ title: String, isSelected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(title)
+                .font(.subheadline.weight(.semibold).monospacedDigit())
+                .foregroundStyle(isSelected ? Color.white : Color.primary)
+                .frame(maxWidth: .infinity, minHeight: 36)
+                .spectraSelectableFill(isSelected: isSelected, accent: .accentColor, cornerRadius: SpectraLayout.Radius.control)
+        }
+        .buttonStyle(.plain)
     }
 }
 

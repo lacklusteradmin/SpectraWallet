@@ -4,10 +4,7 @@ import UIKit
 
 /// Every mainnet, because core validates every mainnet, as the rows the shared
 /// chain picker draws.
-@MainActor private let addressBookChainDescriptors: [SetupChainSelectionDescriptor] =
-    Chain.mainnets.compactMap { chain in
-        chain.entry.map { SetupChainSelectionDescriptor(chain: chain, entry: $0) }
-    }
+@MainActor private let addressBookChainDescriptors = ChainSelectionDescriptor.popularOrder(Chain.mainnets)
 
 /// Adding a recipient, on its own page behind the address book's `+`.
 struct NewAddressBookContactView: View {

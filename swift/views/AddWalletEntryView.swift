@@ -43,10 +43,15 @@ struct AddWalletEntryView: View {
                 icon: "plus.circle.fill"
             ) { store.beginWalletCreation() },
             Entry(
-                title: AppLocalization.string("Import Wallet"),
-                subtitle: AppLocalization.string("Use an existing seed phrase or private key."),
+                title: AppLocalization.string("Import Seed Phrase"),
+                subtitle: AppLocalization.string("Restore a wallet from its 12 to 24 word recovery phrase."),
                 icon: "arrow.down.circle.fill"
-            ) { store.beginWalletImport() },
+            ) { store.beginSeedPhraseImport() },
+            Entry(
+                title: AppLocalization.string("Import Private Key"),
+                subtitle: AppLocalization.string("Add one account on one chain from its private key."),
+                icon: "key.circle.fill"
+            ) { store.beginPrivateKeyImport() },
             Entry(
                 title: AppLocalization.string("Watch Addresses"),
                 subtitle: AppLocalization.string("Track public addresses without adding private keys."),

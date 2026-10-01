@@ -64,6 +64,7 @@ struct WalletSetupMode {
     let isEditingWallet: Bool
     let isCreateMode: Bool
     let isPrivateKeyImport: Bool
+    var isWatchOnly: Bool = false
 }
 
 /// What a page calls itself: the heading and the line under it.
@@ -102,6 +103,17 @@ extension WalletSetupPage {
                 title: mode.isCreateMode ? content.recordSeedPhraseTitle : content.enterSeedPhraseTitle,
                 subtitle: mode.isCreateMode ? content.saveRecoveryPhraseSubtitle : content.enterRecoveryPhraseSubtitle)
         case .details:
+            // These imports use one chain, and list only the chains they can.
+            if mode.isPrivateKeyImport {
+                return WalletSetupPageCopy(
+                    title: AppLocalization.string("import_flow.choose_chain"),
+                    subtitle: AppLocalization.string("import_flow.choose_chain_private_key_subtitle"))
+            }
+            if mode.isWatchOnly {
+                return WalletSetupPageCopy(
+                    title: AppLocalization.string("import_flow.choose_chain"),
+                    subtitle: AppLocalization.string("import_flow.choose_chain_watch_subtitle"))
+            }
             return WalletSetupPageCopy(
                 title: AppLocalization.string("import_flow.choose_chains"),
                 subtitle: AppLocalization.string("import_flow.choose_chains_subtitle"))

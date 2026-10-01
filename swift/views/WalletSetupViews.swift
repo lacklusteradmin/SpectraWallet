@@ -1,61 +1,6 @@
 import Foundation
 import SwiftUI
 
-struct SetupChainSelectionDescriptor: Identifiable {
-    let id: Chain
-    let titleKey: String
-    /// The chain's native symbol — one field, because the picker shows one.
-    let symbol: String
-    let chainName: String
-    let artworkName: String?
-    let color: Color
-    let category: SetupChainCategory
-    var title: String { AppLocalization.string(titleKey) }
-    init(chain: Chain, entry: ChainEntry) {
-        self.id = chain
-        self.titleKey = entry.name
-        self.symbol = entry.gasTokenSymbol
-        self.chainName = entry.name
-        self.artworkName = entry.artworkName
-        self.color = entry.color.color
-        self.category = SetupChainCategory(chain: entry)
-    }
-}
-enum SetupChainCategory: String, CaseIterable, Identifiable {
-    case bitcoinFamily
-    case evmL1
-    case evmL2
-    case other
-    case testnets
-    var id: String { rawValue }
-    var sectionTitle: String {
-        switch self {
-        case .bitcoinFamily: return AppLocalization.string("Bitcoin Family")
-        case .evmL1: return AppLocalization.string("EVM Chains")
-        case .evmL2: return AppLocalization.string("EVM L2s")
-        case .other: return AppLocalization.string("Other Chains")
-        case .testnets: return AppLocalization.string("Testnets")
-        }
-    }
-    /// The section a chain belongs to.
-    ///
-    /// Read `category` alone, which meant the catalog had to spell `"testnet"`
-    /// there — a network-kind flag in a column of chain families, and the one
-    /// reason `is_evm` could not be derived from `category`. Which network a
-    /// row is is the registry's `isTestnet`.
-    init(chain: ChainEntry) {
-        if chain.isTestnet {
-            self = .testnets
-            return
-        }
-        switch chain.category {
-        case .bitcoinFamily: self = .bitcoinFamily
-        case .evmL1: self = .evmL1
-        case .evmL2: self = .evmL2
-        case .other: self = .other
-        }
-    }
-}
 /// SetupView currently takes both a `store: AppState` (read-only access to
 /// app-wide state for chain/security info) and an `@Bindable` draft
 /// (read/write for the in-progress import). The `store.x` vs `draft.x`
@@ -68,16 +13,11 @@ enum SetupChainCategory: String, CaseIterable, Identifiable {
 /// declared in the type instead of hidden in field accesses. SetupView
 /// hasn't been migrated yet because its dependency surface is large.
 struct SetupView: View {
-    private static let chainSelectionDescriptors: [SetupChainSelectionDescriptor] = Chain.all.compactMap { chain in
-        chain.entry.map { SetupChainSelectionDescriptor(chain: chain, entry: $0) }
-    }
-    /// The picker's initial list, ordered by `popular_rank` in `chain-ui.toml`.
-    private static let popularChainSelectionIds: [Chain] = Chain.all
-        .compactMap { chain in chain.entry?.popularRank.map { (rank: $0, chain: chain) } }
-        .sorted { $0.rank < $1.rank }
-        .map(\.chain)
-    private static let nonPopularChainSelectionDescriptors = chainSelectionDescriptors.filter { d in
-        !popularChainSelectionIds.contains(d.id)
+    /// Every chain, in the picker's popular order.
+    private static let allChainDescriptors = ChainSelectionDescriptor.popularOrder(Chain.all)
+    /// The chains this import can use, in popular order.
+    private var chainSelectionDescriptors: [ChainSelectionDescriptor] {
+        Self.allChainDescriptors.filter { draft.offers($0.id) }
     }
     /// Type alias kept for site-local readability — the underlying type
     /// lives in `SetupFlow.swift` so `SetupFlow` can reference it.
@@ -95,26 +35,14 @@ struct SetupView: View {
     private let store: AppState
     @Bindable var draft: WalletImportDraft
     private let copy = ImportFlowContent.current
-    @Environment(\.colorScheme) private var colorScheme
     @Environment(\.dismiss) private var dismiss
     @State private var setupPage: SetupPage
-    @State private var customSeedPhraseWordCountInput: String
     @State private var chainSearchText: String = ""
     @State private var isShowingAllChainsPage: Bool = false
-    @FocusState private var focusedSeedPhraseIndex: Int?
-    // Two-column grid with generous spacing — the details page is now
-    // dominated by chain selection, so each cell gets more room to breathe.
-    private let chainSelectionColumns = [
-        GridItem(.flexible(), spacing: SpectraLayout.Space.m), GridItem(.flexible(), spacing: SpectraLayout.Space.m),
-    ]
-    private let seedPhraseGridColumns = [
-        GridItem(.flexible(), spacing: SpectraLayout.Space.xs), GridItem(.flexible(), spacing: SpectraLayout.Space.xs), GridItem(.flexible(), spacing: SpectraLayout.Space.xs),
-    ]
     init(store: AppState, draft: WalletImportDraft) {
         self.store = store
         self.draft = draft
         _setupPage = State(initialValue: draft.isEditingWallet ? .walletName : .details)
-        _customSeedPhraseWordCountInput = State(initialValue: String(draft.selectedSeedPhraseWordCount))
     }
     private var isEditingWallet: Bool { draft.isEditingWallet }
     private var isCreateMode: Bool { draft.isCreateMode }
@@ -127,7 +55,7 @@ struct SetupView: View {
             copy,
             mode: WalletSetupMode(
                 isEditingWallet: isEditingWallet, isCreateMode: isCreateMode,
-                isPrivateKeyImport: isPrivateKeyImportMode))
+                isPrivateKeyImport: isPrivateKeyImportMode, isWatchOnly: draft.isWatchOnlyMode))
     }
     private var setupTitle: String { pageCopy.title }
     private var setupSubtitle: String { pageCopy.subtitle }
@@ -204,11 +132,6 @@ struct SetupView: View {
     private var canAdvanceFromWatchAddressesPage: Bool {
         store.canImportWallet && !store.walletImport.isBusy
     }
-    private var popularChainSelectionDescriptors: [SetupChainSelectionDescriptor] {
-        Self.popularChainSelectionIds.compactMap { id in
-            Self.chainSelectionDescriptors.first { $0.id == id }
-        }
-    }
     private var selectedChainSet: Set<Chain> { Set(draft.selectedChains) }
     private var selectedChainCount: Int { draft.selectedChains.count }
     private var chainSelectionSummary: String {
@@ -246,54 +169,6 @@ struct SetupView: View {
                 Text(AppLocalization.string("import_flow.wallet_password_success")).font(.caption).foregroundStyle(.green.opacity(0.9))
             }
         }
-    }
-    @ViewBuilder
-    private func chainSelectionCard(_ descriptor: SetupChainSelectionDescriptor) -> some View {
-        let isSelected = selectedChainSet.contains(descriptor.id)
-        Button {
-            spectraHaptic(.light)
-            draft.toggleChainSelection(descriptor.id)
-        } label: {
-            // Two-column layout per cell: large badge + selection ring on the
-            // left, title + symbol stacked vertically on the right. Gives
-            // chain identity room to breathe now that chain selection owns
-            // the details page.
-            HStack(spacing: SpectraLayout.Space.s) {
-                ZStack(alignment: .topTrailing) {
-                    CoinBadge(
-                        artworkName: descriptor.artworkName, fallbackText: descriptor.symbol,
-                        color: descriptor.color, size: 36
-                    )
-                    if isSelected {
-                        Image(systemName: "checkmark.circle.fill")
-                            .font(.caption.weight(.bold))
-                            .foregroundStyle(descriptor.color)
-                            .background(Circle().fill(Color.white.opacity(colorScheme == .light ? 1 : 0.88)))
-                            .offset(x: 4, y: -4)
-                    }
-                }
-                VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
-                    Text(descriptor.title)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.primary)
-                        .lineLimit(1).minimumScaleFactor(0.8)
-                    Text(descriptor.symbol)
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(.secondary)
-                }
-                Spacer(minLength: 0)
-            }.frame(maxWidth: .infinity, alignment: .leading)
-                .padding(.vertical, SpectraLayout.Space.s).padding(.horizontal, SpectraLayout.Space.m)
-                .background(
-                    isSelected ? descriptor.color.opacity(0.14) : SpectraLayout.insetFill,
-                    in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.inner, style: .continuous)
-                ).overlay {
-                    if isSelected {
-                        RoundedRectangle(cornerRadius: SpectraLayout.Radius.inner, style: .continuous)
-                            .stroke(descriptor.color.opacity(0.9), lineWidth: 1.5)
-                    }
-                }
-        }.buttonStyle(.plain).contentShape(Rectangle())
     }
     @ViewBuilder
     private func watchedAddressSection(
@@ -344,7 +219,7 @@ struct SetupView: View {
             if !isEditingWallet, draft.isWatchOnlyMode { watchAddressesPageContent }
         case .seedPhrase:
             if !draft.isWatchOnlyMode {
-                setupCard { WalletSecretStep(store: store, draft: draft, showsBackupVerification: false) }
+                WalletSecretStep(store: store, draft: draft, showsBackupVerification: false)
             }
         case .password:
             passwordPageContent
@@ -354,79 +229,60 @@ struct SetupView: View {
             walletNamePageContent
         }
     }
-    /// Page-dominant chain selection: the grid stretches full-width with larger
-    /// cells, and a status capsule on the right stands in for a header, since
-    /// the page-level title above already names the step.
+    /// The most popular chains as rows, then the way to every chain. The
+    /// count beside the title stands in for a header, since the page title
+    /// above already names the step.
     @ViewBuilder
     private var chainSelectionCard: some View {
-        let popularIDSet = Set(Self.popularChainSelectionIds)
-        let extraSelectionCount = draft.selectedChains.filter { !popularIDSet.contains($0) }.count
-        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-            VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-                HStack(alignment: .center, spacing: SpectraLayout.Space.m) {
-                    Text(AppLocalization.string("Popular chains"))
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.secondary)
-                    Spacer()
-                    Text(chainSelectionSummary).font(.caption.weight(.semibold)).foregroundStyle(
-                        selectedChainCount == 0 ? Color.secondary : .accentColor
-                    ).padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs).background(
-                        selectedChainCount == 0 ? SpectraLayout.insetFill : Color.accentColor.opacity(0.14),
-                        in: Capsule(style: .continuous))
-                }
-                LazyVGrid(columns: chainSelectionColumns, spacing: SpectraLayout.Space.s) {
-                    ForEach(popularChainSelectionDescriptors) { descriptor in chainSelectionCard(descriptor) }
-                }
-                if !Self.nonPopularChainSelectionDescriptors.isEmpty {
-                    Button {
-                        chainSearchText = ""
-                        isShowingAllChainsPage = true
-                    } label: {
-                        HStack(spacing: SpectraLayout.Space.m) {
-                            Image(systemName: "square.grid.2x2")
-                                .font(.title3.weight(.semibold))
-                                .foregroundStyle(.tint)
-                                .frame(width: 36, height: 36)
-                                .background(Color.accentColor.opacity(0.14), in: RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous))
-                            VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
-                                Text(AppLocalization.format("Browse all %lld chains", Self.chainSelectionDescriptors.count))
-                                    .font(.subheadline.weight(.semibold))
-                                    .foregroundStyle(Color.primary)
-                                Text(AppLocalization.string("Search by name or symbol.")).font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            if extraSelectionCount > 0 {
-                                Text("+\(extraSelectionCount)").font(.caption.weight(.bold)).foregroundStyle(.white).padding(
-                                    .horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs).background(Capsule(style: .continuous).fill(Color.accentColor))
-                            }
-                            Image(systemName: "chevron.right").font(.subheadline.weight(.bold)).foregroundStyle(.secondary)
-                        }.padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.m).spectraInputFieldStyle()
-                    }.buttonStyle(.plain)
-                }
+        let mainnets = chainSelectionDescriptors.filter { !$0.isTestnet }
+        // The most popular mainnets are listed on the page itself; the rest
+        // are one tap away behind "Browse all".
+        let shortList = Array(mainnets.prefix(6))
+        let shortListIDs = Set(shortList.map(\.id))
+        let allowsMultipleSelection = draft.allowsMultipleChainSelection
+        let extraSelectionCount = draft.selectedChains.filter { !shortListIDs.contains($0) }.count
+        VStack(alignment: .leading, spacing: SpectraLayout.sectionSpacing) {
+            SpectraRowGroup(
+                title: AppLocalization.string("Popular chains"), trailing: chainSelectionSummary, data: shortList
+            ) { descriptor in
+                ChainSelectionRow(
+                    descriptor: descriptor, isSelected: selectedChainSet.contains(descriptor.id),
+                    allowsMultipleSelection: allowsMultipleSelection
+                ) { draft.toggleChainSelection(descriptor.id) }
             }
-            .padding(SpectraLayout.Space.l)
+            Button {
+                chainSearchText = ""
+                isShowingAllChainsPage = true
+            } label: {
+                HStack(spacing: SpectraLayout.Space.m) {
+                    Text(AppLocalization.format("Browse all %lld chains", mainnets.count))
+                        .font(.body.weight(.semibold))
+                        .foregroundStyle(.tint)
+                    Spacer(minLength: SpectraLayout.Space.s)
+                    if extraSelectionCount > 0 {
+                        Text("+\(extraSelectionCount)")
+                            .font(.subheadline.weight(.semibold)).foregroundStyle(.secondary).monospacedDigit()
+                    }
+                    Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
+                }
+                .spectraRowPadding()
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
             .spectraCardFill()
-            chainSelectionFooterNote
         }
         .navigationDestination(isPresented: $isShowingAllChainsPage) {
             AllChainsSelectionView(
-                chainSearchText: $chainSearchText, descriptors: Self.chainSelectionDescriptors,
-                selectedChains: selectedChainSet, toggleSelection: draft.toggleChainSelection,
-                clearAllSelections: { for chain in draft.selectedChains { draft.toggleChainSelection(chain) } }
+                chainSearchText: $chainSearchText, descriptors: chainSelectionDescriptors,
+                selectedChains: selectedChainSet,
+                toggleSelection: { chain in
+                    draft.toggleChainSelection(chain)
+                    // A single choice is made once picked.
+                    if !allowsMultipleSelection { isShowingAllChainsPage = false }
+                },
+                clearAllSelections: allowsMultipleSelection
+                    ? { for chain in draft.selectedChains { draft.toggleChainSelection(chain) } } : nil
             )
-        }
-    }
-    @ViewBuilder
-    private var chainSelectionFooterNote: some View {
-        if isEditingWallet {
-            Text(copy.watchOnlyFixedMessage).font(.caption).foregroundStyle(.secondary)
-        } else if draft.isWatchOnlyMode,
-            draft.selectedChains.contains(where: { !$0.supportsWatchOnlyImport })
-        {
-            // Show only for watch-only imports.
-            // `only_monero_is_excluded_from_watch_only_import` checks that the
-            // chain named in this copy matches the registry restriction.
-            Text(copy.moneroWatchUnsupportedMessage).font(.caption).foregroundStyle(.spectraWarning.opacity(0.9))
         }
     }
     /// Page-level rendering contract: callers (the `pageContent` switch)
@@ -607,13 +463,19 @@ struct SetupView: View {
             }.scrollBounceBehavior(.basedOnSize)
         }
         .navigationBarTitleDisplayMode(.inline)
+        // One back: a step back through the flow, and out of it from the first
+        // page. The system button would leave the whole flow from any page.
+        .navigationBarBackButtonHidden()
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(AppLocalization.string("Back"), systemImage: "chevron.backward", action: performBackNavigation)
+            }
+        }
         .safeAreaInset(edge: .bottom, spacing: 0) {
             setupBottomActionBar
         }
             .onChange(of: draft.mode) { _, _ in
                 setupPage = draft.isEditingWallet ? .walletName : .details
-            }.onChange(of: draft.selectedSeedPhraseWordCount) { _, newValue in
-                customSeedPhraseWordCountInput = String(newValue)
             }
     }
     private func performBackNavigation() {
@@ -628,17 +490,8 @@ struct SetupView: View {
             dismiss()
         }
     }
-    private var canGoBack: Bool { setupFlow.previous(before: setupPage) != nil }
     private var setupBottomActionBar: some View {
         SpectraBottomActionBar {
-            if canGoBack {
-                Button(action: performBackNavigation) {
-                    Text(AppLocalization.string("Back"))
-                        .font(.body.weight(.semibold))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, SpectraLayout.Space.s)
-                }.buttonStyle(.glass).controlSize(.large)
-            }
             Button(action: performPrimaryAction) {
                 Text(primaryActionTitle)
                     .font(.body.weight(.semibold))

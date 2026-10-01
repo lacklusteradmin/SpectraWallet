@@ -17,6 +17,8 @@ enum CoreReferenceTables {
         chainWiki.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
     /// BIP-39 lengths and entropy as defined by core, one picker chip per entry.
     static let standardSeedPhraseLengths: [SeedPhraseLength] = seedPhraseLengths()
+    /// Every BIP-39 wordlist, English first, as core names and codes them.
+    static let seedPhraseWordlists: [SeedPhraseLanguage] = seedPhraseLanguages()
 
     static func assetWikiEntry(tokenId: String) -> AssetWikiEntry? { assetWikiByTokenId[tokenId] }
     static func chainWikiEntry(id: String) -> ChainWikiEntry? { chainWikiById[id] }

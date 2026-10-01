@@ -1,8 +1,11 @@
 import Foundation
 import SwiftUI
 extension AppState {
-    func beginWalletImport() {
+    func beginSeedPhraseImport() {
         walletImport.begin { $0.configureForNewWallet() }
+    }
+    func beginPrivateKeyImport() {
+        walletImport.begin { $0.configureForPrivateKeyImport() }
     }
     func beginWatchAddressesImport() {
         walletImport.begin { $0.configureForWatchAddressesImport() }

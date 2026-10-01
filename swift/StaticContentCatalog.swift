@@ -83,11 +83,8 @@ struct ImportFlowContent {
     var saveRecoveryPhraseSubtitle: String { AppLocalization.string("import_flow.saveRecoveryPhraseSubtitle") }
     var enterRecoveryPhraseSubtitle: String { AppLocalization.string("import_flow.enterRecoveryPhraseSubtitle") }
     var editWalletSubtitle: String { AppLocalization.string("import_flow.editWalletSubtitle") }
-    var importSeedLengthTitle: String { AppLocalization.string("import_flow.importSeedLengthTitle") }
-    var importSeedLengthSubtitle: String { AppLocalization.string("import_flow.importSeedLengthSubtitle") }
     var createSeedLengthTitle: String { AppLocalization.string("import_flow.createSeedLengthTitle") }
     var createSeedLengthSubtitle: String { AppLocalization.string("import_flow.createSeedLengthSubtitle") }
-    var seedPhraseEntryHelp: String { AppLocalization.string("import_flow.seedPhraseEntryHelp") }
     var createSeedPhraseWarning: String { AppLocalization.string("import_flow.createSeedPhraseWarning") }
     var privateKeyTitle: String { AppLocalization.string("import_flow.privateKeyTitle") }
     var privateKeyPrompt: String { AppLocalization.string("import_flow.privateKeyPrompt") }
@@ -95,8 +92,6 @@ struct ImportFlowContent {
     var backupVerificationButtonTitle: String { AppLocalization.string("import_flow.backupVerificationButtonTitle") }
     var backupVerifiedMessage: String { AppLocalization.string("import_flow.backupVerifiedMessage") }
     var backupVerificationHint: String { AppLocalization.string("import_flow.backupVerificationHint") }
-    var watchOnlyFixedMessage: String { AppLocalization.string("import_flow.watchOnlyFixedMessage") }
-    var moneroWatchUnsupportedMessage: String { AppLocalization.string("import_flow.moneroWatchUnsupportedMessage") }
     var addressesToWatchTitle: String { AppLocalization.string("import_flow.addressesToWatchTitle") }
     var addressesToWatchSubtitle: String { AppLocalization.string("import_flow.addressesToWatchSubtitle") }
     var bitcoinWatchCaption: String { AppLocalization.string("import_flow.bitcoinWatchCaption") }

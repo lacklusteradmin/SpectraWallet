@@ -4,19 +4,14 @@ enum WalletDraftMode {
     case createNew
     case editExisting
 }
-enum WalletSecretImportMode: String, CaseIterable, Identifiable {
-    case seedPhrase = "Seed Phrase"
-    case privateKey = "Private Key"
-    var id: String { rawValue }
-    var localizedTitle: String { AppLocalization.string(rawValue) }
-}
 /// Mutation contract for `WalletImportDraft`:
 ///
 ///   * **Derived state is computed, not stored.** `selectedChains` and the
 ///     verdicts are read from the fields they depend on, so no field needs a
 ///     hook to keep them current and any field may be bound directly.
-///   * **Fields with a `didSet` reshape other fields** — the mnemonic length
-///     resizes the word grid and, in create mode, regenerates the phrase.
+///   * **Fields with a `didSet` reshape other fields** — a created phrase's
+///     length regenerates it, and an import's length override refits the
+///     grid. An import's grid otherwise follows core's verdict as words land.
 ///     Chain selection goes through `toggleChainSelection`, which applies the
 ///     mode's one-chain rule.
 @MainActor
@@ -29,7 +24,10 @@ final class WalletImportDraft {
     var seedPhrase: String = ""
     var walletPassword: String = ""
     var walletPasswordConfirmation: String = ""
-    var secretImportMode: WalletSecretImportMode = .seedPhrase
+    /// An import from a raw private key rather than a phrase. Chosen on the
+    /// Add Wallet page, before the chains, because it decides which chains
+    /// the import can use.
+    var importsPrivateKey: Bool = false
     var privateKeyInput: String = ""
     var seedDerivationPreset: CoreSeedDerivationPreset = .standard
     var seedDerivationPaths: SeedDerivationPaths = .defaults
@@ -39,8 +37,18 @@ final class WalletImportDraft {
     // `resolvedDerivationOverrides`.
     var overridePassphrase: String = ""
     var overrideHmacKey: String = ""
-    var seedPhraseLanguage: String = "en"
+    /// The import's wordlist, from `seedPhraseLanguages()`, or `nil` for
+    /// core to detect it from the words.
+    var seedPhraseLanguage: String?
+    /// The import's length, or `nil` for core to infer it from the words.
+    /// Fixing it never cuts a longer entry short: core refuses the phrase.
+    var seedPhraseWordCountOverride: Int? {
+        didSet { fitSeedPhraseSlots(shrinking: true) }
+    }
+    /// One entry per slot of the grid. An import grows it to the length core
+    /// judges the phrase at; creating a wallet sizes it to the phrase.
     var seedPhraseEntries: [String] = Array(repeating: "", count: 12)
+    /// The length a created phrase is generated at.
     var selectedSeedPhraseWordCount: Int = 12 {
         didSet {
             resizeSeedPhraseEntries(to: selectedSeedPhraseWordCount)
@@ -56,26 +64,32 @@ final class WalletImportDraft {
     var selectedChainsStorage: [Chain] = []
     var backupVerificationWordIndices: [Int] = []
     var backupVerificationEntries: [String] = []
-    /// The chains the import uses: all of them, or only the first where the
-    /// mode allows one — editing, watch-only and private-key imports.
+    /// The chains the import uses: those ticked that this mode can use, all
+    /// of them or only the first where the mode allows one — editing,
+    /// watch-only and private-key imports.
     var selectedChains: [Chain] {
-        allowsMultipleChainSelection ? selectedChainsStorage : Array(selectedChainsStorage.prefix(1))
+        let usable = selectedChainsStorage.filter(offers)
+        return allowsMultipleChainSelection ? usable : Array(usable.prefix(1))
+    }
+    /// Whether this mode's chain picker lists `chain`: a private key derives
+    /// an address on only some chains, and only some chains can be watched.
+    func offers(_ chain: Chain) -> Bool {
+        if isPrivateKeyImportMode { return chain.derivesFromPrivateKey }
+        if isWatchOnlyMode { return chain.supportsWatchOnlyImport }
+        return true
     }
     var isCreateMode: Bool { mode == .createNew }
-    var isPrivateKeyImportMode: Bool { mode == .importExisting && !isWatchOnlyMode && secretImportMode == .privateKey }
-    /// Selected chains a private key cannot derive an address on, by name.
-    var unsupportedPrivateKeyChainNames: [String] {
-        selectedChains.filter { !$0.derivesFromPrivateKey }.map(\.displayName)
-    }
-    private var allowsMultipleChainSelection: Bool { !isEditingWallet && !isWatchOnlyMode && !isPrivateKeyImportMode }
+    var isPrivateKeyImportMode: Bool { mode == .importExisting && !isWatchOnlyMode && importsPrivateKey }
+    var allowsMultipleChainSelection: Bool { !isEditingWallet && !isWatchOnlyMode && !isPrivateKeyImportMode }
     func isSelected(_ chain: Chain) -> Bool { selectedChainsStorage.contains(chain) }
     /// Everything core has to say about the entry grid, decided in one pass.
     /// Edit mode resets the grid, so an empty entry answers "nothing to say"
     /// without a mode guard of its own.
     var seedPhraseVerdict: SeedPhraseVerdict {
+        let wordCount = isCreateMode ? selectedSeedPhraseWordCount : seedPhraseWordCountOverride
         let check = SeedPhraseCheck(
-            words: seedPhraseEntries, language: seedPhraseLanguage,
-            expectedWordCount: UInt32(selectedSeedPhraseWordCount))
+            words: seedPhraseEntries, language: isCreateMode ? nil : seedPhraseLanguage,
+            wordCount: wordCount.map(UInt32.init))
         // One render reads this several times; ask core once per grid.
         if let cached = seedPhraseVerdictCache, cached.check == check { return cached.verdict }
         let verdict = checkSeedPhrase(check: check)
@@ -143,7 +157,7 @@ final class WalletImportDraft {
     var isSecretComplete: Bool {
         guard !selectedChains.isEmpty else { return false }
         if isPrivateKeyImportMode {
-            return unsupportedPrivateKeyChainNames.isEmpty && isPrivateKeyHex(rawValue: privateKeyInput)
+            return isPrivateKeyHex(rawValue: privateKeyInput)
         }
         return seedPhraseVerdict.checksumValid
     }
@@ -172,6 +186,11 @@ final class WalletImportDraft {
         mode = .importExisting
         reset()
     }
+    func configureForPrivateKeyImport() {
+        mode = .importExisting
+        reset()
+        importsPrivateKey = true
+    }
     func configureForWatchAddressesImport() {
         mode = .importExisting
         reset()
@@ -196,12 +215,14 @@ final class WalletImportDraft {
         seedPhrase = ""
         walletPassword = ""
         walletPasswordConfirmation = ""
-        secretImportMode = .seedPhrase
+        importsPrivateKey = false
         privateKeyInput = ""
         seedDerivationPreset = .standard
         seedDerivationPaths = .defaults
         overridePassphrase = ""
         overrideHmacKey = ""
+        seedPhraseLanguage = nil
+        seedPhraseWordCountOverride = nil
         seedPhraseEntries = Array(repeating: "", count: 12)
         selectedSeedPhraseWordCount = 12
         isWatchOnlyMode = false
@@ -245,24 +266,62 @@ final class WalletImportDraft {
         guard seedPhraseEntries.indices.contains(index) else { return "" }
         return seedPhraseEntries[index]
     }
+    /// Put what was typed or pasted at `index`. Several words fill the slots
+    /// from there on, adding slots rather than dropping words that do not fit.
     func updateSeedPhraseEntry(at index: Int, with newValue: String) {
         guard seedPhraseEntries.indices.contains(index) else { return }
         let pastedWords = newValue.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
         if pastedWords.count > 1 {
             var updatedEntries = seedPhraseEntries
-            for offset in 0..<pastedWords.count {
-                let destinationIndex = index + offset
-                guard updatedEntries.indices.contains(destinationIndex) else { break }
-                updatedEntries[destinationIndex] = pastedWords[offset]
+            let end = index + pastedWords.count
+            if updatedEntries.count < end {
+                updatedEntries.append(contentsOf: Array(repeating: "", count: end - updatedEntries.count))
             }
+            updatedEntries.replaceSubrange(index..<end, with: pastedWords)
             seedPhraseEntries = updatedEntries
             syncSeedPhraseFromEntries()
+            fitSeedPhraseSlots(shrinking: false)
             return
         }
         let normalizedValue = newValue.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard seedPhraseEntries[index] != normalizedValue else { return }
         seedPhraseEntries[index] = normalizedValue
         syncSeedPhraseFromEntries()
+        fitSeedPhraseSlots(shrinking: false)
+    }
+    /// Replace the whole entry with a pasted phrase.
+    func pasteSeedPhrase(_ text: String) {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        seedPhraseEntries = Array(repeating: "", count: seedPhraseWordCountOverride ?? 12)
+        updateSeedPhraseEntry(at: 0, with: trimmed)
+    }
+    func clearSeedPhrase() {
+        seedPhraseEntries = Array(repeating: "", count: seedPhraseWordCountOverride ?? 12)
+        syncSeedPhraseFromEntries()
+    }
+    /// The next BIP-39 length past the grid's, or `nil` at the longest.
+    var nextSeedPhraseSlotCount: Int? {
+        CoreReferenceTables.standardSeedPhraseLengths.map { Int($0.wordCount) }
+            .first { $0 > seedPhraseEntries.count }
+    }
+    /// Grow the grid to the next BIP-39 length, for a phrase typed past it.
+    func addSeedPhraseSlots() {
+        guard let next = nextSeedPhraseSlotCount else { return }
+        seedPhraseEntries.append(contentsOf: Array(repeating: "", count: next - seedPhraseEntries.count))
+    }
+    /// Size an import's grid to the length core judges it at, never below
+    /// its last filled slot. Growing alone keeps slots the user added; a new
+    /// override also drops blank slots past it.
+    private func fitSeedPhraseSlots(shrinking: Bool) {
+        guard !isCreateMode else { return }
+        let filledThrough = (seedPhraseEntries.lastIndex { !$0.isEmpty } ?? -1) + 1
+        let target = max(Int(seedPhraseVerdict.wordCount), filledThrough)
+        if seedPhraseEntries.count < target {
+            seedPhraseEntries.append(contentsOf: Array(repeating: "", count: target - seedPhraseEntries.count))
+        } else if shrinking, seedPhraseEntries.count > target {
+            seedPhraseEntries = Array(seedPhraseEntries.prefix(target))
+        }
     }
     func prepareBackupVerificationChallenge() {
         guard requiresBackupVerification else {
@@ -288,15 +347,21 @@ final class WalletImportDraft {
         guard backupVerificationEntries.indices.contains(index) else { return }
         backupVerificationEntries[index] = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
     }
+    /// A typed custom length, clamped to the range core can judge. Fixes the
+    /// generated length when creating and the judged length when importing.
     func applyCustomSeedPhraseWordCount(_ rawValue: String) {
         let digits = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !digits.isEmpty, let parsed = Int(digits) else { return }
         let clamped = min(max(parsed, 1), 48)
-        guard clamped != selectedSeedPhraseWordCount else { return }
-        selectedSeedPhraseWordCount = clamped
+        if isCreateMode {
+            guard clamped != selectedSeedPhraseWordCount else { return }
+            selectedSeedPhraseWordCount = clamped
+        } else {
+            seedPhraseWordCountOverride = clamped
+        }
     }
     private func resizeSeedPhraseEntries(to count: Int) {
-        guard count > 0 else { return }
+        guard count > 0, isCreateMode else { return }
         if seedPhraseEntries.count > count {
             seedPhraseEntries = Array(seedPhraseEntries.prefix(count))
         } else if seedPhraseEntries.count < count {
@@ -306,11 +371,7 @@ final class WalletImportDraft {
             backupVerificationWordIndices = []
             backupVerificationEntries = []
         }
-        if isCreateMode {
-            regenerateSeedPhrase()
-            return
-        }
-        syncSeedPhraseFromEntries()
+        regenerateSeedPhrase()
     }
     private func syncSeedPhraseFromEntries() {
         let normalizedEntries = seedPhraseEntries.map { $0.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) }
