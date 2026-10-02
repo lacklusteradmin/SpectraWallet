@@ -4,64 +4,58 @@ import SwiftUI
 struct MoneroSyncView: View {
     let store: AppState
     let walletId: String
-    @State private var status: MoneroSyncStatus?
-    @State private var password = ""
-    @State private var restoreHeight = ""
-    @State private var running = false
-    @State private var error: String?
+    @State private var vm = MoneroSyncViewModel()
 
     var body: some View {
         Group {
-            if let status {
+            if let status = vm.status {
                 VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
                     Text(AppLocalization.string("Local Monero Wallet")).font(.headline)
                     Text(AppLocalization.string("Scanning and signing happen on this device. Keys stay on this device."))
                         .font(.caption).foregroundStyle(.secondary)
                     Text(verbatim: "\(status.scannedHeight) / \(status.targetHeight)")
                         .monospacedDigit()
-                    if running {
+                    if vm.isRunning {
                         ProgressView()
-                        Button(AppLocalization.string("Cancel")) { running = false }
+                        Button(AppLocalization.string("Cancel")) { vm.cancel() }
                             .buttonStyle(.glass)
                     } else {
                         if store.wallet(for: walletId)?.signing.requiresPassword ?? true {
-                            SecureField(AppLocalization.string("Wallet Password"), text: $password)
+                            SecureField(AppLocalization.string("Wallet Password"), text: $vm.password)
                                 .spectraInputFieldStyle()
                         }
                         if status.targetHeight == 0 {
-                            TextField(AppLocalization.string("Restore height (default 0)"), text: $restoreHeight)
+                            TextField(AppLocalization.string("Restore height (default 0)"), text: $vm.restoreHeight)
                                 .keyboardType(.numberPad).spectraInputFieldStyle()
                             Text(AppLocalization.string("Use a height before your first receipt. A later height can miss funds."))
                                 .font(.caption).foregroundStyle(.secondary)
                         }
-                        Button(AppLocalization.string("Sync Local Wallet")) { running = true }
+                        Button(AppLocalization.string("Sync Local Wallet")) { vm.begin() }
                             .buttonStyle(.glassProminent)
                     }
-                    if let error { Text(error).font(.caption).foregroundStyle(.red) }
+                    if let error = vm.error { Text(error).font(.caption).foregroundStyle(.red) }
                 }
                 .padding(SpectraLayout.cardPadding)
                 .spectraCardFill()
             }
         }
         .task(id: walletId) {
-            do { status = try await store.moneroSyncStatus(walletId: walletId) }
-            catch { self.error = userErrorMessage(error) }
-        }
-        .task(id: running) {
-            guard running else { return }
-            defer { password = ""; running = false }
-            var height: UInt64?
-            if status?.targetHeight == 0 && !restoreHeight.isEmpty {
-                guard let parsed = UInt64(restoreHeight) else {
-                    error = AppLocalization.string("Invalid restore height")
-                    return
-                }
-                height = parsed
+            do {
+                let status = try await store.moneroSyncStatus(walletId: walletId)
+                guard !Task.isCancelled else { return }
+                vm.status = status
+            } catch {
+                guard !Task.isCancelled else { return }
+                vm.error = userErrorMessage(error)
             }
-            error = await store.syncMoneroWallet(
-                walletId: walletId, password: password.isEmpty ? nil : password, restoreHeight: height
-            ) { status = $0 }
         }
-        .onDisappear { password = ""; running = false }
+        .task(id: vm.requestId) {
+            guard let request = vm.requestId else { return }
+            await vm.sync(request: request) { password, height, progress in
+                await store.syncMoneroWallet(
+                    walletId: walletId, password: password, restoreHeight: height, progress: progress)
+            }
+        }
+        .onDisappear { vm.cancel() }
     }
 }

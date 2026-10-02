@@ -117,18 +117,6 @@ extension AssetHolding {
     }
 }
 
-extension AppState {
-    /// Wait until every command sent so far has come back and been applied.
-    ///
-    /// Mirrors settle a runloop hop after the assignment that sends them, which
-    /// is fine for a UI and awkward for a test asserting the effect. Tests
-    /// await this rather than each deriving the rule locally.
-    func awaitPendingCoreStateWrites() async {
-        await awaitPendingStateCommands()
-        await rebuildWalletDerivedStateFromCore()
-    }
-}
-
 @MainActor
 extension WalletDiagnosticsState {
     func flushPendingPersistence() async { await pendingCommand?.value }

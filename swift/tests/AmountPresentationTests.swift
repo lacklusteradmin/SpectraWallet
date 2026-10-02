@@ -10,6 +10,13 @@ struct AmountPresentationTests {
         #expect(display.formattedFiatIfAvailable(nil) == nil)
         #expect(display.formattedFiatIfAvailable(.infinity) == nil)
         #expect(display.formattedFiat(nil) == "—")
+        #expect(display.formattedQuotedTotal(nil) == "—")
+    }
+
+    @Test func partialTotalsShowTheValuedFigureAlone() {
+        let display = AmountPresentation(assetPrecision: nil, valuation: nil, selectedFiatCurrency: .eur)
+        let incomplete = QuotedTotal(total: 6000, unpricedCount: 1, fiatTotal: 5400)
+        #expect(display.formattedQuotedTotal(incomplete) == display.formattedFiat(5400))
     }
 
     @Test func compactAmountsCutAndDetailedAmountsKeepEveryDigit() {

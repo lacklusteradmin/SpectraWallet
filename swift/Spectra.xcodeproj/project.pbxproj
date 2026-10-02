@@ -47,8 +47,8 @@
 		90F002000000000000000039 /* AppState+TorLifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000039 /* AppState+TorLifecycle.swift */; };
 		90F00200000000000000003B /* SetupFlow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003B /* SetupFlow.swift */; };
 		90F00200000000000000003C /* ImportDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F00100000000000000003C /* ImportDraft.swift */; };
-		90F0020000000000000000F1 /* SeedPhraseEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F0010000000000000000F1 /* SeedPhraseEntry.swift */; };
 		90F002000000000000000080 /* WalletRefreshObserver.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000080 /* WalletRefreshObserver.swift */; };
+		90F0020000000000000000F1 /* SeedPhraseEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F0010000000000000000F1 /* SeedPhraseEntry.swift */; };
 		90F002000000000000000100 /* Chain+Registry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000100 /* Chain+Registry.swift */; };
 		90F002000000000000000102 /* AppState+SendLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000102 /* AppState+SendLiveActivity.swift */; };
 		90F002000000000000000200 /* AppState+AddressBook.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000200 /* AppState+AddressBook.swift */; };
@@ -67,6 +67,8 @@
 		91DC00000000000000000003 /* AmountPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DC00000000000000000001 /* AmountPresentation.swift */; };
 		91DC00000000000000000004 /* AssetPresentationCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DC00000000000000000002 /* AssetPresentationCatalog.swift */; };
 		91DC000000000000000000A2 /* AppState+TokenPreferences.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DC000000000000000000A1 /* AppState+TokenPreferences.swift */; };
+		91DD00000000000000000003 /* SeedPhraseRevealState.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DD00000000000000000001 /* SeedPhraseRevealState.swift */; };
+		91DD00000000000000000004 /* MoneroSyncViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 91DD00000000000000000002 /* MoneroSyncViewModel.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -142,8 +144,8 @@
 		90F001000000000000000039 /* AppState+TorLifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TorLifecycle.swift"; sourceTree = "<group>"; };
 		90F00100000000000000003B /* SetupFlow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetupFlow.swift; sourceTree = "<group>"; };
 		90F00100000000000000003C /* ImportDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportDraft.swift; sourceTree = "<group>"; };
-		90F0010000000000000000F1 /* SeedPhraseEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeedPhraseEntry.swift; sourceTree = "<group>"; };
 		90F001000000000000000080 /* WalletRefreshObserver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WalletRefreshObserver.swift; sourceTree = "<group>"; };
+		90F0010000000000000000F1 /* SeedPhraseEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeedPhraseEntry.swift; sourceTree = "<group>"; };
 		90F001000000000000000100 /* Chain+Registry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "Chain+Registry.swift"; sourceTree = "<group>"; };
 		90F001000000000000000102 /* AppState+SendLiveActivity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+SendLiveActivity.swift"; sourceTree = "<group>"; };
 		90F001000000000000000200 /* AppState+AddressBook.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+AddressBook.swift"; sourceTree = "<group>"; };
@@ -163,6 +165,8 @@
 		91DC00000000000000000001 /* AmountPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AmountPresentation.swift; sourceTree = "<group>"; };
 		91DC00000000000000000002 /* AssetPresentationCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetPresentationCatalog.swift; sourceTree = "<group>"; };
 		91DC000000000000000000A1 /* AppState+TokenPreferences.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TokenPreferences.swift"; sourceTree = "<group>"; };
+		91DD00000000000000000001 /* SeedPhraseRevealState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SeedPhraseRevealState.swift; sourceTree = "<group>"; };
+		91DD00000000000000000002 /* MoneroSyncViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoneroSyncViewModel.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -262,6 +266,8 @@
 				90F001000000000000000029 /* SendPreviewTypes.swift */,
 				91D900000000000000000001 /* SendSession.swift */,
 				91DA00000000000000000003 /* WalletImportSession.swift */,
+				91DD00000000000000000001 /* SeedPhraseRevealState.swift */,
+				91DD00000000000000000002 /* MoneroSyncViewModel.swift */,
 				91DA00000000000000000002 /* ReceiveFlowState.swift */,
 				91DA00000000000000000001 /* SendFlowState.swift */,
 				90F00100000000000000002C /* StaticContentCatalog.swift */,
@@ -511,6 +517,8 @@
 				90F002000000000000000029 /* SendPreviewTypes.swift in Sources */,
 				91D900000000000000000002 /* SendSession.swift in Sources */,
 				91DB00000000000000000003 /* WalletImportSession.swift in Sources */,
+				91DD00000000000000000003 /* SeedPhraseRevealState.swift in Sources */,
+				91DD00000000000000000004 /* MoneroSyncViewModel.swift in Sources */,
 				91DB00000000000000000002 /* ReceiveFlowState.swift in Sources */,
 				91DB00000000000000000001 /* SendFlowState.swift in Sources */,
 				90F00200000000000000002C /* StaticContentCatalog.swift in Sources */,

@@ -7,10 +7,9 @@
 # translations behind.
 #
 # A key is reachable when its text, with `%@`/`%lld`/… treated as a wildcard,
-# appears anywhere that can produce it: Swift, Rust (core writes English
-# templates too — see `diagnostics/degraded.rs`), another resource file, or
-# the chain catalog. A dotted key is reachable when it is spelled out — the
-# screen copy structs name theirs — or when its namespace is interpolated
+# appears anywhere that can produce it: Swift, Rust (core's error templates),
+# another resource file, or the chain catalog. A dotted key is reachable when
+# a screen copy struct spells it out or its namespace is interpolated
 # with an id (`"addressHint.\(chain.id).empty"`). The reverse holds too: a
 # dotted key Swift spells out must be in the source table.
 #

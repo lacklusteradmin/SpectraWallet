@@ -13,9 +13,6 @@ struct DiagnosticsBundleTests: IsolatedAppStateSuite {
         #expect(imported.schemaVersion == 2)
         #expect(!imported.environment.osVersion.isEmpty)
         #expect(imported.environment.walletCount == 0)
-        // Keys are canonical chain ids, one per mainnet.
-        #expect(imported.chainDiagnosticsJson["bitcoin-cash"] != nil)
-        #expect(imported.chainDiagnosticsJson["internet-computer"] != nil)
         #expect(Set(imported.chainDiagnosticsJson.keys) == Set(Chain.all.map(\.id)))
     }
 

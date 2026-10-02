@@ -220,11 +220,7 @@ struct WalletDetailView: View {
         }
         return DetailPresentation(
             wallet: wallet,
-            // A wallet is on one chain, so its address is that chain's. Sixteen
-            // shims listed here and `.compactMap { $0 }.first` picked whichever
-            // came back first, which is "prefer Bitcoin, then Bitcoin Cash, …"
-            // dressed as a fallback — and eight chains were not in the list at
-            // all, so a Zcash or TON wallet showed no address.
+            // A wallet is on one chain, so its address is that chain's.
             walletAddress: wallet.address(on: wallet.chain),
             derivationPathsText: derivationPathsText(for: wallet),
             walletBadge: Coin.nativeChainBadge(for: wallet.family) ?? (nil, .mint),
@@ -382,12 +378,7 @@ private struct WalletAdvancedDetailsView: View {
     let derivationPathsText: String?
     let firstActivityDateText: String
     @Environment(\.scenePhase) private var scenePhase
-    @State private var isShowingSeedPhrasePasswordPrompt: Bool = false
-    @State private var isShowingSeedPhraseSheet: Bool = false
-    @State private var seedPhrasePasswordInput: String = ""
-    @State private var revealedSeedPhrase: String = ""
-    @State private var seedPhraseErrorMessage: String?
-    @State private var isRevealingSeedPhrase: Bool = false
+    @State private var seedReveal = SeedPhraseRevealState()
     @State private var isShowingDeleteWalletAlert: Bool = false
     private var displayedWallet: WalletView {
         store.wallet(for: wallet.id) ?? wallet
@@ -403,13 +394,6 @@ private struct WalletAdvancedDetailsView: View {
             return AppLocalization.string("Please keep this private key because you can't recover this wallet after deletion.")
         }
         return AppLocalization.string("Please take note of your seed phrase because you can't recover this wallet after deletion.")
-    }
-    private func clearSeedRevealState() {
-        isShowingSeedPhrasePasswordPrompt = false
-        isShowingSeedPhraseSheet = false
-        seedPhrasePasswordInput = ""
-        revealedSeedPhrase = ""
-        seedPhraseErrorMessage = nil
     }
     var body: some View {
         Form {
@@ -433,8 +417,8 @@ private struct WalletAdvancedDetailsView: View {
                     Button {
                         spectraHaptic(.medium)
                         if requiresSeedPhrasePassword {
-                            seedPhrasePasswordInput = ""
-                            isShowingSeedPhrasePasswordPrompt = true
+                            seedReveal.passwordInput = ""
+                            seedReveal.isShowingPasswordPrompt = true
                         } else {
                             Task {
                                 await revealSeedPhrase()
@@ -442,14 +426,14 @@ private struct WalletAdvancedDetailsView: View {
                         }
                     } label: {
                         Label(
-                            isRevealingSeedPhrase
+                            seedReveal.isRevealing
                                 ? AppLocalization.string("Checking Face ID...")
                                 : (requiresSeedPhrasePassword
                                     ? AppLocalization.string("Show Seed Phrase (Password)")
                                     : AppLocalization.string("Show Seed Phrase")),
                             systemImage: requiresSeedPhrasePassword ? "lock.shield" : "faceid"
                         )
-                    }.disabled(isRevealingSeedPhrase || !displayedWallet.signing.hasSeedPhrase)
+                    }.disabled(seedReveal.isRevealing || !displayedWallet.signing.hasSeedPhrase)
                 }
             }
             Section(AppLocalization.string("Details")) {
@@ -486,24 +470,28 @@ private struct WalletAdvancedDetailsView: View {
             Text(deleteWalletMessage)
         }.alert(
             AppLocalization.string("Cannot Reveal Seed Phrase"),
-            isPresented: .isPresent($seedPhraseErrorMessage)
+            isPresented: .isPresent($seedReveal.errorMessage)
         ) {
             Button(AppLocalization.string("OK"), role: .cancel) {}
         } message: {
-            Text(seedPhraseErrorMessage ?? "Unknown error")
+            Text(seedReveal.errorMessage ?? "Unknown error")
         }.onChange(of: (store.wallet(for: wallet.id) != nil)) { _, walletStillExists in
             if !walletStillExists {
                 isShowingDeleteWalletAlert = false
-                clearSeedRevealState()
+                seedReveal.invalidate()
             }
         }.onChange(of: scenePhase) { _, newPhase in
-            guard newPhase != .active else { return }
-            clearSeedRevealState()
+            seedReveal.setSceneIsActive(newPhase == .active)
+            // Native authentication may briefly make the scene inactive.
+            // Leaving the app invalidates the request as well as its presentation.
+            if newPhase == .background { seedReveal.invalidate() }
         }
+        .onAppear { seedReveal.activate(sceneIsActive: scenePhase == .active) }
+        .onDisappear { seedReveal.deactivate() }
         .sheet(
-            isPresented: $isShowingSeedPhrasePasswordPrompt,
+            isPresented: $seedReveal.isShowingPasswordPrompt,
             onDismiss: {
-                seedPhrasePasswordInput = ""
+                seedReveal.passwordInput = ""
             }
         ) {
             NavigationStack {
@@ -513,33 +501,35 @@ private struct WalletAdvancedDetailsView: View {
                             AppLocalization.string(
                                 "This wallet has an optional seed phrase password. Enter it after Face ID to reveal the recovery phrase.")
                         ).font(.subheadline).foregroundStyle(.secondary)
-                        SecureField(AppLocalization.string("Wallet Password"), text: $seedPhrasePasswordInput)
+                        SecureField(AppLocalization.string("Wallet Password"), text: $seedReveal.passwordInput)
                             .textInputAutocapitalization(.never).autocorrectionDisabled().privacySensitive().padding(SpectraLayout.Space.m)
                             .spectraInputFieldStyle().foregroundStyle(Color.primary)
                         Button {
                             spectraHaptic(.medium)
-                            isShowingSeedPhrasePasswordPrompt = false
+                            let password = seedReveal.passwordInput
+                            seedReveal.isShowingPasswordPrompt = false
+                            seedReveal.passwordInput = ""
                             Task {
-                                await revealSeedPhrase(password: seedPhrasePasswordInput)
+                                await revealSeedPhrase(password: password)
                             }
                         } label: {
                             Text(AppLocalization.string("Reveal Seed Phrase")).font(.headline).frame(maxWidth: .infinity)
                         }.buttonStyle(.glassProminent).disabled(
-                            seedPhrasePasswordInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                            seedReveal.passwordInput.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                         Spacer()
                     }.padding(SpectraLayout.Space.l)
                 }.navigationTitle(AppLocalization.string("Wallet Password")).navigationBarTitleDisplayMode(.inline).toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button(AppLocalization.string("Cancel")) {
-                            isShowingSeedPhrasePasswordPrompt = false
+                            seedReveal.isShowingPasswordPrompt = false
                         }
                     }
                 }
             }
         }.sheet(
-            isPresented: $isShowingSeedPhraseSheet,
+            isPresented: $seedReveal.isShowingPhraseSheet,
             onDismiss: {
-                revealedSeedPhrase = ""
+                seedReveal.clearPhrase()
             }
         ) {
             NavigationStack {
@@ -550,7 +540,7 @@ private struct WalletAdvancedDetailsView: View {
                                 AppLocalization.string(
                                     "Write this down and keep it offline. Anyone with this phrase can control your funds.")
                             ).font(.subheadline).foregroundStyle(.secondary)
-                            Text(revealedSeedPhrase).font(.body.monospaced()).foregroundStyle(Color.primary).privacySensitive().padding(SpectraLayout.Space.m)
+                            Text(seedReveal.phrase).font(.body.monospaced()).foregroundStyle(Color.primary).privacySensitive().padding(SpectraLayout.Space.m)
                                 .frame(maxWidth: .infinity, alignment: .leading).spectraInputFieldStyle(cornerRadius: SpectraLayout.Radius.inner)
                         }.padding(SpectraLayout.Space.l).spectraBubbleFill().spectraCardFill()
                             .padding(SpectraLayout.Space.l)
@@ -558,7 +548,7 @@ private struct WalletAdvancedDetailsView: View {
                 }.navigationTitle(AppLocalization.string("Seed Phrase")).navigationBarTitleDisplayMode(.inline).toolbar {
                     ToolbarItem(placement: .topBarTrailing) {
                         Button(AppLocalization.string("Done")) {
-                            isShowingSeedPhraseSheet = false
+                            seedReveal.isShowingPhraseSheet = false
                         }
                     }
                 }
@@ -566,19 +556,12 @@ private struct WalletAdvancedDetailsView: View {
         }
     }
     private func revealSeedPhrase(password: String? = nil) async {
-        guard !isRevealingSeedPhrase else { return }
-        isRevealingSeedPhrase = true
-        defer { isRevealingSeedPhrase = false }
-        do {
-            let phrase = try await store.revealSeedPhrase(for: wallet, password: password)
-            revealedSeedPhrase = phrase
-            seedPhrasePasswordInput = ""
-            spectraNotificationHaptic(.success)
-            isShowingSeedPhraseSheet = true
-        } catch {
-            spectraNotificationHaptic(.error)
-            seedPhraseErrorMessage = userErrorMessage(error)
-        }
+        let result = await seedReveal.reveal(canPresent: {
+            store.wallet(for: wallet.id) != nil
+        }, operation: {
+            try await store.revealSeedPhrase(for: wallet, password: password)
+        })
+        if let result { spectraNotificationHaptic(result ? .success : .error) }
     }
 }
 private struct WalletDetailRow: View {

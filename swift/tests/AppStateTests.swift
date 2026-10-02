@@ -125,21 +125,6 @@ struct AppStatePlatformBridgeTests: IsolatedAppStateSuite {
         )
         #expect(wallet.networkTitle == "Bitcoin Testnet4")
     }
-    @Test func unvaluedFiguresAreUnavailableAndPartialTotalsShowTheFigureAlone() async {
-        let store = makeState()
-        await store.awaitPendingCoreStateWrites()
-        let before = store.selectedFiatCurrency
-        store.updateSetting(.fiatCurrency(value: .eur))
-        await store.awaitPendingStateCommands()
-        #expect(store.amounts.formattedFiatIfAvailable(nil) == nil)
-        #expect(store.amounts.formattedFiat(nil) == "—")
-        #expect(store.amounts.formattedQuotedTotal(nil) == "—")
-        let incomplete = QuotedTotal(total: 6000, unpricedCount: 1, fiatTotal: 5400)
-        #expect(store.amounts.formattedQuotedTotal(incomplete) == store.amounts.formattedFiat(5400))
-        store.updateSetting(.fiatCurrency(value: before))
-        await store.awaitPendingStateCommands()
-    }
-
     /// Every EVM chain gets the EVM address hint. Asserted against the
     /// generic fallback rather than against the English text so the test
     /// does not depend on which locale it runs in.

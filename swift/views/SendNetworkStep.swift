@@ -156,14 +156,6 @@ struct SendNetworkStep: View {
     /// The fee card for every chain but the EVM family, whose card carries
     /// fee and nonce overrides. A UTXO preview's rate, size, inputs and change
     /// are the detail rows below it.
-    ///
-    /// Was twelve calls, each naming a chain and handing over its sentence,
-    /// eleven of which rendered nothing on any given screen. The twelve were
-    /// the registry's `simple_preview_chain` list plus Tron and minus
-    /// Bittensor, whose send had a preview and got no card. What each call
-    /// supplied is now read: one signing sentence for every chain, the gas
-    /// caption from whether the coin is the chain's native asset, and the
-    /// extra lines from a switch over core's preview enum.
     @ViewBuilder
     private func simpleFeeContent(selectedCoin: Coin, chain: Chain) -> some View {
         let chainName = selectedCoin.chainName
@@ -176,9 +168,6 @@ struct SendNetworkStep: View {
                     Text(fee).font(.subheadline.weight(.semibold))
                 }
                 ForEach(previewDetailLines(quote.preview), id: \.self) { Text($0) }
-                // Every token pays its chain's gas token, which Tron and
-                // Solana each said in a sentence of their own and no other
-                // token-hosting chain said at all.
                 if !selectedCoin.isNativeCoin {
                     Text(AppLocalization.format("Token transfers on %@ pay network fees in %@. Keep a %@ balance for fees.", chainName, chain.gasTokenSymbol, chain.gasTokenSymbol))
                         .font(.caption).foregroundStyle(.secondary)

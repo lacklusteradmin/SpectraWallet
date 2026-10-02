@@ -1,8 +1,4 @@
-// Nested type declarations for AppState, kept out of AppState.swift so that
-// file stays state + orchestration wiring.
-//
-// Nothing here owns runtime state — just value-type schemas, enums, and the
-// typealiases that went with them.
+// Presentation helpers for core records, app navigation and displayed errors.
 
 import Foundation
 
@@ -98,4 +94,3 @@ extension AppState {
 extension KeypoolDiagnostic: Identifiable {
     public var id: String { walletId }
 }
-
