@@ -89,7 +89,7 @@ struct DiagnosticsHubView: View {
             }
         }.navigationTitle(copy.navigationTitle).navigationBarTitleDisplayMode(.inline).searchable(
             text: $searchText, prompt: copy.searchPrompt).sheet(isPresented: $isShowingDiagnosticsExportsBrowser) {
-            DiagnosticsExportsBrowserView(model: .live(store: store))
+            DiagnosticsExportsBrowserView(store: store)
         }.fileImporter(
             isPresented: $isShowingDiagnosticsImporter, allowedContentTypes: [UTType.json], allowsMultipleSelection: false
         ) { result in

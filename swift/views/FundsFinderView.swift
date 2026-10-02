@@ -5,7 +5,6 @@ struct FundsFinderHit: Identifiable {
     let id = UUID()
     let candidate: FundsFinderCandidate
     let balanceDisplay: String
-    let smallestUnit: String
 }
 
 /// Scan a seed's derivation paths for funded addresses.
@@ -27,7 +26,11 @@ struct FundsFinderView: View {
     @State private var hits: [FundsFinderHit] = []
     @State private var checkedCount = 0
     @State private var totalCount = 0
+    /// Why the scan itself stopped.
     @State private var scanError: String?
+    /// Why a chain's addresses could not be read: the first failure on each
+    /// chain, worded like any other failed call.
+    @State private var unreadChains: [Chain: String] = [:]
     @State private var scanTask: Task<Void, Never>?
 
     private var canStart: Bool { seedEntry.verdict.checksumValid && !isScanning }
@@ -44,10 +47,15 @@ struct FundsFinderView: View {
                         if !hits.isEmpty {
                             hitsSection
                         }
+                        ForEach(Chain.all.filter { unreadChains[$0] != nil }) { chain in
+                            errorBanner(AppLocalization.format(
+                                "%@ addresses could not be checked: %@", chain.displayName, unreadChains[chain] ?? ""))
+                        }
                         if let error = scanError {
                             errorBanner(error)
                         }
-                        if !isScanning && hits.isEmpty && scanError == nil {
+                        // Unread addresses are not empty ones.
+                        if !isScanning && hits.isEmpty && scanError == nil && unreadChains.isEmpty {
                             emptyResultsSection
                         }
                     }
@@ -99,11 +107,12 @@ struct FundsFinderView: View {
                     checkedCount = Int(batch.checked)
                     progress = batch.total == 0 ? 1 : Double(batch.checked) / Double(batch.total)
                     for read in batch.reads {
-                        if let error = read.error { scanError = error }
+                        if let error = read.error, unreadChains[read.candidate.chainId] == nil {
+                            unreadChains[read.candidate.chainId] = userErrorMessage(error)
+                        }
                         if read.funded, let balance = read.balance {
                             hits.append(FundsFinderHit(
-                                candidate: read.candidate, balanceDisplay: balance.amountDisplay,
-                                smallestUnit: balance.smallestUnit))
+                                candidate: read.candidate, balanceDisplay: balance.amountDisplay))
                         }
                     }
                     if batch.complete { break }
@@ -124,6 +133,7 @@ struct FundsFinderView: View {
         checkedCount = 0
         totalCount = 0
         scanError = nil
+        unreadChains = [:]
     }
 
     // MARK: - Input section
@@ -269,11 +279,11 @@ struct FundsFinderView: View {
                 Text(AppLocalization.string("Checking addresses across all derivation paths…"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } else if hits.isEmpty {
+            } else if hits.isEmpty, unreadChains.isEmpty {
                 Text(AppLocalization.format("Checked %lld paths — no funds found", count: checkedCount, checkedCount))
                     .font(.caption)
                     .foregroundStyle(.secondary)
-            } else {
+            } else if !hits.isEmpty {
                 Text(AppLocalization.format("Found %lld paths with funds across %lld checked",
                     count: hits.count, hits.count, checkedCount))
                     .font(.caption)

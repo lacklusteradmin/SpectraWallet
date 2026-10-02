@@ -67,17 +67,28 @@ func chainRiskProbeMessages(chainName: String, symbol: String, activity: SendDes
     case .funded: return (nil, nil)
     }
 }
+extension CoreMessage {
+    /// Core's sentence in the reader's language: its English template is the
+    /// key into the string tables, and its values go in where the template
+    /// says. Text with no table entry — a node's or a library's own words —
+    /// reads as core sent it.
+    var localizedText: String {
+        let text = args.isEmpty ? AppLocalization.string(template) : AppLocalization.format(template, arguments: args)
+        return text.prefix(1).uppercased() + text.dropFirst()
+    }
+}
+
 /// What the user reads when a call fails. UniFFI words its errors as their
 /// Swift debug description — type, case and field names — so the
 /// `localizedDescription` of a bridge error never belongs on screen. Core's
-/// sentences for refused input and failed requests read as they are; a network
-/// or decoding failure carries a transport or parser message meant for the
-/// operational log, so it gets a fixed sentence instead.
+/// sentences for refused input and failed requests are translated here; a
+/// network or decoding failure carries a transport or parser message meant
+/// for the operational log, so it gets a fixed sentence instead.
 func userErrorMessage(_ error: Error) -> String {
     if let error = error as? SpectraBridgeError {
         switch error {
         case .InvalidInput(let message), .Failure(let message):
-            return message.prefix(1).uppercased() + message.dropFirst()
+            return message.localizedText
         case .Network:
             return AppLocalization.string("Couldn't reach the network. Check your connection and try again.")
         case .Decode:

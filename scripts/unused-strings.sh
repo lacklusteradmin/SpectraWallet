@@ -114,6 +114,16 @@ for key in sorted(set(re.findall(r'AppLocalization\.(?:string|format)\("([A-Za-z
     if key not in source_keys:
         failures.append(f"  {'RuntimeStrings.en.json':<36} Swift names a missing key {key!r}")
 
+# Core's sentences with values (`refused`, `failed`, `CoreMessage::new`) are
+# the ones a front end can only translate by table: an untranslated one reads
+# in English with its values in, which is the gap this closes. Test modules
+# are out of scope; they make up sentences of their own.
+rust = '\n'.join(re.sub(r'\\\s*\n\s*', '', p.read_text()).split('#[cfg(test)]')[0]
+                 for p in hand_written('core/src', '.rs'))
+for key in sorted(set(re.findall(r'(?:\brefused|\bfailed|CoreMessage::new)\(\s*"((?:[^"\\]|\\.)*)"', rust))):
+    if key not in source_keys:
+        failures.append(f"  {'RuntimeStrings.en.json':<36} core names an untranslated sentence {key!r}")
+
 for line in failures:
     print(line)
 print(f"\n  {len(failures)} unused or inconsistent string(s)")

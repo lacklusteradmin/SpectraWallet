@@ -10,7 +10,7 @@ extension AppState {
     var appNoticeItems: [AppNoticeItem] {
         let commonCopy = CommonLocalizationContent.current
         var notices: [AppNoticeItem] = []
-        if let quoteRefreshError = quoteRefreshError?.trimmingCharacters(in: .whitespacesAndNewlines), !quoteRefreshError.isEmpty {
+        if let quoteRefreshError {
             notices.append(
                 AppNoticeItem(
                     title: AppLocalization.string("Pricing Notice"), message: quoteRefreshError, severity: .warning,
@@ -18,9 +18,7 @@ extension AppState {
                 )
             )
         }
-        if let fiatRatesRefreshError = fiatRatesRefreshError?.trimmingCharacters(in: .whitespacesAndNewlines),
-            !fiatRatesRefreshError.isEmpty
-        {
+        if let fiatRatesRefreshError {
             notices.append(
                 AppNoticeItem(
                     title: AppLocalization.string("Fiat Rates Degraded Mode"), message: fiatRatesRefreshError, severity: .warning,

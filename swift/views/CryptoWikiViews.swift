@@ -1,7 +1,8 @@
 import SwiftUI
 
 /// The wiki is indexed by coin. `listAssetWiki()` joins both catalogs so
-/// each coin has one page. Chain-specific information lives one level below.
+/// each coin has one page. Chains have their own section; where a coin is
+/// deployed is Known Tokens' job, so neither repeats it.
 extension AssetWikiEntry: Identifiable {
     public var id: String { tokenId }
     var accentColor: Color { color?.color ?? .accentColor }
@@ -14,55 +15,66 @@ extension AssetWikiPlace: Identifiable {
     public var id: String { "\(chainId)|\(contract)" }
 }
 
-extension ChainDerivationPathEntry: Identifiable {
-    public var id: String { "\(tag)|\(path)" }
-    var displayPath: String { path.replacingOccurrences(of: "{account}", with: "0") }
-}
+extension ChainWikiEntry: Identifiable {}
 
 // MARK: — Library (list view)
 
 struct CryptoWikiLibraryView: View {
     @State private var searchText: String = ""
     @State private var selectedTag: String?
-    private var allEntries: [AssetWikiEntry] { CoreReferenceTables.assetWiki }
-    private var filteredEntries: [AssetWikiEntry] {
-        var entries = allEntries
-        if let selectedTag { entries = entries.filter { $0.tags.contains(selectedTag) } }
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !query.isEmpty else { return entries }
-        return entries.filter { entry in
-            entry.name.localizedCaseInsensitiveContains(query)
-                || entry.symbol.localizedCaseInsensitiveContains(query)
-                || entry.comment.localizedCaseInsensitiveContains(query)
-                || entry.tags.contains(where: { $0.localizedCaseInsensitiveContains(query) })
-                // Searching a chain finds every coin that lives there.
-                || entry.livesOn.contains(where: { $0.chainName.localizedCaseInsensitiveContains(query) })
+    private var query: String { searchText.trimmingCharacters(in: .whitespacesAndNewlines) }
+    private var filteredCoins: [AssetWikiEntry] {
+        CoreReferenceTables.assetWiki.filter { entry in
+            matches(tags: entry.tags, text: [entry.name, entry.symbol, entry.comment])
         }
+    }
+    private var filteredChains: [ChainWikiEntry] {
+        CoreReferenceTables.chainWiki.filter { chain in
+            matches(tags: chain.tags, text: [chain.name, chain.comment, chain.family])
+        }
+    }
+    private func matches(tags: [String], text: [String]) -> Bool {
+        if let selectedTag, !tags.contains(selectedTag) { return false }
+        guard !query.isEmpty else { return true }
+        return (text + tags).contains { $0.localizedCaseInsensitiveContains(query) }
     }
     private var availableTags: [String] {
-        var seen: [String] = []
-        for entry in allEntries where !entry.tags.isEmpty {
-            for tag in entry.tags where !seen.contains(tag) { seen.append(tag) }
-        }
-        return seen.sorted()
+        let all = CoreReferenceTables.assetWiki.flatMap(\.tags) + CoreReferenceTables.chainWiki.flatMap(\.tags)
+        return Array(Set(all)).sorted()
     }
     var body: some View {
+        let coins = filteredCoins
+        let chains = filteredChains
         ZStack {
             SpectraBackdrop().ignoresSafeArea()
             ScrollView(showsIndicators: false) {
-                if !filteredEntries.isEmpty {
-                    SpectraRowGroup(data: filteredEntries) { asset in
-                        NavigationLink {
-                            AssetWikiDetailView(asset: asset)
-                        } label: {
-                            CryptoWikiRow(asset: asset).equatable()
+                LazyVStack(spacing: SpectraLayout.sectionSpacing) {
+                    if !coins.isEmpty {
+                        SpectraRowGroup(title: AppLocalization.string("Coins"), trailing: "\(coins.count)", data: coins) { asset in
+                            NavigationLink {
+                                AssetWikiDetailView(asset: asset)
+                            } label: {
+                                CryptoWikiRow(face: asset.face, subtitle: asset.symbol).equatable()
+                            }
+                            .buttonStyle(.plain)
+                            .simultaneousGesture(TapGesture().onEnded { spectraHaptic(.light) })
                         }
-                        .buttonStyle(.plain)
-                        .simultaneousGesture(TapGesture().onEnded { spectraHaptic(.light) })
-                    }.spectraScreenPadding()
+                    }
+                    if !chains.isEmpty {
+                        SpectraRowGroup(title: AppLocalization.string("Chains"), trailing: "\(chains.count)", data: chains) { chain in
+                            NavigationLink {
+                                ChainWikiDetailView(chain: chain)
+                            } label: {
+                                CryptoWikiRow(face: chain.face, subtitle: chain.family).equatable()
+                            }
+                            .buttonStyle(.plain)
+                            .simultaneousGesture(TapGesture().onEnded { spectraHaptic(.light) })
+                        }
+                    }
                 }
+                .spectraScreenPadding()
             }.overlay {
-                if filteredEntries.isEmpty { ContentUnavailableView.search }
+                if coins.isEmpty && chains.isEmpty { ContentUnavailableView.search }
             }
         }
         .navigationTitle(AppLocalization.string("Crypto Wiki"))
@@ -91,28 +103,24 @@ struct CryptoWikiLibraryView: View {
     }
 }
 
+/// A coin or a chain in the library: badge, name, one line under it.
 private struct CryptoWikiRow: View, Equatable {
-    let asset: AssetWikiEntry
-    nonisolated static func == (lhs: Self, rhs: Self) -> Bool { lhs.asset == rhs.asset }
+    let face: WikiCoinFace
+    let subtitle: String
+    nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.face == rhs.face && lhs.subtitle == rhs.subtitle
+    }
     var body: some View {
         HStack(spacing: SpectraLayout.Space.m) {
-            WikiCoinBadge(face: asset.face, size: 36)
+            WikiCoinBadge(face: face, size: 36)
             VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
-                Text(asset.name).font(.headline).foregroundStyle(Color.primary)
+                Text(face.name).font(.headline).foregroundStyle(Color.primary)
                 Text(subtitle).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 0)
             Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
         }
         .spectraRowPadding()
-    }
-    private var subtitle: String {
-        let places = asset.livesOn.count
-        guard let first = asset.livesOn.first else { return asset.symbol }
-        if places == 1 {
-            return AppLocalization.format("dashboard.asset.onChain", first.chainName)
-        }
-        return AppLocalization.format("wiki.asset.onChains", "\(places)")
     }
 }
 
@@ -124,7 +132,6 @@ struct AssetWikiDetailView: View {
         ScrollView(showsIndicators: false) {
             LazyVStack(spacing: SpectraLayout.Space.m) {
                 heroCard
-                AssetPlacesCard(places: asset.livesOn, symbol: asset.symbol)
                 if !asset.totalCirculationModel.isEmpty {
                     circulationCard
                 }

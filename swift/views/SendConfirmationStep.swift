@@ -100,7 +100,7 @@ struct SendConfirmationStep: View {
 
     private func confirmAmountText(selectedCoin: Coin?) -> String {
         let symbol = selectedCoin?.symbol ?? ""
-        let amount = store.sendFlow.amount.trimmingCharacters(in: .whitespacesAndNewlines)
+        let amount = store.sendAmountInput
         guard !amount.isEmpty else { return AppLocalization.string("No amount") }
         let localized = AmountPresentation.localizedDecimal(amount)
         return symbol.isEmpty ? localized : "\(localized) \(symbol)"
@@ -160,6 +160,10 @@ struct SendStatusCards: View {
 struct SendTransactionCard: View {
     let store: AppState
     let tx: TransactionRecord
+    /// Who core says holds the recipient: a saved contact is already saved,
+    /// and one of the user's wallets is not a contact to save.
+    @State private var recipientHolder: EndpointHolder?
+    @State private var isCheckingRecipient = true
 
     var body: some View {
         VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
@@ -183,25 +187,47 @@ struct SendTransactionCard: View {
                         .padding(.vertical, SpectraLayout.Space.s)
                 }.buttonStyle(.glassProminent)
             }
-            Button {
-                spectraHaptic(.light)
-                store.saveRecipientToAddressBook(tx)
-            } label: {
-                Label(
-                    store.canSaveRecipientToAddressBook(tx)
-                        ? AppLocalization.string("Save Recipient To Address Book")
-                        : AppLocalization.string("Recipient Already Saved"),
-                    systemImage: store.canSaveRecipientToAddressBook(tx) ? "book.closed" : "checkmark.circle"
-                )
-                .font(.subheadline.weight(.semibold))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, SpectraLayout.Space.s)
+            if tx.kind == .send, !isOwnWallet {
+                Button {
+                    spectraHaptic(.light)
+                    store.saveRecipientToAddressBook(tx)
+                } label: {
+                    Label(
+                        isSavedContact
+                            ? AppLocalization.string("Recipient Already Saved")
+                            : AppLocalization.string("Save Recipient To Address Book"),
+                        systemImage: isSavedContact ? "checkmark.circle" : "book.closed"
+                    )
+                    .font(.subheadline.weight(.semibold))
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, SpectraLayout.Space.s)
+                }
+                .buttonStyle(.glass)
+                .disabled(isCheckingRecipient || isSavedContact)
             }
-            .buttonStyle(.glass)
-            .disabled(!store.canSaveRecipientToAddressBook(tx))
         }
         .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .spectraElevatedFill()
+        // Asked again whenever the address book changes, so a save shows here.
+        .task(id: store.addressBook) {
+            isCheckingRecipient = true
+            defer { isCheckingRecipient = false }
+            guard let walletId = tx.walletId else { recipientHolder = nil; return }
+            let holder = try? await store.bridge.ready().addressHolder(
+                walletId: walletId, chainId: tx.chainId, address: tx.address)
+            guard !Task.isCancelled else { return }
+            recipientHolder = holder
+        }
+    }
+
+    private var isSavedContact: Bool {
+        if case .contact = recipientHolder { return true }
+        return false
+    }
+
+    private var isOwnWallet: Bool {
+        if case .wallet = recipientHolder { return true }
+        return false
     }
 }

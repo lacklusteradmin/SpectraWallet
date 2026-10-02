@@ -18,10 +18,10 @@ extension AppState {
     ///
     /// Core records the run's diagnostics rows and the chain's health itself;
     /// this re-reads them.
-    private func adoptHistoryRefresh(scope: HistoryRefreshScope, loadMore: Bool = false, interval: TimeInterval = 0) async {
+    private func adoptHistoryRefresh(scope: HistoryRefreshScope, loadMore: Bool = false) async {
         do {
             let results = try await self.bridge.ready().refreshHistory(
-                scope: scope, loadMore: loadMore, limit: nil, intervalSecs: interval)
+                scope: scope, loadMore: loadMore, limit: nil, intervalSecs: 0)
             chainDiagnosticsState.diagnosticsRevision &+= 1
             await diagnostics.loadFromSQLite()
             // Loading more always moves a cursor, even when every page was already stored.

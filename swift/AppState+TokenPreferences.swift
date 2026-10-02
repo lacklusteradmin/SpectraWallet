@@ -50,21 +50,19 @@ extension AppState {
     /// and where the row sorts — is the reducer's.
     func addCustomTokenPreference(
         chain: Chain, symbol: String, name: String, contractAddress: String,
-        coingeckoId: String = "", coinpaprikaId: String = "", decimals: Int, editing: TokenPreferenceEntry? = nil
+        coingeckoId: String = "", coinpaprikaId: String = "", decimals: UInt32, editing: TokenPreferenceEntry? = nil
     ) async -> String? {
-        guard decimals >= 0 else { return AppLocalization.string("That is not a number of decimal places.") }
-
         let command: StateCommand
         if let editing {
             command = .updateCustomToken(
                 chainId: editing.token.chainId,
                 contract: editing.token.contract, symbol: symbol, name: name,
-                coingeckoId: coingeckoId, coinpaprikaId: coinpaprikaId, decimals: UInt32(decimals))
+                coingeckoId: coingeckoId, coinpaprikaId: coinpaprikaId, decimals: decimals)
         } else {
             command = .addCustomToken(
                 chainId: chain, symbol: symbol, name: name,
                 contract: contractAddress, coingeckoId: coingeckoId,
-                coinpaprikaId: coinpaprikaId, decimals: UInt32(decimals))
+                coinpaprikaId: coinpaprikaId, decimals: decimals)
         }
         let result: Result<StateTransition, Error>
         do { result = .success(try await applyStateCommand(command)) } catch { result = .failure(error) }

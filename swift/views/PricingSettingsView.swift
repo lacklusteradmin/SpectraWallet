@@ -1,13 +1,13 @@
 import Foundation
 import SwiftUI
 struct PricingSettingsView: View {
-    @Bindable var store: AppState
+    let store: AppState
     var body: some View {
         Form {
             Section(AppLocalization.string("Display Currency")) {
                 Picker(
                     AppLocalization.string("Currency"),
-                    selection: $store.selectedFiatCurrency
+                    selection: store.settingBinding(\.fiatCurrency) { .fiatCurrency(value: $0) }
                 ) {
                     ForEach(FiatCurrency.allCases) { currency in Text(currency.displayName).tag(currency) }
                 }.pickerStyle(.menu)

@@ -23,7 +23,6 @@ struct WalletDiagnosticsStateTests: IsolatedAppStateSuite {
         _ = try await bridge.ready().applyDiagnosticCommand(command: .healthy(chainId: Chain.solana))
         let state = WalletDiagnosticsState(bridge: bridge)
         await state.loadFromSQLite()
-        #expect(state.chainDegraded[Chain.solana] == nil)
         #expect(state.chainDegradedBanners.isEmpty)
         #expect(state.operationalLogs.count == 2)
         #expect(state.operationalLogs.first?.input.level == .info)

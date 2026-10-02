@@ -21,6 +21,8 @@ enum CoreReferenceTables {
     static let seedPhraseWordlists: [SeedPhraseLanguage] = seedPhraseLanguages()
     /// What staking means on each chain that stakes, in catalog order.
     static let stakingChains: [StakingChainEntry] = listStakingChains()
+    /// The bounds core holds edits to, for the controls that set them.
+    static let bounds: InputBounds = inputBounds()
     private static let stakingByChain = Dictionary(uniqueKeysWithValues: stakingChains.map { ($0.chain, $0) })
 
     static func assetWikiEntry(tokenId: String) -> AssetWikiEntry? { assetWikiByTokenId[tokenId] }

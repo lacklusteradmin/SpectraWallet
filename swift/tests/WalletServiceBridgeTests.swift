@@ -10,14 +10,14 @@ struct WalletServiceBridgeTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         let bridge = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.db").path, service: try WalletService(endpoints: []))
         let error = await #expect(throws: (any Error).self, "a failed open must refuse the command") {
-            try await bridge.ready().applyStateCommand(command: .setFiatCurrency(currency: .eur))
+            try await bridge.ready().applyStateCommand(command: .setAppSetting(update: .fiatCurrency(value: .eur)))
         }
         if let error { #expect(!String(describing: error).contains("call open_state first")) }
         try FileManager.default.removeItem(at: directory)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let state = try await bridge.ready().appState()
         #expect(state.settings.fiatCurrency == .usd)
-        _ = try await bridge.ready().applyStateCommand(command: .setFiatCurrency(currency: .eur))
+        _ = try await bridge.ready().applyStateCommand(command: .setAppSetting(update: .fiatCurrency(value: .eur)))
         let reopened = WalletServiceBridge(databasePath: directory.appendingPathComponent("state.db").path, service: try WalletService(endpoints: []))
         let stored = try await reopened.ready().appState()
         #expect(stored.settings.fiatCurrency == .eur)
@@ -52,4 +52,38 @@ struct WalletServiceBridgeTests {
                 != .phrase(phrase: "test test test test test test test test test test test junk"))
     }
 
+    /// Core refuses a private key on two chains rather than narrowing it to
+    /// one, and the refusal reaches the reader through the string tables.
+    /// Compared against the table rather than English so it holds in any locale.
+    @Test func aTwoChainPrivateKeyImportIsRefusedInTheReadersLanguage() async throws {
+        let secretStore = TestSecretStore()
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let bridge = WalletServiceBridge(
+            databasePath: directory.appendingPathComponent("state.db").path, service: try WalletService(endpoints: []))
+        try bridge.service().setSecretStore(store: secretStore)
+        let error = await #expect(throws: SpectraBridgeError.self) {
+            try await bridge.ready().importWallets(commit: WalletImportCommit(
+                password: nil,
+                request: WalletImportRequest(walletName: "Two", selectedChainIds: [Chain.ethereum, Chain.solana],
+                    isWatchOnlyImport: false, isPrivateKeyImport: true,
+                    watchOnlyEntries: WalletImportWatchOnlyEntries(byChainId: [:], bitcoinXpub: nil)),
+                seedDerivationPreset: .standard, seedDerivationPaths: .defaults,
+                derivationOverrides: CoreWalletDerivationOverrides(passphrase: nil, hmacKey: nil),
+                seedPhrase: nil, privateKey: "4c0883a69102937d6231471b5dbb6204fe5129617082792ae468d01a3f362318"))
+        }
+        let refusal = try #require(error)
+        #expect(userErrorMessage(refusal) == AppLocalization.string("A private key imports on one chain. Select one chain."))
+        #expect(try await bridge.ready().portfolioSnapshot().wallets.isEmpty)
+    }
+
+    /// A sentence with values is looked up by its template and filled in.
+    @Test func coreSentencesWithValuesAreTranslatedByTemplate() {
+        let message = CoreMessage(template: "Insufficient %@ balance.", args: ["ETH"])
+        #expect(message.localizedText == AppLocalization.format("Insufficient %@ balance.", "ETH"))
+        #expect(message.localizedText.contains("ETH"))
+        // Text no table names reads as core sent it.
+        #expect(CoreMessage(template: "node said no", args: []).localizedText == "Node said no")
+    }
 }

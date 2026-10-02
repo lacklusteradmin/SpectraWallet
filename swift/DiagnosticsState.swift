@@ -19,7 +19,6 @@ final class WalletDiagnosticsState {
     private var snapshot = DiagnosticState(degraded: [:], lastGoodUnix: [:], logs: [])
     private(set) var operationalLogs: [DiagnosticLog] = []
     private(set) var operationalLogsRevision: UInt64 = 0
-    private(set) var persistenceError: String?
     @ObservationIgnored private(set) var pendingCommand: Task<Void, Never>?
     @ObservationIgnored private var revision: UInt64 = 0
 
@@ -35,24 +34,19 @@ final class WalletDiagnosticsState {
         // A queued event finishes even when its diagnostics view is closed.
         pendingCommand = Task { @MainActor [weak self] in
             await previous?.value
-            do {
-                let result = try await bridge.ready().applyDiagnosticCommand(command: command)
-                self?.adopt(result)
-                self?.persistenceError = nil
-            } catch { self?.persistenceError = error.localizedDescription }
+            // A diagnostics write that fails has nowhere to be logged; the
+            // next read adopts whatever core kept.
+            guard let result = try? await bridge.ready().applyDiagnosticCommand(command: command) else { return }
+            self?.adopt(result)
         }
     }
     func loadFromSQLite() async {
         await pendingCommand?.value
         let started = revision
-        do {
-            let state = try await bridge.ready().diagnosticState()
-            guard started == revision else { return }
-            adopt(state)
-        } catch { persistenceError = error.localizedDescription }
+        guard let state = try? await bridge.ready().diagnosticState(), started == revision else { return }
+        adopt(state)
     }
     func reset() { enqueue(.reset) }
-    var chainDegraded: [Chain: ChainDegradation] { snapshot.degraded }
     private var lastGoodSyncByChain: [Chain: Date] { snapshot.lastGoodUnix.mapValues { Date(timeIntervalSince1970: $0) } }
     /// One banner per degraded chain, ordered by name. Core keys both maps by chain.
     var chainDegradedBanners: [ChainDegradedBanner] {

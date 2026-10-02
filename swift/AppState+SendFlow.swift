@@ -29,15 +29,17 @@ extension AppState {
         guard let coin = selectedSendCoin else { return nil }
         return assetPrecision?.byDeploymentId[coin.holdingKey]
     }
+    /// The amount field as core reads it.
+    var sendAmountInput: String { AmountPresentation.canonicalDecimalInput(sendFlow.amount) }
     var sendAmountIsValid: Bool {
         guard let decimals = sendAmountDecimals else { return false }
-        return isValidAmountInput(text: sendFlow.amount, maxDecimals: decimals)
+        return isValidAmountInput(text: sendAmountInput, maxDecimals: decimals)
     }
     // A provisional quote can load before the user types; it never changes the
     // amount field and is replaced by a quote for the entered amount.
     var sendPreviewAmountInput: String {
-        guard sendFlow.amount.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
-              let coin = selectedSendCoin, let decimals = sendAmountDecimals else { return sendFlow.amount }
+        guard sendAmountInput.isEmpty,
+              let coin = selectedSendCoin, let decimals = sendAmountDecimals else { return sendAmountInput }
         return sendAmountShortcut(maximum: coin.amount, decimals: decimals, percentage: 10) ?? "0"
     }
     /// The quote core made for the selected holding, if it is current.
@@ -49,7 +51,7 @@ extension AppState {
     /// provisional one, or one still in flight — says nothing about this one.
     var sendQuoteForEnteredAmount: OwnedSendPreview? {
         guard let quote = sendQuote,
-              quote.amount == sendFlow.amount.trimmingCharacters(in: .whitespacesAndNewlines) else { return nil }
+              quote.amount == sendAmountInput else { return nil }
         return quote
     }
     func sendShortcutAmount(percentage: UInt32) -> String? {
@@ -65,8 +67,8 @@ extension AppState {
         guard sendFlow.useCustomEvmFees else { return nil }
         return Result {
             try parseEvmCustomFees(
-                maxFeeGweiRaw: sendFlow.customEvmMaxFeeGwei,
-                priorityFeeGweiRaw: sendFlow.customEvmPriorityFeeGwei)
+                maxFeeGweiRaw: AmountPresentation.canonicalDecimalInput(sendFlow.customEvmMaxFeeGwei),
+                priorityFeeGweiRaw: AmountPresentation.canonicalDecimalInput(sendFlow.customEvmPriorityFeeGwei))
         }
     }
     var customEvmFeeValidationError: String? {

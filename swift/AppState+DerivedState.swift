@@ -63,9 +63,10 @@ extension AppState {
             replaceableSends = snapshot.replaceable
             transactionCount = snapshot.totalCount
             walletsWithMoreHistory = Set(snapshot.walletsWithMoreHistory)
-            cachedFirstActivityDateByWalletId = Dictionary(uniqueKeysWithValues: snapshot.earliest.map {
+            let firstActivity = Dictionary(uniqueKeysWithValues: snapshot.earliest.map {
                 ($0.walletId, Date(timeIntervalSince1970: $0.earliestCreatedAtUnix))
             })
+            if cachedFirstActivityDateByWalletId != firstActivity { cachedFirstActivityDateByWalletId = firstActivity }
             historyReadError = nil
             return true
         } catch {

@@ -118,11 +118,7 @@ struct PriceAlertsView: View {
     }
     private func addAlert() async {
         guard let selectedCoin else { return }
-        // Core parses the number; the locale's decimal separator is this
-        // field's to undo.
-        let separator = Locale.current.decimalSeparator ?? "."
-        let target = targetPriceText.trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: separator, with: ".")
+        let target = AmountPresentation.canonicalDecimalInput(targetPriceText)
         isSubmitting = true
         defer { isSubmitting = false }
         do {

@@ -1,24 +1,16 @@
 import Foundation
 import SwiftUI
 extension AppState {
-    /// Called only while adopting a newer, coherent portfolio snapshot.
+    /// The only writer of the two quote notices, called while adopting a
+    /// newer, coherent portfolio snapshot.
     func applyQuoteProjection(_ state: CoreAppState) {
-        if quoteRefreshError != state.quotes.pricesError { quoteRefreshError = state.quotes.pricesError }
-        if fiatRatesRefreshError != state.quotes.fiatError { fiatRatesRefreshError = state.quotes.fiatError }
+        let prices = state.quotes.pricesError.map(priceRefreshMessage)
+        let rates = state.quotes.fiatError.map(fiatRateRefreshMessage)
+        if quoteRefreshError != prices { quoteRefreshError = prices }
+        if fiatRatesRefreshError != rates { fiatRatesRefreshError = rates }
     }
 
-    func refreshFiatExchangeRatesIfNeeded(force: Bool = false) async {
-        guard !isRefreshingFiatRates else { return }
-        isRefreshingFiatRates = true
-        defer { isRefreshingFiatRates = false }
-        do {
-            _ = try await self.bridge.ready().refreshOwnedFiatRates(force: force)
-            await rebuildWalletDerivedStateFromCore()
-        } catch {
-            fiatRatesRefreshError = userErrorMessage(error)
-        }
-    }
-    // ── Fiat currency (core-owned) ────────────────────────────────────────
+    // ── Core-owned state ──────────────────────────────────────────────────
 
     /// Load core's state and mirror it. `ready()` has opened the database, so
     /// this reads what core holds rather than opening it again.
@@ -31,31 +23,31 @@ extension AppState {
         }
     }
 
-    /// Send the currency change to core and mirror the result.
-    ///
-    /// Core decides — it normalizes the code and reports whether anything
-    /// actually changed, so the rate refresh only runs on a real change.
-    func setFiatCurrency(_ currency: FiatCurrency) async {
-        let transition: StateTransition
-        do {
-            transition = try await applyStateCommand(.setFiatCurrency(currency: currency))
-            commandError = nil
-        } catch {
-            reportCommandError(error)
-            return
-        }
-        guard servicesEnabled, transition.events.contains(where: {
-            if case .fiatCurrencyChanged = $0 { return true }
-            return false
-        }) else { return }
-        await refreshFiatExchangeRatesIfNeeded(force: true)
-    }
-
     var portfolioQuotedTotal: QuotedTotal? { portfolioValuation?.portfolio }
     func setPortfolioInclusion(_ isIncluded: Bool, for walletId: String) {
         sendStateCommand(.setWalletPortfolioInclusion(walletId: walletId, included: isIncluded))
     }
     var portfolio: [Coin] { walletDerivedCache.portfolio }
+}
+
+/// Core says why the stored prices were kept; the sentence is this app's.
+private func priceRefreshMessage(_ failure: QuoteRefreshFailure) -> String {
+    switch failure {
+    case .noUsableQuote:
+        return AppLocalization.string("No price provider returned a usable price. Showing the last known prices.")
+    case .unreachable:
+        return AppLocalization.string("Couldn't reach a price provider. Showing the last known prices.")
+    }
+}
+
+/// Core says why the stored rates were kept; the sentence is this app's.
+private func fiatRateRefreshMessage(_ failure: QuoteRefreshFailure) -> String {
+    switch failure {
+    case .noUsableQuote:
+        return AppLocalization.string("No exchange-rate provider returned a usable rate. Showing the last known rates.")
+    case .unreachable:
+        return AppLocalization.string("Couldn't reach an exchange-rate provider. Showing the last known rates.")
+    }
 }
 
 /// Core's currencies, with what a picker needs: an order, a name and an icon.

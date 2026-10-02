@@ -76,7 +76,9 @@ final class AppState {
     /// because the composer's Speed Up / Cancel buttons read it.
     var replaceableSends: [ReplaceableSend] = []
     private(set) var transactionRevision: UInt64 = 0
-    @ObservationIgnored var cachedFirstActivityDateByWalletId: [String: Date] = [:]
+    /// When each wallet's earliest stored transaction happened, from core's
+    /// transaction snapshot. Observed: the wallet detail shows it.
+    var cachedFirstActivityDateByWalletId: [String: Date] = [:]
     /// Imported wallets.
     ///
     /// Domain state: core owns the list and persists it. This is a projection
@@ -132,7 +134,6 @@ final class AppState {
     /// Observed: nothing that touches a seed or a private key works without
     /// it, so the failure has to reach the user rather than only the log.
     var secretStoreRegistrationError: String? = nil
-    @ObservationIgnored var isRefreshingFiatRates = false
     @ObservationIgnored var isNetworkReachable: Bool = true
     @ObservationIgnored var isConstrainedNetwork: Bool = false
     @ObservationIgnored var isExpensiveNetwork: Bool = false
@@ -145,17 +146,9 @@ final class AppState {
     func chainKeypoolDiagnostics(for chain: Chain) async throws -> [KeypoolDiagnostic] {
         try await self.bridge.ready().keypoolDiagnostics(chain: chain)
     }
-    /// Display currency for prices and totals.
-    ///
-    /// Core's setting: reading it reads `appSettings`, and assigning to it
-    /// sends a command rather than storing anything.
-    var selectedFiatCurrency: FiatCurrency {
-        get { appSettings.fiatCurrency }
-        set {
-            guard newValue != appSettings.fiatCurrency else { return }
-            Task { @MainActor [weak self] in await self?.setFiatCurrency(newValue) }
-        }
-    }
+    /// Display currency for prices and totals: core's setting, changed like
+    /// any other through `updateSetting(.fiatCurrency(value:))`.
+    var selectedFiatCurrency: FiatCurrency { appSettings.fiatCurrency }
 
     /// The last committed core settings, with pending edits applied by core's rule.
     /// Views change fields through `updateSetting`.
@@ -229,7 +222,6 @@ final class AppState {
         if state.priceAlerts != priceAlerts { priceAlerts = state.priceAlerts }
         return true
     }
-    var isUserInitiatedRefreshInProgress: Bool = false
     /// Read-only projection adopted from core; edits send individual intents.
     private(set) var priceAlerts: [PriceAlertRule] = []
     /// Saved recipients.
@@ -248,8 +240,9 @@ final class AppState {
     var tokenPreferenceError: String?
     /// The tail of the state-command queue; see `enqueueStateCommand`.
     @ObservationIgnored var stateCommandTask: Task<Void, Never>?
-    // Quote errors and groups are adopted together from the same core snapshot;
-    // every money figure arrives valued, in `portfolioValuation`.
+    // Quote notices and groups are adopted together from the same core
+    // snapshot; every money figure arrives valued, in `portfolioValuation`.
+    // `applyQuoteProjection` is the notices' only writer.
     var fiatRatesRefreshError: String? = nil
     var quoteRefreshError: String? = nil
     var cachedAvailableDashboardPinOptions: [DashboardPinOption] = []
@@ -325,20 +318,18 @@ final class AppState {
             _ = try bridge.service()
             secretStoreRegistrationError = nil
         } catch {
-            let message = String(describing: error)
-            secretStoreRegistrationError = message
+            secretStoreRegistrationError = userErrorMessage(error)
             appendOperationalLog(
-                .error, category: "Secret Store", message: "Secret store registration failed: \(message)",
+                .error, category: "Secret Store", message: "Secret store registration failed: \(String(describing: error))",
                 source: "WalletServiceBridge.service")
         }
     }
     private func warmUpAfterLaunch() async {
         await registerSecretStoreWithBridge()
         setupRustRefreshEngine()
-        async let projectionReload: () = reloadCoreProjections()
-        async let fiatRefresh: () = refreshFiatExchangeRatesIfNeeded()
-        _ = await (projectionReload, fiatRefresh)
-        // Configuring the engine starts it; its first tick performs the launch sweep.
+        await reloadCoreProjections()
+        // Configuring the engine starts it; its first tick performs the launch
+        // sweep, prices and exchange rates included.
     }
     deinit {
         userInitiatedRefreshTask?.cancel()

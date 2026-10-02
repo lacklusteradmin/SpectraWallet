@@ -129,13 +129,15 @@ struct AppStatePlatformBridgeTests: IsolatedAppStateSuite {
         let store = makeState()
         await store.awaitPendingCoreStateWrites()
         let before = store.selectedFiatCurrency
-        await store.setFiatCurrency(.eur)
+        store.updateSetting(.fiatCurrency(value: .eur))
+        await store.awaitPendingStateCommands()
         #expect(store.amounts.formattedFiatIfAvailable(nil) == nil)
         #expect(store.amounts.formattedFiat(nil) == "—")
         #expect(store.amounts.formattedQuotedTotal(nil) == "—")
         let incomplete = QuotedTotal(total: 6000, unpricedCount: 1, fiatTotal: 5400)
         #expect(store.amounts.formattedQuotedTotal(incomplete) == store.amounts.formattedFiat(5400))
-        await store.setFiatCurrency(before)
+        store.updateSetting(.fiatCurrency(value: before))
+        await store.awaitPendingStateCommands()
     }
 
     /// Every EVM chain gets the EVM address hint. Asserted against the
@@ -229,7 +231,8 @@ struct AppStatePlatformBridgeTests: IsolatedAppStateSuite {
     /// core stored.
     @Test func settingCurrencyGoesThroughCoreAndIsNormalized() async throws {
         let store = makeState()
-        await store.setFiatCurrency(.eur)
+        store.updateSetting(.fiatCurrency(value: .eur))
+        await store.awaitPendingStateCommands()
 
         let state = try await bridge.ready().appState()
         #expect(state.settings.fiatCurrency == .eur)
@@ -240,7 +243,8 @@ struct AppStatePlatformBridgeTests: IsolatedAppStateSuite {
     /// that makes a change made in the CLI visible in the app.
     @Test func currencySurvivesIntoAFreshAppState() async throws {
         let writer = makeState()
-        await writer.setFiatCurrency(.jpy)
+        writer.updateSetting(.fiatCurrency(value: .jpy))
+        await writer.awaitPendingStateCommands()
 
         let reader = makeState()
         await reader.loadCoreOwnedState()
@@ -397,7 +401,7 @@ struct AppStatePlatformBridgeTests: IsolatedAppStateSuite {
     @Test func portfolioSnapshotRejectsADelayedOlderResult() async throws {
         let service = try WalletService(endpoints: [])
         let old = try await service.portfolioSnapshot()
-        _ = try await service.applyStateCommand(command: .setFiatCurrency(currency: .eur))
+        _ = try await service.applyStateCommand(command: .setAppSetting(update: .fiatCurrency(value: .eur)))
         let new = try await service.portfolioSnapshot()
         let store = makeState()
 
@@ -415,7 +419,7 @@ struct AppStatePlatformBridgeTests: IsolatedAppStateSuite {
         let stale = try await service.portfolioSnapshot()
         let store = makeState()
 
-        let transition = try await service.applyStateCommand(command: .setFiatCurrency(currency: .eur))
+        let transition = try await service.applyStateCommand(command: .setAppSetting(update: .fiatCurrency(value: .eur)))
         store.applyCoreState(transition.state)
         store.applyPortfolioSnapshot(stale)
         #expect(store.selectedFiatCurrency == .eur)
@@ -425,7 +429,7 @@ struct AppStatePlatformBridgeTests: IsolatedAppStateSuite {
 
     @Test func coreVersionWinsRegardlessOfRequestCompletionOrder() async throws {
         let old = try await bridge.ready().appState()
-        let changed = try await bridge.ready().applyStateCommand(command: .setFiatCurrency(currency: .eur))
+        let changed = try await bridge.ready().applyStateCommand(command: .setAppSetting(update: .fiatCurrency(value: .eur)))
         // A failed operation after the successful write must not discard its result.
         await #expect(throws: (any Error).self, "missing transaction must fail") {
             try await bridge.ready().recheckTransactionStatus(transactionId: "missing")

@@ -24,6 +24,14 @@ struct AmountPresentationTests {
         #expect(display.formattedAssetAmountValue("0.000000000000000001", deploymentId: "ethereum:native").hasPrefix("<"))
     }
 
+    /// A decimal pad types the region's separator; core reads only `.`.
+    @Test func decimalInputReachesCoreWithAPoint() {
+        let german = Locale(identifier: "de_DE")
+        #expect(AmountPresentation.canonicalDecimalInput(" 1,5 ", locale: german) == "1.5")
+        #expect(isValidAmountInput(text: AmountPresentation.canonicalDecimalInput("0,25", locale: german), maxDecimals: 8))
+        #expect(AmountPresentation.canonicalDecimalInput("1.5", locale: Locale(identifier: "en_US")) == "1.5")
+    }
+
     /// Past what a compact row shows, an amount is cut: a balance never reads
     /// as more than is held.
     @Test func compactAmountsNeverRoundUp() {

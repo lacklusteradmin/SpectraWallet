@@ -55,6 +55,14 @@ struct AmountPresentation {
         let separator = AppLocalization.locale.decimalSeparator ?? "."
         return separator == "." ? text : text.replacingOccurrences(of: ".", with: separator)
     }
+    /// What a decimal field holds, as core reads it. The decimal pad types
+    /// the device region's separator, which may be a comma; core reads only
+    /// `.`, so every decimal field goes through this on its way to core.
+    static func canonicalDecimalInput(_ text: String, locale: Locale = .current) -> String {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        let separator = locale.decimalSeparator ?? "."
+        return separator == "." ? trimmed : trimmed.replacingOccurrences(of: separator, with: ".")
+    }
     /// The amount alone, as a compact row shows it: core picks the places
     /// and cuts, never rounds up.
     func formattedAssetAmountValue(_ amount: String, deploymentId: String?) -> String {

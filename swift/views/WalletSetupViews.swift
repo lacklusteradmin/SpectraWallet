@@ -1,17 +1,8 @@
 import Foundation
 import SwiftUI
 
-/// SetupView currently takes both a `store: AppState` (read-only access to
-/// app-wide state for chain/security info) and an `@Bindable` draft
-/// (read/write for the in-progress import). The `store.x` vs `draft.x`
-/// split is the read-only-vs-mutable boundary — never write to `store`
-/// from inside this view, and never read draft-only state from `store`.
-///
-/// New views should follow `DiagnosticsExportsBrowserView`'s pattern (a
-/// purpose-built `*Model` value type with closure callbacks for the few
-/// store reads/writes the view needs) so the view's data dependency is
-/// declared in the type instead of hidden in field accesses. SetupView
-/// hasn't been migrated yet because its dependency surface is large.
+/// One page of wallet setup. The form lives in the `@Bindable` draft; the
+/// store supplies app-wide state and performs the import.
 struct SetupView: View {
     /// Every chain, in the picker's popular order.
     private static let allChainDescriptors = ChainSelectionDescriptor.popularOrder(Chain.all)

@@ -35,8 +35,6 @@ extension AppState {
         if let existing = userInitiatedRefreshTask { return await existing.value }
         let task = Task { @MainActor [weak self] in
             guard let self else { return false }
-            self.isUserInitiatedRefreshInProgress = true
-            defer { self.isUserInitiatedRefreshInProgress = false }
             return await self.performCoreRefresh(.user)
         }
         userInitiatedRefreshTask = task

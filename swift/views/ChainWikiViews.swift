@@ -4,7 +4,8 @@ import SwiftUI
 ///
 /// The wiki is indexed by coin — see `CryptoWikiViews.swift`. This is what has
 /// no coin to belong to: ten chains share ETH, so "Base is an optimistic
-/// rollup" cannot live on ETH's page. Reached from a coin's lives-on rows.
+/// rollup" cannot live on ETH's page. Reached from the wiki's Chains section
+/// and a held asset's lives-on rows.
 struct ChainWikiDetailView: View {
     let chain: ChainWikiEntry
     var body: some View {
@@ -12,7 +13,6 @@ struct ChainWikiDetailView: View {
             LazyVStack(spacing: SpectraLayout.Space.m) {
                 wikiHeroCard
                 wikiIdentityCard
-                wikiDerivationCard
             }
             .spectraScreenPadding()
         }
@@ -56,42 +56,6 @@ struct ChainWikiDetailView: View {
             wikiStatRow(label: AppLocalization.string("Consensus"), value: chain.consensus, icon: "checkmark.shield.fill")
             Divider().opacity(0.4)
             wikiStatRow(label: AppLocalization.string("State Model"), value: chain.stateModel, icon: "cylinder.split.1x2.fill")
-        }
-        .padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
-        .spectraCardFill()
-    }
-
-    private var wikiDerivationCard: some View {
-        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-            HStack(spacing: SpectraLayout.Space.s) {
-                Image(systemName: "key.fill")
-                    .font(.subheadline.weight(.semibold)).foregroundStyle(.tint).frame(width: 22)
-                Text(AppLocalization.string("Derivation Paths")).font(.subheadline).foregroundStyle(.secondary)
-            }
-            if chain.derivationPath.isEmpty {
-                Text(AppLocalization.string("Not user-configurable in Spectra's current UI."))
-                    .font(.subheadline).foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.leading, SpectraLayout.Space.xl)
-            } else {
-                ForEach(chain.derivationPath) { path in
-                    VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
-                        HStack(spacing: SpectraLayout.Space.xs) {
-                            Text(path.tag).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                            if path.isDefault {
-                                Text(AppLocalization.string("Default"))
-                                    .font(.caption2.weight(.semibold))
-                                    .foregroundStyle(.tint)
-                                    .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs)
-                                    .background(Color.accentColor.opacity(0.14), in: Capsule())
-                            }
-                        }
-                        Text(path.displayPath).font(.body.monospaced()).foregroundStyle(Color.primary)
-                            .textSelection(.enabled)
-                    }
-                    .padding(.leading, SpectraLayout.Space.xl)
-                }
-            }
         }
         .padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
         .spectraCardFill()

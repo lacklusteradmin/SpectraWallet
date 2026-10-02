@@ -208,6 +208,9 @@ enum AppLocalization {
         return key
     }
     static func format(_ key: String, _ arguments: CVarArg...) -> String {
+        format(key, arguments: arguments)
+    }
+    static func format(_ key: String, arguments: [CVarArg]) -> String {
         String(format: string(key), locale: locale, arguments: arguments)
     }
     /// A sentence about `count` things. A table may give the singular beside

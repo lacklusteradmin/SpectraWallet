@@ -11,7 +11,7 @@ extension AppState {
             nonce: nonce, customFees: fees, gasLimit: nil, calldataHex: nil,
             signOnly: nil, accessListJson: nil)
         return SendReviewInput(walletId: sendFlow.walletId, holdingKey: sendFlow.holdingKey,
-            amount: sendFlow.amount, destination: sendFlow.address, overrides: overrides)
+            amount: sendAmountInput, destination: sendFlow.address, overrides: overrides)
     }
 
     func submitSend() async {

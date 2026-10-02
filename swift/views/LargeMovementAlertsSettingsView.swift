@@ -19,7 +19,8 @@ struct LargeMovementAlertsSettingsView: View {
                     ),
                     value: store.settingBinding(\.largeMovementAlertPercentThreshold) {
                         .largeMovementAlertPercentThreshold(value: $0)
-                    }, in: 1...90, step: 1
+                    }, in: CoreReferenceTables.bounds.largeMovementPercentMin...CoreReferenceTables.bounds.largeMovementPercentMax,
+                    step: 1
                 ).disabled(!settings.useLargeMovementNotifications)
                 LabeledContent(AppLocalization.string("Minimum movement (USD)")) {
                     TextField(

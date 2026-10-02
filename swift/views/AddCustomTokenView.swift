@@ -11,7 +11,7 @@ struct AddCustomTokenView: View {
     @State private var identifierInput = ""
     @State private var coingeckoIdInput = ""
     @State private var coinpaprikaIdInput = ""
-    @State private var decimalsInput = 6
+    @State private var decimalsInput: UInt32 = 6
     @State private var formMessage: String?
     @State private var isSaving = false
     @State private var hasLoaded = false
@@ -34,7 +34,7 @@ struct AddCustomTokenView: View {
                 TextField(AppLocalization.string("Name"), text: $nameInput)
                 TextField(AppLocalization.string("Symbol"), text: $symbolInput)
                     .textInputAutocapitalization(.characters).autocorrectionDisabled()
-                Stepper(AppLocalization.format("Token Supports: %lld decimals", count: decimalsInput, decimalsInput), value: $decimalsInput, in: 0...30)
+                Stepper(AppLocalization.format("Token Supports: %lld decimals", count: Int(decimalsInput), Int(decimalsInput)), value: $decimalsInput, in: 0...CoreReferenceTables.bounds.maxTokenDecimals)
             }
             Section {
                 TextField(AppLocalization.string("CoinGecko ID (Optional)"), text: $coingeckoIdInput)
@@ -76,7 +76,7 @@ struct AddCustomTokenView: View {
             identifierInput = editing.token.contract
             coingeckoIdInput = editing.token.coingeckoId
             coinpaprikaIdInput = editing.token.coinpaprikaId
-            decimalsInput = Int(editing.token.decimals)
+            decimalsInput = editing.token.decimals
         }
     }
 }

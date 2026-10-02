@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// Where a coin lives: chain, token standard, and contract (absent for native coins).
-/// Shared by the wiki and asset detail. Show contracts so users can verify
+/// Shown on a held asset's Details page. Show contracts so users can verify
 /// asset identity independently of the ticker.
 struct AssetPlacesCard: View {
     let places: [AssetWikiPlace]
@@ -23,8 +23,8 @@ struct AssetPlacesCard: View {
                     .font(.subheadline).foregroundStyle(.secondary)
             } else {
                 ForEach(Array(places.enumerated()), id: \.element.id) { index, place in
-                    // A chain still has a page — for consensus, state model
-                    // and derivation paths, which have no coin to belong to.
+                    // A chain still has a page — for consensus and state
+                    // model, which have no coin to belong to.
                     // It is one level down from the coin now, reached here.
                     if let chain = CoreReferenceTables.chainWikiEntry(id: place.chainId.id) {
                         NavigationLink { ChainWikiDetailView(chain: chain) } label: { row(place) }

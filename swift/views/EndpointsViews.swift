@@ -14,10 +14,8 @@ struct EndpointCatalogSettingsView: View {
     }
     private func visibleEntries(for chain: Chain) -> [EndpointDirectoryEntry] {
         let chains = Set(AppEndpointDirectory.groupedSettingsEntries(for: chain).map(\.chainId) + [chain])
-        var seen = Set<String>()
         return entries.filter {
             chains.contains($0.record.chainId)
-                && seen.insert($0.record.chainId.id + "\n" + $0.record.endpoint + ($0.isBuiltIn ? "" : $0.apiName)).inserted
                 && (sourceFilter == "All" || $0.isBuiltIn == (sourceFilter == "Built-In"))
         }
     }
