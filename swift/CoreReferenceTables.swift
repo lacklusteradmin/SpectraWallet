@@ -19,11 +19,11 @@ enum CoreReferenceTables {
     static let standardSeedPhraseLengths: [SeedPhraseLength] = seedPhraseLengths()
     /// Every BIP-39 wordlist, English first, as core names and codes them.
     static let seedPhraseWordlists: [SeedPhraseLanguage] = seedPhraseLanguages()
+    /// What staking means on each chain that stakes, in catalog order.
+    static let stakingChains: [StakingChainEntry] = listStakingChains()
+    private static let stakingByChain = Dictionary(uniqueKeysWithValues: stakingChains.map { ($0.chain, $0) })
 
     static func assetWikiEntry(tokenId: String) -> AssetWikiEntry? { assetWikiByTokenId[tokenId] }
     static func chainWikiEntry(id: String) -> ChainWikiEntry? { chainWikiById[id] }
-    /// Whether BIP-39 defines a phrase of this length.
-    static func isStandardSeedPhraseLength(_ wordCount: Int) -> Bool {
-        standardSeedPhraseLengths.contains { Int($0.wordCount) == wordCount }
-    }
+    static func stakingEntry(for chain: Chain) -> StakingChainEntry? { stakingByChain[chain] }
 }

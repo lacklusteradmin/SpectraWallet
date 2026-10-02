@@ -43,7 +43,8 @@ extension AppState {
             reasons.append(AppLocalization.string("This destination belongs to your wallet. Confirm intentional self-send."))
         }
         let network = artifact.chainId.displayName
-        reasons.insert("\(artifact.amount) \(artifact.asset) → \(artifact.recipient) (\(network))", at: 0)
+        let amount = AmountPresentation.localizedDecimal(artifact.amount)
+        reasons.insert("\(amount) \(artifact.asset) → \(artifact.recipient) (\(network))", at: 0)
         return reasons
     }
 

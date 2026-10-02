@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// The wallet-setup secret step: enter or record a seed, paste a private key,
-/// and verify a backup. Focus and custom-length state belong to this step.
+/// and verify a backup.
 struct WalletSecretStep: View {
     let store: AppState
     @Bindable var draft: WalletImportDraft
@@ -9,18 +9,7 @@ struct WalletSecretStep: View {
     let showsBackupVerification: Bool
 
     private let copy = ImportFlowContent.current
-    @FocusState private var focusedSeedPhraseIndex: Int?
-    @State private var customSeedPhraseWordCountInput: String
     @State private var isShowingDerivationOptions = false
-    @ScaledMetric(relativeTo: .caption2) private var wordIndexWidth: CGFloat = 16
-
-    @MainActor
-    init(store: AppState, draft: WalletImportDraft, showsBackupVerification: Bool) {
-        self.store = store
-        self.draft = draft
-        self.showsBackupVerification = showsBackupVerification
-        _customSeedPhraseWordCountInput = State(initialValue: String(draft.selectedSeedPhraseWordCount))
-    }
 
     private var isCreateMode: Bool { draft.isCreateMode }
     private var isEditingWallet: Bool { draft.isEditingWallet }
@@ -40,55 +29,11 @@ struct WalletSecretStep: View {
                 VStack(alignment: .leading, spacing: SpectraLayout.Space.m) { walletSecretStepSection }
             }
         }
-        .onChange(of: draft.selectedSeedPhraseWordCount) { _, newValue in
-            customSeedPhraseWordCountInput = String(newValue)
-        }
         .sheet(isPresented: $isShowingDerivationOptions) {
             WalletDerivationOptionsView(store: store, draft: draft)
         }
     }
 
-    /// The line under the grid: what core read the entry as, or what is
-    /// wrong with it.
-    private var seedPhraseStatus: (text: String, color: Color) {
-        let verdict = draft.seedPhraseVerdict
-        let languageName = verdict.language.map { AppLocalization.string($0.name) }
-        if verdict.words.isEmpty {
-            return (AppLocalization.string("import_flow.seed_phrase_detect_hint"), .secondary)
-        }
-        if !verdict.invalidWords.isEmpty {
-            let words = verdict.invalidWords.joined(separator: ", ")
-            guard let languageName else {
-                return (AppLocalization.format("import_flow.seed_phrase_unknown_words_format", words), .red)
-            }
-            return (AppLocalization.format("import_flow.seed_phrase_off_list_format", languageName, words), .red)
-        }
-        if let error = verdict.error { return (error, .red) }
-        if verdict.checksumValid, let languageName {
-            return (AppLocalization.format("import_flow.seed_phrase_valid_format", languageName, Int(verdict.wordCount)), .green)
-        }
-        return (
-            AppLocalization.format(
-                "import_flow.seed_phrase_typing_format", languageName ?? "—", verdict.words.count, Int(verdict.wordCount)),
-            .secondary
-        )
-    }
-    private func seedPhraseBinding(for index: Int) -> Binding<String> {
-        Binding(
-            get: { draft.seedPhraseEntry(at: index) },
-            set: { newValue in
-                let shouldAdvance = newValue.last?.isWhitespace == true
-                let trimmedValue = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
-                draft.updateSeedPhraseEntry(at: index, with: trimmedValue)
-                guard shouldAdvance, !trimmedValue.isEmpty else { return }
-                // A space in the last slot of an inferred length asks for more.
-                if index + 1 == draft.seedPhraseEntries.count, draft.seedPhraseWordCountOverride == nil {
-                    draft.addSeedPhraseSlots()
-                }
-                focusedSeedPhraseIndex = (index + 1) < draft.seedPhraseEntries.count ? (index + 1) : nil
-            }
-        )
-    }
     private func backupVerificationBinding(for index: Int) -> Binding<String> {
         Binding(
             get: {
@@ -96,11 +41,6 @@ struct WalletSecretStep: View {
                 return draft.backupVerificationEntries[index]
             }, set: { draft.updateBackupVerificationEntry(at: index, with: $0) }
         )
-    }
-    @ViewBuilder
-    private func seedPhraseField(at index: Int, invalidWords: Set<String>) -> some View {
-        let entry = draft.seedPhraseEntry(at: index).trimmingCharacters(in: .whitespacesAndNewlines)
-        numberedSeedPhraseRow(index: index, isInvalidWord: invalidWords.contains(entry.lowercased()))
     }
     @ViewBuilder
     private func seedPhraseLengthPicker(title: String, subtitle: String, showsRegenerateButton: Bool = false) -> some View {
@@ -116,18 +56,13 @@ struct WalletSecretStep: View {
                         draft.regenerateSeedPhrase()
                     } label: {
                         Label(AppLocalization.string("Regenerate"), systemImage: "arrow.clockwise").font(.caption.weight(.semibold))
-                    }.buttonStyle(.glass).tint(.accentColor).disabled(!CoreReferenceTables.isStandardSeedPhraseLength(draft.selectedSeedPhraseWordCount))
+                    }.buttonStyle(.glass).tint(.accentColor)
                 }
             }
             HStack(spacing: SpectraLayout.Space.xs) {
                 ForEach(CoreReferenceTables.standardSeedPhraseLengths, id: \.wordCount) { length in
                     seedPhraseLengthChip(length)
                 }
-            }
-            seedPhraseCustomLengthField
-            if let seedPhraseLengthWarning = draft.seedPhraseVerdict.lengthWarning {
-                Label(seedPhraseLengthWarning, systemImage: "exclamationmark.triangle.fill").font(.caption).foregroundStyle(
-                    .spectraWarning.opacity(0.92))
             }
         }
     }
@@ -138,7 +73,6 @@ struct WalletSecretStep: View {
         let isSelected = draft.selectedSeedPhraseWordCount == wordCount
         Button {
             draft.selectedSeedPhraseWordCount = wordCount
-            customSeedPhraseWordCountInput = String(wordCount)
         } label: {
             VStack(spacing: SpectraLayout.Space.xxs) {
                 Text("\(wordCount)").font(.title3.weight(.bold).monospacedDigit()).foregroundStyle(
@@ -149,86 +83,6 @@ struct WalletSecretStep: View {
         }.buttonStyle(.plain)
     }
     @ViewBuilder
-    private var seedPhraseCustomLengthField: some View {
-        let isCustomSelected = !CoreReferenceTables.isStandardSeedPhraseLength(draft.selectedSeedPhraseWordCount)
-        DisclosureGroup {
-            HStack(spacing: SpectraLayout.Space.s) {
-                TextField(AppLocalization.string("Custom word count"), text: $customSeedPhraseWordCountInput).keyboardType(.numberPad)
-                    .textInputAutocapitalization(.never).autocorrectionDisabled().padding(.horizontal, SpectraLayout.Space.m).padding(.vertical, SpectraLayout.Space.s).frame(
-                        maxWidth: .infinity, alignment: .leading
-                    ).spectraInputFieldStyle()
-                Button(AppLocalization.string("Apply")) {
-                    draft.applyCustomSeedPhraseWordCount(customSeedPhraseWordCountInput)
-                    customSeedPhraseWordCountInput = String(draft.selectedSeedPhraseWordCount)
-                }.buttonStyle(.glass).tint(.accentColor)
-            }.padding(.top, SpectraLayout.Space.xs)
-        } label: {
-            HStack(spacing: SpectraLayout.Space.xs) {
-                Image(systemName: "slider.horizontal.3").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                Text(AppLocalization.string("Custom length")).font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                if isCustomSelected {
-                    Text("\(draft.selectedSeedPhraseWordCount)").font(.caption.weight(.bold)).foregroundStyle(.tint).padding(
-                        .horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs).background(Capsule(style: .continuous).fill(Color.accentColor.opacity(0.14)))
-                }
-            }
-        }.tint(.secondary)
-    }
-    @ViewBuilder
-    private func numberedSeedPhraseRow(index: Int, text: String? = nil, isInvalidWord: Bool = false) -> some View {
-        let isFocused = focusedSeedPhraseIndex == index
-        let accentColor: Color = isInvalidWord ? Color.red.opacity(0.85) : Color.accentColor.opacity(0.7)
-        HStack(spacing: SpectraLayout.Space.xs) {
-            Text("\(index + 1)").font(.caption2.weight(.bold)).foregroundStyle(.tertiary)
-                .frame(width: wordIndexWidth, alignment: .trailing).monospacedDigit()
-            if let text {
-                Text(text).font(.system(.callout, design: .monospaced).weight(.medium))
-                    .foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.7)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            } else {
-                // The default keyboard: a Japanese, Korean or Chinese wordlist
-                // cannot be typed on an ASCII one.
-                TextField("", text: seedPhraseBinding(for: index)).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    .font(.system(.callout, design: .monospaced).weight(.medium))
-                    .foregroundStyle(isInvalidWord ? AnyShapeStyle(.red.opacity(0.95)) : AnyShapeStyle(.primary))
-                    .focused($focusedSeedPhraseIndex, equals: index)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-        .frame(maxWidth: .infinity, minHeight: 36)
-        .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs)
-        .spectraInsetFill(cornerRadius: SpectraLayout.Radius.control)
-        .overlay(RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous)
-            .stroke((isFocused || isInvalidWord) ? accentColor : Color.clear, lineWidth: 1))
-        .animation(.easeInOut(duration: 0.15), value: isFocused)
-    }
-    /// The entry: one field per slot, as many slots as core judges the
-    /// phrase at, and what core made of it underneath.
-    @ViewBuilder
-    private var importSeedPhraseSection: some View {
-        let verdict = draft.seedPhraseVerdict
-        let invalidWords = Set(verdict.invalidWords)
-        let status = seedPhraseStatus
-        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-            seedPhraseEntryHeader
-            LazyVGrid(columns: seedPhraseGridColumns, spacing: SpectraLayout.Space.xs) {
-                ForEach(draft.seedPhraseEntries.indices, id: \.self) { index in
-                    seedPhraseField(at: index, invalidWords: invalidWords)
-                }
-            }
-            HStack(alignment: .firstTextBaseline, spacing: SpectraLayout.Space.s) {
-                Text(status.text).font(.footnote).foregroundStyle(status.color)
-                Spacer(minLength: SpectraLayout.Space.s)
-                if draft.seedPhraseWordCountOverride == nil, draft.nextSeedPhraseSlotCount != nil {
-                    Button(AppLocalization.string("More words"), systemImage: "plus") {
-                        draft.addSeedPhraseSlots()
-                    }
-                    .font(.footnote.weight(.semibold)).buttonStyle(.plain).foregroundStyle(.tint)
-                }
-            }
-        }
-        .privacySensitive()
-    }
-    @ViewBuilder
     private var createWalletSeedPhraseSection: some View {
         seedPhraseLengthPicker(
             title: copy.createSeedLengthTitle, subtitle: copy.createSeedLengthSubtitle, showsRegenerateButton: true
@@ -237,39 +91,10 @@ struct WalletSecretStep: View {
         seedPhraseDisplayHeader
         LazyVGrid(columns: seedPhraseGridColumns, spacing: SpectraLayout.Space.xs) {
             ForEach(draft.seedPhraseWords.indices, id: \.self) { index in
-                numberedSeedPhraseRow(index: index, text: draft.seedPhraseWords[index])
-            }
-        }
-    }
-    @ViewBuilder
-    private var seedPhraseEntryHeader: some View {
-        let verdict = draft.seedPhraseVerdict
-        let filled = verdict.words.count
-        let isComplete = verdict.checksumValid
-        HStack(spacing: SpectraLayout.Space.s) {
-            Text("\(filled) / \(verdict.wordCount)")
-                .font(.caption.weight(.semibold).monospacedDigit())
-                .foregroundStyle(isComplete ? Color.green : Color.secondary)
-                .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xs)
-                .background(Capsule(style: .continuous).fill(isComplete ? Color.green.opacity(0.14) : SpectraLayout.insetFill))
-            Spacer()
-            // The system paste button reads the clipboard on the user's tap,
-            // so iOS does not ask permission to paste.
-            PasteButton(payloadType: String.self) { pasted in
-                guard let text = pasted.first else { return }
-                draft.pasteSeedPhrase(text)
-                focusedSeedPhraseIndex = nil
-            }
-            .buttonBorderShape(.capsule)
-            .labelStyle(.titleAndIcon)
-            .controlSize(.small)
-            .tint(.accentColor)
-            if filled > 0 {
-                Button(AppLocalization.string("Clear"), systemImage: "xmark.circle.fill", role: .destructive) {
-                    draft.clearSeedPhrase()
-                    focusedSeedPhraseIndex = 0
+                SeedPhraseWordCell(index: index) {
+                    Text(draft.seedPhraseWords[index]).font(.system(.callout, design: .monospaced).weight(.medium))
+                        .foregroundStyle(Color.primary).lineLimit(1).minimumScaleFactor(0.7)
                 }
-                .labelStyle(.iconOnly).font(.title3).buttonStyle(.plain).foregroundStyle(.secondary)
             }
         }
     }
@@ -371,7 +196,7 @@ struct WalletSecretStep: View {
             privateKeyImportFields
                 .padding(SpectraLayout.Space.l).spectraBubbleFill().spectraCardFill()
         } else {
-            importSeedPhraseSection
+            SeedPhraseEntryView(entry: draft.seedEntry)
                 .padding(SpectraLayout.Space.l).spectraBubbleFill().spectraCardFill()
             advancedCard
         }
@@ -412,8 +237,8 @@ struct WalletSecretStep: View {
     /// something behind it changes which addresses the seed derives.
     private var customizedDerivationOptionNames: [String] {
         var names: [String] = []
-        if !isCreateMode, draft.seedPhraseWordCountOverride != nil { names.append(AppLocalization.string("Word Count")) }
-        if !isCreateMode, draft.seedPhraseLanguage != nil { names.append(AppLocalization.string("Wordlist")) }
+        if !isCreateMode, draft.seedEntry.wordCountOverride != nil { names.append(AppLocalization.string("Word Count")) }
+        if !isCreateMode, draft.seedEntry.language != nil { names.append(AppLocalization.string("Wordlist")) }
         let presetPaths = SeedDerivationPaths.forPreset(draft.seedDerivationPreset)
         if draft.selectableDerivationChains.contains(where: {
             draft.seedDerivationPaths.path(for: $0) != presetPaths.path(for: $0)
@@ -436,7 +261,7 @@ struct WalletSecretStep: View {
     /// in effect when nothing was changed, and what was changed otherwise.
     private var advancedCard: some View {
         let summary = derivationOptionsSummary
-        let verdict = draft.seedPhraseVerdict
+        let verdict = draft.seedEntry.verdict
         let inEffect: String =
             if verdict.checksumValid, let language = verdict.language {
                 AppLocalization.format(

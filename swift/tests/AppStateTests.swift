@@ -55,8 +55,7 @@ struct AppStatePlatformBridgeTests: IsolatedAppStateSuite {
     @Test func aWalletAnswersForItsOwnChainsAndNoOthers() async throws {
         let store = makeState()
         store.walletImport.draft.walletName = "Catalog Coverage"
-        store.walletImport.draft.setSeedPhraseForTesting(
-            "test test test test test test test test test test test junk")
+        store.walletImport.draft.seedEntry.paste("test test test test test test test test test test test junk")
         store.walletImport.draft.selectedChainsStorage = [Chain.ethereum]
         await store.importWallet()
         #expect(store.walletImport.error == nil)
@@ -110,7 +109,7 @@ struct AppStatePlatformBridgeTests: IsolatedAppStateSuite {
     @Test func importingBitcoinWalletPersistsDerivedAddress() async {
         let store = makeState()
         store.walletImport.draft.walletName = "Primary BTC"
-        store.walletImport.draft.setSeedPhraseForTesting("test test test test test test test test test test test junk")
+        store.walletImport.draft.seedEntry.paste("test test test test test test test test test test test junk")
         store.walletImport.draft.selectedChainsStorage = [Chain.bitcoin]
         await store.importWallet()
         #expect(store.walletImport.error == nil)
@@ -219,6 +218,26 @@ struct AppStatePlatformBridgeTests: IsolatedAppStateSuite {
             #expect(reloaded.first?.address(on: chain) == "address-for-\(chain.id)", "\(chain.id) address did not round-trip")
             #expect(reloaded.first?.chainId == chain)
         }
+        try await store.clearWalletsForTesting()
+    }
+
+    /// Watching an EVM chain that shares Ethereum's address slot imports a
+    /// wallet on that chain. The page used to key the typed addresses by the
+    /// slot's first chain, Ethereum, and core — planning the chain the user
+    /// picked — found none and refused the import.
+    @Test func watchingAnEvmLayerTwoImportsAWalletOnIt() async throws {
+        let store = makeState()
+        try await store.clearWalletsForTesting()
+        store.beginWatchAddressesImport()
+        let draft = store.walletImport.draft
+        draft.walletName = "Watch Arbitrum"
+        draft.toggleChainSelection(.arbitrum)
+        draft.watchOnlyInput = "0x000000000000000000000000000000000000dead"
+        #expect(draft.canImportWallet)
+        await store.importWallet()
+        #expect(store.walletImport.error == nil)
+        #expect(store.wallets.count == 1)
+        #expect(store.wallets.first?.chainId == .arbitrum)
         try await store.clearWalletsForTesting()
     }
 

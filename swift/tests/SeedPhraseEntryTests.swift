@@ -3,45 +3,61 @@ import Testing
 
 @testable import Spectra
 
-/// The import grid follows core's verdict: it grows to hold what is pasted,
+/// The entry grid follows core's verdict: it grows to hold what is pasted,
 /// and a fixed length is refused by core rather than enforced by cutting.
 @MainActor
 struct SeedPhraseEntryTests {
     private let zero24 = Array(repeating: "abandon", count: 23).joined(separator: " ") + " art"
 
     @Test func pastingTwentyFourWordsGrowsTheGridToTwentyFour() {
-        let draft = WalletImportDraft()
-        draft.selectedChainsStorage = [Chain.bitcoin]
-        #expect(draft.seedPhraseEntries.count == 12)
-        draft.pasteSeedPhrase(zero24)
-        #expect(draft.seedPhraseEntries.count == 24)
-        #expect(draft.seedPhraseVerdict.wordCount == 24)
-        #expect(draft.seedPhraseVerdict.language?.code == "en")
-        #expect(draft.isSecretComplete)
+        let entry = SeedPhraseEntry()
+        #expect(entry.slots.count == 12)
+        entry.paste(zero24)
+        #expect(entry.slots.count == 24)
+        #expect(entry.verdict.wordCount == 24)
+        #expect(entry.verdict.language?.code == "en")
+        #expect(entry.verdict.checksumValid)
+        #expect(entry.phrase == zero24)
     }
 
     @Test func aFixedLengthKeepsEveryPastedWordAndRefusesThePhrase() {
-        let draft = WalletImportDraft()
-        draft.selectedChainsStorage = [Chain.bitcoin]
-        draft.seedPhraseWordCountOverride = 12
-        draft.pasteSeedPhrase(zero24)
-        #expect(draft.seedPhraseEntries.count == 24)
-        #expect(draft.seedPhraseVerdict.error == "Seed phrase must be 12 words.")
-        #expect(!draft.isSecretComplete)
+        let entry = SeedPhraseEntry()
+        entry.wordCountOverride = 12
+        entry.paste(zero24)
+        #expect(entry.slots.count == 24)
+        #expect(entry.verdict.problem == .wrongWordCount(expected: 12))
+        #expect(!entry.verdict.checksumValid)
     }
 
     @Test func moreWordsStepsToTheNextStandardLength() {
-        let draft = WalletImportDraft()
-        draft.addSeedPhraseSlots()
-        #expect(draft.seedPhraseEntries.count == 15)
-        draft.seedPhraseEntries = Array(repeating: "", count: 24)
-        #expect(draft.nextSeedPhraseSlotCount == nil)
+        let entry = SeedPhraseEntry()
+        entry.addSlots()
+        #expect(entry.slots.count == 15)
+        entry.paste(zero24)
+        #expect(entry.nextSlotCount == nil)
     }
 
     @Test func clearingReturnsTheGridToItsStartingLength() {
+        let entry = SeedPhraseEntry()
+        entry.paste(zero24)
+        entry.clear()
+        #expect(entry.slots == Array(repeating: "", count: 12))
+    }
+
+    /// Core states the problem; the words are this app's, in its language.
+    @Test func everyProblemIsWorded() {
+        for problem: SeedPhraseProblem in [.nonStandardLength(wordCount: 25), .wrongWordCount(expected: 12), .invalidChecksum] {
+            #expect(!problem.localizedMessage.isEmpty)
+        }
+    }
+
+    /// A created phrase goes through the same entry, judged at the length
+    /// it was generated at.
+    @Test func aCreatedPhraseIsJudgedAtItsLength() {
         let draft = WalletImportDraft()
-        draft.pasteSeedPhrase(zero24)
-        draft.clearSeedPhrase()
-        #expect(draft.seedPhraseEntries == Array(repeating: "", count: 12))
+        draft.configureForCreatedWallet()
+        draft.selectedSeedPhraseWordCount = 24
+        #expect(draft.seedPhraseWords.count == 24)
+        #expect(draft.seedEntry.verdict.checksumValid)
     }
 }

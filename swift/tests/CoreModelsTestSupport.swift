@@ -103,18 +103,6 @@ extension TransactionRecord {
     }
 }
 
-extension WalletImportDraft {
-    /// Populate the seed phrase the way the UI does — the per-word entry grid
-    /// *and* the joined string. Validation reads `seedPhraseEntries`, so
-    /// setting `seedPhrase` alone leaves the draft looking incomplete.
-    func setSeedPhraseForTesting(_ phrase: String) {
-        let words = phrase.lowercased().split(separator: " ").map(String.init).filter { !$0.isEmpty }
-        selectedSeedPhraseWordCount = words.count
-        seedPhraseEntries = words
-        seedPhrase = words.joined(separator: " ")
-    }
-}
-
 extension AssetHolding {
     /// A holding as core would project it. The id follows core's
     /// `deployment_id` for the EVM-style contracts these tests use.

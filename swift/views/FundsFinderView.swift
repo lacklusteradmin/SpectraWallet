@@ -16,14 +16,12 @@ struct FundsFinderHit: Identifiable {
 /// `@Observable` required that shape.
 struct FundsFinderView: View {
     let bridge: WalletServiceBridge
-    @State private var seedPhrase: String = ""
+    /// The same entry the import page reads a phrase with, so a phrase the
+    /// import would refuse is not scanned here either.
+    @State private var seedEntry = SeedPhraseEntry()
     @State private var passphrase: String = ""
     @State private var showPassphrase: Bool = false
     @State private var hasStarted: Bool = false
-    @State private var wordSlots: [String] = Array(repeating: "", count: 24)
-    @State private var showAll24: Bool = false
-    @FocusState private var focusedSlot: Int?
-    @ScaledMetric(relativeTo: .caption2) private var wordIndexWidth: CGFloat = 16
     @State private var isScanning = false
     @State private var progress: Double = 0
     @State private var hits: [FundsFinderHit] = []
@@ -32,11 +30,7 @@ struct FundsFinderView: View {
     @State private var scanError: String?
     @State private var scanTask: Task<Void, Never>?
 
-    private var canStart: Bool {
-        let words = seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines)
-            .components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
-        return words.count >= 12 && !isScanning
-    }
+    private var canStart: Bool { seedEntry.verdict.checksumValid && !isScanning }
 
     var body: some View {
         ZStack {
@@ -71,10 +65,8 @@ struct FundsFinderView: View {
                     Button(AppLocalization.string("New Scan")) {
                         resetScan()
                         hasStarted = false
-                        seedPhrase = ""
+                        seedEntry.reset()
                         passphrase = ""
-                        wordSlots = Array(repeating: "", count: 24)
-                        showAll24 = false
                     }
                 }
             }
@@ -167,76 +159,14 @@ struct FundsFinderView: View {
     }
 
     private var seedPhraseCard: some View {
-        let slotCount = showAll24 ? 24 : 12
-        let count = filledWordCount
-        return VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-            HStack {
-                Text(AppLocalization.string("Seed Phrase")).font(.subheadline.weight(.semibold))
-                Spacer()
-                if count > 0 {
-                    Text(AppLocalization.format("%lld words", count: count, count))
-                        .font(.caption.weight(.semibold))
-                        .foregroundStyle(count >= 12 ? Color.green : Color.spectraWarning)
-                        .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.xxs)
-                        .background(Capsule().fill(count >= 12 ? Color.green.opacity(0.14) : Color.spectraWarning.opacity(0.14)))
-                }
-            }
-            LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible()), GridItem(.flexible())], spacing: SpectraLayout.Space.xs) {
-                ForEach(0..<slotCount, id: \.self) { i in
-                    wordSlotView(index: i, slotCount: slotCount)
-                }
-            }
-            if !showAll24 {
-                Button { showAll24 = true } label: {
-                    Text(AppLocalization.string("Using 24 words?"))
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                .buttonStyle(.plain)
-            }
+        VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
+            Text(AppLocalization.string("Seed Phrase")).font(.subheadline.weight(.semibold))
+            SeedPhraseEntryView(entry: seedEntry)
         }
         .padding(SpectraLayout.Space.l)
         .frame(maxWidth: .infinity, alignment: .leading)
         .spectraCardFill()
     }
-
-    private func wordSlotView(index: Int, slotCount: Int) -> some View {
-        HStack(spacing: SpectraLayout.Space.xs) {
-            Text("\(index + 1)")
-                .font(.caption2.weight(.bold))
-                .monospacedDigit()
-                .foregroundStyle(.tertiary)
-                .frame(width: wordIndexWidth, alignment: .trailing)
-            TextField("", text: Binding(
-                get: { wordSlots[index] },
-                set: { newVal in
-                    let parts = newVal.components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }
-                    if parts.count > 1 {
-                        for (offset, word) in parts.prefix(slotCount - index).enumerated() {
-                            wordSlots[index + offset] = word.lowercased()
-                        }
-                        if parts.count > 12 { showAll24 = true }
-                        focusedSlot = min(index + parts.count, slotCount - 1)
-                    } else {
-                        wordSlots[index] = newVal.lowercased()
-                    }
-                    syncSeedPhrase()
-                }
-            ))
-            .font(.system(.footnote, design: .monospaced).weight(.medium))
-            .autocorrectionDisabled()
-            .textInputAutocapitalization(.never)
-            .focused($focusedSlot, equals: index)
-            .onSubmit { if index < slotCount - 1 { focusedSlot = index + 1 } }
-        }
-        .padding(.horizontal, SpectraLayout.Space.s).padding(.vertical, SpectraLayout.Space.s)
-        .spectraInsetFill(cornerRadius: SpectraLayout.Radius.control)
-        .overlay(RoundedRectangle(cornerRadius: SpectraLayout.Radius.control, style: .continuous)
-            .stroke(focusedSlot == index ? Color.accentColor.opacity(0.5) : Color.clear, lineWidth: 1))
-        .animation(.easeInOut(duration: 0.15), value: focusedSlot == index)
-    }
-
-    private var filledWordCount: Int { wordSlots.filter { !$0.isEmpty }.count }
-    private func syncSeedPhrase() { seedPhrase = wordSlots.filter { !$0.isEmpty }.joined(separator: " ") }
 
     private var passphraseCard: some View {
         VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
@@ -294,7 +224,7 @@ struct FundsFinderView: View {
             guard canStart else { return }
             hasStarted = true
             startScan(
-                seedPhrase: seedPhrase.trimmingCharacters(in: .whitespacesAndNewlines),
+                seedPhrase: seedEntry.phrase,
                 passphrase: passphrase.isEmpty ? nil : passphrase
             )
         } label: {

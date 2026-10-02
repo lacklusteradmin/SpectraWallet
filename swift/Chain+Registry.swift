@@ -12,9 +12,6 @@ extension Chain: Identifiable {
     /// Chains that can hold tracked tokens, in catalog order.
     static let tokenHostingChains: [Chain] = all.filter(\.hostsTokens)
 
-    /// Chains with staking support, as declared by the registry.
-    static let stakingChains: [Chain] = identities.filter(\.supportsStaking).map(\.chain)
-
     private static let identities: [ChainIdentity] = chainIdentities()
     private static let identityByChain: [Chain: ChainIdentity] = Dictionary(
         uniqueKeysWithValues: identities.map { ($0.chain, $0) })
@@ -55,8 +52,6 @@ extension Chain: Identifiable {
 
     /// A private key alone yields an address on this chain.
     var derivesFromPrivateKey: Bool { identity?.derivesFromPrivateKey ?? false }
-    /// The chain has protocol-native staking the staking tab can drive.
-    var supportsStaking: Bool { identity?.supportsStaking ?? false }
     /// The send screen has a network card to show for this chain.
     var hasSendPreview: Bool { identity?.hasSendPreview ?? false }
     /// The chain can hold tracked tokens.

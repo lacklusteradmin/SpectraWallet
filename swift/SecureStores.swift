@@ -28,6 +28,7 @@ extension KeychainStoreError: LocalizedError {
     }
 }
 
+// Sound: KeychainAccess's `Keychain` stores only a `let` options value, and every call is a Security framework call, which is thread-safe.
 private struct KeychainBackedSecureStore: @unchecked Sendable {
     private let keychain: Keychain
     typealias StoreError = KeychainStoreError

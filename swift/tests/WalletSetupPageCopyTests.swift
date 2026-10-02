@@ -8,7 +8,7 @@ struct WalletSetupPageCopyTests {
     @Test func backupQuizRemainsRequiredOnlyForWalletCreation() {
         let draft = WalletImportDraft()
         draft.selectedChainsStorage = [Chain.ethereum]
-        draft.seedPhraseEntries = "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about".components(separatedBy: " ")
+        draft.seedEntry.paste("abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about")
         #expect(draft.canImportWallet)
         draft.mode = .createNew
         #expect(!draft.canImportWallet)

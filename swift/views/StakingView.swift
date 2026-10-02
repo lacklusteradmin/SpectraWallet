@@ -30,13 +30,11 @@ struct StakingView: View {
             .spectraElevatedFill()
     }
     private var chainPickerCard: some View {
-        let chains = Chain.stakingChains.filter { $0.stakingDescriptor != nil }
+        let entries = CoreReferenceTables.stakingChains
         return SpectraRowGroup(
-            title: AppLocalization.string("Supported Chains"), trailing: "\(chains.count)", data: chains
-        ) { chain in
-            if let descriptor = chain.stakingDescriptor {
-                NavigationLink(value: chain) { chainRow(chain, descriptor) }.buttonStyle(.plain)
-            }
+            title: AppLocalization.string("Supported Chains"), trailing: "\(entries.count)", data: entries
+        ) { entry in
+            NavigationLink(value: entry.chain) { chainRow(entry) }.buttonStyle(.plain)
         }
         .navigationDestination(for: Chain.self) { chain in
             ChainStakingDetailView(chain: chain, bridge: bridge)
@@ -44,14 +42,15 @@ struct StakingView: View {
     }
     /// The mechanic is left to the chain's page, whose header shows it: here
     /// it wrapped every row to three lines.
-    private func chainRow(_ chain: Chain, _ descriptor: StakingChainDescriptor) -> some View {
-        HStack(spacing: SpectraLayout.Space.m) {
+    private func chainRow(_ entry: StakingChainEntry) -> some View {
+        let chain = entry.chain
+        return HStack(spacing: SpectraLayout.Space.m) {
             CoinBadge(
                 artworkName: AssetPresentationCatalog.artwork(deploymentId: chain.entry?.nativeDeploymentId),
-                fallbackText: chain.gasTokenSymbol, color: descriptor.tint, size: 36)
+                fallbackText: chain.gasTokenSymbol, color: chain.stakingTint, size: 36)
             VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
                 Text(chain.displayName).font(.headline).foregroundStyle(Color.primary).lineLimit(1)
-                Text(descriptor.apyEstimate).font(.caption.weight(.semibold)).foregroundStyle(.green)
+                Text(AppLocalization.string(entry.apyEstimate)).font(.caption.weight(.semibold)).foregroundStyle(.green)
             }
             Spacer(minLength: SpectraLayout.Space.s)
             Image(systemName: "chevron.right").font(.footnote.weight(.semibold)).foregroundStyle(.tertiary)
@@ -76,21 +75,6 @@ struct StakingView: View {
     }
 }
 
-/// Editorial copy for one chain's staking page.
-///
-/// Not registry facts — an APY estimate, an unbonding period and a paragraph
-/// describing the protocol are what this chain *does*, written for a reader —
-/// so they stay in the view. The chain's name and symbol come from the
-/// registry, so they cannot disagree with every other screen.
-struct StakingChainDescriptor {
-    let tint: Color
-    let apyEstimate: String
-    let shortMechanic: String
-    let unbondingPeriod: String
-    let minimumStake: String
-    let detailedExplanation: String
-}
-
 private enum StakingDetailSection: String, CaseIterable, Identifiable {
     case overview
     case validators
@@ -107,64 +91,13 @@ private enum StakingDetailSection: String, CaseIterable, Identifiable {
     }
 }
 
+extension StakingChainEntry: Identifiable {
+    public var id: Chain { chain }
+}
+
 extension Chain {
-    /// `nil` for a chain that does not stake, which `Chain.stakingChains`
-    /// already filters out — `testEveryStakingChainHasADescriptor` is what
-    /// keeps the two in step.
-    var stakingDescriptor: StakingChainDescriptor? {
-        switch self {
-        case .solana:
-            return StakingChainDescriptor(
-                tint: .purple, apyEstimate: AppLocalization.string("~6–7% APY"),
-                shortMechanic: AppLocalization.string("Delegate to a vote account; rewards each epoch (~2 days)."),
-                unbondingPeriod: AppLocalization.string("2–3 days deactivation"), minimumStake: AppLocalization.string("≥ 0.001 SOL recommended"),
-                detailedExplanation:
-                    AppLocalization.string("Each stake position is its own on-chain stake account. Spectra creates a fresh keypair, initializes the account with `StakeProgram`, and delegates to the vote account you pick. Rewards land at every epoch boundary.")
-            )
-        case .sui:
-            return StakingChainDescriptor(
-                tint: .mint, apyEstimate: AppLocalization.string("~3% APY"),
-                shortMechanic: AppLocalization.string("Move call `request_add_stake` to a validator; epoch ~24h."),
-                unbondingPeriod: AppLocalization.string("Until end of current epoch"), minimumStake: AppLocalization.string("1 SUI"),
-                detailedExplanation:
-                    AppLocalization.string("Staking creates a `StakedSui` object owned by your wallet. To unstake, the same object is passed to `request_withdraw_stake`; principal + rewards return at the next epoch boundary.")
-            )
-        case .aptos:
-            return StakingChainDescriptor(
-                tint: .cyan, apyEstimate: AppLocalization.string("~7% APY"),
-                shortMechanic: AppLocalization.string("Add stake to a delegation pool; epoch ~2h."),
-                unbondingPeriod: AppLocalization.string("~30-day lockup cycle"), minimumStake: AppLocalization.string("11 APT to a delegation pool"),
-                detailedExplanation:
-                    AppLocalization.string("Calls `0x1::delegation_pool::add_stake` against a pool address. Stake activates at the next epoch. Unlock moves it to a pending-inactive bucket; after the lockup cycle (typically 30 days) it becomes withdrawable.")
-            )
-        case .near:
-            return StakingChainDescriptor(
-                tint: .indigo, apyEstimate: AppLocalization.string("~9% APY"),
-                shortMechanic: AppLocalization.string("`deposit_and_stake` on a `*.poolv1.near` contract."),
-                unbondingPeriod: AppLocalization.string("~52h (4 epochs)"), minimumStake: AppLocalization.string("Pool-dependent"),
-                detailedExplanation:
-                    AppLocalization.string("Each validator runs its own staking-pool contract. Spectra calls `deposit_and_stake` with NEAR attached. Unstake places funds into a pending bucket; after 4 epochs (~52h) they're withdrawable via `withdraw`.")
-            )
-        case .polkadot:
-            return StakingChainDescriptor(
-                tint: .pink, apyEstimate: AppLocalization.string("~14% APY"),
-                shortMechanic: AppLocalization.string("Bond + nominate up to 16 validators, OR join a nomination pool."),
-                unbondingPeriod: AppLocalization.string("28 days"), minimumStake: AppLocalization.string("Direct: 250 DOT · Pool: 1 DOT"),
-                detailedExplanation:
-                    AppLocalization.string("Two paths: direct nomination (`staking::bond` + `staking::nominate`, requires the chain's active minimum bond, currently ~250 DOT) or nomination pools (`nomination_pools::join`, no minimum, recommended for smaller stakers).")
-            )
-        case .icp:
-            return StakingChainDescriptor(
-                tint: .indigo, apyEstimate: AppLocalization.string("Up to ~14% APY"),
-                shortMechanic: AppLocalization.string("Lock ICP into a neuron; rewards scale with dissolve delay."),
-                unbondingPeriod: AppLocalization.string("Dissolve delay (6 months – 8 years)"), minimumStake: AppLocalization.string("1 ICP"),
-                detailedExplanation:
-                    AppLocalization.string("Staking on ICP means creating an NNS neuron with a chosen dissolve delay (≥ 6 months for rewards eligibility, up to 8 years for max maturity bonus). Voting on proposals — directly or via followees — drives the reward rate.")
-            )
-        default:
-            return nil
-        }
-    }
+    /// The chain's catalog colour, which every other badge of it uses.
+    fileprivate var stakingTint: Color { entry?.color.color ?? .accentColor }
 }
 
 struct ChainStakingDetailView: View {
@@ -179,21 +112,19 @@ struct ChainStakingDetailView: View {
 
     @ViewBuilder
     var body: some View {
-        // `Chain.stakingChains` is the only way in, so a missing descriptor
-        // means the registry gained a staking chain and this file did not.
-        // `testEveryStakingChainHasADescriptor` fails before a user sees a
-        // blank page.
-        if let descriptor = chain.stakingDescriptor {
-            content(descriptor: descriptor)
+        // Core's table is the only way in, and core refuses to load one that
+        // misses a staking chain, so every chain reached here has a row.
+        if let entry = CoreReferenceTables.stakingEntry(for: chain) {
+            content(entry: entry)
         }
     }
 
-    private func content(descriptor: StakingChainDescriptor) -> some View {
+    private func content(entry: StakingChainEntry) -> some View {
         ScrollView(showsIndicators: false) {
             VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-                heroCard(descriptor: descriptor)
+                heroCard(entry: entry)
                 detailSectionPicker
-                selectedDetailSection(descriptor: descriptor)
+                selectedDetailSection(entry: entry)
                     .id(selectedSection)
                     .transition(.opacity.combined(with: .move(edge: .trailing)))
                     .animation(.snappy(duration: 0.24), value: selectedSection)
@@ -223,10 +154,10 @@ struct ChainStakingDetailView: View {
     }
 
     @ViewBuilder
-    private func selectedDetailSection(descriptor: StakingChainDescriptor) -> some View {
+    private func selectedDetailSection(entry: StakingChainEntry) -> some View {
         switch selectedSection {
         case .overview:
-            statsCard(descriptor: descriptor)
+            statsCard(entry: entry)
         case .validators:
             if vm.validators.isEmpty {
                 loadingValidatorsCard
@@ -234,20 +165,20 @@ struct ChainStakingDetailView: View {
                 validatorsCard
             }
         case .learn:
-            explanationCard(descriptor: descriptor)
+            explanationCard(entry: entry)
         }
     }
 
     @ViewBuilder
-    private func heroCard(descriptor: StakingChainDescriptor) -> some View {
+    private func heroCard(entry: StakingChainEntry) -> some View {
         HStack(spacing: SpectraLayout.Space.m) {
             CoinBadge(
                 artworkName: AssetPresentationCatalog.artwork(deploymentId: chain.entry?.nativeDeploymentId),
-                fallbackText: chain.gasTokenSymbol, color: descriptor.tint, size: 56)
+                fallbackText: chain.gasTokenSymbol, color: chain.stakingTint, size: 56)
             VStack(alignment: .leading, spacing: SpectraLayout.Space.xs) {
                 Text(chain.displayName).font(.title3.weight(.bold)).foregroundStyle(Color.primary)
-                Text(descriptor.apyEstimate).font(.subheadline.weight(.semibold)).foregroundStyle(.green)
-                Text(descriptor.shortMechanic).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                Text(AppLocalization.string(entry.apyEstimate)).font(.subheadline.weight(.semibold)).foregroundStyle(.green)
+                Text(AppLocalization.string(entry.shortMechanic)).font(.caption).foregroundStyle(.secondary).lineLimit(2)
             }
             Spacer()
             if vm.isLoading {
@@ -258,13 +189,13 @@ struct ChainStakingDetailView: View {
     }
 
     @ViewBuilder
-    private func statsCard(descriptor: StakingChainDescriptor) -> some View {
+    private func statsCard(entry: StakingChainEntry) -> some View {
         VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-            statRow(label: AppLocalization.string("Estimated APY"), value: descriptor.apyEstimate, icon: "percent")
+            statRow(label: AppLocalization.string("Estimated APY"), value: AppLocalization.string(entry.apyEstimate), icon: "percent")
             Divider().opacity(0.5)
-            statRow(label: AppLocalization.string("Minimum Stake"), value: descriptor.minimumStake, icon: "scalemass.fill")
+            statRow(label: AppLocalization.string("Minimum Stake"), value: AppLocalization.string(entry.minimumStake), icon: "scalemass.fill")
             Divider().opacity(0.5)
-            statRow(label: AppLocalization.string("Unbonding"), value: descriptor.unbondingPeriod, icon: "hourglass")
+            statRow(label: AppLocalization.string("Unbonding"), value: AppLocalization.string(entry.unbondingPeriod), icon: "hourglass")
             if !vm.validators.isEmpty {
                 Divider().opacity(0.5)
                 statRow(
@@ -332,10 +263,10 @@ struct ChainStakingDetailView: View {
     }
 
     @ViewBuilder
-    private func explanationCard(descriptor: StakingChainDescriptor) -> some View {
+    private func explanationCard(entry: StakingChainEntry) -> some View {
         VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
             Text(AppLocalization.string("How it works")).font(.headline)
-            Text(descriptor.detailedExplanation).font(.subheadline).foregroundStyle(.secondary)
+            Text(AppLocalization.string(entry.explanation)).font(.subheadline).foregroundStyle(.secondary)
         }.padding(SpectraLayout.Space.l).frame(maxWidth: .infinity, alignment: .leading)
             .spectraCardFill()
     }

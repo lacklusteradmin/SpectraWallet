@@ -10,10 +10,9 @@ enum WalletDraftMode {
 ///     verdicts are read from the fields they depend on, so no field needs a
 ///     hook to keep them current and any field may be bound directly.
 ///   * **Fields with a `didSet` reshape other fields** — a created phrase's
-///     length regenerates it, and an import's length override refits the
-///     grid. An import's grid otherwise follows core's verdict as words land.
-///     Chain selection goes through `toggleChainSelection`, which applies the
-///     mode's one-chain rule.
+///     length regenerates it. The phrase grid is `seedEntry`'s, which follows
+///     core's verdict as words land. Chain selection goes through
+///     `toggleChainSelection`, which applies the mode's one-chain rule.
 @MainActor
 @Observable
 final class WalletImportDraft {
@@ -21,7 +20,10 @@ final class WalletImportDraft {
     var mode: WalletDraftMode = .importExisting
     var isEditingWallet: Bool { mode == .editExisting }
     var walletName: String = ""
-    var seedPhrase: String = ""
+    /// The phrase grid: typed when importing, generated when creating.
+    let seedEntry = SeedPhraseEntry()
+    /// The phrase as core reads it.
+    var seedPhrase: String { seedEntry.phrase }
     var walletPassword: String = ""
     var walletPasswordConfirmation: String = ""
     /// An import from a raw private key rather than a phrase. Chosen on the
@@ -37,28 +39,17 @@ final class WalletImportDraft {
     // `resolvedDerivationOverrides`.
     var overridePassphrase: String = ""
     var overrideHmacKey: String = ""
-    /// The import's wordlist, from `seedPhraseLanguages()`, or `nil` for
-    /// core to detect it from the words.
-    var seedPhraseLanguage: String?
-    /// The import's length, or `nil` for core to infer it from the words.
-    /// Fixing it never cuts a longer entry short: core refuses the phrase.
-    var seedPhraseWordCountOverride: Int? {
-        didSet { fitSeedPhraseSlots(shrinking: true) }
-    }
-    /// One entry per slot of the grid. An import grows it to the length core
-    /// judges the phrase at; creating a wallet sizes it to the phrase.
-    var seedPhraseEntries: [String] = Array(repeating: "", count: 12)
-    /// The length a created phrase is generated at.
-    var selectedSeedPhraseWordCount: Int = 12 {
-        didSet {
-            resizeSeedPhraseEntries(to: selectedSeedPhraseWordCount)
-        }
+    /// The length a created phrase is generated at: one of core's lengths.
+    var selectedSeedPhraseWordCount: Int = SeedPhraseEntry.initialSlotCount {
+        didSet { if selectedSeedPhraseWordCount != oldValue { regenerateSeedPhrase() } }
     }
     var isWatchOnlyMode: Bool = false
-    /// The watch-only address text, keyed by chain.
-    var watchOnlyInputsByChain: [Chain: String] = [:]
-    /// Not an address, so not in the table above: Bitcoin's account xpub stands
-    /// in for the whole account and plans one wallet rather than one per line.
+    /// The watched addresses, one per line, for the one chain a watch-only
+    /// import is on.
+    var watchOnlyInput: String = ""
+    /// Not an address: an account xpub stands in for the whole account and
+    /// plans one wallet rather than one per line. Read only on a chain that
+    /// `acceptsAccountXpub`.
     var bitcoinXpubInput: String = ""
     /// Every chain ticked, in the order ticked.
     var selectedChainsStorage: [Chain] = []
@@ -82,25 +73,8 @@ final class WalletImportDraft {
     var isPrivateKeyImportMode: Bool { mode == .importExisting && !isWatchOnlyMode && importsPrivateKey }
     var allowsMultipleChainSelection: Bool { !isEditingWallet && !isWatchOnlyMode && !isPrivateKeyImportMode }
     func isSelected(_ chain: Chain) -> Bool { selectedChainsStorage.contains(chain) }
-    /// Everything core has to say about the entry grid, decided in one pass.
-    /// Edit mode resets the grid, so an empty entry answers "nothing to say"
-    /// without a mode guard of its own.
-    var seedPhraseVerdict: SeedPhraseVerdict {
-        let wordCount = isCreateMode ? selectedSeedPhraseWordCount : seedPhraseWordCountOverride
-        let check = SeedPhraseCheck(
-            words: seedPhraseEntries, language: isCreateMode ? nil : seedPhraseLanguage,
-            wordCount: wordCount.map(UInt32.init))
-        // One render reads this several times; ask core once per grid.
-        if let cached = seedPhraseVerdictCache, cached.check == check { return cached.verdict }
-        let verdict = checkSeedPhrase(check: check)
-        seedPhraseVerdictCache = (check, verdict)
-        return verdict
-    }
-    /// The last grid core judged. Holds the words, so `reset` drops it.
-    @ObservationIgnored private var seedPhraseVerdictCache: (check: SeedPhraseCheck, verdict: SeedPhraseVerdict)?
-    /// The entry grid as words. `seedPhrase` is kept in sync with the grid,
-    /// so this reads the same phrase either way.
-    var seedPhraseWords: [String] { seedPhraseVerdict.words }
+    /// The phrase as words, as core reads them.
+    var seedPhraseWords: [String] { seedEntry.verdict.words }
     /// The password as typed, or `nil` for an empty field: the one way to
     /// say "no password". Core owns what counts as a password — it ignores
     /// surrounding whitespace and refuses a blank one rather than storing the
@@ -123,23 +97,23 @@ final class WalletImportDraft {
         let selected = Set(selectedChains)
         return Chain.all.filter(selected.contains)
     }
-    func watchOnlyEntries(from rawValue: String) -> [String] {
-        rawValue.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+    /// The watched addresses, one per non-blank line.
+    var watchOnlyEntries: [String] {
+        watchOnlyInput.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
             .filter { !$0.isEmpty }
     }
-
-    /// Watch-only entries keyed by chain identity. Empty when
-    /// the draft is not in watch-only mode.
-    var watchOnlyEntriesByChain: [Chain: [String]] {
-        guard isWatchOnlyMode else { return [:] }
-        return watchOnlyInputsByChain.mapValues(watchOnlyEntries(from:))
-    }
-    /// The watch-only inputs as core reads them, for the check and the import.
+    /// The watch-only inputs as core reads them, keyed by the chain the import
+    /// is on — the chain core plans the wallets for. Empty outside watch-only
+    /// mode or before a chain is chosen.
     var watchOnlyImportEntries: WalletImportWatchOnlyEntries {
+        guard isWatchOnlyMode, let chain = selectedChains.first else {
+            return WalletImportWatchOnlyEntries(byChainId: [:], bitcoinXpub: nil)
+        }
+        let entries = watchOnlyEntries
         let trimmedXpub = bitcoinXpubInput.trimmingCharacters(in: .whitespacesAndNewlines)
         return WalletImportWatchOnlyEntries(
-            byChainId: watchOnlyEntriesByChain,
-            bitcoinXpub: isWatchOnlyMode && !trimmedXpub.isEmpty ? trimmedXpub : nil)
+            byChainId: entries.isEmpty ? [:] : [chain: entries],
+            bitcoinXpub: chain.acceptsAccountXpub && !trimmedXpub.isEmpty ? trimmedXpub : nil)
     }
     /// Form completeness is view state. Domain validation remains mandatory
     /// in core's import/rename operations even when a client skips this check.
@@ -147,7 +121,8 @@ final class WalletImportDraft {
         if isEditingWallet { return !walletName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
         guard !selectedChains.isEmpty else { return false }
         if isWatchOnlyMode {
-            return !watchOnlyEntriesByChain.values.flatMap { $0 }.isEmpty || watchOnlyImportEntries.bitcoinXpub != nil
+            let entries = watchOnlyImportEntries
+            return !entries.byChainId.isEmpty || entries.bitcoinXpub != nil
         }
         return isSecretComplete && (!requiresBackupVerification || isBackupVerificationComplete)
     }
@@ -159,7 +134,7 @@ final class WalletImportDraft {
         if isPrivateKeyImportMode {
             return isPrivateKeyHex(rawValue: privateKeyInput)
         }
-        return seedPhraseVerdict.checksumValid
+        return seedEntry.verdict.checksumValid
     }
     var requiresBackupVerification: Bool { isCreateMode }
     var isBackupVerificationComplete: Bool {
@@ -210,9 +185,8 @@ final class WalletImportDraft {
         walletName = wallet.name
     }
     func reset() {
-        seedPhraseVerdictCache = nil
         walletName = ""
-        seedPhrase = ""
+        seedEntry.reset()
         walletPassword = ""
         walletPasswordConfirmation = ""
         importsPrivateKey = false
@@ -221,12 +195,9 @@ final class WalletImportDraft {
         seedDerivationPaths = .defaults
         overridePassphrase = ""
         overrideHmacKey = ""
-        seedPhraseLanguage = nil
-        seedPhraseWordCountOverride = nil
-        seedPhraseEntries = Array(repeating: "", count: 12)
-        selectedSeedPhraseWordCount = 12
+        selectedSeedPhraseWordCount = SeedPhraseEntry.initialSlotCount
         isWatchOnlyMode = false
-        watchOnlyInputsByChain = [:]
+        watchOnlyInput = ""
         bitcoinXpubInput = ""
         selectedChainsStorage = []
         backupVerificationWordIndices = []
@@ -246,82 +217,13 @@ final class WalletImportDraft {
     }
     func regenerateSeedPhrase() {
         guard isCreateMode else { return }
-        // Core rejects lengths BIP-39 does not define rather than substituting one.
-        guard let generatedPhrase = try? generateMnemonic(wordCount: UInt32(selectedSeedPhraseWordCount)) else {
-            seedPhrase = ""
-            seedPhraseEntries = Array(repeating: "", count: selectedSeedPhraseWordCount)
-            backupVerificationWordIndices = []
-            backupVerificationEntries = []
-            return
-        }
-        seedPhrase = generatedPhrase
-        let generatedWords = generatedPhrase.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
-        var entries = Array(repeating: "", count: selectedSeedPhraseWordCount)
-        for (index, word) in generatedWords.enumerated() where index < entries.count { entries[index] = word }
-        seedPhraseEntries = entries
         backupVerificationWordIndices = []
         backupVerificationEntries = []
-    }
-    func seedPhraseEntry(at index: Int) -> String {
-        guard seedPhraseEntries.indices.contains(index) else { return "" }
-        return seedPhraseEntries[index]
-    }
-    /// Put what was typed or pasted at `index`. Several words fill the slots
-    /// from there on, adding slots rather than dropping words that do not fit.
-    func updateSeedPhraseEntry(at index: Int, with newValue: String) {
-        guard seedPhraseEntries.indices.contains(index) else { return }
-        let pastedWords = newValue.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
-        if pastedWords.count > 1 {
-            var updatedEntries = seedPhraseEntries
-            let end = index + pastedWords.count
-            if updatedEntries.count < end {
-                updatedEntries.append(contentsOf: Array(repeating: "", count: end - updatedEntries.count))
-            }
-            updatedEntries.replaceSubrange(index..<end, with: pastedWords)
-            seedPhraseEntries = updatedEntries
-            syncSeedPhraseFromEntries()
-            fitSeedPhraseSlots(shrinking: false)
-            return
-        }
-        let normalizedValue = newValue.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        guard seedPhraseEntries[index] != normalizedValue else { return }
-        seedPhraseEntries[index] = normalizedValue
-        syncSeedPhraseFromEntries()
-        fitSeedPhraseSlots(shrinking: false)
-    }
-    /// Replace the whole entry with a pasted phrase.
-    func pasteSeedPhrase(_ text: String) {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return }
-        seedPhraseEntries = Array(repeating: "", count: seedPhraseWordCountOverride ?? 12)
-        updateSeedPhraseEntry(at: 0, with: trimmed)
-    }
-    func clearSeedPhrase() {
-        seedPhraseEntries = Array(repeating: "", count: seedPhraseWordCountOverride ?? 12)
-        syncSeedPhraseFromEntries()
-    }
-    /// The next BIP-39 length past the grid's, or `nil` at the longest.
-    var nextSeedPhraseSlotCount: Int? {
-        CoreReferenceTables.standardSeedPhraseLengths.map { Int($0.wordCount) }
-            .first { $0 > seedPhraseEntries.count }
-    }
-    /// Grow the grid to the next BIP-39 length, for a phrase typed past it.
-    func addSeedPhraseSlots() {
-        guard let next = nextSeedPhraseSlotCount else { return }
-        seedPhraseEntries.append(contentsOf: Array(repeating: "", count: next - seedPhraseEntries.count))
-    }
-    /// Size an import's grid to the length core judges it at, never below
-    /// its last filled slot. Growing alone keeps slots the user added; a new
-    /// override also drops blank slots past it.
-    private func fitSeedPhraseSlots(shrinking: Bool) {
-        guard !isCreateMode else { return }
-        let filledThrough = (seedPhraseEntries.lastIndex { !$0.isEmpty } ?? -1) + 1
-        let target = max(Int(seedPhraseVerdict.wordCount), filledThrough)
-        if seedPhraseEntries.count < target {
-            seedPhraseEntries.append(contentsOf: Array(repeating: "", count: target - seedPhraseEntries.count))
-        } else if shrinking, seedPhraseEntries.count > target {
-            seedPhraseEntries = Array(seedPhraseEntries.prefix(target))
-        }
+        // The length is one of core's, so generating it cannot be refused;
+        // if it were, the grid shows no phrase rather than a guessed one.
+        let generatedPhrase = (try? generateMnemonic(wordCount: UInt32(selectedSeedPhraseWordCount))) ?? ""
+        let generatedWords = generatedPhrase.lowercased().split(whereSeparator: \.isWhitespace).map(String.init)
+        seedEntry.load(generatedWords, wordCount: selectedSeedPhraseWordCount)
     }
     func prepareBackupVerificationChallenge() {
         guard requiresBackupVerification else {
@@ -346,43 +248,5 @@ final class WalletImportDraft {
     func updateBackupVerificationEntry(at index: Int, with value: String) {
         guard backupVerificationEntries.indices.contains(index) else { return }
         backupVerificationEntries[index] = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-    }
-    /// A typed custom length, clamped to the range core can judge. Fixes the
-    /// generated length when creating and the judged length when importing.
-    func applyCustomSeedPhraseWordCount(_ rawValue: String) {
-        let digits = rawValue.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !digits.isEmpty, let parsed = Int(digits) else { return }
-        let clamped = min(max(parsed, 1), 48)
-        if isCreateMode {
-            guard clamped != selectedSeedPhraseWordCount else { return }
-            selectedSeedPhraseWordCount = clamped
-        } else {
-            seedPhraseWordCountOverride = clamped
-        }
-    }
-    private func resizeSeedPhraseEntries(to count: Int) {
-        guard count > 0, isCreateMode else { return }
-        if seedPhraseEntries.count > count {
-            seedPhraseEntries = Array(seedPhraseEntries.prefix(count))
-        } else if seedPhraseEntries.count < count {
-            seedPhraseEntries.append(contentsOf: Array(repeating: "", count: count - seedPhraseEntries.count))
-        }
-        if backupVerificationWordIndices.contains(where: { $0 >= count }) {
-            backupVerificationWordIndices = []
-            backupVerificationEntries = []
-        }
-        regenerateSeedPhrase()
-    }
-    private func syncSeedPhraseFromEntries() {
-        let normalizedEntries = seedPhraseEntries.map { $0.lowercased().trimmingCharacters(in: .whitespacesAndNewlines) }
-        if normalizedEntries != seedPhraseEntries {
-            seedPhraseEntries = normalizedEntries
-            return
-        }
-        let combinedSeedPhrase = normalizedEntries.filter { !$0.isEmpty }.joined(separator: " ")
-        if seedPhrase != combinedSeedPhrase { seedPhrase = combinedSeedPhrase }
-        if !backupVerificationWordIndices.isEmpty, !isBackupVerificationComplete {
-            backupVerificationEntries = Array(repeating: "", count: backupVerificationWordIndices.count)
-        }
     }
 }

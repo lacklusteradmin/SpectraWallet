@@ -3,35 +3,22 @@ import Testing
 
 @testable import Spectra
 
-/// The staking chain list is `Chain.supportsStaking`, and core's dispatch
-/// reads it. What is hand-written is the editorial copy: an APY estimate, an
-/// unbonding period and a paragraph per chain. That is not a registry fact and
-/// should not become one — but it does have to cover the chains the registry
-/// offers, which is what these assert.
+/// The staking tab renders core's table. Core refuses to load one that misses
+/// a staking chain or names another; these check the table arrives intact.
 @MainActor
 struct StakingChainTableTests {
-    @Test func everyStakingChainHasADescriptor() {
-        #expect(!Chain.stakingChains.isEmpty)
-        for chain in Chain.stakingChains {
-            #expect(chain.stakingDescriptor != nil, "\(chain.displayName) is offered by the staking tab and has no copy to show")
-        }
-    }
-
-    /// The inverse: copy for a chain the registry does not offer is a page no
-    /// one can reach, and the tile it would render would claim an APY for a
-    /// chain Spectra cannot stake on.
-    @Test func noDescriptorNamesAChainTheTabDoesNotOffer() {
-        let offered = Set(Chain.stakingChains)
-        for chain in Chain.all where chain.stakingDescriptor != nil {
-            #expect(offered.contains(chain), "\(chain.displayName) has staking copy and is not in Chain.stakingChains")
+    @Test func everyStakingRowResolvesForItsDetailPage() {
+        #expect(!CoreReferenceTables.stakingChains.isEmpty)
+        for entry in CoreReferenceTables.stakingChains {
+            #expect(CoreReferenceTables.stakingEntry(for: entry.chain)?.chain == entry.chain)
         }
     }
 
     /// The picker is mainnets only. A testnet tile would route to a client
     /// built against mainnet endpoints and list mainnet validators.
     @Test func theStakingPickerOffersMainnetsOnly() {
-        for chain in Chain.stakingChains {
-            #expect(!chain.isTestnet, "\(chain.displayName) is a testnet and was offered")
+        for entry in CoreReferenceTables.stakingChains {
+            #expect(!entry.chain.isTestnet, "\(entry.chain.displayName) is a testnet and was offered")
         }
     }
 }

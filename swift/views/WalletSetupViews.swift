@@ -301,86 +301,30 @@ struct SetupView: View {
             }
         }
     }
-    /// One watch-address field per storage slot, from the registry.
-    ///
-    /// Keyed by slot rather than by chain because that is what core reads: the
-    /// EVM family shares Ethereum's, so one field serves all of them, and the
-    /// first chain in catalog order owns the row.
-    private var watchOnlyInputChains: [Chain] {
-        var seenSlots = Set<String>()
-        return Chain.mainnets.filter { chain in
-            chain.supportsWatchOnlyImport && seenSlots.insert(chain.addressSlot).inserted
-        }
-    }
-
-    /// Whether anything the user selected lands in this chain's slot.
-    private func isSlotSelected(_ chain: Chain) -> Bool {
-        draft.selectedChains.contains { $0.addressSlot == chain.addressSlot }
-    }
-
-    /// The chains sharing one slot, for the label on a field that serves more
-    /// than one of them.
-    private func chainsSharingSlot(with chain: Chain) -> [Chain] {
-        Chain.mainnets.filter { $0.supportsWatchOnlyImport && $0.addressSlot == chain.addressSlot }
-    }
-
-    /// The address format to judge entries by, on the network the family is on.
-    /// The same rule for every chain.
-    private func watchedAddressKind(for chain: Chain) -> String {
-        store.selectedChain(forFamily: chain).addressValidationKind
-    }
-
+    /// The one field a watch-only import has: addresses on the chain it is
+    /// on, judged by the address format of the network that chain's family
+    /// is set to — the same rule core applies when it imports them.
     @ViewBuilder
     private var watchAddressesInputsGroup: some View {
-        ForEach(watchOnlyInputChains, id: \.self) { chain in
-            if isSlotSelected(chain) {
-                watchedAddressSlotSection(chain)
+        if let chain = draft.selectedChains.first {
+            let kind = store.selectedChain(forFamily: chain).addressValidationKind
+            let validation = watchedAddressValidationMessage(
+                entries: draft.watchOnlyEntries,
+                assetDisplayName: chain.displayName,
+                validator: { validateAddress(request: AddressValidationRequest(kind: kind, value: $0)).isValid }
+            )
+            watchedAddressSection(
+                title: chain.displayName, text: $draft.watchOnlyInput,
+                caption: chain.acceptsAccountXpub ? copy.bitcoinWatchCaption : nil,
+                validationMessage: validation.message, validationColor: validation.color
+            )
+            // A chain whose import takes an account xpub has a second form: one
+            // xpub instead of a list of addresses.
+            if chain.acceptsAccountXpub {
+                TextField("xpub... / zpub...", text: $draft.bitcoinXpubInput).textInputAutocapitalization(.never)
+                    .autocorrectionDisabled().padding(SpectraLayout.Space.m).spectraInputFieldStyle().foregroundStyle(Color.primary)
             }
         }
-    }
-
-    @ViewBuilder
-    private func watchedAddressSlotSection(_ chain: Chain) -> some View {
-        let sharing = chainsSharingSlot(with: chain)
-        // Only the EVM family shares a slot — `address_slots_are_shared_across_the_evm_family_only`
-        // is the test — so a shared row is an EVM row and says so rather than
-        // listing twenty-two names in a title.
-        let title = sharing.count > 1 ? "EVM" : chain.displayName
-        let text = watchOnlyInputBinding(for: chain)
-        let kind = watchedAddressKind(for: chain)
-        let validation = watchedAddressValidationMessage(
-            entries: draft.watchOnlyEntries(from: text.wrappedValue),
-            assetDisplayName: title,
-            validator: { validateAddress(request: AddressValidationRequest(kind: kind, value: $0)).isValid }
-        )
-        watchedAddressSection(
-            title: title, text: text,
-            caption: watchedAddressCaption(for: chain, sharing: sharing),
-            validationMessage: validation.message, validationColor: validation.color
-        )
-        // A chain whose import takes an account xpub has a second form: one
-        // xpub instead of a list of addresses. It is not an address, so it is
-        // not in the table.
-        if chain.acceptsAccountXpub {
-            TextField("xpub... / zpub...", text: $draft.bitcoinXpubInput).textInputAutocapitalization(.never)
-                .autocorrectionDisabled().padding(SpectraLayout.Space.m).spectraInputFieldStyle().foregroundStyle(Color.primary)
-        }
-    }
-
-    /// What a shared or special row needs to say beyond its title.
-    private func watchedAddressCaption(for chain: Chain, sharing: [Chain]) -> String? {
-        if chain.acceptsAccountXpub { return copy.bitcoinWatchCaption }
-        guard sharing.count > 1 else { return nil }
-        let selected = sharing.filter { draft.isSelected($0) }.map(\.displayName)
-        guard !selected.isEmpty else { return nil }
-        return AppLocalization.format("One address covers: %@.", selected.joined(separator: ", "))
-    }
-
-    private func watchOnlyInputBinding(for chain: Chain) -> Binding<String> {
-        Binding(
-            get: { self.draft.watchOnlyInputsByChain[chain] ?? "" },
-            set: { self.draft.watchOnlyInputsByChain[chain] = $0 }
-        )
     }
 
     @ViewBuilder
