@@ -37,7 +37,6 @@ extension AppState {
     /// alerts, contacts, keypools and logs all arrive from core, through
     /// `applyCoreState` and `reloadCoreProjections()`.
     func restorePersistedRuntimeConfigurationAndState() {
-        applyWalletCollectionSideEffects()
         UIDevice.current.isBatteryMonitoringEnabled = true
         startNetworkPathMonitorIfNeeded()
     }

@@ -29,7 +29,7 @@ extension AppState {
         } catch is CancellationError {
             return nil
         } catch {
-            return error.localizedDescription
+            return userErrorMessage(error)
         }
         await refreshBalances()
         return nil

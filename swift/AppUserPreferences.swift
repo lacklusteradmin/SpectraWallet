@@ -2,7 +2,7 @@ import Foundation
 import SwiftUI
 
 enum AppearanceMode: String, CaseIterable, Identifiable {
-    case dark, light, system
+    case system, light, dark
     var id: String { rawValue }
     var label: String {
         switch self {
@@ -50,7 +50,7 @@ final class AppUserPreferences {
     var appearanceMode: AppearanceMode = {
         if let raw = UserDefaults.standard.string(forKey: PlatformDefaults.appearanceMode),
            let saved = AppearanceMode(rawValue: raw) { return saved }
-        return .dark
+        return .system
     }() {
         didSet {
             guard appearanceMode != oldValue else { return }
@@ -86,7 +86,7 @@ final class AppUserPreferences {
     /// `UserDefaults` as it changes.
     func resetToDefaults() {
         hideBalances = false
-        appearanceMode = .dark
+        appearanceMode = .system
         useFaceId = true
         useAutoLock = false
         requireBiometricForSendActions = true

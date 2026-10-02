@@ -45,7 +45,7 @@ struct MoneroSyncView: View {
         }
         .task(id: walletId) {
             do { status = try await store.moneroSyncStatus(walletId: walletId) }
-            catch { self.error = error.localizedDescription }
+            catch { self.error = userErrorMessage(error) }
         }
         .task(id: running) {
             guard running else { return }

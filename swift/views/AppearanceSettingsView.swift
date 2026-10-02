@@ -21,7 +21,7 @@ struct AppearanceSettingsView: View {
                     }.foregroundStyle(Color.primary)
                 }
             } footer: {
-                Text(AppLocalization.string("Controls the color scheme used throughout the app. Defaults to Dark."))
+                Text(AppLocalization.string("Controls the color scheme used throughout the app. Defaults to System."))
                     .spectraHintText()
             }
         }.navigationTitle(AppLocalization.string("Appearance")).navigationBarTitleDisplayMode(.inline)

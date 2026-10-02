@@ -50,9 +50,16 @@ extension AppState {
         enqueueStateCommand(command) { store, result in
             switch result {
             case .success: store.commandError = nil
-            case .failure(let error): store.commandError = error.localizedDescription
+            case .failure(let error): store.reportCommandError(error)
             }
         }
+    }
+
+    /// Show a failed command on the dashboard. The message drops the detail,
+    /// so the log keeps it.
+    func reportCommandError(_ error: Error) {
+        commandError = userErrorMessage(error)
+        appendOperationalLog(.error, category: "State", message: String(describing: error))
     }
 
     /// Wait until every command issued so far has been committed and adopted.
@@ -68,7 +75,7 @@ extension AppState {
             commandError = nil
             return true
         } catch {
-            commandError = error.localizedDescription
+            reportCommandError(error)
             return false
         }
     }

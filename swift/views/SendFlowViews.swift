@@ -39,7 +39,10 @@ struct SendView: View {
     @State private var currentStep: SendFlowStep = .from
     @State private var flowDirection: Int = 1
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var validatedRecipientKey: String?
+    /// Core's answer for the recipient as typed, keyed by what it answered.
+    /// The amount page and the confirm gate read it rather than ask again;
+    /// the preview and the build check the recipient for themselves.
+    @State private var validatedRecipient: (key: String, resolution: SendDestinationResolution)?
     @State private var recipientError: String?
     @State private var isValidatingRecipient = false
     @State private var quotedInputKey: String?
@@ -90,7 +93,7 @@ struct SendView: View {
         }
         .task(id: "\(recipientKey)|\(recipientValidationAttempt)") {
             let key = recipientKey
-            validatedRecipientKey = nil
+            validatedRecipient = nil
             recipientError = nil
             isValidatingRecipient = false
             guard let chain = selectedNetworkSendCoin?.chain,
@@ -99,9 +102,9 @@ struct SendView: View {
             defer { if recipientKey == key { isValidatingRecipient = false } }
             do {
                 try await Task.sleep(for: .milliseconds(350))
-                _ = try await store.resolveSendDestination(input: store.sendFlow.address, on: chain)
+                let resolution = try await store.resolveSendDestination(input: store.sendFlow.address, on: chain)
                 guard !Task.isCancelled, recipientKey == key else { return }
-                validatedRecipientKey = key
+                validatedRecipient = (key, resolution)
             } catch {
                 guard !Task.isCancelled, recipientKey == key else { return }
                 recipientError = AppLocalization.string("Check the address and selected network, then try again.")
@@ -206,7 +209,7 @@ struct SendView: View {
                 qrScannerErrorMessage: $qrScannerErrorMessage,
                 validationError: recipientError,
                 isValidating: isValidatingRecipient,
-                isValidated: validatedRecipientKey == recipientKey,
+                validatedResolution: currentRecipientResolution,
                 retryValidation: { recipientValidationAttempt += 1 }
             )
         case .amount:
@@ -306,20 +309,7 @@ struct SendView: View {
         case .recipient:
             go(to: .amount)
         case .amount:
-            guard let coin = selectedCoin else { return }
-            let chain = coin.chain
-            let input = store.sendFlow.address.trimmingCharacters(in: .whitespacesAndNewlines)
-            let session = store.sendFlow.session.id
-            Task {
-                do {
-                    let resolved = try await store.resolveSendDestination(input: input, on: chain)
-                    guard store.sendFlow.session.isCurrent(session), currentStep == .amount,
-                          store.sendFlow.address.trimmingCharacters(in: .whitespacesAndNewlines) == input,
-                          selectedNetworkSendCoin?.holdingKey == coin.holdingKey else { return }
-                    if resolved.usedEns { store.sendFlow.destinationInfoMessage = AppLocalization.format("Resolved ENS %@ to %@.", input, resolved.address) }
-                    go(to: .confirm)
-                } catch { if store.sendFlow.session.isCurrent(session) { store.sendFlow.session.error = error.localizedDescription } }
-            }
+            go(to: .confirm)
         case .confirm:
             spectraHaptic(.heavy)
             if let artifact = store.sendFlow.session.artifact {
@@ -334,7 +324,7 @@ struct SendView: View {
         case .from:
             return store.selectedWalletForSend() != nil && selectedCoin != nil
         case .recipient:
-            return validatedRecipientKey == recipientKey
+            return currentRecipientResolution != nil
         case .amount:
             return store.sendAmountIsValid
         case .confirm:
@@ -344,7 +334,7 @@ struct SendView: View {
             return !isSendBusy
                 && store.selectedWalletForSend() != nil
                 && selectedCoin != nil
-                && validatedRecipientKey == recipientKey
+                && currentRecipientResolution != nil
                 && store.sendAmountIsValid
                 && quotedInputKey == previewRefreshKey
                 && store.customEvmFeeValidationError == nil
@@ -366,6 +356,11 @@ struct SendView: View {
         withAnimation(reduceMotion ? nil : .snappy(duration: 0.28)) {
             currentStep = step
         }
+    }
+
+    private var currentRecipientResolution: SendDestinationResolution? {
+        guard let validatedRecipient, validatedRecipient.key == recipientKey else { return nil }
+        return validatedRecipient.resolution
     }
 
     private var recipientKey: String { [store.sendFlow.walletId, store.sendFlow.holdingKey, store.sendFlow.address].joined(separator: "|") }
@@ -405,10 +400,9 @@ struct SendView: View {
     }
 
     /// The network a scanned address must belong to: the one the sending wallet
-    /// is on for the selected asset's family.
+    /// is on, or the selected asset's own.
     private var scannedPayloadNetwork: Chain? {
-        guard let family = store.selectedSendCoin?.chain.mainnetCounterpart else { return nil }
-        return store.selectedWalletForSend()?.chainId ?? store.selectedChain(forFamily: family)
+        store.selectedWalletForSend()?.chainId ?? store.selectedSendCoin?.chain
     }
 }
 
@@ -429,9 +423,9 @@ private struct SavedSendRow: View {
         let chain = artifact.chainId
         let badge = Coin.nativeChainBadge(for: chain) ?? (nil, Color.secondary)
         HStack(spacing: SpectraLayout.Space.m) {
-            CoinBadge(artworkName: badge.artworkName, fallbackText: artifact.asset, color: badge.color, size: 28)
+            CoinBadge(artworkName: badge.artworkName, fallbackText: artifact.symbol, color: badge.color, size: 28)
             VStack(alignment: .leading, spacing: SpectraLayout.Space.xxs) {
-                Text(verbatim: "\(AmountPresentation.localizedDecimal(artifact.amount)) \(artifact.asset)")
+                Text(verbatim: "\(AmountPresentation.localizedDecimal(artifact.amount)) \(artifact.symbol)")
                     .font(.subheadline.weight(.semibold))
                     .spectraNumericTextLayout()
                 Text(verbatim: artifact.chainId.displayName)

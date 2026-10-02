@@ -208,13 +208,9 @@ struct WalletDetailView: View {
     }
     private var detailPresentation: DetailPresentation {
         let wallet = displayedWallet
-        // Most valuable first, as core valued them; unpriced holdings last.
+        // Core orders the holdings: most valuable first, unpriced last.
         let visibleHoldings = wallet.holdings.filter(\.hasBalance)
             .map { holding in (coin: holding, value: store.amounts.holdingValue(walletId: wallet.id, coin: holding)) }
-            .sorted {
-                if $0.value != $1.value { return ($0.value ?? -1) > ($1.value ?? -1) }
-                return $0.coin.symbol.localizedCaseInsensitiveCompare($1.coin.symbol) == .orderedAscending
-            }
         let holdingPresentations = visibleHoldings.map { entry in
             HoldingPresentation(
                 coin: entry.coin,
@@ -581,7 +577,7 @@ private struct WalletAdvancedDetailsView: View {
             isShowingSeedPhraseSheet = true
         } catch {
             spectraNotificationHaptic(.error)
-            seedPhraseErrorMessage = error.localizedDescription
+            seedPhraseErrorMessage = userErrorMessage(error)
         }
     }
 }

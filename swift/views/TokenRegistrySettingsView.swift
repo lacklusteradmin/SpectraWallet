@@ -1,10 +1,5 @@
 import Foundation
 import SwiftUI
-enum TokenRegistryGrouping {
-    nonisolated static func key(for entry: TokenPreferenceEntry) -> String {
-        entry.token.tokenId
-    }
-}
 struct TokenRegistrySettingsView: View {
     let store: AppState
     /// The chain filter; nil includes every chain.
@@ -108,21 +103,17 @@ struct TokenRegistrySettingsView: View {
         .accessibilityLabel(AppLocalization.string("Filters"))
     }
     private var filteredGroups: [TokenRegistryGroup] {
+        // Core orders the list with one token's deployments together, so the
+        // groups and their rows keep that order as they are.
         let allEntries = store.tokenPreferences
-        let grouped = Dictionary(grouping: allEntries, by: TokenRegistryGrouping.key(for:))
-        let groups = grouped.values.compactMap { entries -> TokenRegistryGroup? in
-            let sortedEntries = entries.sorted { lhs, rhs in
-                if lhs.token.chainId != rhs.token.chainId { return lhs.token.chainId.id < rhs.token.chainId.id }
-                if lhs.isBuiltIn != rhs.isBuiltIn { return lhs.isBuiltIn && !rhs.isBuiltIn }
-                return lhs.token.contract < rhs.token.contract
+        let grouped = Dictionary(grouping: allEntries, by: \.token.tokenId)
+        var seen: Set<String> = []
+        let groups = allEntries.map(\.token.tokenId).filter { seen.insert($0).inserted }
+            .compactMap { key -> TokenRegistryGroup? in
+                guard let entries = grouped[key], let representative = entries.first else { return nil }
+                return TokenRegistryGroup(
+                    key: key, name: representative.token.name, symbol: representative.token.symbol, entries: entries)
             }
-            guard let representative = sortedEntries.first else { return nil }
-            return TokenRegistryGroup(
-                key: TokenRegistryGrouping.key(for: representative), name: representative.token.name,
-                symbol: representative.token.symbol,
-                entries: sortedEntries
-            )
-        }
         let filtered: [TokenRegistryGroup] = groups.filter { group in
             if let selectedChain = chainFilter, !group.entries.contains(where: { $0.token.chainId == selectedChain }) {
                 return false
@@ -143,11 +134,6 @@ struct TokenRegistrySettingsView: View {
                 .joined(separator: " ").lowercased()
             return haystack.contains(query)
         }
-        return filtered.sorted { lhs, rhs in
-            let lhsBuiltIn = lhs.entries.contains { $0.isBuiltIn }
-            let rhsBuiltIn = rhs.entries.contains { $0.isBuiltIn }
-            if lhsBuiltIn != rhsBuiltIn { return lhsBuiltIn }
-            return lhs.symbol < rhs.symbol
-        }
+        return filtered
     }
 }

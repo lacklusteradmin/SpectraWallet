@@ -302,16 +302,14 @@ struct SetupView: View {
         }
     }
     /// The one field a watch-only import has: addresses on the chain it is
-    /// on, judged by the address format of the network that chain's family
-    /// is set to — the same rule core applies when it imports them.
+    /// on, each judged by core's watch-only import rule.
     @ViewBuilder
     private var watchAddressesInputsGroup: some View {
         if let chain = draft.selectedChains.first {
-            let kind = store.selectedChain(forFamily: chain).addressValidationKind
             let validation = watchedAddressValidationMessage(
                 entries: draft.watchOnlyEntries,
                 assetDisplayName: chain.displayName,
-                validator: { validateAddress(request: AddressValidationRequest(kind: kind, value: $0)).isValid }
+                validator: { isValidWatchOnlyAddress(chain: chain, address: $0) }
             )
             watchedAddressSection(
                 title: chain.displayName, text: $draft.watchOnlyInput,

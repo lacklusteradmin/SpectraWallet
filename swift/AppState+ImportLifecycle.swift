@@ -63,8 +63,9 @@ extension AppState {
             seedPhrase: draft.seedPhrase, privateKey: draft.privateKeyInput)
         let completed = await walletImport.submit {
             let outcome = try await self.bridge.ready().importWallets(commit: commit)
+            // Core's refresh engine reads the new wallets' balances and
+            // history itself, and reports them through its observer.
             await self.rebuildWalletDerivedStateFromCore()
-            self.scheduleImportedWalletRefresh(outcome.wallets)
             return outcome.rejectedAddresses.isEmpty ? nil : AppLocalization.format(
                 "These addresses were not valid and were not imported: %@",
                 outcome.rejectedAddresses.joined(separator: ", "))

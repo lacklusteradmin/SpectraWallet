@@ -21,7 +21,7 @@ Official references:
 
 ## Design baseline
 
-- **Backdrop:** Keep `SpectraBackdrop` behind every top-level tab. Re-add it at main business detail roots such as asset, wallet, staking, and receive destinations. Settings-style utility details may continue to use system `Form` layouts. Its colour clouds drift slowly and must stay slow: motion that draws the eye competes with the content on the glass above it. The backdrop holds still under Reduce Motion and in Low Power Mode.
+- **Backdrop:** Keep `SpectraBackdrop` behind every top-level tab. Re-add it at main business detail roots such as asset, wallet, staking, and receive destinations. Settings-style utility details may continue to use system `Form` layouts. Its ground is neutral and its clouds are faint — the accent and one cool counterweight — because a saturated or many-hued wash tints every card above it, pulls secondary text toward its hue and competes with the accent. The clouds drift slowly and must stay slow: motion that draws the eye competes with the content on the glass above it. The backdrop holds still under Reduce Motion and in Low Power Mode.
 - **Top-level tabs:** Use `ScrollView` plus glass cards with internal dividers. Do not use `List(.insetGrouped)` or `Form` for a main tab.
 - **Chrome:** Hide the navigation bar background with `.toolbarBackground(.hidden, for: .navigationBar)` when content should scroll beneath it.
 - **Toolbar actions:** Use standard `ToolbarItem` buttons and menus. The system places toolbar items on Liquid Glass automatically, so do not add `.buttonStyle(.glass)` inside a toolbar.

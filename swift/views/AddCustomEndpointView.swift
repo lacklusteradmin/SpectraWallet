@@ -90,7 +90,7 @@ struct AddCustomEndpointView: View {
                             } else {
                                 dismiss()
                             }
-                        } catch { errorMessage = error.localizedDescription }
+                        } catch { errorMessage = userErrorMessage(error) }
                         isSaving = false
                     }
                 }.disabled(url.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || api.isEmpty || capabilities.isEmpty || isSaving)

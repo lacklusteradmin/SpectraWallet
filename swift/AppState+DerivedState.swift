@@ -28,7 +28,7 @@ extension AppState {
         if assetPrecision != snapshot.assetPrecision { adoptAssetPrecision(snapshot.assetPrecision) }
         let derived = snapshot.derived
         let walletById = Dictionary(uniqueKeysWithValues: snapshot.wallets.map { ($0.id, $0) })
-        if wallets != snapshot.wallets { setWalletProjection(snapshot.wallets) }
+        setWalletProjection(snapshot.wallets, identityRevision: snapshot.walletIdentityRevision)
         let cache = WalletDerivedCache(
             walletById: walletById,
             portfolio: derived.portfolio,
@@ -52,27 +52,6 @@ extension AppState {
             await self.rebuildWalletDerivedStateFromCore()
         }
     }
-    /// Reconcile background services after a changed wallet projection. Reading
-    /// a projection never starts another projection read.
-    func applyWalletCollectionSideEffects() {
-        guard servicesEnabled else { return }
-        walletSideEffectsTask?.cancel()
-        walletSideEffectsTask = Task { [weak self] in
-            guard let self else { return }
-            try? await Task.sleep(nanoseconds: 200_000_000)
-            guard !Task.isCancelled else { return }
-            await self.reconcileBackgroundServices()
-            self.walletSideEffectsTask = nil
-        }
-    }
-
-    /// Core refreshes only when fetch inputs change, and runs its loops only
-    /// while there is something to fetch; balance-only updates must not
-    /// trigger a sweep.
-    private func reconcileBackgroundServices() async {
-        _ = try? await self.bridge.refreshEngine().reconcileWallets()
-    }
-
     /// Refresh the bounded recent/pending projection and indexed aggregates together.
     @discardableResult
     func refreshTransactionProjection() async -> Bool {

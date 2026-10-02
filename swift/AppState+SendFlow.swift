@@ -75,7 +75,7 @@ extension AppState {
         case EvmCustomFeeError.InvalidMaxFee: return AppLocalization.string("Enter a valid Max Fee in gwei.")
         case EvmCustomFeeError.InvalidPriorityFee: return AppLocalization.string("Enter a valid Priority Fee in gwei.")
         case EvmCustomFeeError.MaxBelowPriority: return AppLocalization.string("Max Fee must be greater than or equal to Priority Fee.")
-        default: return error.localizedDescription
+        default: return userErrorMessage(error)
         }
     }
     func customEvmFeeConfiguration() -> EvmCustomFeeConfiguration? {
@@ -93,7 +93,7 @@ extension AppState {
         } catch EvmNonceError.TooLarge {
             return AppLocalization.string("Nonce value is too large.")
         } catch {
-            return error.localizedDescription
+            return userErrorMessage(error)
         }
     }
     func explicitEvmNonce() throws -> Int? {
@@ -111,14 +111,11 @@ extension AppState {
     var replaceableSendForSelectedWallet: ReplaceableSend? {
         guard let selectedSendCoin else { return nil }
         return replaceableSends.first {
-            $0.walletId.caseInsensitiveCompare(sendFlow.walletId) == .orderedSame
-                && $0.chainId == selectedSendCoin.chainId
+            $0.walletId == sendFlow.walletId && $0.chainId == selectedSendCoin.chainId
         }
     }
     func replaceableSend(forTransaction transactionId: String) -> ReplaceableSend? {
-        replaceableSends.first {
-            $0.transactionId.caseInsensitiveCompare(transactionId) == .orderedSame
-        }
+        replaceableSends.first { $0.transactionId == transactionId }
     }
     func prepareReplacementContext(cancel: Bool) async {
         guard let pending = replaceableSendForSelectedWallet else {
@@ -161,7 +158,7 @@ extension AppState {
             await refreshSendPreview()
         } catch {
             guard sendFlow.session.isCurrent(session) else { return }
-            sendFlow.session.error = AppLocalization.format("Unable to prepare replacement context: %@", error.localizedDescription)
+            sendFlow.session.error = AppLocalization.format("Unable to prepare replacement context: %@", userErrorMessage(error))
         }
     }
     func prepareSpeedUpContext() async { await prepareReplacementContext(cancel: false) }
@@ -170,14 +167,9 @@ extension AppState {
         isValidSendAddress(chain: chain, address: address)
     }
     /// The address this send is going to, from whatever is in the field.
-    ///
-    /// Core owns resolution; the optional address binds the visible review.
-    func resolveSendDestination(input: String, on chain: Chain, expectedAddress: String? = nil) async throws -> SendDestinationResolution {
-        let service = try await self.bridge.ready()
-        if let expectedAddress {
-            return try await service.verifySendDestination(chain: chain, input: input, expectedAddress: expectedAddress)
-        }
-        return try await service.resolveSendDestination(chainId: chain, input: input)
+    /// Core owns resolution.
+    func resolveSendDestination(input: String, on chain: Chain) async throws -> SendDestinationResolution {
+        try await self.bridge.ready().resolveSendDestination(chainId: chain, input: input)
     }
     func clearHighRiskSendConfirmation() { sendFlow.isShowingHighRiskConfirmation = false }
     /// Signs only. Broadcasting is its own action, to the nodes the user

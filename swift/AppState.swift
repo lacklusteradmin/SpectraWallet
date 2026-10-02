@@ -83,40 +83,29 @@ final class AppState {
     /// of `CoreAppState.wallets`, rendered into the shape the views use — see
     /// `WalletState::to_wallet_view`. `private(set)`, because assigning to it
     /// would only desynchronise it from core; change it with import and field
-    /// intents, wallet deletion, or a reset. Replacing it rebuilds the derived
-    /// caches via `applyWalletCollectionSideEffects`.
+    /// intents, wallet deletion, or a reset. Core's refresh engine follows the
+    /// same change on its own; nothing here has to tell it.
     ///
     /// **Observation note for view code**: `@Observable` tracks whole
     /// properties, never a key or an index inside one. A view that reads
     /// `wallets`, or any field of `walletDerivedCache` (`wallet(for:)`,
     /// `portfolio` and the rest), is invalidated whenever that property is
     /// assigned, even for another wallet's balance.
-    private(set) var wallets: [WalletView] = [] {
-        didSet {
-            if Self.withoutBalances(wallets) != Self.withoutBalances(oldValue) { walletIdentityRevision &+= 1 }
-            applyWalletCollectionSideEffects()
-        }
-    }
+    private(set) var wallets: [WalletView] = []
 
     /// The only place the wallet projection is written. Everything else goes
-    /// through a `StateCommand` and lands back here.
-    func setWalletProjection(_ records: [WalletView]) {
-        wallets = records
+    /// through a `StateCommand` and lands back here. Each value is assigned
+    /// only when it changed, so an unchanged one invalidates no view.
+    func setWalletProjection(_ records: [WalletView], identityRevision: UInt64) {
+        if wallets != records { wallets = records }
+        if walletIdentityRevision != identityRevision { walletIdentityRevision = identityRevision }
     }
-    /// Bumped when a wallet is added, removed or changes in anything but its
-    /// balances — the name, addresses and settings that history rows and
-    /// transaction details are read against. A balance landing every few
-    /// hundred milliseconds of a sweep does not re-run those reads.
+    /// Core's count of changes to a wallet in anything but its balances — the
+    /// name, addresses and settings that history rows and transaction details
+    /// are read against. A balance landing every few hundred milliseconds of a
+    /// sweep does not re-run those reads.
     private(set) var walletIdentityRevision: UInt64 = 0
-    private static func withoutBalances(_ wallets: [WalletView]) -> [WalletView] {
-        wallets.map { wallet in
-            var identity = wallet
-            identity.holdings = []
-            return identity
-        }
-    }
-    // Derived caches. Recomputed by `applyWalletCollectionSideEffects` and
-    // `rebuildWalletDerivedStateFromCore`.
+    // Derived caches. Recomputed by `rebuildWalletDerivedStateFromCore`.
     //
     // No revision counter here. Under `@Observable` a view already tracks the
     // properties it reads, so a counter bumped on every cache write could only
@@ -195,7 +184,7 @@ final class AppState {
             // projection is restored even if storage cannot be read again.
             if store.settingCommandsInFlight == 0 { store.appSettings = store.committedAppSettings }
             guard case .failure(let error) = result else { return }
-            store.commandError = error.localizedDescription
+            store.reportCommandError(error)
             if let state = try? await store.bridge.ready().appState() { store.applyCoreState(state) }
         }
     }
@@ -240,12 +229,6 @@ final class AppState {
         if state.priceAlerts != priceAlerts { priceAlerts = state.priceAlerts }
         return true
     }
-    /// A family with no selection reports itself, so the mainnet id is the
-    /// default without being stored as one.
-    func selectedChain(forFamily family: Chain) -> Chain {
-        let mainnet = family.mainnetCounterpart
-        return appSettings.selectedChainByFamily[mainnet] ?? mainnet
-    }
     var isUserInitiatedRefreshInProgress: Bool = false
     /// Read-only projection adopted from core; edits send individual intents.
     private(set) var priceAlerts: [PriceAlertRule] = []
@@ -282,8 +265,6 @@ final class AppState {
     var isLoadingMoreOnChainHistory: Bool = false
     let diagnostics: WalletDiagnosticsState
     @ObservationIgnored var userInitiatedRefreshTask: Task<Bool, Never>?
-    @ObservationIgnored var importRefreshTask: Task<Void, Never>?
-    @ObservationIgnored var walletSideEffectsTask: Task<Void, Never>?
     @ObservationIgnored var balanceProgressTask: Task<Void, Never>? // Coalesces mid-sweep portfolio reads.
     @ObservationIgnored var appIsActive = true
     @ObservationIgnored var deviceConditionsTask: Task<Void, Never>? // Orders reports to core's engine.
@@ -361,8 +342,6 @@ final class AppState {
     }
     deinit {
         userInitiatedRefreshTask?.cancel()
-        importRefreshTask?.cancel()
-        walletSideEffectsTask?.cancel()
         balanceProgressTask?.cancel()
         deviceConditionsTask?.cancel()
         refreshEventsTask?.cancel()

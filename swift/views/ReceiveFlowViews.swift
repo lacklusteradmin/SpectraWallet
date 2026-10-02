@@ -196,7 +196,7 @@ private struct ReceiveAddressView: View {
                 let saver = PhotoLibraryImageSaver { result in
                     switch result {
                     case .success: qrExportMessage = AppLocalization.string("QR code saved to Photos.")
-                    case .failure(let error): qrExportMessage = error.localizedDescription
+                    case .failure(let error): qrExportMessage = userErrorMessage(error)
                     }
                     qrImageSaver = nil
                 }

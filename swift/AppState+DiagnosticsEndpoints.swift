@@ -14,7 +14,7 @@ extension AppState {
     func runEndpointDiagnostics(for chain: Chain) async {
         await chainDiagnosticsState.run(\.checkingEndpoints, chain: chain) {
             do {
-                _ = try await self.bridge.ready().probeChainEndpoints(chain: self.selectedChain(forFamily: chain))
+                _ = try await self.bridge.ready().probeChainEndpoints(chain: chain)
             } catch {
                 self.appendOperationalLog(.error, category: "Endpoints", message: error.localizedDescription, chain: chain)
             }

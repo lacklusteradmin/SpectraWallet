@@ -67,3 +67,25 @@ func chainRiskProbeMessages(chainName: String, symbol: String, activity: SendDes
     case .funded: return (nil, nil)
     }
 }
+/// What the user reads when a call fails. UniFFI words its errors as their
+/// Swift debug description — type, case and field names — so the
+/// `localizedDescription` of a bridge error never belongs on screen. Core's
+/// sentences for refused input and failed requests read as they are; a network
+/// or decoding failure carries a transport or parser message meant for the
+/// operational log, so it gets a fixed sentence instead.
+func userErrorMessage(_ error: Error) -> String {
+    if let error = error as? SpectraBridgeError {
+        switch error {
+        case .InvalidInput(let message), .Failure(let message):
+            return message.prefix(1).uppercased() + message.dropFirst()
+        case .Network:
+            return AppLocalization.string("Couldn't reach the network. Check your connection and try again.")
+        case .Decode:
+            return AppLocalization.string("Spectra received data it couldn't read. Try again later.")
+        }
+    }
+    let description = error.localizedDescription
+    // Every other UniFFI error is worded the same way and has no sentence.
+    return description == String(reflecting: error)
+        ? AppLocalization.string("Something went wrong. Try again.") : description
+}

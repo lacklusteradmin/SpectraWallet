@@ -99,19 +99,13 @@ struct SendStagesView: View {
                 transactionError = nil
             } catch {
                 guard !Task.isCancelled else { return }
-                transactionError = error.localizedDescription
+                transactionError = userErrorMessage(error)
             }
         }
     }
-    /// The amount in the unit a person reads it in. Core stores a token send's
-    /// asset as its exact contract, which is the identity, not a name: the
-    /// wallet's holding of that contract gives the symbol. A coin's asset is
-    /// already its symbol.
+    /// The amount in the unit a person reads it in, named as core named it.
     private var amountText: String {
-        let symbol = store.availableSendCoins(for: artifact.walletId)
-            .first { $0.chainId == artifact.chainId && $0.contractAddress == artifact.asset }?
-            .symbol ?? artifact.asset
-        return "\(AmountPresentation.localizedDecimal(artifact.amount)) \(symbol)"
+        "\(AmountPresentation.localizedDecimal(artifact.amount)) \(artifact.symbol)"
     }
     private func outcomeText(_ outcome: SubmissionOutcome) -> String {
         switch outcome {

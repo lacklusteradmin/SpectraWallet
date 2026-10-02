@@ -39,7 +39,7 @@ extension AppState {
             if address == nil { receiveFlow.error = AppLocalization.string("No receive address is available for this wallet and network.") }
         } catch {
             guard !Task.isCancelled, receiveFlow.requestId == requestId else { return }
-            receiveFlow.error = error.localizedDescription
+            receiveFlow.error = userErrorMessage(error)
         }
     }
     func availableReceiveCoins(for walletId: String) -> [Coin] { walletDerivedCache.availableReceiveCoinsByWalletId[walletId] ?? [] }

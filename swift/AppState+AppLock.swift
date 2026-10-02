@@ -39,7 +39,7 @@ extension AppState {
             _ = try await context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason)
             return nil
         } catch {
-            return error.localizedDescription
+            return userErrorMessage(error)
         }
     }
 }

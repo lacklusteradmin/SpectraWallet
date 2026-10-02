@@ -109,7 +109,7 @@ struct HistoryView: View {
                                         isRetrying = false
                                     }
                                 }.buttonStyle(.glass).disabled(isRetrying)
-                            }.padding(SpectraLayout.Space.l).spectraCardFill()
+                            }.padding(SpectraLayout.cardPadding).frame(maxWidth: .infinity, alignment: .leading).spectraCardFill()
                         }
                         if visibleTransactions.isEmpty && historyError == nil {
                             historyEmptyStateCard
@@ -220,8 +220,6 @@ struct HistoryView: View {
     }
     private var queryKey: String { "\(filterKey)|\(store.transactionRevision)|\(store.walletIdentityRevision)" }
     private static let pageSize = 20
-    /// Core refuses a history query for more rows than this.
-    private static let maxQueryLimit = 200
     private func loadPage(reset: Bool) async {
         let key = queryKey
         if loadedFilterKey != filterKey {
@@ -245,7 +243,8 @@ struct HistoryView: View {
                 let page = try await bridge.historyPage(query: HistoryQuery(
                     walletId: selectedWalletId, filter: selectedFilter, search: searchText,
                     oldestFirst: selectedSortOrder == .oldest, cursor: cursor,
-                    limit: UInt32(min(target - records.count, Self.maxQueryLimit)),
+                    // Core caps a page; the loop follows its cursor for the rest.
+                    limit: UInt32(target - records.count),
                     hideSmallAmounts: hidesSmallAmounts))
                 guard !Task.isCancelled, pageRequestId == requestId, queryKey == key else { return }
                 records += page.records
@@ -264,7 +263,8 @@ struct HistoryView: View {
             pageError = nil
         } catch {
             guard !Task.isCancelled, pageRequestId == requestId, queryKey == key else { return }
-            pageError = error.localizedDescription
+            pageError = userErrorMessage(error)
+            store.appendOperationalLog(.error, category: "History", message: String(describing: error))
         }
     }
     private var historyPagingControls: some View {

@@ -55,15 +55,16 @@ extension AppState {
     }
 
     /// Deliver native effects after the caller adopts the transaction projection.
+    /// A Live Activity follows every change; a notification only what core
+    /// says is worth one.
     func deliverPendingStatusChanges(_ changes: [TransactionStatusChange]) async {
         for change in changes where change.statusChanged {
             guard let transaction = try? await bridge.ready().transaction(id: change.id) else { continue }
-            await sendTransactionStatusNotification(for: transaction, newStatus: change.newStatus)
+            if change.notify { await sendTransactionStatusNotification(for: transaction, newStatus: change.newStatus) }
             await finishSendLiveActivity(for: transaction, newStatus: change.newStatus)
         }
     }
     private func sendTransactionStatusNotification(for transaction: TransactionRecord, newStatus: TransactionStatus) async {
-        guard committedAppSettings.useTransactionStatusNotifications else { return }
         guard let body = transaction.sendOutcomeDetail(for: newStatus) else { return }
         let title = newStatus == .confirmed
             ? AppLocalization.format("%@ transaction confirmed", transaction.symbol)

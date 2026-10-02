@@ -15,7 +15,7 @@ extension AppState {
             _ = try await self.bridge.ready().refreshOwnedFiatRates(force: force)
             await rebuildWalletDerivedStateFromCore()
         } catch {
-            fiatRatesRefreshError = error.localizedDescription
+            fiatRatesRefreshError = userErrorMessage(error)
         }
     }
     // ── Fiat currency (core-owned) ────────────────────────────────────────
@@ -41,7 +41,7 @@ extension AppState {
             transition = try await applyStateCommand(.setFiatCurrency(currency: currency))
             commandError = nil
         } catch {
-            commandError = error.localizedDescription
+            reportCommandError(error)
             return
         }
         guard servicesEnabled, transition.events.contains(where: {
@@ -54,15 +54,6 @@ extension AppState {
     var portfolioQuotedTotal: QuotedTotal? { portfolioValuation?.portfolio }
     func setPortfolioInclusion(_ isIncluded: Bool, for walletId: String) {
         sendStateCommand(.setWalletPortfolioInclusion(walletId: walletId, included: isIncluded))
-    }
-    func scheduleImportedWalletRefresh(_ createdWallets: [WalletView]) {
-        guard servicesEnabled, !createdWallets.isEmpty else { return }
-        importRefreshTask?.cancel()
-        importRefreshTask = Task { @MainActor [weak self] in
-            guard let self else { return }
-            await self.performCoreRefresh(.user)
-            self.importRefreshTask = nil
-        }
     }
     var portfolio: [Coin] { walletDerivedCache.portfolio }
 }

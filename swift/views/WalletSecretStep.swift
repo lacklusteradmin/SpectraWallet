@@ -155,15 +155,14 @@ struct WalletSecretStep: View {
             }
         }
     }
-    @ViewBuilder
+    /// The shape is core's to judge (`isPrivateKeyHex`, which also takes a
+    /// `0x` prefix), so this row only describes it; the border and the
+    /// feedback below say whether the input fits.
     private var privateKeyMetadataRow: some View {
-        let hexCount = draft.privateKeyInput.trimmingCharacters(in: .whitespacesAndNewlines).count
         HStack(spacing: SpectraLayout.Space.s) {
             Text(AppLocalization.string("32-byte hex (64 chars)")).font(.caption2).foregroundStyle(.secondary)
             Spacer()
-            Text("\(hexCount) / 64").font(.caption2.monospacedDigit()).foregroundStyle(
-                hexCount == 0 ? Color.secondary : (hexCount == 64 ? Color.green : Color.spectraWarning))
-            if hexCount > 0 {
+            if !draft.privateKeyInput.isEmpty {
                 Button(role: .destructive) { draft.privateKeyInput = "" } label: {
                     Image(systemName: "xmark.circle.fill").font(.caption.weight(.semibold))
                 }.buttonStyle(.plain).foregroundStyle(.secondary)

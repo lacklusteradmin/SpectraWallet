@@ -153,7 +153,9 @@ sync_appicon() {
       continue
     fi
 
-    $MAGICK_BIN -density 1152 -background none "$svg_path" -resize 1024x1024 -depth 8 "$png_path"
+    # ImageMagick's built-in SVG renderer flattens curves by user units, not
+    # by output size, so sources need a 1024-unit viewBox to render smoothly.
+    $MAGICK_BIN -density 144 -background none "$svg_path" -resize 1024x1024 -depth 8 "$png_path"
     echo "  [appicon] converted $name → ${name}.png"
     ((converted++))
   done

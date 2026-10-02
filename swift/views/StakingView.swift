@@ -138,7 +138,7 @@ struct ChainStakingDetailView: View {
         .alert(AppLocalization.string("Error"), isPresented: .isPresent($vm.error)) {
             Button(AppLocalization.string("OK")) { vm.dismissError() }
         } message: {
-            Text(vm.error?.localizedDescription ?? "")
+            Text(vm.error.map(userErrorMessage) ?? "")
         }
 
     }

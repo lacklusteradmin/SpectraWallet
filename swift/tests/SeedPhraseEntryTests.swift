@@ -49,6 +49,11 @@ struct SeedPhraseEntryTests {
         for problem: SeedPhraseProblem in [.nonStandardLength(wordCount: 25), .wrongWordCount(expected: 12), .invalidChecksum] {
             #expect(!problem.localizedMessage.isEmpty)
         }
+        // The lengths named are core's, not a list kept beside them.
+        let message = SeedPhraseProblem.nonStandardLength(wordCount: 25).localizedMessage
+        for length in CoreReferenceTables.standardSeedPhraseLengths {
+            #expect(message.contains(String(length.wordCount)))
+        }
     }
 
     /// A created phrase goes through the same entry, judged at the length

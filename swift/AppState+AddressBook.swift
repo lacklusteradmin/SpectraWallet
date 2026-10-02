@@ -65,7 +65,7 @@ extension AppState {
                     store.addressBookError = store.addressBookRejectionMessage(reason)
                 }
             case .failure(let error):
-                store.addressBookError = error.localizedDescription
+                store.addressBookError = userErrorMessage(error)
             }
         }
     }

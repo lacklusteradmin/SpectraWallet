@@ -56,7 +56,6 @@
 		90F002000000000000000202 /* AppState+Lifecycle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000202 /* AppState+Lifecycle.swift */; };
 		90F002000000000000000203 /* AppState+AppLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000203 /* AppState+AppLock.swift */; };
 		90F002000000000000000204 /* AppState+TransactionActions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000204 /* AppState+TransactionActions.swift */; };
-		90F002000000000000000205 /* AppState+Networks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000205 /* AppState+Networks.swift */; };
 		90F002000000000000000206 /* AppState+Wallets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000206 /* AppState+Wallets.swift */; };
 		90F002000000000000000207 /* AppState+MoneroSync.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F001000000000000000207 /* AppState+MoneroSync.swift */; };
 		90F0020000000000000002F0 /* AppState+PriceAlerts.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90F0010000000000000002F0 /* AppState+PriceAlerts.swift */; };
@@ -152,7 +151,6 @@
 		90F001000000000000000202 /* AppState+Lifecycle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+Lifecycle.swift"; sourceTree = "<group>"; };
 		90F001000000000000000203 /* AppState+AppLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+AppLock.swift"; sourceTree = "<group>"; };
 		90F001000000000000000204 /* AppState+TransactionActions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+TransactionActions.swift"; sourceTree = "<group>"; };
-		90F001000000000000000205 /* AppState+Networks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+Networks.swift"; sourceTree = "<group>"; };
 		90F001000000000000000206 /* AppState+Wallets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+Wallets.swift"; sourceTree = "<group>"; };
 		90F001000000000000000207 /* AppState+MoneroSync.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+MoneroSync.swift"; sourceTree = "<group>"; };
 		90F0010000000000000002F0 /* AppState+PriceAlerts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "AppState+PriceAlerts.swift"; sourceTree = "<group>"; };
@@ -285,7 +283,6 @@
 				90F001000000000000000206 /* AppState+Wallets.swift */,
 				90F0010000000000000002F0 /* AppState+PriceAlerts.swift */,
 				91DC000000000000000000A1 /* AppState+TokenPreferences.swift */,
-				90F001000000000000000205 /* AppState+Networks.swift */,
 				90F001000000000000000207 /* AppState+MoneroSync.swift */,
 				90F001000000000000000204 /* AppState+TransactionActions.swift */,
 				90F001000000000000000203 /* AppState+AppLock.swift */,
@@ -538,7 +535,6 @@
 				90F002000000000000000206 /* AppState+Wallets.swift in Sources */,
 				90F0020000000000000002F0 /* AppState+PriceAlerts.swift in Sources */,
 				91DC000000000000000000A2 /* AppState+TokenPreferences.swift in Sources */,
-				90F002000000000000000205 /* AppState+Networks.swift in Sources */,
 				90F002000000000000000207 /* AppState+MoneroSync.swift in Sources */,
 				90F002000000000000000204 /* AppState+TransactionActions.swift in Sources */,
 				90F002000000000000000203 /* AppState+AppLock.swift in Sources */,

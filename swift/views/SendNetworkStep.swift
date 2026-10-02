@@ -80,8 +80,6 @@ struct SendNetworkStep: View {
             let chain = selectedCoin.chain
             if chain.isEVM {
                 evmNetworkContent(selectedCoin: selectedCoin, chain: chain)
-            } else if selectedCoin.isUTXOChain, selectedCoin.isNativeCoin {
-                utxoFeePreviewContent(selectedCoin: selectedCoin, chain: chain)
             } else {
                 simpleFeeContent(selectedCoin: selectedCoin, chain: chain)
             }
@@ -90,26 +88,6 @@ struct SendNetworkStep: View {
     }
 
     // MARK: — Network sub-sections
-
-    @ViewBuilder
-    private func utxoFeePreviewContent(selectedCoin: Coin, chain: Chain) -> some View {
-        VStack(alignment: .leading, spacing: SpectraLayout.Space.s) {
-            networkSectionHeader(AppLocalization.format("%@ Network", selectedCoin.chainName))
-            // Loading was shown for the chain named Dogecoin only; every other
-            // UTXO chain showed its stale preview, or the prompt, mid-fetch.
-            if store.sendFlow.isPreparingPreview {
-                SpectraLoadingRow(title: "Loading UTXOs and fee estimate...")
-            } else if let quote {
-                if case .utxo(let preview) = quote.preview {
-                    Text(AppLocalization.format("Estimated Fee Rate: %@ sat/vB", "\(preview.estimatedFeeRateSatVb)"))
-                }
-                if let fee = networkFeeText(quote, chain: chain) { Text(fee) }
-            } else {
-                Text(AppLocalization.format("Enter amount to preview estimated %@ network fee.", selectedCoin.chainName))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-        }
-    }
 
     @ViewBuilder
     private func evmNetworkContent(selectedCoin: Coin, chain: Chain) -> some View {
@@ -175,8 +153,9 @@ struct SendNetworkStep: View {
         }
     }
 
-    /// The fee card for every chain whose preview is neither the UTXO nor the
-    /// EVM shape.
+    /// The fee card for every chain but the EVM family, whose card carries
+    /// fee and nonce overrides. A UTXO preview's rate, size, inputs and change
+    /// are the detail rows below it.
     ///
     /// Was twelve calls, each naming a chain and handing over its sentence,
     /// eleven of which rendered nothing on any given screen. The twelve were

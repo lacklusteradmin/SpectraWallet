@@ -117,13 +117,7 @@ struct AppStatePlatformBridgeTests: IsolatedAppStateSuite {
         #expect(store.wallets.first?.chainId == Chain.bitcoin)
         #expect(store.wallets.first?.address(on: .bitcoin)?.isEmpty == false)
     }
-    @Test func bitcoinDisplayNetworkNameUsesSelectedMode() async {
-        let store = makeState()
-        store.selectChainForFamily(Chain.bitcoinTestnet4)
-        await store.awaitPendingCoreStateWrites()
-        #expect(store.selectedNetworkTitle(forFamily: .bitcoin) == "Bitcoin Testnet4")
-    }
-    /// A wallet carries its own network, so it can differ from the app's.
+    /// A wallet carries its own network.
     @Test func bitcoinWalletDisplayTitleUsesWalletSpecificNetwork() {
         let wallet = WalletView(
             name: "BTC Testnet4", chainId: Chain.bitcoinTestnet4,
@@ -131,16 +125,6 @@ struct AppStatePlatformBridgeTests: IsolatedAppStateSuite {
         )
         #expect(wallet.networkTitle == "Bitcoin Testnet4")
     }
-    @Test func historicalNetworkTitleIgnoresCurrentNetworkSelection() async {
-        let store = makeState()
-        let transaction = TransactionRecord(id: UUID().uuidString, kind: .send, status: .confirmed,
-            walletName: "Historical", assetDisplayName: "Ethereum", symbol: "ETH",
-            chainId: Chain.ethereumSepolia, amount: "1", address: "0x1111111111111111111111111111111111111111")
-        store.selectChainForFamily(Chain.ethereumHoodi)
-        await store.awaitPendingCoreStateWrites()
-        #expect(transaction.chainName == "Ethereum Sepolia")
-    }
-
     @Test func unvaluedFiguresAreUnavailableAndPartialTotalsShowTheFigureAlone() async {
         let store = makeState()
         await store.awaitPendingCoreStateWrites()
@@ -154,12 +138,6 @@ struct AppStatePlatformBridgeTests: IsolatedAppStateSuite {
         await store.setFiatCurrency(before)
     }
 
-    @Test func ethereumDisplayNetworkNameUsesSelectedMode() async {
-        let store = makeState()
-        store.selectChainForFamily(Chain.ethereumHoodi)
-        await store.awaitPendingCoreStateWrites()
-        #expect(store.selectedNetworkTitle(forFamily: .ethereum) == "Ethereum Hoodi")
-    }
     /// Every EVM chain gets the EVM address hint. Asserted against the
     /// generic fallback rather than against the English text so the test
     /// does not depend on which locale it runs in.

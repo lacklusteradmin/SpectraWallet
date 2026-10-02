@@ -110,7 +110,9 @@ extension SeedPhraseProblem {
     var localizedMessage: String {
         switch self {
         case .nonStandardLength(let wordCount):
-            return AppLocalization.format("That is %lld words. A seed phrase has 12, 15, 18, 21 or 24.", Int(wordCount))
+            let lengths = CoreReferenceTables.standardSeedPhraseLengths.map { String($0.wordCount) }
+                .formatted(.list(type: .or).locale(AppLocalization.locale))
+            return AppLocalization.format("That is %lld words. A seed phrase has %@ words.", Int(wordCount), lengths)
         case .wrongWordCount(let expected):
             return AppLocalization.format("Seed phrase must be %lld words.", Int(expected))
         case .invalidChecksum:

@@ -38,7 +38,7 @@ extension AppState {
         case .failure(let error):
             guard !(error is CancellationError) else { return }
             sendFlow.previewStore.reset()
-            sendFlow.session.error = error.localizedDescription
+            sendFlow.session.error = userErrorMessage(error)
         }
     }
 

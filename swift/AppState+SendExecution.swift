@@ -31,7 +31,7 @@ extension AppState {
                 }
                 return choices
             })
-        } catch { sendFlow.session.error = error.localizedDescription }
+        } catch { sendFlow.session.error = userErrorMessage(error) }
     }
 
     /// Localize the immutable build-time advisories for both new and resumed sends.
@@ -44,7 +44,7 @@ extension AppState {
         }
         let network = artifact.chainId.displayName
         let amount = AmountPresentation.localizedDecimal(artifact.amount)
-        reasons.insert("\(amount) \(artifact.asset) → \(artifact.recipient) (\(network))", at: 0)
+        reasons.insert("\(amount) \(artifact.symbol) → \(artifact.recipient) (\(network))", at: 0)
         return reasons
     }
 
@@ -87,7 +87,7 @@ extension AppState {
             let artifacts = try await self.bridge.ready().listSends()
             guard sendFlow.session.isCurrent(session) else { return }
             sendFlow.savedArtifacts = artifacts
-        } catch { if sendFlow.session.isCurrent(session) { sendFlow.session.error = error.localizedDescription } }
+        } catch { if sendFlow.session.isCurrent(session) { sendFlow.session.error = userErrorMessage(error) } }
     }
 
     @discardableResult

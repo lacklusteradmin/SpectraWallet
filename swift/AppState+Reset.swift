@@ -11,7 +11,7 @@ extension AppState {
         do {
             outcome = try await self.bridge.ready().resetData(scopes: Array(scopes))
         } catch {
-            return error.localizedDescription
+            return userErrorMessage(error)
         }
         applyCoreState(outcome.state)
         await rebuildWalletDerivedStateFromCore()

@@ -16,9 +16,16 @@ struct DashboardView: View {
                 SpectraBackdrop().ignoresSafeArea()
                 ScrollView(showsIndicators: false) {
                     VStack(spacing: SpectraLayout.sectionSpacing) {
-                        portfolioHeader
-                        actionButtons
-                        assetsOrWalletsCard
+                        // Before the first wallet a total, Send and Receive
+                        // have nothing to act on, so the page is one card that
+                        // leads to adding one.
+                        if store.wallets.isEmpty {
+                            DashboardWelcomeCard(store: store)
+                        } else {
+                            portfolioHeader
+                            actionButtons
+                            assetsOrWalletsCard
+                        }
                     }.spectraScreenPadding()
                 }.refreshable {
                     await store.performUserInitiatedRefresh()
@@ -34,11 +41,15 @@ struct DashboardView: View {
                         noticeToolbarLabel
                     }
                 }
-                ToolbarItem(placement: .topBarLeading) {
-                    NavigationLink {
-                        TorSettingsView(store: store)
-                    } label: {
-                        torToolbarIndicator
+                // Tor is off by default and lives in Settings; the toolbar
+                // reports it only while it is doing something.
+                if store.torStatus != .stopped {
+                    ToolbarItem(placement: .topBarLeading) {
+                        NavigationLink {
+                            TorSettingsView(store: store)
+                        } label: {
+                            torToolbarIndicator
+                        }
                     }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -180,33 +191,27 @@ struct DashboardView: View {
     }
     @ViewBuilder
     private func walletsCardRows(wallets: [WalletView]) -> some View {
-        if wallets.isEmpty {
-            addWalletEmptyState
-        } else {
-            ForEach(Array(wallets.enumerated()), id: \.element.id) { index, wallet in
-                let badge = Coin.nativeChainBadge(for: wallet.family) ?? (nil, .mint)
-                Button { selectedWalletId = wallet.id } label: {
-                    WalletCardView(
-                        presentation: WalletCardView.Presentation(
-                            walletName: wallet.name, chainTitleText: wallet.networkTitle,
-                            totalValueText: store.preferences.hideBalances
-                                ? "••••••"
-                                : store.amounts.formattedWalletTotal(walletId: wallet.id),
-                            assetCountText: assetCountText(wallet.holdings.filter(\.hasBalance).count),
-                            isWatchOnly: wallet.signing.isWatchOnly, badgeArtworkName: badge.0,
-                            badgeMark: wallet.familyName, badgeColor: badge.1
-                        )
-                    ).equatable().padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
-                }.buttonStyle(.plain)
-                if index < wallets.count - 1 { Divider().padding(.leading, SpectraLayout.rowDividerInset).opacity(0.25) }
-            }
+        ForEach(Array(wallets.enumerated()), id: \.element.id) { index, wallet in
+            let badge = Coin.nativeChainBadge(for: wallet.family) ?? (nil, .mint)
+            Button { selectedWalletId = wallet.id } label: {
+                WalletCardView(
+                    presentation: WalletCardView.Presentation(
+                        walletName: wallet.name, chainTitleText: wallet.networkTitle,
+                        totalValueText: store.preferences.hideBalances
+                            ? "••••••"
+                            : store.amounts.formattedWalletTotal(walletId: wallet.id),
+                        assetCountText: assetCountText(wallet.holdings.filter(\.hasBalance).count),
+                        isWatchOnly: wallet.signing.isWatchOnly, badgeArtworkName: badge.0,
+                        badgeMark: wallet.familyName, badgeColor: badge.1
+                    )
+                ).equatable().padding(.horizontal, SpectraLayout.rowHorizontal).padding(.vertical, SpectraLayout.rowVertical)
+            }.buttonStyle(.plain)
+            if index < wallets.count - 1 { Divider().padding(.leading, SpectraLayout.rowDividerInset).opacity(0.25) }
         }
     }
     @ViewBuilder
     private func assetsCardRows(portfolio: [DashboardAssetGroup]) -> some View {
-        if store.wallets.isEmpty {
-            addWalletEmptyState
-        } else if portfolio.isEmpty {
+        if portfolio.isEmpty {
             emptyCardState(title: "No assets to display yet",
                            message: "Import a wallet or pull to refresh to load chain balances.",
                            systemImage: "chart.pie")
@@ -225,13 +230,6 @@ struct DashboardView: View {
         SpectraEmptyStateContent(title: title, message: message, systemImage: systemImage)
             .padding(.horizontal, SpectraLayout.rowHorizontal)
             .padding(.vertical, SpectraLayout.Space.m)
-    }
-    private var addWalletEmptyState: some View {
-        VStack(spacing: SpectraLayout.Space.m) {
-            emptyCardState(title: "No wallets yet", message: "Add a wallet to start receiving and sending assets.", systemImage: "wallet.pass")
-            Button(AppLocalization.string("Add Wallet")) { store.isShowingAddWalletEntry = true }
-                .buttonStyle(.glassProminent)
-        }.padding(SpectraLayout.Space.l)
     }
     private var visiblePortfolio: [DashboardAssetGroup] { store.cachedDashboardAssetGroups }
     private func visibleAssetPresentations(portfolio: [DashboardAssetGroup]) -> [DashboardAssetRowPresentation] {
@@ -656,6 +654,29 @@ private struct DashboardPortfolioHeader: View {
             }.padding(SpectraLayout.cardPadding).frame(maxWidth: .infinity, alignment: .leading)
                 .spectraElevatedFill()
         }.buttonStyle(.plain)
+    }
+}
+
+private struct DashboardWelcomeCard: View {
+    @Bindable var store: AppState
+    var body: some View {
+        VStack(spacing: SpectraLayout.Space.l) {
+            SpectraLogo(size: 72)
+            VStack(spacing: SpectraLayout.Space.xs) {
+                Text(AppLocalization.string("Welcome to Spectra")).font(.title2.weight(.bold))
+                Text(AppLocalization.string("Create a new wallet or bring one you already have. Your keys stay on this device."))
+                    .font(.subheadline).foregroundStyle(.secondary).multilineTextAlignment(.center)
+            }
+            Button {
+                spectraHaptic(.medium)
+                store.isShowingAddWalletEntry = true
+            } label: {
+                Text(AppLocalization.string("Add Wallet")).font(.body.weight(.semibold)).frame(maxWidth: .infinity)
+            }.buttonStyle(.glassProminent).controlSize(.large)
+        }
+        .padding(.horizontal, SpectraLayout.cardPadding).padding(.vertical, SpectraLayout.Space.xl)
+        .frame(maxWidth: .infinity)
+        .spectraElevatedFill()
     }
 }
 

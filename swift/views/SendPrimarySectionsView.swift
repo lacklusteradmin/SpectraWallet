@@ -122,7 +122,8 @@ struct SendRecipientPage: View {
     @Binding var qrScannerErrorMessage: String?
     let validationError: String?
     let isValidating: Bool
-    let isValidated: Bool
+    /// Core's resolution of the recipient as typed, once it has one.
+    let validatedResolution: SendDestinationResolution?
     let retryValidation: () -> Void
     @FocusState private var addressFocused: Bool
 
@@ -203,9 +204,17 @@ struct SendRecipientPage: View {
                     Button(AppLocalization.string("Retry"), action: retryValidation)
                         .font(.caption.weight(.semibold))
                 }
-            } else if isValidated {
-                Label(AppLocalization.string("Valid address for this network"), systemImage: "checkmark.circle.fill")
-                    .font(.caption).foregroundStyle(.green)
+            } else if let validatedResolution {
+                Label(
+                    validatedResolution.usedEns
+                        ? AppLocalization.format(
+                            "Resolved ENS %@ to %@.",
+                            store.sendFlow.address.trimmingCharacters(in: .whitespacesAndNewlines),
+                            validatedResolution.address)
+                        : AppLocalization.string("Valid address for this network"),
+                    systemImage: "checkmark.circle.fill"
+                )
+                .font(.caption).foregroundStyle(.green)
             }
             recipientMessages
         }

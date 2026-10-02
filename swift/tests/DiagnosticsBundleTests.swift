@@ -16,7 +16,7 @@ struct DiagnosticsBundleTests: IsolatedAppStateSuite {
         // Keys are canonical chain ids, one per mainnet.
         #expect(imported.chainDiagnosticsJson["bitcoin-cash"] != nil)
         #expect(imported.chainDiagnosticsJson["internet-computer"] != nil)
-        #expect(Set(imported.chainDiagnosticsJson.keys) == Set(Chain.mainnets.map(\.id)))
+        #expect(Set(imported.chainDiagnosticsJson.keys) == Set(Chain.all.map(\.id)))
     }
 
     /// The screen's document is the one the bundle carries for that chain.

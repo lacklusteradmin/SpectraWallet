@@ -21,7 +21,7 @@ struct DiagnosticsHubView: View {
         Chain.mainnets.map { chain in
             DiagnosticsDestination(
                 id: chain.id,
-                title: AppLocalization.format("%@ Diagnostics", store.selectedNetworkTitle(forFamily: chain)),
+                title: AppLocalization.format("%@ Diagnostics", chain.displayName),
                 keywords: chain.searchKeywords, chain: chain)
         }
     }
@@ -66,7 +66,7 @@ struct DiagnosticsHubView: View {
                             lastExportedDiagnosticsURL = url
                             diagnosticsNotice = AppLocalization.format("Diagnostics exported to %@", url.lastPathComponent)
                         } catch {
-                            diagnosticsNotice = AppLocalization.format("Export failed: %@", error.localizedDescription)
+                            diagnosticsNotice = AppLocalization.format("Export failed: %@", userErrorMessage(error))
                         }
                     }
                 }
@@ -103,7 +103,7 @@ struct DiagnosticsHubView: View {
                 diagnosticsNotice = AppLocalization.format(
                     "Imported diagnostics bundle (%@).", payload.generatedAtDate.formatted(date: .abbreviated, time: .shortened))
             } catch {
-                diagnosticsNotice = AppLocalization.format("Import failed: %@", error.localizedDescription)
+                diagnosticsNotice = AppLocalization.format("Import failed: %@", userErrorMessage(error))
             }
         }
     }
@@ -123,7 +123,7 @@ struct StandardChainDiagnosticsView: View {
     @State private var cachedKeypoolDiagnostics: [KeypoolDiagnostic] = []
     @State private var cachedOperationalEvents: [DiagnosticLog] = []
     private var runs: WalletChainDiagnosticsState { store.chainDiagnosticsState }
-    private var displayChainTitle: String { store.selectedNetworkTitle(forFamily: chain) }
+    private var displayChainTitle: String { chain.displayName }
     private var diagnosticsLabel: String { displayChainTitle }
 
     var body: some View {
@@ -235,7 +235,7 @@ struct StandardChainDiagnosticsView: View {
         }.navigationTitle(AppLocalization.format("%@ Diagnostics", displayChainTitle))
         .task(id: chain) {
             do {
-                cachedKeypoolDiagnostics = try await store.chainKeypoolDiagnostics(for: store.selectedChain(forFamily: chain))
+                cachedKeypoolDiagnostics = try await store.chainKeypoolDiagnostics(for: chain)
                 keypoolError = nil
             } catch {
                 cachedKeypoolDiagnostics = []

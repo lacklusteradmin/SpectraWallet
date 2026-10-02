@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// The app's wallpaper: a deep gradient with four soft chroma clouds for
+/// The app's wallpaper: a neutral gradient with three faint chroma clouds for
 /// `.glassEffect` to refract, in the manner of Apple's own Liquid Glass hero
 /// surfaces (Weather, Wallet, Maps) rather than painterly rainbow splatters.
 ///
@@ -44,24 +44,25 @@ struct SpectraBackdrop: View {
         }
     }
 
+    /// Low-chroma on purpose: the backdrop is there for the glass to
+    /// refract, not to be looked at. A saturated wash tints every card above
+    /// it and pulls secondary text toward its own hue, and a second hue
+    /// competes with the accent. So the clouds are the accent and one cool
+    /// counterweight, both faint, over a neutral ground.
     private var clouds: [ChromaCloud] {
         let light = colorScheme == .light
         return [
             ChromaCloud(
-                color: light ? .blue.opacity(0.18) : .indigo.opacity(0.38), diameter: 340, softness: 90,
-                rest: CGSize(width: -140, height: -260), drift: CGSize(width: 60, height: 50),
-                periods: (x: 47, y: 37, breath: 29), phase: 0.0),
-            ChromaCloud(
-                color: light ? .pink.opacity(0.14) : .purple.opacity(0.32), diameter: 320, softness: 100,
-                rest: CGSize(width: 160, height: -160), drift: CGSize(width: 50, height: 70),
+                color: Color.accentColor.opacity(light ? 0.10 : 0.16), diameter: 340, softness: 110,
+                rest: CGSize(width: 150, height: -240), drift: CGSize(width: 50, height: 50),
                 periods: (x: 53, y: 41, breath: 31), phase: 1.7),
             ChromaCloud(
-                color: light ? .mint.opacity(0.14) : .teal.opacity(0.28), diameter: 300, softness: 110,
-                rest: CGSize(width: -120, height: 220), drift: CGSize(width: 70, height: 50),
-                periods: (x: 43, y: 59, breath: 37), phase: 3.1),
+                color: (light ? Color.blue : Color.indigo).opacity(light ? 0.07 : 0.14), diameter: 320, softness: 110,
+                rest: CGSize(width: -150, height: -60), drift: CGSize(width: 60, height: 60),
+                periods: (x: 47, y: 37, breath: 29), phase: 0.0),
             ChromaCloud(
-                color: light ? .orange.opacity(0.12) : .pink.opacity(0.22), diameter: 360, softness: 120,  // design-tokens: artwork
-                rest: CGSize(width: 180, height: 320), drift: CGSize(width: 60, height: 60),
+                color: Color.accentColor.opacity(light ? 0.05 : 0.08), diameter: 360, softness: 120,
+                rest: CGSize(width: 120, height: 320), drift: CGSize(width: 60, height: 50),
                 periods: (x: 61, y: 47, breath: 23), phase: 4.6),
         ]
     }
@@ -69,12 +70,11 @@ struct SpectraBackdrop: View {
     private var backdropGradientColors: [Color] {
         if colorScheme == .light {
             return [
-                Color(red: 0.98, green: 0.98, blue: 1.00), Color(red: 0.95, green: 0.96, blue: 0.99),
+                Color(red: 0.97, green: 0.97, blue: 0.98), Color(red: 0.94, green: 0.94, blue: 0.95),
             ]
         }
         return [
-            Color(red: 0.05, green: 0.06, blue: 0.11), Color(red: 0.08, green: 0.06, blue: 0.14),
-            Color(red: 0.04, green: 0.05, blue: 0.09),
+            Color(red: 0.07, green: 0.07, blue: 0.08), Color(red: 0.04, green: 0.04, blue: 0.05),
         ]
     }
 }

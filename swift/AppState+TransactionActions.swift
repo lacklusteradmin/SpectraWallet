@@ -14,7 +14,7 @@ extension AppState {
         } catch {
             // Core logs the failed recheck.
             await diagnostics.loadFromSQLite()
-            return error.localizedDescription
+            return userErrorMessage(error)
         }
     }
     func rebroadcastSignedTransaction(for transactionId: String) async -> String {
@@ -26,7 +26,7 @@ extension AppState {
             await refreshTransactionProjection()
             return AppLocalization.format("Transaction rebroadcasted: %@. Network confirmation is pending.", transactionHash)
         } catch {
-            return error.localizedDescription
+            return userErrorMessage(error)
         }
     }
 }

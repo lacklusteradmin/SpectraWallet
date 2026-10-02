@@ -41,8 +41,6 @@ extension Chain: Identifiable {
     /// Which chain's slot this chain's address is stored under. The EVM family
     /// shares Ethereum's.
     var addressSlot: String { identity?.addressSlot ?? "" }
-    /// The address format family validation dispatches on.
-    var addressValidationKind: String { identity?.addressValidationKind ?? "" }
     /// HD discovery walks this chain's addresses past the last used one.
     var supportsDeepUTXODiscovery: Bool { identity?.supportsDeepUtxoDiscovery ?? false }
     /// A watch-only import can carry addresses for this chain.
@@ -58,8 +56,6 @@ extension Chain: Identifiable {
     var hostsTokens: Bool { identity?.hostsTokens ?? false }
     /// The mainnet this chain belongs to, or itself.
     var mainnetCounterpart: Chain { identity?.mainnetCounterpart ?? self }
-    /// The networks this chain's family offers, mainnet first.
-    var networkChoices: [NetworkChoice] { identity?.networkChoices ?? [] }
 
     /// This chain's catalog row. `nil` only if the enum and the catalog have
     /// drifted, which core's `chain_order_matches_the_catalog` fails on.

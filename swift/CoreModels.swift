@@ -23,7 +23,6 @@ extension Coin: Identifiable {
     var chain: Chain { chainId }
     /// For text a person reads; identity is `chainId`.
     var chainName: String { chainId.displayName }
-    var isUTXOChain: Bool { chain.supportsDeepUTXODiscovery }
     var isEVMChain: Bool { chain.isEVM }
     /// The chain's own asset — `ETH` on Arbitrum, not `ARB` — by deployment
     /// identity, which the catalog names for each chain.

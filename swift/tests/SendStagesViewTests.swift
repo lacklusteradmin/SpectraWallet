@@ -15,7 +15,7 @@ struct SendStagesViewTests: IsolatedAppStateSuite {
             walletId: "fixture", chainId: Chain.ethereumSepolia,
             sender: "0x1111111111111111111111111111111111111111",
             recipient: "0x2222222222222222222222222222222222222222",
-            amount: "1.000000000000000001", asset: "ETH", createdAt: 0, reviewDigest: "reviewed-content",
+            amount: "1.000000000000000001", asset: "ETH", symbol: "ETH", createdAt: 0, reviewDigest: "reviewed-content",
             review: SendArtifactReview(warnings: [.newAddress], recipientWarnings: [], requiresSelfSendConfirmation: true),
             preparedDetails: "Nonce: 7\nMaximum gas: 25200", signingPayloadHex: "02",
             signedPayload: "0x02…", transactionHash: "0x1234", attempts: [], selectedEndpoints: [])
@@ -45,5 +45,22 @@ struct SendStagesViewTests: IsolatedAppStateSuite {
         #expect(Set(pixels).count > 16, "The render must contain content, not an empty canvas")
         Attachment.record(image, named: "Signed transaction awaiting broadcast")
         #expect(state.sendFlow.session.selectedEndpoints.isEmpty, "Rendering must not select destinations or submit")
+    }
+
+    /// A token send names its token, not the contract that identifies it.
+    @Test func tokenSendSummaryNamesTheTokenByCoreSymbol() {
+        let state = makeState()
+        let contract = "0x1c7d4b196cb0c7b01d743fbc6116a902379c7238"
+        state.sendFlow.session.artifact = SendArtifact(id: "token-fixture", revision: 0, stage: .prepared,
+            walletId: "fixture", chainId: Chain.ethereumSepolia,
+            sender: "0x1111111111111111111111111111111111111111",
+            recipient: "0x2222222222222222222222222222222222222222",
+            amount: "2.5", asset: contract, symbol: "USDC", createdAt: 0, reviewDigest: "reviewed-content",
+            review: SendArtifactReview(warnings: [], recipientWarnings: [], requiresSelfSendConfirmation: false),
+            preparedDetails: "", signingPayloadHex: "", signedPayload: nil, transactionHash: nil,
+            attempts: [], selectedEndpoints: [])
+        let summary = state.pendingHighRiskSendReasons[0]
+        #expect(summary.contains("USDC"))
+        #expect(!summary.contains(contract))
     }
 }

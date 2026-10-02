@@ -94,4 +94,7 @@ final class TestSecretStore: SecretStore, @unchecked Sendable {
     func deleteSecret(kind: SecretClass, key: String) throws {
         lock.withLock { _ = values[kind]?.removeValue(forKey: key) }
     }
+    /// No enclave in a test store: the device key is kept as core minted it.
+    func wrapDeviceKey(key: Data) throws -> Data { key }
+    func unwrapDeviceKey(wrapped: Data) throws -> Data { wrapped }
 }

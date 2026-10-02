@@ -47,7 +47,7 @@ final class SendSession {
             error = nil
             return true
         } catch {
-            if isCurrent(request) { self.error = error.localizedDescription }
+            if isCurrent(request) { self.error = userErrorMessage(error) }
             return false
         }
     }
@@ -70,7 +70,7 @@ final class SendSession {
             self.artifact = signed
             error = nil
         } catch {
-            if isCurrent(request) { self.error = error.localizedDescription }
+            if isCurrent(request) { self.error = userErrorMessage(error) }
         }
     }
 
@@ -89,7 +89,7 @@ final class SendSession {
             }
             return result
         } catch {
-            if isCurrent(request) { self.error = error.localizedDescription }
+            if isCurrent(request) { self.error = userErrorMessage(error) }
             return nil
         }
     }

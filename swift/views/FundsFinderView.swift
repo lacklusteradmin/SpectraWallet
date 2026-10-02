@@ -109,7 +109,7 @@ struct FundsFinderView: View {
                     if batch.complete { break }
                 } while !Task.isCancelled
             } catch {
-                if !Task.isCancelled { scanError = error.localizedDescription }
+                if !Task.isCancelled { scanError = userErrorMessage(error) }
             }
             isScanning = false
         }

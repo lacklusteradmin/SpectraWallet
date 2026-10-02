@@ -49,7 +49,7 @@ final class WalletImportSession {
             error = notice
             return true
         } catch {
-            if id == request, !Task.isCancelled { self.error = error.localizedDescription }
+            if id == request, !Task.isCancelled { self.error = userErrorMessage(error) }
             return false
         }
     }

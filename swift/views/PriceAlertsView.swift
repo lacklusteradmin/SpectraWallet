@@ -114,7 +114,7 @@ struct PriceAlertsView: View {
     }
     private func editAlert(_ command: StateCommand) async {
         do { try await store.editPriceAlert(command) }
-        catch { formMessage = error.localizedDescription }
+        catch { formMessage = userErrorMessage(error) }
     }
     private func addAlert() async {
         guard let selectedCoin else { return }
@@ -133,7 +133,7 @@ struct PriceAlertsView: View {
             targetPriceText = ""
             selectedCondition = .above
             formMessage = AppLocalization.string("Alert added. Spectra will notify you when this target is hit.")
-        } catch { formMessage = error.localizedDescription }
+        } catch { formMessage = userErrorMessage(error) }
     }
     private func syncSelection() {
         if !alertableHoldingKeys.contains(selectedHoldingKey) { selectedHoldingKey = store.portfolio.first?.holdingKey ?? "" }

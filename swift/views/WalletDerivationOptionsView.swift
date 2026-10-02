@@ -23,8 +23,7 @@ struct WalletDerivationOptionsView: View {
                         )
                     ).font(.subheadline).foregroundStyle(.secondary)
                     VStack(alignment: .leading, spacing: SpectraLayout.Space.m) {
-                        ForEach(draft.selectableDerivationChains) { family in
-                            let chain = store.selectedChain(forFamily: family)
+                        ForEach(draft.selectableDerivationChains) { chain in
                             SeedPathSlotEditor(
                                 title: chain.displayName,
                                 path: Binding(
