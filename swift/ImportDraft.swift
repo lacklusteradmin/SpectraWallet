@@ -83,7 +83,8 @@ final class WalletImportDraft {
     var walletPasswordValidationError: String? {
         guard let reason = validateWalletPassword(password: walletPassword, confirmation: walletPasswordConfirmation) else { return nil }
         switch reason {
-        case .tooShort: return AppLocalization.string("Wallet password must be at least 4 characters, or leave it blank.")
+        case .tooShort(let minChars):
+            return AppLocalization.format("Wallet password must be at least %lld characters, or leave it blank.", Int(minChars))
         case .confirmationMismatch: return AppLocalization.string("Wallet password confirmation does not match.")
         }
     }

@@ -301,7 +301,7 @@ final class AppState {
             self?.isAppLocked = false
             self?.appLockError = nil
         }
-        restorePersistedRuntimeConfigurationAndState()
+        startDeviceMonitoring()
         // Use [weak self] so that if SwiftUI/Xcode discards this AppState
         // while the init task is still awaiting SQLite / HTTP, the old
         // instance can release promptly instead of being pinned alive by a

@@ -17,8 +17,9 @@ extension AppState {
         switch result {
         case .success(let transition):
             return tokenPreferenceRejection(in: transition.events).map(tokenPreferenceRejectionMessage)
-        case .failure:
-            return AppLocalization.string("This token could not be saved.")
+        case .failure(let error):
+            appendOperationalLog(.error, category: "Tokens", message: String(describing: error))
+            return userErrorMessage(error)
         }
     }
     private func tokenPreferenceRejection(in events: [StateEvent]) -> TokenPreferenceRejection? {

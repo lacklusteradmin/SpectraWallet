@@ -53,8 +53,13 @@ extension AppState {
     }
 }
 
-enum DiagnosticsBundleError: Error {
+enum DiagnosticsBundleError: LocalizedError {
     case invalidBundle
+    var errorDescription: String? {
+        switch self {
+        case .invalidBundle: return AppLocalization.string("That file is not a Spectra diagnostics bundle.")
+        }
+    }
 }
 
 extension DiagnosticsBundlePayload {

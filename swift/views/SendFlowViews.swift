@@ -280,7 +280,7 @@ struct SendView: View {
         case .from, .recipient: return "Next"
         case .amount: return "Review"
         case .confirm:
-            // Three stages, each its own action (docs/PLAN.md): what was built
+            // Three stages, each its own action (docs/ARCHITECTURE.md): what was built
             // is inspectable before signing, and a signed send waits for the
             // user to choose which nodes receive it.
             guard let artifact = store.sendFlow.session.artifact else { return "Build Transaction" }

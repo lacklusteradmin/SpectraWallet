@@ -26,7 +26,7 @@ import Foundation
         if !stateIsOpen {
             _ = try await svc.openState(databasePath: sqliteDbPath())
             if suppliedService == nil {
-                _ = try await svc.configureNetworkRuntime(cacheDir: AppState.torCacheDirectory())
+                _ = try await svc.configureNetworkRuntime(cacheDir: torCacheDirectory())
             }
             stateIsOpen = true
         }
@@ -49,6 +49,10 @@ import Foundation
         if let databasePath { return databasePath }
         let docs = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first?.path ?? NSTemporaryDirectory()
         return "\(docs)/spectra_state.db"
+    }
+
+    private func torCacheDirectory() -> String {
+        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.path ?? NSTemporaryDirectory()
     }
 }
 

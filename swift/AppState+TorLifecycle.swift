@@ -10,8 +10,4 @@ extension AppState {
             catch { self.torStatus = .error(message: userErrorMessage(error)) }
         }
     }
-
-    static func torCacheDirectory() -> String {
-        FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first?.path ?? NSTemporaryDirectory()
-    }
 }

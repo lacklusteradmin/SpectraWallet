@@ -33,10 +33,9 @@ extension AppState {
         }
         reportDeviceConditions()
     }
-    /// Launch-time wiring. Nothing domain is seeded here: settings, tokens,
-    /// alerts, contacts, keypools and logs all arrive from core, through
-    /// `applyCoreState` and `reloadCoreProjections()`.
-    func restorePersistedRuntimeConfigurationAndState() {
+    /// Watch the battery and the network path, which core's refresh policy
+    /// reads through `deviceConditions()`. Domain state all arrives from core.
+    func startDeviceMonitoring() {
         UIDevice.current.isBatteryMonitoringEnabled = true
         startNetworkPathMonitorIfNeeded()
     }
