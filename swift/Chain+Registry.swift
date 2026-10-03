@@ -30,7 +30,7 @@ extension Chain: Identifiable {
     /// This is what crosses the FFI boundary and what endpoint tables key on.
     public var id: String { identity?.id ?? "" }
 
-    /// The catalog's `name` — `"Bitcoin Cash"`, `"XRP Ledger"`, `"BNB Chain"`.
+    /// The catalog's `name` — `"Bitcoin Cash"`, `"XRP Ledger"`, `"BNB Smart Chain"`.
     /// One spelling per chain: the registry has a test that says so.
     var displayName: String { identity?.name ?? "" }
 

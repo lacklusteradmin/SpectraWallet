@@ -123,7 +123,7 @@ struct AppStatePlatformBridgeTests: IsolatedAppStateSuite {
             name: "BTC Testnet4", chainId: Chain.bitcoinTestnet4,
             addresses: [Chain.bitcoinTestnet4: "tb1qexample"]
         )
-        #expect(wallet.networkTitle == "Bitcoin Testnet4")
+        #expect(wallet.networkTitle == "Bitcoin Testnet 4")
     }
     /// Every EVM chain gets the EVM address hint. Asserted against the
     /// generic fallback rather than against the English text so the test
